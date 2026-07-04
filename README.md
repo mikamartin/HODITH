@@ -84,6 +84,7 @@ graph LR
 
 | File | Purpose |
 |---|---|
+| [`docs/PROGRESS.md`](docs/PROGRESS.md) | Current build phase and phase order |
 | [`docs/HODIT_SPEC.md`](docs/HODIT_SPEC.md) | Full product spec — principles, data model, screens, future work |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, coverage, deferrals |
 | [`docs/DEV_PLAYBOOK.md`](docs/DEV_PLAYBOOK.md) | Cleanup checklist, ship checklist, tooling reference |

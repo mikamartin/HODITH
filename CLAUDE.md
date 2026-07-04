@@ -49,6 +49,7 @@ This repo is public on GitHub. Treat every commit as visible to the world from d
 
 ## Source-of-truth docs (`docs/`)
 
+- [PROGRESS.md](docs/PROGRESS.md) — current phase status and build order; check this first in a new session
 - [HODIT_SPEC.md](docs/HODIT_SPEC.md) — what the app does, data model, screens, future work
 - [TESTING.md](docs/TESTING.md) — test strategy, coverage, deferrals
 - [MANUAL_TEST_PLAN.md](docs/MANUAL_TEST_PLAN.md) — deliberately manual-only journeys *(create from the seed list in TESTING.md when the first widget/notification flow lands)*
@@ -64,7 +65,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 
 ## Working agreements
 
-- After any significant feature work, walk through DEV_PLAYBOOK.md §1 and log a new pass in CLEANUP_LOG.md.
+- After any significant feature work, walk through DEV_PLAYBOOK.md §1 and log a new pass in CLEANUP_LOG.md, and update PROGRESS.md's status/checkboxes.
 - Keep HODIT_SPEC.md in sync with what was actually built — intentional divergence updates the spec; unintentional divergence is a bug to fix, not a spec update.
 - Strike resolved ship-checklist items out entirely — the checklist only contains open work.
 
