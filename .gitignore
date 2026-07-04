@@ -1,0 +1,68 @@
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+release/
+
+# Gradle files
+.gradle/
+build/
+
+# Local configuration file (contains SDK path, may contain personal info)
+local.properties
+
+# Android Studio / IntelliJ
+.idea/*
+!.idea/codeStyles/
+!.idea/runConfigurations/
+*.iml
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+freeline.py
+freeline/
+freeline_project_description.json
+
+# Keystore files (never commit signing keys)
+*.jks
+*.keystore
+keystore.properties
+
+# Google services (may contain project keys)
+# google-services.json
+
+# Log/profiling files
+*.log
+/*.hprof
+
+# NDK
+obj/
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Kotlin
+.kotlin/
+
+# Version control
+vcs.xml
+
+# Wear OS
+wear/build/
