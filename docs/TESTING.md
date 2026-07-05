@@ -59,3 +59,7 @@ Cadence: before every release; full pass before Play submissions.
 
 - Instrumented tests ran clean on a Pixel 6 AVD, API 34 (Phase 1, 25/25 DAO tests passed) — this doesn't yet exercise the Android 16 (API 36) compatibility gap noted at Phase 0 setup, since no API 36 emulator image was used. Re-verify on an API 36 device/emulator before relying on instrumented tests there.
 - Never run Gradle tasks in parallel (see CLAUDE.md) — sequential `ktlintCheck` → `test` → `assembleDebug`.
+
+## CI coverage
+
+GitHub Actions runs `ktlintCheck` and unit tests (`./gradlew test`) on every PR (see PROGRESS.md's CI section) — layer 1 of the strategy above is enforced automatically. Layers 2 (instrumented) and 3 (manual) are not in CI: instrumented tests still require a local/manual emulator run, and the manual test plan is human-only by definition. Android Lint is also not yet wired into CI, separately from ktlint's style checks.

@@ -6,6 +6,15 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 **Phase 1 complete.** Phase 2 not started.
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`, on `chore/ci-setup`) runs `ktlintCheck` → `test` → `assembleDebug` on every PR against `main` and every push to `main`. Not yet a required check — that needs a branch-protection rule added on GitHub once the workflow has run at least once from an open PR; tracked as a follow-up here, not done yet.
+
+Deliberately not covered yet — pick up when they start to matter:
+
+- **Android Lint** (`./gradlew lintDebug`) — only ktlint (style) runs today, not Android's own lint checks.
+- **Instrumented tests** (`./gradlew connectedDebugAndroidTest`) — needs an emulator/device runner in CI (e.g. `reactivecircus/android-emulator-runner`), not just a JVM; bigger setup, deferred until instrumented tests exist to run (see Phase 2's remaining work).
+
 ## Phase order
 
 - [x] **Phase 0** — Repo and project scaffold: git init, Gradle/AGP/Compose/Hilt/Room toolchain, empty package skeleton, trivial `MainActivity` proving the build (`ktlintCheck` → `test` → `assembleDebug` all green).
