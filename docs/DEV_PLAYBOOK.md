@@ -90,6 +90,9 @@ Strip completed items — this list only contains open work.
 - [ ] Add a branch-protection rule on `main` requiring the `build` CI check (blocked on GitHub's free plan while the repo is private — see PROGRESS.md's CI section)
 
 ### Before first release
+**Debug scaffolding**
+- [ ] Remove or fence out (debug-build-only) the Phase 2 seed-data mechanism used to exercise Big Picture before Case CRUD existed
+
 **Play Store**
 - [ ] Screenshots for all required form factors (all three themes — they're the differentiator)
 - [ ] Short and long store description (lead with what it does — check gut feelings against reality; the habit-tracker distinction can be a clarifying line, not the headline)
