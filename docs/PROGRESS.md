@@ -4,7 +4,7 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**Phase 1 complete.** Phase 2 in progress — gesture/rendering prototype, row-header tap fix, minimal Voice layer, time-axis ruler, empty-state/early-days placeholder, and the debug-only seed-data mechanism built and green (`ktlintCheck` → `test` → `assembleDebug` → `assembleRelease`), not yet wired to real data.
+**Phase 1 complete.** Phase 2 in progress — gesture/rendering prototype, row-header tap fix, minimal Voice layer, time-axis ruler, empty-state/early-days placeholder, debug-only seed-data mechanism, and now `TimelineGrid` wired to real `HodithRepository` data via `TimelineViewModel` with `MainActivity` as the (nav-less) host — all green (`ktlintCheck` → `test` → `assembleDebug`). Remaining: on-device pinch/zoom check, instrumented Compose UI tests, phase close-out.
 
 ## CI
 
@@ -44,10 +44,11 @@ Deliberately not covered yet — pick up when they start to matter:
     - Seed content: 6 `CaseEntity`s (Coffee, Migraine, Lost my keys, Argument, Workout, Nosebleed) spanning ~380 days, mixing `durationMode` (NONE / START_STOP), `intensityEnabled` (reusing `MIN_INTENSITY`/`MAX_INTENSITY` from `domain/timeline/TimelineLayout.kt`), and event density (dense/bursty/sparse) — enough range to exercise pinch-zoom/scroll/density across all four `ZoomLevel`s. Deterministic via a seeded `Random` per case.
     - Hilt 2.60's generated `Set` multibinding code needed `com.google.errorprone:error_prone_annotations` added as `compileOnly` — see DEV_PLAYBOOK.md §5 gotcha 8.
     - **Verified on device (Pixel 6 AVD):** fresh install seeds all 6 cases with correct event counts; `assembleRelease` confirmed unaffected (`UP-TO-DATE`, no release inputs changed) and its dex contains none of the debug-only classes. On-device verification surfaced a pure tooling gotcha (Room's WAL mode hiding recent writes from a naive `hodith.db`-only pull) — no code bug — now documented in TESTING.md's known environment issues.
+  - **Wired to real data.** `TimelineViewModel` (`@HiltViewModel`, `ui/timeline/TimelineViewModel.kt`) maps `HodithRepository.observeActiveCasesWithEvents()` (`Flow<List<CaseWithEvents>>`) into `StateFlow<List<TimelineRowData>>`, and exposes an `initialWindow` anchored to `Clock.nowMillis()` at `ZoomLevel.MONTH`. `MainActivity` now hosts `TimelineGrid` directly (`by viewModels()` + `collectAsState()`) instead of the `Text("HODITH")` placeholder — no `NavHost` yet, since there's no second destination to route to until Phase 3 lands Case/Event detail; adding one now would be scaffolding with nothing behind it.
+  - **`onDotTap`/`onCaseTap` are no-ops for now.** Case detail and event detail (the destinations TESTING.md's Big Picture instrumented test taps through to) are Phase 3 work. Rather than build throwaway placeholder screens to satisfy that test early, the test itself moved to Phase 3's close-out (see TESTING.md) — Phase 2 instead gets a narrower instrumented test asserting real rows/placeholders render correctly from repository data.
   - **Remaining for Phase 2 close-out:**
     - On-device pinch/zoom check (see above) — needs a hands-on pass, not just unit tests.
-    - Wire `TimelineGrid` to real `HodithRepository` data instead of synthetic sample rows. **Scoping note:** `MainActivity` is currently just a placeholder (`Text("HODITH")`, no navigation at all) — this step also needs to stand up an actual screen/navigation entry point, not just swap the data source.
-    - Instrumented Compose UI tests per TESTING.md's plan (tap a dot opens the event, tap a row header opens the Case).
+    - Instrumented Compose UI tests per TESTING.md's (now Phase-2-scoped) plan: Big Picture renders real rows from the repository; empty-state and early-days placeholders show correctly with real (empty) data.
     - Phase close-out: DEV_PLAYBOOK §1 cleanup pass, a CLEANUP_LOG entry, this file's status/checkbox.
 - [ ] **Phase 3** — Home + Case CRUD + logging flows (one-tap, detail sheet, start/stop, retro-log).
 - [ ] **Phase 4** — Voice layer + three themes. Extends the minimal `Voice` interface started in Phase 2 (see note above) — add remaining keys and theme skins, don't re-architect the interface.

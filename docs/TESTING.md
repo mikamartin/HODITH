@@ -32,7 +32,8 @@ Rule of thumb: **if logic can be tested on the JVM, it must not require an emula
 | Area | What to cover |
 |---|---|
 | Room DAOs | CRUD per entity, cascade delete case → events/hunches/triggers, tag join queries, "events in window" queries, all-cases-with-events query feeding the Big Picture |
-| Compose UI | Create Case incl. skipping the Hunch step; one-tap log + undo; detail sheet save with retro time; start/stop flow; theme switch re-words visible strings; hunch nudge appears at 5th event and dismisses permanently; Big Picture — tap a dot opens the event, tap a row header opens the Case |
+| Compose UI | Create Case incl. skipping the Hunch step; one-tap log + undo; detail sheet save with retro time; start/stop flow; theme switch re-words visible strings; hunch nudge appears at 5th event and dismisses permanently; Big Picture — tap a dot opens the event, tap a row header opens the Case *(deferred to Phase 3, once Case/Event detail destinations exist to navigate to — Phase 2 wires the tap callbacks but leaves them as no-ops)* |
+| Compose UI — Big Picture (Phase 2) | Timeline renders real rows from `HodithRepository` (case icon/name, dot/bar placement) instead of synthetic sample data; empty-state placeholder shows with zero cases; early-days placeholder shows with cases but zero events |
 | WorkManager | Periodic trigger evaluation job enqueued once, executes, fires SILENT_FOR |
 
 ## Manual-only journeys (seed list for MANUAL_TEST_PLAN.md)
