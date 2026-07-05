@@ -84,6 +84,11 @@ Run after any significant feature work or refactor. Copy the checklist into a ne
 
 Strip completed items — this list only contains open work.
 
+### Before making the repo public
+- [ ] Full-history hygiene audit, not just the latest diff (CLAUDE.md "Git hygiene") — secrets, real local paths, personal info can hide in old commits that going public would expose
+- [ ] Make the GitHub repository public
+- [ ] Add a branch-protection rule on `main` requiring the `build` CI check (blocked on GitHub's free plan while the repo is private — see PROGRESS.md's CI section)
+
 ### Before first release
 **Play Store**
 - [ ] Screenshots for all required form factors (all three themes — they're the differentiator)

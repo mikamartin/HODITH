@@ -6,6 +6,17 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 **Phase 1 complete.** Phase 2 not started.
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`, on `chore/ci-setup`) runs `ktlintCheck` → `test` → `assembleDebug` on every PR against `main` and every push to `main`. Verified green on PR #1 (job name `build`).
+
+**Not yet a required check.** Classic branch-protection rules (which would block merging on a failing `build` check) aren't available on GitHub's free plan for a private repo — and this repo is intentionally private for now, going public later once it's release-clean. Tracked in DEV_PLAYBOOK.md's Ship Checklist as a "before going public" step; until then CI runs and reports status but doesn't block a merge.
+
+Deliberately not covered yet — pick up when they start to matter:
+
+- **Android Lint** (`./gradlew lintDebug`) — only ktlint (style) runs today, not Android's own lint checks.
+- **Instrumented tests** (`./gradlew connectedDebugAndroidTest`) — needs an emulator/device runner in CI (e.g. `reactivecircus/android-emulator-runner`), not just a JVM; bigger setup, deferred until instrumented tests exist to run (see Phase 2's remaining work).
+
 ## Phase order
 
 - [x] **Phase 0** — Repo and project scaffold: git init, Gradle/AGP/Compose/Hilt/Room toolchain, empty package skeleton, trivial `MainActivity` proving the build (`ktlintCheck` → `test` → `assembleDebug` all green).
