@@ -8,7 +8,9 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`, on `chore/ci-setup`) runs `ktlintCheck` → `test` → `assembleDebug` on every PR against `main` and every push to `main`. Not yet a required check — that needs a branch-protection rule added on GitHub once the workflow has run at least once from an open PR; tracked as a follow-up here, not done yet.
+GitHub Actions (`.github/workflows/ci.yml`, on `chore/ci-setup`) runs `ktlintCheck` → `test` → `assembleDebug` on every PR against `main` and every push to `main`. Verified green on PR #1 (job name `build`).
+
+**Not yet a required check.** Classic branch-protection rules (which would block merging on a failing `build` check) aren't available on GitHub's free plan for a private repo — and this repo is intentionally private for now, going public later once it's release-clean. Tracked in DEV_PLAYBOOK.md's Ship Checklist as a "before going public" step; until then CI runs and reports status but doesn't block a merge.
 
 Deliberately not covered yet — pick up when they start to matter:
 
