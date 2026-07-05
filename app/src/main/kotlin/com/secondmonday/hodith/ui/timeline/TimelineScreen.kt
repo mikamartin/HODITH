@@ -67,6 +67,7 @@ fun TimelineGrid(
     rows: List<TimelineRowData>,
     initialWindow: TimeWindow,
     onDotTap: (caseId: Long, eventIds: List<Long>) -> Unit,
+    onCaseTap: (caseId: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var window by remember { mutableStateOf(initialWindow) }
@@ -96,12 +97,17 @@ fun TimelineGrid(
                         onTap = { position ->
                             val rowIndex = (position.y / rowHeightPx).toInt()
                             val row = rows.getOrNull(rowIndex)
-                            val fraction = ((position.x - leadingColumnWidthPx) / timelineWidth).coerceIn(0f, 1f)
-                            row
-                                ?.let { marksByCase[it.caseId] }
-                                ?.filterIsInstance<TimelineMark.Dot>()
-                                ?.minByOrNull { mark -> abs(mark.xFraction - fraction) }
-                                ?.let { dot -> onDotTap(row.caseId, dot.eventIds) }
+                            if (row != null) {
+                                if (position.x < leadingColumnWidthPx) {
+                                    onCaseTap(row.caseId)
+                                } else {
+                                    val fraction = ((position.x - leadingColumnWidthPx) / timelineWidth).coerceIn(0f, 1f)
+                                    marksByCase[row.caseId]
+                                        ?.filterIsInstance<TimelineMark.Dot>()
+                                        ?.minByOrNull { mark -> abs(mark.xFraction - fraction) }
+                                        ?.let { dot -> onDotTap(row.caseId, dot.eventIds) }
+                                }
+                            }
                         },
                         onGesture = { centroid, pan, zoom ->
                             val focalFraction = ((centroid.x - leadingColumnWidthPx) / timelineWidth).coerceIn(0f, 1f)
@@ -212,6 +218,7 @@ private fun TimelineGridPreview() {
             rows = sampleTimelineRows(now),
             initialWindow = TimeWindow(now - ZoomLevel.WEEK.durationMillis, now),
             onDotTap = { _, _ -> },
+            onCaseTap = {},
         )
     }
 }
