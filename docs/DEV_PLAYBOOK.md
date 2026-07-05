@@ -134,7 +134,7 @@ Permanent accepted constraints — nothing here gets checked off.
 
 ## 5. Tooling Upgrade Reference
 
-**Version matrix reflects the July 2026 toolchain — verify at project setup, then maintain in place (update rather than append).**
+**Version matrix reflects the toolchain verified at project setup — re-verify before relying on it, then maintain in place (update rather than append).**
 
 | Tool | Version | Constraint |
 |---|---|---|

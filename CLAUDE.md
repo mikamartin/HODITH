@@ -68,6 +68,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 - After any significant feature work, walk through DEV_PLAYBOOK.md §1 and log a new pass in CLEANUP_LOG.md, and update PROGRESS.md's status/checkboxes.
 - Keep HODITH_SPEC.md in sync with what was actually built — intentional divergence updates the spec; unintentional divergence is a bug to fix, not a spec update.
 - Strike resolved ship-checklist items out entirely — the checklist only contains open work.
+- Don't write literal dates or "as of" phrasing (e.g. `(2026-07-04)`, "July 2026-verified") anywhere in docs or code to mark when something was done — they rot as soon as the doc is next edited. Use ordering (newest-first) or plain statements of current fact instead. Real version identifiers (e.g. Compose BOM's `2026.06.01`) and legal notices (copyright year) aren't narrative timestamps and are exempt.
 
 ## Commands
 
