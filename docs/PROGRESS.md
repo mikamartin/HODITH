@@ -4,7 +4,7 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**Phase 1 complete.** Phase 2 in progress — gesture/rendering prototype, row-header tap fix, minimal Voice layer, and time-axis ruler built and green (`ktlintCheck` → `test` → `assembleDebug`), not yet wired to real data.
+**Phase 1 complete.** Phase 2 in progress — gesture/rendering prototype, row-header tap fix, minimal Voice layer, time-axis ruler, and empty-state/early-days placeholder built and green (`ktlintCheck` → `test` → `assembleDebug`), not yet wired to real data.
 
 ## CI
 
@@ -37,9 +37,9 @@ Deliberately not covered yet — pick up when they start to matter:
     - `TimelineGrid` now takes a distinct `onCaseTap(caseId: Long)` callback. A tap inside the leading (icon/name) column calls it directly instead of falling through to dot hit-testing, which used to clamp the fraction to `0f` and misfire on the leftmost dot.
     - `ui/voice/Voice.kt` — `Voice` interface + `SeriousVoice`/`GothVoice`/`QuirkyVoice`, scoped to the three keys Big Picture needs (`bigPictureEmptyState`, `bigPictureEarlyDays`, `timeRangeLabel(ZoomLevel)`), provided via `LocalVoice` (defaults to `SeriousVoice` until Settings/theme-picking lands in Phase 4). `VoiceTest` asserts every key is non-blank across all three voices per spec §12. Empty-state/early-days copy is taken verbatim from spec §12's sample table; `timeRangeLabel` is deliberately identical across voices for now (functional wayfinding text, not personality copy) — revisit in Phase 4 if themed variants are wanted.
     - `domain/timeline/TimelineAxis.kt` — pure `axisTickMillis` (5 evenly-spaced timestamps across the window) and `axisTickLabel` (java.time formatting, precision keyed to `ZoomLevel`, pinned to `Locale.US` since the app has no localization elsewhere). `TimeAxisRuler` in `TimelineScreen.kt` renders those ticks plus the zoom-level label in a row above the grid, sharing the leading-column offset and using `Arrangement.SpaceBetween` so ticks land under the same fractional x-positions as the dots below it — no pixel math needed.
+    - **Empty-state / early-days placeholder.** `TimelineGrid` now branches: no cases at all shows `voice.bigPictureEmptyState`; cases exist but zero events logged anywhere shows `voice.bigPictureEarlyDays`; otherwise renders the ruler + grid as before (`TimelineGridContent`). Deliberately **not** using spec §10's confidence-tier numbers (fewer than 5 events / less than 14 days) here — that tier is defined for the future per-case Verdict engine (Phase 5), and asserting its exact thresholds into Big Picture now would risk a mismatch once Phase 5 formalizes it. Revisit then; for now the Big Picture placeholder is zero-events-only, screen-wide.
   - **Remaining for Phase 2 close-out:**
     - On-device pinch/zoom check (see above) — needs a hands-on pass, not just unit tests.
-    - Empty-state / early-days placeholder — wire the `Voice` strings above into the actual empty/early-days UI states.
     - Debug-only seed data mechanism (decided, not built — the on-device check above used a throwaway wire-up, already reverted).
     - Wire `TimelineGrid` to real `HodithRepository` data instead of synthetic sample rows.
     - Instrumented Compose UI tests per TESTING.md's plan (tap a dot opens the event, tap a row header opens the Case).

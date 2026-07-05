@@ -30,6 +30,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -64,12 +65,40 @@ data class TimelineRowData(
 )
 
 /**
- * Every case as a row sharing one horizontal time axis (spec §9). Gesture handling lives on the
- * single outer [Box] spanning all rows — not per row — so a pinch whose two fingers land on
- * different rows is still recognised as one zoom gesture rather than two independent pans.
+ * Every case as a row sharing one horizontal time axis (spec §9). Below minimum data this shows
+ * a friendly placeholder instead — no cases at all, or cases with zero events logged yet — per
+ * spec §9/§12's "early days" rule; never an empty-looking chart pretending to mean something.
  */
 @Composable
 fun TimelineGrid(
+    rows: List<TimelineRowData>,
+    initialWindow: TimeWindow,
+    onDotTap: (caseId: Long, eventIds: List<Long>) -> Unit,
+    onCaseTap: (caseId: Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val voice = LocalVoice.current
+    when {
+        rows.isEmpty() -> TimelinePlaceholder(text = voice.bigPictureEmptyState, modifier = modifier)
+        rows.none { it.events.isNotEmpty() } -> TimelinePlaceholder(text = voice.bigPictureEarlyDays, modifier = modifier)
+        else ->
+            TimelineGridContent(
+                rows = rows,
+                initialWindow = initialWindow,
+                onDotTap = onDotTap,
+                onCaseTap = onCaseTap,
+                modifier = modifier,
+            )
+    }
+}
+
+/**
+ * Gesture handling lives on the single outer [Box] spanning all rows — not per row — so a pinch
+ * whose two fingers land on different rows is still recognised as one zoom gesture rather than
+ * two independent pans.
+ */
+@Composable
+private fun TimelineGridContent(
     rows: List<TimelineRowData>,
     initialWindow: TimeWindow,
     onDotTap: (caseId: Long, eventIds: List<Long>) -> Unit,
@@ -196,6 +225,20 @@ private fun TimeAxisRuler(
     }
 }
 
+/**
+ * Centered friendly copy shown in place of the grid — spec §9's "never an empty chart pretending
+ * to mean something" rule, for both the no-cases and zero-events-yet states.
+ */
+@Composable
+private fun TimelinePlaceholder(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(text = text, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+    }
+}
+
 @Composable
 private fun CaseTimelineRow(
     marks: List<TimelineMark>,
@@ -265,6 +308,43 @@ private fun TimelineGridPreview() {
     MaterialTheme {
         TimelineGrid(
             rows = sampleTimelineRows(now),
+            initialWindow = TimeWindow(now - ZoomLevel.WEEK.durationMillis, now),
+            onDotTap = { _, _ -> },
+            onCaseTap = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TimelineGridEmptyStatePreview() {
+    val now = System.currentTimeMillis()
+    MaterialTheme {
+        TimelineGrid(
+            rows = emptyList(),
+            initialWindow = TimeWindow(now - ZoomLevel.WEEK.durationMillis, now),
+            onDotTap = { _, _ -> },
+            onCaseTap = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TimelineGridEarlyDaysPreview() {
+    val now = System.currentTimeMillis()
+    MaterialTheme {
+        TimelineGrid(
+            rows =
+                listOf(
+                    TimelineRowData(
+                        caseId = 1,
+                        icon = "😤",
+                        name = "Kiddo was rude",
+                        events = emptyList(),
+                        intensityEnabled = true,
+                    ),
+                ),
             initialWindow = TimeWindow(now - ZoomLevel.WEEK.durationMillis, now),
             onDotTap = { _, _ -> },
             onCaseTap = {},
