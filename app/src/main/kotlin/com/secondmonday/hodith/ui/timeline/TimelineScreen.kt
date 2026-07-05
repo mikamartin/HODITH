@@ -3,6 +3,7 @@ package com.secondmonday.hodith.ui.timeline
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,13 +37,18 @@ import com.secondmonday.hodith.domain.timeline.TimeWindow
 import com.secondmonday.hodith.domain.timeline.TimelineEvent
 import com.secondmonday.hodith.domain.timeline.TimelineMark
 import com.secondmonday.hodith.domain.timeline.ZoomLevel
+import com.secondmonday.hodith.domain.timeline.axisTickLabel
+import com.secondmonday.hodith.domain.timeline.axisTickMillis
 import com.secondmonday.hodith.domain.timeline.layoutRow
 import com.secondmonday.hodith.domain.timeline.nextWindow
 import com.secondmonday.hodith.domain.timeline.withDuration
+import com.secondmonday.hodith.ui.voice.LocalVoice
 import kotlinx.coroutines.launch
+import java.time.ZoneId
 import kotlin.math.abs
 
 private val ROW_HEIGHT = 56.dp
+private val RULER_HEIGHT = 24.dp
 private val MIN_SLOT_WIDTH = 48.dp
 private val LEADING_COLUMN_WIDTH = 96.dp
 private const val SNAP_ANIMATION_MS = 200
@@ -86,62 +92,105 @@ fun TimelineGrid(
     val scope = rememberCoroutineScope()
     val snapAnimatable = remember { Animatable(window.durationMillis.toFloat()) }
 
-    Box(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .onSizeChanged { timelineWidthPx = (it.width - leadingColumnWidthPx).coerceAtLeast(0f) }
-                .pointerInput(rows, window, leadingColumnWidthPx, rowHeightPx) {
-                    val timelineWidth = (size.width - leadingColumnWidthPx).coerceAtLeast(1f)
-                    detectTapOrTimelineGesture(
-                        onTap = { position ->
-                            val rowIndex = (position.y / rowHeightPx).toInt()
-                            val row = rows.getOrNull(rowIndex)
-                            if (row != null) {
-                                if (position.x < leadingColumnWidthPx) {
-                                    onCaseTap(row.caseId)
-                                } else {
-                                    val fraction = ((position.x - leadingColumnWidthPx) / timelineWidth).coerceIn(0f, 1f)
-                                    marksByCase[row.caseId]
-                                        ?.filterIsInstance<TimelineMark.Dot>()
-                                        ?.minByOrNull { mark -> abs(mark.xFraction - fraction) }
-                                        ?.let { dot -> onDotTap(row.caseId, dot.eventIds) }
+    Column(modifier = modifier.fillMaxSize()) {
+        TimeAxisRuler(window = window, modifier = Modifier.fillMaxWidth().height(RULER_HEIGHT))
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .onSizeChanged { timelineWidthPx = (it.width - leadingColumnWidthPx).coerceAtLeast(0f) }
+                    .pointerInput(rows, window, leadingColumnWidthPx, rowHeightPx) {
+                        val timelineWidth = (size.width - leadingColumnWidthPx).coerceAtLeast(1f)
+                        detectTapOrTimelineGesture(
+                            onTap = { position ->
+                                val rowIndex = (position.y / rowHeightPx).toInt()
+                                val row = rows.getOrNull(rowIndex)
+                                if (row != null) {
+                                    if (position.x < leadingColumnWidthPx) {
+                                        onCaseTap(row.caseId)
+                                    } else {
+                                        val fraction =
+                                            ((position.x - leadingColumnWidthPx) / timelineWidth).coerceIn(0f, 1f)
+                                        marksByCase[row.caseId]
+                                            ?.filterIsInstance<TimelineMark.Dot>()
+                                            ?.minByOrNull { mark -> abs(mark.xFraction - fraction) }
+                                            ?.let { dot -> onDotTap(row.caseId, dot.eventIds) }
+                                    }
                                 }
-                            }
-                        },
-                        onGesture = { centroid, pan, zoom ->
-                            val focalFraction = ((centroid.x - leadingColumnWidthPx) / timelineWidth).coerceIn(0f, 1f)
-                            val panFraction = pan.x / timelineWidth
-                            window = nextWindow(window, focalFraction, panFraction, zoom)
-                        },
-                        onGestureEnd = {
-                            val target = ZoomLevel.nearestTo(window.durationMillis).durationMillis
-                            scope.launch {
-                                snapAnimatable.snapTo(window.durationMillis.toFloat())
-                                snapAnimatable.animateTo(target.toFloat(), tween(SNAP_ANIMATION_MS)) {
-                                    window = window.withDuration(value.toLong())
+                            },
+                            onGesture = { centroid, pan, zoom ->
+                                val focalFraction = ((centroid.x - leadingColumnWidthPx) / timelineWidth).coerceIn(0f, 1f)
+                                val panFraction = pan.x / timelineWidth
+                                window = nextWindow(window, focalFraction, panFraction, zoom)
+                            },
+                            onGestureEnd = {
+                                val target = ZoomLevel.nearestTo(window.durationMillis).durationMillis
+                                scope.launch {
+                                    snapAnimatable.snapTo(window.durationMillis.toFloat())
+                                    snapAnimatable.animateTo(target.toFloat(), tween(SNAP_ANIMATION_MS)) {
+                                        window = window.withDuration(value.toLong())
+                                    }
                                 }
-                            }
-                        },
-                    )
-                },
-    ) {
-        Column {
-            rows.forEach { row ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT)) {
+                            },
+                        )
+                    },
+        ) {
+            Column {
+                rows.forEach { row ->
                     Row(
-                        modifier = Modifier.width(LEADING_COLUMN_WIDTH).padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT),
                     ) {
-                        Text(row.icon)
-                        Spacer(Modifier.width(4.dp))
-                        Text(row.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(
+                            modifier = Modifier.width(LEADING_COLUMN_WIDTH).padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(row.icon)
+                            Spacer(Modifier.width(4.dp))
+                            Text(row.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        CaseTimelineRow(
+                            marks = marksByCase.getValue(row.caseId),
+                            modifier = Modifier.weight(1f).fillMaxWidth().height(ROW_HEIGHT),
+                        )
                     }
-                    CaseTimelineRow(
-                        marks = marksByCase.getValue(row.caseId),
-                        modifier = Modifier.weight(1f).fillMaxWidth().height(ROW_HEIGHT),
-                    )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Date labels above the grid, sharing the leading-column offset with the rows below so ticks
+ * land under the same fractional x-positions as the dots (spec §9's shared time axis). Uses
+ * `Arrangement.SpaceBetween` rather than pixel math — the first/last tick sit exactly at the
+ * row content's edges, same as [TimelineMark] fractions 0f and 1f.
+ */
+@Composable
+private fun TimeAxisRuler(
+    window: TimeWindow,
+    modifier: Modifier = Modifier,
+) {
+    val voice = LocalVoice.current
+    val zoneId = remember { ZoneId.systemDefault() }
+    val zoomLevel = remember(window.durationMillis) { ZoomLevel.nearestTo(window.durationMillis) }
+    val ticks = remember(window) { axisTickMillis(window) }
+
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = voice.timeRangeLabel(zoomLevel),
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.width(LEADING_COLUMN_WIDTH).padding(horizontal = 8.dp),
+        )
+        Row(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            ticks.forEach { millis ->
+                Text(
+                    text = axisTickLabel(millis, zoneId, zoomLevel),
+                    style = MaterialTheme.typography.labelSmall,
+                )
             }
         }
     }

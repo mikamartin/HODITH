@@ -4,7 +4,7 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**Phase 1 complete.** Phase 2 in progress — gesture/rendering prototype built and green (`ktlintCheck` → `test` → `assembleDebug`), not yet wired to real data.
+**Phase 1 complete.** Phase 2 in progress — gesture/rendering prototype, row-header tap fix, minimal Voice layer, and time-axis ruler built and green (`ktlintCheck` → `test` → `assembleDebug`), not yet wired to real data.
 
 ## CI
 
@@ -33,12 +33,13 @@ Deliberately not covered yet — pick up when they start to matter:
     - `ui/timeline/TimelineScreen.kt` — `TimelineGrid` composable. Gesture handling lives on **one `Box` spanning all rows**, not per-row Canvas, specifically so a pinch whose two fingers land on different rows is still read as one zoom gesture rather than two independent single-finger pans. Zoom snaps to the nearest `ZoomLevel` preset via an `Animatable` on gesture end. Has a `@Preview` with synthetic rows (point events, clustered events, a duration bar).
     - **Deliberately deferred out of this slice:** `LazyColumn` virtualization (plain `Column` for now — fine at prototype row counts, revisit if/when real case counts make it matter), the time-axis ruler/date labels, and the empty-state/early-days placeholder strings. The last two need the minimal `Voice` layer (still pending) so they're not inline strings even temporarily.
     - **Verified on device (Pixel 6 AVD):** tap and pan, via a throwaway `MainActivity` wire-up (reverted after). Tap hit-tested the correct event; a pan shifted all three rows together and reflowed clustering live, confirming the shared-window design. Pinch/zoom could not be driven this way — `adb` has no multi-touch synthesis — so the focal-point/clamping math is unit-tested but the on-device zoom *feel* is still unverified.
+  - **Row-header tap fixed; minimal `Voice` layer and time-axis ruler landed:**
+    - `TimelineGrid` now takes a distinct `onCaseTap(caseId: Long)` callback. A tap inside the leading (icon/name) column calls it directly instead of falling through to dot hit-testing, which used to clamp the fraction to `0f` and misfire on the leftmost dot.
+    - `ui/voice/Voice.kt` — `Voice` interface + `SeriousVoice`/`GothVoice`/`QuirkyVoice`, scoped to the three keys Big Picture needs (`bigPictureEmptyState`, `bigPictureEarlyDays`, `timeRangeLabel(ZoomLevel)`), provided via `LocalVoice` (defaults to `SeriousVoice` until Settings/theme-picking lands in Phase 4). `VoiceTest` asserts every key is non-blank across all three voices per spec §12. Empty-state/early-days copy is taken verbatim from spec §12's sample table; `timeRangeLabel` is deliberately identical across voices for now (functional wayfinding text, not personality copy) — revisit in Phase 4 if themed variants are wanted.
+    - `domain/timeline/TimelineAxis.kt` — pure `axisTickMillis` (5 evenly-spaced timestamps across the window) and `axisTickLabel` (java.time formatting, precision keyed to `ZoomLevel`, pinned to `Locale.US` since the app has no localization elsewhere). `TimeAxisRuler` in `TimelineScreen.kt` renders those ticks plus the zoom-level label in a row above the grid, sharing the leading-column offset and using `Arrangement.SpaceBetween` so ticks land under the same fractional x-positions as the dots below it — no pixel math needed.
   - **Remaining for Phase 2 close-out:**
-    - **Row-header tap is currently broken, not just missing.** Spec requires tapping a row's icon/name to open the Case, but there's no `onCaseTap` callback — worse, because the gesture surface spans the whole row including the leading column, tapping the icon/name today misfires as a dot-tap at the leftmost position. Needs a real fix (exclude the leading column from dot hit-testing, add a distinct callback), not just an addition.
     - On-device pinch/zoom check (see above) — needs a hands-on pass, not just unit tests.
-    - Minimal `Voice` layer (blocks the axis labels and empty-state copy below).
-    - Time-axis ruler/date labels.
-    - Empty-state / early-days placeholder.
+    - Empty-state / early-days placeholder — wire the `Voice` strings above into the actual empty/early-days UI states.
     - Debug-only seed data mechanism (decided, not built — the on-device check above used a throwaway wire-up, already reverted).
     - Wire `TimelineGrid` to real `HodithRepository` data instead of synthetic sample rows.
     - Instrumented Compose UI tests per TESTING.md's plan (tap a dot opens the event, tap a row header opens the Case).
