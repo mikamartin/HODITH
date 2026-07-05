@@ -32,7 +32,7 @@ class TimelineViewModel
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     }
 
-private fun CaseWithEvents.toTimelineRowData(): TimelineRowData =
+fun CaseWithEvents.toTimelineRowData(): TimelineRowData =
     TimelineRowData(
         caseId = case.id,
         icon = case.icon,
