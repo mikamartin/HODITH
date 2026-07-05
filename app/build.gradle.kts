@@ -55,6 +55,7 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    compileOnly(libs.error.prone.annotations)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

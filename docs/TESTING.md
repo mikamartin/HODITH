@@ -59,6 +59,8 @@ Cadence: before every release; full pass before Play submissions.
 
 - Instrumented tests ran clean on a Pixel 6 AVD, API 34 (Phase 1, 25/25 DAO tests passed) — this doesn't yet exercise the Android 16 (API 36) compatibility gap noted at Phase 0 setup, since no API 36 emulator image was used. Re-verify on an API 36 device/emulator before relying on instrumented tests there.
 - Never run Gradle tasks in parallel (see CLAUDE.md) — sequential `ktlintCheck` → `test` → `assembleDebug`.
+- **Pulling the Room DB from a device/emulator to inspect it (`adb exec-out run-as <pkg> cat .../hodith.db`) can show stale or missing rows even with no bug present.** Room runs SQLite in WAL mode by default, so the most recent writes often sit in the `hodith.db-wal` file (and `hodith.db-shm`) rather than the main `.db` file until a checkpoint happens. Pull all three (`hodith.db`, `hodith.db-wal`, `hodith.db-shm`) into the same local directory before opening with `sqlite3` — this cost significant debugging time chasing a phantom "6th row never inserted" bug in the Phase 2 seed-data mechanism that turned out to be a WAL-visibility artifact, not a code bug.
+- **Git Bash mangles absolute-looking `adb shell` paths** (e.g. `/sdcard/foo.png` gets rewritten to a Windows path by MSYS's automatic path conversion). Prefix the command with `MSYS_NO_PATHCONV=1` when passing device-side paths to `adb shell`/`adb exec-out`/`adb pull`.
 
 ## CI coverage
 

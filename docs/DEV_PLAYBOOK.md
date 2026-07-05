@@ -157,6 +157,7 @@ Permanent accepted constraints — nothing here gets checked off.
 5. **foojay < 1.0.0 incompatible with Gradle 9.**
 6. **Compose API removals:** `animateItemPlacement()` → `animateItem()`; check BOM notes on every bump.
 7. **Never run Gradle tasks in parallel** (Windows Kotlin-daemon cache collision → `AccessDeniedException`, needs `./gradlew clean`). Sequential only.
+8. **Hilt `@Multibinds`/`@IntoSet` (Set multibindings) under Hilt 2.60 needs `com.google.errorprone:error_prone_annotations` as a `compileOnly` dependency** — Dagger's generated `Set` multibinding code references `@CanIgnoreReturnValue` from that package, which isn't pulled in transitively. Fails at `hiltJavaCompileDebug`/`Release` with `package com.google.errorprone.annotations does not exist` the first time any module adds a multibinding, not before.
 
 ### Next upgrade checklist
 - [ ] AGP ↔ Gradle compatibility matrix before changing either
