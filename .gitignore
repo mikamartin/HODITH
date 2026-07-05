@@ -66,3 +66,6 @@ vcs.xml
 
 # Wear OS
 wear/build/
+
+# Local Claude Code tooling (personal permission settings, not project-shared)
+.claude/
