@@ -1,4 +1,4 @@
-# HODIT — Developer Playbook
+# HODITH — Developer Playbook
 
 ---
 
@@ -9,7 +9,7 @@ Run after any significant feature work or refactor. Copy the checklist into a ne
 ### Duplication
 - [ ] Are any composables copy-pasted with minor variation? Extract a shared component or parameter.
 - [ ] Are any styling patterns (colors, gradients, padding sequences) repeated inline instead of using the design system / theme?
-- [ ] **Are any user-visible strings inline in composables instead of going through the `Voice` layer?** (HODIT's #1 hygiene rule — an inline string ships in one voice only.)
+- [ ] **Are any user-visible strings inline in composables instead of going through the `Voice` layer?** (HODITH's #1 hygiene rule — an inline string ships in one voice only.)
 - [ ] Does any ViewModel logic appear in more than one place?
 - [ ] Does any new `Repository` function overlap with an existing one that could be parameterised instead?
 - [ ] Does any new `Dao` query duplicate an existing query with a Kotlin-side filter that could be pushed into SQL?
@@ -64,7 +64,7 @@ Run after any significant feature work or refactor. Copy the checklist into a ne
 - [ ] Any new deprecation warnings? Resolve or document with a reason.
 
 ### Spec Review
-- [ ] Does [HODIT_SPEC.md](HODIT_SPEC.md) still describe what was built? Walk through touched sections.
+- [ ] Does [HODITH_SPEC.md](HODITH_SPEC.md) still describe what was built? Walk through touched sections.
 - [ ] Intentional divergence → update the spec. Unintentional divergence → log a bug, don't paper over it.
 - [ ] New patterns/components/flows undocumented? Add them.
 - [ ] Any Future Work items implemented? Update §14.
@@ -140,7 +140,7 @@ Permanent accepted constraints — nothing here gets checked off.
 | Kotlin | 2.3.20 | Pinned via `buildscript classpath` (gotcha 1). Kotlin 2.4.0 is stable but KSP has not yet published a matching release — stay on 2.3.20 until it does |
 | KSP | 2.3.9 | Decoupled from Kotlin versioning since 2.3.0 |
 | Hilt | 2.60 | First version supporting and requiring AGP 9 |
-| Room | 2.8.4 | Required for Kotlin 2.3.x KSP2. Room 3.0.0 exists (new `androidx.room3` package, KMP/Wasm-focused) but is out of scope — HODIT is Android-only and Room 2.x remains in supported maintenance mode |
+| Room | 2.8.4 | Required for Kotlin 2.3.x KSP2. Room 3.0.0 exists (new `androidx.room3` package, KMP/Wasm-focused) but is out of scope — HODITH is Android-only and Room 2.x remains in supported maintenance mode |
 | WorkManager | check latest at setup | verify Hilt integration (`androidx.hilt:hilt-work`) version pairing |
 | foojay-resolver-convention | 1.0.0 | Pre-1.0 breaks on Gradle 9 |
 | Compose BOM | 2026.06.01 | check for newer at setup |

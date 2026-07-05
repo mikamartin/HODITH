@@ -7,17 +7,17 @@ plugins {
 }
 
 android {
-    namespace = "com.secondmonday.hodit"
+    namespace = "com.secondmonday.hodith"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.secondmonday.hodit"
+        applicationId = "com.secondmonday.hodith"
         minSdk = 31
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
 
-        testInstrumentationRunner = "com.secondmonday.hodit.HiltTestRunner"
+        testInstrumentationRunner = "com.secondmonday.hodith.HiltTestRunner"
     }
 
     buildTypes {

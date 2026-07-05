@@ -1,4 +1,4 @@
-# HODIT — Test Strategy
+# HODITH — Test Strategy
 
 Status: **Phase 1 landed** (Room entities/DAOs/repository, `Clock`). This doc defines the strategy and the planned coverage map; the coverage tables get real counts as test files land. Keep it in sync per DEV_PLAYBOOK §1 → Tests.
 
@@ -8,7 +8,7 @@ Status: **Phase 1 landed** (Room entities/DAOs/repository, `Clock`). This doc de
 
 Three layers, cheapest first:
 
-1. **Unit tests (JVM, `./gradlew test`)** — the bulk. HODIT is deliberately architected so its riskiest logic is pure Kotlin: the verdict engine, trigger evaluation, stats calculations, and the Voice layer have zero Android dependencies and are tested exhaustively here.
+1. **Unit tests (JVM, `./gradlew test`)** — the bulk. HODITH is deliberately architected so its riskiest logic is pure Kotlin: the verdict engine, trigger evaluation, stats calculations, and the Voice layer have zero Android dependencies and are tested exhaustively here.
 2. **Instrumented tests (`./gradlew connectedDebugAndroidTest`)** — Room DAO tests against a real in-memory SQLite, Compose UI tests for the critical flows, WorkManager integration via `WorkManagerTestInitHelper`.
 3. **Manual test plan (MANUAL_TEST_PLAN.md)** — only for flows that cross system-process boundaries instrumented tests can't drive: widget → trampoline activity → detail sheet, notification tap-through, system file picker (export/import), POST_NOTIFICATIONS permission dialog, device reboot with an ongoing event.
 

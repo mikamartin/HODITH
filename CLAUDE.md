@@ -4,7 +4,7 @@ Project-specific instructions for AI assistants working in this repository.
 
 ## What this is
 
-HODIT ("How Often Does That Happen") — a local-only Android app (Kotlin, Jetpack Compose, Room, Hilt, Glance, WorkManager) for checking gut feelings about how often events happen against logged reality. Read [docs/HODIT_SPEC.md](docs/HODIT_SPEC.md) §1–4 (idea, vocabulary, principles, non-goals) before writing any code or copy — the Case/Hunch/Verdict vocabulary and the observation-not-behaviour-change stance shape everything.
+HODITH ("How Often Does It Truly Happen") — a local-only Android app (Kotlin, Jetpack Compose, Room, Hilt, Glance, WorkManager) for checking gut feelings about how often events happen against logged reality. Read [docs/HODITH_SPEC.md](docs/HODITH_SPEC.md) §1–4 (idea, vocabulary, principles, non-goals) before writing any code or copy — the Case/Hunch/Verdict vocabulary and the observation-not-behaviour-change stance shape everything.
 
 This repo is also a portfolio piece, built with heavy AI assistance. This file is checked in as both working instructions and a transparent record of how AI was used. See the README's "AI-assisted development workflow" section.
 
@@ -17,10 +17,10 @@ This repo is also a portfolio piece, built with heavy AI assistance. This file i
 - Before the repo has a GitHub remote: one local feature branch per logical unit of work, merged locally only once the user says go.
 - Once published: open a PR per unit of work; the user reviews and merges on GitHub.
 
-## HODIT-specific rules
+## HODITH-specific rules
 
 - **Every user-visible string goes through the `Voice` layer** and must be added to all three voices (Serious, Goth, Quirky) in the same commit. No inline UI strings, ever.
-- **No gamification language or mechanics** — no streaks, scores, "keep it up!", "you missed a day". HODIT observes; it does not push behaviour change (spec §4). If a feature idea drifts that way, stop and raise it.
+- **No gamification language or mechanics** — no streaks, scores, "keep it up!", "you missed a day". HODITH observes; it does not push behaviour change (spec §4). If a feature idea drifts that way, stop and raise it.
 - **Verdict, trigger, and stats code stays pure Kotlin** (`domain/` package): no `android.*` imports, all time via injected `Clock`.
 - Product constants (confidence tiers, comparison bands, nudge threshold) live as named constants in the domain layer — never inline magic numbers.
 
@@ -50,7 +50,7 @@ This repo is public on GitHub. Treat every commit as visible to the world from d
 ## Source-of-truth docs (`docs/`)
 
 - [PROGRESS.md](docs/PROGRESS.md) — current phase status and build order; check this first in a new session
-- [HODIT_SPEC.md](docs/HODIT_SPEC.md) — what the app does, data model, screens, future work
+- [HODITH_SPEC.md](docs/HODITH_SPEC.md) — what the app does, data model, screens, future work
 - [TESTING.md](docs/TESTING.md) — test strategy, coverage, deferrals
 - [MANUAL_TEST_PLAN.md](docs/MANUAL_TEST_PLAN.md) — deliberately manual-only journeys *(create from the seed list in TESTING.md when the first widget/notification flow lands)*
 - [DEV_PLAYBOOK.md](docs/DEV_PLAYBOOK.md) — cleanup checklist, ship checklist, tooling reference
@@ -66,7 +66,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 ## Working agreements
 
 - After any significant feature work, walk through DEV_PLAYBOOK.md §1 and log a new pass in CLEANUP_LOG.md, and update PROGRESS.md's status/checkboxes.
-- Keep HODIT_SPEC.md in sync with what was actually built — intentional divergence updates the spec; unintentional divergence is a bug to fix, not a spec update.
+- Keep HODITH_SPEC.md in sync with what was actually built — intentional divergence updates the spec; unintentional divergence is a bug to fix, not a spec update.
 - Strike resolved ship-checklist items out entirely — the checklist only contains open work.
 
 ## Commands

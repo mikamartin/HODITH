@@ -1,4 +1,4 @@
-# HODIT — How Often Does That Happen
+# HODITH — How Often Does It Truly Happen
 
 A local-only Android app for checking gut feelings against reality.
 
@@ -8,7 +8,7 @@ A local-only Android app for checking gut feelings against reality.
 
 ## The idea
 
-Sometimes a thought hits you: *"this always happens"* — or *"this never happens anymore."* Usually you don't actually know. HODIT lets you check.
+Sometimes a thought hits you: *"this always happens"* — or *"this never happens anymore."* Usually you don't actually know. HODITH lets you check.
 
 Open a **Case** on the thing you've noticed — a teenager snapping at you, a migraine, the train running late, the coffee coming out perfect, a friend calling out of the blue. Log occurrences as they happen. State a **Hunch** about how often you *feel* it happens, and once there's enough data, get the **Verdict**: fact, or just a feeling.
 
@@ -51,7 +51,7 @@ No streaks, scores, or reminders to "do better" — many Cases are about things 
 
 ## Architecture
 
-MVVM throughout. `HoditRepository` is the single source of truth over Room. The verdict engine, trigger evaluation, and stats live in a pure-Kotlin `domain/` layer with no Android dependencies — time comes in via an injected `Clock` — so the app's riskiest logic is fully unit-testable on the JVM. The Glance widgets and the WorkManager trigger job read the repository directly, independent of the activity lifecycle.
+MVVM throughout. `HodithRepository` is the single source of truth over Room. The verdict engine, trigger evaluation, and stats live in a pure-Kotlin `domain/` layer with no Android dependencies — time comes in via an injected `Clock` — so the app's riskiest logic is fully unit-testable on the JVM. The Glance widgets and the WorkManager trigger job read the repository directly, independent of the activity lifecycle.
 
 ```mermaid
 graph LR
@@ -68,7 +68,7 @@ graph LR
         Stats["Stats"]
     end
     subgraph data["Data Layer"]
-        Repo["HoditRepository"]
+        Repo["HodithRepository"]
         DB[("Room / SQLite<br/>local only")]
     end
     Work["WorkManager Job"]
@@ -85,7 +85,7 @@ graph LR
 | File | Purpose |
 |---|---|
 | [`docs/PROGRESS.md`](docs/PROGRESS.md) | Current build phase and phase order |
-| [`docs/HODIT_SPEC.md`](docs/HODIT_SPEC.md) | Full product spec — principles, data model, screens, future work |
+| [`docs/HODITH_SPEC.md`](docs/HODITH_SPEC.md) | Full product spec — principles, data model, screens, future work |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, coverage, deferrals |
 | [`docs/DEV_PLAYBOOK.md`](docs/DEV_PLAYBOOK.md) | Cleanup checklist, ship checklist, tooling reference |
 | [`docs/CLEANUP_LOG.md`](docs/CLEANUP_LOG.md) | Timestamped record of every cleanup pass |
@@ -93,7 +93,7 @@ graph LR
 
 ## AI-assisted development workflow
 
-Every feature is defined in `HODIT_SPEC.md` before any code is written; the AI implements from the spec. Product decisions, UX direction, and architectural choices are made by the human product owner. Every branch is reviewed and approved before merging, structured cleanup passes run after each feature (logged in `CLEANUP_LOG.md`), and quality is held by a documented test strategy: JVM-first unit testing of the domain layer, instrumented Room/Compose tests, and a manual test plan for flows that cross system boundaries.
+Every feature is defined in `HODITH_SPEC.md` before any code is written; the AI implements from the spec. Product decisions, UX direction, and architectural choices are made by the human product owner. Every branch is reviewed and approved before merging, structured cleanup passes run after each feature (logged in `CLEANUP_LOG.md`), and quality is held by a documented test strategy: JVM-first unit testing of the domain layer, instrumented Room/Compose tests, and a manual test plan for flows that cross system boundaries.
 
 ---
 
