@@ -4,12 +4,12 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**Phase 0 complete.** Phase 1 not started.
+**Phase 1 complete.** Phase 2 not started.
 
 ## Phase order
 
 - [x] **Phase 0** — Repo and project scaffold: git init, Gradle/AGP/Compose/Hilt/Room toolchain, empty package skeleton, trivial `MainActivity` proving the build (`ktlintCheck` → `test` → `assembleDebug` all green).
-- [ ] **Phase 1** — Room entities, DAOs, `HoditRepository`, JVM `Clock` abstraction + full unit/DAO tests.
+- [x] **Phase 1** — Room entities, DAOs, `HoditRepository`, JVM `Clock` abstraction + full unit/DAO tests.
 - [ ] **Phase 2** — Big Picture view. Hardest UI problem (custom Compose, shared time axis, pinch-zoom, performance with years of data) — done early so its constraints surface before other screens depend on it.
 - [ ] **Phase 3** — Home + Case CRUD + logging flows (one-tap, detail sheet, start/stop, retro-log).
 - [ ] **Phase 4** — Voice layer + three themes.

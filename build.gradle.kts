@@ -6,14 +6,14 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${libs.versions.kotlin.get()}")
     }
 }
 
 plugins {
-    id("com.android.application") version "9.2.1" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.3.20" apply false
-    id("com.google.devtools.ksp") version "2.3.9" apply false
-    id("com.google.dagger.hilt.android") version "2.60" apply false
-    id("org.jlleitschuh.gradle.ktlint") version "14.2.0" apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.hilt) apply false
+    alias(libs.plugins.ktlint) apply false
 }

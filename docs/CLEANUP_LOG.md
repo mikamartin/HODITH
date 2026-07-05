@@ -15,6 +15,21 @@ A timestamped record of every cleanup pass, newest first. After any significant 
 
 ---
 
+## 2026-07-04 — feature/room-data-layer (Phase 1)
+
+**Scope:** Room entities/DAOs/`HoditRepository`, JVM `Clock` abstraction, and their tests — first product code in the repo.
+**Found & fixed:**
+- Migrated `build.gradle.kts` files from inline dependency versions to `gradle/libs.versions.toml`, since this phase roughly doubled the dependency count (Room, coroutines, AndroidX test, Hilt testing).
+- All six instrumented DAO test classes repeated the same `Room.inMemoryDatabaseBuilder(...).build()` boilerplate in `@Before` — extracted to a shared `createInMemoryDatabase()` helper in `TestFixtures.kt`.
+- Enums stored as `String` (not ordinal `Int`) via `Converters.kt` — safer against future reordering/insertion of enum values.
+- Tag cross-ref inserts use `OnConflictStrategy.IGNORE` so `HoditRepository.addTagToEvent` is idempotent.
+**Deferred:**
+- No domain logic beyond `Clock` exists yet (verdict/trigger/stats engines are Phase 5+), so most of DEV_PLAYBOOK §1's Decoupling/Complexity checks don't yet apply — revisit at that phase.
+- `HoditRepository` mirrors the DAOs closely with no additional orchestration beyond tag find-or-create; ViewModel-level concerns (undo window, one-ongoing-per-case invariant) are explicitly Phase 3's job per TESTING.md.
+**Docs updated:** TESTING.md — status line updated (Phase 1 landed), known-environment-issues note replaced with the actual verification result (25/25 instrumented DAO tests passed on a Pixel 6 AVD, API 34; the Android 16/API 36 compatibility gap flagged at Phase 0 remains unverified since no API 36 image was used). PROGRESS.md — Phase 1 checked off.
+
+---
+
 ## 2026-07-04 — chore/project-scaffold (Phase 0)
 
 **Scope:** Repo init and Gradle/Android project scaffold — no product code yet, just the empty app skeleton and tooling.

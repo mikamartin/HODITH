@@ -1,6 +1,6 @@
 # HODIT — Test Strategy
 
-Status: **pre-code**. This doc defines the strategy and the planned coverage map; the coverage tables get real counts as test files land. Keep it in sync per DEV_PLAYBOOK §1 → Tests.
+Status: **Phase 1 landed** (Room entities/DAOs/repository, `Clock`). This doc defines the strategy and the planned coverage map; the coverage tables get real counts as test files land. Keep it in sync per DEV_PLAYBOOK §1 → Tests.
 
 ---
 
@@ -57,5 +57,5 @@ Cadence: before every release; full pass before Play submissions.
 
 ## Known environment issues
 
-- Instrumented tests may hit a known Android 16 compatibility gap seen on this toolchain — verify at setup and document the workaround here if it reproduces.
+- Instrumented tests ran clean on a Pixel 6 AVD, API 34 (Phase 1, 25/25 DAO tests passed) — this doesn't yet exercise the Android 16 (API 36) compatibility gap noted at Phase 0 setup, since no API 36 emulator image was used. Re-verify on an API 36 device/emulator before relying on instrumented tests there.
 - Never run Gradle tasks in parallel (see CLAUDE.md) — sequential `ktlintCheck` → `test` → `assembleDebug`.
