@@ -40,7 +40,7 @@ The case → evidence → hunch → verdict framing is deliberate: it gives all 
 2. **Logging is neutral.** An event not happening is information, not failure. The app never congratulates, never scolds, never asks where you've been.
 3. **Logging must survive real life.** Events happen mid-argument or mid-sneeze. One tap from the widget logs "it happened, now." Details are optional and can be added later. Retro-logging is first-class — you often only realize afterwards.
 4. **Statistical honesty.** With too few logs there is no verdict — the app says "early days, keep logging" instead of pretending. Small-sample humility keeps the app trustworthy (and is a fun place for theme voice).
-5. **Show, don't lecture.** The flagship visual — the Big Picture — puts all your cases on one shared timeline and lets your own eyes spot the patterns. The app presents; the human concludes.
+5. **Show, don't lecture.** The flagship visual — the Big Picture — puts all your cases on one shared calendar and lets your own eyes spot the patterns when icons land on the same day.
 6. **Every Case has a face.** Each Case gets an icon (emoji), shown everywhere it appears — Home, Big Picture, widgets, notifications. Icons are the primary way cases are told apart; color is never the only distinguisher (easier to remember, better for accessibility).
 7. **Everything stays on the phone.** No accounts, no analytics, no network permission at all. Export/import is the user's escape hatch.
 
@@ -152,12 +152,17 @@ The part of the app that makes occurrences *visible at a glance*. All custom Com
 
 ### The Big Picture — flagship view
 
-One screen, every active Case as a row: icon + name on the left, a shared horizontal time axis across all rows, each event a dot aligned by date. Scroll/pinch the time range (week / month / 3 months / year).
+A scrollable multi-month calendar grid (day columns × week rows, like a standard month calendar). Every active Case's icon appears in the cell for each day it has an event. Scrolling swipes through time — oldest at the top, most recent at the bottom, opening on the current month; there is no pinch/continuous zoom, since a calendar grid's natural unit is already a day/week/month, not an arbitrary time window. Tapping the month label opens a quick-jump picker to reach a distant month instantly instead.
 
-- Vertical alignment is the whole point: when "unbearable day" dots stack above "kiddo was rude" dots, you see it — no statistics required, no causation claimed.
-- Dot size encodes intensity (when enabled); duration events stretch into short bars.
-- Tapping a dot opens that event; tapping a row header opens the Case.
-- Row order follows Home's manual `sortOrder`, so related cases can be placed adjacent for easier comparison.
+- Cross-case correlation — the whole point of this screen — comes from multiple case icons landing in the same day cell, not from vertical alignment across per-case rows: when "unbearable day" and "kiddo was rude" land in the same cell, you see it, no statistics required, no causation claimed.
+- Only days up to and including today are ever shown; future days render as blank space.
+- A day cell belongs to exactly one month — the neighbouring month's leading/trailing days that would normally pad out a boundary week are left blank rather than duplicating that date under both months.
+- A day over its icon capacity shows a "+N" overflow badge rather than silently cropping.
+- Tapping a day opens that day's logged events (case, note); a separate small chevron on each week opens a week view listing that week's events with full case names — kept as its own tap target from the day cells.
+- Case filter chips (icon + name, ordered by Home's manual `sortOrder`) sit above the grid, doubling as a legend and a per-case visibility toggle.
+- How (or whether) intensity and duration events surface on the grid is still open — the retired row/dot design's size-encodes-intensity and duration-stretches-into-a-bar affordances don't have an obvious calendar-cell equivalent yet.
+
+*(This replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired after on-device testing showed it didn't read clearly — see PROGRESS.md for the history and the domain-layer code that may still be reusable for the per-case dot timeline below.)*
 
 ### Per-case: dot timeline (primary)
 

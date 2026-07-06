@@ -11,6 +11,7 @@ This repo is also a portfolio piece, built with heavy AI assistance. This file i
 ## Collaboration rules
 
 - Confirm before making non-trivial changes; explain the rationale for technical and UX decisions before implementing.
+- Prefer the simplest option that solves the actual problem. If an approach starts feeling complicated, stop and discuss it at length before continuing — don't push through complexity solo. Anything that would take substantial work must be prototyped cheaply (a throwaway spike, a Compose Preview, a mockup) and validated before committing to building it for real.
 - Always confirm the branch name and proposed commit message with the user before committing — never commit without explicit approval of both.
 - Never merge a branch or PR without the user's explicit go-ahead. Commit, present a summary of what changed and why, then stop and wait.
 - Branch naming: `type/topic` (e.g. `feature/verdict-engine`, `fix/widget-elapsed-time`, `chore/ci-setup`). Topic describes the work — no timestamps.
