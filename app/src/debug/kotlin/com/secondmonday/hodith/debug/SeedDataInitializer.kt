@@ -8,8 +8,6 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.domain.Clock
-import com.secondmonday.hodith.domain.timeline.MAX_INTENSITY
-import com.secondmonday.hodith.domain.timeline.MIN_INTENSITY
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +22,8 @@ private const val DAY_MILLIS = 24L * 60 * 60 * 1000L
 private const val SEED_RANDOM_SEED = 42L
 private const val MIN_DURATION_MILLIS = 30L * 60 * 1000L
 private const val MAX_DURATION_MILLIS = 6L * 60 * 60 * 1000L
+private const val MIN_INTENSITY = 1
+private const val MAX_INTENSITY = 5
 
 private enum class SeedDensity { SPARSE, BURSTY, DENSE }
 
@@ -36,7 +36,7 @@ private data class CaseSeed(
 )
 
 // Deliberately varied on every axis Big Picture needs to exercise: duration mode, intensity,
-// and event density (dense/bursty/sparse) spread across all four ZoomLevel presets.
+// and event density (dense/bursty/sparse) spread across several months.
 private val CASE_SEEDS =
     listOf(
         CaseSeed("Coffee", "☕️", DurationMode.NONE, intensityEnabled = false, density = SeedDensity.DENSE),

@@ -162,7 +162,7 @@ A scrollable multi-month calendar grid (day columns × week rows, like a standar
 - Case filter chips (icon + name, ordered by Home's manual `sortOrder`) sit above the grid, doubling as a legend and a per-case visibility toggle.
 - How (or whether) intensity and duration events surface on the grid is still open — the retired row/dot design's size-encodes-intensity and duration-stretches-into-a-bar affordances don't have an obvious calendar-cell equivalent yet.
 
-*(This replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired after on-device testing showed it didn't read clearly — see PROGRESS.md for the history and the domain-layer code that may still be reusable for the per-case dot timeline below.)*
+*(This replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired after on-device testing showed it didn't read clearly and since deleted outright — see PROGRESS.md for the build/retirement history.)*
 
 ### Per-case: dot timeline (primary)
 

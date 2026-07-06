@@ -21,7 +21,7 @@ Rule of thumb: **if logic can be tested on the JVM, it must not require an emula
 | **Verdict engine** | Confidence tiers (boundary values: exactly 5 events, exactly 14 days); comparison bands at each boundary (0.5, 0.8, 1.25, 2.0); direction-aware interpretation (TOO_OFTEN vs NOT_ENOUGH vs JUST_CURIOUS); observation window with retro-logs earlier than case creation; empty event list; events all at the same instant; DST/timezone edges around day boundaries |
 | **Trigger evaluation** | AT_LEAST fires at threshold, not below; rolling window drops old events; re-arm behaviour; SILENT_FOR fires at exactly n days and re-arms on the next event; deleted events un-fire correctly on next evaluation; disabled triggers never fire |
 | **Check-in scheduling** | Hunch-derived interval (2 × expected gap, clamped 3–30 days) at each expectedPer unit; app-default fallback when no Hunch; per-case override incl. off; never-logged case counts from createdAt; "All quiet" re-arms without creating an event; at most one fire per interval; multiple due check-ins collapse into one summary |
-| **Stats & visual data prep** | Gap calculations (0, 1, n events); cluster detection variance threshold; trend arrow hidden below 8 weeks; granularity auto-pick; duration stats excluding an ongoing (null-end) event; Big Picture row/dot bucketing per zoom level (week/month/3mo/year); calendar heatmap day-bucketing across month and DST boundaries |
+| **Stats & visual data prep** | Gap calculations (0, 1, n events); cluster detection variance threshold; trend arrow hidden below 8 weeks; granularity auto-pick; duration stats excluding an ongoing (null-end) event; Big Picture calendar-grid day-bucketing (events grouped by local date, month grid boundaries, out-of-month days blank not duplicated); calendar heatmap day-bucketing across month and DST boundaries |
 | **Voice layer** | Every `Voice` key non-blank in all three implementations (reflection or exhaustive test); no key returns an identical string across all three (catches copy-paste) |
 | **Share card assembly** | Section selection per case state (hunch vs no-hunch arc); notes/tags never included regardless of toggles; display-name override applied everywhere on the card; voice-correct copy for all three themes; story vs square layout parameters |
 | **Export/import** | Round-trip equality; schema version rejection; malformed JSON is all-or-nothing (DB untouched on failure); import of an ongoing event |
@@ -32,8 +32,8 @@ Rule of thumb: **if logic can be tested on the JVM, it must not require an emula
 | Area | What to cover |
 |---|---|
 | Room DAOs | CRUD per entity, cascade delete case → events/hunches/triggers, tag join queries, "events in window" queries, all-cases-with-events query feeding the Big Picture |
-| Compose UI | Create Case incl. skipping the Hunch step; one-tap log + undo; detail sheet save with retro time; start/stop flow; theme switch re-words visible strings; hunch nudge appears at 5th event and dismisses permanently; Big Picture — tap a dot opens the event, tap a row header opens the Case *(deferred to Phase 3, once Case/Event detail destinations exist to navigate to — Phase 2 wires the tap callbacks but leaves them as no-ops)* |
-| Compose UI — Big Picture (Phase 2) | Timeline renders real rows from `HodithRepository` (case icon/name, dot/bar placement) instead of synthetic sample data; empty-state placeholder shows with zero cases; early-days placeholder shows with cases but zero events |
+| Compose UI | Create Case incl. skipping the Hunch step; one-tap log + undo; detail sheet save with retro time; start/stop flow; theme switch re-words visible strings; hunch nudge appears at 5th event and dismisses permanently |
+| Compose UI — Big Picture (Phase 3) | Grid renders real cases/events from `HodithRepository` instead of the prototype's synthetic data; empty-state placeholder shows with zero cases; early-days placeholder shows with cases but zero events; day cell tap opens that day's events; week chevron tap opens the week view (and is a distinct tap target from the day cells it overlaps); month title tap opens the month picker; case filter chip toggles a case's icons off the grid; "+N" overflow badge appears once a day exceeds its icon capacity |
 | WorkManager | Periodic trigger evaluation job enqueued once, executes, fires SILENT_FOR |
 
 ## Manual-only journeys (seed list for MANUAL_TEST_PLAN.md)
@@ -48,7 +48,7 @@ Cadence: before every release; full pass before Play submissions.
 6. POST_NOTIFICATIONS: deny → in-app banner fallback works
 7. Export → wipe app data → import → everything restored (decide and document whether theme choice — stored in prefs — is included)
 8. Timezone change / DST night with events on both sides — day-bucketing in stats, calendar heatmap, and Big Picture stays sane
-9. Big Picture with 15+ cases and a year of data — scrolling and pinch-zoom stay responsive on a mid-range device
+9. Big Picture with 15+ cases and a year of data — scrolling stays responsive on a mid-range device
 10. Check-in notification: "Log" action logs correctly per the Case's logFlow; "All quiet" dismisses and re-arms; several due check-ins arrive as one summary notification
 11. Share flow: preview renders in all three themes, edited display name shows on the card, share sheet opens and the image lands correctly in a messenger app (both story and square)
 
@@ -60,7 +60,7 @@ Cadence: before every release; full pass before Play submissions.
 
 - Instrumented tests ran clean on a Pixel 6 AVD, API 34 (Phase 1, 25/25 DAO tests passed) — this doesn't yet exercise the Android 16 (API 36) compatibility gap noted at Phase 0 setup, since no API 36 emulator image was used. Re-verify on an API 36 device/emulator before relying on instrumented tests there.
 - Never run Gradle tasks in parallel (see CLAUDE.md) — sequential `ktlintCheck` → `test` → `assembleDebug`.
-- **Pulling the Room DB from a device/emulator to inspect it (`adb exec-out run-as <pkg> cat .../hodith.db`) can show stale or missing rows even with no bug present.** Room runs SQLite in WAL mode by default, so the most recent writes often sit in the `hodith.db-wal` file (and `hodith.db-shm`) rather than the main `.db` file until a checkpoint happens. Pull all three (`hodith.db`, `hodith.db-wal`, `hodith.db-shm`) into the same local directory before opening with `sqlite3` — this cost significant debugging time chasing a phantom "6th row never inserted" bug in the Phase 2 seed-data mechanism that turned out to be a WAL-visibility artifact, not a code bug.
+- **Pulling the Room DB from a device/emulator to inspect it (`adb exec-out run-as <pkg> cat .../hodith.db`) can show stale or missing rows even with no bug present.** Room runs SQLite in WAL mode by default, so the most recent writes often sit in the `hodith.db-wal` file (and `hodith.db-shm`) rather than the main `.db` file until a checkpoint happens. Pull all three (`hodith.db`, `hodith.db-wal`, `hodith.db-shm`) into the same local directory before opening with `sqlite3` — this cost significant debugging time chasing a phantom "6th row never inserted" bug in the Big Picture seed-data mechanism that turned out to be a WAL-visibility artifact, not a code bug.
 - **Git Bash mangles absolute-looking `adb shell` paths** (e.g. `/sdcard/foo.png` gets rewritten to a Windows path by MSYS's automatic path conversion). Prefix the command with `MSYS_NO_PATHCONV=1` when passing device-side paths to `adb shell`/`adb exec-out`/`adb pull`.
 
 ## CI coverage

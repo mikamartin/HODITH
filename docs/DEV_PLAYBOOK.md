@@ -91,7 +91,7 @@ Strip completed items — this list only contains open work.
 
 ### Before first release
 **Debug scaffolding**
-- [ ] Remove or fence out (debug-build-only) the Phase 2 seed-data mechanism used to exercise Big Picture before Case CRUD existed
+- [ ] Remove or fence out (debug-build-only) the seed-data mechanism used to exercise Big Picture before Case CRUD existed
 
 **Play Store**
 - [ ] Screenshots for all required form factors (all three themes — they're the differentiator)
