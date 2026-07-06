@@ -7,17 +7,17 @@ plugins {
 }
 
 android {
-    namespace = "com.secondmonday.hodit"
+    namespace = "com.secondmonday.hodith"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.secondmonday.hodit"
+        applicationId = "com.secondmonday.hodith"
         minSdk = 31
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
 
-        testInstrumentationRunner = "com.secondmonday.hodit.HiltTestRunner"
+        testInstrumentationRunner = "com.secondmonday.hodith.HiltTestRunner"
     }
 
     buildTypes {
@@ -43,16 +43,21 @@ ksp {
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.animation:animation-core")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     implementation(libs.core.ktx)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.ktx)
+    implementation(libs.lifecycle.viewmodel.ktx)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    compileOnly(libs.error.prone.annotations)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
@@ -63,6 +68,9 @@ dependencies {
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    androidTestImplementation(platform("androidx.compose:compose-bom:2026.06.01"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
     androidTestImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.core)

@@ -18,5 +18,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "hodit"
+rootProject.name = "hodith"
 include(":app")
