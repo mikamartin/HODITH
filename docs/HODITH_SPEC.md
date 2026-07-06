@@ -62,6 +62,7 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 |---|---|
 | id | PK |
 | name | e.g. "Kiddo was rude" |
+| description | nullable String — optional longer freeform text beyond the title |
 | icon | emoji, required — the Case's visual identity everywhere |
 | createdAt | start of the observation window (see §8) |
 | logFlow | `ONE_TAP` \| `DETAIL_SHEET` — what the widget/log button does |
@@ -252,7 +253,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 | **Home** | Case list (drag to reorder): icon, name, today/this-week count, quick-log button, ongoing indicator. FAB: new Case. Trigger banners if notifications are denied. |
 | **Big Picture** | §9 flagship view. |
 | **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10), **Hunch** (verdict card or hunch creation, hunch history). Header: icon, name, share action (§13), config access. |
-| **New/edit Case** | Name, icon picker, logFlow, durationMode, intensity toggle, pinned toggle, check-in override (default / custom days / off); then the skippable Hunch step. |
+| **New/edit Case** | Name, optional description, icon picker, logFlow, durationMode, intensity toggle, pinned toggle, check-in override (default / custom days / off); then the skippable Hunch step. |
 | **Log detail sheet** | §6 — reachable from widget (trampoline activity), Home, case detail. |
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
 | **Triggers** | Per Case: list, create, enable/disable. |
