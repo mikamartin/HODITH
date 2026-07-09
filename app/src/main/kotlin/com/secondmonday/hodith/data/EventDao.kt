@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -23,6 +24,10 @@ interface EventDao {
 
     @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC")
     fun observeEventsForCase(caseId: Long): Flow<List<EventEntity>>
+
+    @Transaction
+    @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC")
+    fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>>
 
     @Query(
         "SELECT * FROM events WHERE caseId = :caseId " +

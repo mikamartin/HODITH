@@ -95,4 +95,33 @@ class EventDaoTest {
 
             assertEquals(ongoingId, ongoing?.id)
         }
+
+    @Test
+    fun observeEventsWithTagsForCase_bundlesEachEventsOwnTagsOnly() =
+        runTest {
+            val tagDao = db.tagDao()
+            val taggedId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            val untaggedId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L))
+            val tagId = tagDao.insert(TagEntity(name = "at-dinner"))
+            tagDao.insertEventTag(EventTagCrossRef(eventId = taggedId, tagId = tagId))
+
+            val events = eventDao.observeEventsWithTagsForCase(caseId).first()
+
+            val tagged = events.single { it.event.id == taggedId }
+            val untagged = events.single { it.event.id == untaggedId }
+            assertEquals(listOf("at-dinner"), tagged.tags.map { it.name })
+            assertEquals(emptyList<TagEntity>(), untagged.tags)
+        }
+
+    @Test
+    fun observeEventsWithTagsForCase_ordersNewestFirst() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L))
+
+            val events = eventDao.observeEventsWithTagsForCase(caseId).first()
+
+            assertEquals(listOf(300L, 200L, 100L), events.map { it.event.occurredAt })
+        }
 }

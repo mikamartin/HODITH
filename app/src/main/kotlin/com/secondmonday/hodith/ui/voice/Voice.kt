@@ -47,6 +47,21 @@ interface Voice {
     val deleteEventConfirmBody: String
     val deleteEventConfirmAction: String
     val deleteEventCancelAction: String
+    val retroLogEntryLabel: String
+    val logSheetNewEventTitle: String
+    val logSheetEditEventTitle: String
+    val logSheetTimeLabel: String
+    val logSheetIntensityLabel: String
+    val logSheetDurationLabel: String
+    val logSheetDurationHint: String
+    val logSheetNoteLabel: String
+    val logSheetNoteHint: String
+    val logSheetTagsLabel: String
+    val logSheetAddTagHint: String
+    val logSheetRemoveTagDescription: String
+    val logSheetSaveButton: String
+    val logSheetPickerConfirm: String
+    val logSheetPickerCancel: String
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -95,6 +110,21 @@ object SeriousVoice : Voice {
     override val deleteEventConfirmBody = "This can't be undone."
     override val deleteEventConfirmAction = "Delete"
     override val deleteEventCancelAction = "Cancel"
+    override val retroLogEntryLabel = "It happened earlier…"
+    override val logSheetNewEventTitle = "Log an event"
+    override val logSheetEditEventTitle = "Edit event"
+    override val logSheetTimeLabel = "When"
+    override val logSheetIntensityLabel = "Intensity"
+    override val logSheetDurationLabel = "Duration"
+    override val logSheetDurationHint = "Minutes"
+    override val logSheetNoteLabel = "Note (optional)"
+    override val logSheetNoteHint = "Anything worth remembering"
+    override val logSheetTagsLabel = "Tags"
+    override val logSheetAddTagHint = "Add a tag"
+    override val logSheetRemoveTagDescription = "Remove tag"
+    override val logSheetSaveButton = "Save"
+    override val logSheetPickerConfirm = "OK"
+    override val logSheetPickerCancel = "Cancel"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -143,6 +173,21 @@ object GothVoice : Voice {
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
     override val deleteEventConfirmAction = "Erase"
     override val deleteEventCancelAction = "Spare it"
+    override val retroLogEntryLabel = "It happened before now…"
+    override val logSheetNewEventTitle = "Record the evidence"
+    override val logSheetEditEventTitle = "Amend the record"
+    override val logSheetTimeLabel = "The hour it happened"
+    override val logSheetIntensityLabel = "Severity"
+    override val logSheetDurationLabel = "How long it lingered"
+    override val logSheetDurationHint = "Minutes"
+    override val logSheetNoteLabel = "Notes (optional)"
+    override val logSheetNoteHint = "Whatever the shadows recall"
+    override val logSheetTagsLabel = "Marks"
+    override val logSheetAddTagHint = "Name a mark"
+    override val logSheetRemoveTagDescription = "Strike this mark"
+    override val logSheetSaveButton = "Commit to the record"
+    override val logSheetPickerConfirm = "So be it"
+    override val logSheetPickerCancel = "Retreat"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -191,6 +236,21 @@ object QuirkyVoice : Voice {
     override val deleteEventConfirmBody = "Poof — no take-backs."
     override val deleteEventConfirmAction = "Zap it"
     override val deleteEventCancelAction = "Never mind"
+    override val retroLogEntryLabel = "Oh right, it happened earlier…"
+    override val logSheetNewEventTitle = "Log the moment"
+    override val logSheetEditEventTitle = "Tweak this moment"
+    override val logSheetTimeLabel = "When'd it happen?"
+    override val logSheetIntensityLabel = "How intense?"
+    override val logSheetDurationLabel = "How long?"
+    override val logSheetDurationHint = "Minutes"
+    override val logSheetNoteLabel = "Note (optional)"
+    override val logSheetNoteHint = "Spill the details"
+    override val logSheetTagsLabel = "Tags"
+    override val logSheetAddTagHint = "Slap on a tag"
+    override val logSheetRemoveTagDescription = "Yeet this tag"
+    override val logSheetSaveButton = "Log it!"
+    override val logSheetPickerConfirm = "Yep!"
+    override val logSheetPickerCancel = "Nah"
 
     override fun homeCaseCounts(
         todayCount: Int,
