@@ -17,11 +17,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.secondmonday.hodith.ui.bigpicture.BigPictureScreen
 import com.secondmonday.hodith.ui.case.CaseEditRoute
+import com.secondmonday.hodith.ui.casedetail.CaseDetailRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
 import com.secondmonday.hodith.ui.settings.SettingsScreen
 import com.secondmonday.hodith.ui.voice.LocalVoice
 
 private const val CASE_EDIT_ROUTE = "case_edit"
+private const val CASE_DETAIL_ROUTE = "case_detail"
 private const val CASE_ID_ARG = "caseId"
 private const val NO_CASE_ID = -1L
 
@@ -39,7 +41,9 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
         bottomBar = {
-            if (currentRoute?.startsWith(CASE_EDIT_ROUTE) != true) {
+            val onDetailScreen =
+                currentRoute?.startsWith(CASE_EDIT_ROUTE) == true || currentRoute?.startsWith(CASE_DETAIL_ROUTE) == true
+            if (!onDetailScreen) {
                 NavigationBar {
                     HodithDestination.entries.forEach { destination ->
                         NavigationBarItem(
@@ -70,7 +74,7 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
             composable(HodithDestination.HOME.route) {
                 HomeRoute(
                     onNewCase = { navController.navigate(CASE_EDIT_ROUTE) },
-                    onEditCase = { caseId -> navController.navigate("$CASE_EDIT_ROUTE?$CASE_ID_ARG=$caseId") },
+                    onOpenCase = { caseId -> navController.navigate("$CASE_DETAIL_ROUTE/$caseId") },
                 )
             }
             composable(HodithDestination.BIG_PICTURE.route) { BigPictureScreen() }
@@ -86,6 +90,15 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
                     ),
             ) {
                 CaseEditRoute(onDone = { navController.popBackStack() })
+            }
+            composable(
+                route = "$CASE_DETAIL_ROUTE/{$CASE_ID_ARG}",
+                arguments = listOf(navArgument(CASE_ID_ARG) { type = NavType.LongType }),
+            ) {
+                CaseDetailRoute(
+                    onBack = { navController.popBackStack() },
+                    onEditCase = { caseId -> navController.navigate("$CASE_EDIT_ROUTE?$CASE_ID_ARG=$caseId") },
+                )
             }
         }
     }

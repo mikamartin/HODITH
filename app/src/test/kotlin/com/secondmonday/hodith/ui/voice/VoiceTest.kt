@@ -41,8 +41,15 @@ class VoiceTest {
             assertTrue(voice.caseCheckInOff.isNotBlank())
             assertTrue(voice.caseCheckInCustomDaysHint.isNotBlank())
             assertTrue(voice.caseSaveButton.isNotBlank())
+            assertTrue(voice.caseDetailEditDescription.isNotBlank())
+            assertTrue(voice.eventListEmptyState.isNotBlank())
+            assertTrue(voice.deleteEventConfirmTitle.isNotBlank())
+            assertTrue(voice.deleteEventConfirmBody.isNotBlank())
+            assertTrue(voice.deleteEventConfirmAction.isNotBlank())
+            assertTrue(voice.deleteEventCancelAction.isNotBlank())
             assertTrue(voice.homeCaseCounts(todayCount = 0, weekCount = 0).isNotBlank())
             assertTrue(voice.homeCaseCounts(todayCount = 3, weekCount = 12).isNotBlank())
+            assertTrue(voice.eventIntensityLabel(intensity = 3).isNotBlank())
         }
     }
 }

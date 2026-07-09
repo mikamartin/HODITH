@@ -34,19 +34,19 @@ import com.secondmonday.hodith.viewmodel.HomeViewModel
 @Composable
 fun HomeRoute(
     onNewCase: () -> Unit,
-    onEditCase: (Long) -> Unit,
+    onOpenCase: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    HomeScreen(uiState = uiState, onNewCase = onNewCase, onEditCase = onEditCase, modifier = modifier)
+    HomeScreen(uiState = uiState, onNewCase = onNewCase, onOpenCase = onOpenCase, modifier = modifier)
 }
 
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
     onNewCase: () -> Unit,
-    onEditCase: (Long) -> Unit,
+    onOpenCase: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -70,7 +70,7 @@ fun HomeScreen(
                 else -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(uiState.cases, key = { it.caseId }) { row ->
-                            HomeCaseListItem(row = row, voice = voice, onClick = { onEditCase(row.caseId) })
+                            HomeCaseListItem(row = row, voice = voice, onClick = { onOpenCase(row.caseId) })
                         }
                     }
                 }
