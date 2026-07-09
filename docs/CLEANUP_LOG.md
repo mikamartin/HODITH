@@ -15,6 +15,25 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/case-crud (Phase 2, slice 2 of 3)
+
+**Scope:** New/Edit Case screen (§14 core fields: name, optional description, icon picker, logFlow, durationMode, intensity toggle, pinned toggle, check-in override), `CaseEntity.description` field + schema bump to v2, Home's FAB (create) and row-tap (edit) wired to it. Skippable Hunch step deliberately out of scope — see Deferred.
+**Found & fixed:**
+- **Duplication:** the logFlow and durationMode pickers were two near-identical inline `SingleChoiceSegmentedButtonRow` blocks differing only in the enum type and options. Extracted a shared generic `SegmentedChoiceRow<T>` composable.
+- **Accessibility — icon-only button:** the screen's back `IconButton` had `contentDescription = null`. That null pattern is correct for the bottom-nav items (precedent in `feature/home-screen`'s entry below) because their visible label already names them — but this back button has no adjacent label, so `null` would leave it unannounced to TalkBack. Added a new `backButtonDescription` Voice key and wired it in.
+- **Accessibility — selection conveyed by color alone:** the icon-picker grid and the check-in radio rows only showed selection via a background-color change, invisible to TalkBack. Switched both to `Modifier.selectable(selected, onClick, role = Role.RadioButton)` on the row/cell plus `Modifier.selectableGroup()` on their containers, so selected state is announced. `RadioButton`'s own `onClick` set to `null` (the recommended pattern) to avoid a duplicate, differently-scoped click target on top of the row's.
+- **Tap target size:** the icon-picker cells were 44dp, under the 48dp minimum. Bumped to 48dp.
+- **Test gap:** `checkInDaysFor` (DEFAULT/CUSTOM/OFF → nullable day count mapping) had no coverage. Made `internal` and added five cases including blank and zero custom-input fallback.
+- **Deprecation:** `fallbackToDestructiveMigration()` is deprecated in this Room version; switched to the `dropAllTables = true` overload.
+- **Instrumented tests verified:** `CaseDaoTest`'s new `description` round-trip case, plus the full `connectedDebugAndroidTest` and `test` suites, run and passed on a physical device — closes the gap flagged mid-review (DEV_PLAYBOOK §1's "ran on a device" check is separate from "compiles").
+**Deferred:**
+- **Hunch step:** §14 describes the New/Edit Case flow ending in a skippable Hunch step. Moved to its own follow-up branch — Hunch creation is new surface area (direction/expectedCount/expectedPer) beyond Case CRUD's core fields, and splitting it keeps this PR reviewable. Recorded in PROGRESS.md.
+- **Row-tap → Edit Case is interim wiring**, not the final design: Case Detail doesn't exist until `feature/logging-flows`. Documented in PROGRESS.md with the intended end state (row-tap → Case Detail, Edit moves to its header, Home gets its own quick-log button per row).
+- **Check-in "Custom" with a blank/zero day count** silently falls back to the same result as "Use default" rather than blocking save with a validation error. Deliberate simplification, not a tracked gap — revisit only if it causes real confusion.
+**Docs updated:** PROGRESS.md (slice 2 scope corrected to reflect the Hunch-step deferral, new "Interim UX wiring" note). HODITH_SPEC.md not touched — the target screen design is unchanged, only the build sequencing differs.
+
+---
+
 ## feature/home-screen (Phase 2, slice 1 of 3)
 
 **Scope:** First Phase 2 slice — Navigation Compose scaffold (bottom nav: Home · Big Picture · Settings), read-only Home screen wired to real `HodithRepository` data via a new `HomeViewModel`, placeholder Big Picture/Settings destinations, new `Voice` keys, `description` field added to the Case spec (§5, §14) after a product discussion ruled out a separate Case-level valence field.

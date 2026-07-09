@@ -1,0 +1,50 @@
+package com.secondmonday.hodith.ui.case
+
+/**
+ * Curated icon set for the Case icon picker (§5, §14). A fixed app-defined list rather than
+ * the system emoji keyboard, so the picker looks consistent across devices/OS versions.
+ */
+val CASE_ICONS =
+    listOf(
+        "🗣️",
+        "🤝",
+        "💬",
+        "👶",
+        "🐶",
+        "🐱",
+        "😊",
+        "😢",
+        "😡",
+        "😴",
+        "🥱",
+        "🧠",
+        "🤕",
+        "🤒",
+        "🩸",
+        "💊",
+        "🦷",
+        "☕️",
+        "🚬",
+        "🍷",
+        "🍔",
+        "📱",
+        "🎮",
+        "🏋️",
+        "🏃",
+        "🧘",
+        "📚",
+        "🎨",
+        "🎵",
+        "☀️",
+        "🌧️",
+        "🚆",
+        "✨",
+        "🎉",
+        "📞",
+        "💸",
+        "💼",
+        "⏰",
+        "🍽️",
+        "🧹",
+        "🛏️",
+    )

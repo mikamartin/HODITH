@@ -15,6 +15,32 @@ interface Voice {
     val bigPictureNavLabel: String
     val settingsNavLabel: String
     val comingSoonPlaceholder: String
+    val newCaseTitle: String
+    val editCaseTitle: String
+    val newCaseFabDescription: String
+    val backButtonDescription: String
+    val caseNameLabel: String
+    val caseNameHint: String
+    val caseNameRequiredError: String
+    val caseDescriptionLabel: String
+    val caseDescriptionHint: String
+    val caseIconLabel: String
+    val caseIconRequiredError: String
+    val caseLogFlowLabel: String
+    val caseLogFlowOneTap: String
+    val caseLogFlowDetailSheet: String
+    val caseDurationModeLabel: String
+    val caseDurationModeNone: String
+    val caseDurationModeManual: String
+    val caseDurationModeStartStop: String
+    val caseIntensityToggleLabel: String
+    val casePinnedToggleLabel: String
+    val caseCheckInLabel: String
+    val caseCheckInDefault: String
+    val caseCheckInCustom: String
+    val caseCheckInOff: String
+    val caseCheckInCustomDaysHint: String
+    val caseSaveButton: String
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -29,6 +55,32 @@ object SeriousVoice : Voice {
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
     override val comingSoonPlaceholder = "Coming soon."
+    override val newCaseTitle = "New case"
+    override val editCaseTitle = "Edit case"
+    override val newCaseFabDescription = "New case"
+    override val backButtonDescription = "Back"
+    override val caseNameLabel = "Name"
+    override val caseNameHint = "e.g. Kiddo was rude"
+    override val caseNameRequiredError = "Name is required."
+    override val caseDescriptionLabel = "Description (optional)"
+    override val caseDescriptionHint = "Any more detail worth noting"
+    override val caseIconLabel = "Icon"
+    override val caseIconRequiredError = "Pick an icon."
+    override val caseLogFlowLabel = "Logging"
+    override val caseLogFlowOneTap = "One tap"
+    override val caseLogFlowDetailSheet = "Detail sheet"
+    override val caseDurationModeLabel = "Duration"
+    override val caseDurationModeNone = "None"
+    override val caseDurationModeManual = "Manual"
+    override val caseDurationModeStartStop = "Start/stop"
+    override val caseIntensityToggleLabel = "Track intensity (1-5)"
+    override val casePinnedToggleLabel = "Pin to widget"
+    override val caseCheckInLabel = "Check-in"
+    override val caseCheckInDefault = "Use default"
+    override val caseCheckInCustom = "Custom"
+    override val caseCheckInOff = "Off"
+    override val caseCheckInCustomDaysHint = "Days"
+    override val caseSaveButton = "Save"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -43,6 +95,32 @@ object GothVoice : Voice {
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
     override val comingSoonPlaceholder = "Not yet manifest."
+    override val newCaseTitle = "Open a new case"
+    override val editCaseTitle = "Revise the case"
+    override val newCaseFabDescription = "Open a new case"
+    override val backButtonDescription = "Back"
+    override val caseNameLabel = "Name"
+    override val caseNameHint = "e.g. Kiddo was rude"
+    override val caseNameRequiredError = "It needs a name to be watched."
+    override val caseDescriptionLabel = "Description (optional)"
+    override val caseDescriptionHint = "Say more, if the shadows require it"
+    override val caseIconLabel = "Icon"
+    override val caseIconRequiredError = "Choose a mark for it."
+    override val caseLogFlowLabel = "Logging"
+    override val caseLogFlowOneTap = "One tap"
+    override val caseLogFlowDetailSheet = "Detail sheet"
+    override val caseDurationModeLabel = "Duration"
+    override val caseDurationModeNone = "None"
+    override val caseDurationModeManual = "Manual"
+    override val caseDurationModeStartStop = "Start/stop"
+    override val caseIntensityToggleLabel = "Track intensity (1-5)"
+    override val casePinnedToggleLabel = "Pin to widget"
+    override val caseCheckInLabel = "Check-in"
+    override val caseCheckInDefault = "Use default"
+    override val caseCheckInCustom = "Custom"
+    override val caseCheckInOff = "Off"
+    override val caseCheckInCustomDaysHint = "Days"
+    override val caseSaveButton = "Seal it"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -57,6 +135,32 @@ object QuirkyVoice : Voice {
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
     override val comingSoonPlaceholder = "Plot twist: not built yet!"
+    override val newCaseTitle = "Crack open a new case"
+    override val editCaseTitle = "Tweak the case"
+    override val newCaseFabDescription = "Crack open a new case"
+    override val backButtonDescription = "Back"
+    override val caseNameLabel = "Name"
+    override val caseNameHint = "e.g. Kiddo was rude"
+    override val caseNameRequiredError = "Give it a name first!"
+    override val caseDescriptionLabel = "Description (optional)"
+    override val caseDescriptionHint = "Spill any extra details"
+    override val caseIconLabel = "Icon"
+    override val caseIconRequiredError = "Pick a little icon for it!"
+    override val caseLogFlowLabel = "Logging"
+    override val caseLogFlowOneTap = "One tap"
+    override val caseLogFlowDetailSheet = "Detail sheet"
+    override val caseDurationModeLabel = "Duration"
+    override val caseDurationModeNone = "None"
+    override val caseDurationModeManual = "Manual"
+    override val caseDurationModeStartStop = "Start/stop"
+    override val caseIntensityToggleLabel = "Track intensity (1-5)"
+    override val casePinnedToggleLabel = "Pin to widget"
+    override val caseCheckInLabel = "Check-in"
+    override val caseCheckInDefault = "Use default"
+    override val caseCheckInCustom = "Custom"
+    override val caseCheckInOff = "Off"
+    override val caseCheckInCustomDaysHint = "Days"
+    override val caseSaveButton = "Save it!"
 
     override fun homeCaseCounts(
         todayCount: Int,

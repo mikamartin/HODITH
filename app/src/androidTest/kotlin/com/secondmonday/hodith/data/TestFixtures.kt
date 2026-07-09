@@ -8,6 +8,7 @@ fun createInMemoryDatabase(): HodithDatabase =
 
 fun testCase(
     name: String = "Test Case",
+    description: String? = null,
     icon: String = "🐛",
     createdAt: Long = 0L,
     logFlow: LogFlow = LogFlow.ONE_TAP,
@@ -21,6 +22,7 @@ fun testCase(
     archived: Boolean = false,
 ) = CaseEntity(
     name = name,
+    description = description,
     icon = icon,
     createdAt = createdAt,
     logFlow = logFlow,
