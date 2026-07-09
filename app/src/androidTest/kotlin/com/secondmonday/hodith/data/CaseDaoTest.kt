@@ -37,6 +37,16 @@ class CaseDaoTest {
         }
 
     @Test
+    fun insertAndGetById_persistsOptionalDescription() =
+        runTest {
+            val id = caseDao.insert(testCase(name = "Migraines", description = "Started after the move"))
+
+            val loaded = caseDao.getById(id)
+
+            assertEquals("Started after the move", loaded?.description)
+        }
+
+    @Test
     fun update_persistsChanges() =
         runTest {
             val id = caseDao.insert(testCase(name = "Migraines"))
