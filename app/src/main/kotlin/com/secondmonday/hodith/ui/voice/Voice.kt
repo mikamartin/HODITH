@@ -41,11 +41,19 @@ interface Voice {
     val caseCheckInOff: String
     val caseCheckInCustomDaysHint: String
     val caseSaveButton: String
+    val caseDetailEditDescription: String
+    val eventListEmptyState: String
+    val deleteEventConfirmTitle: String
+    val deleteEventConfirmBody: String
+    val deleteEventConfirmAction: String
+    val deleteEventCancelAction: String
 
     fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
     ): String
+
+    fun eventIntensityLabel(intensity: Int): String
 }
 
 object SeriousVoice : Voice {
@@ -81,11 +89,19 @@ object SeriousVoice : Voice {
     override val caseCheckInOff = "Off"
     override val caseCheckInCustomDaysHint = "Days"
     override val caseSaveButton = "Save"
+    override val caseDetailEditDescription = "Edit case"
+    override val eventListEmptyState = "No events logged yet."
+    override val deleteEventConfirmTitle = "Delete this event?"
+    override val deleteEventConfirmBody = "This can't be undone."
+    override val deleteEventConfirmAction = "Delete"
+    override val deleteEventCancelAction = "Cancel"
 
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
     ) = "Today: $todayCount · This week: $weekCount"
+
+    override fun eventIntensityLabel(intensity: Int) = "Intensity $intensity"
 }
 
 object GothVoice : Voice {
@@ -121,11 +137,19 @@ object GothVoice : Voice {
     override val caseCheckInOff = "Off"
     override val caseCheckInCustomDaysHint = "Days"
     override val caseSaveButton = "Seal it"
+    override val caseDetailEditDescription = "Revise the case"
+    override val eventListEmptyState = "No evidence gathered yet."
+    override val deleteEventConfirmTitle = "Strike this from the record?"
+    override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
+    override val deleteEventConfirmAction = "Erase"
+    override val deleteEventCancelAction = "Spare it"
 
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
     ) = "Today: $todayCount — this week: $weekCount"
+
+    override fun eventIntensityLabel(intensity: Int) = "Intensity: $intensity"
 }
 
 object QuirkyVoice : Voice {
@@ -161,11 +185,19 @@ object QuirkyVoice : Voice {
     override val caseCheckInOff = "Off"
     override val caseCheckInCustomDaysHint = "Days"
     override val caseSaveButton = "Save it!"
+    override val caseDetailEditDescription = "Tweak the case"
+    override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
+    override val deleteEventConfirmTitle = "Zap this event?"
+    override val deleteEventConfirmBody = "Poof — no take-backs."
+    override val deleteEventConfirmAction = "Zap it"
+    override val deleteEventCancelAction = "Never mind"
 
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
     ) = "Today: $todayCount (this week: $weekCount)"
+
+    override fun eventIntensityLabel(intensity: Int) = "Feels like a $intensity!"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { SeriousVoice }
