@@ -30,7 +30,7 @@ class HodithRepository
         suspend fun deleteCase(case: CaseEntity) = caseDao.delete(case)
 
         // Event
-        fun observeEventsForCase(caseId: Long): Flow<List<EventEntity>> = eventDao.observeEventsForCase(caseId)
+        fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
 
         suspend fun eventsInWindow(
             caseId: Long,

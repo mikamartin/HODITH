@@ -24,6 +24,9 @@ private const val MIN_DURATION_MILLIS = 30L * 60 * 1000L
 private const val MAX_DURATION_MILLIS = 6L * 60 * 60 * 1000L
 private const val MIN_INTENSITY = 1
 private const val MAX_INTENSITY = 5
+private const val NOTE_CHANCE_PERCENT = 45
+private const val TAG_CHANCE_PERCENT = 50
+private const val MAX_TAGS_PER_EVENT = 2
 
 private enum class SeedDensity { SPARSE, BURSTY, DENSE }
 
@@ -33,18 +36,70 @@ private data class CaseSeed(
     val durationMode: DurationMode,
     val intensityEnabled: Boolean,
     val density: SeedDensity,
+    val notes: List<String>,
+    val tags: List<String>,
 )
 
 // Deliberately varied on every axis Big Picture needs to exercise: duration mode, intensity,
-// and event density (dense/bursty/sparse) spread across several months.
+// and event density (dense/bursty/sparse) spread across several months. Notes and tags are
+// populated on only some events (not all, not none) so Case Detail's empty states and the log
+// sheet's tag autocomplete both have real data to exercise.
 private val CASE_SEEDS =
     listOf(
-        CaseSeed("Coffee", "☕️", DurationMode.NONE, intensityEnabled = false, density = SeedDensity.DENSE),
-        CaseSeed("Migraine", "🤕", DurationMode.START_STOP, intensityEnabled = true, density = SeedDensity.BURSTY),
-        CaseSeed("Lost my keys", "🔑", DurationMode.NONE, intensityEnabled = false, density = SeedDensity.SPARSE),
-        CaseSeed("Argument", "💢", DurationMode.NONE, intensityEnabled = true, density = SeedDensity.BURSTY),
-        CaseSeed("Workout", "🏋️", DurationMode.START_STOP, intensityEnabled = false, density = SeedDensity.DENSE),
-        CaseSeed("Nosebleed", "🩸", DurationMode.NONE, intensityEnabled = false, density = SeedDensity.SPARSE),
+        CaseSeed(
+            name = "Coffee",
+            icon = "☕️",
+            durationMode = DurationMode.NONE,
+            intensityEnabled = false,
+            density = SeedDensity.DENSE,
+            notes = listOf("Perfectly balanced", "A bit weak", "Extra hot", "Oat milk today", "Burnt beans again"),
+            tags = listOf("home", "cafe", "oat-milk", "decaf"),
+        ),
+        CaseSeed(
+            name = "Migraine",
+            icon = "🤕",
+            durationMode = DurationMode.START_STOP,
+            intensityEnabled = true,
+            density = SeedDensity.BURSTY,
+            notes = listOf("Started after screen time", "Woke up with it", "Triggered by wine", "Light sensitivity bad"),
+            tags = listOf("aura", "light-sensitive", "medicated", "no-relief"),
+        ),
+        CaseSeed(
+            name = "Lost my keys",
+            icon = "🔑",
+            durationMode = DurationMode.NONE,
+            intensityEnabled = false,
+            density = SeedDensity.SPARSE,
+            notes = listOf("Found them in the fridge", "Under the couch again", "Left at the office", "In yesterday's jacket"),
+            tags = listOf("morning-rush", "found-fast", "still-missing"),
+        ),
+        CaseSeed(
+            name = "Argument",
+            icon = "💢",
+            durationMode = DurationMode.NONE,
+            intensityEnabled = true,
+            density = SeedDensity.BURSTY,
+            notes = listOf("About chores", "Over the phone", "Blew over quickly", "Still tense after"),
+            tags = listOf("at-dinner", "on-the-phone", "resolved", "unresolved"),
+        ),
+        CaseSeed(
+            name = "Workout",
+            icon = "🏋️",
+            durationMode = DurationMode.START_STOP,
+            intensityEnabled = false,
+            density = SeedDensity.DENSE,
+            notes = listOf("Leg day", "Easy recovery run", "Skipped cardio", "Felt strong today"),
+            tags = listOf("gym", "home", "cardio", "strength"),
+        ),
+        CaseSeed(
+            name = "Nosebleed",
+            icon = "🩸",
+            durationMode = DurationMode.NONE,
+            intensityEnabled = false,
+            density = SeedDensity.SPARSE,
+            notes = listOf("Dry air, probably", "Right after a sneeze", "Out of nowhere"),
+            tags = listOf("dry-weather", "minor", "prolonged"),
+        ),
     )
 
 /**
@@ -91,16 +146,18 @@ class SeedDataInitializer
 
                 val random = Random(SEED_RANDOM_SEED + index)
                 occurrencesFor(caseSeed.density, spanStart, now, random).forEach { occurredAt ->
-                    repository.insertEvent(
-                        EventEntity(
-                            caseId = caseId,
-                            occurredAt = occurredAt,
-                            endedAt = endedAtFor(caseSeed.durationMode, occurredAt, now, random),
-                            intensity = intensityFor(caseSeed.intensityEnabled, random),
-                            note = null,
-                            loggedAt = occurredAt,
-                        ),
-                    )
+                    val eventId =
+                        repository.insertEvent(
+                            EventEntity(
+                                caseId = caseId,
+                                occurredAt = occurredAt,
+                                endedAt = endedAtFor(caseSeed.durationMode, occurredAt, now, random),
+                                intensity = intensityFor(caseSeed.intensityEnabled, random),
+                                note = noteFor(caseSeed.notes, random),
+                                loggedAt = occurredAt,
+                            ),
+                        )
+                    tagsFor(caseSeed.tags, random).forEach { tagName -> repository.addTagToEvent(eventId, tagName) }
                     eventCount++
                 }
             }
@@ -172,3 +229,17 @@ private fun intensityFor(
     intensityEnabled: Boolean,
     random: Random,
 ): Int? = if (intensityEnabled) random.nextInt(MIN_INTENSITY, MAX_INTENSITY + 1) else null
+
+private fun noteFor(
+    notes: List<String>,
+    random: Random,
+): String? = if (random.nextInt(100) < NOTE_CHANCE_PERCENT) notes.random(random) else null
+
+private fun tagsFor(
+    tags: List<String>,
+    random: Random,
+): List<String> {
+    if (random.nextInt(100) >= TAG_CHANCE_PERCENT) return emptyList()
+    val count = random.nextInt(1, MAX_TAGS_PER_EVENT + 1)
+    return tags.shuffled(random).take(count)
+}

@@ -124,7 +124,7 @@ Verdicts are **computed, never stored** — the verdict engine is a set of pure 
 - **Detail sheet** (bottom sheet, ≤5 seconds to complete): time (defaults now, editable → retro-log), intensity 1–5 (if enabled), duration or Start (per durationMode), note, tag chips with autocomplete. Big primary button saves; everything optional.
 - **Start/stop**: Start creates an Event with `endedAt = null`. Widget and Home show the Case as **ongoing** with elapsed time and a Stop action. One ongoing event per Case; Start is disabled while ongoing. An ongoing event older than 24 h surfaces a gentle prompt: "Still going, or forgot to stop it?" (edit end time / still going).
 - **Retro-log**: from case detail, "It happened earlier…" → detail sheet with date/time picker.
-- Every event is editable and deletable from the case's event list.
+- Every event is editable and deletable from the case's event list. Each row shows its timestamp (weekday + date, year only when it differs from the current year, plus time-of-day) and, inline on a second line, intensity/note/tags when present. Currently always shown, no per-user toggle — flagged in PROGRESS.md to reconsider as a Settings switch once Settings (§14) gets real content.
 
 ## 7. Hunch flow
 

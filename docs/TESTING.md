@@ -54,7 +54,7 @@ Cadence: before every release; full pass before Play submissions.
 
 ## Deferrals
 
-*(empty — populate as gaps are knowingly accepted, with reasons)*
+- **Compose UI instrumented test for the log detail sheet** (`feature/log-detail-sheet`) — save with retro time, tag add/remove, delete-from-sheet, date/time picker restrictions. Covered so far by unit tests (`LogDetailViewModelTest` for all the pure logic — draft building, duration/endedAt math, tag diffing, date/time recombination, and `CaseDetailViewModel.saveEvent`'s insert-vs-update/loggedAt/tag-diff decisions via the extracted `planSaveEvent`) and instrumented DAO tests (`EventDaoTest`'s `observeEventsWithTagsForCase` cases), but nothing yet drives the actual Compose UI end-to-end — `LogDetailSheet`/`CaseDetailScreen` themselves have zero automated coverage, only manual on-device verification this session. No Compose UI instrumented test exists anywhere in the repo yet (Create Case, one-tap+undo, etc. are all still in the same boat per the table above) — deferred until `feature/quick-log` or `feature/start-stop` stands up that pattern for the first time, rather than doing it ad hoc here.
 
 ## Known environment issues
 
