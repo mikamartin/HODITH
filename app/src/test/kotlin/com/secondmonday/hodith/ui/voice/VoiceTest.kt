@@ -62,9 +62,12 @@ class VoiceTest {
             assertTrue(voice.logSheetSaveButton.isNotBlank())
             assertTrue(voice.logSheetPickerConfirm.isNotBlank())
             assertTrue(voice.logSheetPickerCancel.isNotBlank())
+            assertTrue(voice.quickLogUndoAction.isNotBlank())
             assertTrue(voice.homeCaseCounts(todayCount = 0, weekCount = 0).isNotBlank())
             assertTrue(voice.homeCaseCounts(todayCount = 3, weekCount = 12).isNotBlank())
             assertTrue(voice.eventIntensityLabel(intensity = 3).isNotBlank())
+            assertTrue(voice.quickLogButtonDescription(caseName = "Test Case").isNotBlank())
+            assertTrue(voice.quickLogUndoMessage(caseName = "Test Case").isNotBlank())
         }
     }
 }

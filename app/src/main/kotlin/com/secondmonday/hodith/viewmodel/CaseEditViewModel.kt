@@ -27,7 +27,7 @@ data class CaseEditUiState(
     val name: String = "",
     val description: String = "",
     val icon: String? = null,
-    val logFlow: LogFlow = LogFlow.ONE_TAP,
+    val logFlow: LogFlow = LogFlow.DETAIL_SHEET,
     val durationMode: DurationMode = DurationMode.NONE,
     val intensityEnabled: Boolean = false,
     val pinned: Boolean = false,
