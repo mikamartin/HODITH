@@ -62,6 +62,7 @@ interface Voice {
     val logSheetSaveButton: String
     val logSheetPickerConfirm: String
     val logSheetPickerCancel: String
+    val quickLogUndoAction: String
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -69,6 +70,10 @@ interface Voice {
     ): String
 
     fun eventIntensityLabel(intensity: Int): String
+
+    fun quickLogButtonDescription(caseName: String): String
+
+    fun quickLogUndoMessage(caseName: String): String
 }
 
 object SeriousVoice : Voice {
@@ -125,6 +130,7 @@ object SeriousVoice : Voice {
     override val logSheetSaveButton = "Save"
     override val logSheetPickerConfirm = "OK"
     override val logSheetPickerCancel = "Cancel"
+    override val quickLogUndoAction = "Undo"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -132,6 +138,10 @@ object SeriousVoice : Voice {
     ) = "Today: $todayCount · This week: $weekCount"
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity $intensity"
+
+    override fun quickLogButtonDescription(caseName: String) = "Log $caseName now"
+
+    override fun quickLogUndoMessage(caseName: String) = "Logged $caseName."
 }
 
 object GothVoice : Voice {
@@ -188,6 +198,7 @@ object GothVoice : Voice {
     override val logSheetSaveButton = "Commit to the record"
     override val logSheetPickerConfirm = "So be it"
     override val logSheetPickerCancel = "Retreat"
+    override val quickLogUndoAction = "Reverse it"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -195,6 +206,10 @@ object GothVoice : Voice {
     ) = "Today: $todayCount — this week: $weekCount"
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity: $intensity"
+
+    override fun quickLogButtonDescription(caseName: String) = "Add $caseName to the record"
+
+    override fun quickLogUndoMessage(caseName: String) = "$caseName entered into the record."
 }
 
 object QuirkyVoice : Voice {
@@ -251,6 +266,7 @@ object QuirkyVoice : Voice {
     override val logSheetSaveButton = "Log it!"
     override val logSheetPickerConfirm = "Yep!"
     override val logSheetPickerCancel = "Nah"
+    override val quickLogUndoAction = "Oops, undo!"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -258,6 +274,10 @@ object QuirkyVoice : Voice {
     ) = "Today: $todayCount (this week: $weekCount)"
 
     override fun eventIntensityLabel(intensity: Int) = "Feels like a $intensity!"
+
+    override fun quickLogButtonDescription(caseName: String) = "Log $caseName!"
+
+    override fun quickLogUndoMessage(caseName: String) = "Logged $caseName!"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { SeriousVoice }

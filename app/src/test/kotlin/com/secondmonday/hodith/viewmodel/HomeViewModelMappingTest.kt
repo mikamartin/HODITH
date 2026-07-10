@@ -75,11 +75,35 @@ class HomeViewModelMappingTest {
         assertEquals("Coffee", row.name)
     }
 
+    @Test
+    fun `maps logFlow, durationMode and intensityEnabled through`() {
+        val rows =
+            homeCaseRows(
+                listOf(
+                    caseWithEvents(
+                        events = emptyList(),
+                        logFlow = LogFlow.DETAIL_SHEET,
+                        durationMode = DurationMode.MANUAL,
+                        intensityEnabled = true,
+                    ),
+                ),
+                now.toInstant().toEpochMilli(),
+            )
+
+        val row = rows.single()
+        assertEquals(LogFlow.DETAIL_SHEET, row.logFlow)
+        assertEquals(DurationMode.MANUAL, row.durationMode)
+        assertEquals(true, row.intensityEnabled)
+    }
+
     private fun caseWithEvents(
         caseId: Long = 1L,
         icon: String = "🐛",
         name: String = "Test Case",
         events: List<EventEntity>,
+        logFlow: LogFlow = LogFlow.ONE_TAP,
+        durationMode: DurationMode = DurationMode.NONE,
+        intensityEnabled: Boolean = false,
     ) = CaseWithEvents(
         case =
             CaseEntity(
@@ -87,9 +111,9 @@ class HomeViewModelMappingTest {
                 name = name,
                 icon = icon,
                 createdAt = 0L,
-                logFlow = LogFlow.ONE_TAP,
-                durationMode = DurationMode.NONE,
-                intensityEnabled = false,
+                logFlow = logFlow,
+                durationMode = durationMode,
+                intensityEnabled = intensityEnabled,
                 hunchNudgeDismissed = false,
                 pinned = false,
                 checkInDays = null,

@@ -46,6 +46,8 @@ class HodithRepository
 
         suspend fun deleteEvent(event: EventEntity) = eventDao.delete(event)
 
+        suspend fun deleteEventById(eventId: Long) = eventDao.deleteById(eventId)
+
         // Tag
         fun observeAllTags(): Flow<List<TagEntity>> = tagDao.observeAllTags()
 
