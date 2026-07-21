@@ -59,6 +59,15 @@ class CaseDetailViewModel
             viewModelScope.launch { repository.deleteEvent(event) }
         }
 
+        /** Always immediate, regardless of `logFlow` — see [HomeViewModel.onQuickLogTap]. */
+        fun stopEvent(event: EventEntity) {
+            viewModelScope.launch { repository.updateEvent(event.copy(endedAt = clock.nowMillis())) }
+        }
+
+        fun dismissStalePrompt(event: EventEntity) {
+            viewModelScope.launch { repository.updateEvent(event.copy(staleNudgeDismissedAt = clock.nowMillis())) }
+        }
+
         fun newEventDraft(): LogDraft = draftFrom(event = null, now = clock.nowMillis())
 
         fun nowMillis(): Long = clock.nowMillis()
@@ -123,14 +132,24 @@ internal fun formatEventTimeOfDay(
 /**
  * Pure mapping of an event's optional fields (plus its tags) into its detail line, split out
  * from the Case Detail screen for the same reason as [formatEventTime]. Returns null when
- * there's nothing beyond the time to show.
+ * there's nothing beyond the time to show. [isOngoing] should only ever be true for a
+ * `START_STOP` case's still-open event (spec §6) — the caller is responsible for that gate,
+ * since a plain `endedAt == null` alone is ambiguous with `NONE`/`MANUAL` events that simply
+ * have no duration. A finished duration event (any mode with a real `endedAt`) shows how long
+ * it lasted, via the same [formatElapsedDuration] the ongoing indicator uses.
  */
 internal fun eventDetailSummary(
     event: EventEntity,
     tags: List<TagEntity>,
     voice: Voice,
+    isOngoing: Boolean = false,
 ): String? {
     val parts = mutableListOf<String>()
+    if (isOngoing) {
+        parts += voice.logSheetOngoingLabel
+    } else {
+        event.endedAt?.let { parts += voice.eventDurationLabel(formatElapsedDuration(event.occurredAt, it)) }
+    }
     event.intensity?.let { parts += voice.eventIntensityLabel(it) }
     event.note?.takeIf { it.isNotBlank() }?.let { parts += it }
     if (tags.isNotEmpty()) parts += tags.joinToString(" ") { "#${it.name}" }

@@ -118,13 +118,70 @@ class CaseDetailViewModelTest {
         )
     }
 
+    @Test
+    fun `eventDetailSummary shows the ongoing label first when isOngoing is true`() {
+        assertEquals(
+            SeriousVoice.logSheetOngoingLabel,
+            eventDetailSummary(testEvent(intensity = null, note = null), tags = emptyList(), SeriousVoice, isOngoing = true),
+        )
+    }
+
+    @Test
+    fun `eventDetailSummary puts the ongoing label before intensity, note and tags`() {
+        val tags = listOf(TagEntity(id = 1, name = "dinner"))
+
+        assertEquals(
+            "${SeriousVoice.logSheetOngoingLabel} · ${SeriousVoice.eventIntensityLabel(3)} · Quick one · #dinner",
+            eventDetailSummary(testEvent(intensity = 3, note = "Quick one"), tags = tags, SeriousVoice, isOngoing = true),
+        )
+    }
+
+    @Test
+    fun `eventDetailSummary shows the duration for a finished event with an endedAt`() {
+        val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 45 * 60_000L)
+
+        assertEquals(SeriousVoice.eventDurationLabel("45m"), eventDetailSummary(event, tags = emptyList(), SeriousVoice))
+    }
+
+    @Test
+    fun `eventDetailSummary puts the duration before intensity, note and tags`() {
+        val tags = listOf(TagEntity(id = 1, name = "dinner"))
+        val event = testEvent(intensity = 3, note = "Quick one", occurredAt = 0L, endedAt = 45 * 60_000L)
+
+        assertEquals(
+            "${SeriousVoice.eventDurationLabel("45m")} · ${SeriousVoice.eventIntensityLabel(3)} · Quick one · #dinner",
+            eventDetailSummary(event, tags = tags, SeriousVoice),
+        )
+    }
+
+    @Test
+    fun `eventDetailSummary shows no duration when endedAt is null and not ongoing`() {
+        val event = testEvent(intensity = 3, note = null, occurredAt = 0L, endedAt = null)
+
+        assertEquals(SeriousVoice.eventIntensityLabel(3), eventDetailSummary(event, tags = emptyList(), SeriousVoice))
+    }
+
+    @Test
+    fun `eventDetailSummary shows the ongoing label instead of a duration even if isOngoing is true with a stale endedAt`() {
+        // isOngoing is caller-asserted (spec: only true for a START_STOP case's open event, which
+        // by construction never has an endedAt) — this pins that ongoing always wins the branch.
+        val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 999L)
+
+        assertEquals(
+            SeriousVoice.logSheetOngoingLabel,
+            eventDetailSummary(event, tags = emptyList(), SeriousVoice, isOngoing = true),
+        )
+    }
+
     private fun testEvent(
         intensity: Int?,
         note: String?,
+        occurredAt: Long = 0L,
+        endedAt: Long? = null,
     ) = EventEntity(
         caseId = 1L,
-        occurredAt = 0L,
-        endedAt = null,
+        occurredAt = occurredAt,
+        endedAt = endedAt,
         intensity = intensity,
         note = note,
         loggedAt = 0L,

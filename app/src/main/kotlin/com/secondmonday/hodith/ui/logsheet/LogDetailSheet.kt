@@ -90,6 +90,8 @@ fun LogDetailSheet(
     var tagInput by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -120,6 +122,17 @@ fun LogDetailSheet(
                 onTimeClick = { showTimePicker = true },
             )
 
+            if (durationMode == DurationMode.START_STOP) {
+                EndTimeSection(
+                    endedAt = draft.endedAt,
+                    zone = zone,
+                    voice = voice,
+                    onStopNowClick = { draft = draft.copy(endedAt = now) },
+                    onDateClick = { showEndDatePicker = true },
+                    onTimeClick = { showEndTimePicker = true },
+                )
+            }
+
             if (intensityEnabled) {
                 IntensitySection(
                     label = voice.logSheetIntensityLabel,
@@ -148,56 +161,53 @@ fun LogDetailSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Column {
-                Text(voice.logSheetTagsLabel, style = MaterialTheme.typography.labelLarge)
-                TagEditor(
-                    selectedTags = draft.tags,
-                    suggestions = tagSuggestions.map { it.name },
-                    tagInput = tagInput,
-                    onTagInputChange = { tagInput = it },
-                    onAddTag = { name ->
-                        val trimmed = name.trim()
-                        if (trimmed.isNotEmpty() && trimmed !in draft.tags) {
-                            draft = draft.copy(tags = draft.tags + trimmed)
-                        }
-                        tagInput = ""
-                    },
-                    onRemoveTag = { name -> draft = draft.copy(tags = draft.tags - name) },
-                    voice = voice,
-                )
-            }
+            TagsSection(
+                label = voice.logSheetTagsLabel,
+                selectedTags = draft.tags,
+                suggestions = tagSuggestions.map { it.name },
+                tagInput = tagInput,
+                onTagInputChange = { tagInput = it },
+                onAddTag = { name ->
+                    val trimmed = name.trim()
+                    if (trimmed.isNotEmpty() && trimmed !in draft.tags) {
+                        draft = draft.copy(tags = draft.tags + trimmed)
+                    }
+                    tagInput = ""
+                },
+                onRemoveTag = { name -> draft = draft.copy(tags = draft.tags - name) },
+                voice = voice,
+            )
 
+            val isStarting = durationMode == DurationMode.START_STOP && !isEditing && draft.endedAt == null
             Button(onClick = { onSave(draft) }, modifier = Modifier.fillMaxWidth()) {
-                Text(voice.logSheetSaveButton)
+                Text(if (isStarting) voice.logSheetStartButton else voice.logSheetSaveButton)
             }
         }
     }
 
-    if (showDatePicker) {
-        LogDetailDatePickerDialog(
-            occurredAt = draft.occurredAt,
+    DateTimePickers(
+        value = draft.occurredAt,
+        zone = zone,
+        now = now,
+        voice = voice,
+        showDatePicker = showDatePicker,
+        showTimePicker = showTimePicker,
+        onDismissDatePicker = { showDatePicker = false },
+        onDismissTimePicker = { showTimePicker = false },
+        onValueChange = { draft = draft.copy(occurredAt = it) },
+    )
+
+    draft.endedAt?.let { endedAt ->
+        DateTimePickers(
+            value = endedAt,
             zone = zone,
             now = now,
             voice = voice,
-            onDismiss = { showDatePicker = false },
-            onConfirm = { picked ->
-                draft = draft.copy(occurredAt = applyPickedDate(draft.occurredAt, picked, zone).coerceAtMost(now))
-                showDatePicker = false
-            },
-        )
-    }
-
-    if (showTimePicker) {
-        LogDetailTimePickerDialog(
-            occurredAt = draft.occurredAt,
-            zone = zone,
-            voice = voice,
-            onDismiss = { showTimePicker = false },
-            onConfirm = { hour, minute ->
-                val picked = applyPickedTime(draft.occurredAt, hour, minute, zone)
-                draft = draft.copy(occurredAt = picked.coerceAtMost(now))
-                showTimePicker = false
-            },
+            showDatePicker = showEndDatePicker,
+            showTimePicker = showEndTimePicker,
+            onDismissDatePicker = { showEndDatePicker = false },
+            onDismissTimePicker = { showEndTimePicker = false },
+            onValueChange = { draft = draft.copy(endedAt = it) },
         )
     }
 
@@ -208,6 +218,51 @@ fun LogDetailSheet(
             onConfirm = {
                 showDeleteConfirm = false
                 onDelete()
+            },
+        )
+    }
+}
+
+/**
+ * Shared date+time picker pair for a single timestamp field, extracted so the start-time and
+ * (`START_STOP`-only) end-time fields don't duplicate the same wiring — both just supply which
+ * value to edit and how to write it back.
+ */
+@Composable
+private fun DateTimePickers(
+    value: Long,
+    zone: ZoneId,
+    now: Long,
+    voice: Voice,
+    showDatePicker: Boolean,
+    showTimePicker: Boolean,
+    onDismissDatePicker: () -> Unit,
+    onDismissTimePicker: () -> Unit,
+    onValueChange: (Long) -> Unit,
+) {
+    if (showDatePicker) {
+        LogDetailDatePickerDialog(
+            occurredAt = value,
+            zone = zone,
+            now = now,
+            voice = voice,
+            onDismiss = onDismissDatePicker,
+            onConfirm = { picked ->
+                onValueChange(applyPickedDate(value, picked, zone).coerceAtMost(now))
+                onDismissDatePicker()
+            },
+        )
+    }
+
+    if (showTimePicker) {
+        LogDetailTimePickerDialog(
+            occurredAt = value,
+            zone = zone,
+            voice = voice,
+            onDismiss = onDismissTimePicker,
+            onConfirm = { hour, minute ->
+                onValueChange(applyPickedTime(value, hour, minute, zone).coerceAtMost(now))
+                onDismissTimePicker()
             },
         )
     }
@@ -245,6 +300,40 @@ private fun TimeSection(
         ) {
             OutlinedButton(onClick = onDateClick) { Text(formatEventDate(occurredAt, zone)) }
             OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(occurredAt, zone)) }
+        }
+    }
+}
+
+/**
+ * `START_STOP`-only mirror of [TimeSection] (spec §6: "duration or Start, per durationMode").
+ * Leaving [endedAt] null (the default for a fresh Start) IS the ongoing state — there's no
+ * separate "Start" screen, just this section left alone. "Stop now" and the date/time buttons
+ * both funnel into the same [onDateClick]/[onTimeClick]-editable value the sheet already has
+ * pickers for via [draft.endedAt][com.secondmonday.hodith.viewmodel.LogDraft.endedAt].
+ */
+@Composable
+private fun EndTimeSection(
+    endedAt: Long?,
+    zone: ZoneId,
+    voice: Voice,
+    onStopNowClick: () -> Unit,
+    onDateClick: () -> Unit,
+    onTimeClick: () -> Unit,
+) {
+    Column {
+        Text(voice.logSheetEndLabel, style = MaterialTheme.typography.labelLarge)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp),
+        ) {
+            if (endedAt == null) {
+                Text(voice.logSheetOngoingLabel, style = MaterialTheme.typography.bodyLarge)
+                OutlinedButton(onClick = onStopNowClick) { Text(voice.logSheetStopNowAction) }
+            } else {
+                OutlinedButton(onClick = onDateClick) { Text(formatEventDate(endedAt, zone)) }
+                OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(endedAt, zone)) }
+            }
         }
     }
 }
@@ -385,6 +474,31 @@ private fun DeleteEventConfirmDialog(
             TextButton(onClick = onDismiss) { Text(voice.deleteEventCancelAction) }
         },
     )
+}
+
+@Composable
+private fun TagsSection(
+    label: String,
+    selectedTags: List<String>,
+    suggestions: List<String>,
+    tagInput: String,
+    onTagInputChange: (String) -> Unit,
+    onAddTag: (String) -> Unit,
+    onRemoveTag: (String) -> Unit,
+    voice: Voice,
+) {
+    Column {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        TagEditor(
+            selectedTags = selectedTags,
+            suggestions = suggestions,
+            tagInput = tagInput,
+            onTagInputChange = onTagInputChange,
+            onAddTag = onAddTag,
+            onRemoveTag = onRemoveTag,
+            voice = voice,
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)

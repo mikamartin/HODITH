@@ -23,6 +23,9 @@ data class LogDraft(
     val durationMinutes: String,
     val note: String,
     val tags: List<String>,
+    /** `START_STOP` mode's editable end time (spec §6) — null means still ongoing. */
+    val endedAt: Long?,
+    /** `NONE` mode's pass-through — that mode has no duration control at all in the sheet. */
     val existingEndedAt: Long?,
 )
 
@@ -44,6 +47,7 @@ internal fun draftFrom(
             durationMinutes = "",
             note = "",
             tags = emptyList(),
+            endedAt = null,
             existingEndedAt = null,
         )
     }
@@ -58,36 +62,44 @@ internal fun draftFrom(
         durationMinutes = durationMinutes,
         note = event.note.orEmpty(),
         tags = tags.map { it.name },
+        endedAt = event.endedAt,
         existingEndedAt = event.endedAt,
     )
 }
 
 /**
- * Parses the duration field into an `endedAt`. MANUAL is the only mode with an editable
- * duration control in the sheet so far (Start/Stop's own control lands in a later slice) — for
- * every other mode, [existingEndedAt] is passed through unchanged rather than nulled out, so
- * editing an event's note/tags can never silently destroy a real duration it already has (e.g.
- * one logged while the case was still in `START_STOP` mode, before its mode was changed).
+ * Parses the duration/end-time field into an `endedAt`. MANUAL derives it from the typed
+ * minutes; START_STOP reads the sheet's own editable end time ([endedAt] — null means still
+ * ongoing), clamped to `[occurredAt, now]` since a real end *timestamp* can't precede its own
+ * start or land in the future (unlike MANUAL's minutes, which may deliberately project past
+ * `now` — see [LogDraft.toEventEntity]). NONE has no duration control at all in the sheet, so
+ * [existingEndedAt] is passed through unchanged rather than nulled out, preserving a duration
+ * logged while the case was still in a different `durationMode`.
  */
 internal fun computeEndedAt(
     occurredAt: Long,
     durationMode: DurationMode,
     durationMinutesInput: String,
+    endedAt: Long?,
     existingEndedAt: Long?,
+    now: Long,
 ): Long? =
     when (durationMode) {
         DurationMode.MANUAL ->
             durationMinutesInput.toIntOrNull()?.takeIf { it > 0 }?.let { occurredAt + it * MILLIS_PER_MINUTE }
-        DurationMode.NONE, DurationMode.START_STOP -> existingEndedAt
+        DurationMode.START_STOP -> endedAt?.coerceIn(occurredAt, now)
+        DurationMode.NONE -> existingEndedAt
     }
 
 /**
  * [now] is a hard floor on [occurredAt] only, not just a UI nicety: an event can never be
  * persisted as having *started* in the future, regardless of what the date/time pickers allowed
  * through (defense in depth — the pickers also restrict this, but this is the authoritative
- * guard). `endedAt` is deliberately NOT clamped: a MANUAL duration entered at logging time is
+ * guard). MANUAL's `endedAt` is deliberately NOT clamped: a duration entered at logging time is
  * often a stated/expected length ("started now, this kind of thing runs about 2 hours") rather
- * than a fact only knowable in hindsight, so it's allowed to project past `now`.
+ * than a fact only knowable in hindsight, so it's allowed to project past `now`. START_STOP's
+ * `endedAt` IS clamped (inside [computeEndedAt]) since it's a real timestamp, not a stated
+ * length.
  */
 internal fun LogDraft.toEventEntity(
     caseId: Long,
@@ -101,7 +113,7 @@ internal fun LogDraft.toEventEntity(
         id = existingId,
         caseId = caseId,
         occurredAt = clampedOccurredAt,
-        endedAt = computeEndedAt(clampedOccurredAt, durationMode, durationMinutes, existingEndedAt),
+        endedAt = computeEndedAt(clampedOccurredAt, durationMode, durationMinutes, endedAt, existingEndedAt, now),
         intensity = intensity,
         note = note.trim().takeIf { it.isNotEmpty() },
         loggedAt = loggedAt,
@@ -176,13 +188,14 @@ internal fun planSaveEvent(
 ): SaveEventPlan {
     val loggedAt = existingEvent?.loggedAt ?: now
     val entity =
-        draft.toEventEntity(
-            caseId = caseId,
-            existingId = existingEvent?.id ?: 0L,
-            loggedAt = loggedAt,
-            durationMode = durationMode,
-            now = now,
-        )
+        draft
+            .toEventEntity(
+                caseId = caseId,
+                existingId = existingEvent?.id ?: 0L,
+                loggedAt = loggedAt,
+                durationMode = durationMode,
+                now = now,
+            ).copy(staleNudgeDismissedAt = existingEvent?.staleNudgeDismissedAt)
     return SaveEventPlan(
         entity = entity,
         isUpdate = existingEvent != null,

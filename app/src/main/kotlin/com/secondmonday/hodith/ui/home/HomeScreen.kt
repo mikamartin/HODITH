@@ -33,6 +33,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.ui.common.OngoingElapsedText
+import com.secondmonday.hodith.ui.common.StaleOngoingBanner
+import com.secondmonday.hodith.ui.common.StopIconButton
+import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
@@ -42,6 +48,8 @@ import com.secondmonday.hodith.viewmodel.HomeUiState
 import com.secondmonday.hodith.viewmodel.HomeViewModel
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.QuickLogUndo
+import com.secondmonday.hodith.viewmodel.formatElapsedDuration
+import com.secondmonday.hodith.viewmodel.isStaleOngoing
 import kotlinx.coroutines.flow.Flow
 
 @Composable
@@ -63,6 +71,8 @@ fun HomeRoute(
         onDismissLogSheet = viewModel::dismissLogSheet,
         onSaveLogSheetEvent = viewModel::saveLogSheetEvent,
         onUndoQuickLog = viewModel::undoQuickLog,
+        onDismissStalePrompt = viewModel::dismissStalePrompt,
+        nowMillis = viewModel::nowMillis,
         modifier = modifier,
     )
 }
@@ -78,6 +88,8 @@ fun HomeScreen(
     onDismissLogSheet: () -> Unit,
     onSaveLogSheetEvent: (LogDraft) -> Unit,
     onUndoQuickLog: (Long) -> Unit,
+    onDismissStalePrompt: (EventEntity) -> Unit,
+    nowMillis: () -> Long,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -121,6 +133,9 @@ fun HomeScreen(
                                 voice = voice,
                                 onClick = { onOpenCase(row.caseId) },
                                 onQuickLogTap = { onQuickLogTap(row) },
+                                onEditEndTime = { onOpenCase(row.caseId) },
+                                onDismissStalePrompt = onDismissStalePrompt,
+                                nowMillis = nowMillis,
                             )
                         }
                     }
@@ -149,26 +164,58 @@ private fun HomeCaseListItem(
     voice: Voice,
     onClick: () -> Unit,
     onQuickLogTap: () -> Unit,
+    onEditEndTime: () -> Unit,
+    onDismissStalePrompt: (EventEntity) -> Unit,
+    nowMillis: () -> Long,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = row.icon, style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = row.name, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = voice.homeCaseCounts(row.todayCount, row.weekCount),
-                style = MaterialTheme.typography.bodySmall,
-            )
+    val ongoing = row.ongoingEvent
+    val now by rememberTickingNow(clockNow = nowMillis)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text = row.icon, style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = row.name, style = MaterialTheme.typography.titleMedium)
+                if (ongoing != null) {
+                    OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
+                } else {
+                    Text(
+                        text = voice.homeCaseCounts(row.todayCount, row.weekCount),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            if (ongoing != null) {
+                StopIconButton(caseName = row.name, voice = voice, onClick = onQuickLogTap)
+            } else {
+                val description =
+                    if (row.durationMode == DurationMode.START_STOP) {
+                        voice.startActionDescription(row.name)
+                    } else {
+                        voice.quickLogButtonDescription(row.name)
+                    }
+                IconButton(onClick = onQuickLogTap) {
+                    Icon(Icons.Filled.AddCircle, contentDescription = description)
+                }
+            }
         }
-        IconButton(onClick = onQuickLogTap) {
-            Icon(Icons.Filled.AddCircle, contentDescription = voice.quickLogButtonDescription(row.name))
+        if (ongoing != null && isStaleOngoing(ongoing, now)) {
+            StaleOngoingBanner(
+                caseName = row.name,
+                elapsed = formatElapsedDuration(ongoing.occurredAt, now),
+                voice = voice,
+                onEditEndTime = onEditEndTime,
+                onStillGoing = { onDismissStalePrompt(ongoing) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
         }
     }
 }

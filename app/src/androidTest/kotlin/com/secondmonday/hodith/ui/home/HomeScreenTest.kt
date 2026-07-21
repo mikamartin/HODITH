@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.SeriousVoice
@@ -53,6 +54,8 @@ class HomeScreenTest {
         onQuickLogTap: (HomeCaseRow) -> Unit = {},
         onSaveLogSheetEvent: (LogDraft) -> Unit = {},
         onUndoQuickLog: (Long) -> Unit = {},
+        onDismissStalePrompt: (EventEntity) -> Unit = {},
+        nowMillis: () -> Long = { 0L },
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides SeriousVoice) {
@@ -66,6 +69,8 @@ class HomeScreenTest {
                     onDismissLogSheet = {},
                     onSaveLogSheetEvent = onSaveLogSheetEvent,
                     onUndoQuickLog = onUndoQuickLog,
+                    onDismissStalePrompt = onDismissStalePrompt,
+                    nowMillis = nowMillis,
                 )
             }
         }
@@ -127,6 +132,64 @@ class HomeScreenTest {
     }
 
     @Test
+    fun ongoingRow_showsStopButtonInsteadOfQuickLog_andInvokesOnQuickLogTap() {
+        val ongoingEvent = EventEntity(caseId = 2L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
+        val ongoingRow =
+            oneTapRow.copy(caseId = 2L, name = "Ongoing Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
+        var quickLogTapped: HomeCaseRow? = null
+        setHomeScreenContent(
+            uiState = HomeUiState(cases = listOf(ongoingRow), isLoading = false),
+            onQuickLogTap = { quickLogTapped = it },
+            nowMillis = { 10_000L },
+        )
+
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.quickLogButtonDescription(ongoingRow.name)).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.stopActionDescription(ongoingRow.name)).performClick()
+
+        assertEquals(ongoingRow, quickLogTapped)
+    }
+
+    @Test
+    fun nonOngoingStartStopRow_usesStartContentDescription() {
+        val startStopRow = oneTapRow.copy(durationMode = DurationMode.START_STOP)
+        setHomeScreenContent(uiState = HomeUiState(cases = listOf(startStopRow), isLoading = false))
+
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.startActionDescription(startStopRow.name)).assertExists()
+    }
+
+    @Test
+    fun staleOngoingBanner_showsPastThreshold_andStillGoingInvokesDismiss() {
+        val ongoingEvent = EventEntity(caseId = 2L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
+        val staleRow =
+            oneTapRow.copy(caseId = 2L, name = "Stale Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
+        var dismissed: EventEntity? = null
+        // Just over the 24h threshold, so the banner should be showing.
+        val now = 24 * 60 * 60_000L + 1
+        setHomeScreenContent(
+            uiState = HomeUiState(cases = listOf(staleRow), isLoading = false),
+            onDismissStalePrompt = { dismissed = it },
+            nowMillis = { now },
+        )
+
+        composeTestRule.onNodeWithText(SeriousVoice.staleOngoingStillGoingAction).performClick()
+
+        assertEquals(ongoingEvent, dismissed)
+    }
+
+    @Test
+    fun staleOngoingBanner_doesNotShowBeforeThreshold() {
+        val ongoingEvent = EventEntity(caseId = 2L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
+        val ongoingRow =
+            oneTapRow.copy(caseId = 2L, name = "Fresh Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
+        setHomeScreenContent(
+            uiState = HomeUiState(cases = listOf(ongoingRow), isLoading = false),
+            nowMillis = { 10_000L },
+        )
+
+        composeTestRule.onNodeWithText(SeriousVoice.staleOngoingStillGoingAction).assertDoesNotExist()
+    }
+
+    @Test
     fun logSheet_whenPresentForACase_savesDraftOnSaveTap() {
         val sheetState =
             HomeLogSheetState(
@@ -142,6 +205,7 @@ class HomeScreenTest {
                         durationMinutes = "",
                         note = "",
                         tags = emptyList(),
+                        endedAt = null,
                         existingEndedAt = null,
                     ),
             )

@@ -38,8 +38,6 @@ class HodithRepository
             windowEnd: Long,
         ): List<EventEntity> = eventDao.eventsInWindow(caseId, windowStart, windowEnd)
 
-        suspend fun getOngoingEvent(caseId: Long): EventEntity? = eventDao.getOngoingEvent(caseId)
-
         suspend fun insertEvent(event: EventEntity): Long = eventDao.insert(event)
 
         suspend fun updateEvent(event: EventEntity) = eventDao.update(event)

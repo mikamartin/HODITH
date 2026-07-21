@@ -25,4 +25,5 @@ data class EventEntity(
     val intensity: Int?,
     val note: String?,
     val loggedAt: Long,
+    val staleNudgeDismissedAt: Long? = null,
 )
