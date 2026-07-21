@@ -15,6 +15,75 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/case-archive (Phase 2, slice 3, PR 5 of 6)
+
+**Scope:** Archive and hard-delete for Case, plus a new Archived Cases view to manage both — corrected
+mid-flight from PROGRESS.md's original archive-only framing (§ this file's own precedent: scope
+corrections happen before code, not after). Adds an Archive action + confirm dialog to Case Edit's
+header (existing cases only, navigates to Home on confirm); a new Archived Cases screen (reached via a
+text link on Home, shown only once at least one Case is archived) listing archived Cases with
+immediate Unarchive and a confirm-gated Delete forever (names the event count, cascades to
+events/hunches/triggers); `CaseDao.observeArchivedCasesWithEvents` backing both.
+**Found & fixed:**
+- **Icon availability:** `material-icons-core` (the project's curated ~50-icon set, already known to
+  lack a `Stop` icon per `feature/start-stop`'s entry below) also has no Archive/Unarchive/Inventory
+  glyph — confirmed by inspecting the actual jar rather than assuming. Substituted `Icons.Filled.ExitToApp`
+  (archive, via its `AutoMirrored` variant — the plain one is deprecated in this Compose BOM), `Icons.Filled.Refresh`
+  (unarchive), `Icons.Filled.Delete` (hard-delete, already the app's established destructive glyph
+  from the event-delete flow). `contentDescription` carries the real meaning in each case, same
+  reasoning as the prior `Stop`→`Done` substitution.
+- **Duplication:** this branch's two new confirm dialogs (archive case, delete case forever) would have
+  been near-verbatim copies of the pre-existing `DeleteEventConfirmDialog` in `LogDetailSheet.kt` — same
+  `AlertDialog` shape (title/body/confirm `TextButton`/cancel `TextButton`), differing only in which
+  `Voice` strings and callbacks they wire up. Extracted a shared `ConfirmDialog` (`ui/common/ConfirmDialog.kt`)
+  and switched all three call sites (including the pre-existing one) to use it, removing three copies of
+  the same boilerplate down to one.
+- Adding a required `onOpenArchivedCases` parameter to `HomeScreen`/`HomeRoute` (for the new Home link)
+  broke the existing `HomeScreenTest.kt` call site at compile time — fixed by threading the parameter
+  through with a `{}` default in the test helper, same pattern the file already uses for its other
+  callbacks.
+- **Composable over the ~150-line guideline:** the archive icon/dialog additions pushed `CaseEditScreen`'s
+  main composable to 156 lines (the guideline `feature/start-stop`'s cleanup pass already applied once to
+  `LogDetailSheet`). Extracted the form body (every field from name through the save button) into a
+  private `CaseEditForm` composable, matching this file's own existing pattern of pulling out
+  `IconChoice`/`ToggleRow`/`CheckInOptionRow`/`SegmentedChoiceRow`. `CaseEditScreen` itself is now ~74
+  lines (state, top bar, archive dialog, and a single call into the form).
+- A deprecation warning surfaced during `./gradlew test`: `Icons.Filled.ExitToApp` is deprecated in this
+  Compose BOM in favor of `Icons.AutoMirrored.Filled.ExitToApp`. Switched to the `AutoMirrored` variant,
+  matching how `ArrowBack` is already used in the same file.
+- ktlint caught an unused `Arrangement` import in `ArchivedCasesScreen.kt` and a wrapped function body
+  in `Voice.kt` that fit on one line — both were only caught because `ktlintCheck` was actually run
+  before this entry was written, not assumed clean.
+**Considered, not changed:**
+- `ArchivedCasesViewModel.unarchive` and `CaseEditViewModel.save` both recompute a fresh `sortOrder` via
+  the same one-line `repository.observeActiveCases().first().size`. Two occurrences of a one-liner,
+  same reasoning `feature/start-stop`'s entry already gave for not sharing `HomeViewModel`/
+  `CaseDetailViewModel`'s near-identical `stopEvent`/`dismissStalePrompt` bodies — extracting a helper
+  for two one-line call sites is net-negative indirection.
+- `CaseDao.observeArchivedCasesWithEvents()` looks like it overlaps with `observeActiveCasesWithEvents()`
+  (both are "cases with events, filtered by `archived`"), but the two also differ in `ORDER BY` (`sortOrder`
+  vs `name COLLATE NOCASE`) — Room can't parameterize which column to sort by without raw SQL, so a single
+  parameterized query would trade a clear intent-revealing name for a con­ditional that's harder to read.
+  Left as two queries.
+- `ArchivedCaseListItem` and `HomeCaseListItem` share the same icon-then-column-then-trailing-controls Row
+  shape, but Home's row also carries the ongoing indicator, ticking elapsed time, and stale-prompt banner
+  that Archived Cases has no equivalent of — forcing a shared component would need enough conditional
+  slots that it wouldn't read as simpler than two separate, short composables.
+**Deferred:**
+- No ViewModel-level unit test for `CaseEditViewModel.archive()` or
+  `ArchivedCasesViewModel.unarchive`/`deleteForever` — same pre-existing gap already flagged for
+  `HomeViewModel`/`CaseDetailViewModel` (PROGRESS.md): no `FakeHodithRepository` seam exists yet, that's
+  its own planned dedicated branch. This branch's contribution is covered instead at the pure-function
+  layer (`archivedCaseRows`, JVM-only) plus Compose UI tests asserting the callbacks fire correctly.
+- `gradle/gradle-daemon-jvm.properties` remains untracked, unrelated to this branch — same as previous
+  entries.
+**Docs updated:** HODITH_SPEC.md §5 (Case table — hard-delete's cascade/irreversibility note) and §14
+(Home, New/edit Case, and a new Archived Cases table row). PROGRESS.md (`feature/case-archive` bullet
+corrected from archive-only to the actual three-part scope, before any code was written). TESTING.md
+(instrumented test count 42→54; new Compose UI coverage bullet for archive/unarchive/delete-forever).
+
+---
+
 ## feature/start-stop (Phase 2, slice 3, PR 4 of 6)
 
 **Scope:** Start/Stop + ongoing indicator + 24h prompt (spec §6) — the `START_STOP` duration mode was selectable on Case Edit since `feature/case-crud` but nothing started, stopped, or displayed an ongoing event anywhere. Adds: Start (reuses `quickLogOneTap` for `ONE_TAP` cases; for `DETAIL_SHEET` cases, a new **End** section in `LogDetailSheet` where leaving it "Ongoing" and saving *is* the start action), an always-immediate Stop action (no sheet, regardless of `logFlow`), a live-ticking ongoing indicator on both Home and Case Detail, and the 24h stale-prompt banner (persisted dismissal, re-arms after another 24h) — also on both screens per user decision during planning. New shared pure logic (`viewmodel/OngoingEvent.kt`: `ongoingEventIn`, `isStaleOngoing`, `formatElapsedDuration`) and shared UI (`ui/common/OngoingIndicator.kt`, `ui/common/Ticker.kt`). Schema bump to v3 (`EventEntity.staleNudgeDismissedAt`). Mid-branch, a user-reported gap was also fixed: finished duration events (any mode, not just `START_STOP`) never showed their duration anywhere in the event list, despite it being tracked — added a new `eventDurationLabel` Voice key and duration display in `eventDetailSummary`.
