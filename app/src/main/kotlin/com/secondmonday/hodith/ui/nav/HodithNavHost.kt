@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.secondmonday.hodith.ui.archivedcases.ArchivedCasesRoute
 import com.secondmonday.hodith.ui.bigpicture.BigPictureScreen
 import com.secondmonday.hodith.ui.case.CaseEditRoute
 import com.secondmonday.hodith.ui.casedetail.CaseDetailRoute
@@ -24,6 +25,7 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 
 private const val CASE_EDIT_ROUTE = "case_edit"
 private const val CASE_DETAIL_ROUTE = "case_detail"
+private const val ARCHIVED_CASES_ROUTE = "archived_cases"
 private const val CASE_ID_ARG = "caseId"
 private const val NO_CASE_ID = -1L
 
@@ -42,7 +44,9 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
         modifier = modifier,
         bottomBar = {
             val onDetailScreen =
-                currentRoute?.startsWith(CASE_EDIT_ROUTE) == true || currentRoute?.startsWith(CASE_DETAIL_ROUTE) == true
+                currentRoute?.startsWith(CASE_EDIT_ROUTE) == true ||
+                    currentRoute?.startsWith(CASE_DETAIL_ROUTE) == true ||
+                    currentRoute == ARCHIVED_CASES_ROUTE
             if (!onDetailScreen) {
                 NavigationBar {
                     HodithDestination.entries.forEach { destination ->
@@ -75,6 +79,7 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
                 HomeRoute(
                     onNewCase = { navController.navigate(CASE_EDIT_ROUTE) },
                     onOpenCase = { caseId -> navController.navigate("$CASE_DETAIL_ROUTE/$caseId") },
+                    onOpenArchivedCases = { navController.navigate(ARCHIVED_CASES_ROUTE) },
                 )
             }
             composable(HodithDestination.BIG_PICTURE.route) { BigPictureScreen() }
@@ -89,7 +94,10 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
                         },
                     ),
             ) {
-                CaseEditRoute(onDone = { navController.popBackStack() })
+                CaseEditRoute(
+                    onDone = { navController.popBackStack() },
+                    onArchived = { navController.popBackStack(HodithDestination.HOME.route, false) },
+                )
             }
             composable(
                 route = "$CASE_DETAIL_ROUTE/{$CASE_ID_ARG}",
@@ -99,6 +107,9 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
                     onBack = { navController.popBackStack() },
                     onEditCase = { caseId -> navController.navigate("$CASE_EDIT_ROUTE?$CASE_ID_ARG=$caseId") },
                 )
+            }
+            composable(ARCHIVED_CASES_ROUTE) {
+                ArchivedCasesRoute(onBack = { navController.popBackStack() })
             }
         }
     }

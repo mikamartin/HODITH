@@ -42,11 +42,21 @@ interface Voice {
     val caseCheckInCustomDaysHint: String
     val caseSaveButton: String
     val caseDetailEditDescription: String
+    val archiveCaseDescription: String
+    val archiveCaseConfirmTitle: String
+    val archiveCaseConfirmBody: String
+    val archiveCaseConfirmAction: String
+    val archiveCaseCancelAction: String
+    val archivedCasesTitle: String
+    val archivedCasesEmptyState: String
     val eventListEmptyState: String
     val deleteEventConfirmTitle: String
     val deleteEventConfirmBody: String
     val deleteEventConfirmAction: String
     val deleteEventCancelAction: String
+    val deleteCaseForeverConfirmTitle: String
+    val deleteCaseForeverConfirmAction: String
+    val deleteCaseForeverCancelAction: String
     val retroLogEntryLabel: String
     val logSheetNewEventTitle: String
     val logSheetEditEventTitle: String
@@ -74,6 +84,16 @@ interface Voice {
         todayCount: Int,
         weekCount: Int,
     ): String
+
+    fun archivedCasesLink(count: Int): String
+
+    fun archivedCaseEventCount(count: Int): String
+
+    fun unarchiveCaseDescription(caseName: String): String
+
+    fun deleteCaseForeverDescription(caseName: String): String
+
+    fun deleteCaseForeverConfirmBody(eventCount: Int): String
 
     fun eventIntensityLabel(intensity: Int): String
 
@@ -129,11 +149,22 @@ object SeriousVoice : Voice {
     override val caseCheckInCustomDaysHint = "Days"
     override val caseSaveButton = "Save"
     override val caseDetailEditDescription = "Edit case"
+    override val archiveCaseDescription = "Archive case"
+    override val archiveCaseConfirmTitle = "Archive this case?"
+    override val archiveCaseConfirmBody =
+        "It will be hidden from Home and Big Picture, but its data stays intact. You can view and restore it later."
+    override val archiveCaseConfirmAction = "Archive"
+    override val archiveCaseCancelAction = "Cancel"
+    override val archivedCasesTitle = "Archived cases"
+    override val archivedCasesEmptyState = "No archived cases."
     override val eventListEmptyState = "No events logged yet."
     override val deleteEventConfirmTitle = "Delete this event?"
     override val deleteEventConfirmBody = "This can't be undone."
     override val deleteEventConfirmAction = "Delete"
     override val deleteEventCancelAction = "Cancel"
+    override val deleteCaseForeverConfirmTitle = "Delete this case forever?"
+    override val deleteCaseForeverConfirmAction = "Delete forever"
+    override val deleteCaseForeverCancelAction = "Cancel"
     override val retroLogEntryLabel = "It happened earlier…"
     override val logSheetNewEventTitle = "Log an event"
     override val logSheetEditEventTitle = "Edit event"
@@ -161,6 +192,17 @@ object SeriousVoice : Voice {
         todayCount: Int,
         weekCount: Int,
     ) = "Today: $todayCount · This week: $weekCount"
+
+    override fun archivedCasesLink(count: Int) = "Archived cases ($count)"
+
+    override fun archivedCaseEventCount(count: Int) = "$count events logged"
+
+    override fun unarchiveCaseDescription(caseName: String) = "Unarchive $caseName"
+
+    override fun deleteCaseForeverDescription(caseName: String) = "Delete $caseName forever"
+
+    override fun deleteCaseForeverConfirmBody(eventCount: Int) =
+        "This case and its $eventCount logged events will be permanently deleted. This can't be undone."
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity $intensity"
 
@@ -216,11 +258,22 @@ object GothVoice : Voice {
     override val caseCheckInCustomDaysHint = "Days"
     override val caseSaveButton = "Seal it"
     override val caseDetailEditDescription = "Revise the case"
+    override val archiveCaseDescription = "Bury this case"
+    override val archiveCaseConfirmTitle = "Bury this case?"
+    override val archiveCaseConfirmBody =
+        "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed."
+    override val archiveCaseConfirmAction = "Bury it"
+    override val archiveCaseCancelAction = "Spare it"
+    override val archivedCasesTitle = "The buried cases"
+    override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
     override val deleteEventConfirmTitle = "Strike this from the record?"
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
     override val deleteEventConfirmAction = "Erase"
     override val deleteEventCancelAction = "Spare it"
+    override val deleteCaseForeverConfirmTitle = "Erase this case forever?"
+    override val deleteCaseForeverConfirmAction = "Erase forever"
+    override val deleteCaseForeverCancelAction = "Spare it"
     override val retroLogEntryLabel = "It happened before now…"
     override val logSheetNewEventTitle = "Record the evidence"
     override val logSheetEditEventTitle = "Amend the record"
@@ -248,6 +301,16 @@ object GothVoice : Voice {
         todayCount: Int,
         weekCount: Int,
     ) = "Today: $todayCount — this week: $weekCount"
+
+    override fun archivedCasesLink(count: Int) = "The buried ($count)"
+
+    override fun archivedCaseEventCount(count: Int) = "$count entries in the record"
+
+    override fun unarchiveCaseDescription(caseName: String) = "Exhume $caseName"
+
+    override fun deleteCaseForeverDescription(caseName: String) = "Erase $caseName forever"
+
+    override fun deleteCaseForeverConfirmBody(eventCount: Int) = "This case and its $eventCount entries will be erased beyond recall."
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity: $intensity"
 
@@ -303,11 +366,22 @@ object QuirkyVoice : Voice {
     override val caseCheckInCustomDaysHint = "Days"
     override val caseSaveButton = "Save it!"
     override val caseDetailEditDescription = "Tweak the case"
+    override val archiveCaseDescription = "Shelve this case"
+    override val archiveCaseConfirmTitle = "Shelve this case?"
+    override val archiveCaseConfirmBody =
+        "It'll hide from Home and Big Picture, but nothing gets deleted — find it in the archive whenever you want it back."
+    override val archiveCaseConfirmAction = "Shelve it"
+    override val archiveCaseCancelAction = "Nah, keep it out"
+    override val archivedCasesTitle = "The archive"
+    override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
     override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
     override val deleteEventConfirmTitle = "Zap this event?"
     override val deleteEventConfirmBody = "Poof — no take-backs."
     override val deleteEventConfirmAction = "Zap it"
     override val deleteEventCancelAction = "Never mind"
+    override val deleteCaseForeverConfirmTitle = "Delete this case for good?"
+    override val deleteCaseForeverConfirmAction = "Yeet it forever"
+    override val deleteCaseForeverCancelAction = "Nah, never mind"
     override val retroLogEntryLabel = "Oh right, it happened earlier…"
     override val logSheetNewEventTitle = "Log the moment"
     override val logSheetEditEventTitle = "Tweak this moment"
@@ -335,6 +409,17 @@ object QuirkyVoice : Voice {
         todayCount: Int,
         weekCount: Int,
     ) = "Today: $todayCount (this week: $weekCount)"
+
+    override fun archivedCasesLink(count: Int) = "The archive ($count)"
+
+    override fun archivedCaseEventCount(count: Int) = "$count logged moments"
+
+    override fun unarchiveCaseDescription(caseName: String) = "Bring back $caseName"
+
+    override fun deleteCaseForeverDescription(caseName: String) = "Yeet $caseName forever"
+
+    override fun deleteCaseForeverConfirmBody(eventCount: Int) =
+        "$eventCount logged moments go away with it. No take-backs, for real this time."
 
     override fun eventIntensityLabel(intensity: Int) = "Feels like a $intensity!"
 

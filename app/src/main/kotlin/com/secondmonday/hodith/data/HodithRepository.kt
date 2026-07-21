@@ -19,6 +19,8 @@ class HodithRepository
 
         fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeActiveCasesWithEvents()
 
+        fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeArchivedCasesWithEvents()
+
         fun observeCase(caseId: Long): Flow<CaseEntity?> = caseDao.observeById(caseId)
 
         suspend fun getCase(caseId: Long): CaseEntity? = caseDao.getById(caseId)

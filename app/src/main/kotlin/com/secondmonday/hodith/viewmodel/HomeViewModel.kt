@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -42,6 +43,7 @@ data class HomeCaseRow(
 
 data class HomeUiState(
     val cases: List<HomeCaseRow> = emptyList(),
+    val archivedCount: Int = 0,
     val isLoading: Boolean = true,
 )
 
@@ -77,18 +79,20 @@ class HomeViewModel
         private val clock: Clock,
     ) : ViewModel() {
         val uiState: StateFlow<HomeUiState> =
-            repository
-                .observeActiveCasesWithEvents()
-                .map { casesWithEvents ->
-                    HomeUiState(
-                        cases = homeCaseRows(casesWithEvents, clock.nowMillis()),
-                        isLoading = false,
-                    )
-                }.stateIn(
-                    scope = viewModelScope,
-                    started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                    initialValue = HomeUiState(),
+            combine(
+                repository.observeActiveCasesWithEvents(),
+                repository.observeArchivedCasesWithEvents().map { it.size },
+            ) { casesWithEvents, archivedCount ->
+                HomeUiState(
+                    cases = homeCaseRows(casesWithEvents, clock.nowMillis()),
+                    archivedCount = archivedCount,
+                    isLoading = false,
                 )
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+                initialValue = HomeUiState(),
+            )
 
         private val _logSheet = MutableStateFlow<HomeLogSheetState?>(null)
         val logSheet: StateFlow<HomeLogSheetState?> = _logSheet.asStateFlow()
