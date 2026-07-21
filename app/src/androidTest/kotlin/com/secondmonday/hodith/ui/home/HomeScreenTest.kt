@@ -51,6 +51,7 @@ class HomeScreenTest {
         logSheet: HomeLogSheetState? = null,
         quickLogUndo: MutableSharedFlow<QuickLogUndo> = MutableSharedFlow(extraBufferCapacity = 1),
         onOpenCase: (Long) -> Unit = {},
+        onOpenArchivedCases: () -> Unit = {},
         onQuickLogTap: (HomeCaseRow) -> Unit = {},
         onSaveLogSheetEvent: (LogDraft) -> Unit = {},
         onUndoQuickLog: (Long) -> Unit = {},
@@ -65,6 +66,7 @@ class HomeScreenTest {
                     quickLogUndo = quickLogUndo,
                     onNewCase = {},
                     onOpenCase = onOpenCase,
+                    onOpenArchivedCases = onOpenArchivedCases,
                     onQuickLogTap = onQuickLogTap,
                     onDismissLogSheet = {},
                     onSaveLogSheetEvent = onSaveLogSheetEvent,
@@ -187,6 +189,26 @@ class HomeScreenTest {
         )
 
         composeTestRule.onNodeWithText(SeriousVoice.staleOngoingStillGoingAction).assertDoesNotExist()
+    }
+
+    @Test
+    fun archivedCasesLink_hiddenWhenNoArchivedCases() {
+        setHomeScreenContent(uiState = HomeUiState(cases = listOf(oneTapRow), archivedCount = 0, isLoading = false))
+
+        composeTestRule.onNodeWithText(SeriousVoice.archivedCasesLink(0)).assertDoesNotExist()
+    }
+
+    @Test
+    fun archivedCasesLink_shownAndInvokesCallback_whenArchivedCasesExist() {
+        var opened = false
+        setHomeScreenContent(
+            uiState = HomeUiState(cases = listOf(oneTapRow), archivedCount = 2, isLoading = false),
+            onOpenArchivedCases = { opened = true },
+        )
+
+        composeTestRule.onNodeWithText(SeriousVoice.archivedCasesLink(2)).performClick()
+
+        assertEquals(true, opened)
     }
 
     @Test

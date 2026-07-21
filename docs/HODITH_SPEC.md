@@ -75,6 +75,11 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 | sortOrder | manual ordering on Home and Big Picture |
 | archived | boolean — hidden from Home/widgets/Big Picture, data retained |
 
+Archiving is reversible and non-destructive. **Hard-deleting a Case** is a separate, irreversible
+action, reachable only from the Archived Cases screen (§14) on a case that's already archived —
+never directly from an active Case. It cascades to the case's events, hunches, and triggers (FK
+cascade delete, same as `Event.caseId` below).
+
 ### Event
 
 | Field | Notes |
@@ -250,10 +255,11 @@ Bottom navigation: **Home · Big Picture · Settings**.
 
 | Screen | Contents |
 |---|---|
-| **Home** | Case list (drag to reorder): icon, name, today/this-week count, quick-log button, ongoing indicator. FAB: new Case. Trigger banners if notifications are denied. |
+| **Home** | Case list (drag to reorder): icon, name, today/this-week count, quick-log button, ongoing indicator. FAB: new Case. Trigger banners if notifications are denied. Text link to **Archived Cases**, shown only once at least one Case is archived. |
 | **Big Picture** | §9 flagship view. |
 | **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10), **Hunch** (verdict card or hunch creation, hunch history). Header: icon, name, share action (§13), config access. |
-| **New/edit Case** | Name, optional description, icon picker, logFlow, durationMode, intensity toggle, pinned toggle, check-in override (default / custom days / off); then the skippable Hunch step. |
+| **New/edit Case** | Name, optional description, icon picker, logFlow, durationMode, intensity toggle, pinned toggle, check-in override (default / custom days / off); then the skippable Hunch step. Header also carries an **Archive** action on an existing Case (confirm dialog; not shown when creating a new Case) — navigates to Home on confirm. |
+| **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/hunches/triggers). Reached via Home's archived-cases link. |
 | **Log detail sheet** | §6 — reachable from widget (trampoline activity), Home, case detail. |
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
 | **Triggers** | Per Case: list, create, enable/disable. |

@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.Flow
 fun HomeRoute(
     onNewCase: () -> Unit,
     onOpenCase: (Long) -> Unit,
+    onOpenArchivedCases: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -67,6 +68,7 @@ fun HomeRoute(
         quickLogUndo = viewModel.quickLogUndo,
         onNewCase = onNewCase,
         onOpenCase = onOpenCase,
+        onOpenArchivedCases = onOpenArchivedCases,
         onQuickLogTap = viewModel::onQuickLogTap,
         onDismissLogSheet = viewModel::dismissLogSheet,
         onSaveLogSheetEvent = viewModel::saveLogSheetEvent,
@@ -84,6 +86,7 @@ fun HomeScreen(
     quickLogUndo: Flow<QuickLogUndo>,
     onNewCase: () -> Unit,
     onOpenCase: (Long) -> Unit,
+    onOpenArchivedCases: () -> Unit,
     onQuickLogTap: (HomeCaseRow) -> Unit,
     onDismissLogSheet: () -> Unit,
     onSaveLogSheetEvent: (LogDraft) -> Unit,
@@ -116,30 +119,43 @@ fun HomeScreen(
             }
         },
     ) { contentPadding ->
-        Box(modifier = Modifier.padding(contentPadding).fillMaxSize()) {
-            when {
-                uiState.isLoading -> Unit
-                uiState.cases.isEmpty() -> {
-                    Text(
-                        text = voice.noCasesEmptyState,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-                }
-                else -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(uiState.cases, key = { it.caseId }) { row ->
-                            HomeCaseListItem(
-                                row = row,
-                                voice = voice,
-                                onClick = { onOpenCase(row.caseId) },
-                                onQuickLogTap = { onQuickLogTap(row) },
-                                onEditEndTime = { onOpenCase(row.caseId) },
-                                onDismissStalePrompt = onDismissStalePrompt,
-                                nowMillis = nowMillis,
-                            )
+        Column(modifier = Modifier.padding(contentPadding).fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    uiState.isLoading -> Unit
+                    uiState.cases.isEmpty() -> {
+                        Text(
+                            text = voice.noCasesEmptyState,
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    }
+                    else -> {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(uiState.cases, key = { it.caseId }) { row ->
+                                HomeCaseListItem(
+                                    row = row,
+                                    voice = voice,
+                                    onClick = { onOpenCase(row.caseId) },
+                                    onQuickLogTap = { onQuickLogTap(row) },
+                                    onEditEndTime = { onOpenCase(row.caseId) },
+                                    onDismissStalePrompt = onDismissStalePrompt,
+                                    nowMillis = nowMillis,
+                                )
+                            }
                         }
                     }
                 }
+            }
+            if (uiState.archivedCount > 0) {
+                Text(
+                    text = voice.archivedCasesLink(uiState.archivedCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenArchivedCases)
+                            .padding(16.dp),
+                )
             }
         }
     }

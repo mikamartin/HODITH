@@ -56,6 +56,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.LogDraft
@@ -212,8 +213,11 @@ fun LogDetailSheet(
     }
 
     if (showDeleteConfirm && onDelete != null) {
-        DeleteEventConfirmDialog(
-            voice = voice,
+        ConfirmDialog(
+            title = voice.deleteEventConfirmTitle,
+            body = voice.deleteEventConfirmBody,
+            confirmLabel = voice.deleteEventConfirmAction,
+            cancelLabel = voice.deleteEventCancelAction,
             onDismiss = { showDeleteConfirm = false },
             onConfirm = {
                 showDeleteConfirm = false
@@ -454,25 +458,6 @@ private fun LogDetailTimePickerDialog(
             TextButton(onClick = onDismiss) { Text(voice.logSheetPickerCancel) }
         },
         text = { TimePicker(state = timePickerState) },
-    )
-}
-
-@Composable
-private fun DeleteEventConfirmDialog(
-    voice: Voice,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(voice.deleteEventConfirmTitle) },
-        text = { Text(voice.deleteEventConfirmBody) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(voice.deleteEventConfirmAction) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(voice.deleteEventCancelAction) }
-        },
     )
 }
 

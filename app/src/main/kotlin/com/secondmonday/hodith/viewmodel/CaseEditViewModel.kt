@@ -36,6 +36,8 @@ data class CaseEditUiState(
     val showNameError: Boolean = false,
     val showIconError: Boolean = false,
     val isSaved: Boolean = false,
+    val canArchive: Boolean = false,
+    val isArchived: Boolean = false,
 )
 
 @HiltViewModel
@@ -136,6 +138,14 @@ class CaseEditViewModel
                 _uiState.update { it.copy(isSaved = true) }
             }
         }
+
+        fun archive() {
+            val current = existingCase ?: return
+            viewModelScope.launch {
+                repository.updateCase(current.copy(archived = true))
+                _uiState.update { it.copy(isArchived = true) }
+            }
+        }
     }
 
 private fun CaseEntity.toUiState() =
@@ -149,6 +159,7 @@ private fun CaseEntity.toUiState() =
         durationMode = durationMode,
         intensityEnabled = intensityEnabled,
         pinned = pinned,
+        canArchive = true,
         checkInOption =
             when (checkInDays) {
                 null -> CheckInOption.DEFAULT

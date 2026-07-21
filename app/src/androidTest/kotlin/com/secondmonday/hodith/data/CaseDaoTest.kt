@@ -83,6 +83,23 @@ class CaseDaoTest {
         }
 
     @Test
+    fun observeArchivedCasesWithEvents_returnsOnlyArchivedOrderedByNameWithEventCounts() =
+        runTest {
+            val eventDao = db.eventDao()
+            caseDao.insert(testCase(name = "Zebra", archived = true))
+            val migraineId = caseDao.insert(testCase(name = "migraines", archived = true))
+            caseDao.insert(testCase(name = "Active", archived = false))
+            eventDao.insert(testEvent(caseId = migraineId))
+            eventDao.insert(testEvent(caseId = migraineId, occurredAt = 1L, loggedAt = 1L))
+
+            val archived = caseDao.observeArchivedCasesWithEvents().first()
+
+            assertEquals(listOf("migraines", "Zebra"), archived.map { it.case.name })
+            assertEquals(2, archived.first { it.case.name == "migraines" }.events.size)
+            assertEquals(0, archived.first { it.case.name == "Zebra" }.events.size)
+        }
+
+    @Test
     fun deletingCase_cascadesToEventsHunchesAndTriggers() =
         runTest {
             val caseId = caseDao.insert(testCase())
