@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.DayOfWeek
 import java.time.ZoneId
@@ -94,6 +95,42 @@ class HomeViewModelMappingTest {
         assertEquals(LogFlow.DETAIL_SHEET, row.logFlow)
         assertEquals(DurationMode.MANUAL, row.durationMode)
         assertEquals(true, row.intensityEnabled)
+    }
+
+    @Test
+    fun `maps the open event as ongoingEvent for a START_STOP case`() {
+        val open = testEvent(occurredAt = 0L).copy(endedAt = null)
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(open), durationMode = DurationMode.START_STOP)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(open, rows.single().ongoingEvent)
+    }
+
+    @Test
+    fun `ongoingEvent is null for a START_STOP case with no open event`() {
+        val closed = testEvent(occurredAt = 0L).copy(endedAt = 1_000L)
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(closed), durationMode = DurationMode.START_STOP)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertNull(rows.single().ongoingEvent)
+    }
+
+    @Test
+    fun `ongoingEvent ignores a null endedAt event on a non-START_STOP case`() {
+        val event = testEvent(occurredAt = 0L).copy(endedAt = null)
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.NONE)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertNull(rows.single().ongoingEvent)
     }
 
     private fun caseWithEvents(

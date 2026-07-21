@@ -65,89 +65,94 @@ class LogDetailViewModelTest {
     }
 
     @Test
-    fun `draftFrom carries over the event's existingEndedAt verbatim`() {
+    fun `draftFrom carries over the event's existingEndedAt and endedAt verbatim`() {
         val event = testEvent(occurredAt = 0L, endedAt = 12_345L)
 
         val draft = draftFrom(event, now = 0L)
 
         assertEquals(12_345L, draft.existingEndedAt)
+        assertEquals(12_345L, draft.endedAt)
     }
 
     @Test
-    fun `draftFrom with no event has a null existingEndedAt`() {
+    fun `draftFrom with no event has a null existingEndedAt and endedAt`() {
         val draft = draftFrom(event = null, now = 0L)
 
         assertNull(draft.existingEndedAt)
+        assertNull(draft.endedAt)
     }
 
     // --- computeEndedAt ---
 
     @Test
     fun `computeEndedAt passes existingEndedAt through unchanged when duration mode is NONE`() {
-        val endedAt =
-            computeEndedAt(occurredAt = 0L, durationMode = DurationMode.NONE, durationMinutesInput = "30", existingEndedAt = 999L)
+        val endedAt = computeEndedAt(0L, DurationMode.NONE, "30", endedAt = null, existingEndedAt = 999L, now = farFuture)
 
         assertEquals(999L, endedAt)
     }
 
     @Test
     fun `computeEndedAt is null for NONE mode when there is no existingEndedAt`() {
-        assertNull(
-            computeEndedAt(occurredAt = 0L, durationMode = DurationMode.NONE, durationMinutesInput = "30", existingEndedAt = null),
-        )
+        assertNull(computeEndedAt(0L, DurationMode.NONE, "30", endedAt = null, existingEndedAt = null, now = farFuture))
     }
 
     @Test
-    fun `computeEndedAt passes existingEndedAt through unchanged when duration mode is START_STOP`() {
-        val endedAt =
-            computeEndedAt(
-                occurredAt = 0L,
-                durationMode = DurationMode.START_STOP,
-                durationMinutesInput = "30",
-                existingEndedAt = 777L,
-            )
+    fun `computeEndedAt is null for START_STOP mode when the draft's endedAt is null (still ongoing)`() {
+        assertNull(computeEndedAt(0L, DurationMode.START_STOP, "30", endedAt = null, existingEndedAt = 777L, now = farFuture))
+    }
 
-        assertEquals(777L, endedAt)
+    @Test
+    fun `computeEndedAt uses the draft's endedAt for START_STOP mode when set`() {
+        val endedAt = computeEndedAt(0L, DurationMode.START_STOP, "", endedAt = 5_000L, existingEndedAt = null, now = farFuture)
+
+        assertEquals(5_000L, endedAt)
+    }
+
+    @Test
+    fun `computeEndedAt clamps a START_STOP endedAt that precedes occurredAt`() {
+        val endedAt =
+            computeEndedAt(occurredAt = 10_000L, DurationMode.START_STOP, "", endedAt = 1_000L, existingEndedAt = null, now = farFuture)
+
+        assertEquals(10_000L, endedAt)
+    }
+
+    @Test
+    fun `computeEndedAt clamps a START_STOP endedAt that is in the future`() {
+        val now = 10_000L
+        val endedAt =
+            computeEndedAt(occurredAt = 0L, DurationMode.START_STOP, "", endedAt = now + 60_000L, existingEndedAt = null, now = now)
+
+        assertEquals(now, endedAt)
     }
 
     @Test
     fun `computeEndedAt adds parsed minutes to occurredAt for MANUAL mode`() {
-        val endedAt =
-            computeEndedAt(occurredAt = 1_000L, durationMode = DurationMode.MANUAL, durationMinutesInput = "5", existingEndedAt = null)
+        val endedAt = computeEndedAt(1_000L, DurationMode.MANUAL, "5", endedAt = null, existingEndedAt = null, now = farFuture)
 
         assertEquals(1_000L + 5 * 60_000L, endedAt)
     }
 
     @Test
     fun `computeEndedAt for MANUAL mode ignores existingEndedAt and recomputes from the input`() {
-        val endedAt =
-            computeEndedAt(occurredAt = 1_000L, durationMode = DurationMode.MANUAL, durationMinutesInput = "5", existingEndedAt = 999L)
+        val endedAt = computeEndedAt(1_000L, DurationMode.MANUAL, "5", endedAt = null, existingEndedAt = 999L, now = farFuture)
 
         assertEquals(1_000L + 5 * 60_000L, endedAt)
     }
 
     @Test
     fun `computeEndedAt is null for MANUAL mode with blank input, even with an existingEndedAt`() {
-        assertNull(
-            computeEndedAt(occurredAt = 1_000L, durationMode = DurationMode.MANUAL, durationMinutesInput = "", existingEndedAt = 999L),
-        )
+        assertNull(computeEndedAt(1_000L, DurationMode.MANUAL, "", endedAt = null, existingEndedAt = 999L, now = farFuture))
     }
 
     @Test
     fun `computeEndedAt is null for MANUAL mode with zero or negative minutes`() {
-        assertNull(
-            computeEndedAt(occurredAt = 1_000L, durationMode = DurationMode.MANUAL, durationMinutesInput = "0", existingEndedAt = null),
-        )
-        assertNull(
-            computeEndedAt(occurredAt = 1_000L, durationMode = DurationMode.MANUAL, durationMinutesInput = "-5", existingEndedAt = null),
-        )
+        assertNull(computeEndedAt(1_000L, DurationMode.MANUAL, "0", endedAt = null, existingEndedAt = null, now = farFuture))
+        assertNull(computeEndedAt(1_000L, DurationMode.MANUAL, "-5", endedAt = null, existingEndedAt = null, now = farFuture))
     }
 
     @Test
     fun `computeEndedAt is null for MANUAL mode with non-numeric input`() {
-        assertNull(
-            computeEndedAt(occurredAt = 1_000L, durationMode = DurationMode.MANUAL, durationMinutesInput = "abc", existingEndedAt = null),
-        )
+        assertNull(computeEndedAt(1_000L, DurationMode.MANUAL, "abc", endedAt = null, existingEndedAt = null, now = farFuture))
     }
 
     // --- LogDraft#toEventEntity ---
@@ -199,16 +204,32 @@ class LogDetailViewModelTest {
     }
 
     @Test
-    fun `toEventEntity preserves an existing duration when editing under NONE or START_STOP mode`() {
+    fun `toEventEntity preserves an existing duration when editing under NONE mode`() {
         val draft = testDraft(existingEndedAt = 55_000L)
 
-        val underNone =
-            draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, durationMode = DurationMode.NONE, now = farFuture)
-        val underStartStop =
-            draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, durationMode = DurationMode.START_STOP, now = farFuture)
+        val underNone = draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, durationMode = DurationMode.NONE, now = farFuture)
 
         assertEquals(55_000L, underNone.endedAt)
-        assertEquals(55_000L, underStartStop.endedAt)
+    }
+
+    @Test
+    fun `toEventEntity is still ongoing for START_STOP mode when the draft's endedAt is null`() {
+        val draft = testDraft(endedAt = null)
+
+        val entity =
+            draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, durationMode = DurationMode.START_STOP, now = farFuture)
+
+        assertNull(entity.endedAt)
+    }
+
+    @Test
+    fun `toEventEntity uses the draft's endedAt for START_STOP mode when set`() {
+        val draft = testDraft(occurredAt = 1_000L, endedAt = 55_000L)
+
+        val entity =
+            draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, durationMode = DurationMode.START_STOP, now = farFuture)
+
+        assertEquals(55_000L, entity.endedAt)
     }
 
     @Test
@@ -279,6 +300,17 @@ class LogDetailViewModelTest {
         assertTrue(plan.isUpdate)
         assertEquals(111L, plan.entity.loggedAt)
         assertEquals(42L, plan.entity.id)
+    }
+
+    @Test
+    fun `planSaveEvent preserves the existing event's staleNudgeDismissedAt`() {
+        val existing = testEvent(occurredAt = 500L, endedAt = null).copy(id = 42L, staleNudgeDismissedAt = 900L)
+        val draft = testDraft(occurredAt = 500L)
+
+        val plan =
+            planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), DurationMode.START_STOP, now = 1_000L)
+
+        assertEquals(900L, plan.entity.staleNudgeDismissedAt)
     }
 
     @Test
@@ -421,6 +453,7 @@ class LogDetailViewModelTest {
         durationMinutes: String = "",
         note: String = "",
         tags: List<String> = emptyList(),
+        endedAt: Long? = null,
         existingEndedAt: Long? = null,
     ) = LogDraft(
         occurredAt = occurredAt,
@@ -428,6 +461,7 @@ class LogDetailViewModelTest {
         durationMinutes = durationMinutes,
         note = note,
         tags = tags,
+        endedAt = endedAt,
         existingEndedAt = existingEndedAt,
     )
 }

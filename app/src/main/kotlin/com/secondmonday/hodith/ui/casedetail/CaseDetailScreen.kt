@@ -3,6 +3,7 @@ package com.secondmonday.hodith.ui.casedetail
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,9 +31,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.ui.common.OngoingElapsedText
+import com.secondmonday.hodith.ui.common.StaleOngoingBanner
+import com.secondmonday.hodith.ui.common.StopIconButton
+import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
@@ -41,7 +47,10 @@ import com.secondmonday.hodith.viewmodel.CaseDetailViewModel
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.draftFrom
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
+import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.formatEventTime
+import com.secondmonday.hodith.viewmodel.isStaleOngoing
+import com.secondmonday.hodith.viewmodel.ongoingEventIn
 
 @Composable
 fun CaseDetailRoute(
@@ -58,6 +67,8 @@ fun CaseDetailRoute(
         onDeleteEvent = viewModel::deleteEvent,
         newEventDraft = viewModel::newEventDraft,
         onSaveEvent = viewModel::saveEvent,
+        onStopEvent = viewModel::stopEvent,
+        onDismissStalePrompt = viewModel::dismissStalePrompt,
         nowMillis = viewModel::nowMillis,
         modifier = modifier,
     )
@@ -78,12 +89,15 @@ fun CaseDetailScreen(
     onDeleteEvent: (EventEntity) -> Unit,
     newEventDraft: () -> LogDraft,
     onSaveEvent: (LogDraft, EventEntity?, List<TagEntity>) -> Unit,
+    onStopEvent: (EventEntity) -> Unit,
+    onDismissStalePrompt: (EventEntity) -> Unit,
     nowMillis: () -> Long,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
     val case = uiState.case
-    val now = nowMillis()
+    val now by rememberTickingNow(clockNow = nowMillis)
+    val ongoing = case?.let { ongoingEventIn(it, uiState.events.map { eventWithTags -> eventWithTags.event }) }
     var editRequest by remember { mutableStateOf<EditRequest?>(null) }
 
     Scaffold(
@@ -113,23 +127,52 @@ fun CaseDetailScreen(
             )
         },
     ) { contentPadding ->
-        Box(modifier = Modifier.padding(contentPadding).fillMaxSize()) {
-            when {
-                uiState.isLoading -> Unit
-                uiState.events.isEmpty() -> {
-                    Text(text = voice.eventListEmptyState, modifier = Modifier.align(Alignment.Center))
+        Column(modifier = Modifier.padding(contentPadding).fillMaxSize()) {
+            if (case != null && ongoing != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice, modifier = Modifier.weight(1f))
+                    StopIconButton(caseName = case.name, voice = voice, onClick = { onStopEvent(ongoing) })
                 }
-                else -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(uiState.events, key = { it.event.id }) { eventWithTags ->
-                            EventRow(
-                                eventWithTags = eventWithTags,
-                                now = now,
-                                voice = voice,
-                                onClick = {
-                                    editRequest = EditRequest(event = eventWithTags.event, originalTags = eventWithTags.tags, now = now)
-                                },
-                            )
+                if (isStaleOngoing(ongoing, now)) {
+                    StaleOngoingBanner(
+                        caseName = case.name,
+                        elapsed = formatElapsedDuration(ongoing.occurredAt, now),
+                        voice = voice,
+                        onEditEndTime = {
+                            val originalTags =
+                                uiState.events
+                                    .find { it.event.id == ongoing.id }
+                                    ?.tags
+                                    .orEmpty()
+                            editRequest = EditRequest(event = ongoing, originalTags = originalTags, now = now)
+                        },
+                        onStillGoing = { onDismissStalePrompt(ongoing) },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    uiState.isLoading -> Unit
+                    uiState.events.isEmpty() -> {
+                        Text(text = voice.eventListEmptyState, modifier = Modifier.align(Alignment.Center))
+                    }
+                    else -> {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(uiState.events, key = { it.event.id }) { eventWithTags ->
+                                EventRow(
+                                    eventWithTags = eventWithTags,
+                                    now = now,
+                                    voice = voice,
+                                    durationMode = case?.durationMode ?: DurationMode.NONE,
+                                    onClick = {
+                                        editRequest = EditRequest(event = eventWithTags.event, originalTags = eventWithTags.tags, now = now)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -167,15 +210,17 @@ private fun EventRow(
     eventWithTags: EventWithTags,
     now: Long,
     voice: Voice,
+    durationMode: DurationMode,
     onClick: () -> Unit,
 ) {
     val event = eventWithTags.event
+    val isOngoing = durationMode == DurationMode.START_STOP && event.endedAt == null
 
     Column(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Text(text = formatEventTime(event.occurredAt, now), style = MaterialTheme.typography.bodyLarge)
-        val details = eventDetailSummary(event, eventWithTags.tags, voice)
+        val details = eventDetailSummary(event, eventWithTags.tags, voice, isOngoing = isOngoing)
         if (details != null) {
             Text(text = details, style = MaterialTheme.typography.bodySmall)
         }

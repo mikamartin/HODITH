@@ -62,12 +62,23 @@ class VoiceTest {
             assertTrue(voice.logSheetSaveButton.isNotBlank())
             assertTrue(voice.logSheetPickerConfirm.isNotBlank())
             assertTrue(voice.logSheetPickerCancel.isNotBlank())
+            assertTrue(voice.logSheetStartButton.isNotBlank())
+            assertTrue(voice.logSheetEndLabel.isNotBlank())
+            assertTrue(voice.logSheetOngoingLabel.isNotBlank())
+            assertTrue(voice.logSheetStopNowAction.isNotBlank())
+            assertTrue(voice.staleOngoingEditEndTimeAction.isNotBlank())
+            assertTrue(voice.staleOngoingStillGoingAction.isNotBlank())
             assertTrue(voice.quickLogUndoAction.isNotBlank())
             assertTrue(voice.homeCaseCounts(todayCount = 0, weekCount = 0).isNotBlank())
             assertTrue(voice.homeCaseCounts(todayCount = 3, weekCount = 12).isNotBlank())
             assertTrue(voice.eventIntensityLabel(intensity = 3).isNotBlank())
+            assertTrue(voice.eventDurationLabel(duration = "45m").isNotBlank())
             assertTrue(voice.quickLogButtonDescription(caseName = "Test Case").isNotBlank())
             assertTrue(voice.quickLogUndoMessage(caseName = "Test Case").isNotBlank())
+            assertTrue(voice.startActionDescription(caseName = "Test Case").isNotBlank())
+            assertTrue(voice.stopActionDescription(caseName = "Test Case").isNotBlank())
+            assertTrue(voice.ongoingIndicator(elapsed = "2h 14m").isNotBlank())
+            assertTrue(voice.staleOngoingPromptMessage(caseName = "Test Case", elapsed = "1d 2h").isNotBlank())
         }
     }
 }

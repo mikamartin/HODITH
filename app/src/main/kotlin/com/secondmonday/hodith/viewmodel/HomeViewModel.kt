@@ -36,6 +36,8 @@ data class HomeCaseRow(
     val logFlow: LogFlow,
     val durationMode: DurationMode,
     val intensityEnabled: Boolean,
+    /** Non-null only for a `START_STOP` case with an open event (spec §6). */
+    val ongoingEvent: EventEntity? = null,
 )
 
 data class HomeUiState(
@@ -94,13 +96,31 @@ class HomeViewModel
         private val _quickLogUndo = Channel<QuickLogUndo>(Channel.BUFFERED)
         val quickLogUndo: Flow<QuickLogUndo> = _quickLogUndo.receiveAsFlow()
 
-        /** Routes a row's quick-log tap per its Case's `logFlow` (spec §6). */
+        /**
+         * Routes a row's quick-log tap. An already-ongoing `START_STOP` case always stops
+         * immediately, regardless of `logFlow` — by the time you're stopping, whatever detail
+         * was worth capturing was already captured at Start (or can be added via edit
+         * afterward), so there's no reason to force a sheet open just to stop (spec §6).
+         * Otherwise routes per the Case's `logFlow` as before.
+         */
         fun onQuickLogTap(row: HomeCaseRow) {
-            when (row.logFlow) {
-                LogFlow.ONE_TAP -> quickLogOneTap(row)
-                LogFlow.DETAIL_SHEET -> openLogSheet(row)
+            val ongoing = row.ongoingEvent
+            when {
+                ongoing != null -> stopEvent(ongoing)
+                row.logFlow == LogFlow.ONE_TAP -> quickLogOneTap(row)
+                row.logFlow == LogFlow.DETAIL_SHEET -> openLogSheet(row)
             }
         }
+
+        fun stopEvent(event: EventEntity) {
+            viewModelScope.launch { repository.updateEvent(event.copy(endedAt = clock.nowMillis())) }
+        }
+
+        fun dismissStalePrompt(event: EventEntity) {
+            viewModelScope.launch { repository.updateEvent(event.copy(staleNudgeDismissedAt = clock.nowMillis())) }
+        }
+
+        fun nowMillis(): Long = clock.nowMillis()
 
         private fun quickLogOneTap(row: HomeCaseRow) {
             viewModelScope.launch {
@@ -189,6 +209,7 @@ internal fun homeCaseRows(
             logFlow = case.logFlow,
             durationMode = case.durationMode,
             intensityEnabled = case.intensityEnabled,
+            ongoingEvent = ongoingEventIn(case, events),
         )
     }
 }

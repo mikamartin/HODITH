@@ -62,6 +62,12 @@ interface Voice {
     val logSheetSaveButton: String
     val logSheetPickerConfirm: String
     val logSheetPickerCancel: String
+    val logSheetStartButton: String
+    val logSheetEndLabel: String
+    val logSheetOngoingLabel: String
+    val logSheetStopNowAction: String
+    val staleOngoingEditEndTimeAction: String
+    val staleOngoingStillGoingAction: String
     val quickLogUndoAction: String
 
     fun homeCaseCounts(
@@ -71,9 +77,22 @@ interface Voice {
 
     fun eventIntensityLabel(intensity: Int): String
 
+    fun eventDurationLabel(duration: String): String
+
     fun quickLogButtonDescription(caseName: String): String
 
     fun quickLogUndoMessage(caseName: String): String
+
+    fun startActionDescription(caseName: String): String
+
+    fun stopActionDescription(caseName: String): String
+
+    fun ongoingIndicator(elapsed: String): String
+
+    fun staleOngoingPromptMessage(
+        caseName: String,
+        elapsed: String,
+    ): String
 }
 
 object SeriousVoice : Voice {
@@ -130,6 +149,12 @@ object SeriousVoice : Voice {
     override val logSheetSaveButton = "Save"
     override val logSheetPickerConfirm = "OK"
     override val logSheetPickerCancel = "Cancel"
+    override val logSheetStartButton = "Start"
+    override val logSheetEndLabel = "Ended"
+    override val logSheetOngoingLabel = "Ongoing"
+    override val logSheetStopNowAction = "Stop now"
+    override val staleOngoingEditEndTimeAction = "Edit end time"
+    override val staleOngoingStillGoingAction = "Still going"
     override val quickLogUndoAction = "Undo"
 
     override fun homeCaseCounts(
@@ -139,9 +164,22 @@ object SeriousVoice : Voice {
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity $intensity"
 
+    override fun eventDurationLabel(duration: String) = "Duration: $duration"
+
     override fun quickLogButtonDescription(caseName: String) = "Log $caseName now"
 
     override fun quickLogUndoMessage(caseName: String) = "Logged $caseName."
+
+    override fun startActionDescription(caseName: String) = "Start $caseName"
+
+    override fun stopActionDescription(caseName: String) = "Stop $caseName"
+
+    override fun ongoingIndicator(elapsed: String) = "Ongoing · $elapsed"
+
+    override fun staleOngoingPromptMessage(
+        caseName: String,
+        elapsed: String,
+    ) = "Still going, or forgot to stop $caseName? ($elapsed and counting.)"
 }
 
 object GothVoice : Voice {
@@ -198,6 +236,12 @@ object GothVoice : Voice {
     override val logSheetSaveButton = "Commit to the record"
     override val logSheetPickerConfirm = "So be it"
     override val logSheetPickerCancel = "Retreat"
+    override val logSheetStartButton = "Begin"
+    override val logSheetEndLabel = "The hour it ended"
+    override val logSheetOngoingLabel = "Still unfolding"
+    override val logSheetStopNowAction = "Seal it now"
+    override val staleOngoingEditEndTimeAction = "Mark when it ended"
+    override val staleOngoingStillGoingAction = "Still unfolding"
     override val quickLogUndoAction = "Reverse it"
 
     override fun homeCaseCounts(
@@ -207,9 +251,22 @@ object GothVoice : Voice {
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity: $intensity"
 
+    override fun eventDurationLabel(duration: String) = "Lasted: $duration"
+
     override fun quickLogButtonDescription(caseName: String) = "Add $caseName to the record"
 
     override fun quickLogUndoMessage(caseName: String) = "$caseName entered into the record."
+
+    override fun startActionDescription(caseName: String) = "Begin $caseName"
+
+    override fun stopActionDescription(caseName: String) = "Seal $caseName"
+
+    override fun ongoingIndicator(elapsed: String) = "Still unfolding — $elapsed"
+
+    override fun staleOngoingPromptMessage(
+        caseName: String,
+        elapsed: String,
+    ) = "$caseName has lingered $elapsed. Still unfolding, or simply forgotten?"
 }
 
 object QuirkyVoice : Voice {
@@ -266,6 +323,12 @@ object QuirkyVoice : Voice {
     override val logSheetSaveButton = "Log it!"
     override val logSheetPickerConfirm = "Yep!"
     override val logSheetPickerCancel = "Nah"
+    override val logSheetStartButton = "Start it!"
+    override val logSheetEndLabel = "Wrapped up at"
+    override val logSheetOngoingLabel = "Still going!"
+    override val logSheetStopNowAction = "Stop the clock!"
+    override val staleOngoingEditEndTimeAction = "Fix the end time"
+    override val staleOngoingStillGoingAction = "Yep, still going!"
     override val quickLogUndoAction = "Oops, undo!"
 
     override fun homeCaseCounts(
@@ -275,9 +338,22 @@ object QuirkyVoice : Voice {
 
     override fun eventIntensityLabel(intensity: Int) = "Feels like a $intensity!"
 
+    override fun eventDurationLabel(duration: String) = "Went on for $duration"
+
     override fun quickLogButtonDescription(caseName: String) = "Log $caseName!"
 
     override fun quickLogUndoMessage(caseName: String) = "Logged $caseName!"
+
+    override fun startActionDescription(caseName: String) = "Start $caseName!"
+
+    override fun stopActionDescription(caseName: String) = "Stop $caseName!"
+
+    override fun ongoingIndicator(elapsed: String) = "Still going · $elapsed"
+
+    override fun staleOngoingPromptMessage(
+        caseName: String,
+        elapsed: String,
+    ) = "$caseName's been going $elapsed — still happening, or did you just forget?"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { SeriousVoice }
