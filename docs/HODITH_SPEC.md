@@ -75,6 +75,11 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 | sortOrder | manual ordering on Home and Big Picture |
 | archived | boolean — hidden from Home/widgets/Big Picture, data retained |
 
+Case deliberately has no fixed valence field of its own — direction stays scoped to `Hunch.direction`
+below, which can change over a Case's life as hunches resolve and new ones are made, and includes a
+neutral `JUST_CURIOUS` option. A Case with no Hunch has no framing at all, matching §4's
+"observation, not judgment" stance.
+
 Archiving is reversible and non-destructive. **Hard-deleting a Case** is a separate, irreversible
 action, reachable only from the Archived Cases screen (§14) on a case that's already archived —
 never directly from an active Case. It cascades to the case's events, hunches, and triggers (FK
