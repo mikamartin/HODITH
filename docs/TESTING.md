@@ -1,6 +1,6 @@
 # HODITH — Test Strategy
 
-Status: **Phase 1 landed** (Room entities/DAOs/repository, `Clock`). This doc defines the strategy and the planned coverage map; the coverage tables get real counts as test files land. Keep it in sync per DEV_PLAYBOOK §1 → Tests.
+Status: **Phase 1 landed** (Room entities/DAOs/repository, `Clock`). This doc defines the strategy and the planned coverage map; the coverage tables get real counts as test files land. Keep it in sync per CLEANUP_CHECKLIST.md → Tests.
 
 ---
 
@@ -69,6 +69,6 @@ Cadence: before every release; full pass before Play submissions.
 
 ## CI coverage
 
-GitHub Actions (`.github/workflows/ci.yml`, job name `build`) runs `ktlintCheck` → `test` → `assembleDebug` on every PR against `main` and every push to `main` — layer 1 of the strategy above is enforced automatically. Layers 2 (instrumented) and 3 (manual) are not in CI: instrumented tests still require a local/manual emulator run, and the manual test plan is human-only by definition. Android Lint is also not yet wired in, separately from ktlint's style checks. (Open follow-up work for both gaps is tracked in PROGRESS.md's Housekeeping section, not here.)
+GitHub Actions (`.github/workflows/ci.yml`, job name `build`) runs `ktlintCheck` → `lintDebug` → `test` → `assembleDebug` on every PR against `main` and every push to `main` — layer 1 of the strategy above is enforced automatically, plus Android's own lint checks (`lintDebug`) alongside ktlint's style checks. Layers 2 (instrumented) and 3 (manual) are not in CI: instrumented tests still require a local/manual emulator run, and the manual test plan is human-only by definition. (Open follow-up work for the instrumented-tests gap is tracked in PROGRESS.md's Housekeeping section, not here.)
 
-Not yet a required check on `main`: classic branch-protection rules aren't available on GitHub's free plan for a private repo. Tracked in DEV_PLAYBOOK.md's Ship Checklist as a "before going public" step.
+Not yet a required check on `main`: classic branch-protection rules aren't available on GitHub's free plan for a private repo. Adding one (GitHub Settings, not a repo change) is a "before going public" step, alongside making the repository itself public.
