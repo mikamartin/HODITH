@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.secondmonday.hodith.testtags.Smoke
+import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.SeriousVoice
 import com.secondmonday.hodith.viewmodel.ArchivedCaseRow
@@ -19,6 +21,7 @@ import org.junit.Test
  * so these tests exercise it directly with `createComposeRule()`, same pattern as
  * `HomeScreenTest`/`CaseDetailScreenTest` — no Hilt/Activity/Room needed.
  */
+@UiTest
 class ArchivedCasesScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
@@ -57,6 +60,7 @@ class ArchivedCasesScreenTest {
         composeTestRule.onNodeWithText(SeriousVoice.archivedCaseEventCount(row.eventCount)).assertExists()
     }
 
+    @Smoke
     @Test
     fun unarchive_firesImmediately_noDialog() {
         var unarchivedId: Long? = null

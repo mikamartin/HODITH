@@ -11,6 +11,8 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.testtags.Smoke
+import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.SeriousVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
@@ -28,6 +30,7 @@ import org.junit.Test
  * [com.secondmonday.hodith.ui.home.HomeScreenTest]'s pattern: drives the stateless
  * [CaseDetailScreen] directly with fake callbacks, no Hilt/Room.
  */
+@UiTest
 class CaseDetailScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
@@ -89,6 +92,7 @@ class CaseDetailScreenTest {
         }
     }
 
+    @Smoke
     @Test
     fun retroLogFab_forStartStopCaseWithNoOngoingEvent_showsOngoingByDefaultAndStartsOnSave() {
         var savedDraft: LogDraft? = null

@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondmonday.hodith.testtags.Smoke
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -29,6 +30,7 @@ class TriggerDaoTest {
         db.close()
     }
 
+    @Smoke
     @Test
     fun insertAndUpdate() =
         runTest {

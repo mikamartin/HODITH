@@ -67,4 +67,22 @@ Cadence: before every release; full pass before Play submissions.
 
 ## CI coverage
 
-GitHub Actions (`.github/workflows/ci.yml`, job name `build`) runs `ktlintCheck` → `lintDebug` → `test` → `assembleDebug` on every PR against `main` and every push to `main` — layer 1 of the strategy above is enforced automatically, plus Android's own lint checks (`lintDebug`) alongside ktlint's style checks. Layers 2 (instrumented) and 3 (manual) are not in CI: instrumented tests still require a local/manual emulator run, and the manual test plan is human-only by definition. (Open follow-up work for the instrumented-tests gap is tracked in PROGRESS.md's Housekeeping section, not here.)
+GitHub Actions (`.github/workflows/ci.yml`, job name `build`) runs `ktlintCheck` → `lintDebug` → `test` → `assembleDebug` on every PR against `main` and every push to `main` — layer 1 of the strategy above is enforced automatically, plus Android's own lint checks (`lintDebug`) alongside ktlint's style checks.
+
+Layer 2 (instrumented) also runs in CI: `.github/workflows/instrumented-tests.yml` runs `connectedDebugAndroidTest` on a cached API 36 emulator (`reactivecircus/android-emulator-runner`), split into two matrix shards by the `@UiTest` annotation (`app/src/androidTest/kotlin/com/secondmonday/hodith/testtags/UiTest.kt`) — `repository` (DAO tests, not annotated) and `ui` (Compose screen tests, annotated). New instrumented test classes only need the annotation, not a workflow edit, to land in the right shard.
+
+Both workflows report total/passed/failed/skipped counts (Checks tab annotations + job summary) via `mikepenz/action-junit-report`.
+
+Layer 3 (manual) is not in CI by definition — human-only.
+
+### Instrumented test tags
+
+- `@UiTest` (class-level) — marks a Compose UI instrumented test class; drives the CI shard split above.
+- `@Smoke` (method-level) — marks one representative happy-path test per class, for a quick local sanity run without the full suite:
+  ```
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.annotation=com.secondmonday.hodith.testtags.Smoke
+  ```
+- To run just one screen or DAO's tests locally without any tag, filter by package — no annotation needed since the suite is already one class per package per screen/entity:
+  ```
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.secondmonday.hodith.ui.home
+  ```

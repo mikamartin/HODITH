@@ -73,5 +73,6 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Bug fixed → regression test added?
 - [ ] Features removed/renamed → tests updated so they don't pass against dead code?
 - [ ] New instrumented tests actually ran on a device before committing?
+- [ ] New instrumented test class — tagged `@UiTest` if it's a Compose screen test (drives CI's shard split)? Does one of its tests deserve `@Smoke` as the class's representative happy path?
 - [ ] Is [TESTING.md](TESTING.md) accurate? Counts, new rows, Deferrals in/out.
 - [ ] New flow crossing a system-process boundary? Add to MANUAL_TEST_PLAN.md with rationale, cadence, steps.

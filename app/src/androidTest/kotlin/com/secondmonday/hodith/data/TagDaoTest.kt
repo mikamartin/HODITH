@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondmonday.hodith.testtags.Smoke
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -32,6 +33,7 @@ class TagDaoTest {
         db.close()
     }
 
+    @Smoke
     @Test
     fun getByName_findsInsertedTag() =
         runTest {
