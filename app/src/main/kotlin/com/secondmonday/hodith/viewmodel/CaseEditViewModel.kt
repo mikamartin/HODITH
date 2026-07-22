@@ -75,9 +75,15 @@ class CaseEditViewModel
 
         fun onLogFlowChange(logFlow: LogFlow) = _uiState.update { it.copy(logFlow = logFlow) }
 
-        fun onDurationModeChange(durationMode: DurationMode) = _uiState.update { it.copy(durationMode = durationMode) }
+        fun onDurationModeChange(durationMode: DurationMode) =
+            _uiState.update {
+                it.copy(durationMode = durationMode, logFlow = coerceLogFlow(it.logFlow, durationMode, it.intensityEnabled))
+            }
 
-        fun onIntensityToggle(enabled: Boolean) = _uiState.update { it.copy(intensityEnabled = enabled) }
+        fun onIntensityToggle(enabled: Boolean) =
+            _uiState.update {
+                it.copy(intensityEnabled = enabled, logFlow = coerceLogFlow(it.logFlow, it.durationMode, enabled))
+            }
 
         fun onPinnedToggle(pinned: Boolean) = _uiState.update { it.copy(pinned = pinned) }
 
@@ -148,14 +154,14 @@ class CaseEditViewModel
         }
     }
 
-private fun CaseEntity.toUiState() =
+internal fun CaseEntity.toUiState() =
     CaseEditUiState(
         isEditing = true,
         isLoading = false,
         name = name,
         description = description.orEmpty(),
         icon = icon,
-        logFlow = logFlow,
+        logFlow = coerceLogFlow(logFlow, durationMode, intensityEnabled),
         durationMode = durationMode,
         intensityEnabled = intensityEnabled,
         pinned = pinned,
@@ -194,3 +200,25 @@ internal fun validateCaseEdit(
     name: String,
     icon: String?,
 ): CaseEditValidation = CaseEditValidation(nameValid = name.isNotBlank(), iconValid = icon != null)
+
+/**
+ * One-tap is an instant insert with no fields, so it can never capture a typed [DurationMode.MANUAL]
+ * duration or an intensity rating. [DurationMode.START_STOP] is unaffected — a one-tap Start/Stop is
+ * a legitimate flow.
+ */
+internal fun isOneTapAllowed(
+    durationMode: DurationMode,
+    intensityEnabled: Boolean,
+): Boolean = durationMode != DurationMode.MANUAL && !intensityEnabled
+
+/** Auto-corrects away from [LogFlow.ONE_TAP] the moment it becomes invalid; never auto-restores it. */
+internal fun coerceLogFlow(
+    logFlow: LogFlow,
+    durationMode: DurationMode,
+    intensityEnabled: Boolean,
+): LogFlow =
+    if (logFlow == LogFlow.ONE_TAP && !isOneTapAllowed(durationMode, intensityEnabled)) {
+        LogFlow.DETAIL_SHEET
+    } else {
+        logFlow
+    }

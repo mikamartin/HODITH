@@ -143,6 +143,7 @@ Permanent accepted constraints — nothing here gets checked off.
 | Kotlin | 2.3.20 | Pinned via `buildscript classpath` (gotcha 1). Kotlin 2.4.0 is stable but KSP has not yet published a matching release — stay on 2.3.20 until it does |
 | KSP | 2.3.9 | Decoupled from Kotlin versioning since 2.3.0 |
 | Hilt | 2.60 | First version supporting and requiring AGP 9 |
+| hilt-navigation-compose | 1.2.0 | Deliberately held back from 1.4.0 — that version (and its transitive `androidx.lifecycle` bump to 2.11.0) requires `compileSdk 37`, not yet installed; revisit alongside a deliberate `compileSdk`/`targetSdk` bump, not incidentally |
 | Room | 2.8.4 | Required for Kotlin 2.3.x KSP2. Room 3.0.0 exists (new `androidx.room3` package, KMP/Wasm-focused) but is out of scope — HODITH is Android-only and Room 2.x remains in supported maintenance mode |
 | WorkManager | check latest at setup | verify Hilt integration (`androidx.hilt:hilt-work`) version pairing |
 | foojay-resolver-convention | 1.0.0 | Pre-1.0 breaks on Gradle 9 |

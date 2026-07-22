@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.case
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -19,13 +21,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -39,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,11 +56,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
 import com.secondmonday.hodith.viewmodel.CaseEditViewModel
 import com.secondmonday.hodith.viewmodel.CheckInOption
+import com.secondmonday.hodith.viewmodel.isOneTapAllowed
 
 private val ICON_CHOICE_SIZE = 48.dp
 
@@ -212,37 +219,23 @@ private fun CaseEditForm(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Column {
-            Text(voice.caseIconLabel, style = MaterialTheme.typography.labelLarge)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 8.dp).selectableGroup(),
-            ) {
-                CASE_ICONS.forEach { icon ->
-                    IconChoice(icon = icon, selected = icon == uiState.icon, onClick = { onIconSelect(icon) })
-                }
-            }
-            if (uiState.showIconError) {
-                Text(
-                    voice.caseIconRequiredError,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
+        IconPickerSection(uiState = uiState, voice = voice, onIconSelect = onIconSelect)
 
-        Column {
-            Text(voice.caseLogFlowLabel, style = MaterialTheme.typography.labelLarge)
+        SectionWithInfo(voice.caseLogFlowLabel, voice.caseLogFlowInfoTitle, voice.caseLogFlowInfoBody, voice.caseSectionInfoDescription) {
             SegmentedChoiceRow(
                 options = listOf(LogFlow.ONE_TAP to voice.caseLogFlowOneTap, LogFlow.DETAIL_SHEET to voice.caseLogFlowDetailSheet),
                 selected = uiState.logFlow,
                 onSelect = onLogFlowChange,
+                enabled = { logFlow -> logFlow != LogFlow.ONE_TAP || isOneTapAllowed(uiState.durationMode, uiState.intensityEnabled) },
             )
         }
 
-        Column {
-            Text(voice.caseDurationModeLabel, style = MaterialTheme.typography.labelLarge)
+        SectionWithInfo(
+            voice.caseDurationModeLabel,
+            voice.caseDurationModeInfoTitle,
+            voice.caseDurationModeInfoBody,
+            voice.caseSectionInfoDescription,
+        ) {
             SegmentedChoiceRow(
                 options =
                     listOf(
@@ -258,30 +251,101 @@ private fun CaseEditForm(
         ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
         ToggleRow(label = voice.casePinnedToggleLabel, checked = uiState.pinned, onCheckedChange = onPinnedToggle)
 
-        Column(modifier = Modifier.selectableGroup()) {
-            Text(voice.caseCheckInLabel, style = MaterialTheme.typography.labelLarge)
-            CheckInOptionRow(voice.caseCheckInDefault, uiState.checkInOption == CheckInOption.DEFAULT) {
-                onCheckInOptionChange(CheckInOption.DEFAULT)
-            }
-            CheckInOptionRow(voice.caseCheckInCustom, uiState.checkInOption == CheckInOption.CUSTOM) {
-                onCheckInOptionChange(CheckInOption.CUSTOM)
-            }
+        SectionWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
+            SegmentedChoiceRow(
+                options =
+                    listOf(
+                        CheckInOption.DEFAULT to voice.caseCheckInDefault,
+                        CheckInOption.CUSTOM to voice.caseCheckInCustom,
+                        CheckInOption.OFF to voice.caseCheckInOff,
+                    ),
+                selected = uiState.checkInOption,
+                onSelect = onCheckInOptionChange,
+            )
             if (uiState.checkInOption == CheckInOption.CUSTOM) {
                 TextField(
                     value = uiState.checkInCustomDays,
                     onValueChange = onCheckInCustomDaysChange,
                     label = { Text(voice.caseCheckInCustomDaysHint) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.padding(start = 40.dp),
+                    modifier = Modifier.padding(top = 8.dp),
                 )
-            }
-            CheckInOptionRow(voice.caseCheckInOff, uiState.checkInOption == CheckInOption.OFF) {
-                onCheckInOptionChange(CheckInOption.OFF)
             }
         }
 
         Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
             Text(voice.caseSaveButton)
+        }
+    }
+}
+
+/** Shared shape for a form section with a label, a tappable info icon explaining it, and its content below. */
+@Composable
+private fun SectionWithInfo(
+    label: String,
+    infoTitle: String,
+    infoBody: String,
+    infoDescription: String,
+    content: @Composable () -> Unit,
+) {
+    var showInfo by remember { mutableStateOf(false) }
+    if (showInfo) {
+        InfoDialog(title = infoTitle, body = infoBody, onDismiss = { showInfo = false })
+    }
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
+            IconButton(onClick = { showInfo = true }) {
+                Icon(Icons.Filled.Info, contentDescription = infoDescription, modifier = Modifier.size(18.dp))
+            }
+        }
+        content()
+    }
+}
+
+@Composable
+private fun IconPickerSection(
+    uiState: CaseEditUiState,
+    voice: Voice,
+    onIconSelect: (String) -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(!uiState.isEditing) }
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { expanded = !expanded },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(voice.caseIconLabel, style = MaterialTheme.typography.labelLarge)
+                if (!expanded && uiState.icon != null) {
+                    Text(uiState.icon, style = MaterialTheme.typography.headlineSmall)
+                }
+            }
+            Icon(
+                imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                contentDescription =
+                    if (expanded) voice.caseIconSectionCollapseDescription else voice.caseIconSectionExpandDescription,
+            )
+        }
+        if (expanded) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp).selectableGroup(),
+            ) {
+                CASE_ICONS.forEach { icon ->
+                    IconChoice(icon = icon, selected = icon == uiState.icon, onClick = { onIconSelect(icon) })
+                }
+            }
+        }
+        if (uiState.showIconError) {
+            Text(
+                voice.caseIconRequiredError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }
@@ -292,11 +356,13 @@ private fun <T> SegmentedChoiceRow(
     options: List<Pair<T, String>>,
     selected: T,
     onSelect: (T) -> Unit,
+    enabled: (T) -> Boolean = { true },
 ) {
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
         options.forEachIndexed { index, (option, label) ->
             SegmentedButton(
                 selected = selected == option,
+                enabled = enabled(option),
                 onClick = { onSelect(option) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
             ) { Text(label) }
@@ -337,20 +403,5 @@ private fun ToggleRow(
     ) {
         Text(label)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun CheckInOptionRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Text(label)
     }
 }

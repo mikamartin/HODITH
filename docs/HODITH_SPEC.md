@@ -75,6 +75,11 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 | sortOrder | manual ordering on Home and Big Picture |
 | archived | boolean — hidden from Home/widgets/Big Picture, data retained |
 
+Case deliberately has no fixed valence field of its own — direction stays scoped to `Hunch.direction`
+below, which can change over a Case's life as hunches resolve and new ones are made, and includes a
+neutral `JUST_CURIOUS` option. A Case with no Hunch has no framing at all, matching §4's
+"observation, not judgment" stance.
+
 Archiving is reversible and non-destructive. **Hard-deleting a Case** is a separate, irreversible
 action, reachable only from the Archived Cases screen (§14) on a case that's already archived —
 never directly from an active Case. It cascades to the case's events, hunches, and triggers (FK
@@ -258,7 +263,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 | **Home** | Case list (drag to reorder): icon, name, today/this-week count, quick-log button, ongoing indicator. FAB: new Case. Trigger banners if notifications are denied. Text link to **Archived Cases**, shown only once at least one Case is archived. |
 | **Big Picture** | §9 flagship view. |
 | **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10), **Hunch** (verdict card or hunch creation, hunch history). Header: icon, name, share action (§13), config access. |
-| **New/edit Case** | Name, optional description, icon picker, logFlow, durationMode, intensity toggle, pinned toggle, check-in override (default / custom days / off); then the skippable Hunch step. Header also carries an **Archive** action on an existing Case (confirm dialog; not shown when creating a new Case) — navigates to Home on confirm. |
+| **New/edit Case** | Name, optional description, collapsible icon picker (expanded by default for a new Case, collapsed with an icon summary when editing), logFlow, durationMode, intensity toggle, pinned toggle, check-in override (default / custom days / off, styled as the same segmented control as logFlow/durationMode); then the skippable Hunch step. Logging, Duration, and Check-in each carry a tappable info icon opening a plain explanatory dialog. The Logging control's "One tap" option is disabled whenever durationMode is Manual and/or intensity tracking is on (one-tap can't capture a typed duration or intensity rating; Start/stop is unaffected) — an existing Case's logFlow silently corrects to Detail sheet the moment its duration/intensity settings make One tap invalid, whether that happens while editing or because a previously-valid stored value became invalid. Header also carries an **Archive** action on an existing Case (confirm dialog; not shown when creating a new Case) — navigates to Home on confirm. |
 | **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/hunches/triggers). Reached via Home's archived-cases link. |
 | **Log detail sheet** | §6 — reachable from widget (trampoline activity), Home, case detail. |
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
