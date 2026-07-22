@@ -1,87 +1,101 @@
 package com.secondmonday.hodith.viewmodel
 
+import app.cash.turbine.test
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.CaseWithEvents
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ArchivedCasesViewModelTest {
-    @Test
-    fun `maps case identity fields and event count through`() {
-        val rows =
-            archivedCaseRows(
-                listOf(
-                    caseWithEvents(
-                        caseId = 3L,
-                        icon = "☕️",
-                        name = "Coffee",
-                        events = listOf(testEvent(), testEvent()),
-                    ),
-                ),
-            )
+    private val repository = FakeHodithRepository()
 
-        val row = rows.single()
-        assertEquals(3L, row.caseId)
-        assertEquals("☕️", row.icon)
-        assertEquals("Coffee", row.name)
-        assertEquals(2, row.eventCount)
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
     }
 
-    @Test
-    fun `case with no events gets zero event count`() {
-        val rows = archivedCaseRows(listOf(caseWithEvents(events = emptyList())))
-
-        assertEquals(0, rows.single().eventCount)
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
     }
 
-    @Test
-    fun `preserves list order`() {
-        val rows =
-            archivedCaseRows(
-                listOf(
-                    caseWithEvents(caseId = 1L, name = "First", events = emptyList()),
-                    caseWithEvents(caseId = 2L, name = "Second", events = emptyList()),
-                ),
-            )
-
-        assertEquals(listOf("First", "Second"), rows.map { it.name })
-    }
-
-    private fun caseWithEvents(
-        caseId: Long = 1L,
-        icon: String = "🐛",
-        name: String = "Test Case",
-        events: List<EventEntity>,
-    ) = CaseWithEvents(
-        case =
-            CaseEntity(
-                id = caseId,
-                name = name,
-                icon = icon,
-                createdAt = 0L,
-                logFlow = LogFlow.ONE_TAP,
-                durationMode = DurationMode.NONE,
-                intensityEnabled = false,
-                hunchNudgeDismissed = false,
-                pinned = false,
-                checkInDays = null,
-                lastCheckInAt = null,
-                sortOrder = 0,
-                archived = true,
-            ),
-        events = events,
+    private fun testCase(
+        id: Long,
+        name: String = "Coffee",
+        sortOrder: Int = 0,
+        archived: Boolean = true,
+    ) = CaseEntity(
+        id = id,
+        name = name,
+        icon = "☕️",
+        createdAt = 0L,
+        logFlow = LogFlow.DETAIL_SHEET,
+        durationMode = DurationMode.NONE,
+        intensityEnabled = false,
+        hunchNudgeDismissed = false,
+        pinned = false,
+        checkInDays = null,
+        lastCheckInAt = null,
+        sortOrder = sortOrder,
+        archived = archived,
     )
 
-    private fun testEvent() =
-        EventEntity(
-            caseId = 1L,
-            occurredAt = 0L,
-            endedAt = null,
-            intensity = null,
-            note = null,
-            loggedAt = 0L,
-        )
+    private fun testEvent(caseId: Long) =
+        EventEntity(caseId = caseId, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
+
+    @Test
+    fun `uiState reflects archived cases with their event counts`() =
+        runTest {
+            repository.cases.value = listOf(testCase(id = 1L), testCase(id = 2L, name = "Tea", archived = false))
+            repository.events.value = listOf(testEvent(caseId = 1L), testEvent(caseId = 1L))
+            val viewModel = ArchivedCasesViewModel(repository)
+
+            viewModel.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(1, state.cases.size)
+                assertEquals("Coffee", state.cases.single().name)
+                assertEquals(2, state.cases.single().eventCount)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `unarchive moves the case back to active with a fresh sortOrder`() =
+        runTest {
+            repository.cases.value = listOf(testCase(id = 1L, archived = false), testCase(id = 2L))
+            val viewModel = ArchivedCasesViewModel(repository)
+
+            viewModel.unarchive(caseId = 2L)
+
+            val unarchived = repository.cases.value.single { it.id == 2L }
+            assertFalse(unarchived.archived)
+            assertEquals(1, unarchived.sortOrder)
+        }
+
+    @Test
+    fun `deleteForever removes the case and its events`() =
+        runTest {
+            repository.cases.value = listOf(testCase(id = 1L))
+            repository.events.value = listOf(testEvent(caseId = 1L))
+            val viewModel = ArchivedCasesViewModel(repository)
+
+            viewModel.deleteForever(caseId = 1L)
+
+            assertTrue(repository.cases.value.isEmpty())
+            assertTrue(repository.events.value.isEmpty())
+        }
 }

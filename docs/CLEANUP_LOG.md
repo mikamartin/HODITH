@@ -15,6 +15,61 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## chore/viewmodel-test-infra
+
+**Scope:** Closed PROGRESS.md's Housekeeping item of the same name — `HomeViewModel`,
+`CaseDetailViewModel`, `CaseEditViewModel`, and `ArchivedCasesViewModel` were covered only by
+manual/instrumented testing, not isolated JVM unit tests, because no fake repository seam existed
+(a decision recorded back in `feature/quick-log`'s entry). Extracted `HodithRepository` from a
+concrete `@Singleton class` into an interface, renamed the Room-backed implementation to
+`RoomHodithRepository`, and added a `RepositoryModule` `@Binds` (mirroring `ClockModule`'s existing
+pattern) — every ViewModel's constructor was already typed against `HodithRepository`, so this was
+a DI-binding change only, no ViewModel code touched. Added a hand-rolled `FakeHodithRepository`
+(in-memory, `MutableStateFlow`-backed, same no-mocking-library style as the existing `FakeClock`)
+and Turbine as a new `testImplementation` dependency for `StateFlow`/`Flow` assertions. Added real
+ViewModel-instantiation test suites for all four (24 tests total), and renamed the three existing
+`*ViewModelTest.kt` files that only covered co-located pure functions (`CaseDetailViewModelTest` →
+`CaseDetailFormattingTest`, etc. — content unchanged, class renamed to match) to free up the
+canonical name for the new suites. A pre-work sweep (with the user) confirmed no other current-phase
+production code has a comparable test gap; see Deferred.
+**Found & fixed:**
+- **Test gap in the test infra itself, caught applying this file's own Tests section to the new
+  code, not just the ViewModels it was built for:** `FakeClock` — the one existing precedent for a
+  hand-rolled fake with real behavior — has its own direct `FakeClockTest`, but the first draft of
+  `FakeHodithRepository` (materially more logic: reactive joins for `CaseWithEvents`/
+  `EventWithTags`, case-insensitive archived-name sort, tag find-or-create idempotency, cascading
+  delete) had none. A bug there could silently mask a real ViewModel bug or produce a false test
+  failure in all 24 dependent tests. Added `FakeHodithRepositoryTest` (11 cases) covering the sort/
+  join/cascade/idempotency behavior directly.
+- **Duplication:** an identical `awaitLoadedItem()` Turbine helper (skips a `stateIn` StateFlow's
+  `isLoading = true` default before the first real `combine` emission) was copy-pasted across three
+  of the four new test files, differing only in which `UiState` type it was written against.
+  Extracted a single generic `TurbineTestSupport.kt` (`ReceiveTurbine<T>.awaitLoadedItem(isLoading:
+  (T) -> Boolean)`) in the `viewmodel` test package; all three call sites now share it.
+- ktlint reformatted every new/touched test file (multi-arg calls, trailing-lambda placement) —
+  caught by actually running `ktlintCheck` before this entry was written, not assumed clean.
+**Deferred:**
+- **`data/Converters.kt`'s Room `TypeConverter`s remain untested** — each is a one-line
+  `enum.name`/`enum.valueOf()` wrapper; a typo would be caught immediately by any DAO instrumented
+  test round-tripping through Room. Considered during the pre-work sweep and judged low value for
+  the effort, not overlooked.
+- **`debug/SeedDataInitializer.kt`'s pure occurrence-generation functions (`spacedOccurrences`,
+  `burstyOccurrences`, `endedAtFor`, etc.) remain untested** — also surfaced in the sweep. It lives
+  in `app/src/debug` with no `testDebug` source set wired up to reach it (would need a
+  `build.gradle.kts` change), and DEV_PLAYBOOK.md's Ship Checklist already slates the whole file for
+  removal before first release. Not worth standing up test infra for code on its way out.
+- `ui/timeline/CalendarGridPrototype.kt`'s pure helpers (`weeksInGrid`, `monthLabel`) are untested,
+  but that file is Phase 3 prototype-stage work for a phase that hasn't started — out of scope.
+- `LogDetailViewModel.kt` turned out not to be an actual `@HiltViewModel` (just pure data
+  classes/functions shared by `CaseDetailViewModel`, already fully covered by the pre-existing
+  `LogDetailViewModelTest`) — a naming artifact, not a gap; no ViewModel instance exists there to
+  test. Noted since PROGRESS.md's item didn't name it but the user asked to include it if in scope.
+**Docs updated:** PROGRESS.md (Housekeeping item struck). HODITH_SPEC.md and TESTING.md
+reviewed — no changes needed (test-infra work; no user-facing behavior or coverage-scope
+description changed). This file.
+
+---
+
 ## chore/android-lint
 
 **Scope:** Two housekeeping items from PROGRESS.md, bundled onto one branch since the second is

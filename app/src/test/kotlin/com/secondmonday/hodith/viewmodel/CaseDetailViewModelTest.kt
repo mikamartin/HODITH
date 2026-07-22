@@ -1,189 +1,189 @@
 package com.secondmonday.hodith.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
+import app.cash.turbine.test
+import com.secondmonday.hodith.data.CaseEntity
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.EventTagCrossRef
+import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
-import com.secondmonday.hodith.ui.voice.GothVoice
-import com.secondmonday.hodith.ui.voice.SeriousVoice
+import com.secondmonday.hodith.domain.FakeClock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
-import java.time.ZoneId
-import java.time.ZonedDateTime
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CaseDetailViewModelTest {
-    private val utc = ZoneId.of("UTC")
+    private val repository = FakeHodithRepository()
+    private val clock = FakeClock(1_000_000L)
+    private val caseId = 1L
 
-    // Exact-equality on the formatted string is avoided: the JDK's CLDR data inserts a
-    // narrow no-break space before AM/PM (not a plain space), and that's an implementation
-    // detail of the JDK version, not something this test should pin down.
-    @Test
-    fun `formatEventTime renders weekday, date and time, omitting the year when it matches now`() {
-        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
-        val now = ZonedDateTime.of(2026, 12, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
-
-        val formatted = formatEventTime(instant.toEpochMilli(), now, utc)
-
-        assertTrue(formatted.contains("Thu"))
-        assertTrue(formatted.contains("Jul 9"))
-        assertTrue(formatted.contains("3:30"))
-        assertTrue(formatted.contains("PM"))
-        assertTrue("expected no year in \"$formatted\"", !formatted.contains("2026"))
-        assertTrue("expected weekday after the timestamp in \"$formatted\"", formatted.indexOf("Thu") > formatted.indexOf("3:30"))
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
     }
 
-    @Test
-    fun `formatEventTime includes the year when it differs from now`() {
-        val instant = ZonedDateTime.of(2025, 7, 9, 15, 30, 0, 0, utc).toInstant()
-        val now = ZonedDateTime.of(2026, 1, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
-
-        val formatted = formatEventTime(instant.toEpochMilli(), now, utc)
-
-        assertTrue(formatted.contains("2025"))
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
     }
 
-    @Test
-    fun `formatEventTime reflects the requested zone, not just the instant`() {
-        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
-        val now = instant.toEpochMilli()
-        // America/New_York is UTC-4 in July (daylight saving), so 15:30 UTC is 11:30 local.
-        val newYork = ZoneId.of("America/New_York")
+    private fun viewModel() = CaseDetailViewModel(repository, clock, SavedStateHandle(mapOf("caseId" to caseId)))
 
-        val formatted = formatEventTime(instant.toEpochMilli(), now, newYork)
-
-        assertTrue(formatted.contains("Jul 9"))
-        assertTrue(formatted.contains("11:30"))
-        assertTrue(formatted.contains("AM"))
-    }
-
-    @Test
-    fun `eventDetailSummary is null when nothing is set`() {
-        assertNull(eventDetailSummary(testEvent(intensity = null, note = null), tags = emptyList(), SeriousVoice))
-    }
-
-    @Test
-    fun `eventDetailSummary is null when note is blank, intensity is unset, and there are no tags`() {
-        assertNull(eventDetailSummary(testEvent(intensity = null, note = "   "), tags = emptyList(), SeriousVoice))
-    }
-
-    @Test
-    fun `eventDetailSummary shows intensity only when note and tags are unset`() {
-        assertEquals(
-            SeriousVoice.eventIntensityLabel(4),
-            eventDetailSummary(testEvent(intensity = 4, note = null), tags = emptyList(), SeriousVoice),
+    private fun testCase(durationMode: DurationMode = DurationMode.NONE) =
+        CaseEntity(
+            id = caseId,
+            name = "Coffee",
+            icon = "☕️",
+            createdAt = 0L,
+            logFlow = LogFlow.DETAIL_SHEET,
+            durationMode = durationMode,
+            intensityEnabled = false,
+            hunchNudgeDismissed = false,
+            pinned = false,
+            checkInDays = null,
+            lastCheckInAt = null,
+            sortOrder = 0,
+            archived = false,
         )
-    }
-
-    @Test
-    fun `eventDetailSummary shows note only when intensity and tags are unset`() {
-        assertEquals(
-            "Snapped during dinner",
-            eventDetailSummary(testEvent(intensity = null, note = "Snapped during dinner"), tags = emptyList(), SeriousVoice),
-        )
-    }
-
-    @Test
-    fun `eventDetailSummary joins intensity and note, intensity first`() {
-        assertEquals(
-            "${SeriousVoice.eventIntensityLabel(2)} · Quick one",
-            eventDetailSummary(testEvent(intensity = 2, note = "Quick one"), tags = emptyList(), SeriousVoice),
-        )
-    }
-
-    @Test
-    fun `eventDetailSummary uses the given voice's intensity copy, not a hardcoded string`() {
-        assertEquals(
-            GothVoice.eventIntensityLabel(5),
-            eventDetailSummary(testEvent(intensity = 5, note = null), tags = emptyList(), GothVoice),
-        )
-    }
-
-    @Test
-    fun `eventDetailSummary shows tags only when intensity and note are unset`() {
-        val tags = listOf(TagEntity(id = 1, name = "work"), TagEntity(id = 2, name = "morning"))
-
-        assertEquals(
-            "#work #morning",
-            eventDetailSummary(testEvent(intensity = null, note = null), tags = tags, SeriousVoice),
-        )
-    }
-
-    @Test
-    fun `eventDetailSummary appends tags last, after intensity and note`() {
-        val tags = listOf(TagEntity(id = 1, name = "dinner"))
-
-        assertEquals(
-            "${SeriousVoice.eventIntensityLabel(3)} · Quick one · #dinner",
-            eventDetailSummary(testEvent(intensity = 3, note = "Quick one"), tags = tags, SeriousVoice),
-        )
-    }
-
-    @Test
-    fun `eventDetailSummary shows the ongoing label first when isOngoing is true`() {
-        assertEquals(
-            SeriousVoice.logSheetOngoingLabel,
-            eventDetailSummary(testEvent(intensity = null, note = null), tags = emptyList(), SeriousVoice, isOngoing = true),
-        )
-    }
-
-    @Test
-    fun `eventDetailSummary puts the ongoing label before intensity, note and tags`() {
-        val tags = listOf(TagEntity(id = 1, name = "dinner"))
-
-        assertEquals(
-            "${SeriousVoice.logSheetOngoingLabel} · ${SeriousVoice.eventIntensityLabel(3)} · Quick one · #dinner",
-            eventDetailSummary(testEvent(intensity = 3, note = "Quick one"), tags = tags, SeriousVoice, isOngoing = true),
-        )
-    }
-
-    @Test
-    fun `eventDetailSummary shows the duration for a finished event with an endedAt`() {
-        val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 45 * 60_000L)
-
-        assertEquals(SeriousVoice.eventDurationLabel("45m"), eventDetailSummary(event, tags = emptyList(), SeriousVoice))
-    }
-
-    @Test
-    fun `eventDetailSummary puts the duration before intensity, note and tags`() {
-        val tags = listOf(TagEntity(id = 1, name = "dinner"))
-        val event = testEvent(intensity = 3, note = "Quick one", occurredAt = 0L, endedAt = 45 * 60_000L)
-
-        assertEquals(
-            "${SeriousVoice.eventDurationLabel("45m")} · ${SeriousVoice.eventIntensityLabel(3)} · Quick one · #dinner",
-            eventDetailSummary(event, tags = tags, SeriousVoice),
-        )
-    }
-
-    @Test
-    fun `eventDetailSummary shows no duration when endedAt is null and not ongoing`() {
-        val event = testEvent(intensity = 3, note = null, occurredAt = 0L, endedAt = null)
-
-        assertEquals(SeriousVoice.eventIntensityLabel(3), eventDetailSummary(event, tags = emptyList(), SeriousVoice))
-    }
-
-    @Test
-    fun `eventDetailSummary shows the ongoing label instead of a duration even if isOngoing is true with a stale endedAt`() {
-        // isOngoing is caller-asserted (spec: only true for a START_STOP case's open event, which
-        // by construction never has an endedAt) — this pins that ongoing always wins the branch.
-        val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 999L)
-
-        assertEquals(
-            SeriousVoice.logSheetOngoingLabel,
-            eventDetailSummary(event, tags = emptyList(), SeriousVoice, isOngoing = true),
-        )
-    }
 
     private fun testEvent(
-        intensity: Int?,
-        note: String?,
-        occurredAt: Long = 0L,
-        endedAt: Long? = null,
+        occurredAt: Long = clock.nowMillis(),
+        endedAt: Long? = clock.nowMillis(),
     ) = EventEntity(
-        caseId = 1L,
+        caseId = caseId,
         occurredAt = occurredAt,
         endedAt = endedAt,
-        intensity = intensity,
-        note = note,
-        loggedAt = 0L,
+        intensity = null,
+        note = null,
+        loggedAt = occurredAt,
     )
+
+    @Test
+    fun `uiState reflects the case, its events and tag suggestions`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val eventId = repository.insertEvent(testEvent())
+            repository.tags.value = listOf(TagEntity(id = 1L, name = "focus"))
+            repository.eventTags.value = listOf(EventTagCrossRef(eventId = eventId, tagId = 1L))
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals("Coffee", state.case?.name)
+                assertEquals(1, state.events.size)
+                assertEquals(listOf("focus"), state.tagSuggestions.map { it.name })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `deleteEvent removes the event`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            repository.insertEvent(testEvent())
+
+            viewModel().deleteEvent(repository.events.value.single())
+
+            assertTrue(repository.events.value.isEmpty())
+        }
+
+    @Test
+    fun `stopEvent sets endedAt to now`() =
+        runTest {
+            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.insertEvent(testEvent(endedAt = null))
+            val vm = viewModel()
+
+            clock.advanceBy(60_000L)
+            vm.stopEvent(repository.events.value.single())
+
+            assertEquals(
+                clock.nowMillis(),
+                repository.events.value
+                    .single()
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `dismissStalePrompt records the dismissal time`() =
+        runTest {
+            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.insertEvent(testEvent(endedAt = null))
+            val vm = viewModel()
+
+            clock.advanceBy(60_000L)
+            vm.dismissStalePrompt(repository.events.value.single())
+
+            assertEquals(
+                clock.nowMillis(),
+                repository.events.value
+                    .single()
+                    .staleNudgeDismissedAt,
+            )
+        }
+
+    @Test
+    fun `saveEvent inserts a new event when there is no existing event`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+                val draft = vm.newEventDraft().copy(note = "first time", tags = listOf("focus"))
+
+                vm.saveEvent(draft, existingEvent = null, originalTags = emptyList())
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(1, repository.events.value.size)
+            assertEquals(
+                "first time",
+                repository.events.value
+                    .single()
+                    .note,
+            )
+            assertEquals(listOf("focus"), repository.tags.value.map { it.name })
+        }
+
+    @Test
+    fun `saveEvent updates an existing event and diffs tags`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val eventId = repository.insertEvent(testEvent(occurredAt = 500L, endedAt = null))
+            repository.addTagToEvent(eventId, "old")
+            val existingEvent = repository.events.value.single()
+            val originalTags = repository.observeTagsForEvent(eventId).first()
+            val vm = viewModel()
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+                val draft = vm.newEventDraft().copy(occurredAt = 500L, note = "updated", tags = listOf("new"))
+
+                vm.saveEvent(draft, existingEvent = existingEvent, originalTags = originalTags)
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(1, repository.events.value.size)
+            assertEquals(
+                "updated",
+                repository.events.value
+                    .single()
+                    .note,
+            )
+            assertEquals(listOf("new"), repository.observeTagsForEvent(eventId).first().map { it.name })
+        }
 }

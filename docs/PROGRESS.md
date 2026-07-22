@@ -13,7 +13,6 @@ Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pic
 Open items:
 
 - [ ] **Instrumented tests in CI** (`./gradlew connectedDebugAndroidTest`) — needs an emulator/device runner (e.g. `reactivecircus/android-emulator-runner`), not just a JVM. Planned as its own branch, `chore/ci-instrumented-tests`. Requirements for that branch: tag every instrumented test class (e.g. AndroidX `@SmallTest`/`@MediumTest`/`@LargeTest`, or a custom annotation) and have the CI workflow select tests by tag rather than hardcoding class names/paths, so newly added instrumented tests are picked up automatically without further `ci.yml` edits. Also decide which runner action/API level to target and whether to cache the AVD snapshot.
-- [ ] **ViewModel test infra** — extract a `HodithRepository` interface + hand-rolled `FakeHodithRepository`; add JVM unit tests for `HomeViewModel`, `CaseDetailViewModel`, `CaseEditViewModel`, and `ArchivedCasesViewModel` (all Phase 2 ViewModels, currently covered only by manual/instrumented testing, not isolated unit tests).
 
 ## Phase order
 

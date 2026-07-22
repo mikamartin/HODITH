@@ -1,151 +1,174 @@
 package com.secondmonday.hodith.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.domain.FakeClock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CaseEditViewModelTest {
-    @Test
-    fun `blank name and missing icon are both invalid`() {
-        val validation = validateCaseEdit(name = "  ", icon = null)
+    private val repository = FakeHodithRepository()
+    private val clock = FakeClock(1_000_000L)
 
-        assertFalse(validation.nameValid)
-        assertFalse(validation.iconValid)
-        assertFalse(validation.isValid)
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
     }
 
-    @Test
-    fun `non-blank name and selected icon are valid`() {
-        val validation = validateCaseEdit(name = "Migraines", icon = "🤕")
-
-        assertTrue(validation.nameValid)
-        assertTrue(validation.iconValid)
-        assertTrue(validation.isValid)
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
     }
 
-    @Test
-    fun `blank name is invalid even with an icon selected`() {
-        val validation = validateCaseEdit(name = "", icon = "🤕")
+    private fun newCaseViewModel() = CaseEditViewModel(repository, clock, SavedStateHandle())
 
-        assertFalse(validation.isValid)
-    }
+    private fun editViewModel(caseId: Long) = CaseEditViewModel(repository, clock, SavedStateHandle(mapOf("caseId" to caseId)))
 
-    @Test
-    fun `check-in default maps to null`() {
-        assertEquals(null, checkInDaysFor(CheckInOption.DEFAULT, customDays = "14"))
-    }
-
-    @Test
-    fun `check-in off maps to zero`() {
-        assertEquals(0, checkInDaysFor(CheckInOption.OFF, customDays = "14"))
-    }
-
-    @Test
-    fun `check-in custom maps to the parsed day count`() {
-        assertEquals(14, checkInDaysFor(CheckInOption.CUSTOM, customDays = "14"))
-    }
-
-    @Test
-    fun `check-in custom with blank input falls back to null`() {
-        assertEquals(null, checkInDaysFor(CheckInOption.CUSTOM, customDays = ""))
-    }
+    private fun existingCase(id: Long = 1L) =
+        CaseEntity(
+            id = id,
+            name = "Coffee",
+            description = "Track cups",
+            icon = "☕️",
+            createdAt = 0L,
+            logFlow = LogFlow.DETAIL_SHEET,
+            durationMode = DurationMode.NONE,
+            intensityEnabled = false,
+            hunchNudgeDismissed = false,
+            pinned = false,
+            checkInDays = null,
+            lastCheckInAt = null,
+            sortOrder = 0,
+            archived = false,
+        )
 
     @Test
-    fun `check-in custom with zero falls back to null`() {
-        assertEquals(null, checkInDaysFor(CheckInOption.CUSTOM, customDays = "0"))
-    }
+    fun `a new case starts with a blank, non-editing state`() =
+        runTest {
+            val vm = newCaseViewModel()
+
+            val state = vm.uiState.value
+            assertFalse(state.isEditing)
+            assertFalse(state.isLoading)
+            assertEquals("", state.name)
+        }
 
     @Test
-    fun `one tap is allowed with no duration and no intensity`() {
-        assertTrue(isOneTapAllowed(DurationMode.NONE, intensityEnabled = false))
-    }
+    fun `editing an existing case loads its fields into state`() =
+        runTest {
+            repository.cases.value = listOf(existingCase())
+
+            val state = editViewModel(caseId = 1L).uiState.value
+
+            assertTrue(state.isEditing)
+            assertFalse(state.isLoading)
+            assertEquals("Coffee", state.name)
+            assertEquals("Track cups", state.description)
+            assertTrue(state.canArchive)
+        }
 
     @Test
-    fun `one tap is allowed with start-stop duration`() {
-        assertTrue(isOneTapAllowed(DurationMode.START_STOP, intensityEnabled = false))
-    }
+    fun `onNameChange updates name and clears a previously shown error`() =
+        runTest {
+            val vm = newCaseViewModel()
+            vm.save() // blank name -> shows the error
+
+            vm.onNameChange("Coffee")
+
+            assertEquals("Coffee", vm.uiState.value.name)
+            assertFalse(vm.uiState.value.showNameError)
+        }
 
     @Test
-    fun `one tap is disallowed with manual duration`() {
-        assertFalse(isOneTapAllowed(DurationMode.MANUAL, intensityEnabled = false))
-    }
+    fun `save with a blank name shows validation errors and does not persist`() =
+        runTest {
+            val vm = newCaseViewModel()
+
+            vm.save()
+
+            assertTrue(vm.uiState.value.showNameError)
+            assertTrue(vm.uiState.value.showIconError)
+            assertFalse(vm.uiState.value.isSaved)
+            assertTrue(repository.cases.value.isEmpty())
+        }
 
     @Test
-    fun `one tap is disallowed with intensity enabled`() {
-        assertFalse(isOneTapAllowed(DurationMode.NONE, intensityEnabled = true))
-    }
+    fun `save with a valid new case inserts it`() =
+        runTest {
+            val vm = newCaseViewModel()
+            vm.onNameChange("Coffee")
+            vm.onIconSelect("☕️")
 
-    @Test
-    fun `logFlow is coerced to detail sheet when manual duration makes one tap invalid`() {
-        val result = coerceLogFlow(LogFlow.ONE_TAP, DurationMode.MANUAL, intensityEnabled = false)
+            vm.save()
 
-        assertEquals(LogFlow.DETAIL_SHEET, result)
-    }
-
-    @Test
-    fun `logFlow is coerced to detail sheet when intensity makes one tap invalid`() {
-        val result = coerceLogFlow(LogFlow.ONE_TAP, DurationMode.NONE, intensityEnabled = true)
-
-        assertEquals(LogFlow.DETAIL_SHEET, result)
-    }
-
-    @Test
-    fun `logFlow is left alone when one tap is still valid`() {
-        val result = coerceLogFlow(LogFlow.ONE_TAP, DurationMode.START_STOP, intensityEnabled = false)
-
-        assertEquals(LogFlow.ONE_TAP, result)
-    }
-
-    @Test
-    fun `detail sheet logFlow is never touched by coercion`() {
-        val result = coerceLogFlow(LogFlow.DETAIL_SHEET, DurationMode.MANUAL, intensityEnabled = true)
-
-        assertEquals(LogFlow.DETAIL_SHEET, result)
-    }
-
-    @Test
-    fun `loading an existing case self-corrects a stale invalid one-tap logFlow`() {
-        val case =
-            CaseEntity(
-                name = "Migraine",
-                icon = "🤕",
-                createdAt = 0,
-                logFlow = LogFlow.ONE_TAP,
-                durationMode = DurationMode.START_STOP,
-                intensityEnabled = true,
-                hunchNudgeDismissed = false,
-                pinned = false,
-                checkInDays = null,
-                lastCheckInAt = null,
-                sortOrder = 0,
-                archived = false,
+            assertTrue(vm.uiState.value.isSaved)
+            assertEquals(1, repository.cases.value.size)
+            assertEquals(
+                "Coffee",
+                repository.cases.value
+                    .single()
+                    .name,
             )
-
-        assertEquals(LogFlow.DETAIL_SHEET, case.toUiState().logFlow)
-    }
+            assertEquals(
+                "☕️",
+                repository.cases.value
+                    .single()
+                    .icon,
+            )
+        }
 
     @Test
-    fun `loading an existing case leaves a valid one-tap logFlow alone`() {
-        val case =
-            CaseEntity(
-                name = "Lost my keys",
-                icon = "🔑",
-                createdAt = 0,
-                logFlow = LogFlow.ONE_TAP,
-                durationMode = DurationMode.NONE,
-                intensityEnabled = false,
-                hunchNudgeDismissed = false,
-                pinned = false,
-                checkInDays = null,
-                lastCheckInAt = null,
-                sortOrder = 0,
-                archived = false,
-            )
+    fun `save with valid edits to an existing case updates it in place`() =
+        runTest {
+            repository.cases.value = listOf(existingCase())
+            val vm = editViewModel(caseId = 1L)
 
-        assertEquals(LogFlow.ONE_TAP, case.toUiState().logFlow)
-    }
+            vm.onNameChange("Espresso")
+            vm.save()
+
+            assertTrue(vm.uiState.value.isSaved)
+            assertEquals(1, repository.cases.value.size)
+            assertEquals(
+                "Espresso",
+                repository.cases.value
+                    .single()
+                    .name,
+            )
+            assertEquals(
+                1L,
+                repository.cases.value
+                    .single()
+                    .id,
+            )
+        }
+
+    @Test
+    fun `archive marks the case archived`() =
+        runTest {
+            repository.cases.value = listOf(existingCase())
+            val vm = editViewModel(caseId = 1L)
+
+            vm.archive()
+
+            assertTrue(vm.uiState.value.isArchived)
+            assertTrue(
+                repository.cases.value
+                    .single()
+                    .archived,
+            )
+        }
 }

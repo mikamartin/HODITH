@@ -13,6 +13,7 @@ navigationCompose = "2.9.8"
 hiltNavigationCompose = "1.2.0"
 room = "2.8.4"
 coroutines = "1.11.0"
+turbine = "1.2.1"
 errorProneAnnotations = "2.47.0"
 junit4 = "4.13.2"
 androidxTestCore = "1.7.0"
@@ -53,6 +54,7 @@ room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
 junit4 = { module = "junit:junit", version.ref = "junit4" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
