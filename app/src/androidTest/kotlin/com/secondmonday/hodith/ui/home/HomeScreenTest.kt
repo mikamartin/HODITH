@@ -9,6 +9,8 @@ import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.testtags.Smoke
+import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.SeriousVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
@@ -30,6 +32,7 @@ import org.junit.Test
  * ViewModel-level wiring (repository inserts/deletes, tag fetching) is covered separately by
  * `HomeViewModelMappingTest` and the DAO instrumented tests.
  */
+@UiTest
 class HomeScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
@@ -78,6 +81,7 @@ class HomeScreenTest {
         }
     }
 
+    @Smoke
     @Test
     fun quickLogButton_isDistinctTapTargetFromTheRow() {
         var quickLogTapped: HomeCaseRow? = null

@@ -10,6 +10,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.testtags.Smoke
+import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.SeriousVoice
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
@@ -25,6 +27,7 @@ import org.junit.Test
  * `feature/case-edit-polish` — full field-by-field form coverage otherwise remains a separate,
  * pre-existing gap out of scope here.
  */
+@UiTest
 class CaseEditScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
@@ -116,6 +119,7 @@ class CaseEditScreenTest {
         composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionExpandDescription).assertExists()
     }
 
+    @Smoke
     @Test
     fun logFlow_oneTapEnabled_whenNoDurationAndNoIntensity() {
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, durationMode = DurationMode.NONE))

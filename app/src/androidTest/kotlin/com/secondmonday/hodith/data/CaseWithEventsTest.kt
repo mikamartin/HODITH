@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondmonday.hodith.testtags.Smoke
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -25,6 +26,7 @@ class CaseWithEventsTest {
         db.close()
     }
 
+    @Smoke
     @Test
     fun observeActiveCasesWithEvents_groupsEventsUnderTheirCaseAndOrdersBySortOrder() =
         runTest {
