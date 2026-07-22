@@ -1,93 +1,78 @@
 package com.secondmonday.hodith.data
 
 import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class HodithRepository
-    @Inject
-    constructor(
-        private val caseDao: CaseDao,
-        private val eventDao: EventDao,
-        private val tagDao: TagDao,
-        private val hunchDao: HunchDao,
-        private val triggerDao: TriggerDao,
-    ) {
-        // Case
-        fun observeActiveCases(): Flow<List<CaseEntity>> = caseDao.observeActiveCases()
+interface HodithRepository {
+    // Case
+    fun observeActiveCases(): Flow<List<CaseEntity>>
 
-        fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeActiveCasesWithEvents()
+    fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>>
 
-        fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeArchivedCasesWithEvents()
+    fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>>
 
-        fun observeCase(caseId: Long): Flow<CaseEntity?> = caseDao.observeById(caseId)
+    fun observeCase(caseId: Long): Flow<CaseEntity?>
 
-        suspend fun getCase(caseId: Long): CaseEntity? = caseDao.getById(caseId)
+    suspend fun getCase(caseId: Long): CaseEntity?
 
-        suspend fun insertCase(case: CaseEntity): Long = caseDao.insert(case)
+    suspend fun insertCase(case: CaseEntity): Long
 
-        suspend fun updateCase(case: CaseEntity) = caseDao.update(case)
+    suspend fun updateCase(case: CaseEntity)
 
-        suspend fun deleteCase(case: CaseEntity) = caseDao.delete(case)
+    suspend fun deleteCase(case: CaseEntity)
 
-        // Event
-        fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
+    // Event
+    fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>>
 
-        suspend fun eventsInWindow(
-            caseId: Long,
-            windowStart: Long,
-            windowEnd: Long,
-        ): List<EventEntity> = eventDao.eventsInWindow(caseId, windowStart, windowEnd)
+    suspend fun eventsInWindow(
+        caseId: Long,
+        windowStart: Long,
+        windowEnd: Long,
+    ): List<EventEntity>
 
-        suspend fun insertEvent(event: EventEntity): Long = eventDao.insert(event)
+    suspend fun insertEvent(event: EventEntity): Long
 
-        suspend fun updateEvent(event: EventEntity) = eventDao.update(event)
+    suspend fun updateEvent(event: EventEntity)
 
-        suspend fun deleteEvent(event: EventEntity) = eventDao.delete(event)
+    suspend fun deleteEvent(event: EventEntity)
 
-        suspend fun deleteEventById(eventId: Long) = eventDao.deleteById(eventId)
+    suspend fun deleteEventById(eventId: Long)
 
-        // Tag
-        fun observeAllTags(): Flow<List<TagEntity>> = tagDao.observeAllTags()
+    // Tag
+    fun observeAllTags(): Flow<List<TagEntity>>
 
-        fun observeTagsForCase(caseId: Long): Flow<List<TagEntity>> = tagDao.observeTagsForCase(caseId)
+    fun observeTagsForCase(caseId: Long): Flow<List<TagEntity>>
 
-        fun observeTagsForEvent(eventId: Long): Flow<List<TagEntity>> = tagDao.observeTagsForEvent(eventId)
+    fun observeTagsForEvent(eventId: Long): Flow<List<TagEntity>>
 
-        suspend fun addTagToEvent(
-            eventId: Long,
-            tagName: String,
-        ) {
-            val trimmedName = tagName.trim()
-            val tagId = tagDao.getByName(trimmedName)?.id ?: tagDao.insert(TagEntity(name = trimmedName))
-            tagDao.insertEventTag(EventTagCrossRef(eventId = eventId, tagId = tagId))
-        }
+    suspend fun addTagToEvent(
+        eventId: Long,
+        tagName: String,
+    )
 
-        suspend fun removeTagFromEvent(
-            eventId: Long,
-            tagId: Long,
-        ) = tagDao.deleteEventTag(EventTagCrossRef(eventId = eventId, tagId = tagId))
+    suspend fun removeTagFromEvent(
+        eventId: Long,
+        tagId: Long,
+    )
 
-        // Hunch
-        fun observeActiveHunch(caseId: Long): Flow<HunchEntity?> = hunchDao.observeActiveHunch(caseId)
+    // Hunch
+    fun observeActiveHunch(caseId: Long): Flow<HunchEntity?>
 
-        fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>> = hunchDao.observeHunchHistory(caseId)
+    fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>>
 
-        suspend fun insertHunch(hunch: HunchEntity): Long = hunchDao.insert(hunch)
+    suspend fun insertHunch(hunch: HunchEntity): Long
 
-        suspend fun updateHunch(hunch: HunchEntity) = hunchDao.update(hunch)
+    suspend fun updateHunch(hunch: HunchEntity)
 
-        suspend fun deleteHunch(hunch: HunchEntity) = hunchDao.delete(hunch)
+    suspend fun deleteHunch(hunch: HunchEntity)
 
-        // Trigger
-        fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>> = triggerDao.observeTriggersForCase(caseId)
+    // Trigger
+    fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>>
 
-        suspend fun getEnabledTriggers(): List<TriggerEntity> = triggerDao.getEnabledTriggers()
+    suspend fun getEnabledTriggers(): List<TriggerEntity>
 
-        suspend fun insertTrigger(trigger: TriggerEntity): Long = triggerDao.insert(trigger)
+    suspend fun insertTrigger(trigger: TriggerEntity): Long
 
-        suspend fun updateTrigger(trigger: TriggerEntity) = triggerDao.update(trigger)
+    suspend fun updateTrigger(trigger: TriggerEntity)
 
-        suspend fun deleteTrigger(trigger: TriggerEntity) = triggerDao.delete(trigger)
-    }
+    suspend fun deleteTrigger(trigger: TriggerEntity)
+}
