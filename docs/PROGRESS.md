@@ -4,9 +4,7 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**Phases 1 and 2 are both complete.** `feature/case-edit-polish` (PR 6 of 6, the last PR in Phase 2's feature slicing) is committed, all four gates green (61/61 instrumented tests), pending push/PR/merge. Next up: Phase 3 (Big Picture) — see below — plus whichever Housekeeping items are worth picking up first.
-
-Phase order, current: **Phase 2 is Case/Event CRUD, Phase 3 is Big Picture** (rationale in CLEANUP_LOG.md's `feature/big-picture` entry).
+**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases.
 
 ## Housekeeping
 
@@ -16,7 +14,6 @@ Open items:
 
 - [ ] **Android Lint** (`./gradlew lintDebug`) — only ktlint (style) runs today, not Android's own lint checks.
 - [ ] **Instrumented tests in CI** (`./gradlew connectedDebugAndroidTest`) — needs an emulator/device runner (e.g. `reactivecircus/android-emulator-runner`), not just a JVM. Planned as its own branch, `chore/ci-instrumented-tests`. Requirements for that branch: tag every instrumented test class (e.g. AndroidX `@SmallTest`/`@MediumTest`/`@LargeTest`, or a custom annotation) and have the CI workflow select tests by tag rather than hardcoding class names/paths, so newly added instrumented tests are picked up automatically without further `ci.yml` edits. Also decide which runner action/API level to target and whether to cache the AVD snapshot.
-- [ ] **`gradle/gradle-daemon-jvm.properties`** — Gradle's auto-generated daemon-toolchain pin (no local paths/secrets) is untracked; needs its own small branch → PR → merge cycle rather than riding along on a feature branch.
 - [ ] **Extract DEV_PLAYBOOK.md §1's cleanup checklist into its own document** — it's grown long enough to deserve one, rather than living inline in the playbook.
 - [ ] **ViewModel test infra** — extract a `HodithRepository` interface + hand-rolled `FakeHodithRepository`; add JVM unit tests for `HomeViewModel`, `CaseDetailViewModel`, `CaseEditViewModel`, and `ArchivedCasesViewModel` (all Phase 2 ViewModels, currently covered only by manual/instrumented testing, not isolated unit tests).
 
@@ -24,7 +21,7 @@ Open items:
 
 - [x] **Phase 0** — Repo/toolchain scaffold; trivial `MainActivity` proving the build.
 - [x] **Phase 1** — Room entities/DAOs, `HodithRepository`, JVM `Clock` abstraction, full test coverage.
-- [x] **Phase 2** — Home + Case CRUD + logging flows (one-tap, detail sheet, start/stop, retro-log). *(Moved ahead of Big Picture — see "Current status" above for why.)*
+- [x] **Phase 2** — Home + Case CRUD + logging flows (one-tap, detail sheet, start/stop, retro-log).
   - **Foundational, landed before the slicing below began:**
     - Minimal `Voice` layer (`ui/voice/Voice.kt`) — interface + Serious/Goth/Quirky, grown incrementally with each branch since.
     - Debug-only seed-data mechanism (6 synthetic cases/events, release-excluded) — removal tracked in DEV_PLAYBOOK's Ship Checklist.
