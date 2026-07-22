@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   instrumented-tests:
+    name: Instrumented tests (${{ matrix.shard }})
     runs-on: ubuntu-latest
 
     strategy:
@@ -97,7 +98,7 @@ jobs:
         if: always()
         uses: mikepenz/action-junit-report@v4
         with:
-          check_name: Instrumented tests (${{ matrix.shard }})
+          check_name: "Results: Instrumented tests (${{ matrix.shard }})"
           report_paths: "**/outputs/androidTest-results/connected/**/*.xml"
           job_summary: true
           detailed_summary: true

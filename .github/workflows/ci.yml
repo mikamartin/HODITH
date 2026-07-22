@@ -47,7 +47,7 @@ jobs:
         if: always()
         uses: mikepenz/action-junit-report@v4
         with:
-          check_name: Unit tests
+          check_name: "Results: Unit tests"
           report_paths: "**/test-results/test*/**/*.xml"
           job_summary: true
           detailed_summary: true
