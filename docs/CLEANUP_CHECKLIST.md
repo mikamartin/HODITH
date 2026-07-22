@@ -34,6 +34,8 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Declared-but-unreferenced resources?
 - [ ] Resolved TODO/FIXME comments?
 - [ ] Test/debug helpers (seed data, logging) still present that are marked for pre-release removal?
+- [ ] **Docs or comments touched by this diff carrying stale info, content duplicated elsewhere, or a self-updating tally (test/instance counts, "Updated, feature/X" logs, branch-name callouts) that will need babysitting on every future change?** Prefer a durable fact or a pointer to the authoritative source (e.g. PROGRESS.md for build status) over content that needs maintaining forever.
+- [ ] **Do the current-state docs touched by this diff (HODITH_SPEC.md, TESTING.md, DEV_PLAYBOOK.md, CLAUDE.md, README) narrate what used to be true, what was removed, or how something changed, instead of just stating what's true now?** That history belongs in CLEANUP_LOG.md (explicitly historical, newest-first) or the commit/PR itself — trim it from living docs so they read as a snapshot of the present, not a changelog. (Doesn't apply to CLEANUP_LOG.md itself or PROGRESS.md's Phase order section, which are intentionally historical.)
 
 ### Repo Hygiene (public repo — see CLAUDE.md "Git hygiene")
 - [ ] Is `git status` clean — no stray untracked files that should be gitignored, nothing accidentally staged?
