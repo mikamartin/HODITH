@@ -1,6 +1,6 @@
 # HODITH — Cleanup Log
 
-A record of every cleanup pass, newest first (ordering, not dating, marks recency — see CLAUDE.md's no-dates rule). After any significant feature work, copy the checklist from [DEV_PLAYBOOK.md](DEV_PLAYBOOK.md) §1 into a new entry above the previous one, tick what was found and fixed, and note anything deferred with a reason.
+A record of every cleanup pass, newest first (ordering, not dating, marks recency — see CLAUDE.md's no-dates rule). After any significant feature work, actually walk through every applicable item in [CLEANUP_CHECKLIST.md](CLEANUP_CHECKLIST.md) against the real diff first — an entry here records what that walk-through found, it isn't a template to fill in from memory of what changed. Then add a new entry above the previous one: what was found and fixed, what was deferred with a reason, and which sections didn't apply and why.
 
 ## Entry format
 
@@ -12,6 +12,59 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 **Deferred:** bullet list with reasons (or "nothing deferred")
 **Docs updated:** SPEC / TESTING / PLAYBOOK sections touched, if any
 ```
+
+---
+
+## chore/android-lint
+
+**Scope:** Two housekeeping items from PROGRESS.md, bundled onto one branch since the second is
+small: (1) Android Lint (`./gradlew lintDebug`) had never been run — only ktlint's style checks
+were enforced. Ran it, triaged every finding, fixed what was real and mechanical, and wired it
+into CI (plus into CLAUDE.md's documented local workflow, so `lintDebug` runs locally before
+`test`, not just discovered in CI). (2) Extracted DEV_PLAYBOOK.md §1's cleanup checklist into its
+own document, `CLEANUP_CHECKLIST.md` — it had grown long enough to deserve one rather than living
+inline in the playbook; §1 is now a short pointer to it.
+**Checklist pass:** a tooling/config/docs-only branch, so most sections don't apply (no
+composables, ViewModels, Repository/Dao code, Voice strings, or domain logic touched). Two items
+did apply and were actually checked, not assumed:
+- **Spec Review:** the `DataExtractionRules` fix (below) touches backup behavior, which brushes
+  against HODITH's "local-only" positioning. Checked HODITH_SPEC.md directly — line 284 already
+  states "Android auto-backup enabled — documented on the About screen," and the new
+  `dataExtractionRules` XML preserves that same default (full cloud-backup + device-transfer)
+  rather than changing it, so no spec divergence.
+- **Repo Hygiene:** `git status` reviewed before staging each commit — only the intended files
+  changed, nothing secret-shaped, no stray untracked files.
+**Found & fixed:**
+- **`ModifierParameter` ×2:** `CalendarGridPrototype` and `LogDetailSheet` both declared `modifier:
+  Modifier = Modifier` after other optional parameters instead of first. Reordered in both (all call
+  sites already use named arguments, so no call-site changes needed).
+- **`DataExtractionRules` ×1:** `android:allowBackup="true"` alone is deprecated guidance since
+  Android 12 (app's `minSdk` is already 31). Added `res/xml/data_extraction_rules.xml` (full
+  cloud-backup + device-transfer, matching the prior implicit default) and referenced it via
+  `android:dataExtractionRules` in the manifest.
+- **`UseTomlInstead` ×10:** the Compose BOM and its modules were declared inline in
+  `app/build.gradle.kts` instead of through `libs.versions.toml`, the one exception to how every
+  other dependency in the file is declared. Added `compose-bom` and each Compose module as version
+  catalog entries (module version left to the BOM, as usual) and switched both `implementation`/
+  `debugImplementation`/`androidTestImplementation` blocks to reference them.
+**Deferred:**
+- **`MissingApplicationIcon` ×1** — left as a live, unsuppressed warning rather than patched with a
+  placeholder. Real app icon design is already an open Ship Checklist item ("App icon that works in
+  all three theme contexts") gated on actual design work across all three themes, not something to
+  paper over from a lint pass.
+- **`AndroidGradlePluginVersion` / `GradleDependency` ×6 / `NewerVersionAvailable` ×5 / `OldTargetApi`
+  ×1 (13 warnings)** — all "a newer version exists" nags that directly conflict with versions
+  deliberately pinned and documented in DEV_PLAYBOOK.md §5 (e.g. Kotlin held at 2.3.20 until KSP
+  publishes a matching release; `hilt-navigation-compose` held back from 1.4.0 because it needs
+  `compileSdk 37`, not yet installed). Bumping any of these is its own project gated by that
+  section's own upgrade checklist, not a lint fix — disabled these specific checks in `app/
+  build.gradle.kts`'s new `lint {}` block with a comment pointing back to §5, so CI stays clean
+  without silently re-litigating decisions already made and documented.
+**Docs updated:** PROGRESS.md (both Housekeeping items struck; DEV_PLAYBOOK/CLEANUP_CHECKLIST
+cross-references updated), TESTING.md (CI coverage paragraph — `lintDebug` now part of the
+`ci.yml` chain; checklist cross-reference updated), CLAUDE.md (Commands section + Branch/PR
+workflow step 3 — `lintDebug` added to the local check sequence), DEV_PLAYBOOK.md (§1 replaced
+with a pointer to the new CLEANUP_CHECKLIST.md), this file.
 
 ---
 

@@ -86,9 +86,9 @@ fun CalendarGridPrototype(
     currentMonth: YearMonth,
     cases: List<CalendarCase>,
     events: List<CalendarEvent>,
+    modifier: Modifier = Modifier,
     today: LocalDate = LocalDate.now(),
     zoneId: ZoneId = ZoneId.systemDefault(),
-    modifier: Modifier = Modifier,
 ) {
     var visibleCaseIds by remember(cases) { mutableStateOf(cases.map { it.id }.toSet()) }
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }

@@ -12,9 +12,7 @@ Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pic
 
 Open items:
 
-- [ ] **Android Lint** (`./gradlew lintDebug`) — only ktlint (style) runs today, not Android's own lint checks.
 - [ ] **Instrumented tests in CI** (`./gradlew connectedDebugAndroidTest`) — needs an emulator/device runner (e.g. `reactivecircus/android-emulator-runner`), not just a JVM. Planned as its own branch, `chore/ci-instrumented-tests`. Requirements for that branch: tag every instrumented test class (e.g. AndroidX `@SmallTest`/`@MediumTest`/`@LargeTest`, or a custom annotation) and have the CI workflow select tests by tag rather than hardcoding class names/paths, so newly added instrumented tests are picked up automatically without further `ci.yml` edits. Also decide which runner action/API level to target and whether to cache the AVD snapshot.
-- [ ] **Extract DEV_PLAYBOOK.md §1's cleanup checklist into its own document** — it's grown long enough to deserve one, rather than living inline in the playbook.
 - [ ] **ViewModel test infra** — extract a `HodithRepository` interface + hand-rolled `FakeHodithRepository`; add JVM unit tests for `HomeViewModel`, `CaseDetailViewModel`, `CaseEditViewModel`, and `ArchivedCasesViewModel` (all Phase 2 ViewModels, currently covered only by manual/instrumented testing, not isolated unit tests).
 
 ## Phase order
@@ -38,7 +36,7 @@ Open items:
        6. [x] `feature/case-edit-polish` — collapsible icon picker, info icons, segmented Check-in, logFlow validation/auto-switch fix.
 - [ ] **Phase 3** — Big Picture: multi-month calendar grid of case icons (§9), built against real Case/Event data from Phase 2 rather than seed data.
   - **Design (full detail in HODITH_SPEC.md §9):** month grid (day columns × week rows), case icons per day cell with a "+N" overflow badge, only days up to and including today shown, out-of-month padding days left blank, tap a day for its events + notes, a separate per-week chevron for a week view, tap the month title for a quick-jump month picker instead of pinch-zoom.
-  - **To do:** production implementation (real repository data, real navigation, instrumented Compose UI tests) — currently only an uncommitted Compose Preview prototype (`ui/timeline/CalendarGridPrototype.kt`). Open question: how/whether intensity and duration events surface on the grid (spec §9). Phase close-out: DEV_PLAYBOOK §1 cleanup pass, a CLEANUP_LOG entry, this file's checkbox.
+  - **To do:** production implementation (real repository data, real navigation, instrumented Compose UI tests) — currently only an uncommitted Compose Preview prototype (`ui/timeline/CalendarGridPrototype.kt`). Open question: how/whether intensity and duration events surface on the grid (spec §9). Phase close-out: CLEANUP_CHECKLIST.md pass, a CLEANUP_LOG entry, this file's checkbox.
 - [ ] **Phase 4** — Voice layer + three themes. Extends the `Voice` interface started in Phase 2 (see note above) — add remaining keys and theme skins, don't re-architect the interface.
 - [ ] **Phase 5** — Verdict engine + Hunch flow.
 - [ ] **Phase 6** — Per-case visuals + stats.
@@ -46,4 +44,4 @@ Open items:
 - [ ] **Phase 8** — Triggers + check-ins (WorkManager, notifications).
 - [ ] **Phase 9** — Share cards, export/import, Settings, About.
 
-Each phase ends with a DEV_PLAYBOOK.md §1 cleanup pass logged in CLEANUP_LOG.md, a TESTING.md check, and this file updated.
+Each phase ends with a CLEANUP_CHECKLIST.md pass logged in CLEANUP_LOG.md, a TESTING.md check, and this file updated.

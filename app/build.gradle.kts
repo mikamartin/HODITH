@@ -34,6 +34,14 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        // Deliberately pinned toolchain/dependency versions (see DEV_PLAYBOOK.md §5, "Tooling
+        // Upgrade Reference") — these checks nag on every pin regardless of the reason it's held
+        // back, so they're disabled here rather than re-litigated on every lint run. Bumping any
+        // of these is its own project, gated by that section's upgrade checklist.
+        disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable", "OldTargetApi")
+    }
 }
 
 ksp {
@@ -41,15 +49,15 @@ ksp {
 }
 
 dependencies {
-    implementation(platform("androidx.compose:compose-bom:2026.06.01"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.animation:animation-core")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-core")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.animation.core)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.core)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
 
     implementation(libs.core.ktx)
     implementation(libs.activity.compose)
@@ -73,8 +81,8 @@ dependencies {
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
 
-    androidTestImplementation(platform("androidx.compose:compose-bom:2026.06.01"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
 
     androidTestImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.core)
