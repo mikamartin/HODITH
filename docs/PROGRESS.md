@@ -12,7 +12,7 @@ Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pic
 
 Open items:
 
-- [ ] **Instrumented tests in CI** (`./gradlew connectedDebugAndroidTest`) — needs an emulator/device runner (e.g. `reactivecircus/android-emulator-runner`), not just a JVM. Planned as its own branch, `chore/ci-instrumented-tests`. Requirements for that branch: tag every instrumented test class (e.g. AndroidX `@SmallTest`/`@MediumTest`/`@LargeTest`, or a custom annotation) and have the CI workflow select tests by tag rather than hardcoding class names/paths, so newly added instrumented tests are picked up automatically without further `ci.yml` edits. Also decide which runner action/API level to target and whether to cache the AVD snapshot.
+- [x] **Instrumented tests in CI** (`./gradlew connectedDebugAndroidTest`) — `.github/workflows/instrumented-tests.yml` runs the suite on a cached API 36 emulator, sharded by the `@UiTest` annotation (`testtags/UiTest.kt`) into `repository` (DAO tests) and `ui` (Compose screen tests) matrix jobs, so new test classes are picked up by tag rather than hardcoded paths. A cross-cutting `@Smoke` annotation (`testtags/Smoke.kt`) tags one representative happy-path test per class for ad-hoc local filtering. Both this workflow and `ci.yml`'s unit-test job report total/passed/failed/skipped counts via `mikepenz/action-junit-report` (Checks tab + job summary).
 
 ## Phase order
 

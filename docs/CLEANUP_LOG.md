@@ -15,6 +15,52 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## chore/ci-instrumented-tests
+
+**Scope:** Closed PROGRESS.md's last Housekeeping item — instrumented tests (`connectedDebugAndroidTest`)
+had never run in CI, only `./gradlew test` (JVM). Added `.github/workflows/instrumented-tests.yml`:
+`reactivecircus/android-emulator-runner` on a cached API 36 emulator, sharded via a new class-level
+`@UiTest` annotation (`app/src/androidTest/kotlin/.../testtags/UiTest.kt`) into `repository`
+(DAO/`CaseWithEventsTest`, not annotated) and `ui` (the four Compose screen test classes, annotated)
+matrix jobs — new test classes land in the right shard by tag, no further workflow edits needed. Also
+added a method-level `@Smoke` annotation (`testtags/Smoke.kt`) tagging one representative happy-path
+test per existing class (10 total), for a quick local sanity run without the full suite. Both this
+workflow and `ci.yml`'s existing unit-test job now report total/passed/failed/skipped counts via
+`mikepenz/action-junit-report` (Checks-tab annotations + job summary) — a user-requested addition not
+present in the reference implementation (EarnIt's own `instrumented-tests.yml`) this branch's shard/tag
+approach was otherwise modeled on.
+**Found & fixed:** nothing — this is new CI/test-tagging infrastructure with no existing behavior to
+regress; every changed test file only gained an import + annotation, no logic touched.
+**Checklist pass:** almost every section is N/A — no composables, ViewModels, Repository/Dao logic,
+Voice strings, or domain code touched, only CI config, two new test-only annotations, and doc updates.
+Two sections did apply and were actually checked:
+- **Repo Hygiene:** `git status` reviewed before staging — only the intended files changed/added,
+  nothing secret-shaped in the new workflow YAML (no tokens; uses the default `GITHUB_TOKEN` via
+  `permissions:`), no stray untracked files.
+- **Tests → "new instrumented tests actually ran on a device before committing":** the annotations
+  aren't new tests, but the filtering mechanism they enable is the entire point of this branch, so it
+  was verified for real rather than assumed from reading the YAML: ran
+  `connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notAnnotation=...UiTest` (29
+  tests, matching a hand count of the 6 DAO/`CaseWithEventsTest` classes),
+  `...annotation=...UiTest` (32 tests, matching the 4 Compose screen classes — 29+32=61 with no overlap
+  or gap), and `...annotation=...Smoke` (exactly the 10 confirmed tests) — all green on a local
+  `Pixel_6(AVD)` API 36 emulator before any of this was committed.
+**Deferred:**
+- No CI hook (e.g. `workflow_dispatch`) to run just `@Smoke` or one shard on demand from the Actions UI
+  — deliberately scoped out during planning; tags exist for local `./gradlew` filtering only for now,
+  revisit if that turns out to matter.
+- No per-feature annotations (e.g. `@HomeFeature`) beyond `@UiTest`/`@Smoke` — the suite is already one
+  test class per package per screen/DAO entity, so `-Pandroid.testInstrumentationRunnerArguments.package=...`
+  already isolates any single feature today with zero extra code; adding a redundant tag was considered
+  and rejected during planning.
+- `gradle/gradle-daemon-jvm.properties` remains untracked, unrelated to this branch — same as previous
+  entries.
+**Docs updated:** PROGRESS.md (Housekeeping item struck — last open item in that section). TESTING.md
+(CI coverage section now describes both workflows and the reporting action; new "Instrumented test
+tags" subsection documenting `@UiTest`/`@Smoke` and the package-filter alternative). This file.
+
+---
+
 ## chore/viewmodel-test-infra
 
 **Scope:** Closed PROGRESS.md's Housekeeping item of the same name — `HomeViewModel`,
