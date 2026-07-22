@@ -82,8 +82,8 @@ fun LogDetailSheet(
     now: Long,
     onSave: (LogDraft) -> Unit,
     onDismiss: () -> Unit,
-    onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onDelete: (() -> Unit)? = null,
 ) {
     val voice = LocalVoice.current
     val zone = ZoneId.systemDefault()
