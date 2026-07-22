@@ -15,6 +15,58 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/case-edit-polish (Phase 2, slice 3, PR 6 of 6)
+
+**Scope:** A batch of `CaseEditScreen` UX fixes flagged since `feature/case-archive`: the icon picker
+becomes collapsible (collapsed by default when editing, expanded for a new Case, with a
+label + icon + chevron summary row); Logging, Duration, and Check-in each get a tappable info icon
+opening a plain explanatory dialog; Check-in restyles from radio rows to the same segmented-button
+pattern Logging/Duration already use; and a validation fix disabling the Logging control's "One tap"
+option whenever `durationMode == MANUAL` and/or `intensityEnabled == true` (`START_STOP` is
+unaffected — a one-tap Start/Stop is legitimate). Two open design questions from PROGRESS.md were
+resolved with the user before building: an existing Case's `logFlow` **auto-switches** to
+`DETAIL_SHEET` the moment it becomes invalid (never auto-restores), and the info affordance is a
+**tap-to-open dialog** rather than a long-press tooltip (no precedent for either existed in the
+codebase; a touch-only app makes long-press a weaker discoverability bet than a visible icon).
+**Found & fixed:**
+- **Duplication:** the first pass wired Logging/Duration/Check-in's info icons with three
+  near-identical `var showXInfo by remember { ... }` + conditional `InfoDialog` blocks in
+  `CaseEditForm`, differing only in which `Voice` strings they used — the exact "three copies
+  differing only in which Voice strings and callbacks they wire up" pattern `feature/case-archive`'s
+  own entry already flagged once for `ConfirmDialog`. Extracted a shared `SectionWithInfo(label,
+  infoTitle, infoBody, infoDescription, content)` composable that owns the dialog-visibility state
+  once; all three sections now call it, wrapping their own `SegmentedChoiceRow` (plus, for Check-in,
+  the conditional custom-days field) as trailing content. Also shrank `CaseEditForm` itself in the
+  process (roughly 114 lines → ~102).
+- **Accessibility, caught before commit, not by a device check:** the new info `IconButton` was
+  built with an explicit `Modifier.size(24.dp)` override to keep the visible glyph small, which also
+  shrinks the button's actual touch target below this file's own "≥48dp×48dp" tappable-target rule.
+  Fixed by removing the size override from the `IconButton` (keeping M3's default ~48dp touch area)
+  and sizing only the inner `Icon` down to 18dp instead. Same reasoning applied to the icon-picker's
+  clickable collapse/expand header row, which had no explicit height and could size down to just its
+  `Text`'s line height — added `Modifier.heightIn(min = 48.dp)`.
+- **Real correctness bug, found only by manual on-device testing, not by the automated test suite:**
+  loading an *existing* Case whose stored `logFlow = ONE_TAP` was already invalid under the new rule
+  (the debug seed data's `Migraine` case: `START_STOP` duration + intensity on, set before this
+  validation existed) rendered the Logging control showing "One tap" as **both checked and
+  disabled** — a contradictory state, and one that would have let a user re-save the same invalid
+  combination unchanged since nothing re-validated it. The auto-switch logic only ran from the two
+  `onDurationModeChange`/`onIntensityToggle` mutators, not from the entity→UI-state mapping used when
+  the screen first loads an existing Case. Fixed by running the same `coerceLogFlow` pure function
+  inside `CaseEntity.toUiState()` (made `internal` from `private` so it's directly unit-testable),
+  closing the gap for any Case whose invalid state predates this branch rather than arising from an
+  in-session edit. Two new `CaseEditViewModelTest` cases cover it directly (constructing a
+  `CaseEntity` with the seed data's exact stale combination).
+**Deferred:** nothing — full field-by-field `CaseEditScreenTest` coverage remains the same
+pre-existing gap noted since `feature/case-archive`; this branch added targeted coverage only for the
+interactions it introduced (icon-picker collapse/expand, logFlow enable/disable, info dialog
+open/dismiss), matching the file's existing scoping rather than expanding it wholesale.
+**Docs updated:** HODITH_SPEC.md §14 (New/edit Case row — collapsible icon picker, info icons,
+segmented Check-in, the One-tap validation/auto-switch rule); this file; PROGRESS.md (checked off
+this branch, Phase 2 slice 3 now fully landed).
+
+---
+
 ## feature/case-archive (Phase 2, slice 3, PR 5 of 6)
 
 **Scope:** Archive and hard-delete for Case, plus a new Archived Cases view to manage both — corrected

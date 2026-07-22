@@ -26,13 +26,21 @@ interface Voice {
     val caseDescriptionHint: String
     val caseIconLabel: String
     val caseIconRequiredError: String
+    val caseIconSectionExpandDescription: String
+    val caseIconSectionCollapseDescription: String
+    val caseSectionInfoDescription: String
+    val infoDialogDismissAction: String
     val caseLogFlowLabel: String
     val caseLogFlowOneTap: String
     val caseLogFlowDetailSheet: String
+    val caseLogFlowInfoTitle: String
+    val caseLogFlowInfoBody: String
     val caseDurationModeLabel: String
     val caseDurationModeNone: String
     val caseDurationModeManual: String
     val caseDurationModeStartStop: String
+    val caseDurationModeInfoTitle: String
+    val caseDurationModeInfoBody: String
     val caseIntensityToggleLabel: String
     val casePinnedToggleLabel: String
     val caseCheckInLabel: String
@@ -40,6 +48,8 @@ interface Voice {
     val caseCheckInCustom: String
     val caseCheckInOff: String
     val caseCheckInCustomDaysHint: String
+    val caseCheckInInfoTitle: String
+    val caseCheckInInfoBody: String
     val caseSaveButton: String
     val caseDetailEditDescription: String
     val archiveCaseDescription: String
@@ -133,13 +143,25 @@ object SeriousVoice : Voice {
     override val caseDescriptionHint = "Any more detail worth noting"
     override val caseIconLabel = "Icon"
     override val caseIconRequiredError = "Pick an icon."
+    override val caseIconSectionExpandDescription = "Show icon choices"
+    override val caseIconSectionCollapseDescription = "Hide icon choices"
+    override val caseSectionInfoDescription = "More info"
+    override val infoDialogDismissAction = "Got it"
     override val caseLogFlowLabel = "Logging"
     override val caseLogFlowOneTap = "One tap"
     override val caseLogFlowDetailSheet = "Detail sheet"
+    override val caseLogFlowInfoTitle = "About logging"
+    override val caseLogFlowInfoBody =
+        "One tap logs an event instantly with no extra fields — pick it for cases you don't need duration or " +
+            "intensity on. Detail sheet opens a short form for time, duration, intensity, and notes before saving."
     override val caseDurationModeLabel = "Duration"
     override val caseDurationModeNone = "None"
     override val caseDurationModeManual = "Manual"
     override val caseDurationModeStartStop = "Start/stop"
+    override val caseDurationModeInfoTitle = "About duration"
+    override val caseDurationModeInfoBody =
+        "None skips duration entirely. Manual lets you type a duration when logging. Start/stop tracks an " +
+            "ongoing event live, from Start until you Stop it."
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
     override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
@@ -147,6 +169,10 @@ object SeriousVoice : Voice {
     override val caseCheckInCustom = "Custom"
     override val caseCheckInOff = "Off"
     override val caseCheckInCustomDaysHint = "Days"
+    override val caseCheckInInfoTitle = "About check-in"
+    override val caseCheckInInfoBody =
+        "A check-in nudge appears after a stretch of silence on this case. Use default follows Settings' " +
+            "app-wide interval, Custom sets a day count just for this case, Off disables it entirely."
     override val caseSaveButton = "Save"
     override val caseDetailEditDescription = "Edit case"
     override val archiveCaseDescription = "Archive case"
@@ -242,13 +268,25 @@ object GothVoice : Voice {
     override val caseDescriptionHint = "Say more, if the shadows require it"
     override val caseIconLabel = "Icon"
     override val caseIconRequiredError = "Choose a mark for it."
+    override val caseIconSectionExpandDescription = "Reveal the marks"
+    override val caseIconSectionCollapseDescription = "Conceal the marks"
+    override val caseSectionInfoDescription = "Unveil more"
+    override val infoDialogDismissAction = "Understood"
     override val caseLogFlowLabel = "Logging"
     override val caseLogFlowOneTap = "One tap"
     override val caseLogFlowDetailSheet = "Detail sheet"
+    override val caseLogFlowInfoTitle = "On the manner of recording"
+    override val caseLogFlowInfoBody =
+        "One tap seals the record the instant you touch it — no further rite required. The detail sheet asks " +
+            "more of you: the hour, its length, its severity, its notes — reserved for cases that demand such detail."
     override val caseDurationModeLabel = "Duration"
     override val caseDurationModeNone = "None"
     override val caseDurationModeManual = "Manual"
     override val caseDurationModeStartStop = "Start/stop"
+    override val caseDurationModeInfoTitle = "On the length of things"
+    override val caseDurationModeInfoBody =
+        "None takes no account of how long a thing lingers. Manual lets you name its length yourself. " +
+            "Start/stop watches it unfold in real time, from the moment it begins until you declare it done."
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
     override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
@@ -256,6 +294,10 @@ object GothVoice : Voice {
     override val caseCheckInCustom = "Custom"
     override val caseCheckInOff = "Off"
     override val caseCheckInCustomDaysHint = "Days"
+    override val caseCheckInInfoTitle = "On the watch kept"
+    override val caseCheckInInfoBody =
+        "The check-in nudge stirs after this case has lain silent too long. Use default heeds the interval " +
+            "Settings decree for all cases. Custom sets its own count of days. Off silences the nudge for good."
     override val caseSaveButton = "Seal it"
     override val caseDetailEditDescription = "Revise the case"
     override val archiveCaseDescription = "Bury this case"
@@ -350,13 +392,25 @@ object QuirkyVoice : Voice {
     override val caseDescriptionHint = "Spill any extra details"
     override val caseIconLabel = "Icon"
     override val caseIconRequiredError = "Pick a little icon for it!"
+    override val caseIconSectionExpandDescription = "Show me the icons!"
+    override val caseIconSectionCollapseDescription = "Tuck the icons away"
+    override val caseSectionInfoDescription = "Wait, what does this mean?"
+    override val infoDialogDismissAction = "Got it!"
     override val caseLogFlowLabel = "Logging"
     override val caseLogFlowOneTap = "One tap"
     override val caseLogFlowDetailSheet = "Detail sheet"
+    override val caseLogFlowInfoTitle = "Logging, explained"
+    override val caseLogFlowInfoBody =
+        "One tap logs it the second you tap — zero fuss, zero fields. Detail sheet pops up a quick form for " +
+            "time, duration, intensity, and notes if you want more detail."
     override val caseDurationModeLabel = "Duration"
     override val caseDurationModeNone = "None"
     override val caseDurationModeManual = "Manual"
     override val caseDurationModeStartStop = "Start/stop"
+    override val caseDurationModeInfoTitle = "Duration, explained"
+    override val caseDurationModeInfoBody =
+        "None means duration's not tracked. Manual lets you type in how long it took. Start/stop tracks it " +
+            "live — hit Start, then Stop when it's over."
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
     override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
@@ -364,6 +418,10 @@ object QuirkyVoice : Voice {
     override val caseCheckInCustom = "Custom"
     override val caseCheckInOff = "Off"
     override val caseCheckInCustomDaysHint = "Days"
+    override val caseCheckInInfoTitle = "Check-in, explained"
+    override val caseCheckInInfoBody =
+        "The check-in nudge pops up if this case goes quiet too long. Use default follows whatever Settings " +
+            "says app-wide, Custom lets you pick your own day count, Off turns it off completely."
     override val caseSaveButton = "Save it!"
     override val caseDetailEditDescription = "Tweak the case"
     override val archiveCaseDescription = "Shelve this case"

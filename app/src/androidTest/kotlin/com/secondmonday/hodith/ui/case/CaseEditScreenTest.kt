@@ -1,10 +1,15 @@
 package com.secondmonday.hodith.ui.case
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.SeriousVoice
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
@@ -15,9 +20,10 @@ import org.junit.Test
 
 /**
  * [CaseEditScreen] is a stateless composable driven entirely by plain data + callbacks, same
- * pattern as `HomeScreenTest`/`CaseDetailScreenTest`. Scoped to the archive icon/dialog added by
- * `feature/case-archive` — full form coverage (name/icon/logFlow/etc.) is a separate, pre-existing
- * gap and stays out of scope here.
+ * pattern as `HomeScreenTest`/`CaseDetailScreenTest`. Covers the archive icon/dialog added by
+ * `feature/case-archive` plus the collapsible icon picker and logFlow-disabling behavior added by
+ * `feature/case-edit-polish` — full field-by-field form coverage otherwise remains a separate,
+ * pre-existing gap out of scope here.
  */
 class CaseEditScreenTest {
     @get:Rule
@@ -83,5 +89,65 @@ class CaseEditScreenTest {
         composeTestRule.onNodeWithText(SeriousVoice.archiveCaseCancelAction).performClick()
 
         assertFalse(archived)
+    }
+
+    @Test
+    fun iconPicker_collapsedByDefaultWhenEditingExistingCase() {
+        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, icon = "🤕"))
+
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionExpandDescription).assertExists()
+    }
+
+    @Test
+    fun iconPicker_expandedByDefaultForNewCase() {
+        setContent(uiState = CaseEditUiState(isEditing = false, isLoading = false))
+
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionCollapseDescription).assertExists()
+    }
+
+    @Test
+    fun iconPicker_tapToggles_expandedThenCollapsed() {
+        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, icon = "🤕"))
+
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionExpandDescription).performClick()
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionCollapseDescription).assertExists()
+
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionCollapseDescription).performClick()
+        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionExpandDescription).assertExists()
+    }
+
+    @Test
+    fun logFlow_oneTapEnabled_whenNoDurationAndNoIntensity() {
+        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, durationMode = DurationMode.NONE))
+
+        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowOneTap).assertIsEnabled()
+    }
+
+    @Test
+    fun logFlow_oneTapDisabled_whenDurationModeIsManual() {
+        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, durationMode = DurationMode.MANUAL))
+
+        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowOneTap).assertIsNotEnabled()
+    }
+
+    @Test
+    fun logFlow_oneTapDisabled_whenIntensityEnabled() {
+        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, intensityEnabled = true))
+
+        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowOneTap).assertIsNotEnabled()
+    }
+
+    @Test
+    fun infoIcon_opensAndDismissesDialog() {
+        setContent()
+
+        composeTestRule
+            .onAllNodesWithContentDescription(SeriousVoice.caseSectionInfoDescription)
+            .onFirst()
+            .performClick()
+        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowInfoTitle).assertExists()
+
+        composeTestRule.onNodeWithText(SeriousVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowInfoTitle).assertDoesNotExist()
     }
 }
