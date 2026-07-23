@@ -15,6 +15,69 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/settings-foundation (Phase 4)
+
+**Scope:** Settings foundation — a DataStore-backed `AppTheme` (Serious/Goth/Quirky) selection that
+now actually drives the pre-existing `Voice` layer app-wide (previously `LocalVoice` was never
+overridden anywhere; every screen silently ran on the hardcoded `SeriousVoice` default), plus
+promoting demo-data seeding from a debug-only, silent, first-launch-only mechanism
+(`debug/SeedDataInitializer.kt` + the `AppInitializer` plumbing) into a real, user-triggered
+`DemoDataSeeder` wired to Settings' "Load demo data" / "Delete all data" (confirm dialog) actions,
+available in release builds too. New `SettingsRepository` (Preferences DataStore) + `SettingsViewModel`
++ real `SettingsScreen` (segmented theme picker, text-only preview card, demo-data section) replacing
+the `ComingSoonPlaceholder`. `HodithApp.kt` is a new small root composable (`CompositionLocalProvider(
+LocalVoice provides voiceFor(theme))` wrapping the nav host) that `MainActivity` now renders instead of
+inlining `MaterialTheme`/`Surface` itself. Three scope questions were resolved with the user before
+building: the default check-in interval from spec §14 is deferred to Phase 9 (the only phase that
+consumes it, so building the picker now would be inert UI); the debug auto-seed is retired outright
+rather than kept alongside the new manual action; "Load demo data" always adds another full set of 6
+(no dedupe/cap), "Delete all data" gets a standard (not type-to-confirm) dialog.
+**Found & fixed:**
+- **Real correctness bug, found by manual on-device verification, not the automated suite:** after
+  wiring `deleteAllData()` to `caseDao.deleteAll()` (relying on the existing cascade FKs to clear
+  events/hunches/triggers), a live device check (`sqlite3` against the running app's DB, per
+  TESTING.md's documented method) showed the `tags` table still had 21 rows after "Delete all data."
+  Root cause: `tags` isn't scoped to a case — it's a shared, case-independent vocabulary (`TagDao`'s
+  `observeAllTags()`), so nothing cascades into it when cases are deleted, only the `event_tags`
+  join-table rows do (via `eventId`'s cascade). Left uncaught, this would have silently reappeared as
+  autocomplete suggestions (leftover demo-data tag names like "oat-milk") for a user who believed
+  they'd wiped everything. Added `TagDao.deleteAll()` and called it alongside `caseDao.deleteAll()` in
+  `RoomHodithRepository.deleteAllData()`, plus an instrumented regression test
+  (`caseDaoDeleteAll_doesNotOnItsOwnRemoveTags`) documenting *why* the explicit second call is needed,
+  not just that it's there.
+- **Duplication:** `SettingsScreen`'s theme picker started as its own inline
+  `SingleChoiceSegmentedButtonRow` block, near-identical to the private `SegmentedChoiceRow<T>` helper
+  already living in `CaseEditScreen.kt` (used there for logFlow/durationMode/check-in) — differing only
+  in the `enabled` lambda Settings didn't need. Promoted it to a shared
+  `ui/common/SegmentedChoiceRow.kt` and switched both call sites onto it, removing the second copy
+  before it was ever committed.
+**Considered, not changed:**
+- `DataStoreSettingsRepository` (the real DataStore-backed impl) has no direct unit test of its own —
+  matches the existing precedent that `RoomHodithRepository` also isn't directly unit-tested; ViewModel
+  tests exercise the interface via `FakeSettingsRepository` instead (same shape as
+  `FakeHodithRepository`), and the real wiring was verified manually on-device (theme selection
+  surviving a force-stop + relaunch, isolated from an unrelated debug-APK reinstall data-reset
+  artifact encountered mid-verification that turned out to be a signing quirk, not a persistence bug).
+- Considered testing `DemoDataSeeder`'s randomized occurrence generation (`spacedOccurrences`,
+  `burstyOccurrences`, etc.) more exhaustively now that it's promoted out of `debug/` and into
+  production code (`chore/viewmodel-test-infra`'s entry explicitly deferred testing this exact code
+  while it lived in `debug/`, citing no wired test-source-set and imminent removal). Added
+  `DemoDataSeederTest` covering the invariants that matter for correctness (six distinct cases, every
+  event within the seed span, repeated calls are additive) rather than testing the specific
+  random-density shapes, which are cosmetic (Big Picture grid variety) not correctness-bearing.
+**Deferred:**
+- Default check-in interval (spec §14's off/7/14/30 picker) — not built this phase; Phase 9 is the
+  only phase that reads it, so a picker now would persist a value nothing consumes. Recorded directly
+  in PROGRESS.md's Phase 4 entry, not just here.
+- `gradle/gradle-daemon-jvm.properties` remains untracked, unrelated to this branch — same as every
+  previous entry.
+**Docs updated:** PROGRESS.md (Phase 4 checked off with full description, current-status line
+updated). HODITH_SPEC.md §14 (Settings row — added "Load demo data" / "Delete all data," previously
+undocumented). DEV_PLAYBOOK.md (Ship Checklist's debug-seed-removal item struck — fully retired, not
+just fenced). TESTING.md (Room DAOs row — delete-all-cases and the tags-don't-cascade case). This file.
+
+---
+
 ## feature/big-picture (Phase 3)
 
 **Scope:** Production wiring for the Big Picture calendar grid — the flagship view spec'd in §9,

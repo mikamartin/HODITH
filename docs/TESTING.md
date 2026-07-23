@@ -31,7 +31,7 @@ Rule of thumb: **if logic can be tested on the JVM, it must not require an emula
 
 | Area | What to cover |
 |---|---|
-| Room DAOs | CRUD per entity, cascade delete case → events/hunches/triggers, tag join queries, "events in window" queries, all-cases-with-events query feeding the Big Picture |
+| Room DAOs | CRUD per entity, cascade delete case → events/hunches/triggers, delete-all-cases (and that it doesn't on its own remove the case-independent `tags` table), tag join queries, "events in window" queries, all-cases-with-events query feeding the Big Picture |
 | Compose UI | Create Case incl. skipping the Hunch step; one-tap log + undo; detail sheet save with retro time; start/stop flow; theme switch re-words visible strings; hunch nudge appears at 5th event and dismisses permanently; archive a Case from Case Edit (confirm dialog, hidden when creating new); Archived Cases list with unarchive (immediate) and delete-forever (confirm dialog naming the event count) |
 | Compose UI — Big Picture | Grid renders real cases/events from `HodithRepository`; empty-state placeholder shows with zero cases; early-days placeholder shows with cases but zero events; day cell tap opens that day's events; month title tap opens the month picker |
 | WorkManager | Periodic trigger evaluation job enqueued once, executes, fires SILENT_FOR |

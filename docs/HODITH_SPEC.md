@@ -269,7 +269,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 | **Log detail sheet** | §6 — reachable from widget (trampoline activity), Home, case detail. |
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
 | **Triggers** | Per Case: list, create, enable/disable. |
-| **Settings** | Theme/voice picker with live preview card, default check-in interval (off / 7 / 14 / 30 days), export/import JSON, About. |
+| **Settings** | Theme/voice picker with live preview card, default check-in interval (off / 7 / 14 / 30 days), "Load demo data" / "Delete all data" (confirm dialog; permanent), export/import JSON, About. |
 | **About** | Version, privacy statement ("everything stays on your phone"), licenses. |
 
 ## 15. Widgets (Jetpack Glance)
