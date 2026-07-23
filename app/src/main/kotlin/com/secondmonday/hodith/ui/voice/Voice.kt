@@ -11,6 +11,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 interface Voice {
     val noCasesEmptyState: String
     val bigPictureEarlyDays: String
+    val bigPictureMonthPickerTitle: String
+    val bigPictureDayDetailEmptyState: String
+    val bigPictureWeekDetailEmptyState: String
+    val bigPictureEventNoteEmptyState: String
+    val bigPictureDialogCloseAction: String
+    val bigPictureWeekViewDescription: String
     val homeNavLabel: String
     val bigPictureNavLabel: String
     val settingsNavLabel: String
@@ -123,11 +129,19 @@ interface Voice {
         caseName: String,
         elapsed: String,
     ): String
+
+    fun bigPictureWeekDetailTitle(date: String): String
 }
 
 object SeriousVoice : Voice {
     override val noCasesEmptyState = "No cases yet."
     override val bigPictureEarlyDays = "Insufficient data. Keep logging."
+    override val bigPictureMonthPickerTitle = "Jump to month"
+    override val bigPictureDayDetailEmptyState = "No events logged this day."
+    override val bigPictureWeekDetailEmptyState = "No events logged this week."
+    override val bigPictureEventNoteEmptyState = "No note"
+    override val bigPictureDialogCloseAction = "Close"
+    override val bigPictureWeekViewDescription = "Open week view"
     override val homeNavLabel = "Home"
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
@@ -248,11 +262,19 @@ object SeriousVoice : Voice {
         caseName: String,
         elapsed: String,
     ) = "Still going, or forgot to stop $caseName? ($elapsed and counting.)"
+
+    override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 }
 
 object GothVoice : Voice {
     override val noCasesEmptyState = "Nothing is being watched. Yet."
     override val bigPictureEarlyDays = "The evidence is yet insufficient for despair."
+    override val bigPictureMonthPickerTitle = "Leap to another month"
+    override val bigPictureDayDetailEmptyState = "Nothing was recorded this day."
+    override val bigPictureWeekDetailEmptyState = "Nothing was recorded this week."
+    override val bigPictureEventNoteEmptyState = "No notes were left."
+    override val bigPictureDialogCloseAction = "Seal it shut"
+    override val bigPictureWeekViewDescription = "Unveil the week"
     override val homeNavLabel = "Home"
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
@@ -372,11 +394,19 @@ object GothVoice : Voice {
         caseName: String,
         elapsed: String,
     ) = "$caseName has lingered $elapsed. Still unfolding, or simply forgotten?"
+
+    override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 }
 
 object QuirkyVoice : Voice {
     override val noCasesEmptyState = "It's quiet in here… suspiciously quiet."
     override val bigPictureEarlyDays = "Too soon to tell — feed me more moments!"
+    override val bigPictureMonthPickerTitle = "Jump to a month!"
+    override val bigPictureDayDetailEmptyState = "Nothing logged this day — a blank page."
+    override val bigPictureWeekDetailEmptyState = "Nothing logged this week — a blank page."
+    override val bigPictureEventNoteEmptyState = "No note — mystery!"
+    override val bigPictureDialogCloseAction = "Got it, close this"
+    override val bigPictureWeekViewDescription = "Peek at the week!"
     override val homeNavLabel = "Home"
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
@@ -497,6 +527,8 @@ object QuirkyVoice : Voice {
         caseName: String,
         elapsed: String,
     ) = "$caseName's been going $elapsed — still happening, or did you just forget?"
+
+    override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { SeriousVoice }

@@ -16,7 +16,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.secondmonday.hodith.ui.archivedcases.ArchivedCasesRoute
-import com.secondmonday.hodith.ui.bigpicture.BigPictureScreen
+import com.secondmonday.hodith.ui.bigpicture.BigPictureRoute
 import com.secondmonday.hodith.ui.case.CaseEditRoute
 import com.secondmonday.hodith.ui.casedetail.CaseDetailRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
@@ -82,7 +82,7 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
                     onOpenArchivedCases = { navController.navigate(ARCHIVED_CASES_ROUTE) },
                 )
             }
-            composable(HodithDestination.BIG_PICTURE.route) { BigPictureScreen() }
+            composable(HodithDestination.BIG_PICTURE.route) { BigPictureRoute() }
             composable(HodithDestination.SETTINGS.route) { SettingsScreen() }
             composable(
                 route = "$CASE_EDIT_ROUTE?$CASE_ID_ARG={$CASE_ID_ARG}",
