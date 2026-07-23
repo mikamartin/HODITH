@@ -4,15 +4,13 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases.
+**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases. **Big Picture** shows every active Case's icons on a scrollable multi-month calendar grid, with day/week detail views and a per-case filter.
 
 ## Housekeeping
 
 Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pick up whenever convenient, not gated on phase progress.
 
-Open items:
-
-- [x] **Instrumented tests in CI** (`./gradlew connectedDebugAndroidTest`) — `.github/workflows/instrumented-tests.yml` runs the suite on a cached API 36 emulator, sharded by the `@UiTest` annotation (`testtags/UiTest.kt`) into `repository` (DAO tests) and `ui` (Compose screen tests) matrix jobs, so new test classes are picked up by tag rather than hardcoded paths. A cross-cutting `@Smoke` annotation (`testtags/Smoke.kt`) tags one representative happy-path test per class for ad-hoc local filtering. Both this workflow and `ci.yml`'s unit-test job report total/passed/failed/skipped counts via `mikepenz/action-junit-report` (Checks tab + job summary).
+No open items right now.
 
 ## Phase order
 
@@ -33,9 +31,9 @@ Open items:
        4. [x] `feature/start-stop` — Start/Stop, ongoing indicator, 24h stale-event prompt.
        5. [x] `feature/case-archive` — archive, hard delete, and a new Archived Cases view.
        6. [x] `feature/case-edit-polish` — collapsible icon picker, info icons, segmented Check-in, logFlow validation/auto-switch fix.
-- [ ] **Phase 3** — Big Picture: multi-month calendar grid of case icons (§9), built against real Case/Event data from Phase 2 rather than seed data.
-  - **Design (full detail in HODITH_SPEC.md §9):** month grid (day columns × week rows), case icons per day cell with a "+N" overflow badge, only days up to and including today shown, out-of-month padding days left blank, tap a day for its events + notes, a separate per-week chevron for a week view, tap the month title for a quick-jump month picker instead of pinch-zoom.
-  - **To do:** production implementation (real repository data, real navigation, instrumented Compose UI tests) — currently only an uncommitted Compose Preview prototype (`ui/timeline/CalendarGridPrototype.kt`). Open question: how/whether intensity and duration events surface on the grid (spec §9). Phase close-out: CLEANUP_CHECKLIST.md pass, a CLEANUP_LOG entry, this file's checkbox.
+- [x] **Phase 3** — Big Picture: multi-month calendar grid of case icons (§9), built against real Case/Event data from Phase 2.
+  - **Design (full detail in HODITH_SPEC.md §9):** month grid (day columns × week rows), case icons per day cell with a "+N" overflow badge, only days up to and including today shown, out-of-month padding days left blank, tap a day for its events + notes, a separate per-week chevron for a week view, tap the month title for a quick-jump month picker instead of pinch-zoom. Intensity/duration are not encoded on the grid (icon-only); early-days placeholder is two-tier (no cases vs. cases with no events yet).
+  - `feature/big-picture` — promoted the validated `CalendarGridPrototype.kt` spike to production: `BigPictureViewModel` + real navigation + unit and instrumented Compose UI test coverage.
 - [ ] **Phase 4** — Voice layer + three themes. Extends the `Voice` interface started in Phase 2 (see note above) — add remaining keys and theme skins, don't re-architect the interface.
 - [ ] **Phase 5** — Verdict engine + Hunch flow.
 - [ ] **Phase 6** — Per-case visuals + stats.
