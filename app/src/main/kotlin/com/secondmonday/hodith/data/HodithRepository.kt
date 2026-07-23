@@ -20,6 +20,8 @@ interface HodithRepository {
 
     suspend fun deleteCase(case: CaseEntity)
 
+    suspend fun deleteAllData()
+
     // Event
     fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>>
 

@@ -31,6 +31,11 @@ class RoomHodithRepository
 
         override suspend fun deleteCase(case: CaseEntity) = caseDao.delete(case)
 
+        override suspend fun deleteAllData() {
+            caseDao.deleteAll()
+            tagDao.deleteAll()
+        }
+
         // Event
         override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
 

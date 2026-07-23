@@ -4,13 +4,14 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases. **Big Picture** shows every active Case's icons on a scrollable multi-month calendar grid, with day/week detail views and a per-case filter.
+**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases. **Big Picture** shows every active Case's icons on a scrollable multi-month calendar grid, with day/week detail views and a per-case filter. **Settings** has a Theme picker (Serious/Goth/Quirky) that drives the `Voice` layer app-wide with a live text preview, plus "Load demo data" / "Delete all data" actions.
 
 ## Housekeeping
 
 Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pick up whenever convenient, not gated on phase progress.
 
-No open items right now.
+- [ ] Home screen title/header — question-form copy that also explains what the case list below it is; new Voice keys, all three voices.
+- [ ] Case Detail FAB — drop the "It happened earlier…" text label, icon-only, keep bottom-right position (it already behaves as a dual-purpose log-now/log-earlier control).
 
 ## Phase order
 
@@ -34,11 +35,17 @@ No open items right now.
 - [x] **Phase 3** — Big Picture: multi-month calendar grid of case icons (§9), built against real Case/Event data from Phase 2.
   - **Design (full detail in HODITH_SPEC.md §9):** month grid (day columns × week rows), case icons per day cell with a "+N" overflow badge, only days up to and including today shown, out-of-month padding days left blank, tap a day for its events + notes, a separate per-week chevron for a week view, tap the month title for a quick-jump month picker instead of pinch-zoom. Intensity/duration are not encoded on the grid (icon-only); early-days placeholder is two-tier (no cases vs. cases with no events yet).
   - `feature/big-picture` — promoted the validated `CalendarGridPrototype.kt` spike to production: `BigPictureViewModel` + real navigation + unit and instrumented Compose UI test coverage.
-- [ ] **Phase 4** — Voice layer + three themes. Extends the `Voice` interface started in Phase 2 (see note above) — add remaining keys and theme skins, don't re-architect the interface.
-- [ ] **Phase 5** — Verdict engine + Hunch flow.
-- [ ] **Phase 6** — Per-case visuals + stats.
-- [ ] **Phase 7** — Widgets.
-- [ ] **Phase 8** — Triggers + check-ins (WorkManager, notifications).
-- [ ] **Phase 9** — Share cards, export/import, Settings, About.
+- [x] **Phase 4** — Settings foundation: DataStore-backed theme/voice picker (unblocks exercising Phase 5's themes) + promoting demo-data seeding from a debug-only mechanism to a real "load demo data" / "delete all data" pair of actions in Settings.
+  - `feature/settings-foundation` — `SettingsRepository` (DataStore) now drives `LocalVoice` app-wide via a Theme picker with a text preview card; the debug-only auto-seed was retired in favor of `DemoDataSeeder`, triggered from Settings' "Load demo data" / "Delete all data" actions. Default check-in interval deferred to Phase 9, its only consumer.
+- [ ] **Phase 5** — Voice layer + three themes. Extends the `Voice` interface started in Phase 2 (see note above) — add remaining keys and theme skins (palette/color work, building on Phase 4's picker), don't re-architect the interface.
+- [ ] **Phase 6** — Verdict engine + Hunch flow.
+- [ ] **Phase 7** — Per-case visuals + stats.
+- [ ] **Phase 8** — Widgets.
+- [ ] **Phase 9** — Triggers + check-ins (WorkManager, notifications).
+- [ ] **Phase 10** — Share cards, export/import, Settings polish (check-in default, About).
+- [ ] **Phase 11** — Big Picture polish (follow-ups to the finished Phase 3 screen):
+  - [ ] Tapping an event in the day/week detail view opens that Case's detail screen.
+  - [ ] Day/week detail dialogs show event timestamp and tags.
+  - [ ] Tag filter chips alongside the existing case filter chips (ties into HODITH_SPEC.md §17 "Tag-level insights").
 
 Each phase ends with a CLEANUP_CHECKLIST.md pass logged in CLEANUP_LOG.md, a TESTING.md check, and this file updated.

@@ -64,6 +64,15 @@ class FakeHodithRepository : HodithRepository {
         events.update { list -> list.filterNot { it.caseId == case.id } }
     }
 
+    override suspend fun deleteAllData() {
+        cases.value = emptyList()
+        events.value = emptyList()
+        tags.value = emptyList()
+        eventTags.value = emptyList()
+        hunches.value = emptyList()
+        triggers.value = emptyList()
+    }
+
     // Event
     override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> =
         combine(events, tags, eventTags) { eventList, tagList, crossRefs ->

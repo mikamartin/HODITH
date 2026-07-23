@@ -38,4 +38,9 @@ interface TagDao {
             "WHERE events.caseId = :caseId ORDER BY tags.name",
     )
     fun observeTagsForCase(caseId: Long): Flow<List<TagEntity>>
+
+    // Tags aren't scoped to a case (they're a shared vocabulary across cases), so they don't
+    // cascade when cases are deleted — deleteAllData() must clear them explicitly.
+    @Query("DELETE FROM tags")
+    suspend fun deleteAll()
 }

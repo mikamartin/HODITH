@@ -16,9 +16,6 @@ Strip completed items — this list only contains open work.
 - [ ] Full-history hygiene audit, not just the latest diff (CLAUDE.md "Git hygiene") — secrets, real local paths, personal info can hide in old commits that going public would expose
 
 ### Before first release
-**Debug scaffolding**
-- [ ] Remove or fence out (debug-build-only) the seed-data mechanism used to exercise Big Picture before Case CRUD existed
-
 **Play Store**
 - [ ] App icon that works in all three theme contexts
 
