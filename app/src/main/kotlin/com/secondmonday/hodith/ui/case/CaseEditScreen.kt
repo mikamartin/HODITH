@@ -290,7 +290,7 @@ private fun SectionWithInfo(
 ) {
     var showInfo by remember { mutableStateOf(false) }
     if (showInfo) {
-        InfoDialog(title = infoTitle, body = infoBody, onDismiss = { showInfo = false })
+        InfoDialog(title = infoTitle, onDismiss = { showInfo = false }) { Text(infoBody) }
     }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {

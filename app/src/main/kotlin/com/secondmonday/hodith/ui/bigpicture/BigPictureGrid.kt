@@ -1,4 +1,4 @@
-package com.secondmonday.hodith.ui.timeline
+package com.secondmonday.hodith.ui.bigpicture
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,18 +11,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.secondmonday.hodith.ui.common.InfoDialog
+import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.viewmodel.CalendarCase
+import com.secondmonday.hodith.viewmodel.CalendarEvent
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
@@ -49,9 +53,8 @@ import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 /**
- * PROTOTYPE ONLY — a spike comparing a month-grid-of-icons visualization against the row/dot
- * Big Picture design, per PROGRESS.md's Phase 2 re-evaluation. Not wired to real data, not part
- * of the shipped screen graph.
+ * The Big Picture flagship view (spec §9) — a scrollable multi-month calendar grid, every active
+ * Case's icon in the cell for each day it has an event.
  *
  * Every month always renders its full case-icon grid — Big Picture's whole point is cross-case
  * identity/correlation, so no view here ever collapses that into a magnitude-only summary (that
@@ -63,31 +66,20 @@ import java.util.Locale
  * never fire for taps landing on a day cell (the innermost clickable wins).
  *
  * Scroll range is [earliestMonth]..[currentMonth] inclusive, opening at the bottom (current
- * month) — in the real app [earliestMonth] would come from the earliest existing Case.createdAt
- * already in Room, not a separately tracked "install date".
+ * month). Replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired
+ * after on-device testing showed it didn't read clearly (see PROGRESS.md for the build history).
  */
 private const val MAX_ICONS_PER_CELL = 3
-
-data class CalendarCase(
-    val id: Long,
-    val icon: String,
-    val name: String,
-)
-
-data class CalendarEvent(
-    val caseId: Long,
-    val occurredAt: Long,
-    val note: String? = null,
-)
+private val WEEK_CHEVRON_TOUCH_TARGET = 48.dp
 
 @Composable
-fun CalendarGridPrototype(
+fun BigPictureGrid(
     earliestMonth: YearMonth,
     currentMonth: YearMonth,
     cases: List<CalendarCase>,
     events: List<CalendarEvent>,
+    today: LocalDate,
     modifier: Modifier = Modifier,
-    today: LocalDate = LocalDate.now(),
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     var visibleCaseIds by remember(cases) { mutableStateOf(cases.map { it.id }.toSet()) }
@@ -137,8 +129,10 @@ fun CalendarGridPrototype(
                             color = MaterialTheme.colorScheme.primary,
                             modifier =
                                 Modifier
-                                    .padding(bottom = 4.dp)
-                                    .clickable { showMonthPicker = true },
+                                    .heightIn(min = 48.dp)
+                                    .wrapContentHeight(Alignment.CenterVertically)
+                                    .clickable { showMonthPicker = true }
+                                    .padding(bottom = 4.dp),
                         )
                         weeksInGrid(month)
                             .filter { week -> !week.first().isAfter(today) }
@@ -198,26 +192,26 @@ private fun MonthPickerDialog(
     onMonthPicked: (YearMonth) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Jump to month") },
-        text = {
-            Column {
-                months.asReversed().forEach { month ->
-                    Text(
-                        text = month.monthLabel(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { onMonthPicked(month) }
-                                .padding(vertical = 10.dp),
-                    )
-                }
+    val voice = LocalVoice.current
+    InfoDialog(
+        title = voice.bigPictureMonthPickerTitle,
+        onDismiss = onDismiss,
+        dismissLabel = voice.bigPictureDialogCloseAction,
+    ) {
+        Column {
+            months.asReversed().forEach { month ->
+                Text(
+                    text = month.monthLabel(),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onMonthPicked(month) }
+                            .padding(vertical = 10.dp),
+                )
             }
-        },
-    )
+        }
+    }
 }
 
 @Composable
@@ -231,6 +225,7 @@ private fun WeekRow(
     onDayTap: (LocalDate) -> Unit,
     onWeekTap: () -> Unit,
 ) {
+    val voice = LocalVoice.current
     Row(
         modifier =
             Modifier
@@ -240,16 +235,20 @@ private fun WeekRow(
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "›",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center,
+        Box(
             modifier =
                 Modifier
-                    .size(24.dp)
-                    .clickable(onClick = onWeekTap),
-        )
+                    .size(WEEK_CHEVRON_TOUCH_TARGET)
+                    .clickable(onClickLabel = voice.bigPictureWeekViewDescription, onClick = onWeekTap),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "›",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
+        }
         week.forEach { day ->
             if (day.isAfter(today) || day.month != month.month) {
                 Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
@@ -278,32 +277,32 @@ private fun DayDetailDialog(
     caseById: Map<Long, CalendarCase>,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text(day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))) },
-        text = {
-            if (events.isEmpty()) {
-                Text("No events logged this day.")
-            } else {
-                Column {
-                    events.forEach { event ->
-                        val case = caseById[event.caseId]
-                        Text(
-                            text = "${case?.icon.orEmpty()} ${case?.name.orEmpty()}",
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        Text(
-                            text = event.note?.takeIf { it.isNotBlank() } ?: "No note",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                    }
+    val voice = LocalVoice.current
+    InfoDialog(
+        title = day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)),
+        onDismiss = onDismiss,
+        dismissLabel = voice.bigPictureDialogCloseAction,
+    ) {
+        if (events.isEmpty()) {
+            Text(voice.bigPictureDayDetailEmptyState)
+        } else {
+            Column {
+                events.forEach { event ->
+                    val case = caseById[event.caseId]
+                    Text(
+                        text = "${case?.icon.orEmpty()} ${case?.name.orEmpty()}",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        text = event.note?.takeIf { it.isNotBlank() } ?: voice.bigPictureEventNoteEmptyState,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
                 }
             }
-        },
-    )
+        }
+    }
 }
 
 @Composable
@@ -315,38 +314,36 @@ private fun WeekDetailDialog(
     visibleCaseIds: Set<Long>,
     onDismiss: () -> Unit,
 ) {
+    val voice = LocalVoice.current
     val validDays = week.filter { !it.isAfter(today) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = {
-            Text(
-                "Week of " +
-                    week.first().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)),
-            )
-        },
-        text = {
-            Column {
-                validDays.forEach { day ->
-                    val dayEvents = eventsByDay[day].orEmpty().filter { it.caseId in visibleCaseIds }
-                    if (dayEvents.isNotEmpty()) {
-                        Text(
-                            text = day.format(DateTimeFormatter.ofPattern("EEE d", Locale.US)),
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
-                        dayEvents.forEach { event ->
-                            val case = caseById[event.caseId]
-                            Text("${case?.icon.orEmpty()} ${case?.name.orEmpty()}", style = MaterialTheme.typography.bodyMedium)
-                        }
+    InfoDialog(
+        title =
+            voice.bigPictureWeekDetailTitle(
+                week.first().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)),
+            ),
+        onDismiss = onDismiss,
+        dismissLabel = voice.bigPictureDialogCloseAction,
+    ) {
+        Column {
+            validDays.forEach { day ->
+                val dayEvents = eventsByDay[day].orEmpty().filter { it.caseId in visibleCaseIds }
+                if (dayEvents.isNotEmpty()) {
+                    Text(
+                        text = day.format(DateTimeFormatter.ofPattern("EEE d", Locale.US)),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    dayEvents.forEach { event ->
+                        val case = caseById[event.caseId]
+                        Text("${case?.icon.orEmpty()} ${case?.name.orEmpty()}", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                if (validDays.all { eventsByDay[it].orEmpty().none { event -> event.caseId in visibleCaseIds } }) {
-                    Text("No events logged this week.")
-                }
             }
-        },
-    )
+            if (validDays.all { eventsByDay[it].orEmpty().none { event -> event.caseId in visibleCaseIds } }) {
+                Text(voice.bigPictureWeekDetailEmptyState)
+            }
+        }
+    }
 }
 
 @Composable
@@ -377,7 +374,7 @@ private fun CaseFilterChip(
 @Composable
 private fun WeekdayHeader(modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth()) {
-        Spacer(modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.size(WEEK_CHEVRON_TOUCH_TARGET))
         DayOfWeek.entries.forEach { day ->
             val isWeekend = day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY
             Text(
@@ -440,7 +437,7 @@ private fun DayCell(
     }
 }
 
-private fun weeksInGrid(month: YearMonth): List<List<LocalDate>> {
+internal fun weeksInGrid(month: YearMonth): List<List<LocalDate>> {
     val firstOfMonth = month.atDay(1)
     val lastOfMonth = month.atEndOfMonth()
     val gridStart = firstOfMonth.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -452,7 +449,7 @@ private fun weeksInGrid(month: YearMonth): List<List<LocalDate>> {
 
 @Preview(showBackground = true, widthDp = 380, heightDp = 700)
 @Composable
-private fun CalendarGridPrototypePreview() {
+private fun BigPictureGridPreview() {
     val cases =
         listOf(
             CalendarCase(1, "☕", "Perfect coffee"),
@@ -506,11 +503,12 @@ private fun CalendarGridPrototypePreview() {
             }
 
     MaterialTheme {
-        CalendarGridPrototype(
+        BigPictureGrid(
             earliestMonth = earliestMonth,
             currentMonth = currentMonth,
             cases = cases,
             events = events,
+            today = LocalDate.now(),
         )
     }
 }

@@ -7,23 +7,24 @@ import androidx.compose.runtime.Composable
 import com.secondmonday.hodith.ui.voice.LocalVoice
 
 /**
- * Shared shape for a plain explanatory dialog (e.g. the Logging/Duration/Check-in info icons on
- * Case Edit): title, body, a single dismiss [TextButton]. Unlike [ConfirmDialog], there is no
- * confirm action — this dialog only explains, it never changes state.
+ * Shared shape for a single-action dialog (e.g. the Logging/Duration/Check-in info icons on Case
+ * Edit, or Big Picture's month picker / day / week detail dialogs): title, arbitrary content, a
+ * single dismiss [TextButton]. Unlike [ConfirmDialog], there is no confirm action — this dialog
+ * only shows something, it never changes state.
  */
 @Composable
 fun InfoDialog(
     title: String,
-    body: String,
     onDismiss: () -> Unit,
+    dismissLabel: String = LocalVoice.current.infoDialogDismissAction,
+    content: @Composable () -> Unit,
 ) {
-    val voice = LocalVoice.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { Text(body) },
+        text = content,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(voice.infoDialogDismissAction) }
+            TextButton(onClick = onDismiss) { Text(dismissLabel) }
         },
     )
 }

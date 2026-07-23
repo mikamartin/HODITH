@@ -15,6 +15,84 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/big-picture (Phase 3)
+
+**Scope:** Production wiring for the Big Picture calendar grid — the flagship view spec'd in §9,
+already prototyped and validated on-device as `ui/timeline/CalendarGridPrototype.kt` (committed in
+`3faa460`, despite PROGRESS.md's stale "uncommitted" note). Promoted that design to production: a new
+`BigPictureViewModel` (mirrors `HomeViewModel`'s `combine`/`stateIn` pattern) sourcing
+`HodithRepository.observeActiveCasesWithEvents()` — no new repository/DAO query needed, since that same
+flow already carries every active case's `createdAt`, so `earliestMonth` is derived reactively as
+`min(createdAt)` rather than a separate query. Moved the grid Composable to
+`ui/bigpicture/BigPictureGrid.kt`, wired a `BigPictureRoute`/`BigPictureScreen` split into the nav host
+(same pattern as `HomeRoute`/`HomeScreen`), and routed every dialog string (month picker, day/week
+detail, empty states) through 10 new `Voice` keys added to all three voices. Resolved two product
+decisions with the user before building: intensity/duration stay icon-only, never encoded on the grid
+(closing spec §9's "still open" question), and the early-days placeholder is two-tier — zero active
+Cases shows the same empty state as Home, at least one Case but zero events shows a distinct "not
+enough data yet" placeholder.
+**Found & fixed:**
+- **Duplication:** the three new dialogs (month picker, day detail, week detail) were each a
+  near-identical single-dismiss-button `AlertDialog`, differing only in title/content — exactly the
+  shape the pre-existing `ui/common/InfoDialog.kt` already covers (previously used once, by Case
+  Edit's info icons). Generalized `InfoDialog`'s `body: String` parameter into a
+  `content: @Composable () -> Unit` slot plus an optional `dismissLabel` override (Case Edit's "Got
+  it" doesn't read right for a list dialog; these use a new "Close"-style `bigPictureDialogCloseAction`
+  instead) and switched all four call sites — Case Edit's existing one plus the three new ones — onto
+  it, removing three copies of the same `AlertDialog` boilerplate.
+- **Accessibility — tap target size + missing action label:** the per-week chevron that opens the
+  week-detail view was a 24dp `Text("›")`, under the 48dp minimum, with no accessible label beyond the
+  glyph itself (TalkBack would read "greater-than sign", not what it does). Wrapped it in a 48dp `Box`
+  with `Modifier.clickable(onClickLabel = ...)` and a new `bigPictureWeekViewDescription` Voice key;
+  `WeekdayHeader`'s leading spacer now shares the same `WEEK_CHEVRON_TOUCH_TARGET` constant so the
+  header stays column-aligned with the grid below it. The month-title tap target had the same
+  under-48dp-height issue (no explicit height, sized to just its `titleSmall` line) — same fix class
+  `feature/case-edit-polish` already applied to the icon-picker's collapse header; added
+  `Modifier.heightIn(min = 48.dp)` plus vertical centering.
+- **Test gap named in TESTING.md's own pre-existing plan, not yet closed:** the "Stats & visual data
+  prep" row already called for "Big Picture calendar-grid day-bucketing (month grid boundaries,
+  out-of-month days blank not duplicated)" unit coverage, but `weeksInGrid` — the exact function that
+  does this — was `private` and untested. Made it `internal` and added `BigPictureGridTest.kt` (5
+  cases: 7-day chunking, mid-week month start padding back to Monday, mid-week month end padding
+  forward to Sunday, no padding needed when a month already starts/ends on boundaries, every day of the
+  target month appears exactly once with no duplicates).
+- **Instrumented tests initially failed with `IllegalStateException: No compose hierarchies found`** —
+  a physical device had become attached alongside the emulator mid-branch, the exact scenario
+  TESTING.md's Known Environment Issues already documents. Not a regression; worked around by targeting
+  the emulator directly (`adb -s emulator-5554 ...`) per that doc's existing instructions, which
+  themselves needed no changes.
+**Considered, not changed:**
+- Weekday header letters (`M T W T F S S`) and the day cell's "+N" overflow badge stay inline, not
+  routed through `Voice` — calendar/data-visualization chrome (a locale-fixed abbreviation, a count
+  badge), not personality-flavored narrative copy, matching how formatted dates and numeric counts
+  elsewhere in the app (event-list timestamps, Home's today/week counts) also sit outside the Voice
+  layer.
+- `CaseFilterChip`'s ~28–32dp height (icon + `labelSmall` text + 6dp padding) is under the 48dp
+  tappable-target guideline, but matches Material 3's own `FilterChip` sizing convention (a
+  deliberately compact selection control, not a primary action) — this exact chip shape was already
+  reviewed and approved during the prototype's own on-device validation before this branch started;
+  not re-litigated here.
+- `visibleCaseIds`/`selectedDay`/`selectedWeek`/`showMonthPicker` use plain `remember`, not
+  `rememberSaveable` — won't survive rotation/process death. Same reasoning `feature/log-detail-sheet`'s
+  entry already gave for `LogDetailSheet`'s draft state: transient UI state, not a big form investment,
+  accepted for now.
+**Deferred:**
+- No instrumented test covers the case-filter-chip toggle or the "+N" overflow badge — the chip toggle
+  is hard to assert cleanly since the same case icon renders in both the chip label and day cells, and
+  the overflow badge needs 4+ same-day events to trigger, meaningfully more setup than the other six
+  interaction tests needed. Verified visually during this branch's manual on-device pass instead of by
+  an automated assertion. Revisit if either becomes a source of real bugs.
+- `gradle/gradle-daemon-jvm.properties` remains untracked, unrelated to this branch — same as every
+  previous entry.
+**Docs updated:** HODITH_SPEC.md §9 (intensity/duration decision resolved from "still open" to
+icon-only, and where that data actually lives instead; two-tier early-days placeholder documented).
+TESTING.md (day-bucketing row moved from planned-unit to landed, now covered by `BigPictureGridTest`;
+Big Picture instrumented-coverage row trimmed to what's actually tested and its "(Phase 3)" tag
+dropped). PROGRESS.md (Phase 3 checked off, current-status line updated, stale "uncommitted prototype"
+note corrected). This file.
+
+---
+
 ## chore/ci-instrumented-tests
 
 **Scope:** Closed PROGRESS.md's last Housekeeping item — instrumented tests (`connectedDebugAndroidTest`)
