@@ -12,6 +12,7 @@ lifecycleRuntimeKtx = "2.9.0"
 navigationCompose = "2.9.8"
 hiltNavigationCompose = "1.2.0"
 room = "2.8.4"
+datastorePreferences = "1.1.7"
 coroutines = "1.11.0"
 turbine = "1.2.1"
 errorProneAnnotations = "2.47.0"
@@ -50,6 +51,8 @@ room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
+
+datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }

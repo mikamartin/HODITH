@@ -20,7 +20,7 @@ import com.secondmonday.hodith.ui.bigpicture.BigPictureRoute
 import com.secondmonday.hodith.ui.case.CaseEditRoute
 import com.secondmonday.hodith.ui.casedetail.CaseDetailRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
-import com.secondmonday.hodith.ui.settings.SettingsScreen
+import com.secondmonday.hodith.ui.settings.SettingsRoute
 import com.secondmonday.hodith.ui.voice.LocalVoice
 
 private const val CASE_EDIT_ROUTE = "case_edit"
@@ -83,7 +83,7 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
                 )
             }
             composable(HodithDestination.BIG_PICTURE.route) { BigPictureRoute() }
-            composable(HodithDestination.SETTINGS.route) { SettingsScreen() }
+            composable(HodithDestination.SETTINGS.route) { SettingsRoute() }
             composable(
                 route = "$CASE_EDIT_ROUTE?$CASE_ID_ARG={$CASE_ID_ARG}",
                 arguments =

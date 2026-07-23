@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.voice
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.secondmonday.hodith.data.AppTheme
 
 /**
  * One user-visible string per key, in three personalities (spec §12). Composables read
@@ -95,6 +96,19 @@ interface Voice {
     val staleOngoingEditEndTimeAction: String
     val staleOngoingStillGoingAction: String
     val quickLogUndoAction: String
+    val settingsThemeSectionLabel: String
+    val themeOptionSerious: String
+    val themeOptionGoth: String
+    val themeOptionQuirky: String
+    val settingsPreviewLabel: String
+    val settingsDemoDataSectionLabel: String
+    val settingsLoadDemoDataButton: String
+    val settingsDemoDataLoadedMessage: String
+    val settingsDeleteAllDataButton: String
+    val settingsDeleteAllDataConfirmTitle: String
+    val settingsDeleteAllDataConfirmBody: String
+    val settingsDeleteAllDataConfirmAction: String
+    val settingsDeleteAllDataCancelAction: String
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -227,6 +241,20 @@ object SeriousVoice : Voice {
     override val staleOngoingEditEndTimeAction = "Edit end time"
     override val staleOngoingStillGoingAction = "Still going"
     override val quickLogUndoAction = "Undo"
+    override val settingsThemeSectionLabel = "Theme"
+    override val themeOptionSerious = "Serious"
+    override val themeOptionGoth = "Goth"
+    override val themeOptionQuirky = "Quirky"
+    override val settingsPreviewLabel = "Preview"
+    override val settingsDemoDataSectionLabel = "Demo data"
+    override val settingsLoadDemoDataButton = "Load demo data"
+    override val settingsDemoDataLoadedMessage = "Demo data loaded."
+    override val settingsDeleteAllDataButton = "Delete all data"
+    override val settingsDeleteAllDataConfirmTitle = "Delete all data?"
+    override val settingsDeleteAllDataConfirmBody =
+        "Every case and event will be permanently deleted. This can't be undone."
+    override val settingsDeleteAllDataConfirmAction = "Delete everything"
+    override val settingsDeleteAllDataCancelAction = "Cancel"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -360,6 +388,20 @@ object GothVoice : Voice {
     override val staleOngoingEditEndTimeAction = "Mark when it ended"
     override val staleOngoingStillGoingAction = "Still unfolding"
     override val quickLogUndoAction = "Reverse it"
+    override val settingsThemeSectionLabel = "The chosen skin"
+    override val themeOptionSerious = "Serious"
+    override val themeOptionGoth = "Goth"
+    override val themeOptionQuirky = "Quirky"
+    override val settingsPreviewLabel = "A glimpse"
+    override val settingsDemoDataSectionLabel = "Phantom data"
+    override val settingsLoadDemoDataButton = "Conjure phantom cases"
+    override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
+    override val settingsDeleteAllDataButton = "Erase everything"
+    override val settingsDeleteAllDataConfirmTitle = "Erase everything?"
+    override val settingsDeleteAllDataConfirmBody =
+        "Every case and record will be struck from existence, beyond recall."
+    override val settingsDeleteAllDataConfirmAction = "Erase it all"
+    override val settingsDeleteAllDataCancelAction = "Spare it"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -492,6 +534,19 @@ object QuirkyVoice : Voice {
     override val staleOngoingEditEndTimeAction = "Fix the end time"
     override val staleOngoingStillGoingAction = "Yep, still going!"
     override val quickLogUndoAction = "Oops, undo!"
+    override val settingsThemeSectionLabel = "Pick your vibe"
+    override val themeOptionSerious = "Serious"
+    override val themeOptionGoth = "Goth"
+    override val themeOptionQuirky = "Quirky"
+    override val settingsPreviewLabel = "Sneak peek"
+    override val settingsDemoDataSectionLabel = "Pretend data"
+    override val settingsLoadDemoDataButton = "Load some pretend chaos!"
+    override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
+    override val settingsDeleteAllDataButton = "Nuke everything"
+    override val settingsDeleteAllDataConfirmTitle = "Nuke everything?"
+    override val settingsDeleteAllDataConfirmBody = "Every case and event goes poof — for real, no take-backs."
+    override val settingsDeleteAllDataConfirmAction = "Yeet it all"
+    override val settingsDeleteAllDataCancelAction = "Nah, never mind"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -532,3 +587,10 @@ object QuirkyVoice : Voice {
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { SeriousVoice }
+
+fun voiceFor(theme: AppTheme): Voice =
+    when (theme) {
+        AppTheme.SERIOUS -> SeriousVoice
+        AppTheme.GOTH -> GothVoice
+        AppTheme.QUIRKY -> QuirkyVoice
+    }

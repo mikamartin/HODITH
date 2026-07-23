@@ -35,4 +35,8 @@ interface CaseDao {
     @Transaction
     @Query("SELECT * FROM cases WHERE archived = 1 ORDER BY name COLLATE NOCASE")
     fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>>
+
+    // Events/tags/hunches/triggers cascade via their FOREIGN KEY(...) ON DELETE CASCADE.
+    @Query("DELETE FROM cases")
+    suspend fun deleteAll()
 }

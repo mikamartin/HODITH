@@ -1,22 +1,14 @@
-package com.secondmonday.hodith.debug
+package com.secondmonday.hodith.data.demo
 
-import android.util.Log
-import com.secondmonday.hodith.AppInitializer
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.domain.Clock
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.random.Random
 
-private const val TAG = "SeedDataInitializer"
 private const val SEED_SPAN_DAYS = 380
 private const val DAY_MILLIS = 24L * 60 * 60 * 1000L
 private const val SEED_RANDOM_SEED = 42L
@@ -103,27 +95,19 @@ private val CASE_SEEDS =
     )
 
 /**
- * Populates the database with synthetic cases/events on first launch so Big Picture has
- * something to render before Case CRUD (Phase 3) exists. Debug-only: never bound in release
- * (see AppInitializerModule's empty @Multibinds set there).
+ * Inserts a fixed set of synthetic cases/events for exercising the app with realistic data.
+ * Triggered manually from Settings ("Load demo data") — every call adds another full set
+ * (mixing with whatever's already there), it is not a one-time or idempotent seed.
  */
-class SeedDataInitializer
+class DemoDataSeeder
     @Inject
     constructor(
         private val repository: HodithRepository,
         private val clock: Clock,
-    ) : AppInitializer {
-        override fun init() {
-            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                if (repository.observeActiveCases().first().isNotEmpty()) return@launch
-                seed()
-            }
-        }
-
-        private suspend fun seed() {
+    ) {
+        suspend fun seed() {
             val now = clock.nowMillis()
             val spanStart = now - SEED_SPAN_DAYS * DAY_MILLIS
-            var eventCount = 0
 
             CASE_SEEDS.forEachIndexed { index, caseSeed ->
                 val caseId =
@@ -158,11 +142,8 @@ class SeedDataInitializer
                             ),
                         )
                     tagsFor(caseSeed.tags, random).forEach { tagName -> repository.addTagToEvent(eventId, tagName) }
-                    eventCount++
                 }
             }
-
-            Log.d(TAG, "Seeded ${CASE_SEEDS.size} cases, $eventCount events")
         }
     }
 

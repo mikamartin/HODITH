@@ -118,4 +118,37 @@ class CaseDaoTest {
             assertEquals(null, hunchDao.observeActiveHunch(caseId).first())
             assertEquals(emptyList<TriggerEntity>(), triggerDao.observeTriggersForCase(caseId).first())
         }
+
+    @Test
+    fun deleteAll_removesEveryCaseAndCascadesToEvents() =
+        runTest {
+            val eventDao = db.eventDao()
+            val firstId = caseDao.insert(testCase(name = "First"))
+            val secondId = caseDao.insert(testCase(name = "Second", archived = true))
+            eventDao.insert(testEvent(caseId = firstId))
+            eventDao.insert(testEvent(caseId = secondId))
+
+            caseDao.deleteAll()
+
+            assertEquals(emptyList<CaseEntity>(), caseDao.observeActiveCases().first())
+            assertEquals(emptyList<EventEntity>(), eventDao.observeEventsForCase(firstId).first())
+            assertEquals(emptyList<EventEntity>(), eventDao.observeEventsForCase(secondId).first())
+        }
+
+    @Test
+    fun caseDaoDeleteAll_doesNotOnItsOwnRemoveTags() =
+        runTest {
+            // Documents why RoomHodithRepository.deleteAllData() must also call tagDao.deleteAll():
+            // tags aren't scoped to a case, so caseDao.deleteAll() alone leaves them orphaned.
+            val tagDao = db.tagDao()
+            val eventDao = db.eventDao()
+            val caseId = caseDao.insert(testCase())
+            val eventId = eventDao.insert(testEvent(caseId = caseId))
+            val tagId = tagDao.insert(TagEntity(name = "home"))
+            tagDao.insertEventTag(EventTagCrossRef(eventId = eventId, tagId = tagId))
+
+            caseDao.deleteAll()
+
+            assertEquals(1, tagDao.observeAllTags().first().size)
+        }
 }
