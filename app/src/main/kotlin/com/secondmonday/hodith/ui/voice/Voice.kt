@@ -296,7 +296,7 @@ object PlainVoice : Voice {
 
 object IntenseVoice : Voice {
     override val noCasesEmptyState = "Nothing is being watched. Yet."
-    override val bigPictureEarlyDays = "The evidence is yet insufficient for despair."
+    override val bigPictureEarlyDays = "The evidence is yet insufficient for despair or joy."
     override val bigPictureMonthPickerTitle = "Leap to another month"
     override val bigPictureDayDetailEmptyState = "Nothing was recorded this day."
     override val bigPictureWeekDetailEmptyState = "Nothing was recorded this week."
@@ -355,17 +355,17 @@ object IntenseVoice : Voice {
     override val archiveCaseConfirmBody =
         "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed."
     override val archiveCaseConfirmAction = "Bury it"
-    override val archiveCaseCancelAction = "Spare it"
+    override val archiveCaseCancelAction = "Abandon"
     override val archivedCasesTitle = "The buried cases"
     override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
     override val deleteEventConfirmTitle = "Strike this from the record?"
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
     override val deleteEventConfirmAction = "Erase"
-    override val deleteEventCancelAction = "Spare it"
+    override val deleteEventCancelAction = "Abandon"
     override val deleteCaseForeverConfirmTitle = "Erase this case forever?"
     override val deleteCaseForeverConfirmAction = "Erase forever"
-    override val deleteCaseForeverCancelAction = "Spare it"
+    override val deleteCaseForeverCancelAction = "Abandon"
     override val retroLogEntryLabel = "It happened before now…"
     override val logSheetNewEventTitle = "Record the evidence"
     override val logSheetEditEventTitle = "Amend the record"
@@ -401,7 +401,7 @@ object IntenseVoice : Voice {
     override val settingsDeleteAllDataConfirmBody =
         "Every case and record will be struck from existence, beyond recall."
     override val settingsDeleteAllDataConfirmAction = "Erase it all"
-    override val settingsDeleteAllDataCancelAction = "Spare it"
+    override val settingsDeleteAllDataCancelAction = "Abandon"
 
     override fun homeCaseCounts(
         todayCount: Int,
