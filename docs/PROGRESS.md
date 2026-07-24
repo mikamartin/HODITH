@@ -40,8 +40,13 @@ Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pic
   - **Branches, in dependency order:**
     1. [x] `feature/theme-skins` — new `ui/theme/` package (`Color.kt` six `ColorScheme`s, `Type.kt` three `Typography`s built on 12 bundled OFL font files, `Shape.kt` three `Shapes`, `HodithTheme.kt`) wired into `HodithApp.kt` and Settings' live preview card, replacing the bare `MaterialTheme { }` that previously made theme-switching a copy-only change. Also folded in the Housekeeping list's Home-header item: a new `homeHeaderTitle` Voice key, three phrasings that all spell H-O-D-I-T-H, with the initials bolded in the theme's accent color.
     2. [x] `feature/big-picture-theme-polish` — Big Picture's bespoke day-cell/badge treatment per theme (Intense's neutral tab-stripe, Bright's soft-shadow sticker-fan cells), on top of the skin from (1). Plain is unchanged.
-- [ ] **Phase 6** — Verdict engine + Hunch flow.
-- [ ] **Phase 7** — Per-case visuals + stats.
+- [ ] **Phase 6** — Verdict engine + Hunch flow. Case Detail's Log/Insights/Hunch tab structure and Hunch-flow copy (nudge, creation, verdict tiers, history) validated across all three themes in [docs/mockups/case-detail-prototype.html](mockups/case-detail-prototype.html) before any Kotlin.
+- [ ] **Phase 7** — Per-case visuals + stats (spec §9–10), filling in Case Detail's Insights tab. Layout validated in the same prototype above — toggle "Phase 7 preview" on its Insights tab.
+  - [ ] Dot timeline — primary visualization, full width at the top of Insights; bursts/droughts/rhythm visible before a number is read, current gap annotated (e.g. "11 days quiet").
+  - [ ] Calendar heatmap — secondary, sits below the dot timeline; year-in-pixels month grid, shaded by event count per day.
+  - [ ] Stats: frequency over time (granularity auto-picked from data density), rhythm heatmap (day-of-week × time-of-day), gaps & clusters (longest/current/average gap, "tends to come in bursts" flag), trend arrow (last 30 days vs. previous 30, hidden below 8 weeks of data).
+  - [ ] Duration stats (only when `durationMode != NONE`) and Intensity stats (only when intensity tracking is on) — conditional sections, not always shown.
+  - [ ] Tag breakdown — counts per tag.
 - [ ] **Phase 8** — Widgets.
 - [ ] **Phase 9** — Triggers + check-ins (WorkManager, notifications).
 - [ ] **Phase 10** — Share cards, export/import, Settings polish (check-in default, About).
