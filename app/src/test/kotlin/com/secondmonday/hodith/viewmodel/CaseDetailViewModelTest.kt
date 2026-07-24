@@ -6,7 +6,10 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.HunchDirection
+import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.FakeClock
@@ -185,5 +188,103 @@ class CaseDetailViewModelTest {
                     .note,
             )
             assertEquals(listOf("new"), repository.observeTagsForEvent(eventId).first().map { it.name })
+        }
+
+    @Test
+    fun `uiState reflects the active hunch and history`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val active =
+                HunchEntity(
+                    id = 1L,
+                    caseId = caseId,
+                    direction = HunchDirection.TOO_OFTEN,
+                    expectedCount = 5,
+                    expectedPer = ExpectedPer.WEEK,
+                    createdAt = 0L,
+                    resolvedAt = null,
+                )
+            val resolved =
+                HunchEntity(
+                    id = 2L,
+                    caseId = caseId,
+                    direction = HunchDirection.NOT_ENOUGH,
+                    expectedCount = 1,
+                    expectedPer = ExpectedPer.MONTH,
+                    createdAt = -100L,
+                    resolvedAt = -50L,
+                )
+            repository.hunches.value = listOf(active, resolved)
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(active, state.activeHunch)
+                assertEquals(listOf(active, resolved), state.hunchHistory)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `addHunch inserts a Hunch for this case`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+
+            vm.addHunch(HunchDirection.TOO_OFTEN, expectedCount = 5, expectedPer = ExpectedPer.WEEK)
+
+            val hunch = repository.hunches.value.single()
+            assertEquals(caseId, hunch.caseId)
+            assertEquals(HunchDirection.TOO_OFTEN, hunch.direction)
+            assertEquals(5, hunch.expectedCount)
+            assertEquals(ExpectedPer.WEEK, hunch.expectedPer)
+            assertEquals(clock.nowMillis(), hunch.createdAt)
+            assertEquals(null, hunch.resolvedAt)
+        }
+
+    @Test
+    fun `resolveHunch stamps resolvedAt with now`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val hunch =
+                HunchEntity(
+                    id = 1L,
+                    caseId = caseId,
+                    direction = HunchDirection.TOO_OFTEN,
+                    expectedCount = 5,
+                    expectedPer = ExpectedPer.WEEK,
+                    createdAt = 0L,
+                    resolvedAt = null,
+                )
+            repository.hunches.value = listOf(hunch)
+            val vm = viewModel()
+
+            clock.advanceBy(60_000L)
+            vm.resolveHunch(hunch)
+
+            assertEquals(
+                clock.nowMillis(),
+                repository.hunches.value
+                    .single()
+                    .resolvedAt,
+            )
+        }
+
+    @Test
+    fun `dismissHunchNudge sets hunchNudgeDismissed on the case`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            vm.dismissHunchNudge()
+
+            assertTrue(
+                repository.cases.value
+                    .single()
+                    .hunchNudgeDismissed,
+            )
         }
 }

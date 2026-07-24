@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -171,6 +172,47 @@ class CaseDetailFormattingTest {
             PlainVoice.logSheetOngoingLabel,
             eventDetailSummary(event, tags = emptyList(), PlainVoice, isOngoing = true),
         )
+    }
+
+    // ---- formatRate ----
+
+    @Test
+    fun `formatRate renders one decimal place and the per-unit suffix`() {
+        assertEquals("2.6×/week", formatRate(2.6, ExpectedPer.WEEK))
+        assertEquals("1.0×/day", formatRate(1.0, ExpectedPer.DAY))
+        assertEquals("1.1×/month", formatRate(1.1, ExpectedPer.MONTH))
+    }
+
+    @Test
+    fun `formatRate rounds to one decimal place`() {
+        assertEquals("2.4×/week", formatRate(2.36, ExpectedPer.WEEK))
+    }
+
+    // ---- formatExpectedFrequency ----
+
+    @Test
+    fun `formatExpectedFrequency renders a whole-number rate with a tilde`() {
+        assertEquals("~5×/week", formatExpectedFrequency(5, ExpectedPer.WEEK))
+        assertEquals("~1×/day", formatExpectedFrequency(1, ExpectedPer.DAY))
+        assertEquals("~2×/month", formatExpectedFrequency(2, ExpectedPer.MONTH))
+    }
+
+    // ---- monthsAgo ----
+
+    @Test
+    fun `monthsAgo counts whole calendar months`() {
+        val past = ZonedDateTime.of(2026, 3, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val now = ZonedDateTime.of(2026, 7, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+
+        assertEquals(4L, monthsAgo(past, now, utc))
+    }
+
+    @Test
+    fun `monthsAgo is zero for less than a full month`() {
+        val past = ZonedDateTime.of(2026, 3, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val now = ZonedDateTime.of(2026, 3, 20, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+
+        assertEquals(0L, monthsAgo(past, now, utc))
     }
 
     private fun testEvent(
