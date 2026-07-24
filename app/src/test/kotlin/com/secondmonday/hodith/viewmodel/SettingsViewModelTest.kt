@@ -39,12 +39,12 @@ class SettingsViewModelTest {
     @Test
     fun `uiState reflects the persisted theme`() =
         runTest {
-            settingsRepository.theme.value = AppTheme.GOTH
+            settingsRepository.theme.value = AppTheme.INTENSE
             val viewModel = viewModel()
 
             viewModel.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(AppTheme.GOTH, state.theme)
+                assertEquals(AppTheme.INTENSE, state.theme)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -54,9 +54,9 @@ class SettingsViewModelTest {
         runTest {
             val viewModel = viewModel()
 
-            viewModel.onThemeSelect(AppTheme.QUIRKY)
+            viewModel.onThemeSelect(AppTheme.BRIGHT)
 
-            assertEquals(AppTheme.QUIRKY, settingsRepository.theme.value)
+            assertEquals(AppTheme.BRIGHT, settingsRepository.theme.value)
         }
 
     @Test

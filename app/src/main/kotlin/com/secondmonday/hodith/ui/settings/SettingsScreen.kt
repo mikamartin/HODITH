@@ -112,9 +112,9 @@ private fun ThemeSection(
 ) {
     val options =
         listOf(
-            AppTheme.SERIOUS to voice.themeOptionSerious,
-            AppTheme.GOTH to voice.themeOptionGoth,
-            AppTheme.QUIRKY to voice.themeOptionQuirky,
+            AppTheme.PLAIN to voice.themeOptionPlain,
+            AppTheme.INTENSE to voice.themeOptionIntense,
+            AppTheme.BRIGHT to voice.themeOptionBright,
         )
 
     Column {

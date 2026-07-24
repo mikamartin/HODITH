@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SettingsUiState(
-    val theme: AppTheme = AppTheme.SERIOUS,
+    val theme: AppTheme = AppTheme.PLAIN,
     val isLoading: Boolean = true,
 )
 

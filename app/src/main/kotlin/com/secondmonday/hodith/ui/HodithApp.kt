@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Composable
 fun HodithApp(themeFlow: Flow<AppTheme>) {
-    val theme by themeFlow.collectAsStateWithLifecycle(initialValue = AppTheme.SERIOUS)
+    val theme by themeFlow.collectAsStateWithLifecycle(initialValue = AppTheme.PLAIN)
 
     CompositionLocalProvider(LocalVoice provides voiceFor(theme)) {
         MaterialTheme {

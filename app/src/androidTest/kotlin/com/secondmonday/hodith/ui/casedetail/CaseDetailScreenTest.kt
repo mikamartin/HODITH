@@ -14,7 +14,7 @@ import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
-import com.secondmonday.hodith.ui.voice.SeriousVoice
+import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import org.junit.Assert.assertEquals
@@ -66,7 +66,7 @@ class CaseDetailScreenTest {
         nowMillis: () -> Long = { 10_000L },
     ) {
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides SeriousVoice) {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 CaseDetailScreen(
                     uiState = CaseDetailUiState(case = startStopCase, events = events, isLoading = false),
                     onBack = {},
@@ -98,9 +98,9 @@ class CaseDetailScreenTest {
         var savedDraft: LogDraft? = null
         setCaseDetailScreenContent(onSaveEvent = { draft, _, _ -> savedDraft = draft })
 
-        composeTestRule.onNodeWithText(SeriousVoice.retroLogEntryLabel, useUnmergedTree = true).performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.logSheetOngoingLabel).assertExists()
-        composeTestRule.onNodeWithText(SeriousVoice.logSheetStartButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.retroLogEntryLabel, useUnmergedTree = true).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetStartButton).performClick()
 
         assertNotNull(savedDraft)
         assertNull(savedDraft?.endedAt)
@@ -111,9 +111,9 @@ class CaseDetailScreenTest {
         var savedDraft: LogDraft? = null
         setCaseDetailScreenContent(onSaveEvent = { draft, _, _ -> savedDraft = draft })
 
-        composeTestRule.onNodeWithText(SeriousVoice.retroLogEntryLabel, useUnmergedTree = true).performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.logSheetStopNowAction).performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.retroLogEntryLabel, useUnmergedTree = true).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetStopNowAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
 
         assertNotNull(savedDraft?.endedAt)
     }
@@ -127,7 +127,7 @@ class CaseDetailScreenTest {
             onStopEvent = { stopped = it },
         )
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.stopActionDescription(startStopCase.name)).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name)).performClick()
 
         assertEquals(ongoing, stopped)
     }
@@ -138,7 +138,7 @@ class CaseDetailScreenTest {
 
         // Exact-match lookup: the header's OngoingElapsedText renders "Ongoing · <elapsed>",
         // distinct from the event row's bare "Ongoing" label, so this uniquely targets the row.
-        composeTestRule.onNodeWithText(SeriousVoice.logSheetOngoingLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
     }
 
     @Test
@@ -148,9 +148,9 @@ class CaseDetailScreenTest {
             nowMillis = { staleNow },
         )
 
-        composeTestRule.onNodeWithText(SeriousVoice.staleOngoingEditEndTimeAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.staleOngoingEditEndTimeAction).performClick()
 
-        composeTestRule.onNodeWithText(SeriousVoice.logSheetEditEventTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetEditEventTitle).assertExists()
     }
 
     @Test
@@ -163,7 +163,7 @@ class CaseDetailScreenTest {
             nowMillis = { staleNow },
         )
 
-        composeTestRule.onNodeWithText(SeriousVoice.staleOngoingStillGoingAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).performClick()
 
         assertEquals(ongoing, dismissed)
     }
