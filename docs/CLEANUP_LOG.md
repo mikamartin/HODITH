@@ -15,6 +15,50 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/hunch-flow (Phase 6, branch 2 of 2)
+
+**Scope:** Spec §7's Hunch flow on top of the merged verdict engine — nudge card, Hunch creation
+sheet, early-days/verdict cards, resolve + history, and the Case Detail Log/Insights/Hunch tab
+restructuring, plus every new `Voice` key across all three voices. New: `domain/VerdictEngine.kt`'s
+`HUNCH_NUDGE_EVENT_THRESHOLD` constant; `viewmodel/HunchTabState.kt` (pure `hunchTabState`/
+`hunchProgressFraction`, mirroring `homeCaseRows`/`ongoingEventIn`'s pattern); `formatRate`/
+`formatExpectedFrequency`/`monthsAgo` formatting helpers in `CaseDetailViewModel.kt`; ~35 new
+`Voice` members; `CaseDetailViewModel` wiring (`activeHunch`/`hunchHistory`, `addHunch`/
+`resolveHunch`/`dismissHunchNudge`); `ui/casedetail/CaseDetailScreen.kt`'s `SecondaryTabRow`
+restructuring and five Hunch-card composables; `ui/casedetail/HunchCreationSheet.kt` (new file).
+**Found & fixed:**
+- The Hunch tab's five cards (`HunchNoneCard`/`HunchNudgeCard`/`HunchEarlyCard`/`HunchVerdictCard`/
+  `HunchHistoryCard`) each repeated the same `Card(fillMaxWidth) { Column(padding(16.dp), spacedBy) }`
+  shell. Extracted a private `HunchCard(spacing, content)` wrapper and rewrote all five against it.
+- The Hunch-creation sheet's count stepper (`IconButton` wrapping a bare `Text("−"/"+")`) had no
+  `contentDescription` — a real accessibility gap (icon-only-equivalent tappable targets with
+  nothing for a screen reader to read). Added `hunchCreatingDecreaseCountDescription`/
+  `hunchCreatingIncreaseCountDescription` to `Voice` (themed per-voice, matching the tone of
+  `caseIconSectionExpandDescription`'s existing precedent) and wired them via `Modifier.semantics`.
+- `TabRow` is deprecated in the M3 version this project pins; used `SecondaryTabRow` instead (a
+  content-area tab bar under an app bar is exactly what "secondary" tabs are for) — zero deprecation
+  warnings in the resulting build.
+- `TESTING.md`'s existing "Planned instrumented coverage" row already named "hunch nudge appears at
+  5th event and dismisses permanently" as target coverage. Added five `CaseDetailScreenTest` cases
+  (none/nudge card gating, dismiss-nudge callback, creation-sheet save, resolve-hunch callback) —
+  run on-device (`API36_Repro` AVD), 11/11 passing including the six pre-existing cases (confirming
+  the tab restructuring didn't regress the Log-tab flows they cover).
+- Manually exercised the full flow (nudge → create → verdict → resolve → history) on-device across
+  all three themes (Plain/Intense/Bright) via `adb`/screenshots — every card, badge, and copy string
+  rendered as designed; no Compose crashes or blank states.
+**Deferred:**
+- Seeding a demo Hunch in `DemoDataSeeder` so "Load demo data" showcases the tab out of the box —
+  nice-to-have, not in the branch's stated scope; flagged rather than added silently.
+- The +/- stepper's glyphs (`"−"`/`"+"`) are literal `Text` content rather than `Voice` members —
+  treated as symbols (like the digit display next to them), not language, matching how numeric
+  formatting elsewhere in the app (`formatElapsedDuration`, `eventIntensityLabel`'s number) isn't
+  themed either. Flagging the reasoning here in case a future reviewer expects every string in the
+  file to resolve through `Voice`.
+**Docs updated:** None needed beyond this entry and PROGRESS.md's phase checkbox — `HODITH_SPEC.md`
+already described this flow (§7) and the Case Detail tab structure (§14) before any code landed;
+`TESTING.md`'s coverage map already named the scenario this branch fills in, so its wording didn't
+need to change, only the coverage itself.
+
 ## feature/verdict-engine (Phase 6, branch 1 of 2)
 
 **Scope:** Spec §8's verdict engine — `domain/Verdict.kt` (types) and `domain/VerdictEngine.kt`
