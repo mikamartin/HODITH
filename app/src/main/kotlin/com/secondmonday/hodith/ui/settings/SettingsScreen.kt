@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -28,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
@@ -122,11 +124,16 @@ private fun ThemeSection(
         SegmentedChoiceRow(options = options, selected = theme, onSelect = onThemeSelect)
 
         val previewVoice = voiceFor(theme)
-        Card(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(voice.settingsPreviewLabel, style = MaterialTheme.typography.labelMedium)
-                Text(previewVoice.noCasesEmptyState, style = MaterialTheme.typography.bodyMedium)
-                Text(previewVoice.bigPictureEarlyDays, style = MaterialTheme.typography.bodyMedium)
+        HodithTheme(theme = theme) {
+            Card(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(voice.settingsPreviewLabel, style = MaterialTheme.typography.labelMedium)
+                    Text(previewVoice.noCasesEmptyState, style = MaterialTheme.typography.bodyMedium)
+                    Text(previewVoice.bigPictureEarlyDays, style = MaterialTheme.typography.bodyMedium)
+                    Button(onClick = {}, enabled = false) {
+                        Text(previewVoice.caseSaveButton)
+                    }
+                }
             }
         }
     }
