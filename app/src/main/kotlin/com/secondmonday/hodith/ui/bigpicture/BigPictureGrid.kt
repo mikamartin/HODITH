@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.ui.bigpicture
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,7 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -24,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,11 +37,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.ui.common.InfoDialog
+import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
+import com.secondmonday.hodith.ui.theme.HodithTheme
+import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
@@ -388,8 +397,29 @@ private fun WeekdayHeader(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Dispatches to the active theme's bespoke cell treatment (spec §12; concepts validated against
+ * a mockup before this was written — see PROGRESS.md's Phase 5 entry). The three variants below
+ * are the only place in this file that branch on [BigPictureCellStyle]; everything else (filter
+ * chips, week borders) is unchanged and stays theme-agnostic via [MaterialTheme] tokens alone.
+ */
 @Composable
 private fun DayCell(
+    day: LocalDate,
+    isToday: Boolean,
+    icons: List<CalendarCase>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    when (LocalBigPictureCellStyle.current) {
+        BigPictureCellStyle.PLAIN -> PlainDayCell(day, isToday, icons, onClick, modifier)
+        BigPictureCellStyle.INTENSE -> IntenseDayCell(day, isToday, icons, onClick, modifier)
+        BigPictureCellStyle.BRIGHT -> BrightDayCell(day, isToday, icons, onClick, modifier)
+    }
+}
+
+@Composable
+private fun PlainDayCell(
     day: LocalDate,
     isToday: Boolean,
     icons: List<CalendarCase>,
@@ -437,6 +467,136 @@ private fun DayCell(
     }
 }
 
+/** Dossier-file read: a neutral tab carries the day number; crimson is reserved for today. */
+@Composable
+private fun IntenseDayCell(
+    day: LocalDate,
+    isToday: Boolean,
+    icons: List<CalendarCase>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = MaterialTheme.shapes.small
+    val tabColor = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
+    val tabContentColor =
+        if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+
+    Column(
+        modifier =
+            modifier
+                .aspectRatio(1f)
+                .padding(2.dp)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                .clickable(onClick = onClick),
+    ) {
+        Text(
+            text = day.dayOfMonth.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = tabContentColor,
+            modifier = Modifier.fillMaxWidth().background(tabColor).padding(horizontal = 3.dp, vertical = 1.dp),
+        )
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
+        Row(
+            modifier = Modifier.padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            icons.take(MAX_ICONS_PER_CELL).forEach { case ->
+                Box(
+                    modifier =
+                        Modifier
+                            .size(14.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(case.icon, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            if (icons.size > MAX_ICONS_PER_CELL) {
+                Text(
+                    "+${icons.size - MAX_ICONS_PER_CELL}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary).padding(horizontal = 2.dp),
+                )
+            }
+        }
+    }
+}
+
+/** Playful-reveal read: a floating shadowed card, case icons as a fanned sticker cluster. */
+@Composable
+private fun BrightDayCell(
+    day: LocalDate,
+    isToday: Boolean,
+    icons: List<CalendarCase>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = MaterialTheme.shapes.small
+
+    Surface(
+        modifier = modifier.aspectRatio(1f).padding(2.dp).clickable(onClick = onClick),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = if (isToday) 6.dp else 3.dp,
+        border = if (isToday) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
+        Column(modifier = Modifier.padding(5.dp)) {
+            Text(
+                text = day.dayOfMonth.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Row {
+                icons.take(MAX_ICONS_PER_CELL).forEachIndexed { index, case ->
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(15.dp)
+                                .offset(x = (-4 * index).dp)
+                                .rotate(if (index % 2 == 0) -6f else 5f)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .then(
+                                    if (isToday) {
+                                        Modifier
+                                    } else {
+                                        Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    },
+                                ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(case.icon, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                if (icons.size > MAX_ICONS_PER_CELL) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(15.dp)
+                                .offset(x = (-4 * MAX_ICONS_PER_CELL).dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.secondary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "+${icons.size - MAX_ICONS_PER_CELL}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondary,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 internal fun weeksInGrid(month: YearMonth): List<List<LocalDate>> {
     val firstOfMonth = month.atDay(1)
     val lastOfMonth = month.atEndOfMonth()
@@ -447,9 +607,14 @@ internal fun weeksInGrid(month: YearMonth): List<List<LocalDate>> {
     return days.chunked(7)
 }
 
-@Preview(showBackground = true, widthDp = 380, heightDp = 700)
-@Composable
-private fun BigPictureGridPreview() {
+private data class PreviewSeedData(
+    val cases: List<CalendarCase>,
+    val events: List<CalendarEvent>,
+    val earliestMonth: YearMonth,
+    val currentMonth: YearMonth,
+)
+
+private fun previewSeedData(): PreviewSeedData {
     val cases =
         listOf(
             CalendarCase(1, "☕", "Perfect coffee"),
@@ -501,14 +666,45 @@ private fun BigPictureGridPreview() {
                     note = notes[(caseId - 1).toInt()],
                 )
             }
+    return PreviewSeedData(cases, events, earliestMonth, currentMonth)
+}
 
+@Composable
+private fun BigPictureGridPreviewContent() {
+    val seed = previewSeedData()
+    BigPictureGrid(
+        earliestMonth = seed.earliestMonth,
+        currentMonth = seed.currentMonth,
+        cases = seed.cases,
+        events = seed.events,
+        today = LocalDate.now(),
+    )
+}
+
+@Preview(showBackground = true, widthDp = 380, heightDp = 700)
+@Composable
+private fun BigPictureGridPreview() {
     MaterialTheme {
-        BigPictureGrid(
-            earliestMonth = earliestMonth,
-            currentMonth = currentMonth,
-            cases = cases,
-            events = events,
-            today = LocalDate.now(),
-        )
+        BigPictureGridPreviewContent()
+    }
+}
+
+@Preview(name = "Intense", showBackground = true, widthDp = 380, heightDp = 700)
+@Composable
+private fun BigPictureGridIntensePreview() {
+    CompositionLocalProvider(LocalBigPictureCellStyle provides BigPictureCellStyle.INTENSE) {
+        HodithTheme(theme = AppTheme.INTENSE) {
+            BigPictureGridPreviewContent()
+        }
+    }
+}
+
+@Preview(name = "Bright", showBackground = true, widthDp = 380, heightDp = 700)
+@Composable
+private fun BigPictureGridBrightPreview() {
+    CompositionLocalProvider(LocalBigPictureCellStyle provides BigPictureCellStyle.BRIGHT) {
+        HodithTheme(theme = AppTheme.BRIGHT) {
+            BigPictureGridPreviewContent()
+        }
     }
 }

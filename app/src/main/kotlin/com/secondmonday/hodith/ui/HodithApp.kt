@@ -11,6 +11,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.ui.nav.HodithNavHost
 import com.secondmonday.hodith.ui.theme.HodithTheme
+import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
+import com.secondmonday.hodith.ui.theme.bigPictureCellStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import kotlinx.coroutines.flow.Flow
@@ -19,7 +21,10 @@ import kotlinx.coroutines.flow.Flow
 fun HodithApp(themeFlow: Flow<AppTheme>) {
     val theme by themeFlow.collectAsStateWithLifecycle(initialValue = AppTheme.PLAIN)
 
-    CompositionLocalProvider(LocalVoice provides voiceFor(theme)) {
+    CompositionLocalProvider(
+        LocalVoice provides voiceFor(theme),
+        LocalBigPictureCellStyle provides bigPictureCellStyle(theme),
+    ) {
         HodithTheme(theme = theme) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 HodithNavHost(modifier = Modifier.fillMaxSize().safeDrawingPadding())
