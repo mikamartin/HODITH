@@ -98,6 +98,13 @@ class HomeScreenTest {
     }
 
     @Test
+    fun header_showsThemedHodithQuestion() {
+        setHomeScreenContent()
+
+        composeTestRule.onNodeWithText(PlainVoice.homeHeaderTitle).assertExists()
+    }
+
+    @Test
     fun rowTap_opensCaseDetail_notQuickLog() {
         var quickLogTapped: HomeCaseRow? = null
         var openedCaseId: Long? = null

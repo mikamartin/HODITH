@@ -9,6 +9,7 @@ class VoiceTest {
     @Test
     fun `every voice has a non-blank string for every key`() {
         for (voice in voices) {
+            assertTrue(voice.homeHeaderTitle.isNotBlank())
             assertTrue(voice.noCasesEmptyState.isNotBlank())
             assertTrue(voice.bigPictureEarlyDays.isNotBlank())
             assertTrue(voice.homeNavLabel.isNotBlank())

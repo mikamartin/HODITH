@@ -128,6 +128,7 @@ private fun ThemeSection(
             Card(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(voice.settingsPreviewLabel, style = MaterialTheme.typography.labelMedium)
+                    Text(previewVoice.homeHeaderTitle, style = MaterialTheme.typography.headlineSmall)
                     Text(previewVoice.noCasesEmptyState, style = MaterialTheme.typography.bodyMedium)
                     Text(previewVoice.bigPictureEarlyDays, style = MaterialTheme.typography.bodyMedium)
                     Button(onClick = {}, enabled = false) {

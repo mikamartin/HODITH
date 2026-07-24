@@ -10,6 +10,7 @@ import com.secondmonday.hodith.data.AppTheme
  * interface with the full string set rather than replacing it.
  */
 interface Voice {
+    val homeHeaderTitle: String
     val noCasesEmptyState: String
     val bigPictureEarlyDays: String
     val bigPictureMonthPickerTitle: String
@@ -148,6 +149,7 @@ interface Voice {
 }
 
 object PlainVoice : Voice {
+    override val homeHeaderTitle = "How often does it truly happen?"
     override val noCasesEmptyState = "No cases yet."
     override val bigPictureEarlyDays = "Insufficient data. Keep logging."
     override val bigPictureMonthPickerTitle = "Jump to month"
@@ -295,6 +297,7 @@ object PlainVoice : Voice {
 }
 
 object IntenseVoice : Voice {
+    override val homeHeaderTitle = "How oft dares it truly haunt?"
     override val noCasesEmptyState = "Nothing is being watched. Yet."
     override val bigPictureEarlyDays = "The evidence is yet insufficient for despair or joy."
     override val bigPictureMonthPickerTitle = "Leap to another month"
@@ -441,6 +444,7 @@ object IntenseVoice : Voice {
 }
 
 object BrightVoice : Voice {
+    override val homeHeaderTitle = "How often does it totally happen?!"
     override val noCasesEmptyState = "It's quiet in here… suspiciously quiet."
     override val bigPictureEarlyDays = "Too soon to tell — feed me more moments!"
     override val bigPictureMonthPickerTitle = "Jump to a month!"
