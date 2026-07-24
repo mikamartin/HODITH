@@ -153,7 +153,7 @@ Pure Kotlin, no Android dependencies. Inputs: hunch, event list, `now`.
   - **No verdict** — fewer than 5 events *or* window < 14 days → "early days" state
   - **Preliminary** — ≥5 events and ≥14 days
   - **Confident** — ≥15 events and ≥28 days
-- **Comparison bands** (observed ÷ expected): `<0.5` much less · `0.5–0.8` less · `0.8–1.25` about right · `1.25–2.0` more · `>2.0` much more.
+- **Comparison bands** (observed ÷ expected): `<0.5` much less · `0.5–0.8` less · `0.8–1.25` about right · `1.25–2.0` more · `>2.0` much more. Each cutoff itself belongs to the higher band (e.g. exactly `0.8` is "about right", not "less").
 - Rendering is direction-aware: for `TOO_OFTEN`, "much less" is a relief; for `NOT_ENOUGH`, it's a confirmation. `JUST_CURIOUS` gets neutral phrasing. All copy comes from the Voice layer (§12).
 - Cases without a Hunch still get visuals and stats (§9–10), just no verdict card.
 

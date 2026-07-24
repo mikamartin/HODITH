@@ -15,6 +15,40 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/verdict-engine (Phase 6, branch 1 of 2)
+
+**Scope:** Spec §8's verdict engine — `domain/Verdict.kt` (types) and `domain/VerdictEngine.kt`
+(`computeVerdict` + its three internal pure helpers: `confidenceTierFor`, `observedRateFor`,
+`comparisonBandFor`). Pure Kotlin, no Android/Room-behavioural dependencies, no UI — the Hunch-flow
+UI that consumes this is branch 2. 30 unit tests targeting every named boundary (event/day
+confidence-tier cutoffs, all four comparison-band cutoffs and the value just below each, per-unit
+rate normalization, a retro-log predating the Case, a same-instant zero-day window, and a
+DST spring-forward crossing verified by temporarily overriding the JVM default timezone).
+**Found & fixed:**
+- `VerdictEngineTest`'s `hunch()` fixture exposed a `createdAt` parameter no test ever varied
+  (the engine keys the observation window off the *Case's* `createdAt`, passed as its own
+  argument — the Hunch's `createdAt` field isn't read at all). Removed the parameter, hardcoded
+  `0L` inline instead of carrying unused flexibility.
+- HODITH_SPEC.md §8's comparison-band notation (`0.5–0.8` etc.) was ambiguous about which band a
+  boundary value itself falls into. The implementation resolves it as "boundary belongs to the
+  higher band" and tests lock that in; added a clarifying sentence to §8 so the spec states the
+  same rule instead of leaving it to be inferred from code.
+- ktlint's `chain-method-continuation` rule caught un-wrapped method chains in the test file's
+  date-math helper; fixed via `ktlintFormat`.
+- One test (`computeVerdict at a DAY expectedPer...`) initially asserted a comparison band over a
+  10-day window, which is one of the exact "no verdict yet" cases the engine is supposed to guard
+  — the test's assumption was wrong, not the code. Widened the window to clear the Preliminary bar
+  so the assertion actually exercises band computation.
+**Deferred:**
+- TESTING.md's existing "Verdict engine" row also lists direction-aware interpretation
+  (`TOO_OFTEN`/`NOT_ENOUGH`/`JUST_CURIOUS`) as coverage for this area. That rendering logic
+  deliberately lives in the Voice layer, not the engine (spec §8: "All copy comes from the Voice
+  layer") — its tests land with branch 2 (`feature/hunch-flow`), not here. No edit needed now; the
+  row will be fully satisfied once both branches are in.
+**Docs updated:** HODITH_SPEC.md §8 (comparison-band boundary clarification). TESTING.md and
+DEV_PLAYBOOK.md needed no changes — this branch didn't add a new test *category*, just filled in
+one the coverage map already planned for.
+
 ## feature/big-picture-theme-polish (Phase 5, branch 2 of 2)
 
 **Scope:** Big Picture's bespoke day-cell/badge treatment per theme, on top of `feature/theme-skins`'
