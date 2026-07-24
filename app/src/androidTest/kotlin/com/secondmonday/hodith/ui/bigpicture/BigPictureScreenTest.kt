@@ -8,6 +8,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
+import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.BigPictureUiState
@@ -39,9 +41,15 @@ class BigPictureScreenTest {
     private val case = CalendarCase(id = 1L, icon = "☕", name = "Coffee")
     private val monthTitle = "July 2026 ›"
 
-    private fun setContent(uiState: BigPictureUiState) {
+    private fun setContent(
+        uiState: BigPictureUiState,
+        cellStyle: BigPictureCellStyle = BigPictureCellStyle.PLAIN,
+    ) {
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+            CompositionLocalProvider(
+                LocalVoice provides PlainVoice,
+                LocalBigPictureCellStyle provides cellStyle,
+            ) {
                 BigPictureScreen(uiState = uiState)
             }
         }
@@ -116,5 +124,29 @@ class BigPictureScreenTest {
 
         val formattedWeekStart = weekStart.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
         composeTestRule.onNodeWithText(PlainVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertExists()
+    }
+
+    @Test
+    fun grid_rendersAndOpensDayDetail_underIntenseCellStyle() {
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))),
+            cellStyle = BigPictureCellStyle.INTENSE,
+        )
+
+        composeTestRule.onNodeWithText(case.name).assertExists()
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText("felt fine").assertExists()
+    }
+
+    @Test
+    fun grid_rendersAndOpensDayDetail_underBrightCellStyle() {
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))),
+            cellStyle = BigPictureCellStyle.BRIGHT,
+        )
+
+        composeTestRule.onNodeWithText(case.name).assertExists()
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText("felt fine").assertExists()
     }
 }

@@ -15,6 +15,49 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/big-picture-theme-polish (Phase 5, branch 2 of 2)
+
+**Scope:** Big Picture's bespoke day-cell/badge treatment per theme, on top of `feature/theme-skins`'
+skin — Intense's dossier tab-stripe, Bright's shadowed sticker-fan cells. Plain is unchanged. Two
+concept variants per theme were mocked up as an HTML artifact (real hex/shape/font values pulled
+from `ui/theme/`) and validated with the user before any Kotlin; both themes picked "variant A"
+(top tab / sticker fan). Implemented as a small `BigPictureCellStyle` enum + `CompositionLocalProvider`
+in `ui/theme/BigPictureDecoration.kt`, mapped from `AppTheme` centrally like
+`hodithColorScheme`/`hodithTypography`/`hodithShapes`, so `BigPictureGrid.kt`'s `DayCell` dispatches
+on the style rather than branching on the theme directly.
+**Found & fixed:**
+- The first draft of `IntenseDayCell`/`BrightDayCell` hardcoded `RoundedCornerShape(2.dp)` /
+  `RoundedCornerShape(16.dp)` instead of reading `MaterialTheme.shapes.small` — both values already
+  exist in `Shape.kt` (`intenseShapes.small` / `brightShapes.small`), so the literals were a
+  needless duplicate of the theme's own numbers. Swapped to read from the theme.
+- The new dispatcher (`DayCell` → `PlainDayCell`/`IntenseDayCell`/`BrightDayCell`) had zero
+  instrumented coverage for the two new branches — `BigPictureScreenTest` only ever exercised the
+  default (Plain) `BigPictureCellStyle`. Added `setContent`'s `cellStyle` parameter plus two tests
+  (`grid_rendersAndOpensDayDetail_under{Intense,Bright}CellStyle`) confirming the grid still renders
+  case/month text and the day-tap → detail-dialog flow still works under each style, matching the
+  existing test suite's behavioural (not pixel-level) assertion style.
+- **Missing unit coverage, caught when asked directly whether it existed (same failure mode as
+  `feature/theme-skins`'s own cleanup entry):** `bigPictureCellStyle(theme)` is a `when(theme)`
+  picker function in `ui/theme/` — the exact category `HodithThemeTest.kt` already guards for
+  `hodithColorScheme`/`hodithTypography`/`hodithShapes` — but had no test at all. Added
+  `BigPictureDecorationTest.kt` next to it, same style: every theme maps to a distinct style, and
+  each maps to its own-named one.
+**Considered, not changed:**
+- The three `*DayCell` composables share a similar `icons.take(MAX_ICONS_PER_CELL).forEach { }`
+  shape but render genuinely different structures (tab header vs. shadowed card vs. plain circles);
+  collapsing them into one parameterized composable would mostly re-embed the same `when` dispatch
+  one level down for no real duplication savings, so kept as three named, independently-readable
+  functions instead.
+- No color-assertion tests were added for the tab/card treatments themselves (crimson-on-today,
+  shadow elevation) — `BigPictureScreenTest`'s existing style only asserts on text/interaction, never
+  color, and pixel-level snapshot testing isn't set up in this project; visual correctness was
+  instead verified by installing the debug build on the connected emulator and screenshotting Big
+  Picture in all three themes with demo data loaded.
+**Docs updated:** PROGRESS.md (Phase 5 and its branch 2 checked off, Current status line); TESTING.md
+(Big Picture instrumented-coverage row now names the per-theme cell-style dispatch check).
+
+---
+
 ## feature/theme-skins (Phase 5, branch 1 of 2)
 
 **Scope:** The theme-skin half of spec §12 — Serious/Goth/Quirky renamed to Plain/Intense/Bright
