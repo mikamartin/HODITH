@@ -2,6 +2,7 @@ package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -9,6 +10,9 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.ExpectedPer
+import com.secondmonday.hodith.data.HunchDirection
+import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.testtags.Smoke
@@ -20,6 +24,7 @@ import com.secondmonday.hodith.viewmodel.LogDraft
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -59,16 +64,29 @@ class CaseDetailScreenTest {
         EventEntity(id = 5L, caseId = 1L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
 
     private fun setCaseDetailScreenContent(
+        case: CaseEntity = startStopCase,
         events: List<EventWithTags> = emptyList(),
+        activeHunch: HunchEntity? = null,
+        hunchHistory: List<HunchEntity> = emptyList(),
         onSaveEvent: (LogDraft, EventEntity?, List<TagEntity>) -> Unit = { _, _, _ -> },
         onStopEvent: (EventEntity) -> Unit = {},
         onDismissStalePrompt: (EventEntity) -> Unit = {},
         nowMillis: () -> Long = { 10_000L },
+        onAddHunch: (HunchDirection, Int, ExpectedPer) -> Unit = { _, _, _ -> },
+        onResolveHunch: (HunchEntity) -> Unit = {},
+        onDismissHunchNudge: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 CaseDetailScreen(
-                    uiState = CaseDetailUiState(case = startStopCase, events = events, isLoading = false),
+                    uiState =
+                        CaseDetailUiState(
+                            case = case,
+                            events = events,
+                            activeHunch = activeHunch,
+                            hunchHistory = hunchHistory,
+                            isLoading = false,
+                        ),
                     onBack = {},
                     onEditCase = {},
                     onDeleteEvent = {},
@@ -87,6 +105,9 @@ class CaseDetailScreenTest {
                     onStopEvent = onStopEvent,
                     onDismissStalePrompt = onDismissStalePrompt,
                     nowMillis = nowMillis,
+                    onAddHunch = onAddHunch,
+                    onResolveHunch = onResolveHunch,
+                    onDismissHunchNudge = onDismissHunchNudge,
                 )
             }
         }
@@ -166,5 +187,96 @@ class CaseDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).performClick()
 
         assertEquals(ongoing, dismissed)
+    }
+
+    private fun eventsAt(
+        count: Int,
+        occurredAt: Long = 0L,
+    ): List<EventWithTags> =
+        List(count) {
+            EventWithTags(
+                EventEntity(
+                    id = it.toLong(),
+                    caseId = 1L,
+                    occurredAt = occurredAt,
+                    endedAt = null,
+                    intensity = null,
+                    note = null,
+                    loggedAt = occurredAt,
+                ),
+                emptyList(),
+            )
+        }
+
+    private fun openHunchTab() {
+        composeTestRule.onNodeWithText(PlainVoice.caseDetailHunchTabLabel).performClick()
+    }
+
+    @Test
+    fun hunchTab_fewEventsNoHunch_showsNoneCardWithoutNudge() {
+        setCaseDetailScreenContent(events = eventsAt(2))
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun hunchTab_fiveEventsNoHunch_showsNudgeCard() {
+        setCaseDetailScreenContent(events = eventsAt(5))
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeTitle).assertExists()
+    }
+
+    @Test
+    fun hunchTab_dismissNudge_invokesOnDismissHunchNudge() {
+        var dismissed = false
+        setCaseDetailScreenContent(events = eventsAt(5), onDismissHunchNudge = { dismissed = true })
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeDismissAction).performClick()
+
+        assertTrue(dismissed)
+    }
+
+    @Test
+    fun hunchTab_addHunch_opensSheetAndSavesSelectedOptions() {
+        var saved: Triple<HunchDirection, Int, ExpectedPer>? = null
+        setCaseDetailScreenContent(onAddHunch = { direction, count, per -> saved = Triple(direction, count, per) })
+        openHunchTab()
+
+        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
+        composeTestRule.onNodeWithText(PlainVoice.hunchCreatingSaveButton).performClick()
+
+        assertEquals(HunchDirection.TOO_OFTEN, saved?.first)
+        assertEquals(ExpectedPer.WEEK, saved?.third)
+    }
+
+    @Test
+    fun hunchTab_activeVerdictHunch_resolveInvokesOnResolveHunch() {
+        val hunch =
+            HunchEntity(
+                id = 1L,
+                caseId = 1L,
+                direction = HunchDirection.TOO_OFTEN,
+                expectedCount = 5,
+                expectedPer = ExpectedPer.WEEK,
+                createdAt = 0L,
+                resolvedAt = null,
+            )
+        var resolved: HunchEntity? = null
+        val thirtyDaysMillis = 30 * 24 * 60 * 60_000L
+        setCaseDetailScreenContent(
+            activeHunch = hunch,
+            events = eventsAt(6),
+            nowMillis = { thirtyDaysMillis },
+            onResolveHunch = { resolved = it },
+        )
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchResolveLabel).performClick()
+
+        assertEquals(hunch, resolved)
     }
 }
