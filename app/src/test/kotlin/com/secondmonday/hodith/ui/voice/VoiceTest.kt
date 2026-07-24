@@ -1,5 +1,8 @@
 package com.secondmonday.hodith.ui.voice
 
+import com.secondmonday.hodith.data.HunchDirection
+import com.secondmonday.hodith.domain.ComparisonBand
+import com.secondmonday.hodith.domain.ConfidenceTier
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -118,6 +121,50 @@ class VoiceTest {
             assertTrue(voice.stopActionDescription(caseName = "Test Case").isNotBlank())
             assertTrue(voice.ongoingIndicator(elapsed = "2h 14m").isNotBlank())
             assertTrue(voice.staleOngoingPromptMessage(caseName = "Test Case", elapsed = "1d 2h").isNotBlank())
+            assertTrue(voice.hunchTabNoneTitle.isNotBlank())
+            assertTrue(voice.hunchTabNoneBody.isNotBlank())
+            assertTrue(voice.hunchAddButtonLabel.isNotBlank())
+            assertTrue(voice.hunchNudgeTitle.isNotBlank())
+            assertTrue(voice.hunchNudgeDismissAction.isNotBlank())
+            assertTrue(voice.hunchEarlyHeadline.isNotBlank())
+            assertTrue(voice.hunchResolveLabel.isNotBlank())
+            assertTrue(voice.hunchCreatingTitle.isNotBlank())
+            assertTrue(voice.hunchCreatingDirectionLabel.isNotBlank())
+            assertTrue(voice.hunchCreatingFreqLabel.isNotBlank())
+            assertTrue(voice.hunchCreatingFreqSuffix.isNotBlank())
+            assertTrue(voice.hunchCreatingSaveButton.isNotBlank())
+            assertTrue(voice.hunchCreatingDecreaseCountDescription.isNotBlank())
+            assertTrue(voice.hunchCreatingIncreaseCountDescription.isNotBlank())
+            assertTrue(voice.hunchHistoryHeader.isNotBlank())
+            assertTrue(voice.hunchExpectedPerDay.isNotBlank())
+            assertTrue(voice.hunchExpectedPerWeek.isNotBlank())
+            assertTrue(voice.hunchExpectedPerMonth.isNotBlank())
+            assertTrue(voice.caseDetailLogTabLabel.isNotBlank())
+            assertTrue(voice.caseDetailInsightsTabLabel.isNotBlank())
+            assertTrue(voice.caseDetailHunchTabLabel.isNotBlank())
+            assertTrue(voice.hunchNudgeBody(caseIcon = "🐛", caseName = "Test Case").isNotBlank())
+            assertTrue(voice.hunchProgressLabel(eventCount = 3, windowDays = 9).isNotBlank())
+            assertTrue(voice.hunchHistorySummary(total = 3, heldUpCount = 1).isNotBlank())
+            assertTrue(voice.hunchHistoryRowWhen(monthsAgo = 4).isNotBlank())
+            assertTrue(voice.hunchEarlyBadgeLabel.isNotBlank())
+
+            for (direction in HunchDirection.entries) {
+                assertTrue(voice.hunchDirectionPillLabel(direction).isNotBlank())
+                assertTrue(voice.hunchChipLabel(direction, expectedFrequencyLabel = "~5×/week").isNotBlank())
+                assertTrue(voice.hunchHistoryRowText(direction, expectedFrequencyLabel = "~5×/week").isNotBlank())
+                for (band in ComparisonBand.entries) {
+                    assertTrue(voice.verdictHeadline(direction, band, observedRateLabel = "2.1×/week").isNotBlank())
+                }
+            }
+
+            for (band in ComparisonBand.entries) {
+                assertTrue(voice.hunchHistoryRowOutcome(band, observedRateLabel = "2.1×/week").isNotBlank())
+            }
+
+            for (tier in ConfidenceTier.entries) {
+                assertTrue(voice.verdictMeta(tier, eventCount = 15, windowDays = 50).isNotBlank())
+                assertTrue(voice.hunchTierBadgeLabel(tier).isNotBlank())
+            }
         }
     }
 }

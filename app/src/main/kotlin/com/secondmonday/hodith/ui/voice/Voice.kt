@@ -2,6 +2,12 @@ package com.secondmonday.hodith.ui.voice
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.HunchDirection
+import com.secondmonday.hodith.domain.ComparisonBand
+import com.secondmonday.hodith.domain.ConfidenceTier
+import com.secondmonday.hodith.domain.HUNCH_NUDGE_EVENT_THRESHOLD
+import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
+import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
 
 /**
  * One user-visible string per key, in three personalities (spec §12). Composables read
@@ -110,6 +116,27 @@ interface Voice {
     val settingsDeleteAllDataConfirmBody: String
     val settingsDeleteAllDataConfirmAction: String
     val settingsDeleteAllDataCancelAction: String
+    val hunchTabNoneTitle: String
+    val hunchTabNoneBody: String
+    val hunchAddButtonLabel: String
+    val hunchNudgeTitle: String
+    val hunchNudgeDismissAction: String
+    val hunchEarlyHeadline: String
+    val hunchResolveLabel: String
+    val hunchCreatingTitle: String
+    val hunchCreatingDirectionLabel: String
+    val hunchCreatingFreqLabel: String
+    val hunchCreatingFreqSuffix: String
+    val hunchCreatingSaveButton: String
+    val hunchCreatingDecreaseCountDescription: String
+    val hunchCreatingIncreaseCountDescription: String
+    val hunchHistoryHeader: String
+    val hunchExpectedPerDay: String
+    val hunchExpectedPerWeek: String
+    val hunchExpectedPerMonth: String
+    val caseDetailLogTabLabel: String
+    val caseDetailInsightsTabLabel: String
+    val caseDetailHunchTabLabel: String
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -146,6 +173,68 @@ interface Voice {
     ): String
 
     fun bigPictureWeekDetailTitle(date: String): String
+
+    fun hunchNudgeBody(
+        caseIcon: String,
+        caseName: String,
+    ): String
+
+    /** Title Case direction phrasing — the creation sheet's pills and, via [hunchHistoryRowText], history rows. */
+    fun hunchDirectionPillLabel(direction: HunchDirection): String
+
+    /** "Your hunch: too often, ~5×/week" — [expectedFrequencyLabel] is pre-formatted (see `formatExpectedFrequency`). */
+    fun hunchChipLabel(
+        direction: HunchDirection,
+        expectedFrequencyLabel: String,
+    ): String
+
+    /** "Too often, ~7×/week" — same shape across all three voices, so this has one shared implementation. */
+    fun hunchHistoryRowText(
+        direction: HunchDirection,
+        expectedFrequencyLabel: String,
+    ): String = "${hunchDirectionPillLabel(direction)}, $expectedFrequencyLabel"
+
+    /** "3 of 5 events · 9 of 14 days" toward the Preliminary bar. */
+    fun hunchProgressLabel(
+        eventCount: Int,
+        windowDays: Long,
+    ): String
+
+    /** The confirmed 15-branch (direction × band) verdict headline; [observedRateLabel] is pre-formatted. */
+    fun verdictHeadline(
+        direction: HunchDirection,
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String
+
+    /** [tier] is always Preliminary or Confident here — Early Days has no meta line. */
+    fun verdictMeta(
+        tier: ConfidenceTier,
+        eventCount: Int,
+        windowDays: Long,
+    ): String
+
+    fun hunchHistorySummary(
+        total: Int,
+        heldUpCount: Int,
+    ): String
+
+    /** [band] `ABOUT_RIGHT` reads as "held up"; anything else reads as "off" — see spec §8. */
+    fun hunchHistoryRowOutcome(
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String
+
+    fun hunchHistoryRowWhen(monthsAgo: Long): String
+
+    /** Badge text on the Hunch tab's cards — identical across all three voices, like the nav/tab labels. */
+    val hunchEarlyBadgeLabel: String get() = "Early days"
+
+    fun hunchTierBadgeLabel(tier: ConfidenceTier): String =
+        when (tier) {
+            ConfidenceTier.PRELIMINARY -> "Preliminary"
+            else -> "Confident"
+        }
 }
 
 object PlainVoice : Voice {
@@ -257,6 +346,28 @@ object PlainVoice : Voice {
         "Every case and event will be permanently deleted. This can't be undone."
     override val settingsDeleteAllDataConfirmAction = "Delete everything"
     override val settingsDeleteAllDataCancelAction = "Cancel"
+    override val hunchTabNoneTitle = "No hunch yet"
+    override val hunchTabNoneBody =
+        "Got a feeling about how often this happens? Add a Hunch to see how it compares to reality."
+    override val hunchAddButtonLabel = "Add a Hunch"
+    override val hunchNudgeTitle = "Got a feeling about this one?"
+    override val hunchNudgeDismissAction = "Don't ask again"
+    override val hunchEarlyHeadline = "Not enough data yet to judge your Hunch."
+    override val hunchResolveLabel = "Resolve Hunch"
+    override val hunchCreatingTitle = "New Hunch"
+    override val hunchCreatingDirectionLabel = "How do you feel about this?"
+    override val hunchCreatingFreqLabel = "About how often, in your gut?"
+    override val hunchCreatingFreqSuffix = "times per"
+    override val hunchCreatingSaveButton = "Save Hunch"
+    override val hunchCreatingDecreaseCountDescription = "Decrease count"
+    override val hunchCreatingIncreaseCountDescription = "Increase count"
+    override val hunchHistoryHeader = "Past hunches"
+    override val hunchExpectedPerDay = "Day"
+    override val hunchExpectedPerWeek = "Week"
+    override val hunchExpectedPerMonth = "Month"
+    override val caseDetailLogTabLabel = "Log"
+    override val caseDetailInsightsTabLabel = "Insights"
+    override val caseDetailHunchTabLabel = "Hunch"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -294,6 +405,95 @@ object PlainVoice : Voice {
     ) = "Still going, or forgot to stop $caseName? ($elapsed and counting.)"
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
+
+    override fun hunchNudgeBody(
+        caseIcon: String,
+        caseName: String,
+    ) = "You've logged $HUNCH_NUDGE_EVENT_THRESHOLD events for $caseIcon $caseName. Add a Hunch to see how it compares to reality."
+
+    override fun hunchDirectionPillLabel(direction: HunchDirection) =
+        when (direction) {
+            HunchDirection.TOO_OFTEN -> "Too often"
+            HunchDirection.NOT_ENOUGH -> "Not enough"
+            HunchDirection.JUST_CURIOUS -> "Just curious"
+        }
+
+    override fun hunchChipLabel(
+        direction: HunchDirection,
+        expectedFrequencyLabel: String,
+    ): String {
+        val inline =
+            when (direction) {
+                HunchDirection.TOO_OFTEN -> "too often"
+                HunchDirection.NOT_ENOUGH -> "not enough"
+                HunchDirection.JUST_CURIOUS -> "just curious"
+            }
+        return "Your hunch: $inline, $expectedFrequencyLabel"
+    }
+
+    override fun hunchProgressLabel(
+        eventCount: Int,
+        windowDays: Long,
+    ) = "$eventCount of $PRELIMINARY_MIN_EVENTS events · $windowDays of $PRELIMINARY_MIN_DAYS days"
+
+    override fun verdictHeadline(
+        direction: HunchDirection,
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String {
+        val comparison =
+            when (direction) {
+                HunchDirection.TOO_OFTEN ->
+                    when (band) {
+                        ComparisonBand.MUCH_LESS -> "much less than you feared"
+                        ComparisonBand.LESS -> "a bit below your estimate"
+                        ComparisonBand.ABOUT_RIGHT -> "right around what you expected"
+                        ComparisonBand.MORE -> "more than you expected"
+                        ComparisonBand.MUCH_MORE -> "far more than you feared"
+                    }
+                HunchDirection.NOT_ENOUGH ->
+                    when (band) {
+                        ComparisonBand.MUCH_LESS -> "confirmed — far less than you'd like"
+                        ComparisonBand.LESS -> "still less than you'd like"
+                        ComparisonBand.ABOUT_RIGHT -> "right around what you expected"
+                        ComparisonBand.MORE -> "more than you expected"
+                        ComparisonBand.MUCH_MORE -> "happening far more than you thought"
+                    }
+                HunchDirection.JUST_CURIOUS ->
+                    when (band) {
+                        ComparisonBand.MUCH_LESS -> "much less than your estimate"
+                        ComparisonBand.LESS -> "a bit less than your estimate"
+                        ComparisonBand.ABOUT_RIGHT -> "right around your estimate"
+                        ComparisonBand.MORE -> "a bit more than your estimate"
+                        ComparisonBand.MUCH_MORE -> "much more than your estimate"
+                    }
+            }
+        return "Observed: $observedRateLabel — $comparison."
+    }
+
+    override fun verdictMeta(
+        tier: ConfidenceTier,
+        eventCount: Int,
+        windowDays: Long,
+    ) = when (tier) {
+        ConfidenceTier.PRELIMINARY -> "Based on $eventCount events over $windowDays days. A few more weeks will sharpen this."
+        else -> "Based on $eventCount events over $windowDays days."
+    }
+
+    override fun hunchHistorySummary(
+        total: Int,
+        heldUpCount: Int,
+    ) = "$total hunches so far — ${total - heldUpCount} were off, $heldUpCount held up."
+
+    override fun hunchHistoryRowOutcome(
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ) = when (band) {
+        ComparisonBand.ABOUT_RIGHT -> "About right — observed $observedRateLabel"
+        else -> "Way off — observed $observedRateLabel"
+    }
+
+    override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months ago"
 }
 
 object IntenseVoice : Voice {
@@ -405,6 +605,28 @@ object IntenseVoice : Voice {
         "Every case and record will be struck from existence, beyond recall."
     override val settingsDeleteAllDataConfirmAction = "Erase it all"
     override val settingsDeleteAllDataCancelAction = "Abandon"
+    override val hunchTabNoneTitle = "No claim has been made"
+    override val hunchTabNoneBody =
+        "You have watched this case, but sworn nothing about it. State a hunch, and the record will one day answer."
+    override val hunchAddButtonLabel = "State a hunch"
+    override val hunchNudgeTitle = "Five entries lie in the record."
+    override val hunchNudgeDismissAction = "Never ask again"
+    override val hunchEarlyHeadline = "The evidence is yet insufficient for despair or joy."
+    override val hunchResolveLabel = "Seal the verdict"
+    override val hunchCreatingTitle = "State your hunch"
+    override val hunchCreatingDirectionLabel = "What do you feel, truly?"
+    override val hunchCreatingFreqLabel = "How often does it haunt you, in your gut?"
+    override val hunchCreatingFreqSuffix = "times per"
+    override val hunchCreatingSaveButton = "Seal the hunch"
+    override val hunchCreatingDecreaseCountDescription = "Diminish the count"
+    override val hunchCreatingIncreaseCountDescription = "Swell the count"
+    override val hunchHistoryHeader = "The record of past claims"
+    override val hunchExpectedPerDay = "Day"
+    override val hunchExpectedPerWeek = "Week"
+    override val hunchExpectedPerMonth = "Month"
+    override val caseDetailLogTabLabel = "Log"
+    override val caseDetailInsightsTabLabel = "Insights"
+    override val caseDetailHunchTabLabel = "Hunch"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -441,6 +663,93 @@ object IntenseVoice : Voice {
     ) = "$caseName has lingered $elapsed. Still unfolding, or simply forgotten?"
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
+
+    override fun hunchNudgeBody(
+        caseIcon: String,
+        caseName: String,
+    ) = "$caseIcon $caseName has been marked $HUNCH_NUDGE_EVENT_THRESHOLD times, and still no hunch stands against it. " +
+        "Confess your suspicion, and let the record judge it."
+
+    override fun hunchDirectionPillLabel(direction: HunchDirection) =
+        when (direction) {
+            HunchDirection.TOO_OFTEN -> "Too often"
+            HunchDirection.NOT_ENOUGH -> "Too seldom"
+            HunchDirection.JUST_CURIOUS -> "Merely curious"
+        }
+
+    override fun hunchChipLabel(
+        direction: HunchDirection,
+        expectedFrequencyLabel: String,
+    ): String {
+        val inline =
+            when (direction) {
+                HunchDirection.TOO_OFTEN -> "too often"
+                HunchDirection.NOT_ENOUGH -> "too seldom"
+                HunchDirection.JUST_CURIOUS -> "merely curious"
+            }
+        return "Your claim: $inline, $expectedFrequencyLabel"
+    }
+
+    override fun hunchProgressLabel(
+        eventCount: Int,
+        windowDays: Long,
+    ) = "$eventCount of $PRELIMINARY_MIN_EVENTS entries · $windowDays of $PRELIMINARY_MIN_DAYS days"
+
+    override fun verdictHeadline(
+        direction: HunchDirection,
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String =
+        when (direction) {
+            HunchDirection.TOO_OFTEN ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Your dread was exaggerated — it happens at $observedRateLabel, the record shows."
+                    ComparisonBand.LESS -> "Less than you feared — $observedRateLabel, the record shows."
+                    ComparisonBand.ABOUT_RIGHT -> "The record agrees with your dread — $observedRateLabel, near enough."
+                    ComparisonBand.MORE -> "Worse than you feared — $observedRateLabel, the record shows."
+                    ComparisonBand.MUCH_MORE -> "Your dread was justified — $observedRateLabel, far more than you feared."
+                }
+            HunchDirection.NOT_ENOUGH ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Your fear is confirmed — a mere $observedRateLabel, the record shows."
+                    ComparisonBand.LESS -> "Still wanting — $observedRateLabel, less than you hoped."
+                    ComparisonBand.ABOUT_RIGHT -> "The record agrees — $observedRateLabel, near enough to your hope."
+                    ComparisonBand.MORE -> "Better than you dared hope — $observedRateLabel, the record shows."
+                    ComparisonBand.MUCH_MORE -> "Far beyond your hope — $observedRateLabel, the record shows."
+                }
+            HunchDirection.JUST_CURIOUS ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Curiosity answered — $observedRateLabel, far below your guess."
+                    ComparisonBand.LESS -> "Curiosity answered — $observedRateLabel, a little below your guess."
+                    ComparisonBand.ABOUT_RIGHT -> "Curiosity answered — $observedRateLabel, near enough to your guess."
+                    ComparisonBand.MORE -> "Curiosity answered — $observedRateLabel, a little above your guess."
+                    ComparisonBand.MUCH_MORE -> "Curiosity answered — $observedRateLabel, far above your guess."
+                }
+        }
+
+    override fun verdictMeta(
+        tier: ConfidenceTier,
+        eventCount: Int,
+        windowDays: Long,
+    ) = when (tier) {
+        ConfidenceTier.PRELIMINARY -> "$eventCount entries across $windowDays days. More time will harden this into certainty."
+        else -> "$eventCount entries, borne out across $windowDays days."
+    }
+
+    override fun hunchHistorySummary(
+        total: Int,
+        heldUpCount: Int,
+    ) = "$total claims stand in the record — ${total - heldUpCount} false, $heldUpCount true."
+
+    override fun hunchHistoryRowOutcome(
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ) = when (band) {
+        ComparisonBand.ABOUT_RIGHT -> "The record agrees — near enough, at $observedRateLabel"
+        else -> "Far from true — $observedRateLabel, the record shows"
+    }
+
+    override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months past"
 }
 
 object BrightVoice : Voice {
@@ -551,6 +860,27 @@ object BrightVoice : Voice {
     override val settingsDeleteAllDataConfirmBody = "Every case and event goes poof — for real, no take-backs."
     override val settingsDeleteAllDataConfirmAction = "Yeet it all"
     override val settingsDeleteAllDataCancelAction = "Nah, never mind"
+    override val hunchTabNoneTitle = "No guess yet!"
+    override val hunchTabNoneBody = "Got a gut feeling about how often this happens? Make a guess and see if reality agrees."
+    override val hunchAddButtonLabel = "Make a guess!"
+    override val hunchNudgeTitle = "Ooh, 5 logs in!"
+    override val hunchNudgeDismissAction = "Nah, don't ask"
+    override val hunchEarlyHeadline = "Too soon to tell — feed me more moments!"
+    override val hunchResolveLabel = "Lock it in"
+    override val hunchCreatingTitle = "Make your guess!"
+    override val hunchCreatingDirectionLabel = "How do you feel about it?"
+    override val hunchCreatingFreqLabel = "How often does your gut say?"
+    override val hunchCreatingFreqSuffix = "times per"
+    override val hunchCreatingSaveButton = "Save my guess!"
+    override val hunchCreatingDecreaseCountDescription = "Fewer!"
+    override val hunchCreatingIncreaseCountDescription = "More!"
+    override val hunchHistoryHeader = "Your hunch history!"
+    override val hunchExpectedPerDay = "Day"
+    override val hunchExpectedPerWeek = "Week"
+    override val hunchExpectedPerMonth = "Month"
+    override val caseDetailLogTabLabel = "Log"
+    override val caseDetailInsightsTabLabel = "Insights"
+    override val caseDetailHunchTabLabel = "Hunch"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -588,6 +918,93 @@ object BrightVoice : Voice {
     ) = "$caseName's been going $elapsed — still happening, or did you just forget?"
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
+
+    override fun hunchNudgeBody(
+        caseIcon: String,
+        caseName: String,
+    ) = "You've logged $caseIcon $caseName $HUNCH_NUDGE_EVENT_THRESHOLD times without saying what you expected. " +
+        "Wanna guess and see if you're right?"
+
+    override fun hunchDirectionPillLabel(direction: HunchDirection) =
+        when (direction) {
+            HunchDirection.TOO_OFTEN -> "Too often"
+            HunchDirection.NOT_ENOUGH -> "Not enough"
+            HunchDirection.JUST_CURIOUS -> "Just curious"
+        }
+
+    override fun hunchChipLabel(
+        direction: HunchDirection,
+        expectedFrequencyLabel: String,
+    ): String {
+        val inline =
+            when (direction) {
+                HunchDirection.TOO_OFTEN -> "too often"
+                HunchDirection.NOT_ENOUGH -> "not enough"
+                HunchDirection.JUST_CURIOUS -> "just curious"
+            }
+        return "Your guess: $inline, $expectedFrequencyLabel"
+    }
+
+    override fun hunchProgressLabel(
+        eventCount: Int,
+        windowDays: Long,
+    ) = "$eventCount of $PRELIMINARY_MIN_EVENTS logs · $windowDays of $PRELIMINARY_MIN_DAYS days"
+
+    override fun verdictHeadline(
+        direction: HunchDirection,
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String =
+        when (direction) {
+            HunchDirection.TOO_OFTEN ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Plot twist: only $observedRateLabel. Your brain lied!"
+                    ComparisonBand.LESS -> "So far: $observedRateLabel — a little less than you guessed!"
+                    ComparisonBand.ABOUT_RIGHT -> "Nailed it: $observedRateLabel — right on the money!"
+                    ComparisonBand.MORE -> "Whoa: $observedRateLabel — more than you guessed!"
+                    ComparisonBand.MUCH_MORE -> "Plot twist: $observedRateLabel — way more than you feared!"
+                }
+            HunchDirection.NOT_ENOUGH ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Yep, called it: $observedRateLabel — barely happening at all."
+                    ComparisonBand.LESS -> "So far: $observedRateLabel — still less than you'd like."
+                    ComparisonBand.ABOUT_RIGHT -> "Nailed it: $observedRateLabel — right on the money!"
+                    ComparisonBand.MORE -> "Good news: $observedRateLabel — more than you thought!"
+                    ComparisonBand.MUCH_MORE -> "Whoa: $observedRateLabel — way more than you thought!"
+                }
+            HunchDirection.JUST_CURIOUS ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Turns out: $observedRateLabel — way less than your guess!"
+                    ComparisonBand.LESS -> "Turns out: $observedRateLabel — a bit less than your guess!"
+                    ComparisonBand.ABOUT_RIGHT -> "Turns out: $observedRateLabel — right on your guess!"
+                    ComparisonBand.MORE -> "Turns out: $observedRateLabel — a bit more than your guess!"
+                    ComparisonBand.MUCH_MORE -> "Turns out: $observedRateLabel — way more than your guess!"
+                }
+        }
+
+    override fun verdictMeta(
+        tier: ConfidenceTier,
+        eventCount: Int,
+        windowDays: Long,
+    ) = when (tier) {
+        ConfidenceTier.PRELIMINARY -> "Based on $eventCount logs over $windowDays days. Give it a few more weeks to be sure."
+        else -> "Based on $eventCount logs over $windowDays days."
+    }
+
+    override fun hunchHistorySummary(
+        total: Int,
+        heldUpCount: Int,
+    ) = "$total guesses so far — ${total - heldUpCount} were off, $heldUpCount was spot-on!"
+
+    override fun hunchHistoryRowOutcome(
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ) = when (band) {
+        ComparisonBand.ABOUT_RIGHT -> "Spot-on — actually $observedRateLabel"
+        else -> "Way off — actually $observedRateLabel"
+    }
+
+    override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months ago"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }
