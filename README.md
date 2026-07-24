@@ -14,7 +14,7 @@ Open a **Case** on the thing you've noticed — a teenager snapping at you, a mi
 
 ---
 
-<!-- TODO: screenshots — one per theme (Serious / Goth / Quirky) -->
+<!-- TODO: screenshots — one per theme (Plain / Intense / Bright) -->
 
 ---
 
@@ -25,7 +25,7 @@ Open a **Case** on the thing you've noticed — a teenager snapping at you, a mi
 - **The Big Picture.** Every Case on one shared timeline, occurrences as dots aligned by date. When your "unbearable day" dots stack above your "kiddo was rude" dots, you can see it — the app draws, you conclude.
 - **Per-case visuals and stats.** A dot timeline showing bursts and droughts, a year-in-pixels calendar, a day-of-week × time-of-day rhythm heatmap, gaps, trends, durations, intensity.
 - **Triggers.** A factual heads-up when something happens 3+ times in a week, or hasn't happened in 14 days. A count and a name — the rest is up to you.
-- **Three themes, three voices.** Serious, Goth, and Quirky change the colors *and* every word the app says. The goth verdict for a disproven fear: *"Your dread was exaggerated."*
+- **Three themes, three voices.** Plain, Intense, and Bright change the colors *and* every word the app says. The Intense verdict for a disproven fear: *"Your dread was exaggerated."*
 - **Share the reveal.** Turn a Case into a story-style card — the case, the hunch, the evidence, the verdict — styled by your theme, sized for stories or feeds. You preview first, can rename the case on the card, and notes/tags never leave the phone.
 - **Your data stays yours.** Everything lives on the phone; the app doesn't even request network permission. Export/import as JSON anytime.
 

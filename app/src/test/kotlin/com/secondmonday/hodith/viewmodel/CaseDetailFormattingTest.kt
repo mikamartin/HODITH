@@ -2,8 +2,8 @@ package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.TagEntity
-import com.secondmonday.hodith.ui.voice.GothVoice
-import com.secondmonday.hodith.ui.voice.SeriousVoice
+import com.secondmonday.hodith.ui.voice.IntenseVoice
+import com.secondmonday.hodith.ui.voice.PlainVoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -58,19 +58,19 @@ class CaseDetailFormattingTest {
 
     @Test
     fun `eventDetailSummary is null when nothing is set`() {
-        assertNull(eventDetailSummary(testEvent(intensity = null, note = null), tags = emptyList(), SeriousVoice))
+        assertNull(eventDetailSummary(testEvent(intensity = null, note = null), tags = emptyList(), PlainVoice))
     }
 
     @Test
     fun `eventDetailSummary is null when note is blank, intensity is unset, and there are no tags`() {
-        assertNull(eventDetailSummary(testEvent(intensity = null, note = "   "), tags = emptyList(), SeriousVoice))
+        assertNull(eventDetailSummary(testEvent(intensity = null, note = "   "), tags = emptyList(), PlainVoice))
     }
 
     @Test
     fun `eventDetailSummary shows intensity only when note and tags are unset`() {
         assertEquals(
-            SeriousVoice.eventIntensityLabel(4),
-            eventDetailSummary(testEvent(intensity = 4, note = null), tags = emptyList(), SeriousVoice),
+            PlainVoice.eventIntensityLabel(4),
+            eventDetailSummary(testEvent(intensity = 4, note = null), tags = emptyList(), PlainVoice),
         )
     }
 
@@ -78,23 +78,23 @@ class CaseDetailFormattingTest {
     fun `eventDetailSummary shows note only when intensity and tags are unset`() {
         assertEquals(
             "Snapped during dinner",
-            eventDetailSummary(testEvent(intensity = null, note = "Snapped during dinner"), tags = emptyList(), SeriousVoice),
+            eventDetailSummary(testEvent(intensity = null, note = "Snapped during dinner"), tags = emptyList(), PlainVoice),
         )
     }
 
     @Test
     fun `eventDetailSummary joins intensity and note, intensity first`() {
         assertEquals(
-            "${SeriousVoice.eventIntensityLabel(2)} · Quick one",
-            eventDetailSummary(testEvent(intensity = 2, note = "Quick one"), tags = emptyList(), SeriousVoice),
+            "${PlainVoice.eventIntensityLabel(2)} · Quick one",
+            eventDetailSummary(testEvent(intensity = 2, note = "Quick one"), tags = emptyList(), PlainVoice),
         )
     }
 
     @Test
     fun `eventDetailSummary uses the given voice's intensity copy, not a hardcoded string`() {
         assertEquals(
-            GothVoice.eventIntensityLabel(5),
-            eventDetailSummary(testEvent(intensity = 5, note = null), tags = emptyList(), GothVoice),
+            IntenseVoice.eventIntensityLabel(5),
+            eventDetailSummary(testEvent(intensity = 5, note = null), tags = emptyList(), IntenseVoice),
         )
     }
 
@@ -104,7 +104,7 @@ class CaseDetailFormattingTest {
 
         assertEquals(
             "#work #morning",
-            eventDetailSummary(testEvent(intensity = null, note = null), tags = tags, SeriousVoice),
+            eventDetailSummary(testEvent(intensity = null, note = null), tags = tags, PlainVoice),
         )
     }
 
@@ -113,16 +113,16 @@ class CaseDetailFormattingTest {
         val tags = listOf(TagEntity(id = 1, name = "dinner"))
 
         assertEquals(
-            "${SeriousVoice.eventIntensityLabel(3)} · Quick one · #dinner",
-            eventDetailSummary(testEvent(intensity = 3, note = "Quick one"), tags = tags, SeriousVoice),
+            "${PlainVoice.eventIntensityLabel(3)} · Quick one · #dinner",
+            eventDetailSummary(testEvent(intensity = 3, note = "Quick one"), tags = tags, PlainVoice),
         )
     }
 
     @Test
     fun `eventDetailSummary shows the ongoing label first when isOngoing is true`() {
         assertEquals(
-            SeriousVoice.logSheetOngoingLabel,
-            eventDetailSummary(testEvent(intensity = null, note = null), tags = emptyList(), SeriousVoice, isOngoing = true),
+            PlainVoice.logSheetOngoingLabel,
+            eventDetailSummary(testEvent(intensity = null, note = null), tags = emptyList(), PlainVoice, isOngoing = true),
         )
     }
 
@@ -131,8 +131,8 @@ class CaseDetailFormattingTest {
         val tags = listOf(TagEntity(id = 1, name = "dinner"))
 
         assertEquals(
-            "${SeriousVoice.logSheetOngoingLabel} · ${SeriousVoice.eventIntensityLabel(3)} · Quick one · #dinner",
-            eventDetailSummary(testEvent(intensity = 3, note = "Quick one"), tags = tags, SeriousVoice, isOngoing = true),
+            "${PlainVoice.logSheetOngoingLabel} · ${PlainVoice.eventIntensityLabel(3)} · Quick one · #dinner",
+            eventDetailSummary(testEvent(intensity = 3, note = "Quick one"), tags = tags, PlainVoice, isOngoing = true),
         )
     }
 
@@ -140,7 +140,7 @@ class CaseDetailFormattingTest {
     fun `eventDetailSummary shows the duration for a finished event with an endedAt`() {
         val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 45 * 60_000L)
 
-        assertEquals(SeriousVoice.eventDurationLabel("45m"), eventDetailSummary(event, tags = emptyList(), SeriousVoice))
+        assertEquals(PlainVoice.eventDurationLabel("45m"), eventDetailSummary(event, tags = emptyList(), PlainVoice))
     }
 
     @Test
@@ -149,8 +149,8 @@ class CaseDetailFormattingTest {
         val event = testEvent(intensity = 3, note = "Quick one", occurredAt = 0L, endedAt = 45 * 60_000L)
 
         assertEquals(
-            "${SeriousVoice.eventDurationLabel("45m")} · ${SeriousVoice.eventIntensityLabel(3)} · Quick one · #dinner",
-            eventDetailSummary(event, tags = tags, SeriousVoice),
+            "${PlainVoice.eventDurationLabel("45m")} · ${PlainVoice.eventIntensityLabel(3)} · Quick one · #dinner",
+            eventDetailSummary(event, tags = tags, PlainVoice),
         )
     }
 
@@ -158,7 +158,7 @@ class CaseDetailFormattingTest {
     fun `eventDetailSummary shows no duration when endedAt is null and not ongoing`() {
         val event = testEvent(intensity = 3, note = null, occurredAt = 0L, endedAt = null)
 
-        assertEquals(SeriousVoice.eventIntensityLabel(3), eventDetailSummary(event, tags = emptyList(), SeriousVoice))
+        assertEquals(PlainVoice.eventIntensityLabel(3), eventDetailSummary(event, tags = emptyList(), PlainVoice))
     }
 
     @Test
@@ -168,8 +168,8 @@ class CaseDetailFormattingTest {
         val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 999L)
 
         assertEquals(
-            SeriousVoice.logSheetOngoingLabel,
-            eventDetailSummary(event, tags = emptyList(), SeriousVoice, isOngoing = true),
+            PlainVoice.logSheetOngoingLabel,
+            eventDetailSummary(event, tags = emptyList(), PlainVoice, isOngoing = true),
         )
     }
 

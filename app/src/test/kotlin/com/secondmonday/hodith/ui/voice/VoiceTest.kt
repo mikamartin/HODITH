@@ -4,11 +4,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VoiceTest {
-    private val voices = listOf(SeriousVoice, GothVoice, QuirkyVoice)
+    private val voices = listOf(PlainVoice, IntenseVoice, BrightVoice)
 
     @Test
     fun `every voice has a non-blank string for every key`() {
         for (voice in voices) {
+            assertTrue(voice.homeHeaderTitle.isNotBlank())
             assertTrue(voice.noCasesEmptyState.isNotBlank())
             assertTrue(voice.bigPictureEarlyDays.isNotBlank())
             assertTrue(voice.homeNavLabel.isNotBlank())
@@ -90,9 +91,9 @@ class VoiceTest {
             assertTrue(voice.staleOngoingStillGoingAction.isNotBlank())
             assertTrue(voice.quickLogUndoAction.isNotBlank())
             assertTrue(voice.settingsThemeSectionLabel.isNotBlank())
-            assertTrue(voice.themeOptionSerious.isNotBlank())
-            assertTrue(voice.themeOptionGoth.isNotBlank())
-            assertTrue(voice.themeOptionQuirky.isNotBlank())
+            assertTrue(voice.themeOptionPlain.isNotBlank())
+            assertTrue(voice.themeOptionIntense.isNotBlank())
+            assertTrue(voice.themeOptionBright.isNotBlank())
             assertTrue(voice.settingsPreviewLabel.isNotBlank())
             assertTrue(voice.settingsDemoDataSectionLabel.isNotBlank())
             assertTrue(voice.settingsLoadDemoDataButton.isNotBlank())

@@ -21,7 +21,7 @@ class DataStoreSettingsRepository
             dataStore.data.map { preferences ->
                 preferences[THEME_KEY]?.let { name ->
                     runCatching { AppTheme.valueOf(name) }.getOrNull()
-                } ?: AppTheme.SERIOUS
+                } ?: AppTheme.PLAIN
             }
 
         override suspend fun setTheme(theme: AppTheme) {

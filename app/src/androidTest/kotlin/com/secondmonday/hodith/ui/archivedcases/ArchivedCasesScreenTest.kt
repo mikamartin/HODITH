@@ -8,7 +8,7 @@ import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
-import com.secondmonday.hodith.ui.voice.SeriousVoice
+import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.ArchivedCaseRow
 import com.secondmonday.hodith.viewmodel.ArchivedCasesUiState
 import org.junit.Assert.assertEquals
@@ -34,7 +34,7 @@ class ArchivedCasesScreenTest {
         onDeleteForever: (Long) -> Unit = {},
     ) {
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides SeriousVoice) {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 ArchivedCasesScreen(
                     uiState = uiState,
                     onBack = {},
@@ -49,7 +49,7 @@ class ArchivedCasesScreenTest {
     fun emptyState_showsWhenNoArchivedCases() {
         setContent(uiState = ArchivedCasesUiState(cases = emptyList(), isLoading = false))
 
-        composeTestRule.onNodeWithText(SeriousVoice.archivedCasesEmptyState).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.archivedCasesEmptyState).assertExists()
     }
 
     @Test
@@ -57,7 +57,7 @@ class ArchivedCasesScreenTest {
         setContent()
 
         composeTestRule.onNodeWithText(row.name).assertExists()
-        composeTestRule.onNodeWithText(SeriousVoice.archivedCaseEventCount(row.eventCount)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.archivedCaseEventCount(row.eventCount)).assertExists()
     }
 
     @Smoke
@@ -66,7 +66,7 @@ class ArchivedCasesScreenTest {
         var unarchivedId: Long? = null
         setContent(onUnarchive = { unarchivedId = it })
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.unarchiveCaseDescription(row.name)).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.unarchiveCaseDescription(row.name)).performClick()
 
         assertEquals(row.caseId, unarchivedId)
     }
@@ -76,9 +76,9 @@ class ArchivedCasesScreenTest {
         var deletedId: Long? = null
         setContent(onDeleteForever = { deletedId = it })
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.deleteCaseForeverDescription(row.name)).performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.deleteCaseForeverConfirmTitle).assertExists()
-        composeTestRule.onNodeWithText(SeriousVoice.deleteCaseForeverConfirmAction).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.deleteCaseForeverDescription(row.name)).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.deleteCaseForeverConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.deleteCaseForeverConfirmAction).performClick()
 
         assertEquals(row.caseId, deletedId)
     }
@@ -88,8 +88,8 @@ class ArchivedCasesScreenTest {
         var deletedId: Long? = null
         setContent(onDeleteForever = { deletedId = it })
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.deleteCaseForeverDescription(row.name)).performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.deleteCaseForeverCancelAction).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.deleteCaseForeverDescription(row.name)).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.deleteCaseForeverCancelAction).performClick()
 
         assertNull(deletedId)
     }

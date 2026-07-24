@@ -28,7 +28,7 @@ Some of these you influence, many you don't. HODITH doesn't care — it just cou
 | Term | Meaning |
 |---|---|
 | **Case** | The thing being observed ("Kiddo was rude", "Migraine", "Perfect coffee"). |
-| **Event** | One logged occurrence. The voices may dress this up ("evidence" in Goth). |
+| **Event** | One logged occurrence. The voices may dress this up ("evidence" in Intense). |
 | **Hunch** | Your stated feeling about frequency: "this happens ~daily", "not nearly enough". |
 | **Verdict** | What the data says about your Hunch, once there's enough of it. |
 
@@ -225,15 +225,18 @@ Silence in a Case is ambiguous: did the event stop happening, or did the user st
 
 Three themes, picked in Settings, applying skin + voice together:
 
-| | Serious | Goth | Quirky |
+| | Plain | Intense | Bright |
 |---|---|---|---|
-| Palette | Cool neutrals, one restrained accent | Near-black, deep purple/crimson accents | Warm brights, playful accent pairs |
-| Type feel | Clean, businesslike | High-contrast, a touch dramatic | Rounded, friendly |
+| Palette | Cool neutrals, one restrained accent | Monochrome (black/white/gray) plus one crimson accent, reserved for interactive elements — genre film-noir, not gothic-archive | Warm brights, a playful accent pair |
+| Type feel | Clean, businesslike (Inter) | High-contrast, pulp-poster dramatic — bold condensed display face (Oswald) over a readable serif body (Source Serif 4) | Rounded, friendly (Baloo 2 display / Nunito body) |
 | Verdict sample | "Observed: 2.1×/week — below your estimate." | "Your dread was exaggerated. It happens but twice a week." | "Plot twist: only 2×/week. Your brain lied!" |
-| Early-days sample | "Insufficient data. Keep logging." | "The evidence is yet insufficient for despair." | "Too soon to tell — feed me more moments!" |
+| Early-days sample | "Insufficient data. Keep logging." | "The evidence is yet insufficient for despair or joy." | "Too soon to tell — feed me more moments!" |
 | Empty state sample | "No cases yet." | "Nothing is being watched. Yet." | "It's quiet in here… suspiciously quiet." |
+| Home header | "How often does it truly happen?" | "How oft dares it truly haunt?" | "How often does it totally happen?!" |
 
-**Architecture:** every user-visible string is a key on a `Voice` interface with three implementations (`SeriousVoice`, `GothVoice`, `QuirkyVoice`), provided via CompositionLocal — no `when(theme)` in composables. A unit test asserts every key is non-blank in all three voices, so a string can never silently ship in only one voice. Full light/dark mode within each theme.
+All three Home header phrasings mean the same thing and each one's six words' first letters still spell **H-O-D-I-T-H**, matching the app's own name.
+
+**Architecture:** every user-visible string is a key on a `Voice` interface with three implementations (`PlainVoice`, `IntenseVoice`, `BrightVoice`), provided via CompositionLocal — no `when(theme)` in composables. A unit test asserts every key is non-blank in all three voices, so a string can never silently ship in only one voice. Full light/dark mode within each theme, each with its own `ColorScheme`, `Typography`, and `Shapes` (`ui/theme/`).
 
 ## 13. Sharing a Case
 
@@ -246,7 +249,7 @@ The social payoff of the app: turning a finished (or in-progress) investigation 
   3. *The evidence* — the dot timeline snippet + headline numbers ("14 times in 60 days")
   4. *The verdict* — the voice-flavoured punchline ("Plot twist: more often than I thought.")
   Cases without a Hunch get a two-beat version: the case + the evidence.
-- **Templates are theme-based** — Serious renders like a clean report card, Goth like a case file from a dark archive, Quirky like a playful detective reveal. The template follows the *currently active* theme; switching themes before sharing restyles the card.
+- **Templates are theme-based** — Plain renders like a clean report card, Intense like a pulp detective dossier (high-contrast black-and-white, a stamped-crimson accent), Bright like a playful reveal. The template follows the *currently active* theme; switching themes before sharing restyles the card.
 - **Preview before share, always.** The share flow opens a preview screen where the user can:
   - pick story vs square,
   - edit the displayed case name (real names can be personal — "Kiddo was rude" might become "Someone was grumpy"),

@@ -13,7 +13,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
-import com.secondmonday.hodith.ui.voice.SeriousVoice
+import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -37,7 +37,7 @@ class CaseEditScreenTest {
         onArchive: () -> Unit = {},
     ) {
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides SeriousVoice) {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 CaseEditScreen(
                     uiState = uiState,
                     onNameChange = {},
@@ -61,14 +61,14 @@ class CaseEditScreenTest {
     fun archiveIcon_hiddenWhenCreatingNewCase() {
         setContent(uiState = CaseEditUiState(isEditing = false, isLoading = false, canArchive = false))
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.archiveCaseDescription).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.archiveCaseDescription).assertDoesNotExist()
     }
 
     @Test
     fun archiveIcon_shownWhenEditingExistingCase() {
         setContent()
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.archiveCaseDescription).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.archiveCaseDescription).assertExists()
     }
 
     @Test
@@ -76,9 +76,9 @@ class CaseEditScreenTest {
         var archived = false
         setContent(onArchive = { archived = true })
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.archiveCaseDescription).performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.archiveCaseConfirmTitle).assertExists()
-        composeTestRule.onNodeWithText(SeriousVoice.archiveCaseConfirmAction).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.archiveCaseDescription).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.archiveCaseConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.archiveCaseConfirmAction).performClick()
 
         assertEquals(true, archived)
     }
@@ -88,8 +88,8 @@ class CaseEditScreenTest {
         var archived = false
         setContent(onArchive = { archived = true })
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.archiveCaseDescription).performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.archiveCaseCancelAction).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.archiveCaseDescription).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.archiveCaseCancelAction).performClick()
 
         assertFalse(archived)
     }
@@ -98,25 +98,25 @@ class CaseEditScreenTest {
     fun iconPicker_collapsedByDefaultWhenEditingExistingCase() {
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, icon = "🤕"))
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionExpandDescription).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.caseIconSectionExpandDescription).assertExists()
     }
 
     @Test
     fun iconPicker_expandedByDefaultForNewCase() {
         setContent(uiState = CaseEditUiState(isEditing = false, isLoading = false))
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionCollapseDescription).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.caseIconSectionCollapseDescription).assertExists()
     }
 
     @Test
     fun iconPicker_tapToggles_expandedThenCollapsed() {
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, icon = "🤕"))
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionExpandDescription).performClick()
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionCollapseDescription).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.caseIconSectionExpandDescription).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.caseIconSectionCollapseDescription).assertExists()
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionCollapseDescription).performClick()
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.caseIconSectionExpandDescription).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.caseIconSectionCollapseDescription).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.caseIconSectionExpandDescription).assertExists()
     }
 
     @Smoke
@@ -124,21 +124,21 @@ class CaseEditScreenTest {
     fun logFlow_oneTapEnabled_whenNoDurationAndNoIntensity() {
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, durationMode = DurationMode.NONE))
 
-        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowOneTap).assertIsEnabled()
+        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsEnabled()
     }
 
     @Test
     fun logFlow_oneTapDisabled_whenDurationModeIsManual() {
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, durationMode = DurationMode.MANUAL))
 
-        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowOneTap).assertIsNotEnabled()
+        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsNotEnabled()
     }
 
     @Test
     fun logFlow_oneTapDisabled_whenIntensityEnabled() {
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, intensityEnabled = true))
 
-        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowOneTap).assertIsNotEnabled()
+        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsNotEnabled()
     }
 
     @Test
@@ -146,12 +146,12 @@ class CaseEditScreenTest {
         setContent()
 
         composeTestRule
-            .onAllNodesWithContentDescription(SeriousVoice.caseSectionInfoDescription)
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
             .onFirst()
             .performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowInfoTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowInfoTitle).assertExists()
 
-        composeTestRule.onNodeWithText(SeriousVoice.infoDialogDismissAction).performClick()
-        composeTestRule.onNodeWithText(SeriousVoice.caseLogFlowInfoTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowInfoTitle).assertDoesNotExist()
     }
 }

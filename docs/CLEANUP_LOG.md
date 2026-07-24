@@ -15,6 +15,65 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/theme-skins (Phase 5, branch 1 of 2)
+
+**Scope:** The theme-skin half of spec §12 — Serious/Goth/Quirky renamed to Plain/Intense/Bright
+(mechanical rename, ~125 occurrences / 15 files) and given a real `ColorScheme`/`Typography`/
+`Shapes` per theme × light/dark (new `ui/theme/` package, 12 bundled OFL font files), replacing
+the bare `MaterialTheme { }` that previously made theme-switching a copy-only change. Direction
+validated via an HTML mockup artifact before any Kotlin was written, iterated live with the user
+across several rounds (Intense went through a full mid-review rework, gothic-archive → genre
+film-noir). Also folded in the Housekeeping list's Home-header item (new `homeHeaderTitle` Voice
+key, three phrasings that all spell H-O-D-I-T-H) since it was a natural fit for the same phase.
+**Found & fixed:**
+- **Test staleness risk:** `AcronymTextTest`'s "real voice phrasings" test originally hardcoded
+  copies of the three `homeHeaderTitle` strings as string literals instead of importing
+  `PlainVoice`/`IntenseVoice`/`BrightVoice` directly — if the copy changed later without touching
+  this test, it would keep passing against a stale duplicate rather than the real production
+  strings. Changed to reference the actual `Voice` objects.
+- **Missing test coverage, caught when asked directly whether tests existed:** the acronym-mark
+  logic (`acronymHighlighted`) was a private, untestable function inside `HomeScreen.kt` with zero
+  coverage — extracted to `ui/common/AcronymText.kt` with a dedicated `AcronymTextTest.kt` (4
+  tests, including one asserting all three real phrasings mark exactly H-O-D-I-T-H). Also added a
+  `HomeScreenTest` assertion for the new header, and a first-ever `SettingsScreenTest.kt` (Settings
+  previously had zero instrumented UI coverage, only its ViewModel) covering theme selection, the
+  live preview card, demo-data actions, and the delete-all confirm dialog.
+- **Self-updating tally in PROGRESS.md:** an earlier draft of this phase's working-roadmap note
+  cited "the full 77-test instrumented suite" — exactly the kind of count that goes stale the next
+  time a test is added. Reworded to state what was verified without embedding a number that needs
+  babysitting.
+- **CRLF corruption, caught before anything was staged:** an early global `sed -i` rename pass
+  (via git-bash) silently flipped ~82 unrelated `.kt` files from CRLF to LF with zero content
+  change, because `core.autocrlf=true` on this repo. `git status` showed ~103 modified files where
+  only 17 had a real diff (confirmed via `git diff --name-only`). Restored the 82 noise files with
+  `git checkout --` before staging anything; recorded a memory note (outside this repo) so future
+  sessions check `git status` vs `git diff --name-only` after any broad `sed` pass.
+**Considered, not changed:**
+- Full ColorScheme roles beyond what the app actually renders (`tertiary` family, `inverse*`,
+  `scrim`, `surfaceTint`, the extra `surfaceContainer` tiers) were left at Material3's baseline
+  defaults rather than hand-picked per theme — nothing in the app reads them today, and inventing
+  values for roles with no current visual effect isn't worth the six-way maintenance burden it'd
+  add to `Color.kt`. Documented in a code comment; revisit if a component starts using one.
+- A third-party seed-color → full-tonal-palette generator (e.g. `materialkolor`) would have made
+  the 6 `ColorScheme`s more internally consistent than hand-picked hex values, but adding a new
+  dependency wasn't something to decide unilaterally mid-implementation — the mockup-validated
+  hand-picked values were already signed off, so used those directly instead.
+**Deferred:**
+- Two mockup flourishes don't have a clean Compose equivalent without threading theme-awareness
+  into composables for a purely cosmetic detail: Intense's CSS `text-transform: uppercase` on
+  display type, and Bright's alternating accent-pair colors on the header's six initials (all
+  themes use a single accent color for the marks instead). Noted in PROGRESS.md; revisit only if
+  asked.
+- Big Picture's bespoke day-cell/badge treatment per theme — `feature/big-picture-theme-polish`,
+  the second of the two branches agreed for this phase, on top of this one.
+**Docs updated:** HODITH_SPEC.md §12 (theme table, names, Home header row) and §13 (Intense's
+share-card description, previously describing the abandoned gothic-archive look); README's theme
+mentions; DEV_PLAYBOOK's widget-theming limitation note; TESTING.md (new Settings row in planned
+instrumented coverage); PROGRESS.md (Phase 5 restructured into the two-branch format, Housekeeping
+item struck).
+
+---
+
 ## feature/settings-foundation (Phase 4)
 
 **Scope:** Settings foundation — a DataStore-backed `AppTheme` (Serious/Goth/Quirky) selection that

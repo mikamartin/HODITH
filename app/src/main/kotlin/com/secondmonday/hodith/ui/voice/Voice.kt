@@ -10,6 +10,7 @@ import com.secondmonday.hodith.data.AppTheme
  * interface with the full string set rather than replacing it.
  */
 interface Voice {
+    val homeHeaderTitle: String
     val noCasesEmptyState: String
     val bigPictureEarlyDays: String
     val bigPictureMonthPickerTitle: String
@@ -97,9 +98,9 @@ interface Voice {
     val staleOngoingStillGoingAction: String
     val quickLogUndoAction: String
     val settingsThemeSectionLabel: String
-    val themeOptionSerious: String
-    val themeOptionGoth: String
-    val themeOptionQuirky: String
+    val themeOptionPlain: String
+    val themeOptionIntense: String
+    val themeOptionBright: String
     val settingsPreviewLabel: String
     val settingsDemoDataSectionLabel: String
     val settingsLoadDemoDataButton: String
@@ -147,7 +148,8 @@ interface Voice {
     fun bigPictureWeekDetailTitle(date: String): String
 }
 
-object SeriousVoice : Voice {
+object PlainVoice : Voice {
+    override val homeHeaderTitle = "How often does it truly happen?"
     override val noCasesEmptyState = "No cases yet."
     override val bigPictureEarlyDays = "Insufficient data. Keep logging."
     override val bigPictureMonthPickerTitle = "Jump to month"
@@ -242,9 +244,9 @@ object SeriousVoice : Voice {
     override val staleOngoingStillGoingAction = "Still going"
     override val quickLogUndoAction = "Undo"
     override val settingsThemeSectionLabel = "Theme"
-    override val themeOptionSerious = "Serious"
-    override val themeOptionGoth = "Goth"
-    override val themeOptionQuirky = "Quirky"
+    override val themeOptionPlain = "Plain"
+    override val themeOptionIntense = "Intense"
+    override val themeOptionBright = "Bright"
     override val settingsPreviewLabel = "Preview"
     override val settingsDemoDataSectionLabel = "Demo data"
     override val settingsLoadDemoDataButton = "Load demo data"
@@ -294,9 +296,10 @@ object SeriousVoice : Voice {
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 }
 
-object GothVoice : Voice {
+object IntenseVoice : Voice {
+    override val homeHeaderTitle = "How oft dares it truly haunt?"
     override val noCasesEmptyState = "Nothing is being watched. Yet."
-    override val bigPictureEarlyDays = "The evidence is yet insufficient for despair."
+    override val bigPictureEarlyDays = "The evidence is yet insufficient for despair or joy."
     override val bigPictureMonthPickerTitle = "Leap to another month"
     override val bigPictureDayDetailEmptyState = "Nothing was recorded this day."
     override val bigPictureWeekDetailEmptyState = "Nothing was recorded this week."
@@ -355,17 +358,17 @@ object GothVoice : Voice {
     override val archiveCaseConfirmBody =
         "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed."
     override val archiveCaseConfirmAction = "Bury it"
-    override val archiveCaseCancelAction = "Spare it"
+    override val archiveCaseCancelAction = "Abandon"
     override val archivedCasesTitle = "The buried cases"
     override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
     override val deleteEventConfirmTitle = "Strike this from the record?"
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
     override val deleteEventConfirmAction = "Erase"
-    override val deleteEventCancelAction = "Spare it"
+    override val deleteEventCancelAction = "Abandon"
     override val deleteCaseForeverConfirmTitle = "Erase this case forever?"
     override val deleteCaseForeverConfirmAction = "Erase forever"
-    override val deleteCaseForeverCancelAction = "Spare it"
+    override val deleteCaseForeverCancelAction = "Abandon"
     override val retroLogEntryLabel = "It happened before now…"
     override val logSheetNewEventTitle = "Record the evidence"
     override val logSheetEditEventTitle = "Amend the record"
@@ -389,9 +392,9 @@ object GothVoice : Voice {
     override val staleOngoingStillGoingAction = "Still unfolding"
     override val quickLogUndoAction = "Reverse it"
     override val settingsThemeSectionLabel = "The chosen skin"
-    override val themeOptionSerious = "Serious"
-    override val themeOptionGoth = "Goth"
-    override val themeOptionQuirky = "Quirky"
+    override val themeOptionPlain = "Plain"
+    override val themeOptionIntense = "Intense"
+    override val themeOptionBright = "Bright"
     override val settingsPreviewLabel = "A glimpse"
     override val settingsDemoDataSectionLabel = "Phantom data"
     override val settingsLoadDemoDataButton = "Conjure phantom cases"
@@ -401,7 +404,7 @@ object GothVoice : Voice {
     override val settingsDeleteAllDataConfirmBody =
         "Every case and record will be struck from existence, beyond recall."
     override val settingsDeleteAllDataConfirmAction = "Erase it all"
-    override val settingsDeleteAllDataCancelAction = "Spare it"
+    override val settingsDeleteAllDataCancelAction = "Abandon"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -440,7 +443,8 @@ object GothVoice : Voice {
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 }
 
-object QuirkyVoice : Voice {
+object BrightVoice : Voice {
+    override val homeHeaderTitle = "How often does it totally happen?!"
     override val noCasesEmptyState = "It's quiet in here… suspiciously quiet."
     override val bigPictureEarlyDays = "Too soon to tell — feed me more moments!"
     override val bigPictureMonthPickerTitle = "Jump to a month!"
@@ -535,9 +539,9 @@ object QuirkyVoice : Voice {
     override val staleOngoingStillGoingAction = "Yep, still going!"
     override val quickLogUndoAction = "Oops, undo!"
     override val settingsThemeSectionLabel = "Pick your vibe"
-    override val themeOptionSerious = "Serious"
-    override val themeOptionGoth = "Goth"
-    override val themeOptionQuirky = "Quirky"
+    override val themeOptionPlain = "Plain"
+    override val themeOptionIntense = "Intense"
+    override val themeOptionBright = "Bright"
     override val settingsPreviewLabel = "Sneak peek"
     override val settingsDemoDataSectionLabel = "Pretend data"
     override val settingsLoadDemoDataButton = "Load some pretend chaos!"
@@ -586,11 +590,11 @@ object QuirkyVoice : Voice {
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 }
 
-val LocalVoice = staticCompositionLocalOf<Voice> { SeriousVoice }
+val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }
 
 fun voiceFor(theme: AppTheme): Voice =
     when (theme) {
-        AppTheme.SERIOUS -> SeriousVoice
-        AppTheme.GOTH -> GothVoice
-        AppTheme.QUIRKY -> QuirkyVoice
+        AppTheme.PLAIN -> PlainVoice
+        AppTheme.INTENSE -> IntenseVoice
+        AppTheme.BRIGHT -> BrightVoice
     }

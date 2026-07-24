@@ -38,6 +38,7 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.StaleOngoingBanner
 import com.secondmonday.hodith.ui.common.StopIconButton
+import com.secondmonday.hodith.ui.common.acronymHighlighted
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -120,6 +121,11 @@ fun HomeScreen(
         },
     ) { contentPadding ->
         Column(modifier = Modifier.padding(contentPadding).fillMaxSize()) {
+            Text(
+                text = acronymHighlighted(voice.homeHeaderTitle, MaterialTheme.colorScheme.primary),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            )
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when {
                     uiState.isLoading -> Unit

@@ -9,7 +9,7 @@ import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
-import com.secondmonday.hodith.ui.voice.SeriousVoice
+import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.BigPictureUiState
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
@@ -41,7 +41,7 @@ class BigPictureScreenTest {
 
     private fun setContent(uiState: BigPictureUiState) {
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides SeriousVoice) {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 BigPictureScreen(uiState = uiState)
             }
         }
@@ -70,14 +70,14 @@ class BigPictureScreenTest {
     fun emptyState_showsWhenNoCases() {
         setContent(uiStateWith())
 
-        composeTestRule.onNodeWithText(SeriousVoice.noCasesEmptyState).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.noCasesEmptyState).assertExists()
     }
 
     @Test
     fun earlyDaysState_showsWhenCasesHaveNoEvents() {
         setContent(uiStateWith(cases = listOf(case)))
 
-        composeTestRule.onNodeWithText(SeriousVoice.bigPictureEarlyDays).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEarlyDays).assertExists()
     }
 
     @Smoke
@@ -104,7 +104,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(monthTitle).performClick()
 
-        composeTestRule.onNodeWithText(SeriousVoice.bigPictureMonthPickerTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureMonthPickerTitle).assertExists()
     }
 
     @Test
@@ -115,6 +115,6 @@ class BigPictureScreenTest {
         composeTestRule.onAllNodesWithText("›").onLast().performClick()
 
         val formattedWeekStart = weekStart.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
-        composeTestRule.onNodeWithText(SeriousVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertExists()
     }
 }

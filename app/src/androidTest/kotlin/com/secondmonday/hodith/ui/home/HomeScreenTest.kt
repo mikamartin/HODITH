@@ -12,7 +12,7 @@ import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
-import com.secondmonday.hodith.ui.voice.SeriousVoice
+import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.HomeLogSheetState
 import com.secondmonday.hodith.viewmodel.HomeUiState
@@ -62,7 +62,7 @@ class HomeScreenTest {
         nowMillis: () -> Long = { 0L },
     ) {
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides SeriousVoice) {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 HomeScreen(
                     uiState = uiState,
                     logSheet = logSheet,
@@ -91,10 +91,17 @@ class HomeScreenTest {
             onOpenCase = { openedCaseId = it },
         )
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.quickLogButtonDescription(oneTapRow.name)).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.quickLogButtonDescription(oneTapRow.name)).performClick()
 
         assertEquals(oneTapRow, quickLogTapped)
         assertNull(openedCaseId)
+    }
+
+    @Test
+    fun header_showsThemedHodithQuestion() {
+        setHomeScreenContent()
+
+        composeTestRule.onNodeWithText(PlainVoice.homeHeaderTitle).assertExists()
     }
 
     @Test
@@ -127,12 +134,12 @@ class HomeScreenTest {
 
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule
-                .onAllNodesWithText(SeriousVoice.quickLogUndoMessage(oneTapRow.name))
+                .onAllNodesWithText(PlainVoice.quickLogUndoMessage(oneTapRow.name))
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
 
-        composeTestRule.onNodeWithText(SeriousVoice.quickLogUndoAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.quickLogUndoAction).performClick()
 
         assertEquals(42L, undoneEventId)
     }
@@ -149,8 +156,8 @@ class HomeScreenTest {
             nowMillis = { 10_000L },
         )
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.quickLogButtonDescription(ongoingRow.name)).assertDoesNotExist()
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.stopActionDescription(ongoingRow.name)).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.quickLogButtonDescription(ongoingRow.name)).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(ongoingRow.name)).performClick()
 
         assertEquals(ongoingRow, quickLogTapped)
     }
@@ -160,7 +167,7 @@ class HomeScreenTest {
         val startStopRow = oneTapRow.copy(durationMode = DurationMode.START_STOP)
         setHomeScreenContent(uiState = HomeUiState(cases = listOf(startStopRow), isLoading = false))
 
-        composeTestRule.onNodeWithContentDescription(SeriousVoice.startActionDescription(startStopRow.name)).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.startActionDescription(startStopRow.name)).assertExists()
     }
 
     @Test
@@ -177,7 +184,7 @@ class HomeScreenTest {
             nowMillis = { now },
         )
 
-        composeTestRule.onNodeWithText(SeriousVoice.staleOngoingStillGoingAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).performClick()
 
         assertEquals(ongoingEvent, dismissed)
     }
@@ -192,14 +199,14 @@ class HomeScreenTest {
             nowMillis = { 10_000L },
         )
 
-        composeTestRule.onNodeWithText(SeriousVoice.staleOngoingStillGoingAction).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).assertDoesNotExist()
     }
 
     @Test
     fun archivedCasesLink_hiddenWhenNoArchivedCases() {
         setHomeScreenContent(uiState = HomeUiState(cases = listOf(oneTapRow), archivedCount = 0, isLoading = false))
 
-        composeTestRule.onNodeWithText(SeriousVoice.archivedCasesLink(0)).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.archivedCasesLink(0)).assertDoesNotExist()
     }
 
     @Test
@@ -210,7 +217,7 @@ class HomeScreenTest {
             onOpenArchivedCases = { opened = true },
         )
 
-        composeTestRule.onNodeWithText(SeriousVoice.archivedCasesLink(2)).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.archivedCasesLink(2)).performClick()
 
         assertEquals(true, opened)
     }
@@ -241,7 +248,7 @@ class HomeScreenTest {
             onSaveLogSheetEvent = { savedDraft = it },
         )
 
-        composeTestRule.onNodeWithText(SeriousVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
 
         assertEquals(sheetState.draft, savedDraft)
     }

@@ -46,7 +46,7 @@ Tags: `vMAJOR.MINOR.PATCH`. Delete a test tag: `git tag -d vX.Y.Z-test && git pu
 
 Permanent accepted constraints — nothing here gets checked off.
 
-- Glance widget theming is limited: widgets use a fixed neutral palette that does not follow the Serious/Goth/Quirky in-app theme. Intentional.
+- Glance widget theming is limited: widgets use a fixed neutral palette that does not follow the Plain/Intense/Bright in-app theme. Intentional.
 - *(populate as they're discovered)*
 
 ---
