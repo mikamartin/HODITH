@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.domain.weeksInGrid
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
@@ -58,7 +59,6 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 /**
@@ -595,16 +595,6 @@ private fun BrightDayCell(
             }
         }
     }
-}
-
-internal fun weeksInGrid(month: YearMonth): List<List<LocalDate>> {
-    val firstOfMonth = month.atDay(1)
-    val lastOfMonth = month.atEndOfMonth()
-    val gridStart = firstOfMonth.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val gridEnd = lastOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
-
-    val days = generateSequence(gridStart) { it.plusDays(1) }.takeWhile { !it.isAfter(gridEnd) }.toList()
-    return days.chunked(7)
 }
 
 private data class PreviewSeedData(
