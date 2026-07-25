@@ -1,4 +1,4 @@
-package com.secondmonday.hodith.ui.bigpicture
+package com.secondmonday.hodith.domain
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -6,7 +6,7 @@ import org.junit.Test
 import java.time.DayOfWeek
 import java.time.YearMonth
 
-class BigPictureGridTest {
+class CalendarGridTest {
     @Test
     fun `weeksInGrid chunks every week into exactly 7 days`() {
         val weeks = weeksInGrid(YearMonth.of(2026, 7))

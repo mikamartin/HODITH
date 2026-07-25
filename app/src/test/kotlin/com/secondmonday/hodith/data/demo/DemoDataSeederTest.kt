@@ -40,4 +40,31 @@ class DemoDataSeederTest {
 
             assertEquals(12, repository.cases.value.size)
         }
+
+    @Test
+    fun `seed gives Coffee a recent surge dense enough to exercise the dot timeline's window-shrink`() =
+        runTest {
+            seeder.seed()
+
+            val coffee = repository.cases.value.single { it.name == "Coffee" }
+            val windowStart = NOW_MILLIS - 35 * DAY_MILLIS
+            val recentCount = repository.events.value.count { it.caseId == coffee.id && it.occurredAt >= windowStart }
+            // TIMELINE_MAX_DOTS (domain/InsightsEngine.kt) is 24 — comfortably cleared, not just met.
+            assertTrue(recentCount > 24)
+        }
+
+    @Test
+    fun `seed gives Lost my keys a quiet spell long enough to set a new longest-gap record`() =
+        runTest {
+            seeder.seed()
+
+            val lostKeys = repository.cases.value.single { it.name == "Lost my keys" }
+            val lastEventAt =
+                repository.events.value
+                    .filter { it.caseId == lostKeys.id }
+                    .maxOf { it.occurredAt }
+            val currentGapDays = (NOW_MILLIS - lastEventAt) / DAY_MILLIS
+            // SPARSE's own maxGapDays is 45 — a gap safely past that can only be the quiet spell, not luck.
+            assertTrue(currentGapDays > 45)
+        }
 }

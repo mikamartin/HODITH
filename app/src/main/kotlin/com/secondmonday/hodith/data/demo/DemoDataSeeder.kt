@@ -20,6 +20,17 @@ private const val NOTE_CHANCE_PERCENT = 45
 private const val TAG_CHANCE_PERCENT = 50
 private const val MAX_TAGS_PER_EVENT = 2
 
+// Big enough that it reliably pushes the dot timeline's default 35-day window past its
+// TIMELINE_MAX_DOTS cap (see domain/InsightsEngine.kt), so at least one demo Case exercises the
+// window-shrink behaviour instead of every seeded Case landing comfortably under it.
+private const val RECENT_SURGE_DAYS = 12
+private const val RECENT_SURGE_PER_DAY = 3
+
+// Comfortably longer than any density's maxGapDays, so the silence this produces is guaranteed
+// to exceed every gap in the Case's own history — the only way to deterministically exercise the
+// dot timeline's "longest stretch since it started" gap note instead of the plain one.
+private const val QUIET_SPELL_DAYS = 60L
+
 private enum class SeedDensity { SPARSE, BURSTY, DENSE }
 
 private data class CaseSeed(
@@ -30,12 +41,16 @@ private data class CaseSeed(
     val density: SeedDensity,
     val notes: List<String>,
     val tags: List<String>,
+    val recentSurge: Boolean = false,
+    val quietSpell: Boolean = false,
 )
 
-// Deliberately varied on every axis Big Picture needs to exercise: duration mode, intensity,
-// and event density (dense/bursty/sparse) spread across several months. Notes and tags are
-// populated on only some events (not all, not none) so Case Detail's empty states and the log
-// sheet's tag autocomplete both have real data to exercise.
+// Deliberately varied on every axis Big Picture and Case Detail's Insights tab need to exercise:
+// duration mode, intensity, event density (dense/bursty/sparse) spread across several months, a
+// recent logging surge dense enough to shrink the dot timeline's window, and a quiet spell long
+// enough to set a new "longest stretch since it started" record. Notes and tags are populated on
+// only some events (not all, not none) so Case Detail's empty states and the log sheet's tag
+// autocomplete both have real data to exercise.
 private val CASE_SEEDS =
     listOf(
         CaseSeed(
@@ -46,6 +61,7 @@ private val CASE_SEEDS =
             density = SeedDensity.DENSE,
             notes = listOf("Perfectly balanced", "A bit weak", "Extra hot", "Oat milk today", "Burnt beans again"),
             tags = listOf("home", "cafe", "oat-milk", "decaf"),
+            recentSurge = true,
         ),
         CaseSeed(
             name = "Migraine",
@@ -64,6 +80,7 @@ private val CASE_SEEDS =
             density = SeedDensity.SPARSE,
             notes = listOf("Found them in the fridge", "Under the couch again", "Left at the office", "In yesterday's jacket"),
             tags = listOf("morning-rush", "found-fast", "still-missing"),
+            quietSpell = true,
         ),
         CaseSeed(
             name = "Argument",
@@ -129,7 +146,10 @@ class DemoDataSeeder
                     )
 
                 val random = Random(SEED_RANDOM_SEED + index)
-                occurrencesFor(caseSeed.density, spanStart, now, random).forEach { occurredAt ->
+                val occurrenceSpanEnd = if (caseSeed.quietSpell) now - QUIET_SPELL_DAYS * DAY_MILLIS else now
+                val occurrences = occurrencesFor(caseSeed.density, spanStart, occurrenceSpanEnd, random)
+                val withSurge = if (caseSeed.recentSurge) occurrences + recentSurgeOccurrences(now, random) else occurrences
+                withSurge.sorted().forEach { occurredAt ->
                     val eventId =
                         repository.insertEvent(
                             EventEntity(
@@ -194,6 +214,16 @@ private fun burstyOccurrences(
     }
     return occurrences.sorted()
 }
+
+/** [RECENT_SURGE_DAYS] × [RECENT_SURGE_PER_DAY] events packed into the days immediately before [now]. */
+private fun recentSurgeOccurrences(
+    now: Long,
+    random: Random,
+): List<Long> =
+    (0 until RECENT_SURGE_DAYS).flatMap { daysAgo ->
+        val dayStart = now - (daysAgo + 1) * DAY_MILLIS
+        List(RECENT_SURGE_PER_DAY) { dayStart + random.nextLong(DAY_MILLIS) }
+    }
 
 private fun endedAtFor(
     durationMode: DurationMode,

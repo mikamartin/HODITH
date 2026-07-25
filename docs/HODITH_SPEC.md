@@ -182,7 +182,7 @@ The same dot-on-a-time-axis rendering, one Case, full width, at the top of the c
 
 ### Per-case: calendar heatmap (secondary)
 
-A year-in-pixels month grid — each day a cell, shaded by event count that day. Cozier, good for "what did this month look like". Sits below the dot timeline on the Insights tab.
+A year-in-pixels month grid — each day a cell, shaded by event count that day. Cozier, good for "what did this month look like". Sits below the dot timeline on the Insights tab. Shows the three most recent months by default, most-recent-first, with an option to reveal the Case's full history.
 
 ## 10. Stats (descriptive)
 

@@ -73,6 +73,7 @@ import com.secondmonday.hodith.viewmodel.formatExpectedFrequency
 import com.secondmonday.hodith.viewmodel.formatRate
 import com.secondmonday.hodith.viewmodel.hunchProgressFraction
 import com.secondmonday.hodith.viewmodel.hunchTabState
+import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.isStaleOngoing
 import com.secondmonday.hodith.viewmodel.monthsAgo
 import com.secondmonday.hodith.viewmodel.ongoingEventIn
@@ -194,7 +195,11 @@ fun CaseDetailScreen(
                             editRequest = EditRequest(event = eventWithTags.event, originalTags = eventWithTags.tags, now = now)
                         },
                     )
-                INSIGHTS_TAB -> InsightsTabContent(voice)
+                INSIGHTS_TAB ->
+                    if (case != null) {
+                        val events = uiState.events.map { it.event }
+                        InsightsTabContent(state = insightsTabState(case, events, now), voice = voice)
+                    }
                 HUNCH_TAB ->
                     if (case != null) {
                         HunchTabContent(
@@ -306,14 +311,6 @@ private fun LogTabContent(
                 }
             }
         }
-    }
-}
-
-/** Phase 6 ships only the shared placeholder here; spec §9–10's real visuals land in Phase 7. */
-@Composable
-private fun InsightsTabContent(voice: Voice) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(voice.comingSoonPlaceholder)
     }
 }
 
