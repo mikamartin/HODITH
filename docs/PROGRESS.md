@@ -4,7 +4,7 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases. **Big Picture** shows every active Case's icons on a scrollable multi-month calendar grid, with day/week detail views and a per-case filter; day cells carry a bespoke treatment per theme (Intense's tab-stripe, Bright's shadowed sticker cells; Plain is the generic baseline). **Case Detail** now has a Log/Insights/Hunch tab structure: Log is the event list unchanged, Insights is a Phase-6 placeholder, and Hunch carries the full spec §7 flow — a nudge card after 5 events on a hunch-less Case, Hunch creation, early-days/verdict cards driven by the pure verdict engine, resolve, and hunch history. **Settings** has a Theme picker (Plain/Intense/Bright) that drives the `Voice` layer and full palette/type/shape skin app-wide with a live preview, plus "Load demo data" / "Delete all data" actions.
+**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases. **Big Picture** shows every active Case's icons on a scrollable multi-month calendar grid, with day/week detail views and a per-case filter; day cells carry a bespoke treatment per theme (Intense's tab-stripe, Bright's shadowed sticker cells; Plain is the generic baseline). **Case Detail** now has a Log/Insights/Hunch tab structure: Log is the event list unchanged, Insights has spec §9's dot timeline and calendar heatmap (§10's stats still pending), and Hunch carries the full spec §7 flow — a nudge card after 5 events on a hunch-less Case, Hunch creation, early-days/verdict cards driven by the pure verdict engine, resolve, and hunch history. **Settings** has a Theme picker (Plain/Intense/Bright) that drives the `Voice` layer and full palette/type/shape skin app-wide with a live preview, plus "Load demo data" / "Delete all data" actions.
 
 ## Housekeeping
 
@@ -45,11 +45,9 @@ Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pic
     1. [x] `feature/verdict-engine` — spec §8's pure verdict engine (`domain/Verdict.kt`, `domain/VerdictEngine.kt`): observation window, confidence tiers, comparison bands. No UI; direction-aware rendering is branch 2's job.
     2. [x] `feature/hunch-flow` — nudge card, Hunch creation, verdict/early-days cards, resolve + history, the Log/Insights/Hunch tab structure itself, and every new Voice key across all three voices.
 - [ ] **Phase 7** — Per-case visuals + stats (spec §9–10), filling in Case Detail's Insights tab. Layout validated in the same prototype above — toggle "Phase 7 preview" on its Insights tab.
-  - [ ] Dot timeline — primary visualization, full width at the top of Insights; bursts/droughts/rhythm visible before a number is read, current gap annotated (e.g. "11 days quiet").
-  - [ ] Calendar heatmap — secondary, sits below the dot timeline; year-in-pixels month grid, shaded by event count per day.
-  - [ ] Stats: frequency over time (granularity auto-picked from data density), rhythm heatmap (day-of-week × time-of-day), gaps & clusters (longest/current/average gap, "tends to come in bursts" flag), trend arrow (last 30 days vs. previous 30, hidden below 8 weeks of data).
-  - [ ] Duration stats (only when `durationMode != NONE`) and Intensity stats (only when intensity tracking is on) — conditional sections, not always shown.
-  - [ ] Tag breakdown — counts per tag.
+  - **Branches, in dependency order:**
+    1. [x] `feature/case-insights-visuals` — spec §9's visuals: dot timeline (primary, full-width, current-gap annotation) and calendar heatmap (secondary, multi-month, per-case relative shading). `domain/InsightsEngine.kt` for the pure window/gap/shading logic; `weeksInGrid` promoted to `domain/CalendarGrid.kt` to share with Big Picture.
+    2. [ ] Stats (spec §10) — frequency over time, rhythm heatmap, gaps & clusters, trend arrow, conditional duration/intensity stats, tag breakdown.
 - [ ] **Phase 8** — Widgets.
 - [ ] **Phase 9** — Triggers + check-ins (WorkManager, notifications).
 - [ ] **Phase 10** — Share cards, export/import, Settings polish (check-in default, About).

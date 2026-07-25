@@ -15,6 +15,75 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/case-insights-visuals (Phase 7, branch 1 of 2)
+
+**Scope:** Spec §9's visuals half of Case Detail's Insights tab, replacing the Phase-6 placeholder —
+a full-width dot timeline (primary, current-gap annotation) and a per-case calendar heatmap
+(secondary, multi-month). New: `domain/Insights.kt` + `domain/InsightsEngine.kt` (pure
+`computeTimelineWindow`, `computeGapStats`, `groupEventsByDay`, `heatmapLevelFor`, mirroring
+`VerdictEngine.kt`'s constants-plus-pure-functions pattern); `domain/CalendarGrid.kt` (`weeksInGrid`
+promoted out of `ui/bigpicture/BigPictureGrid.kt` so both features share one Monday-start grid
+generator); `viewmodel/InsightsTabState.kt` (`insightsTabState`, mirroring `HunchTabState.kt`'s
+pure-mapping style); `ui/casedetail/InsightsTab.kt` (new file, `CaseDetailScreen.kt` was already
+500+ lines). Two rounds of user-driven UX refinement on top of the initial build: (1) the calendar
+heatmap now shows 3 months by default with a themed "show more/fewer" toggle, and cells carry their
+day-of-month number for readability and as a real accessibility improvement (color is no longer the
+only way to read a cell); (2) the dot timeline collapses same-day events into one dot shaded by the
+same 4-level scale as the heatmap, instead of drawing overlapping dots, so "darker" means the same
+magnitude in both visuals. `DemoDataSeeder.kt` also gained a deliberate recent logging surge (Coffee)
+and a deliberate quiet spell (Lost my keys) after checking the existing seed data against the new
+logic found neither the timeline's window-shrink nor its "longest stretch since it started" gap note
+was ever exercised by any of the six seeded Cases.
+**Found & fixed:**
+- **Duplication:** `DotTimelineCard` and `CalendarHeatmapCard` each opened with the identical
+  `Card(fillMaxWidth) { Column(padding(16.dp), spacedBy) }` shell — the same shape
+  `feature/hunch-flow`'s own cleanup pass already named and fixed once for the Hunch tab's cards,
+  now reappearing in a new file since `CaseDetailScreen.kt`'s private `HunchCard` isn't visible
+  outside that file. Extracted a matching private `InsightsCard(content)` wrapper in
+  `InsightsTab.kt`; both cards now build on it.
+- **Stale-comment risk:** `DemoDataSeeder.kt`'s surge-sizing comment restated `TIMELINE_MAX_DOTS`'s
+  current value ("cap (24 — see domain/InsightsEngine.kt)") inline — exactly the self-updating-tally
+  pattern this checklist's Dead Code & Hygiene section warns about. If the constant ever changes,
+  the comment would silently go stale. Removed the restated number, kept the pointer to the
+  authoritative constant.
+- **Test gap:** the two new `DemoDataSeeder` behaviours (`recentSurge`, `quietSpell`) existed only
+  to guarantee two specific downstream states, verified only via a throwaway probe test deleted
+  after use — no permanent regression coverage. Added two cases to the existing
+  `DemoDataSeederTest.kt`: Coffee's recent window clears `TIMELINE_MAX_DOTS`, and Lost my keys'
+  current gap exceeds SPARSE's own `maxGapDays`, so a future change to either seed can't silently
+  stop exercising the states they exist for.
+**Considered, not changed:**
+- The dot timeline's axis captions ("5 weeks ago" / "Today") and the heatmap's weekday letters,
+  month labels, and day numbers stay outside the `Voice` layer — matching `feature/big-picture`'s
+  own precedent for exactly this call ("calendar/data-visualization chrome... not
+  personality-flavored narrative copy"), and avoiding a real layout risk: these are tight,
+  fixed-width captions in the mockup-validated layout, and Intense/Bright's usual phrasing is
+  often longer than Plain's (e.g. "the coldest the trail has ever run" vs. "the longest stretch
+  since it started"), which the gap note has room for but a two-word axis label doesn't.
+- `CalendarHeatmapCard`'s `expanded` toggle uses plain `remember`, not `rememberSaveable` — won't
+  survive rotation/process death. Same reasoning `feature/big-picture`'s entry already gave for its
+  own transient UI state (`selectedDay`/`showMonthPicker`/etc.): not a big form investment, accepted
+  for now.
+- `TESTING.md`'s "Stats & visual data prep" planned-coverage row already named "calendar heatmap
+  day-bucketing" and "gap calculations" — both now covered (`InsightsEngineTest`,
+  `InsightsTabStateTest`) — but per this file's standing-reference convention (rows describe ground
+  a layer is meant to cover and aren't pruned once satisfied — the Verdict engine row reads the same
+  today as before Phase 6 shipped it), no edit made. Same call `feature/verdict-engine`'s entry made
+  for a same-shaped partial-row match.
+**Deferred:**
+- The dot timeline's per-dot shading is still color-only, with no textual readout of that day's
+  count — the heatmap gained day numbers this pass, but a dot is a fixed 8dp circle with no room for
+  a number, and neither dots nor heatmap cells are tappable in this branch (a scope call made with
+  the user before building), so there's no tap target to hang a content description on either.
+  Matches how Big Picture's own day-cell icons and "+N" badge also aren't individually
+  screen-reader-described beyond the cell's own tap semantics. Revisit alongside making either
+  visual tappable, which is the more natural place to add a real per-day/per-dot description.
+**Docs updated:** PROGRESS.md (Phase 7 restructured into the two-branch format, branch 1 checked
+off; current-status line). HODITH_SPEC.md §9 (calendar heatmap paragraph — the 3-month default +
+expand behaviour, previously undocumented since it postdates the original spec text). This file.
+
+---
+
 ## feature/hunch-flow (Phase 6, branch 2 of 2)
 
 **Scope:** Spec §7's Hunch flow on top of the merged verdict engine — nudge card, Hunch creation
