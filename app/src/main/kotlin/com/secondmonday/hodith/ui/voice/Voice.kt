@@ -137,6 +137,21 @@ interface Voice {
     val caseDetailLogTabLabel: String
     val caseDetailInsightsTabLabel: String
     val caseDetailHunchTabLabel: String
+    val insightsNotEnoughDataMessage: String
+    val insightsSectionLabelTimeline: String get() = "Dot timeline"
+    val insightsSectionLabelHeatmap: String get() = "Calendar heatmap"
+
+    /** Spec §9's "current gap annotated" rule, plain phrasing: no record-breaking claim. */
+    fun insightsGapNoteCurrent(days: Long): String
+
+    /** As [insightsGapNoteCurrent], but the current gap ties or beats every past gap for this Case. */
+    fun insightsGapNoteLongest(days: Long): String
+
+    /** Reveals months beyond the heatmap's default 3-month preview. */
+    val insightsHeatmapShowMoreAction: String
+
+    /** Collapses the heatmap back to its default 3-month preview. */
+    val insightsHeatmapShowFewerAction: String
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -365,6 +380,15 @@ object PlainVoice : Voice {
     override val hunchExpectedPerDay = "Day"
     override val hunchExpectedPerWeek = "Week"
     override val hunchExpectedPerMonth = "Month"
+    override val insightsNotEnoughDataMessage = "Not enough data yet."
+
+    override fun insightsGapNoteCurrent(days: Long) = "$days days quiet right now."
+
+    override fun insightsGapNoteLongest(days: Long) = "$days days quiet right now — the longest stretch since it started."
+
+    override val insightsHeatmapShowMoreAction = "Show more months"
+    override val insightsHeatmapShowFewerAction = "Show fewer months"
+
     override val caseDetailLogTabLabel = "Log"
     override val caseDetailInsightsTabLabel = "Insights"
     override val caseDetailHunchTabLabel = "Hunch"
@@ -624,6 +648,15 @@ object IntenseVoice : Voice {
     override val hunchExpectedPerDay = "Day"
     override val hunchExpectedPerWeek = "Week"
     override val hunchExpectedPerMonth = "Month"
+    override val insightsNotEnoughDataMessage = "The file is too thin to read yet."
+
+    override fun insightsGapNoteCurrent(days: Long) = "$days days of silence. The trail has gone cold — for now."
+
+    override fun insightsGapNoteLongest(days: Long) = "$days days of silence — the coldest the trail has ever run."
+
+    override val insightsHeatmapShowMoreAction = "Unseal the older files"
+    override val insightsHeatmapShowFewerAction = "Reseal them"
+
     override val caseDetailLogTabLabel = "Log"
     override val caseDetailInsightsTabLabel = "Insights"
     override val caseDetailHunchTabLabel = "Hunch"
@@ -878,6 +911,15 @@ object BrightVoice : Voice {
     override val hunchExpectedPerDay = "Day"
     override val hunchExpectedPerWeek = "Week"
     override val hunchExpectedPerMonth = "Month"
+    override val insightsNotEnoughDataMessage = "Give it a little more time — the pattern's not ready yet!"
+
+    override fun insightsGapNoteCurrent(days: Long) = "$days days of quiet! Suspicious… or just a slow patch?"
+
+    override fun insightsGapNoteLongest(days: Long) = "$days days of quiet — the longest it's EVER gone!"
+
+    override val insightsHeatmapShowMoreAction = "Show me more!"
+    override val insightsHeatmapShowFewerAction = "Okay, tuck it back away"
+
     override val caseDetailLogTabLabel = "Log"
     override val caseDetailInsightsTabLabel = "Insights"
     override val caseDetailHunchTabLabel = "Hunch"
