@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
+import com.secondmonday.hodith.data.HunchDirection
+import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.ui.voice.Voice
@@ -20,6 +23,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 import javax.inject.Inject
 
@@ -27,6 +31,8 @@ data class CaseDetailUiState(
     val case: CaseEntity? = null,
     val events: List<EventWithTags> = emptyList(),
     val tagSuggestions: List<TagEntity> = emptyList(),
+    val activeHunch: HunchEntity? = null,
+    val hunchHistory: List<HunchEntity> = emptyList(),
     val isLoading: Boolean = true,
 )
 
@@ -47,8 +53,17 @@ class CaseDetailViewModel
                 repository.observeCase(caseId),
                 repository.observeEventsWithTagsForCase(caseId),
                 repository.observeTagsForCase(caseId),
-            ) { case, events, tagSuggestions ->
-                CaseDetailUiState(case = case, events = events, tagSuggestions = tagSuggestions, isLoading = false)
+                repository.observeActiveHunch(caseId),
+                repository.observeHunchHistory(caseId),
+            ) { case, events, tagSuggestions, activeHunch, hunchHistory ->
+                CaseDetailUiState(
+                    case = case,
+                    events = events,
+                    tagSuggestions = tagSuggestions,
+                    activeHunch = activeHunch,
+                    hunchHistory = hunchHistory,
+                    isLoading = false,
+                )
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
@@ -91,6 +106,34 @@ class CaseDetailViewModel
                 plan.tagDiff.toRemove.forEach { repository.removeTagFromEvent(eventId, it.id) }
             }
         }
+
+        fun addHunch(
+            direction: HunchDirection,
+            expectedCount: Int,
+            expectedPer: ExpectedPer,
+        ) {
+            viewModelScope.launch {
+                repository.insertHunch(
+                    HunchEntity(
+                        caseId = caseId,
+                        direction = direction,
+                        expectedCount = expectedCount,
+                        expectedPer = expectedPer,
+                        createdAt = clock.nowMillis(),
+                        resolvedAt = null,
+                    ),
+                )
+            }
+        }
+
+        fun resolveHunch(hunch: HunchEntity) {
+            viewModelScope.launch { repository.updateHunch(hunch.copy(resolvedAt = clock.nowMillis())) }
+        }
+
+        fun dismissHunchNudge() {
+            val case = uiState.value.case ?: return
+            viewModelScope.launch { repository.updateCase(case.copy(hunchNudgeDismissed = true)) }
+        }
     }
 
 private val EVENT_TIME_WITH_YEAR_FORMATTER = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a, EEE", Locale.US)
@@ -128,6 +171,55 @@ internal fun formatEventTimeOfDay(
     occurredAt: Long,
     zone: ZoneId = ZoneId.systemDefault(),
 ): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(EVENT_TIME_ONLY_FORMATTER)
+
+/**
+ * Renders a verdict rate as "2.6×/week" — shared by the hunch chip, verdict headline, and
+ * history rows so the number always reads the same way everywhere it appears (spec §8).
+ */
+internal fun formatRate(
+    rate: Double,
+    per: ExpectedPer,
+): String {
+    val perLabel =
+        when (per) {
+            ExpectedPer.DAY -> "day"
+            ExpectedPer.WEEK -> "week"
+            ExpectedPer.MONTH -> "month"
+        }
+    return String.format(Locale.US, "%.1f×/%s", rate, perLabel)
+}
+
+/**
+ * Renders a Hunch's stated expectation as "~5×/week" — the whole-number counterpart of
+ * [formatRate], used wherever the Hunch itself (not an observed rate) is quoted back.
+ */
+internal fun formatExpectedFrequency(
+    expectedCount: Int,
+    expectedPer: ExpectedPer,
+): String {
+    val perLabel =
+        when (expectedPer) {
+            ExpectedPer.DAY -> "day"
+            ExpectedPer.WEEK -> "week"
+            ExpectedPer.MONTH -> "month"
+        }
+    return "~$expectedCount×/$perLabel"
+}
+
+/**
+ * Whole months between [pastMillis] and [nowMillis] in the device zone, for the hunch history
+ * list's "N months ago" rows. Calendar-month-aware (via [java.time.temporal.ChronoUnit.MONTHS]),
+ * not a fixed 30-day division, so it doesn't drift against actual month boundaries.
+ */
+internal fun monthsAgo(
+    pastMillis: Long,
+    nowMillis: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): Long {
+    val past = Instant.ofEpochMilli(pastMillis).atZone(zone)
+    val now = Instant.ofEpochMilli(nowMillis).atZone(zone)
+    return ChronoUnit.MONTHS.between(past, now)
+}
 
 /**
  * Pure mapping of an event's optional fields (plus its tags) into its detail line, split out

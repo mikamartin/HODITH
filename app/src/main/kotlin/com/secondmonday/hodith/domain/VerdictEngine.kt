@@ -13,6 +13,9 @@ internal const val PRELIMINARY_MIN_DAYS = 14L
 internal const val CONFIDENT_MIN_EVENTS = 15
 internal const val CONFIDENT_MIN_DAYS = 28L
 
+/** Spec §7: the nudge card offers a Hunch after this many logged events on a hunch-less Case. */
+internal const val HUNCH_NUDGE_EVENT_THRESHOLD = 5
+
 /**
  * Spec §8 comparison-band cutoffs (observed ÷ expected): `<0.5` much less, `0.5–0.8` less,
  * `0.8–1.25` about right, `1.25–2.0` more, `>2.0` much more. Each boundary value itself belongs
