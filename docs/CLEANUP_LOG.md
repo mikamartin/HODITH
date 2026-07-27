@@ -15,6 +15,65 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## test/case-detail-insights-tab
+
+**Scope:** Closed a PROGRESS.md Housekeeping gap: no instrumented Compose UI coverage for Case
+Detail's Insights tab. Added `CaseDetailInsightsTabTest.kt` (11 tests) driving `CaseDetailScreen`'s
+Insights tab directly, covering the not-enough-data placeholder, all seven stat cards'
+presence/absence gating (trend's 8-week boundary, duration/intensity gated on the Case's config
+rather than on data presence, tag breakdown), and the two interactive toggles (frequency
+granularity, heatmap "show more months"). Extended the previously DAO-test-only `testEvent()`
+fixture in `data/TestFixtures.kt` with an optional `id` param, since UI tests build in-memory lists
+directly rather than inserting through Room (which normally assigns ids on insert).
+
+**Found & fixed:**
+- **Real crash, not caught until run on-device:** every fixture event defaulted to `id = 0` (via
+  `testEvent()`, which never exposed an `id` param since DAO tests always insert through Room and
+  let it assign one). The Log tab's `LazyColumn` keys items by event id, so any test with more than
+  one event crashed with `IllegalArgumentException: Key "0" was already used` on the very first
+  composition, before the test even reached the Insights tab. Fixed by adding an `id` param to
+  `testEvent()` and assigning each fixture a distinct one.
+- **Interaction failures from unscrolled targets:** the frequency granularity toggle and the
+  heatmap's "show more months" button both sit far enough down the Insights tab's scrollable column
+  that `performClick()` alone missed them — no exception, the click just landed on nothing, so the
+  state never changed and the follow-up assertion failed instead. Fixed with `.performScrollTo()`
+  before each click.
+- **Naming consistency:** the new file/class was initially named `CaseDetailInsightsTest`, but it
+  drives the same `CaseDetailScreen` composable `CaseDetailScreenTest` already exercises for the
+  Log/Hunch tabs — the name read as if a separate "CaseDetailInsights" screen existed. Renamed to
+  `CaseDetailInsightsTabTest`.
+- **Stale doc-comment risk:** the class KDoc originally quoted PROGRESS.md's housekeeping bullet
+  verbatim ("closes the Housekeeping gap PROGRESS.md named: ..."), which would have gone stale the
+  moment that bullet was rewritten/removed in this same session. Reworded to describe the test's
+  own scope instead of pointing at a list entry that will keep changing.
+- **Readability:** `heatmapShowMore_revealsMonthsBeyondTheDefaultThreeMonthWindow` built its
+  expected month label from three separate `today.minusMonths(4)` calls, awkwardly line-wrapped by
+  ktlint. Extracted a single `earliestMonth` val and a `monthYearLabel()` helper mirroring
+  `InsightsTab.kt`'s private formatting.
+- **TESTING.md gap:** the instrumented-coverage table had no row for Case Detail's Insights tab —
+  the exact gap this branch closes. Added one.
+
+**Deferred:**
+- The other five Compose UI instrumented test files (`CaseDetailScreenTest`, `BigPictureScreenTest`,
+  `HomeScreenTest`, `SettingsScreenTest`, `ArchivedCasesScreenTest`, `CaseEditScreenTest`) still
+  hand-roll their own `CaseEntity`/`EventEntity` construction instead of the shared
+  `testCase()`/`testEvent()` builders this branch adopted — each screen's local fixture varies
+  enough (different `logFlow`/`durationMode`/`intensityEnabled` combos) that converting them now
+  wouldn't remove much duplication, and touching five passing, unrelated test files wasn't this
+  branch's job. Logged as its own PROGRESS.md Housekeeping item.
+- Boundary values (2-event minimum, 56-day trend span, 3-month heatmap default) are restated as
+  local test constants rather than imported from `domain/InsightsEngine.kt`/`StatsEngine.kt`,
+  because those constants are `internal` and this module's Gradle config gives `androidTest` no
+  friend-path visibility into `main`'s `internal` declarations (confirmed no existing instrumented
+  test does this either). Matches the precedent `CaseDetailScreenTest` already set with its own
+  hardcoded 24h stale-event threshold — adding friend-paths for this alone would be a build-config
+  change disproportionate to the value.
+
+**Docs updated:** TESTING.md (new instrumented-coverage row); PROGRESS.md (Housekeeping: removed
+the now-resolved Insights-coverage item, added the deferred fixture-duplication item).
+
+---
+
 ## feature/case-stats (Phase 7, branch 2 of 2)
 
 **Scope:** Spec §10's seven stat sections, filling in the rest of Case Detail's Insights tab on top
