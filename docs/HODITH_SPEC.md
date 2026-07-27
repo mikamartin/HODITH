@@ -194,7 +194,7 @@ On the case detail Insights tab, below the visuals:
 - **Trend arrow** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise hidden)
 - **Duration stats** (if durationMode ≠ NONE) — average, longest, total time
 - **Intensity stats** (if enabled) — average, distribution mini-bars
-- **Tag breakdown** — counts per tag
+- **Tag breakdown** — counts per tag, shown against the Case's total event count so an individual tag's count reads in proportion rather than in isolation
 
 ## 11. Triggers, check-ins & notifications
 

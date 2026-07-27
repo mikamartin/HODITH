@@ -3,6 +3,8 @@ package com.secondmonday.hodith.ui.voice
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
+import com.secondmonday.hodith.domain.FrequencyGranularity
+import com.secondmonday.hodith.domain.TrendDirection
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -64,6 +66,7 @@ class VoiceTest {
             assertTrue(voice.archivedCasesTitle.isNotBlank())
             assertTrue(voice.archivedCasesEmptyState.isNotBlank())
             assertTrue(voice.eventListEmptyState.isNotBlank())
+            assertTrue(voice.logSummaryLine(eventCount = 42, observedDays = 96).isNotBlank())
             assertTrue(voice.deleteEventConfirmTitle.isNotBlank())
             assertTrue(voice.deleteEventConfirmBody.isNotBlank())
             assertTrue(voice.deleteEventConfirmAction.isNotBlank())
@@ -149,6 +152,38 @@ class VoiceTest {
             assertTrue(voice.insightsGapNoteLongest(days = 11).isNotBlank())
             assertTrue(voice.insightsHeatmapShowMoreAction.isNotBlank())
             assertTrue(voice.insightsHeatmapShowFewerAction.isNotBlank())
+            assertTrue(voice.insightsSectionLabelFrequency.isNotBlank())
+            assertTrue(voice.insightsSectionLabelRhythm.isNotBlank())
+            assertTrue(voice.insightsSectionLabelGaps.isNotBlank())
+            assertTrue(voice.insightsSectionLabelTrend.isNotBlank())
+            assertTrue(voice.insightsSectionLabelDuration.isNotBlank())
+            assertTrue(voice.insightsSectionLabelIntensity.isNotBlank())
+            assertTrue(voice.insightsSectionLabelTags.isNotBlank())
+            assertTrue(voice.insightsTagsTotalLabel.isNotBlank())
+            assertTrue(voice.insightsGapsLongestLabel.isNotBlank())
+            assertTrue(voice.insightsGapsCurrentLabel.isNotBlank())
+            assertTrue(voice.insightsGapsAverageLabel.isNotBlank())
+            assertTrue(voice.insightsBurstFlagLabel.isNotBlank())
+            assertTrue(voice.insightsDurationAverageLabel.isNotBlank())
+            assertTrue(voice.insightsDurationLongestLabel.isNotBlank())
+            assertTrue(voice.insightsDurationTotalLabel.isNotBlank())
+            assertTrue(voice.insightsIntensityAverageLabel.isNotBlank())
+            assertTrue(voice.insightsFrequencyGranularityDay.isNotBlank())
+            assertTrue(voice.insightsFrequencyGranularityWeek.isNotBlank())
+            assertTrue(voice.insightsFrequencyGranularityMonth.isNotBlank())
+            assertTrue(voice.insightsTimeOfDayMorning.isNotBlank())
+            assertTrue(voice.insightsTimeOfDayAfternoon.isNotBlank())
+            assertTrue(voice.insightsTimeOfDayEvening.isNotBlank())
+            assertTrue(voice.insightsTimeOfDayNight.isNotBlank())
+            assertTrue(voice.insightsFrequencyInfoTitle.isNotBlank())
+
+            for (granularity in FrequencyGranularity.entries) {
+                assertTrue(voice.insightsFrequencyInfoBody(granularity).isNotBlank())
+            }
+
+            for (direction in TrendDirection.entries) {
+                assertTrue(voice.insightsTrendSentence(direction, recentCount = 12, priorCount = 18).isNotBlank())
+            }
             assertTrue(voice.hunchNudgeBody(caseIcon = "🐛", caseName = "Test Case").isNotBlank())
             assertTrue(voice.hunchProgressLabel(eventCount = 3, windowDays = 9).isNotBlank())
             assertTrue(voice.hunchHistorySummary(total = 3, heldUpCount = 1).isNotBlank())

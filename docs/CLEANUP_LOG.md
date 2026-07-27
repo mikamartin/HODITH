@@ -15,6 +15,83 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/case-stats (Phase 7, branch 2 of 2)
+
+**Scope:** Spec §10's seven stat sections, filling in the rest of Case Detail's Insights tab on top
+of branch 1's dot timeline/heatmap: frequency over time (auto-picked granularity + a user-overridable
+Day/Week/Month toggle), rhythm heatmap, gaps & clusters (extends `GapStats` with average gap and a
+"tends to come in bursts" flag), trend arrow (30-day rolling comparison, hidden below 8 weeks of
+history), conditional duration/intensity stats, and tag breakdown. New `domain/Stats.kt` +
+`domain/StatsEngine.kt` (pure, mirroring `InsightsEngine.kt`'s constants-plus-functions pattern);
+`viewmodel/InsightsTabState.kt` extended with `StatsSections` and its per-card display models;
+`ui/casedetail/InsightsTab.kt` grew seven new card composables. Also added a Log tab summary line
+(total events, observation span) reusing `observationSpanDays`, and extracted Case Edit's private
+`SectionWithInfo` into a shared `ui/common/SectionWithInfo.kt` component to reuse its info-icon
+pattern for the frequency chart's explanation dialog. Several rounds of user-driven fixes and
+refinement on top of the initial build: the frequency chart's per-bucket count labels moved from a
+separate row above the bars (visual clutter, especially with zero-count buckets) to sitting directly
+above each bar's own top edge; the intensity distribution was rewritten from bars to shaded squares
+after a real bug surfaced (see below); and the heatmap/rhythm/intensity shading scale grew from 4 to
+10 tiers for finer color distinction once a user noticed adjacent-but-different counts rendering
+identically.
+**Found & fixed:**
+- **Real rendering bug, found by the user on-device, not caught by any test:** the intensity
+  distribution's bar `Box` never got a `.fillMaxWidth()` and had no content of its own — an empty
+  `Box` with no width modifier measures to zero width, so every bar was invisible regardless of its
+  data; only the "1 2 3 4 5" axis labels beneath them ever rendered. Compounding it, the bars also
+  used `Modifier.weight(1f).fillMaxHeight(fraction)`, which doesn't work the way it looks:
+  `weight()` gives the child a *tight* height constraint (min = max), and `fillMaxHeight(fraction)`
+  can't shrink below that floor, so even with width fixed all five bars would have rendered at the
+  same full height instead of scaling to the data. Root cause explained to the user as pure
+  Compose-layout logic (not JVM-unit-testable — no instrumented Compose test covers Case Detail's
+  Insights tab yet, a pre-existing gap this branch doesn't close either). Fixed by rewriting the
+  section as a row of five shaded squares reusing the calendar heatmap's `HeatmapLevel` scale
+  instead of bars — sidesteps the whole bar-height class of bug rather than just patching this one
+  instance.
+- **Duplication:** `InsightsTab.kt`'s new `DurationCard` reimplemented the exact same
+  minutes-to-"Xh Ym"/"Xd Yh" bucketing already in `viewmodel/OngoingEvent.kt`'s
+  `formatElapsedDuration` (used by the ongoing-event indicator). Extracted the shared bucketing into
+  a new `formatMinutesDuration(totalMinutes: Long)`, called by both.
+- **Inconsistent/semantically wrong color:** the Gaps & clusters card's "tends to come in bursts"
+  badge used `MaterialTheme.colorScheme.error` — every other badge in this screen (Hunch tab's
+  "Early days"/tier badges) uses `colorScheme.primary`, and per spec §4's observation-not-judgement
+  stance, a bursty pattern isn't an error condition to warn about. Switched to `primary` to match.
+- **Magic number duplicating a named domain constant:** `IntensityCard` hardcoded `(1..5)` for the
+  intensity scale instead of the `INTENSITY_MIN`/`INTENSITY_MAX` constants `StatsEngine.kt` already
+  names for exactly this range. Switched to the constants.
+- **Spec drift:** HODITH_SPEC.md §10's tag breakdown line just said "counts per tag," not mentioning
+  the total-event-count denominator added after a user request partway through the branch. Updated
+  the sentence to match what was actually built.
+**Considered, not changed:**
+- `InsightsTab.kt` is now 599 lines (up from ~250 after branch 1) — comparable to
+  `CaseDetailScreen.kt`'s own 537 lines, and organized into many small (<60-line) focused
+  composables rather than a few large ones, so no forced split into e.g. a separate `StatsTab.kt`.
+  The dot-timeline/heatmap vs. seven-stat-cards boundary would be a clean split point if this file
+  keeps growing, but wasn't done unilaterally as a pure size judgment call with no functional
+  motivation.
+- Rhythm grid cells convey their count by shading alone, no content description or visible number
+  (unlike the calendar heatmap's day-of-month numbers and the intensity squares' level numbers) —
+  the same color-only gap `feature/case-insights-visuals`'s entry already flagged and deferred for
+  the dot timeline, for the same reason: the cells aren't tappable, so there's no natural place to
+  hang a description without inventing new interaction (and doing it properly would mean new `Voice`
+  surface for something nobody asked for). Revisit alongside making the grid tappable.
+- `MILLIS_PER_MINUTE`/`MILLIS_PER_DAY` are now redeclared as file-private constants in four places
+  (`OngoingEvent.kt`, `LogDetailViewModel.kt`, `InsightsTabState.kt`, and this branch's
+  `StatsEngine.kt`) rather than one shared constant — matches a pattern that already existed across
+  three files before this branch touched any of them; not a new inconsistency this branch
+  introduced, and not worth a cross-cutting refactor of pre-existing files to fix as a side effect of
+  an unrelated feature branch.
+- No instrumented Compose UI test added for the Insights tab's new cards — this branch's own bug
+  (above) was found manually, on-device, by the user; TESTING.md's instrumented-coverage plan doesn't
+  name Case Detail's Insights tab yet, so this isn't a regression in existing coverage, but it is a
+  real gap for a screen with this much new pure-rendering logic. Flagged rather than silently
+  accepted; no emulator was available this session to add and run one.
+**Deferred:** nothing beyond the "Considered, not changed" items above.
+**Docs updated:** PROGRESS.md (Phase 7 fully checked off, branch 2 description, current-status line).
+HODITH_SPEC.md §10 (tag breakdown's total-count denominator). This file.
+
+---
+
 ## feature/case-insights-visuals (Phase 7, branch 1 of 2)
 
 **Scope:** Spec §9's visuals half of Case Detail's Insights tab, replacing the Phase-6 placeholder —

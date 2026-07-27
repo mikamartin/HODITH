@@ -110,6 +110,53 @@ class InsightsEngineTest {
         assertTrue(!result.isCurrentGapLongest)
     }
 
+    @Test
+    fun `computeGapStats averages the past gaps, excluding the current in-progress one`() {
+        // Past gaps: 2, 4, 6 days (average 4); current gap (day 12 to now, day 20) must not count.
+        val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(6), eventAtDay(12))
+
+        val result = computeGapStats(events, now = millisAtDay(20))
+
+        assertEquals(4.0, result.averageGapDays, 0.0001)
+    }
+
+    @Test
+    fun `computeGapStats reports zero average gap with fewer than two events`() {
+        val result = computeGapStats(listOf(eventAtDay(0)), now = millisAtDay(5))
+
+        assertEquals(0.0, result.averageGapDays, 0.0001)
+    }
+
+    @Test
+    fun `computeGapStats does not flag bursty with fewer than 3 past gaps even if uneven`() {
+        // Only 2 past gaps (1, 20) — below GAP_BURST_MIN_GAP_COUNT regardless of variance.
+        val events = listOf(eventAtDay(0), eventAtDay(1), eventAtDay(21))
+
+        val result = computeGapStats(events, now = millisAtDay(22))
+
+        assertTrue(!result.isBursty)
+    }
+
+    @Test
+    fun `computeGapStats flags bursty when past gaps have high coefficient of variation`() {
+        // Past gaps: 1, 1, 1, 30 — a long quiet stretch after a tight cluster.
+        val events = listOf(eventAtDay(0), eventAtDay(1), eventAtDay(2), eventAtDay(3), eventAtDay(33))
+
+        val result = computeGapStats(events, now = millisAtDay(35))
+
+        assertTrue(result.isBursty)
+    }
+
+    @Test
+    fun `computeGapStats does not flag bursty when past gaps are evenly spaced`() {
+        // Past gaps: 5, 5, 5, 5 — a steady rhythm, zero variance.
+        val events = listOf(eventAtDay(0), eventAtDay(5), eventAtDay(10), eventAtDay(15), eventAtDay(20))
+
+        val result = computeGapStats(events, now = millisAtDay(22))
+
+        assertTrue(!result.isBursty)
+    }
+
     // ---- groupEventsByDay ----
 
     @Test
@@ -146,10 +193,29 @@ class InsightsEngineTest {
     }
 
     @Test
-    fun `heatmapLevelFor buckets ratios into the four shaded tiers`() {
-        assertEquals(HeatmapLevel.L1, heatmapLevelFor(count = 1, maxCountInRange = 4))
-        assertEquals(HeatmapLevel.L2, heatmapLevelFor(count = 2, maxCountInRange = 4))
-        assertEquals(HeatmapLevel.L3, heatmapLevelFor(count = 3, maxCountInRange = 4))
-        assertEquals(HeatmapLevel.L4, heatmapLevelFor(count = 4, maxCountInRange = 4))
+    fun `heatmapLevelFor buckets ratios into all 10 shaded tiers`() {
+        assertEquals(HeatmapLevel.L1, heatmapLevelFor(count = 1, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L2, heatmapLevelFor(count = 2, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L3, heatmapLevelFor(count = 3, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L4, heatmapLevelFor(count = 4, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L5, heatmapLevelFor(count = 5, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L6, heatmapLevelFor(count = 6, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L7, heatmapLevelFor(count = 7, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L8, heatmapLevelFor(count = 8, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L9, heatmapLevelFor(count = 9, maxCountInRange = 10))
+        assertEquals(HeatmapLevel.L10, heatmapLevelFor(count = 10, maxCountInRange = 10))
+    }
+
+    @Test
+    fun `heatmapLevelFor always reaches the top tier at the busiest count, regardless of scale`() {
+        assertEquals(HeatmapLevel.L10, heatmapLevelFor(count = 4, maxCountInRange = 4))
+    }
+
+    @Test
+    fun `heatmapLevelFor rounds a ratio up to the next tier rather than down`() {
+        // 3 of 10 sits exactly on tier 3's boundary (30%) and stays there.
+        assertEquals(HeatmapLevel.L3, heatmapLevelFor(count = 3, maxCountInRange = 10))
+        // 1 of 3 is 33% -- just past tier 3's 30% boundary, so it rounds up into tier 4.
+        assertEquals(HeatmapLevel.L4, heatmapLevelFor(count = 1, maxCountInRange = 3))
     }
 }

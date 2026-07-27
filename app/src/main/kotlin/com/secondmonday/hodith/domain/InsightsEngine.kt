@@ -4,6 +4,8 @@ import com.secondmonday.hodith.data.EventEntity
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import kotlin.math.ceil
+import kotlin.math.sqrt
 
 /** Spec §9: below this many events, a Case's timeline/heatmap have no gap or pattern to show yet. */
 internal const val INSIGHTS_MIN_EVENTS = 2
@@ -17,10 +19,17 @@ internal const val TIMELINE_MAX_DOTS = 24
 /** Spec §9 dot timeline: the window never shrinks below this floor, even for very dense logging. */
 internal const val TIMELINE_MIN_WINDOW_DAYS = 1L
 
-/** Spec §10 heatmap: 4-level shading, bucketed by ratio to the Case's own busiest day in range. */
-internal const val HEATMAP_L1_MAX_RATIO = 0.25
-internal const val HEATMAP_L2_MAX_RATIO = 0.5
-internal const val HEATMAP_L3_MAX_RATIO = 0.75
+/** Spec §10 heatmap: number of non-empty shaded tiers ([HeatmapLevel.L1]..[HeatmapLevel.L10]), bucketed by ratio to the Case's own busiest day in range. */
+internal const val HEATMAP_TIER_COUNT = 10
+
+/**
+ * Spec §10 "tends to come in bursts" flag: past gaps need at least this many data points before
+ * variance is meaningful, and their coefficient of variation (stddev ÷ mean) must clear this bar —
+ * above 1.0 means the spread is wider than the average gap itself, i.e. long quiet stretches
+ * punctuated by clusters, rather than a steady rhythm.
+ */
+internal const val GAP_BURST_MIN_GAP_COUNT = 3
+internal const val GAP_BURST_MIN_COEFFICIENT_OF_VARIATION = 1.0
 
 /**
  * Picks the dot timeline's lookback window (spec §9): starts at [TIMELINE_DEFAULT_WINDOW_DAYS],
@@ -81,7 +90,17 @@ internal fun computeGapStats(
         currentGapDays = currentGapDays,
         longestGapDays = maxOf(longestPastGap, currentGapDays),
         isCurrentGapLongest = currentGapDays >= longestPastGap,
+        averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
+        isBursty = pastGaps.size >= GAP_BURST_MIN_GAP_COUNT && coefficientOfVariation(pastGaps) > GAP_BURST_MIN_COEFFICIENT_OF_VARIATION,
     )
+}
+
+/** Population coefficient of variation (stddev ÷ mean) of a set of gap lengths; 0 for an all-zero or empty set. */
+private fun coefficientOfVariation(gaps: List<Long>): Double {
+    val mean = gaps.average()
+    if (mean == 0.0) return 0.0
+    val variance = gaps.sumOf { (it - mean) * (it - mean) } / gaps.size
+    return sqrt(variance) / mean
 }
 
 /**
@@ -101,17 +120,13 @@ internal fun groupEventsByDay(
             TimelineDayGroup(date = date, representativeMillis = dayEvents.first().occurredAt, count = dayEvents.size)
         }
 
-/** Buckets [count] relative to [maxCountInRange] into one of [HeatmapLevel]'s four shaded tiers. */
+/** Buckets [count] relative to [maxCountInRange] into one of [HeatmapLevel]'s [HEATMAP_TIER_COUNT] shaded tiers. */
 internal fun heatmapLevelFor(
     count: Int,
     maxCountInRange: Int,
 ): HeatmapLevel {
     if (count <= 0 || maxCountInRange <= 0) return HeatmapLevel.EMPTY
     val ratio = count.toDouble() / maxCountInRange
-    return when {
-        ratio <= HEATMAP_L1_MAX_RATIO -> HeatmapLevel.L1
-        ratio <= HEATMAP_L2_MAX_RATIO -> HeatmapLevel.L2
-        ratio <= HEATMAP_L3_MAX_RATIO -> HeatmapLevel.L3
-        else -> HeatmapLevel.L4
-    }
+    val tier = ceil(ratio * HEATMAP_TIER_COUNT).toInt().coerceIn(1, HEATMAP_TIER_COUNT)
+    return HeatmapLevel.entries[tier]
 }
