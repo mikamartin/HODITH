@@ -341,8 +341,9 @@ private fun HunchTabContent(
                         onAdd = onAddClick,
                         onDismiss = onDismissNudge,
                     )
+                } else {
+                    HunchNoneCard(voice = voice, onAddClick = onAddClick)
                 }
-                HunchNoneCard(voice = voice, onAddClick = onAddClick)
                 if (state.history.isNotEmpty()) {
                     HunchHistoryCard(history = state.history, now = now, voice = voice)
                 }
