@@ -1,16 +1,31 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.CaseEntity
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.GapStats
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
+import com.secondmonday.hodith.domain.TagBreakdownEntry
+import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TimelineWindow
+import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.computeDurationStats
+import com.secondmonday.hodith.domain.computeFrequencyStats
 import com.secondmonday.hodith.domain.computeGapStats
+import com.secondmonday.hodith.domain.computeIntensityStats
+import com.secondmonday.hodith.domain.computeRhythmStats
+import com.secondmonday.hodith.domain.computeTagBreakdown
 import com.secondmonday.hodith.domain.computeTimelineWindow
+import com.secondmonday.hodith.domain.computeTrendStats
 import com.secondmonday.hodith.domain.groupEventsByDay
 import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.domain.observationSpanDays
+import com.secondmonday.hodith.domain.pickFrequencyGranularity
 import com.secondmonday.hodith.domain.weeksInGrid
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -32,8 +47,75 @@ sealed interface InsightsTabState {
     data class Ready(
         val timeline: TimelineDisplay,
         val heatmapMonths: List<HeatmapMonth>,
+        val stats: StatsSections,
     ) : InsightsTabState
 }
+
+/**
+ * Spec §10's seven stat sections. [trend], [duration], and [intensity] are absent when not
+ * applicable. [totalEventCount] gives the tag breakdown a denominator, so an individual tag's
+ * count reads against the Case's whole history rather than floating on its own.
+ */
+data class StatsSections(
+    val frequency: FrequencyDisplay,
+    val rhythm: RhythmDisplay,
+    val gaps: GapsDisplay,
+    val trend: TrendDisplay?,
+    val duration: DurationDisplay?,
+    val intensity: IntensityDisplay?,
+    val tags: List<TagBreakdownEntry>,
+    val totalEventCount: Int,
+)
+
+/** One bar of the frequency-over-time chart. [heightFraction] is relative to the busiest bucket shown. */
+data class FrequencyBar(
+    val periodStart: LocalDate,
+    val count: Int,
+    val heightFraction: Float,
+)
+
+data class FrequencyDisplay(
+    val granularity: FrequencyGranularity,
+    val bars: List<FrequencyBar>,
+)
+
+/** [level] reuses the heatmap's shared shading scale, relative to this Case's own busiest rhythm cell. */
+data class RhythmCellDisplay(
+    val dayOfWeek: DayOfWeek,
+    val timeOfDay: TimeOfDay,
+    val level: HeatmapLevel,
+)
+
+/** Always all 28 day-of-week x time-of-day cells, in [DayOfWeek]/[TimeOfDay] enum order. */
+data class RhythmDisplay(
+    val cells: List<RhythmCellDisplay>,
+)
+
+data class GapsDisplay(
+    val longestGapDays: Long,
+    val currentGapDays: Long,
+    val averageGapDays: Double,
+    val isBursty: Boolean,
+)
+
+data class TrendDisplay(
+    val direction: TrendDirection,
+    val recentCount: Int,
+    val priorCount: Int,
+)
+
+data class DurationDisplay(
+    val averageMinutes: Double,
+    val longestMinutes: Long,
+    val totalMinutes: Long,
+)
+
+/** [maxCount] is the busiest single intensity bucket, for normalizing the distribution's mini-bars. */
+data class IntensityDisplay(
+    val averageIntensity: Double,
+    val distribution: Map<Int, Int>,
+    val maxCount: Int,
+)
 
 /** [tokens] alternate leading-gap/dot/gap/.../dot/trailing-gap; the "now" tick is drawn after the last token. */
 data class TimelineDisplay(
@@ -68,25 +150,93 @@ data class HeatmapDay(
 
 internal fun insightsTabState(
     case: CaseEntity,
-    events: List<EventEntity>,
+    eventsWithTags: List<EventWithTags>,
     now: Long,
     zone: ZoneId = ZoneId.systemDefault(),
+    frequencyGranularityOverride: FrequencyGranularity? = null,
 ): InsightsTabState {
+    val events = eventsWithTags.map { it.event }
     if (events.size < INSIGHTS_MIN_EVENTS) return InsightsTabState.NotEnoughData
 
     val countsByDay = events.groupingBy { Instant.ofEpochMilli(it.occurredAt).atZone(zone).toLocalDate() }.eachCount()
     val maxDailyCount = countsByDay.values.maxOrNull() ?: 0
+    val gapStats = computeGapStats(events, now, zone)
 
     return InsightsTabState.Ready(
-        timeline =
-            timelineDisplay(
-                computeTimelineWindow(events, now, zone),
-                computeGapStats(events, now, zone),
-                maxDailyCount,
-                now,
-                zone,
-            ),
+        timeline = timelineDisplay(computeTimelineWindow(events, now, zone), gapStats, maxDailyCount, now, zone),
         heatmapMonths = heatmapMonths(case, countsByDay, maxDailyCount, now, zone),
+        stats = statsSections(case, eventsWithTags, events, gapStats, now, zone, frequencyGranularityOverride),
+    )
+}
+
+/** Maps spec §10's seven pure domain stats onto display-ready models, gating duration/intensity on the Case's config. */
+private fun statsSections(
+    case: CaseEntity,
+    eventsWithTags: List<EventWithTags>,
+    events: List<EventEntity>,
+    gapStats: GapStats,
+    now: Long,
+    zone: ZoneId,
+    frequencyGranularityOverride: FrequencyGranularity?,
+): StatsSections {
+    val spanDays = observationSpanDays(events, case.createdAt, now, zone)
+
+    val frequencyStats =
+        computeFrequencyStats(
+            events,
+            now,
+            spanDays,
+            granularity = frequencyGranularityOverride ?: pickFrequencyGranularity(spanDays),
+            zone = zone,
+        )
+    val maxBucketCount = frequencyStats.buckets.maxOf { it.count }.coerceAtLeast(1)
+    val frequency =
+        FrequencyDisplay(
+            granularity = frequencyStats.granularity,
+            bars =
+                frequencyStats.buckets.map { bucket ->
+                    FrequencyBar(bucket.periodStart, bucket.count, bucket.count.toFloat() / maxBucketCount)
+                },
+        )
+
+    val rhythmStats = computeRhythmStats(events, zone)
+    val rhythm =
+        RhythmDisplay(
+            cells =
+                rhythmStats.cells.map { cell ->
+                    RhythmCellDisplay(cell.dayOfWeek, cell.timeOfDay, heatmapLevelFor(cell.count, rhythmStats.maxCount))
+                },
+        )
+
+    val gaps = GapsDisplay(gapStats.longestGapDays, gapStats.currentGapDays, gapStats.averageGapDays, gapStats.isBursty)
+
+    val trend = computeTrendStats(events, now, spanDays)?.let { TrendDisplay(it.direction, it.recentCount, it.priorCount) }
+
+    val duration =
+        if (case.durationMode != DurationMode.NONE) {
+            computeDurationStats(events)?.let { DurationDisplay(it.averageMinutes, it.longestMinutes, it.totalMinutes) }
+        } else {
+            null
+        }
+
+    val intensity =
+        if (case.intensityEnabled) {
+            computeIntensityStats(events)?.let { stats ->
+                IntensityDisplay(stats.averageIntensity, stats.distribution, stats.distribution.values.max())
+            }
+        } else {
+            null
+        }
+
+    return StatsSections(
+        frequency = frequency,
+        rhythm = rhythm,
+        gaps = gaps,
+        trend = trend,
+        duration = duration,
+        intensity = intensity,
+        tags = computeTagBreakdown(eventsWithTags),
+        totalEventCount = events.size,
     )
 }
 

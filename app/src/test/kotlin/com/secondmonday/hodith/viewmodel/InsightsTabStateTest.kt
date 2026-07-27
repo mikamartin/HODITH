@@ -3,8 +3,11 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.TagBreakdownEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -49,12 +52,14 @@ private fun eventAtDay(epochDay: Long) =
         loggedAt = millisAtDay(epochDay),
     )
 
+private fun List<EventEntity>.withoutTags(): List<EventWithTags> = map { EventWithTags(it, emptyList()) }
+
 class InsightsTabStateTest {
     @Test
     fun `insightsTabState is NotEnoughData below the minimum event count`() {
         val case = testCase(createdAt = millisAtDay(0))
 
-        val state = insightsTabState(case, events = listOf(eventAtDay(0)), now = millisAtDay(5))
+        val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(0)).withoutTags(), now = millisAtDay(5))
 
         assertEquals(InsightsTabState.NotEnoughData, state)
     }
@@ -63,7 +68,7 @@ class InsightsTabStateTest {
     fun `insightsTabState is Ready once the minimum event count is met`() {
         val case = testCase(createdAt = millisAtDay(0))
 
-        val state = insightsTabState(case, events = listOf(eventAtDay(0), eventAtDay(3)), now = millisAtDay(5))
+        val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(0), eventAtDay(3)).withoutTags(), now = millisAtDay(5))
 
         assertTrue(state is InsightsTabState.Ready)
     }
@@ -73,7 +78,7 @@ class InsightsTabStateTest {
         val case = testCase(createdAt = millisAtDay(0))
         val events = listOf(eventAtDay(0), eventAtDay(3), eventAtDay(6))
 
-        val state = insightsTabState(case, events, now = millisAtDay(10)) as InsightsTabState.Ready
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
         // leading gap, dot, gap, dot, gap, dot, trailing gap = 3 dots + 4 gaps
         val dotCount = state.timeline.tokens.count { it is TimelineToken.Dot }
@@ -89,11 +94,11 @@ class InsightsTabStateTest {
         // day 5 has 3 events, the busiest day — must merge into a single dot, not three.
         val events = listOf(eventAtDay(0), eventAtDay(5), eventAtDay(5), eventAtDay(5), eventAtDay(8))
 
-        val state = insightsTabState(case, events, now = millisAtDay(10)) as InsightsTabState.Ready
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
         val dots = state.timeline.tokens.filterIsInstance<TimelineToken.Dot>()
         assertEquals(3, dots.size)
-        assertEquals(HeatmapLevel.L4, dots[1].level)
+        assertEquals(HeatmapLevel.L10, dots[1].level)
     }
 
     @Test
@@ -101,7 +106,7 @@ class InsightsTabStateTest {
         val case = testCase(createdAt = millisAtDay(0))
         val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(4))
 
-        val state = insightsTabState(case, events, now = millisAtDay(20)) as InsightsTabState.Ready
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
 
         assertEquals(16L, state.timeline.currentGapDays)
         assertTrue(state.timeline.isCurrentGapLongest)
@@ -112,7 +117,7 @@ class InsightsTabStateTest {
         val case = testCase(createdAt = millisAtDay(0))
         val events = listOf(eventAtDay(0), eventAtDay(20), eventAtDay(22))
 
-        val state = insightsTabState(case, events, now = millisAtDay(24)) as InsightsTabState.Ready
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(24)) as InsightsTabState.Ready
 
         assertEquals(false, state.timeline.isCurrentGapLongest)
     }
@@ -134,7 +139,7 @@ class InsightsTabStateTest {
                 .toEpochMilli()
         val events = listOf(EventEntity(0, 1, createdAt, null, null, null, createdAt), EventEntity(0, 1, now, null, null, null, now))
 
-        val state = insightsTabState(testCase(createdAt), events, now) as InsightsTabState.Ready
+        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         assertEquals(
             listOf(YearMonth.of(2026, 1), YearMonth.of(2026, 2), YearMonth.of(2026, 3)),
@@ -159,7 +164,7 @@ class InsightsTabStateTest {
                 .toEpochMilli()
         val events = listOf(eventAtDay(eventDate.toEpochDay()), EventEntity(0, 1, now, null, null, null, now))
 
-        val state = insightsTabState(testCase(createdAt), events, now) as InsightsTabState.Ready
+        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         val shadedDay =
             state.heatmapMonths
@@ -168,6 +173,43 @@ class InsightsTabStateTest {
                 .flatten()
                 .filterNotNull()
                 .single { it.date == eventDate }
-        assertEquals(HeatmapLevel.L4, shadedDay.level)
+        assertEquals(HeatmapLevel.L10, shadedDay.level)
+    }
+
+    // ---- stats.totalEventCount / stats.tags ----
+
+    @Test
+    fun `totalEventCount reflects every logged event, tagged or not`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val tag = TagEntity(id = 1, name = "standup")
+        val eventsWithTags =
+            listOf(
+                EventWithTags(eventAtDay(0), listOf(tag)),
+                EventWithTags(eventAtDay(1), emptyList()),
+                EventWithTags(eventAtDay(2), emptyList()),
+            )
+
+        val state = insightsTabState(case, eventsWithTags, now = millisAtDay(5)) as InsightsTabState.Ready
+
+        assertEquals(3, state.stats.totalEventCount)
+    }
+
+    @Test
+    fun `tags breakdown counts only tagged events, busiest first, independent of the untagged total`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val standup = TagEntity(id = 1, name = "standup")
+        val weekend = TagEntity(id = 2, name = "weekend")
+        val eventsWithTags =
+            listOf(
+                EventWithTags(eventAtDay(0), listOf(standup)),
+                EventWithTags(eventAtDay(1), listOf(standup, weekend)),
+                EventWithTags(eventAtDay(2), emptyList()),
+                EventWithTags(eventAtDay(3), emptyList()),
+            )
+
+        val state = insightsTabState(case, eventsWithTags, now = millisAtDay(5)) as InsightsTabState.Ready
+
+        assertEquals(4, state.stats.totalEventCount)
+        assertEquals(listOf(TagBreakdownEntry("standup", 2), TagBreakdownEntry("weekend", 1)), state.stats.tags)
     }
 }
