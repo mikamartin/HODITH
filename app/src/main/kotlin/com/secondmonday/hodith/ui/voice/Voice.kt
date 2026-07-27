@@ -5,9 +5,11 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
+import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HUNCH_NUDGE_EVENT_THRESHOLD
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
+import com.secondmonday.hodith.domain.TrendDirection
 
 /**
  * One user-visible string per key, in three personalities (spec §12). Composables read
@@ -74,6 +76,13 @@ interface Voice {
     val archivedCasesTitle: String
     val archivedCasesEmptyState: String
     val eventListEmptyState: String
+
+    /** Log tab's summary line above the event list: total events logged and the Case's observation span so far. */
+    fun logSummaryLine(
+        eventCount: Int,
+        observedDays: Long,
+    ): String
+
     val deleteEventConfirmTitle: String
     val deleteEventConfirmBody: String
     val deleteEventConfirmAction: String
@@ -152,6 +161,56 @@ interface Voice {
 
     /** Collapses the heatmap back to its default 3-month preview. */
     val insightsHeatmapShowFewerAction: String
+
+    /** Spec §10 stat section labels — structural, identical across all three voices like [insightsSectionLabelTimeline]. */
+    val insightsSectionLabelFrequency: String get() = "Frequency over time"
+    val insightsSectionLabelRhythm: String get() = "Rhythm"
+    val insightsSectionLabelGaps: String get() = "Gaps & clusters"
+    val insightsSectionLabelTrend: String get() = "Trend"
+    val insightsSectionLabelDuration: String get() = "Duration"
+    val insightsSectionLabelIntensity: String get() = "Intensity"
+    val insightsSectionLabelTags: String get() = "Tags"
+
+    /** Tag breakdown's denominator row — structural, identical across all three voices. */
+    val insightsTagsTotalLabel: String get() = "Total events"
+
+    /** Frequency-over-time's info icon, explaining the fixed 12-bucket window and its auto-picked granularity. */
+    val insightsFrequencyInfoTitle: String
+
+    fun insightsFrequencyInfoBody(granularity: FrequencyGranularity): String
+
+    /** Gaps & clusters stat-row labels — structural, identical across all three voices. */
+    val insightsGapsLongestLabel: String get() = "Longest gap"
+    val insightsGapsCurrentLabel: String get() = "Current gap"
+    val insightsGapsAverageLabel: String get() = "Average gap"
+
+    /** Spec §10's "tends to come in bursts" flag, shown as a badge on the Gaps & clusters card. */
+    val insightsBurstFlagLabel: String
+
+    /** Spec §10 trend arrow: last 30 days vs. the 30 before — purely descriptive, no judgement either way. */
+    fun insightsTrendSentence(
+        direction: TrendDirection,
+        recentCount: Int,
+        priorCount: Int,
+    ): String
+
+    /** Duration stat-row labels — structural, identical across all three voices. */
+    val insightsDurationAverageLabel: String get() = "Average"
+    val insightsDurationLongestLabel: String get() = "Longest"
+    val insightsDurationTotalLabel: String get() = "Total"
+
+    val insightsIntensityAverageLabel: String get() = "Average intensity"
+
+    /** Frequency chart's user-overridable granularity chips — structural, identical across all three voices. */
+    val insightsFrequencyGranularityDay: String get() = "Day"
+    val insightsFrequencyGranularityWeek: String get() = "Week"
+    val insightsFrequencyGranularityMonth: String get() = "Month"
+
+    /** Rhythm heatmap's row labels — structural, identical across all three voices. */
+    val insightsTimeOfDayMorning: String get() = "Morning"
+    val insightsTimeOfDayAfternoon: String get() = "Afternoon"
+    val insightsTimeOfDayEvening: String get() = "Evening"
+    val insightsTimeOfDayNight: String get() = "Night"
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -318,6 +377,12 @@ object PlainVoice : Voice {
     override val archivedCasesTitle = "Archived cases"
     override val archivedCasesEmptyState = "No archived cases."
     override val eventListEmptyState = "No events logged yet."
+
+    override fun logSummaryLine(
+        eventCount: Int,
+        observedDays: Long,
+    ) = "$eventCount events logged · observed for $observedDays days"
+
     override val deleteEventConfirmTitle = "Delete this event?"
     override val deleteEventConfirmBody = "This can't be undone."
     override val deleteEventConfirmAction = "Delete"
@@ -388,6 +453,31 @@ object PlainVoice : Voice {
 
     override val insightsHeatmapShowMoreAction = "Show more months"
     override val insightsHeatmapShowFewerAction = "Show fewer months"
+
+    override val insightsBurstFlagLabel = "Tends to come in bursts"
+
+    override fun insightsTrendSentence(
+        direction: TrendDirection,
+        recentCount: Int,
+        priorCount: Int,
+    ) = when (direction) {
+        TrendDirection.UP -> "$recentCount events in the last 30 days — up from $priorCount the 30 days before."
+        TrendDirection.DOWN -> "$recentCount events in the last 30 days — down from $priorCount the 30 days before."
+        TrendDirection.FLAT -> "$recentCount events in the last 30 days — the same as the 30 days before."
+    }
+
+    override val insightsFrequencyInfoTitle = "About this chart"
+
+    override fun insightsFrequencyInfoBody(granularity: FrequencyGranularity): String {
+        val unit =
+            when (granularity) {
+                FrequencyGranularity.DAY -> "days"
+                FrequencyGranularity.WEEK -> "weeks"
+                FrequencyGranularity.MONTH -> "months"
+            }
+        return "Showing the most recent 12 $unit. The granularity is picked automatically based on how long this case " +
+            "has been tracked, but you can switch it manually above."
+    }
 
     override val caseDetailLogTabLabel = "Log"
     override val caseDetailInsightsTabLabel = "Insights"
@@ -586,6 +676,12 @@ object IntenseVoice : Voice {
     override val archivedCasesTitle = "The buried cases"
     override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
+
+    override fun logSummaryLine(
+        eventCount: Int,
+        observedDays: Long,
+    ) = "$eventCount marks in the record — $observedDays days under watch"
+
     override val deleteEventConfirmTitle = "Strike this from the record?"
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
     override val deleteEventConfirmAction = "Erase"
@@ -656,6 +752,31 @@ object IntenseVoice : Voice {
 
     override val insightsHeatmapShowMoreAction = "Unseal the older files"
     override val insightsHeatmapShowFewerAction = "Reseal them"
+
+    override val insightsBurstFlagLabel = "It comes in waves, not a rhythm"
+
+    override fun insightsTrendSentence(
+        direction: TrendDirection,
+        recentCount: Int,
+        priorCount: Int,
+    ) = when (direction) {
+        TrendDirection.UP -> "$recentCount marks in the last thirty days — risen from $priorCount before. It quickens."
+        TrendDirection.DOWN -> "$recentCount marks in the last thirty days — fallen from $priorCount before. It recedes, for now."
+        TrendDirection.FLAT -> "$recentCount marks in the last thirty days — unchanged from what came before. Steady, as ever."
+    }
+
+    override val insightsFrequencyInfoTitle = "On the shape of this record"
+
+    override fun insightsFrequencyInfoBody(granularity: FrequencyGranularity): String {
+        val unit =
+            when (granularity) {
+                FrequencyGranularity.DAY -> "days"
+                FrequencyGranularity.WEEK -> "weeks"
+                FrequencyGranularity.MONTH -> "months"
+            }
+        return "Twelve $unit, no further back — the record does not dwell on distant history. Its grain is chosen by how " +
+            "long this case has been watched, though you may set it yourself above."
+    }
 
     override val caseDetailLogTabLabel = "Log"
     override val caseDetailInsightsTabLabel = "Insights"
@@ -851,6 +972,12 @@ object BrightVoice : Voice {
     override val archivedCasesTitle = "The archive"
     override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
     override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
+
+    override fun logSummaryLine(
+        eventCount: Int,
+        observedDays: Long,
+    ) = "$eventCount logs so far, tracked for $observedDays days!"
+
     override val deleteEventConfirmTitle = "Zap this event?"
     override val deleteEventConfirmBody = "Poof — no take-backs."
     override val deleteEventConfirmAction = "Zap it"
@@ -919,6 +1046,31 @@ object BrightVoice : Voice {
 
     override val insightsHeatmapShowMoreAction = "Show me more!"
     override val insightsHeatmapShowFewerAction = "Okay, tuck it back away"
+
+    override val insightsBurstFlagLabel = "Comes in bursts!"
+
+    override fun insightsTrendSentence(
+        direction: TrendDirection,
+        recentCount: Int,
+        priorCount: Int,
+    ) = when (direction) {
+        TrendDirection.UP -> "$recentCount logs in the last 30 days — up from $priorCount! Busy stretch."
+        TrendDirection.DOWN -> "$recentCount logs in the last 30 days — down from $priorCount! Quieter lately."
+        TrendDirection.FLAT -> "$recentCount logs in the last 30 days — same as before. Steady as she goes!"
+    }
+
+    override val insightsFrequencyInfoTitle = "What am I looking at?"
+
+    override fun insightsFrequencyInfoBody(granularity: FrequencyGranularity): String {
+        val unit =
+            when (granularity) {
+                FrequencyGranularity.DAY -> "days"
+                FrequencyGranularity.WEEK -> "weeks"
+                FrequencyGranularity.MONTH -> "months"
+            }
+        return "Just the last 12 $unit — we pick days/weeks/months automatically depending on how long you've been " +
+            "tracking, but feel free to flip it yourself up top!"
+    }
 
     override val caseDetailLogTabLabel = "Log"
     override val caseDetailInsightsTabLabel = "Insights"
