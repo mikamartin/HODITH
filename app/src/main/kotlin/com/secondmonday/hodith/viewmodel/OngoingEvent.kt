@@ -54,10 +54,13 @@ internal fun formatElapsedDuration(
     nowMillis: Long,
 ): String {
     val elapsed = (nowMillis - startMillis).coerceAtLeast(0L)
-    val totalMinutes = elapsed / MILLIS_PER_MINUTE
-    return when {
+    return formatMinutesDuration(elapsed / MILLIS_PER_MINUTE)
+}
+
+/** Shared by [formatElapsedDuration] and the Insights tab's duration stats — same minutes-to-"Xh Ym" rendering either way. */
+internal fun formatMinutesDuration(totalMinutes: Long): String =
+    when {
         totalMinutes < 60 -> "${totalMinutes}m"
         totalMinutes < 24 * 60 -> "${totalMinutes / 60}h ${totalMinutes % 60}m"
         else -> "${totalMinutes / (24 * 60)}d ${(totalMinutes % (24 * 60)) / 60}h"
     }
-}

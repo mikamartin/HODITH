@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,22 +34,54 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.secondmonday.hodith.domain.FrequencyGranularity
+import com.secondmonday.hodith.domain.HEATMAP_TIER_COUNT
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.INTENSITY_MAX
+import com.secondmonday.hodith.domain.INTENSITY_MIN
+import com.secondmonday.hodith.domain.TagBreakdownEntry
+import com.secondmonday.hodith.domain.TimeOfDay
+import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.ui.common.SectionWithInfo
+import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.voice.Voice
+import com.secondmonday.hodith.viewmodel.DurationDisplay
+import com.secondmonday.hodith.viewmodel.FrequencyDisplay
+import com.secondmonday.hodith.viewmodel.GapsDisplay
 import com.secondmonday.hodith.viewmodel.HeatmapDay
 import com.secondmonday.hodith.viewmodel.HeatmapMonth
 import com.secondmonday.hodith.viewmodel.InsightsTabState
+import com.secondmonday.hodith.viewmodel.IntensityDisplay
+import com.secondmonday.hodith.viewmodel.RhythmDisplay
+import com.secondmonday.hodith.viewmodel.StatsSections
 import com.secondmonday.hodith.viewmodel.TimelineDisplay
 import com.secondmonday.hodith.viewmodel.TimelineToken
+import com.secondmonday.hodith.viewmodel.TrendDisplay
+import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
+import kotlin.math.roundToInt
 
 private const val TIMELINE_NOW_LABEL = "Today"
 private const val DOT_SIZE = 8
 private const val NOW_TICK_HEIGHT = 14
 private const val HEATMAP_DEFAULT_MONTH_COUNT = 3
+private const val FREQUENCY_BAR_CHART_HEIGHT = 80
+private const val FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.02f
+
+/** Bars use only this fraction of the chart's height, reserving headroom so a full-height bar's count label never crowds the row above. */
+private const val FREQUENCY_BAR_MAX_HEIGHT_FRACTION = 0.8f
+private const val FREQUENCY_BAR_LABEL_GAP = 2
+private const val FREQUENCY_CHART_TOP_SPACING = 16
+private const val RHYTHM_CELL_SIZE = 20
 
 /**
  * Case Detail's Insights tab (spec §9's visuals half): a full-width dot timeline, primary, atop a
@@ -58,6 +92,8 @@ private const val HEATMAP_DEFAULT_MONTH_COUNT = 3
 internal fun InsightsTabContent(
     state: InsightsTabState,
     voice: Voice,
+    frequencyGranularityOverride: FrequencyGranularity?,
+    onFrequencyGranularityChange: (FrequencyGranularity?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (state) {
@@ -72,8 +108,26 @@ internal fun InsightsTabContent(
             ) {
                 DotTimelineCard(state.timeline, voice)
                 CalendarHeatmapCard(state.heatmapMonths, voice)
+                StatsSectionCards(state.stats, frequencyGranularityOverride, onFrequencyGranularityChange, voice)
             }
     }
+}
+
+/** Spec §10's seven stat sections, in spec order. [StatsSections.trend]/[duration]/[intensity] omit their card entirely when absent. */
+@Composable
+private fun StatsSectionCards(
+    stats: StatsSections,
+    frequencyGranularityOverride: FrequencyGranularity?,
+    onFrequencyGranularityChange: (FrequencyGranularity?) -> Unit,
+    voice: Voice,
+) {
+    FrequencyCard(stats.frequency, frequencyGranularityOverride, onFrequencyGranularityChange, voice)
+    RhythmCard(stats.rhythm, voice)
+    GapsCard(stats.gaps, voice)
+    stats.trend?.let { TrendCard(it, voice) }
+    stats.duration?.let { DurationCard(it, voice) }
+    stats.intensity?.let { IntensityCard(it, voice) }
+    if (stats.tags.isNotEmpty()) TagsCard(stats.tags, stats.totalEventCount, voice)
 }
 
 /** Shared shell for both Insights cards — full-width [Card] with a padded, vertically-spaced [Column]. */
@@ -247,25 +301,295 @@ private fun HeatmapCell(
     }
 }
 
-@Composable
-private fun HeatmapLevel.toCellColor(): Color {
-    val empty = MaterialTheme.colorScheme.surfaceVariant
-    val full = MaterialTheme.colorScheme.primary
-    return when (this) {
-        HeatmapLevel.EMPTY -> empty
-        HeatmapLevel.L1 -> lerp(empty, full, 0.28f)
-        HeatmapLevel.L2 -> lerp(empty, full, 0.52f)
-        HeatmapLevel.L3 -> lerp(empty, full, 0.76f)
-        HeatmapLevel.L4 -> full
-    }
+/** L1's minimum shade — any lower and the lightest tier would be indistinguishable from [HeatmapLevel.EMPTY]. */
+private const val HEATMAP_MIN_SHADE_FRACTION = 0.28f
+
+/** Past this tier, a cell is saturated enough to need on-primary contrast; lighter tiers read fine with the muted default. */
+private const val HEATMAP_CONTRAST_TIER_THRESHOLD = HEATMAP_TIER_COUNT / 2 + 1
+
+/** Linear lerp between [HEATMAP_MIN_SHADE_FRACTION] (L1) and full (the top tier) across all [HEATMAP_TIER_COUNT] tiers. */
+private fun HeatmapLevel.shadeFraction(): Float {
+    if (this == HeatmapLevel.EMPTY) return 0f
+    val tier = ordinal
+    return HEATMAP_MIN_SHADE_FRACTION + (1f - HEATMAP_MIN_SHADE_FRACTION) * (tier - 1) / (HEATMAP_TIER_COUNT - 1)
 }
 
-/** L3/L4 cells are saturated enough to need on-primary contrast; lighter cells read fine with the muted default. */
+@Composable
+private fun HeatmapLevel.toCellColor(): Color {
+    if (this == HeatmapLevel.EMPTY) return MaterialTheme.colorScheme.surfaceVariant
+    return lerp(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.primary, shadeFraction())
+}
+
 @Composable
 private fun HeatmapLevel.toTextColor(): Color =
-    when (this) {
-        HeatmapLevel.EMPTY, HeatmapLevel.L1, HeatmapLevel.L2 -> MaterialTheme.colorScheme.onSurfaceVariant
-        HeatmapLevel.L3, HeatmapLevel.L4 -> MaterialTheme.colorScheme.onPrimary
+    if (this != HeatmapLevel.EMPTY && ordinal >= HEATMAP_CONTRAST_TIER_THRESHOLD) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
     }
 
 private fun YearMonth.monthYearLabel(): String = "${month.name.lowercase().replaceFirstChar { it.uppercase() }} $year"
+
+/** Spec §10 frequency-over-time: a bar chart with a granularity override (Day/Week/Month), `null` meaning auto-pick. */
+@Composable
+private fun FrequencyCard(
+    display: FrequencyDisplay,
+    granularityOverride: FrequencyGranularity?,
+    onGranularityChange: (FrequencyGranularity?) -> Unit,
+    voice: Voice,
+) {
+    val locale = LocalLocale.current.platformLocale
+
+    InsightsCard {
+        SectionWithInfo(
+            label = voice.insightsSectionLabelFrequency,
+            infoTitle = voice.insightsFrequencyInfoTitle,
+            infoBody = voice.insightsFrequencyInfoBody(display.granularity),
+            infoDescription = voice.caseSectionInfoDescription,
+            labelStyle = MaterialTheme.typography.titleSmall,
+        ) {
+            SegmentedChoiceRow(
+                options =
+                    listOf(
+                        FrequencyGranularity.DAY to voice.insightsFrequencyGranularityDay,
+                        FrequencyGranularity.WEEK to voice.insightsFrequencyGranularityWeek,
+                        FrequencyGranularity.MONTH to voice.insightsFrequencyGranularityMonth,
+                    ),
+                selected = granularityOverride ?: display.granularity,
+                onSelect = onGranularityChange,
+            )
+            Row(modifier = Modifier.fillMaxWidth().padding(top = FREQUENCY_CHART_TOP_SPACING.dp).height(FREQUENCY_BAR_CHART_HEIGHT.dp)) {
+                display.bars.forEach { bar ->
+                    val barHeight =
+                        FREQUENCY_BAR_CHART_HEIGHT.dp *
+                            bar.heightFraction.coerceAtLeast(FREQUENCY_MIN_BAR_HEIGHT_FRACTION) *
+                            FREQUENCY_BAR_MAX_HEIGHT_FRACTION
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 1.dp)
+                                    .height(barHeight)
+                                    .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                                    .background(MaterialTheme.colorScheme.primary),
+                        )
+                        if (bar.count > 0) {
+                            Text(
+                                text = bar.count.toString(),
+                                modifier = Modifier.align(Alignment.BottomCenter).offset(y = -(barHeight + FREQUENCY_BAR_LABEL_GAP.dp)),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = formatFrequencyPeriodLabel(display.bars.first().periodStart, display.granularity, locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = formatFrequencyPeriodLabel(display.bars.last().periodStart, display.granularity, locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+private fun formatFrequencyPeriodLabel(
+    periodStart: LocalDate,
+    granularity: FrequencyGranularity,
+    locale: Locale,
+): String =
+    when (granularity) {
+        FrequencyGranularity.DAY -> periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale))
+        FrequencyGranularity.WEEK -> "Week of ${periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale))}"
+        FrequencyGranularity.MONTH -> "${periodStart.month.getDisplayName(TextStyle.SHORT, locale)} ${periodStart.year}"
+    }
+
+/** Spec §10 rhythm heatmap: day-of-week columns x time-of-day rows, shaded like the calendar heatmap. */
+@Composable
+private fun RhythmCard(
+    display: RhythmDisplay,
+    voice: Voice,
+) {
+    val timeOfDayLabel: (TimeOfDay) -> String = { timeOfDay ->
+        when (timeOfDay) {
+            TimeOfDay.MORNING -> voice.insightsTimeOfDayMorning
+            TimeOfDay.AFTERNOON -> voice.insightsTimeOfDayAfternoon
+            TimeOfDay.EVENING -> voice.insightsTimeOfDayEvening
+            TimeOfDay.NIGHT -> voice.insightsTimeOfDayNight
+        }
+    }
+    val locale = LocalLocale.current.platformLocale
+
+    InsightsCard {
+        Text(voice.insightsSectionLabelRhythm, style = MaterialTheme.typography.titleSmall)
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Spacer(modifier = Modifier.weight(1f))
+            DayOfWeek.entries.forEach { day ->
+                Text(
+                    text = day.getDisplayName(TextStyle.NARROW, locale),
+                    modifier = Modifier.width(RHYTHM_CELL_SIZE.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        TimeOfDay.entries.forEach { timeOfDay ->
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = timeOfDayLabel(timeOfDay),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                DayOfWeek.entries.forEach { day ->
+                    val level = display.cells.first { it.dayOfWeek == day && it.timeOfDay == timeOfDay }.level
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(RHYTHM_CELL_SIZE.dp)
+                                .padding(1.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(level.toCellColor()),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Spec §10 gaps & clusters: longest/current/average gap plus the "tends to come in bursts" flag. */
+@Composable
+private fun GapsCard(
+    display: GapsDisplay,
+    voice: Voice,
+) {
+    InsightsCard {
+        Text(voice.insightsSectionLabelGaps, style = MaterialTheme.typography.titleSmall)
+        StatRow(voice.insightsGapsLongestLabel, formatDays(display.longestGapDays.toDouble()))
+        StatRow(voice.insightsGapsCurrentLabel, formatDays(display.currentGapDays.toDouble()))
+        StatRow(voice.insightsGapsAverageLabel, formatDays(display.averageGapDays))
+        if (display.isBursty) {
+            Text(
+                text = voice.insightsBurstFlagLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/** Spec §10 trend arrow: last 30 days vs. the 30 before — descriptive only, never a value judgement. */
+@Composable
+private fun TrendCard(
+    display: TrendDisplay,
+    voice: Voice,
+) {
+    InsightsCard {
+        Text(voice.insightsSectionLabelTrend, style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text =
+                    when (display.direction) {
+                        TrendDirection.UP -> "↑"
+                        TrendDirection.DOWN -> "↓"
+                        TrendDirection.FLAT -> "→"
+                    },
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = voice.insightsTrendSentence(display.direction, display.recentCount, display.priorCount),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+/** Spec §10 duration stats — only shown when the Case's `durationMode != NONE`. */
+@Composable
+private fun DurationCard(
+    display: DurationDisplay,
+    voice: Voice,
+) {
+    InsightsCard {
+        Text(voice.insightsSectionLabelDuration, style = MaterialTheme.typography.titleSmall)
+        StatRow(voice.insightsDurationAverageLabel, formatMinutesDuration(display.averageMinutes.roundToInt().toLong()))
+        StatRow(voice.insightsDurationLongestLabel, formatMinutesDuration(display.longestMinutes))
+        StatRow(voice.insightsDurationTotalLabel, formatMinutesDuration(display.totalMinutes))
+    }
+}
+
+/** Spec §10 intensity stats — only shown when the Case has `intensityEnabled`. A row of five shaded squares, one per intensity level. */
+@Composable
+private fun IntensityCard(
+    display: IntensityDisplay,
+    voice: Voice,
+) {
+    InsightsCard {
+        Text(voice.insightsSectionLabelIntensity, style = MaterialTheme.typography.titleSmall)
+        StatRow(voice.insightsIntensityAverageLabel, String.format(Locale.US, "%.1f", display.averageIntensity))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
+                val count = display.distribution[value] ?: 0
+                val level = heatmapLevelFor(count, display.maxCount)
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(level.toCellColor()),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = value.toString(), style = MaterialTheme.typography.labelSmall, color = level.toTextColor())
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Spec §10 tag breakdown: counts per tag, busiest first, against [totalEventCount] so an
+ * individual tag's count reads in proportion to the Case's whole history. Card is omitted
+ * entirely when no event carries a tag.
+ */
+@Composable
+private fun TagsCard(
+    tags: List<TagBreakdownEntry>,
+    totalEventCount: Int,
+    voice: Voice,
+) {
+    InsightsCard {
+        Text(voice.insightsSectionLabelTags, style = MaterialTheme.typography.titleSmall)
+        StatRow(voice.insightsTagsTotalLabel, totalEventCount.toString())
+        tags.forEach { tag -> StatRow(tag.tagName, tag.count.toString()) }
+    }
+}
+
+@Composable
+private fun StatRow(
+    label: String,
+    value: String,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** "3.5 days" for non-integer values (e.g. average gap), "3 days" for whole ones (e.g. longest/current gap). */
+private fun formatDays(days: Double): String {
+    val label = if (days == days.roundToInt().toDouble()) days.roundToInt().toString() else String.format(Locale.US, "%.1f", days)
+    return "$label days"
+}

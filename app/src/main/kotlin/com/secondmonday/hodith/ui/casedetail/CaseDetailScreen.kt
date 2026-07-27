@@ -52,7 +52,9 @@ import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.ComparisonBand
+import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.VerdictResult
+import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.StaleOngoingBanner
 import com.secondmonday.hodith.ui.common.StopIconButton
@@ -137,6 +139,7 @@ fun CaseDetailScreen(
     var editRequest by remember { mutableStateOf<EditRequest?>(null) }
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
     var showHunchCreationSheet by remember { mutableStateOf(false) }
+    var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -197,8 +200,18 @@ fun CaseDetailScreen(
                     )
                 INSIGHTS_TAB ->
                     if (case != null) {
-                        val events = uiState.events.map { it.event }
-                        InsightsTabContent(state = insightsTabState(case, events, now), voice = voice)
+                        InsightsTabContent(
+                            state =
+                                insightsTabState(
+                                    case,
+                                    uiState.events,
+                                    now,
+                                    frequencyGranularityOverride = frequencyGranularityOverride,
+                                ),
+                            voice = voice,
+                            frequencyGranularityOverride = frequencyGranularityOverride,
+                            onFrequencyGranularityChange = { frequencyGranularityOverride = it },
+                        )
                     }
                 HUNCH_TAB ->
                     if (case != null) {
@@ -264,6 +277,18 @@ private fun LogTabContent(
     onEventClick: (EventWithTags) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
+        if (case != null && uiState.events.isNotEmpty()) {
+            Text(
+                text =
+                    voice.logSummaryLine(
+                        eventCount = uiState.events.size,
+                        observedDays = observationSpanDays(uiState.events.map { it.event }, case.createdAt, now),
+                    ),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (case != null && ongoing != null) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
