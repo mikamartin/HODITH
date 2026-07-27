@@ -38,12 +38,14 @@ fun testCase(
 
 fun testEvent(
     caseId: Long,
+    id: Long = 0L,
     occurredAt: Long = 0L,
     endedAt: Long? = null,
     intensity: Int? = null,
     note: String? = null,
     loggedAt: Long = occurredAt,
 ) = EventEntity(
+    id = id,
     caseId = caseId,
     occurredAt = occurredAt,
     endedAt = endedAt,
