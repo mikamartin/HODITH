@@ -4,13 +4,16 @@ Where the build stands right now, and the intended phase order. Update the statu
 
 ## Current status
 
-**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases. **Big Picture** shows every active Case's icons on a scrollable multi-month calendar grid, with day/week detail views and a per-case filter; day cells carry a bespoke treatment per theme (Intense's tab-stripe, Bright's shadowed sticker cells; Plain is the generic baseline). **Case Detail** now has a Log/Insights/Hunch tab structure: Log is the event list unchanged, Insights has spec §9's dot timeline and calendar heatmap (§10's stats still pending), and Hunch carries the full spec §7 flow — a nudge card after 5 events on a hunch-less Case, Hunch creation, early-days/verdict cards driven by the pure verdict engine, resolve, and hunch history. **Settings** has a Theme picker (Plain/Intense/Bright) that drives the `Voice` layer and full palette/type/shape skin app-wide with a live preview, plus "Load demo data" / "Delete all data" actions.
+**You can create and edit Cases, and log Events against them** — one-tap quick-log, start/stop for ongoing activity, retro-log for past events — plus archive, delete, or view Archived Cases. **Big Picture** shows every active Case's icons on a scrollable multi-month calendar grid, with day/week detail views and a per-case filter; day cells carry a bespoke treatment per theme (Intense's tab-stripe, Bright's shadowed sticker cells; Plain is the generic baseline). **Case Detail** now has a Log/Insights/Hunch tab structure: Log is the event list plus a summary line (total events, observation span), Insights has all of spec §9–10 — dot timeline, calendar heatmap, and all seven stat sections (frequency, rhythm, gaps & clusters, trend, conditional duration/intensity, tag breakdown) — and Hunch carries the full spec §7 flow — a nudge card after 5 events on a hunch-less Case, Hunch creation, early-days/verdict cards driven by the pure verdict engine, resolve, and hunch history. **Settings** has a Theme picker (Plain/Intense/Bright) that drives the `Voice` layer and full palette/type/shape skin app-wide with a live preview, plus "Load demo data" / "Delete all data" actions.
 
 ## Housekeeping
 
 Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pick up whenever convenient, not gated on phase progress.
 
 - [ ] Case Detail FAB — drop the "It happened earlier…" text label, icon-only, keep bottom-right position (it already behaves as a dual-purpose log-now/log-earlier control).
+- [ ] Insights tab's rhythm grid cells convey their count by shading alone — no content description or visible number, unlike the calendar heatmap's day-of-month numbers and the intensity squares' level numbers. Same color-only gap already deferred for the dot timeline (`feature/case-insights-visuals`); revisit alongside making either grid tappable.
+- [ ] `MILLIS_PER_MINUTE`/`MILLIS_PER_DAY` are redeclared as file-private constants in four places (`OngoingEvent.kt`, `LogDetailViewModel.kt`, `InsightsTabState.kt`, `StatsEngine.kt`) instead of one shared constant — pre-existing pattern across three of those files, not introduced by `feature/case-stats`. Consider a shared `domain`-layer constant if a fifth copy ever shows up.
+- [ ] No instrumented Compose UI test coverage for Case Detail's Insights tab (dot timeline, calendar heatmap, or any of the seven stat cards) — TESTING.md's instrumented-coverage plan doesn't name this screen yet. Real gap, not a regression; add when an emulator's available.
 
 ## Phase order
 
@@ -44,10 +47,10 @@ Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pic
   - **Branches, in dependency order:**
     1. [x] `feature/verdict-engine` — spec §8's pure verdict engine (`domain/Verdict.kt`, `domain/VerdictEngine.kt`): observation window, confidence tiers, comparison bands. No UI; direction-aware rendering is branch 2's job.
     2. [x] `feature/hunch-flow` — nudge card, Hunch creation, verdict/early-days cards, resolve + history, the Log/Insights/Hunch tab structure itself, and every new Voice key across all three voices.
-- [ ] **Phase 7** — Per-case visuals + stats (spec §9–10), filling in Case Detail's Insights tab. Layout validated in the same prototype above — toggle "Phase 7 preview" on its Insights tab.
+- [x] **Phase 7** — Per-case visuals + stats (spec §9–10), filling in Case Detail's Insights tab. Layout validated in the same prototype above — toggle "Phase 7 preview" on its Insights tab.
   - **Branches, in dependency order:**
     1. [x] `feature/case-insights-visuals` — spec §9's visuals: dot timeline (primary, full-width, current-gap annotation) and calendar heatmap (secondary, multi-month, per-case relative shading). `domain/InsightsEngine.kt` for the pure window/gap/shading logic; `weeksInGrid` promoted to `domain/CalendarGrid.kt` to share with Big Picture.
-    2. [ ] Stats (spec §10) — frequency over time, rhythm heatmap, gaps & clusters, trend arrow, conditional duration/intensity stats, tag breakdown.
+    2. [x] `feature/case-stats` — spec §10's seven stat sections: frequency over time (auto-picked granularity, user-overridable Day/Week/Month toggle), rhythm heatmap, gaps & clusters (extends `GapStats` with average gap + "tends to come in bursts" flag), trend arrow (30-day rolling comparison, hidden below 8 weeks of history), conditional duration/intensity stats, and tag breakdown (shown against the Case's total event count). New `domain/Stats.kt` + `domain/StatsEngine.kt`. The heatmap/rhythm/intensity shading scale grew from 4 to 10 tiers along the way (`HeatmapLevel.L1`..`L10`) for finer-grained color distinction. Also added a summary line ("N events logged · observed for N days") above the Log tab's event list, reusing the same `observationSpanDays` the stats tab is built on.
 - [ ] **Phase 8** — Widgets.
 - [ ] **Phase 9** — Triggers + check-ins (WorkManager, notifications).
 - [ ] **Phase 10** — Share cards, export/import, Settings polish (check-in default, About).
