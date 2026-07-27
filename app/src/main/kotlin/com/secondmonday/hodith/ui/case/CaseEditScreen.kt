@@ -21,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
@@ -53,7 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.ConfirmDialog
-import com.secondmonday.hodith.ui.common.InfoDialog
+import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
@@ -274,30 +273,6 @@ private fun CaseEditForm(
         Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
             Text(voice.caseSaveButton)
         }
-    }
-}
-
-/** Shared shape for a form section with a label, a tappable info icon explaining it, and its content below. */
-@Composable
-private fun SectionWithInfo(
-    label: String,
-    infoTitle: String,
-    infoBody: String,
-    infoDescription: String,
-    content: @Composable () -> Unit,
-) {
-    var showInfo by remember { mutableStateOf(false) }
-    if (showInfo) {
-        InfoDialog(title = infoTitle, onDismiss = { showInfo = false }) { Text(infoBody) }
-    }
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            IconButton(onClick = { showInfo = true }) {
-                Icon(Icons.Filled.Info, contentDescription = infoDescription, modifier = Modifier.size(18.dp))
-            }
-        }
-        content()
     }
 }
 
