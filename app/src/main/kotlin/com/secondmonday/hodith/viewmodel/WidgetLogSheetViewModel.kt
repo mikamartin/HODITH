@@ -1,16 +1,13 @@
 package com.secondmonday.hodith.viewmodel
 
-import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.Clock
-import com.secondmonday.hodith.widget.ListWidget
+import com.secondmonday.hodith.widget.WidgetRefresher
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +35,7 @@ class WidgetLogSheetViewModel
     constructor(
         private val repository: HodithRepository,
         private val clock: Clock,
-        @ApplicationContext private val context: Context,
+        private val widgetRefresher: WidgetRefresher,
     ) : ViewModel() {
         private var caseId: Long = 0L
 
@@ -80,7 +77,7 @@ class WidgetLogSheetViewModel
                     )
                 val eventId = repository.insertEvent(plan.entity)
                 plan.tagDiff.toAdd.forEach { repository.addTagToEvent(eventId, it) }
-                ListWidget().updateAll(context)
+                widgetRefresher.refreshListWidget()
                 onSaved()
             }
         }
