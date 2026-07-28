@@ -119,7 +119,7 @@ class CaseDetailScreenTest {
         var savedDraft: LogDraft? = null
         setCaseDetailScreenContent(onSaveEvent = { draft, _, _ -> savedDraft = draft })
 
-        composeTestRule.onNodeWithText(PlainVoice.retroLogEntryLabel, useUnmergedTree = true).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.retroLogEntryDescription, useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.logSheetStartButton).performClick()
 
@@ -132,7 +132,7 @@ class CaseDetailScreenTest {
         var savedDraft: LogDraft? = null
         setCaseDetailScreenContent(onSaveEvent = { draft, _, _ -> savedDraft = draft })
 
-        composeTestRule.onNodeWithText(PlainVoice.retroLogEntryLabel, useUnmergedTree = true).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.retroLogEntryDescription, useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetStopNowAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
 
