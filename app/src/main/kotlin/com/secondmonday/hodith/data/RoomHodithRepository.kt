@@ -39,6 +39,8 @@ class RoomHodithRepository
         // Event
         override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
 
+        override suspend fun getEvent(eventId: Long): EventEntity? = eventDao.getById(eventId)
+
         override suspend fun eventsInWindow(
             caseId: Long,
             windowStart: Long,
