@@ -90,7 +90,7 @@ interface Voice {
     val deleteCaseForeverConfirmTitle: String
     val deleteCaseForeverConfirmAction: String
     val deleteCaseForeverCancelAction: String
-    val retroLogEntryLabel: String
+    val retroLogEntryDescription: String
     val logSheetNewEventTitle: String
     val logSheetEditEventTitle: String
     val logSheetTimeLabel: String
@@ -390,7 +390,7 @@ object PlainVoice : Voice {
     override val deleteCaseForeverConfirmTitle = "Delete this case forever?"
     override val deleteCaseForeverConfirmAction = "Delete forever"
     override val deleteCaseForeverCancelAction = "Cancel"
-    override val retroLogEntryLabel = "It happened earlier…"
+    override val retroLogEntryDescription = "Log an event"
     override val logSheetNewEventTitle = "Log an event"
     override val logSheetEditEventTitle = "Edit event"
     override val logSheetTimeLabel = "When"
@@ -689,7 +689,7 @@ object IntenseVoice : Voice {
     override val deleteCaseForeverConfirmTitle = "Erase this case forever?"
     override val deleteCaseForeverConfirmAction = "Erase forever"
     override val deleteCaseForeverCancelAction = "Abandon"
-    override val retroLogEntryLabel = "It happened before now…"
+    override val retroLogEntryDescription = "Record the evidence"
     override val logSheetNewEventTitle = "Record the evidence"
     override val logSheetEditEventTitle = "Amend the record"
     override val logSheetTimeLabel = "The hour it happened"
@@ -985,7 +985,7 @@ object BrightVoice : Voice {
     override val deleteCaseForeverConfirmTitle = "Delete this case for good?"
     override val deleteCaseForeverConfirmAction = "Yeet it forever"
     override val deleteCaseForeverCancelAction = "Nah, never mind"
-    override val retroLogEntryLabel = "Oh right, it happened earlier…"
+    override val retroLogEntryDescription = "Log the moment"
     override val logSheetNewEventTitle = "Log the moment"
     override val logSheetEditEventTitle = "Tweak this moment"
     override val logSheetTimeLabel = "When'd it happen?"

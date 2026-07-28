@@ -74,7 +74,7 @@ class VoiceTest {
             assertTrue(voice.deleteCaseForeverConfirmTitle.isNotBlank())
             assertTrue(voice.deleteCaseForeverConfirmAction.isNotBlank())
             assertTrue(voice.deleteCaseForeverCancelAction.isNotBlank())
-            assertTrue(voice.retroLogEntryLabel.isNotBlank())
+            assertTrue(voice.retroLogEntryDescription.isNotBlank())
             assertTrue(voice.logSheetNewEventTitle.isNotBlank())
             assertTrue(voice.logSheetEditEventTitle.isNotBlank())
             assertTrue(voice.logSheetTimeLabel.isNotBlank())

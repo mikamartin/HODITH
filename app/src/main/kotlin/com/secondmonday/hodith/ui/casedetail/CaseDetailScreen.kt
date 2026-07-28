@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -162,11 +162,11 @@ fun CaseDetailScreen(
         },
         floatingActionButton = {
             if (selectedTab == LOG_TAB) {
-                ExtendedFloatingActionButton(
-                    text = { Text(voice.retroLogEntryLabel) },
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                FloatingActionButton(
                     onClick = { editRequest = EditRequest(event = null, originalTags = emptyList(), now = now) },
-                )
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = voice.retroLogEntryDescription)
+                }
             }
         },
     ) { contentPadding ->
