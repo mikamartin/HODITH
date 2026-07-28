@@ -8,6 +8,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.widget.WidgetRefresher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,6 +47,7 @@ class CaseEditViewModel
     constructor(
         private val repository: HodithRepository,
         private val clock: Clock,
+        private val widgetRefresher: WidgetRefresher,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long? = savedStateHandle.get<Long>("caseId")?.takeIf { it != NO_CASE_ID }
@@ -141,6 +143,9 @@ class CaseEditViewModel
                         ),
                     )
                 }
+                // pinned/archived both affect what the List widget shows — refresh it whenever
+                // either could have changed, not just from the widget's own configure flow.
+                widgetRefresher.refreshListWidget()
                 _uiState.update { it.copy(isSaved = true) }
             }
         }
@@ -149,6 +154,7 @@ class CaseEditViewModel
             val current = existingCase ?: return
             viewModelScope.launch {
                 repository.updateCase(current.copy(archived = true))
+                widgetRefresher.refreshListWidget()
                 _uiState.update { it.copy(isArchived = true) }
             }
         }

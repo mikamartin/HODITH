@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseWithEvents
 import com.secondmonday.hodith.data.HodithRepository
+import com.secondmonday.hodith.widget.WidgetRefresher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,7 @@ class ArchivedCasesViewModel
     @Inject
     constructor(
         private val repository: HodithRepository,
+        private val widgetRefresher: WidgetRefresher,
     ) : ViewModel() {
         val uiState: StateFlow<ArchivedCasesUiState> =
             repository
@@ -49,12 +51,14 @@ class ArchivedCasesViewModel
                 val case = repository.getCase(caseId) ?: return@launch
                 val sortOrder = repository.observeActiveCases().first().size
                 repository.updateCase(case.copy(archived = false, sortOrder = sortOrder))
+                widgetRefresher.refreshListWidget()
             }
         }
 
         fun deleteForever(caseId: Long) {
             viewModelScope.launch {
                 repository.getCase(caseId)?.let { repository.deleteCase(it) }
+                widgetRefresher.refreshListWidget()
             }
         }
     }

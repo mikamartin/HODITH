@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.widget.FakeWidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -34,9 +35,10 @@ class CaseEditViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun newCaseViewModel() = CaseEditViewModel(repository, clock, SavedStateHandle())
+    private fun newCaseViewModel() = CaseEditViewModel(repository, clock, FakeWidgetRefresher(), SavedStateHandle())
 
-    private fun editViewModel(caseId: Long) = CaseEditViewModel(repository, clock, SavedStateHandle(mapOf("caseId" to caseId)))
+    private fun editViewModel(caseId: Long) =
+        CaseEditViewModel(repository, clock, FakeWidgetRefresher(), SavedStateHandle(mapOf("caseId" to caseId)))
 
     private fun existingCase(id: Long = 1L) =
         CaseEntity(
