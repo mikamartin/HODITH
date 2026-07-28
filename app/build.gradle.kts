@@ -77,6 +77,12 @@ dependencies {
 
     implementation(libs.datastore.preferences)
 
+    implementation(libs.glance.appwidget)
+
+    implementation(libs.work.runtime)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.compiler.androidx)
+
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
