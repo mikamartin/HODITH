@@ -23,6 +23,15 @@
             android:theme="@style/Theme.Widget.Trampoline"
             android:excludeFromRecents="true" />
 
+        <activity
+            android:name=".widget.ListWidgetConfigureActivity"
+            android:exported="true"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.ListWidgetReceiver"
             android:exported="false"

@@ -309,6 +309,14 @@ interface Voice {
             ConfidenceTier.PRELIMINARY -> "Preliminary"
             else -> "Confident"
         }
+
+    /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown once, the first time
+     * a widget is added with nothing yet pinned (spec §15). */
+    val widgetConfigureTitle: String
+    val widgetConfigureBody: String
+    val widgetConfigureNoCasesMessage: String
+    val widgetConfigureConfirmAction: String
+    val widgetConfigureSkipAction: String
 }
 
 object PlainVoice : Voice {
@@ -608,6 +616,12 @@ object PlainVoice : Voice {
     }
 
     override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months ago"
+
+    override val widgetConfigureTitle = "Pick Cases for this widget"
+    override val widgetConfigureBody = "Choose which Cases show up here. You can change this later from each Case's settings."
+    override val widgetConfigureNoCasesMessage = "No cases yet. Add one in the app first."
+    override val widgetConfigureConfirmAction = "Add to widget"
+    override val widgetConfigureSkipAction = "Cancel"
 }
 
 object IntenseVoice : Voice {
@@ -904,6 +918,12 @@ object IntenseVoice : Voice {
     }
 
     override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months past"
+
+    override val widgetConfigureTitle = "Which cases shall haunt this widget?"
+    override val widgetConfigureBody = "Choose what stands watch here. The choice may be revisited from any case's settings."
+    override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Summon a case first."
+    override val widgetConfigureConfirmAction = "Bind to widget"
+    override val widgetConfigureSkipAction = "Abandon"
 }
 
 object BrightVoice : Voice {
@@ -1199,6 +1219,12 @@ object BrightVoice : Voice {
     }
 
     override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months ago"
+
+    override val widgetConfigureTitle = "Pick your widget's stars!"
+    override val widgetConfigureBody = "Choose which Cases get to show off here. Change your mind anytime from that Case's settings."
+    override val widgetConfigureNoCasesMessage = "No cases yet! Make one in the app first."
+    override val widgetConfigureConfirmAction = "Add to widget!"
+    override val widgetConfigureSkipAction = "Never mind"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }

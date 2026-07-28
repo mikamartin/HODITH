@@ -6,4 +6,5 @@
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
+    android:configure="com.secondmonday.hodith.widget.ListWidgetConfigureActivity"
     android:updatePeriodMillis="0" />
