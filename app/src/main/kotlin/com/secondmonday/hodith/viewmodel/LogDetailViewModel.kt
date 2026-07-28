@@ -3,11 +3,10 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
-
-private const val MILLIS_PER_MINUTE = 60_000L
 
 /**
  * Draft state for [com.secondmonday.hodith.ui.logsheet.LogDetailSheet], the log detail sheet

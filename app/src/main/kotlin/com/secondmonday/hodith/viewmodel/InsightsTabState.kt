@@ -8,6 +8,7 @@ import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.GapStats
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
+import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TimelineWindow
@@ -30,8 +31,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-
-private const val MILLIS_PER_DAY = 86_400_000L
 
 /** A gap token never collapses to zero width — an always-visible sliver still reads as "no wait here". */
 private const val MIN_GAP_WEIGHT = 0.02f

@@ -6,14 +6,16 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
+import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import javax.inject.Inject
 import kotlin.random.Random
 
 private const val SEED_SPAN_DAYS = 380
-private const val DAY_MILLIS = 24L * 60 * 60 * 1000L
 private const val SEED_RANDOM_SEED = 42L
-private const val MIN_DURATION_MILLIS = 30L * 60 * 1000L
-private const val MAX_DURATION_MILLIS = 6L * 60 * 60 * 1000L
+private const val MIN_DURATION_MILLIS = 30L * MILLIS_PER_MINUTE
+private const val MAX_DURATION_MILLIS = 6L * MILLIS_PER_HOUR
 private const val MIN_INTENSITY = 1
 private const val MAX_INTENSITY = 5
 private const val NOTE_CHANCE_PERCENT = 45
@@ -124,7 +126,7 @@ class DemoDataSeeder
     ) {
         suspend fun seed() {
             val now = clock.nowMillis()
-            val spanStart = now - SEED_SPAN_DAYS * DAY_MILLIS
+            val spanStart = now - SEED_SPAN_DAYS * MILLIS_PER_DAY
 
             CASE_SEEDS.forEachIndexed { index, caseSeed ->
                 val caseId =
@@ -146,7 +148,7 @@ class DemoDataSeeder
                     )
 
                 val random = Random(SEED_RANDOM_SEED + index)
-                val occurrenceSpanEnd = if (caseSeed.quietSpell) now - QUIET_SPELL_DAYS * DAY_MILLIS else now
+                val occurrenceSpanEnd = if (caseSeed.quietSpell) now - QUIET_SPELL_DAYS * MILLIS_PER_DAY else now
                 val occurrences = occurrencesFor(caseSeed.density, spanStart, occurrenceSpanEnd, random)
                 val withSurge = if (caseSeed.recentSurge) occurrences + recentSurgeOccurrences(now, random) else occurrences
                 withSurge.sorted().forEach { occurredAt ->
@@ -187,11 +189,11 @@ private fun spacedOccurrences(
     maxGapDays: Int,
 ): List<Long> {
     val occurrences = mutableListOf<Long>()
-    var cursor = spanStart + random.nextLong(DAY_MILLIS)
+    var cursor = spanStart + random.nextLong(MILLIS_PER_DAY)
     while (cursor < spanEnd) {
         occurrences += cursor
         val gapDays = random.nextInt(minGapDays, maxGapDays + 1)
-        cursor += gapDays * DAY_MILLIS + random.nextLong(DAY_MILLIS)
+        cursor += gapDays * MILLIS_PER_DAY + random.nextLong(MILLIS_PER_DAY)
     }
     return occurrences
 }
@@ -202,15 +204,15 @@ private fun burstyOccurrences(
     random: Random,
 ): List<Long> {
     val occurrences = mutableListOf<Long>()
-    var clusterStart = spanStart + random.nextLong(DAY_MILLIS * 10)
+    var clusterStart = spanStart + random.nextLong(MILLIS_PER_DAY * 10)
     while (clusterStart < spanEnd) {
         val clusterSize = random.nextInt(3, 7)
         repeat(clusterSize) {
-            val occurredAt = clusterStart + random.nextLong(DAY_MILLIS * 2)
+            val occurredAt = clusterStart + random.nextLong(MILLIS_PER_DAY * 2)
             if (occurredAt < spanEnd) occurrences += occurredAt
         }
         val gapDays = random.nextInt(10, 31)
-        clusterStart += gapDays * DAY_MILLIS
+        clusterStart += gapDays * MILLIS_PER_DAY
     }
     return occurrences.sorted()
 }
@@ -221,8 +223,8 @@ private fun recentSurgeOccurrences(
     random: Random,
 ): List<Long> =
     (0 until RECENT_SURGE_DAYS).flatMap { daysAgo ->
-        val dayStart = now - (daysAgo + 1) * DAY_MILLIS
-        List(RECENT_SURGE_PER_DAY) { dayStart + random.nextLong(DAY_MILLIS) }
+        val dayStart = now - (daysAgo + 1) * MILLIS_PER_DAY
+        List(RECENT_SURGE_PER_DAY) { dayStart + random.nextLong(MILLIS_PER_DAY) }
     }
 
 private fun endedAtFor(
