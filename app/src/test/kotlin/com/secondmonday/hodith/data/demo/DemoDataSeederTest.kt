@@ -2,12 +2,12 @@ package com.secondmonday.hodith.data.demo
 
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private const val DAY_MILLIS = 24L * 60 * 60 * 1000L
 private const val SEED_SPAN_DAYS = 380
 private const val NOW_MILLIS = 1_700_000_000_000L
 
@@ -25,7 +25,7 @@ class DemoDataSeederTest {
             assertEquals(6, cases.size)
             assertEquals(cases.size, cases.map { it.name }.toSet().size)
 
-            val spanStart = NOW_MILLIS - SEED_SPAN_DAYS * DAY_MILLIS
+            val spanStart = NOW_MILLIS - SEED_SPAN_DAYS * MILLIS_PER_DAY
             assertTrue(repository.events.value.isNotEmpty())
             repository.events.value.forEach { event ->
                 assertTrue(event.occurredAt in spanStart..NOW_MILLIS)
@@ -47,7 +47,7 @@ class DemoDataSeederTest {
             seeder.seed()
 
             val coffee = repository.cases.value.single { it.name == "Coffee" }
-            val windowStart = NOW_MILLIS - 35 * DAY_MILLIS
+            val windowStart = NOW_MILLIS - 35 * MILLIS_PER_DAY
             val recentCount = repository.events.value.count { it.caseId == coffee.id && it.occurredAt >= windowStart }
             // TIMELINE_MAX_DOTS (domain/InsightsEngine.kt) is 24 — comfortably cleared, not just met.
             assertTrue(recentCount > 24)
@@ -63,7 +63,7 @@ class DemoDataSeederTest {
                 repository.events.value
                     .filter { it.caseId == lostKeys.id }
                     .maxOf { it.occurredAt }
-            val currentGapDays = (NOW_MILLIS - lastEventAt) / DAY_MILLIS
+            val currentGapDays = (NOW_MILLIS - lastEventAt) / MILLIS_PER_DAY
             // SPARSE's own maxGapDays is 45 — a gap safely past that can only be the quiet spell, not luck.
             assertTrue(currentGapDays > 45)
         }

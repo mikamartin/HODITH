@@ -8,9 +8,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
-private const val MILLIS_PER_DAY = 86_400_000L
-private const val MILLIS_PER_MINUTE = 60_000L
-
 /** Spec §10 frequency/trend: below this span, a Case hasn't been running long enough to bucket by week/month or trend at all. */
 internal const val STATS_SHORT_SPAN_MAX_DAYS = 56L // 8 weeks
 internal const val STATS_MEDIUM_SPAN_MAX_DAYS = 182L // ~6 months

@@ -3,10 +3,8 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
-
-private const val MILLIS_PER_MINUTE = 60_000L
-private const val MILLIS_PER_HOUR = 60 * MILLIS_PER_MINUTE
-private const val MILLIS_PER_DAY = 24 * MILLIS_PER_HOUR
+import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 
 /**
  * Spec §6: an ongoing event older than this surfaces the "still going, or forgot to stop it?"
