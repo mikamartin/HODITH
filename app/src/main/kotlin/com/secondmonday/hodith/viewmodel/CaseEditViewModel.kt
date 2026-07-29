@@ -20,8 +20,6 @@ import javax.inject.Inject
 
 private const val NO_CASE_ID = -1L
 
-enum class CheckInOption { DEFAULT, CUSTOM, OFF }
-
 data class CaseEditUiState(
     val isEditing: Boolean = false,
     val isLoading: Boolean = true,
@@ -32,8 +30,7 @@ data class CaseEditUiState(
     val durationMode: DurationMode = DurationMode.NONE,
     val intensityEnabled: Boolean = false,
     val pinned: Boolean = false,
-    val checkInOption: CheckInOption = CheckInOption.DEFAULT,
-    val checkInCustomDays: String = "",
+    val checkInsEnabled: Boolean = true,
     val showNameError: Boolean = false,
     val showIconError: Boolean = false,
     val isSaved: Boolean = false,
@@ -89,9 +86,7 @@ class CaseEditViewModel
 
         fun onPinnedToggle(pinned: Boolean) = _uiState.update { it.copy(pinned = pinned) }
 
-        fun onCheckInOptionChange(option: CheckInOption) = _uiState.update { it.copy(checkInOption = option) }
-
-        fun onCheckInCustomDaysChange(value: String) = _uiState.update { it.copy(checkInCustomDays = value.filter(Char::isDigit)) }
+        fun onCheckInToggle(enabled: Boolean) = _uiState.update { it.copy(checkInsEnabled = enabled) }
 
         fun save() {
             val state = _uiState.value
@@ -107,7 +102,6 @@ class CaseEditViewModel
                 val name = state.name.trim()
                 val description = state.description.trim().takeIf { it.isNotEmpty() }
                 val icon = requireNotNull(state.icon)
-                val checkInDays = checkInDaysFor(state.checkInOption, state.checkInCustomDays)
                 val current = existingCase
 
                 if (current != null) {
@@ -120,7 +114,7 @@ class CaseEditViewModel
                             durationMode = state.durationMode,
                             intensityEnabled = state.intensityEnabled,
                             pinned = state.pinned,
-                            checkInDays = checkInDays,
+                            checkInsEnabled = state.checkInsEnabled,
                         ),
                     )
                 } else {
@@ -136,7 +130,7 @@ class CaseEditViewModel
                             intensityEnabled = state.intensityEnabled,
                             hunchNudgeDismissed = false,
                             pinned = state.pinned,
-                            checkInDays = checkInDays,
+                            checkInsEnabled = state.checkInsEnabled,
                             lastCheckInAt = null,
                             sortOrder = sortOrder,
                             archived = false,
@@ -172,24 +166,8 @@ internal fun CaseEntity.toUiState() =
         intensityEnabled = intensityEnabled,
         pinned = pinned,
         canArchive = true,
-        checkInOption =
-            when (checkInDays) {
-                null -> CheckInOption.DEFAULT
-                0 -> CheckInOption.OFF
-                else -> CheckInOption.CUSTOM
-            },
-        checkInCustomDays = checkInDays?.takeIf { it > 0 }?.toString().orEmpty(),
+        checkInsEnabled = checkInsEnabled,
     )
-
-internal fun checkInDaysFor(
-    option: CheckInOption,
-    customDays: String,
-): Int? =
-    when (option) {
-        CheckInOption.DEFAULT -> null
-        CheckInOption.OFF -> 0
-        CheckInOption.CUSTOM -> customDays.toIntOrNull()?.takeIf { it > 0 }
-    }
 
 /**
  * Pure so the required-field rule is unit-testable on the JVM without a repository or Hilt,

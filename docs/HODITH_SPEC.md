@@ -70,7 +70,7 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 | intensityEnabled | boolean — show 1–5 intensity on the detail sheet |
 | hunchNudgeDismissed | boolean — user said "stop asking" (see §7) |
 | pinned | boolean — appears in the list widget |
-| checkInDays | nullable Int — days of total silence before a check-in nudge (§11); `null` = use the app-level default from Settings, `0` = off for this Case |
+| checkInsEnabled | boolean — whether this Case participates in check-ins (§11); the interval itself is always the app-level default from Settings, or hunch-derived if the Case has an active Hunch. A Case wanting a custom silence threshold instead gets a `SILENT_FOR` Trigger (§11), which already covers exactly that. |
 | lastCheckInAt | nullable — when a check-in last fired or was answered "all quiet"; used for re-arming |
 | sortOrder | manual ordering on Home and Big Picture |
 | archived | boolean — hidden from Home/widgets/Big Picture, data retained |
@@ -209,13 +209,13 @@ On the case detail Insights tab, below the visuals:
 
 Silence in a Case is ambiguous: did the event stop happening, or did the user stop logging? A check-in resolves that — it's data hygiene, not a nag, and the copy makes the distinction: it asks whether anything went unlogged, never implies the user should "keep it up".
 
-- A check-in fires when a Case has had **zero events for `checkInDays`** — counting from the latest of: last event, last check-in, or case creation. This automatically covers the created-but-never-logged Case ("You opened 🐕 *Dog barking* 14 days ago — nothing logged yet. All quiet, or forgot it exists?").
-- **Timing defaults:**
+- A check-in fires when a Case has had **zero events for its effective interval** — counting from the latest of: last event, last check-in, or case creation. This automatically covers the created-but-never-logged Case ("You opened 🐕 *Dog barking* 14 days ago — nothing logged yet. All quiet, or forgot it exists?").
+- **Timing:**
   - Case with a Hunch — derived from the expected rate: expected gap = period ÷ expectedCount, check-in after **2 × expected gap**, clamped to 3–30 days. If you said "3× a week" and a week passes silently, that's exactly when a heads-up is useful.
   - Case without a Hunch — the **app-level default** from Settings (`off / 7 / 14 / 30 days`).
-  - Either can be overridden per Case (`checkInDays`), including off.
+  - A Case can opt out entirely (`checkInsEnabled = false`) but has no custom interval of its own — a Case wanting a specific silence threshold gets a `SILENT_FOR` Trigger instead, rather than a second, overlapping way to configure the same idea.
 - Notification actions: **Log** (respects the Case's `logFlow` — one-tap logs directly, detail-sheet opens the sheet) and **All quiet** (re-arms the check-in; no event created).
-- Anti-spam: check-ins are evaluated by the same WorkManager job as triggers; multiple due check-ins collapse into a single summary notification ("3 cases are quiet — tap to review"). A Case never fires a check-in more than once per `checkInDays` period.
+- Anti-spam: check-ins are evaluated by the same WorkManager job as triggers; multiple due check-ins collapse into a single summary notification ("3 cases are quiet — tap to review"). A Case never fires a check-in more than once per its effective interval.
 
 ### Permissions
 
@@ -267,7 +267,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 | **Home** | Case list (drag to reorder): icon, name, today/this-week count, quick-log button, ongoing indicator. FAB: new Case. Trigger banners if notifications are denied. Text link to **Archived Cases**, shown only once at least one Case is archived. |
 | **Big Picture** | §9 flagship view. |
 | **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10), **Hunch** (verdict card or hunch creation, hunch history). Header: icon, name, share action (§13), config access. |
-| **New/edit Case** | Name, optional description, collapsible icon picker (expanded by default for a new Case, collapsed with an icon summary when editing), logFlow, durationMode, intensity toggle, pinned toggle, check-in override (default / custom days / off, styled as the same segmented control as logFlow/durationMode); then the skippable Hunch step. Logging, Duration, and Check-in each carry a tappable info icon opening a plain explanatory dialog. The Logging control's "One tap" option is disabled whenever durationMode is Manual and/or intensity tracking is on (one-tap can't capture a typed duration or intensity rating; Start/stop is unaffected) — an existing Case's logFlow silently corrects to Detail sheet the moment its duration/intensity settings make One tap invalid, whether that happens while editing or because a previously-valid stored value became invalid. Header also carries an **Archive** action on an existing Case (confirm dialog; not shown when creating a new Case) — navigates to Home on confirm. |
+| **New/edit Case** | Name, optional description, collapsible icon picker (expanded by default for a new Case, collapsed with an icon summary when editing), logFlow, durationMode, intensity toggle, pinned toggle, check-in toggle (on/off); then the skippable Hunch step. Logging, Duration, and Check-in each carry a tappable info icon opening a plain explanatory dialog. The Logging control's "One tap" option is disabled whenever durationMode is Manual and/or intensity tracking is on (one-tap can't capture a typed duration or intensity rating; Start/stop is unaffected) — an existing Case's logFlow silently corrects to Detail sheet the moment its duration/intensity settings make One tap invalid, whether that happens while editing or because a previously-valid stored value became invalid. Header also carries an **Archive** action on an existing Case (confirm dialog; not shown when creating a new Case) — navigates to Home on confirm. |
 | **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/hunches/triggers). Reached via Home's archived-cases link. |
 | **Log detail sheet** | §6 — reachable from widget (trampoline activity), Home, case detail. |
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |

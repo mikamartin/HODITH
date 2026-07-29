@@ -60,10 +60,6 @@ interface Voice {
     val caseIntensityToggleLabel: String
     val casePinnedToggleLabel: String
     val caseCheckInLabel: String
-    val caseCheckInDefault: String
-    val caseCheckInCustom: String
-    val caseCheckInOff: String
-    val caseCheckInCustomDaysHint: String
     val caseCheckInInfoTitle: String
     val caseCheckInInfoBody: String
     val caseSaveButton: String
@@ -117,6 +113,13 @@ interface Voice {
     val themeOptionIntense: String
     val themeOptionBright: String
     val settingsPreviewLabel: String
+    val settingsCheckInSectionLabel: String
+    val checkInIntervalOptionOff: String
+    val checkInIntervalOptionSeven: String
+    val checkInIntervalOptionFourteen: String
+    val checkInIntervalOptionThirty: String
+    val settingsCheckInInfoTitle: String
+    val settingsCheckInInfoBody: String
     val settingsDemoDataSectionLabel: String
     val settingsLoadDemoDataButton: String
     val settingsDemoDataLoadedMessage: String
@@ -374,14 +377,10 @@ object PlainVoice : Voice {
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
     override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
-    override val caseCheckInDefault = "Use default"
-    override val caseCheckInCustom = "Custom"
-    override val caseCheckInOff = "Off"
-    override val caseCheckInCustomDaysHint = "Days"
     override val caseCheckInInfoTitle = "About check-in"
     override val caseCheckInInfoBody =
-        "A check-in nudge appears after a stretch of silence on this case. Use default follows Settings' " +
-            "app-wide interval, Custom sets a day count just for this case, Off disables it entirely."
+        "When on, this case gets a check-in nudge after a stretch of silence — sooner if it has an active " +
+            "Hunch, otherwise using Settings' default interval. Off turns it off for this case."
     override val caseSaveButton = "Save"
     override val caseDetailEditDescription = "Edit case"
     override val archiveCaseDescription = "Archive case"
@@ -433,6 +432,16 @@ object PlainVoice : Voice {
     override val themeOptionIntense = "Intense"
     override val themeOptionBright = "Bright"
     override val settingsPreviewLabel = "Preview"
+    override val settingsCheckInSectionLabel = "Check-ins"
+    override val checkInIntervalOptionOff = "Off"
+    override val checkInIntervalOptionSeven = "7d"
+    override val checkInIntervalOptionFourteen = "14d"
+    override val checkInIntervalOptionThirty = "30d"
+    override val settingsCheckInInfoTitle = "About check-ins"
+    override val settingsCheckInInfoBody =
+        "How many days of silence trigger a check-in nudge, for cases without their own Hunch. A case with " +
+            "an active Hunch uses its own pace-derived interval instead. Off turns off the app-wide default; " +
+            "individual cases can still be turned off from their edit screen."
     override val settingsDemoDataSectionLabel = "Demo data"
     override val settingsLoadDemoDataButton = "Load demo data"
     override val settingsDemoDataLoadedMessage = "Demo data loaded."
@@ -684,14 +693,11 @@ object IntenseVoice : Voice {
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
     override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
-    override val caseCheckInDefault = "Use default"
-    override val caseCheckInCustom = "Custom"
-    override val caseCheckInOff = "Off"
-    override val caseCheckInCustomDaysHint = "Days"
     override val caseCheckInInfoTitle = "On the watch kept"
     override val caseCheckInInfoBody =
-        "The check-in nudge stirs after this case has lain silent too long. Use default heeds the interval " +
-            "Settings decree for all cases. Custom sets its own count of days. Off silences the nudge for good."
+        "When kept, the check-in nudge stirs after this case has lain silent too long — sooner still if a " +
+            "Hunch keeps its own vigil, otherwise the interval Settings decree for all cases. Off silences the " +
+            "nudge for this case alone."
     override val caseSaveButton = "Seal it"
     override val caseDetailEditDescription = "Revise the case"
     override val archiveCaseDescription = "Bury this case"
@@ -743,6 +749,16 @@ object IntenseVoice : Voice {
     override val themeOptionIntense = "Intense"
     override val themeOptionBright = "Bright"
     override val settingsPreviewLabel = "A glimpse"
+    override val settingsCheckInSectionLabel = "The watch kept"
+    override val checkInIntervalOptionOff = "Off"
+    override val checkInIntervalOptionSeven = "7d"
+    override val checkInIntervalOptionFourteen = "14d"
+    override val checkInIntervalOptionThirty = "30d"
+    override val settingsCheckInInfoTitle = "On the watch kept"
+    override val settingsCheckInInfoBody =
+        "How many days of silence rouse a check-in nudge, for any case with no Hunch watching over it. A " +
+            "case bound to an active Hunch keeps its own pace-derived vigil instead. Off lays the app-wide " +
+            "watch to rest; a single case's watch can still be silenced from its own page."
     override val settingsDemoDataSectionLabel = "Phantom data"
     override val settingsLoadDemoDataButton = "Conjure phantom cases"
     override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
@@ -991,14 +1007,10 @@ object BrightVoice : Voice {
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
     override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
-    override val caseCheckInDefault = "Use default"
-    override val caseCheckInCustom = "Custom"
-    override val caseCheckInOff = "Off"
-    override val caseCheckInCustomDaysHint = "Days"
     override val caseCheckInInfoTitle = "Check-in, explained"
     override val caseCheckInInfoBody =
-        "The check-in nudge pops up if this case goes quiet too long. Use default follows whatever Settings " +
-            "says app-wide, Custom lets you pick your own day count, Off turns it off completely."
+        "Flip it on and you'll get a nudge after a quiet stretch — quicker if there's a Hunch running the " +
+            "numbers, otherwise whatever Settings says. Off means no nudges for this case."
     override val caseSaveButton = "Save it!"
     override val caseDetailEditDescription = "Tweak the case"
     override val archiveCaseDescription = "Shelve this case"
@@ -1050,6 +1062,16 @@ object BrightVoice : Voice {
     override val themeOptionIntense = "Intense"
     override val themeOptionBright = "Bright"
     override val settingsPreviewLabel = "Sneak peek"
+    override val settingsCheckInSectionLabel = "Nudge me"
+    override val checkInIntervalOptionOff = "Off"
+    override val checkInIntervalOptionSeven = "7d"
+    override val checkInIntervalOptionFourteen = "14d"
+    override val checkInIntervalOptionThirty = "30d"
+    override val settingsCheckInInfoTitle = "Check-ins, explained"
+    override val settingsCheckInInfoBody =
+        "Sets how many quiet days trigger a nudge, for cases without their own Hunch. Got a Hunch running? " +
+            "That case gets its own smarter timing instead. Off means no app-wide nudges — you can still " +
+            "flip a single case off from its edit screen."
     override val settingsDemoDataSectionLabel = "Pretend data"
     override val settingsLoadDemoDataButton = "Load some pretend chaos!"
     override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"

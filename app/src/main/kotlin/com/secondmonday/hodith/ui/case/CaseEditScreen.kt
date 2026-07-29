@@ -16,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -32,7 +31,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,20 +43,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
 import com.secondmonday.hodith.viewmodel.CaseEditViewModel
-import com.secondmonday.hodith.viewmodel.CheckInOption
 import com.secondmonday.hodith.viewmodel.isOneTapAllowed
 
 private val ICON_CHOICE_SIZE = 48.dp
@@ -89,8 +86,7 @@ fun CaseEditRoute(
         onDurationModeChange = viewModel::onDurationModeChange,
         onIntensityToggle = viewModel::onIntensityToggle,
         onPinnedToggle = viewModel::onPinnedToggle,
-        onCheckInOptionChange = viewModel::onCheckInOptionChange,
-        onCheckInCustomDaysChange = viewModel::onCheckInCustomDaysChange,
+        onCheckInToggle = viewModel::onCheckInToggle,
         onSave = viewModel::save,
         onArchive = viewModel::archive,
         onBack = onDone,
@@ -109,8 +105,7 @@ fun CaseEditScreen(
     onDurationModeChange: (DurationMode) -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
     onPinnedToggle: (Boolean) -> Unit,
-    onCheckInOptionChange: (CheckInOption) -> Unit,
-    onCheckInCustomDaysChange: (String) -> Unit,
+    onCheckInToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
     onArchive: () -> Unit,
     onBack: () -> Unit,
@@ -165,8 +160,7 @@ fun CaseEditScreen(
             onDurationModeChange = onDurationModeChange,
             onIntensityToggle = onIntensityToggle,
             onPinnedToggle = onPinnedToggle,
-            onCheckInOptionChange = onCheckInOptionChange,
-            onCheckInCustomDaysChange = onCheckInCustomDaysChange,
+            onCheckInToggle = onCheckInToggle,
             onSave = onSave,
             modifier = Modifier.padding(contentPadding),
         )
@@ -185,8 +179,7 @@ private fun CaseEditForm(
     onDurationModeChange: (DurationMode) -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
     onPinnedToggle: (Boolean) -> Unit,
-    onCheckInOptionChange: (CheckInOption) -> Unit,
-    onCheckInCustomDaysChange: (String) -> Unit,
+    onCheckInToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -248,26 +241,8 @@ private fun CaseEditForm(
         ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
         ToggleRow(label = voice.casePinnedToggleLabel, checked = uiState.pinned, onCheckedChange = onPinnedToggle)
 
-        SectionWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
-            SegmentedChoiceRow(
-                options =
-                    listOf(
-                        CheckInOption.DEFAULT to voice.caseCheckInDefault,
-                        CheckInOption.CUSTOM to voice.caseCheckInCustom,
-                        CheckInOption.OFF to voice.caseCheckInOff,
-                    ),
-                selected = uiState.checkInOption,
-                onSelect = onCheckInOptionChange,
-            )
-            if (uiState.checkInOption == CheckInOption.CUSTOM) {
-                TextField(
-                    value = uiState.checkInCustomDays,
-                    onValueChange = onCheckInCustomDaysChange,
-                    label = { Text(voice.caseCheckInCustomDaysHint) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
+        RowWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
+            Switch(checked = uiState.checkInsEnabled, onCheckedChange = onCheckInToggle)
         }
 
         Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {

@@ -27,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -47,6 +49,7 @@ fun SettingsRoute(
         uiState = uiState,
         demoDataLoaded = viewModel.demoDataLoaded,
         onThemeSelect = viewModel::onThemeSelect,
+        onCheckInDefaultIntervalSelect = viewModel::onCheckInDefaultIntervalSelect,
         onLoadDemoData = viewModel::loadDemoData,
         onDeleteAllData = viewModel::deleteAllData,
         modifier = modifier,
@@ -58,6 +61,7 @@ fun SettingsScreen(
     uiState: SettingsUiState,
     demoDataLoaded: Flow<Unit>,
     onThemeSelect: (AppTheme) -> Unit,
+    onCheckInDefaultIntervalSelect: (CheckInDefaultInterval) -> Unit,
     onLoadDemoData: () -> Unit,
     onDeleteAllData: () -> Unit,
     modifier: Modifier = Modifier,
@@ -101,6 +105,11 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             ThemeSection(theme = uiState.theme, voice = voice, onThemeSelect = onThemeSelect)
+            CheckInSection(
+                interval = uiState.checkInDefaultInterval,
+                voice = voice,
+                onCheckInDefaultIntervalSelect = onCheckInDefaultIntervalSelect,
+            )
             DemoDataSection(voice = voice, onLoadDemoData = onLoadDemoData, onDeleteAllData = { showDeleteAllConfirm = true })
         }
     }
@@ -137,6 +146,31 @@ private fun ThemeSection(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CheckInSection(
+    interval: CheckInDefaultInterval,
+    voice: Voice,
+    onCheckInDefaultIntervalSelect: (CheckInDefaultInterval) -> Unit,
+) {
+    val options =
+        listOf(
+            CheckInDefaultInterval.OFF to voice.checkInIntervalOptionOff,
+            CheckInDefaultInterval.SEVEN to voice.checkInIntervalOptionSeven,
+            CheckInDefaultInterval.FOURTEEN to voice.checkInIntervalOptionFourteen,
+            CheckInDefaultInterval.THIRTY to voice.checkInIntervalOptionThirty,
+        )
+
+    SectionWithInfo(
+        label = voice.settingsCheckInSectionLabel,
+        infoTitle = voice.settingsCheckInInfoTitle,
+        infoBody = voice.settingsCheckInInfoBody,
+        infoDescription = voice.caseSectionInfoDescription,
+        labelStyle = MaterialTheme.typography.labelLarge,
+    ) {
+        SegmentedChoiceRow(options = options, selected = interval, onSelect = onCheckInDefaultIntervalSelect)
     }
 }
 

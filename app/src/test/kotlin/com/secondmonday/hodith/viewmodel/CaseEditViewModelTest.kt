@@ -52,7 +52,7 @@ class CaseEditViewModelTest {
             intensityEnabled = false,
             hunchNudgeDismissed = false,
             pinned = false,
-            checkInDays = null,
+            checkInsEnabled = true,
             lastCheckInAt = null,
             sortOrder = 0,
             archived = false,
@@ -155,6 +155,23 @@ class CaseEditViewModelTest {
                 repository.cases.value
                     .single()
                     .id,
+            )
+        }
+
+    @Test
+    fun `onCheckInToggle updates state and is persisted on save`() =
+        runTest {
+            repository.cases.value = listOf(existingCase())
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onCheckInToggle(false)
+            vm.save()
+
+            assertFalse(vm.uiState.value.checkInsEnabled)
+            assertFalse(
+                repository.cases.value
+                    .single()
+                    .checkInsEnabled,
             )
         }
 

@@ -54,7 +54,7 @@ class WidgetLogSheetViewModelTest {
         intensityEnabled = intensityEnabled,
         hunchNudgeDismissed = false,
         pinned = false,
-        checkInDays = null,
+        checkInsEnabled = true,
         lastCheckInAt = null,
         sortOrder = 0,
         archived = false,

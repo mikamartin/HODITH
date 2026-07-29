@@ -2,6 +2,7 @@ package com.secondmonday.hodith.viewmodel
 
 import app.cash.turbine.test
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.demo.DemoDataSeeder
@@ -57,6 +58,29 @@ class SettingsViewModelTest {
             viewModel.onThemeSelect(AppTheme.BRIGHT)
 
             assertEquals(AppTheme.BRIGHT, settingsRepository.theme.value)
+        }
+
+    @Test
+    fun `uiState reflects the persisted check-in default interval`() =
+        runTest {
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.THIRTY
+            val viewModel = viewModel()
+
+            viewModel.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(CheckInDefaultInterval.THIRTY, state.checkInDefaultInterval)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `onCheckInDefaultIntervalSelect persists the new interval`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onCheckInDefaultIntervalSelect(CheckInDefaultInterval.OFF)
+
+            assertEquals(CheckInDefaultInterval.OFF, settingsRepository.checkInDefaultInterval.value)
         }
 
     @Test

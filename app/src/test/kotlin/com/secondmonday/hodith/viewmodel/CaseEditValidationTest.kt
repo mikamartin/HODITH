@@ -35,31 +35,6 @@ class CaseEditValidationTest {
     }
 
     @Test
-    fun `check-in default maps to null`() {
-        assertEquals(null, checkInDaysFor(CheckInOption.DEFAULT, customDays = "14"))
-    }
-
-    @Test
-    fun `check-in off maps to zero`() {
-        assertEquals(0, checkInDaysFor(CheckInOption.OFF, customDays = "14"))
-    }
-
-    @Test
-    fun `check-in custom maps to the parsed day count`() {
-        assertEquals(14, checkInDaysFor(CheckInOption.CUSTOM, customDays = "14"))
-    }
-
-    @Test
-    fun `check-in custom with blank input falls back to null`() {
-        assertEquals(null, checkInDaysFor(CheckInOption.CUSTOM, customDays = ""))
-    }
-
-    @Test
-    fun `check-in custom with zero falls back to null`() {
-        assertEquals(null, checkInDaysFor(CheckInOption.CUSTOM, customDays = "0"))
-    }
-
-    @Test
     fun `one tap is allowed with no duration and no intensity`() {
         assertTrue(isOneTapAllowed(DurationMode.NONE, intensityEnabled = false))
     }
@@ -119,7 +94,7 @@ class CaseEditValidationTest {
                 intensityEnabled = true,
                 hunchNudgeDismissed = false,
                 pinned = false,
-                checkInDays = null,
+                checkInsEnabled = true,
                 lastCheckInAt = null,
                 sortOrder = 0,
                 archived = false,
@@ -140,7 +115,7 @@ class CaseEditValidationTest {
                 intensityEnabled = false,
                 hunchNudgeDismissed = false,
                 pinned = false,
-                checkInDays = null,
+                checkInsEnabled = true,
                 lastCheckInAt = null,
                 sortOrder = 0,
                 archived = false,
