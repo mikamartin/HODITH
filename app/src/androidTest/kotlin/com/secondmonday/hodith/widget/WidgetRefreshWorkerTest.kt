@@ -67,8 +67,26 @@ class WidgetRefreshWorkerTest {
     fun enqueue_registersAUniquePeriodicWorkRequest() {
         WidgetRefreshWorker.enqueue(context)
 
-        val infos = WorkManager.getInstance(context).getWorkInfosForUniqueWork(WidgetRefreshWorker.WORK_NAME).get()
+        val workManager = WorkManager.getInstance(context)
+        val workId =
+            workManager
+                .getWorkInfosForUniqueWork(WidgetRefreshWorker.WORK_NAME)
+                .get()
+                .single()
+                .id
 
+        // The test scheduler runs the request eagerly (no initial delay/constraints), so it can
+        // still be RUNNING the instant after enqueue() returns; poll until it cycles back to
+        // ENQUEUED to await its next interval, same quirk as the SUCCEEDED test above.
+        var info = workManager.getWorkInfoById(workId).get()!!
+        var attempts = 0
+        while (info.state == WorkInfo.State.RUNNING && attempts < 50) {
+            Thread.sleep(100)
+            info = workManager.getWorkInfoById(workId).get()!!
+            attempts++
+        }
+
+        val infos = workManager.getWorkInfosForUniqueWork(WidgetRefreshWorker.WORK_NAME).get()
         assertEquals(1, infos.size)
         assertEquals(WorkInfo.State.ENQUEUED, infos.single().state)
     }
