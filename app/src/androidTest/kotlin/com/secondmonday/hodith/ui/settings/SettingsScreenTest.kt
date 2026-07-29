@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.BrightVoice
@@ -33,6 +34,7 @@ class SettingsScreenTest {
         uiState: SettingsUiState = SettingsUiState(theme = AppTheme.PLAIN, isLoading = false),
         demoDataLoaded: MutableSharedFlow<Unit> = MutableSharedFlow(extraBufferCapacity = 1),
         onThemeSelect: (AppTheme) -> Unit = {},
+        onCheckInDefaultIntervalSelect: (CheckInDefaultInterval) -> Unit = {},
         onLoadDemoData: () -> Unit = {},
         onDeleteAllData: () -> Unit = {},
     ) {
@@ -42,6 +44,7 @@ class SettingsScreenTest {
                     uiState = uiState,
                     demoDataLoaded = demoDataLoaded,
                     onThemeSelect = onThemeSelect,
+                    onCheckInDefaultIntervalSelect = onCheckInDefaultIntervalSelect,
                     onLoadDemoData = onLoadDemoData,
                     onDeleteAllData = onDeleteAllData,
                 )
@@ -67,6 +70,27 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.themeOptionIntense).performClick()
 
         assertEquals(AppTheme.INTENSE, selected)
+    }
+
+    @Test
+    fun checkInSection_showsAllFourOptions() {
+        setContent()
+
+        composeTestRule.onNodeWithText(PlainVoice.checkInIntervalOptionOff).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.checkInIntervalOptionSeven).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.checkInIntervalOptionFourteen).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.checkInIntervalOptionThirty).assertExists()
+    }
+
+    @Smoke
+    @Test
+    fun checkInOption_tapInvokesCallbackWithThatInterval() {
+        var selected: CheckInDefaultInterval? = null
+        setContent(onCheckInDefaultIntervalSelect = { selected = it })
+
+        composeTestRule.onNodeWithText(PlainVoice.checkInIntervalOptionFourteen).performClick()
+
+        assertEquals(CheckInDefaultInterval.FOURTEEN, selected)
     }
 
     @Test

@@ -10,6 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private val THEME_KEY = stringPreferencesKey("theme")
+private val CHECK_IN_DEFAULT_INTERVAL_KEY = stringPreferencesKey("check_in_default_interval")
 
 @Singleton
 class DataStoreSettingsRepository
@@ -26,5 +27,16 @@ class DataStoreSettingsRepository
 
         override suspend fun setTheme(theme: AppTheme) {
             dataStore.edit { preferences -> preferences[THEME_KEY] = theme.name }
+        }
+
+        override fun observeCheckInDefaultInterval(): Flow<CheckInDefaultInterval> =
+            dataStore.data.map { preferences ->
+                preferences[CHECK_IN_DEFAULT_INTERVAL_KEY]?.let { name ->
+                    runCatching { CheckInDefaultInterval.valueOf(name) }.getOrNull()
+                } ?: CheckInDefaultInterval.SEVEN
+            }
+
+        override suspend fun setCheckInDefaultInterval(interval: CheckInDefaultInterval) {
+            dataStore.edit { preferences -> preferences[CHECK_IN_DEFAULT_INTERVAL_KEY] = interval.name }
         }
     }

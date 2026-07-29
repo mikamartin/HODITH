@@ -49,7 +49,7 @@ class ArchivedCasesViewModelTest {
         intensityEnabled = false,
         hunchNudgeDismissed = false,
         pinned = false,
-        checkInDays = null,
+        checkInsEnabled = true,
         lastCheckInAt = null,
         sortOrder = sortOrder,
         archived = archived,

@@ -15,7 +15,7 @@ data class CaseEntity(
     val intensityEnabled: Boolean,
     val hunchNudgeDismissed: Boolean,
     val pinned: Boolean,
-    val checkInDays: Int?,
+    val checkInsEnabled: Boolean,
     val lastCheckInAt: Long?,
     val sortOrder: Int,
     val archived: Boolean,

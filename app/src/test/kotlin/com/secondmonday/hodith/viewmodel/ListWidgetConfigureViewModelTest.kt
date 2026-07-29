@@ -44,7 +44,7 @@ class ListWidgetConfigureViewModelTest {
         intensityEnabled = false,
         hunchNudgeDismissed = false,
         pinned = pinned,
-        checkInDays = null,
+        checkInsEnabled = true,
         lastCheckInAt = null,
         sortOrder = 0,
         archived = false,

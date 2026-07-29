@@ -38,7 +38,7 @@ private fun testCase(
     intensityEnabled = false,
     hunchNudgeDismissed = hunchNudgeDismissed,
     pinned = false,
-    checkInDays = null,
+    checkInsEnabled = true,
     lastCheckInAt = null,
     sortOrder = 0,
     archived = false,
