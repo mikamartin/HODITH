@@ -26,9 +26,6 @@ internal const val LESS_MAX_RATIO = 0.8
 internal const val ABOUT_RIGHT_MAX_RATIO = 1.25
 internal const val MORE_MAX_RATIO = 2.0
 
-private const val DAYS_PER_WEEK = 7.0
-private const val DAYS_PER_MONTH = 30.0
-
 /**
  * Spec §8's verdict engine: a pure function of a Hunch, its Case's events, and the current time.
  * Verdicts are computed fresh on every read, never stored, so this is the app's most
