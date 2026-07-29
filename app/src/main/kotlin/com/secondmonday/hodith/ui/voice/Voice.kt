@@ -317,6 +317,14 @@ interface Voice {
     val widgetConfigureNoCasesMessage: String
     val widgetConfigureConfirmAction: String
     val widgetConfigureSkipAction: String
+
+    /** [com.secondmonday.hodith.widget.ListWidget]'s own copy. Only [PlainVoice]'s versions ever
+     * render — the widget's chrome is fixed regardless of in-app theme (DEV_PLAYBOOK.md §4) — but
+     * all three still get an entry per the Voice layer rule. */
+    val widgetNoPinnedCasesMessage: String
+    val widgetStopAction: String
+
+    fun widgetTodayCount(count: Int): String
 }
 
 object PlainVoice : Voice {
@@ -622,6 +630,11 @@ object PlainVoice : Voice {
     override val widgetConfigureNoCasesMessage = "No cases yet. Add one in the app first."
     override val widgetConfigureConfirmAction = "Add to widget"
     override val widgetConfigureSkipAction = "Cancel"
+
+    override val widgetNoPinnedCasesMessage = "No pinned Cases yet. Pin one from its Case screen to see it here."
+    override val widgetStopAction = "Stop"
+
+    override fun widgetTodayCount(count: Int) = "Today: $count"
 }
 
 object IntenseVoice : Voice {
@@ -924,6 +937,11 @@ object IntenseVoice : Voice {
     override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Summon a case first."
     override val widgetConfigureConfirmAction = "Bind to widget"
     override val widgetConfigureSkipAction = "Abandon"
+
+    override val widgetNoPinnedCasesMessage = "Nothing pinned yet. Pin a case from its own screen to keep watch here."
+    override val widgetStopAction = "Seal"
+
+    override fun widgetTodayCount(count: Int) = "Today: $count"
 }
 
 object BrightVoice : Voice {
@@ -1225,6 +1243,11 @@ object BrightVoice : Voice {
     override val widgetConfigureNoCasesMessage = "No cases yet! Make one in the app first."
     override val widgetConfigureConfirmAction = "Add to widget!"
     override val widgetConfigureSkipAction = "Never mind"
+
+    override val widgetNoPinnedCasesMessage = "No pinned Cases yet! Pin one from its Case screen to see it here."
+    override val widgetStopAction = "Stop!"
+
+    override fun widgetTodayCount(count: Int) = "Today: $count"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }

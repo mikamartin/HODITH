@@ -30,8 +30,12 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -40,15 +44,10 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
+import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.homeCaseRows
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
-
-/** Widget-only copy that never surfaces anywhere Goth/Quirky phrasing would matter — see the
- * header's rationale in [PlainVoice]'s usage below. Plain constants, not Voice keys: writing
- * Goth/Quirky versions of a string that can structurally never render would just be dead code.
- */
-private const val NO_PINNED_CASES_MESSAGE = "No pinned Cases yet. Pin one from its Case screen to see it here."
 
 private object WidgetPalette {
     val background = Color(0xFF1C1C1E)
@@ -131,12 +130,12 @@ class ListWidget : GlanceAppWidget() {
                     )
                     if (rows.isEmpty()) {
                         Text(
-                            text = NO_PINNED_CASES_MESSAGE,
+                            text = PlainVoice.widgetNoPinnedCasesMessage,
                             style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 13.sp),
                         )
                     } else {
                         LazyColumn(modifier = GlanceModifier.fillMaxWidth()) {
-                            items(rows) { row -> CaseRow(row) }
+                            items(rows) { row -> CaseRow(row, now) }
                         }
                     }
                 }
@@ -154,8 +153,15 @@ private fun androidx.glance.appwidget.lazy.LazyListScope.items(
     }
 }
 
+/** Minimum tappable target on any axis (Android accessibility guidance) — the widget's compact
+ * rows would otherwise size the "+" and "Stop" tap targets to their text alone. */
+private val MinTapTarget = 48.dp
+
 @Composable
-private fun CaseRow(row: HomeCaseRow) {
+private fun CaseRow(
+    row: HomeCaseRow,
+    now: Long,
+) {
     val ongoing = row.ongoingEvent
     Row(
         modifier =
@@ -179,7 +185,12 @@ private fun CaseRow(row: HomeCaseRow) {
                     ),
             )
             Text(
-                text = if (ongoing != null) "Ongoing · ${elapsedLabel(ongoing.occurredAt)}" else "Today: ${row.todayCount}",
+                text =
+                    if (ongoing != null) {
+                        PlainVoice.ongoingIndicator(formatElapsedDuration(ongoing.occurredAt, now))
+                    } else {
+                        PlainVoice.widgetTodayCount(row.todayCount)
+                    },
                 style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 12.sp),
             )
         }
@@ -188,19 +199,21 @@ private fun CaseRow(row: HomeCaseRow) {
             Box(
                 modifier =
                     GlanceModifier
+                        .height(MinTapTarget)
                         .background(WidgetPalette.stopBackground)
                         .cornerRadius(8.dp)
                         .clickable(actionRunCallback<StopEventAction>(actionParametersOf(EventIdParam to ongoing.id))),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Stop",
+                    text = PlainVoice.widgetStopAction,
                     style =
                         TextStyle(
                             color = ColorProvider(WidgetPalette.onStopBackground),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                         ),
-                    modifier = GlanceModifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = GlanceModifier.padding(horizontal = 14.dp),
                 )
             }
         } else {
@@ -215,28 +228,24 @@ private fun CaseRow(row: HomeCaseRow) {
                                     .putExtra(EXTRA_CASE_ID, row.caseId),
                         )
                 }
-            Text(
-                text = "+",
-                style =
-                    TextStyle(
-                        color = ColorProvider(WidgetPalette.accent),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
+            Box(
                 modifier =
                     GlanceModifier
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
-                        .clickable(tapAction),
-            )
+                        .size(MinTapTarget)
+                        .clickable(tapAction)
+                        .semantics { contentDescription = PlainVoice.quickLogButtonDescription(row.name) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "+",
+                    style =
+                        TextStyle(
+                            color = ColorProvider(WidgetPalette.accent),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                )
+            }
         }
-    }
-}
-
-private fun elapsedLabel(startedAtMillis: Long): String {
-    val elapsedMinutes = (System.currentTimeMillis() - startedAtMillis) / 60_000L
-    return if (elapsedMinutes < 60) {
-        "${elapsedMinutes}m"
-    } else {
-        "${elapsedMinutes / 60}h ${elapsedMinutes % 60}m"
     }
 }
