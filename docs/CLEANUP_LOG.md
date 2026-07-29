@@ -15,6 +15,53 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/list-widget (Phase 8)
+
+**Scope:** Post-work cleanup pass for the List widget branch (7 commits), walked against the full
+`main...feature/list-widget` diff per CLEANUP_CHECKLIST.md, plus all four `DEV_PLAYBOOK.md` §3
+checks (`ktlintCheck`, `lintDebug`, `test`, `assembleDebug`) run sequentially — all passed clean
+both before and after the fixes below.
+
+**Found & fixed:**
+- **Inline strings bypassing the Voice layer:** `ListWidget.kt`'s "No pinned Cases yet...", "Stop",
+  "Today: N", and "Ongoing · X" were hardcoded literals instead of `Voice` keys — even though the
+  same file's `homeHeaderTitle` usage one line away already established the correct pattern
+  (reference `PlainVoice.xyz` directly, since the widget's chrome is fixed to Plain regardless of
+  in-app theme). Added `widgetNoPinnedCasesMessage`, `widgetStopAction`, and `widgetTodayCount(count)`
+  to `Voice` (interface + all three implementations); reused the existing `ongoingIndicator(elapsed)`
+  key rather than duplicating it.
+- **Duplicated, less-correct elapsed-time formatting:** `ListWidget.kt`'s private `elapsedLabel()`
+  reimplemented duration formatting using `System.currentTimeMillis()` directly — bypassing the
+  `Clock` already injected into `provideGlance` — and only handled minutes/hours, not days, so an
+  ongoing Case left running past 24h would render "30h 6m" instead of "1d 6h". Replaced with the
+  shared `formatElapsedDuration()` from `viewmodel/OngoingEvent.kt`, fed by the `Clock`-derived `now`
+  threaded down through `CaseRow`.
+- **Undersized tap targets:** the "+" quick-log and "Stop" targets in `ListWidget.kt` were ~32-34dp
+  tall, under the 48dp accessibility minimum — notable on a home-screen widget where a mis-tap has no
+  undo (spec §6: widget one-tap events are created silently). Wrapped both in a `Box` sized/height to
+  48dp.
+- **Icon-only target with no accessible name:** the "+" quick-log target had no `contentDescription`,
+  so TalkBack would announce just "+". Added `GlanceModifier.semantics { contentDescription = ... }`,
+  reusing the existing `quickLogButtonDescription(caseName)` Voice key already used by Home's
+  equivalent row.
+
+**Deferred:**
+- `MANUAL_TEST_PLAN.md` still doesn't exist, though CLAUDE.md names this branch's List widget as the
+  explicit trigger to create it ("create from the seed list in TESTING.md when the first
+  widget/notification flow lands"). Not created this pass — open question on scope (only the 2
+  currently-testable widget journeys vs. the full seed list, most of which references unbuilt Phase
+  9/10 features). Flagged here so it isn't lost; resolve before Phase 9 starts.
+- TESTING.md's coverage tables weren't updated for the new `ListWidgetConfigureViewModelTest`,
+  `WidgetLogSheetViewModelTest`, and `WidgetRefreshWorkerTest`. Not treated as a gap: the doc's
+  "Planned unit/instrumented coverage" tables are forward-looking targets, not a done-status log
+  (its own header: "Current build status lives in PROGRESS.md, not here"), and the existing generic
+  "ViewModels" and "WorkManager" rows already cover what these add in kind.
+
+**Docs updated:** PROGRESS.md (Phase 8 marked done and compressed to match the format of other
+completed phases; Phase 12 gained the deferred Single-case widget item, spec §15).
+
+---
+
 ## test/case-detail-insights-tab
 
 **Scope:** Closed a PROGRESS.md Housekeeping gap: no instrumented Compose UI coverage for Case

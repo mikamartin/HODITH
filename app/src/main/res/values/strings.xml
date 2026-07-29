@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">HODITH</string>
+    <!-- Widget-picker label shown by the system before the widget is added, outside any in-app theme context — plain by design, like the widgets' fixed neutral palette (DEV_PLAYBOOK.md §4). -->
+    <string name="list_widget_label">HODITH: Pinned Cases</string>
 </resources>

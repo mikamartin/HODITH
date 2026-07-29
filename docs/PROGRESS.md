@@ -49,12 +49,15 @@ Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pic
   - **Branches, in dependency order:**
     1. [x] `feature/case-insights-visuals` — spec §9's visuals: dot timeline (primary, full-width, current-gap annotation) and calendar heatmap (secondary, multi-month, per-case relative shading). `domain/InsightsEngine.kt` for the pure window/gap/shading logic; `weeksInGrid` promoted to `domain/CalendarGrid.kt` to share with Big Picture.
     2. [x] `feature/case-stats` — spec §10's seven stat sections: frequency over time (auto-picked granularity, user-overridable Day/Week/Month toggle), rhythm heatmap, gaps & clusters (extends `GapStats` with average gap + "tends to come in bursts" flag), trend arrow (30-day rolling comparison, hidden below 8 weeks of history), conditional duration/intensity stats, and tag breakdown (shown against the Case's total event count). New `domain/Stats.kt` + `domain/StatsEngine.kt`. The heatmap/rhythm/intensity shading scale grew from 4 to 10 tiers along the way (`HeatmapLevel.L1`..`L10`) for finer-grained color distinction. Also added a summary line ("N events logged · observed for N days") above the Log tab's event list, reusing the same `observationSpanDays` the stats tab is built on.
-- [ ] **Phase 8** — Widgets.
+- [x] **Phase 8** — Widgets. `feature/list-widget` shipped the List widget (Single-case widget deferred to Phase 12): `ListWidget` reads real pinned/active Cases (reuses `homeCaseRows`) with one-tap log and Start/Stop; `WidgetLogTrampolineActivity` hosts the real `LogDetailSheet` for `DETAIL_SHEET` Cases; `ListWidgetConfigureActivity` prompts a Case picker only the first time nothing is pinned; `WidgetRefresher` keeps the widget in sync with pinned/archived changes elsewhere in the app, backed by a 15-minute `WidgetRefreshWorker` periodic refresh. Widget chrome (palette + copy) is fixed to `PlainVoice` regardless of in-app theme — deliberate. Verified on-device: real data/resize, the configure/picker flow, one-tap log, Start/Stop, and the `DETAIL_SHEET` trampoline.
 - [ ] **Phase 9** — Triggers + check-ins (WorkManager, notifications).
 - [ ] **Phase 10** — Share cards, export/import, Settings polish (check-in default, About).
 - [ ] **Phase 11** — Big Picture polish (follow-ups to the finished Phase 3 screen):
   - [ ] Tapping an event in the day/week detail view opens that Case's detail screen.
   - [ ] Day/week detail dialogs show event timestamp and tags.
   - [ ] Tag filter chips alongside the existing case filter chips (ties into HODITH_SPEC.md §17 "Tag-level insights").
+- [ ] **Phase 12** — Leftover work deferred from earlier phases, picked up opportunistically once the phases above land:
+  - [ ] Widget-picker preview image (deferred from Phase 8; tied to the existing app-icon item in DEV_PLAYBOOK.md's Ship Checklist).
+  - [ ] Single-case widget (spec §15, deferred from Phase 8): small widget bound to one Case — tap logs per its `logFlow`, shows icon + today's count, ongoing state supported (elapsed + Stop, matching the List widget's per-row treatment).
 
 Each phase ends with a CLEANUP_CHECKLIST.md pass logged in CLEANUP_LOG.md, a TESTING.md check, and this file updated.

@@ -25,6 +25,8 @@ interface HodithRepository {
     // Event
     fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>>
 
+    suspend fun getEvent(eventId: Long): EventEntity?
+
     suspend fun eventsInWindow(
         caseId: Long,
         windowStart: Long,

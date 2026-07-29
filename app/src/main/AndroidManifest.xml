@@ -16,6 +16,33 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".widget.WidgetLogTrampolineActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Widget.Trampoline"
+            android:excludeFromRecents="true" />
+
+        <activity
+            android:name=".widget.ListWidgetConfigureActivity"
+            android:exported="true"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widget.ListWidgetReceiver"
+            android:exported="false"
+            android:label="@string/list_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/list_widget_info" />
+        </receiver>
     </application>
 
 </manifest>

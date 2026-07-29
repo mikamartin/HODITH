@@ -82,6 +82,8 @@ class FakeHodithRepository : HodithRepository {
             }
         }
 
+    override suspend fun getEvent(eventId: Long): EventEntity? = events.value.find { it.id == eventId }
+
     override suspend fun eventsInWindow(
         caseId: Long,
         windowStart: Long,

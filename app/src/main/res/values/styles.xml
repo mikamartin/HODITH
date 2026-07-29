@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Hosts WidgetLogTrampolineActivity: transparent so only the LogDetailSheet it shows is visible, not a full-screen Activity behind it. -->
+    <style name="Theme.Widget.Trampoline" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowIsFloating">false</item>
+    </style>
+</resources>

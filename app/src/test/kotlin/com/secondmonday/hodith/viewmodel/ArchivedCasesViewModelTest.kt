@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.widget.FakeWidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -62,7 +63,7 @@ class ArchivedCasesViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase(id = 1L), testCase(id = 2L, name = "Tea", archived = false))
             repository.events.value = listOf(testEvent(caseId = 1L), testEvent(caseId = 1L))
-            val viewModel = ArchivedCasesViewModel(repository)
+            val viewModel = ArchivedCasesViewModel(repository, FakeWidgetRefresher())
 
             viewModel.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
@@ -77,7 +78,7 @@ class ArchivedCasesViewModelTest {
     fun `unarchive moves the case back to active with a fresh sortOrder`() =
         runTest {
             repository.cases.value = listOf(testCase(id = 1L, archived = false), testCase(id = 2L))
-            val viewModel = ArchivedCasesViewModel(repository)
+            val viewModel = ArchivedCasesViewModel(repository, FakeWidgetRefresher())
 
             viewModel.unarchive(caseId = 2L)
 
@@ -91,7 +92,7 @@ class ArchivedCasesViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase(id = 1L))
             repository.events.value = listOf(testEvent(caseId = 1L))
-            val viewModel = ArchivedCasesViewModel(repository)
+            val viewModel = ArchivedCasesViewModel(repository, FakeWidgetRefresher())
 
             viewModel.deleteForever(caseId = 1L)
 

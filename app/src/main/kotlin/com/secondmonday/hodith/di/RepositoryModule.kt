@@ -4,6 +4,8 @@ import com.secondmonday.hodith.data.DataStoreSettingsRepository
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.RoomHodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
+import com.secondmonday.hodith.widget.GlanceWidgetRefresher
+import com.secondmonday.hodith.widget.WidgetRefresher
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -20,4 +22,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(dataStoreSettingsRepository: DataStoreSettingsRepository): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWidgetRefresher(glanceWidgetRefresher: GlanceWidgetRefresher): WidgetRefresher
 }
