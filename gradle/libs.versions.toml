@@ -59,6 +59,7 @@ datastore-preferences = { module = "androidx.datastore:datastore-preferences", v
 
 glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 work-runtime = { module = "androidx.work:work-runtime", version.ref = "work" }
+work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "hiltWork" }
 hilt-compiler-androidx = { module = "androidx.hilt:hilt-compiler", version.ref = "hiltWork" }
 

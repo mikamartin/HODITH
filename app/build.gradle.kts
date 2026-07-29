@@ -100,6 +100,7 @@ dependencies {
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.work.testing)
     // Pinned explicitly: the version ui-test-junit4 pulls transitively throws
     // NoSuchMethodException on android.hardware.input.InputManager.getInstance on some
     // API levels — this is the known fix (see TESTING.md's known environment issues).
