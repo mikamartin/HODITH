@@ -434,9 +434,9 @@ object PlainVoice : Voice {
     override val settingsPreviewLabel = "Preview"
     override val settingsCheckInSectionLabel = "Check-ins"
     override val checkInIntervalOptionOff = "Off"
-    override val checkInIntervalOptionSeven = "7 days"
-    override val checkInIntervalOptionFourteen = "14 days"
-    override val checkInIntervalOptionThirty = "30 days"
+    override val checkInIntervalOptionSeven = "7d"
+    override val checkInIntervalOptionFourteen = "14d"
+    override val checkInIntervalOptionThirty = "30d"
     override val settingsCheckInInfoTitle = "About check-ins"
     override val settingsCheckInInfoBody =
         "How many days of silence trigger a check-in nudge, for cases without their own Hunch. A case with " +
@@ -751,9 +751,9 @@ object IntenseVoice : Voice {
     override val settingsPreviewLabel = "A glimpse"
     override val settingsCheckInSectionLabel = "The watch kept"
     override val checkInIntervalOptionOff = "Off"
-    override val checkInIntervalOptionSeven = "7 days"
-    override val checkInIntervalOptionFourteen = "14 days"
-    override val checkInIntervalOptionThirty = "30 days"
+    override val checkInIntervalOptionSeven = "7d"
+    override val checkInIntervalOptionFourteen = "14d"
+    override val checkInIntervalOptionThirty = "30d"
     override val settingsCheckInInfoTitle = "On the watch kept"
     override val settingsCheckInInfoBody =
         "How many days of silence rouse a check-in nudge, for any case with no Hunch watching over it. A " +
@@ -1064,9 +1064,9 @@ object BrightVoice : Voice {
     override val settingsPreviewLabel = "Sneak peek"
     override val settingsCheckInSectionLabel = "Nudge me"
     override val checkInIntervalOptionOff = "Off"
-    override val checkInIntervalOptionSeven = "7 days"
-    override val checkInIntervalOptionFourteen = "14 days"
-    override val checkInIntervalOptionThirty = "30 days"
+    override val checkInIntervalOptionSeven = "7d"
+    override val checkInIntervalOptionFourteen = "14d"
+    override val checkInIntervalOptionThirty = "30d"
     override val settingsCheckInInfoTitle = "Check-ins, explained"
     override val settingsCheckInInfoBody =
         "Sets how many quiet days trigger a nudge, for cases without their own Hunch. Got a Hunch running? " +

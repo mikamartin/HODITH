@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -240,7 +241,7 @@ private fun CaseEditForm(
         ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
         ToggleRow(label = voice.casePinnedToggleLabel, checked = uiState.pinned, onCheckedChange = onPinnedToggle)
 
-        SectionWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
+        RowWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
             Switch(checked = uiState.checkInsEnabled, onCheckedChange = onCheckInToggle)
         }
 
