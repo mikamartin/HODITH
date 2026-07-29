@@ -15,6 +15,73 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/checkin-settings (Phase 9, branch 1 of 6)
+
+**Scope:** Post-work cleanup pass for the check-in Settings branch, walked against the full working
+diff (nothing committed yet) per CLEANUP_CHECKLIST.md, plus all four DEV_PLAYBOOK.md §3 checks
+(`ktlintCheck`, `lintDebug`, `test`, `assembleDebug`) run sequentially — all passed clean both before
+and after the fixes below. New Settings "Check-ins" section (off/7/14/30-day default, DataStore-backed,
+same `SegmentedChoiceRow`/`SectionWithInfo` pattern as Theme); Case Edit's check-in control simplified
+from a DEFAULT/CUSTOM/OFF segmented control + custom-days field to a single on/off `Switch`
+(`CaseEntity.checkInDays: Int?` → `checkInsEnabled: Boolean`, schema bumped to v4, no real migration
+needed pre-release); new pure-Kotlin `domain/CheckIn.kt` resolving a Case's effective check-in interval
+(hunch-derived 2×expected-gap, clamped 3–30 days, takes priority over the Settings default) — added and
+unit-tested but not yet wired into any UI, since the engine that consumes it lands in the next branch.
+
+**Found & fixed:**
+- **Spec drift, two places:** HODITH_SPEC.md §11 still said "at most one fire per `checkInDays` period"
+  — the exact field name this branch just deleted. Reworded to "its effective interval." TESTING.md's
+  "Check-in scheduling" planned-coverage row still described the old design's "per-case override incl.
+  off" (a custom per-case *interval*), which is no longer true — a Case can only toggle check-ins
+  on/off now; a custom interval is a `SILENT_FOR` Trigger's job. Reworded the row to state the new
+  design and note the priority order (Hunch-derived beats the Settings default).
+- **Test gap:** `onCheckInToggle` — the new toggle's entire reason for existing — had no dedicated test;
+  the removed `CheckInOption`/`checkInDaysFor` tests it replaced had thorough coverage of the old
+  three-way logic, and nothing filled the equivalent gap for the new boolean. Added
+  `onCheckInToggle updates state and is persisted on save` to `CaseEditViewModelTest`.
+- **Missing planned-coverage line:** TESTING.md's Compose UI row named Settings' existing
+  theme/demo-data coverage but not the new check-in interval picker, even though
+  `SettingsScreenTest` gained two real tests for it this branch. Added it to the row.
+- **Duplicated constants, introduced fresh by this branch, not inherited debt:** this branch's own
+  `domain/CheckIn.kt` redeclared `DAYS_PER_WEEK`/`DAYS_PER_MONTH` as private constants that already
+  existed, correctly, as private constants in `domain/VerdictEngine.kt` — written in the same
+  session, in the same package, one file over from the original. Initially left as "considered, not
+  changed," citing `feature/case-stats`' old `MILLIS_PER_MINUTE`/`MILLIS_PER_DAY` entry as precedent
+  for accepting this shape of duplication. Wrong on two counts, both flagged by the user: a past
+  commit accepting a duplication shape doesn't make repeating it correct, especially in a portfolio
+  repo where thoroughness is the point — and the cited precedent turned out to be stale anyway.
+  `MILLIS_PER_MINUTE`/`MILLIS_PER_DAY` are no longer duplicated at all; a `domain/TimeConstants.kt`
+  was added at some point after that old entry, and every file that used to redeclare them now
+  imports from it. Citing a CLEANUP_LOG entry as live justification without checking current code is
+  the exact "verify before recommending from memory" trap. Extracted `DAYS_PER_WEEK`/`DAYS_PER_MONTH`
+  to a new `domain/CalendarMath.kt` (`internal`, same package, no import needed) and removed both
+  private copies.
+- `domain/CheckIn.kt` isn't named `CheckInEngine.kt` despite sitting next to `VerdictEngine.kt`/
+  `StatsEngine.kt` — deliberate: PROGRESS.md's own plan calls this "a small pure-Kotlin helper," and
+  reserves the `CheckInEngine` name for `feature/trigger-checkin-engine`'s actual due-check engine,
+  which will consume this helper. Naming it `CheckInEngine.kt` now would collide in spirit with that
+  planned file.
+- No new `CaseEditScreenTest` coverage was added for the check-in `Switch` itself — matches a
+  pre-existing, already-documented scope limit in that file's own class doc ("full field-by-field form
+  coverage otherwise remains a separate, pre-existing gap out of scope here"), not a gap this branch
+  introduced.
+
+**Deferred:**
+- **Not visually verified on-device or emulator** — the new Settings "Check-ins" row packs four
+  segmented-button labels ("Off" / "7 days" / "14 days" / "30 days") into one row, one more option than
+  the Theme picker's three; whether that wraps or truncates on a narrow phone width is a real open
+  question this pass couldn't close (static analysis and Compose UI tests don't catch text-fit issues,
+  and manual on-device verification is explicitly the human's step in this workflow, not mine). Please
+  eyeball Settings and Case Edit before merging.
+
+**Docs updated:** HODITH_SPEC.md §11 (stale `checkInDays` field-name reference). TESTING.md (Check-in
+scheduling row's per-case description; Compose UI row's Settings line). PROGRESS.md (Phase 9 branch 1
+checked off; current-status paragraph's Settings sentence extended; branch 1's own description gained
+the resolved defaults and the trigger-data branch's already-scaffolded-data-layer note, done in an
+earlier pass this session before implementation started). This file.
+
+---
+
 ## feature/list-widget (Phase 8)
 
 **Scope:** Post-work cleanup pass for the List widget branch (7 commits), walked against the full
