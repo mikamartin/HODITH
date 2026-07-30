@@ -71,4 +71,31 @@ class TriggerDaoTest {
             assertEquals(1, enabled.size)
             assertTrue(enabled.all { it.enabled })
         }
+
+    @Test
+    fun getById_returnsMatchingTrigger() =
+        runTest {
+            val id = triggerDao.insert(testTrigger(caseId = caseId, threshold = 9))
+
+            assertEquals(9, triggerDao.getById(id)?.threshold)
+        }
+
+    @Test
+    fun getById_returnsNullWhenMissing() =
+        runTest {
+            assertEquals(null, triggerDao.getById(id = 12345L))
+        }
+
+    @Test
+    fun getTriggersForCase_scopesToCase() =
+        runTest {
+            val otherCaseId = db.caseDao().insert(testCase(name = "Other"))
+            triggerDao.insert(testTrigger(caseId = caseId))
+            triggerDao.insert(testTrigger(caseId = otherCaseId))
+
+            val forCase = triggerDao.getTriggersForCase(caseId)
+
+            assertEquals(1, forCase.size)
+            assertTrue(forCase.all { it.caseId == caseId })
+        }
 }

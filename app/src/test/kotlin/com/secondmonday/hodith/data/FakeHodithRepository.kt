@@ -172,8 +172,12 @@ class FakeHodithRepository : HodithRepository {
     }
 
     // Trigger
+    override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggers.value.find { it.id == triggerId }
+
     override fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>> =
         triggers.map { list -> list.filter { it.caseId == caseId } }
+
+    override suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity> = triggers.value.filter { it.caseId == caseId }
 
     override suspend fun getEnabledTriggers(): List<TriggerEntity> = triggers.value.filter { it.enabled }
 
