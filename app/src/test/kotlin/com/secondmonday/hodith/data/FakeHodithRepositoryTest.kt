@@ -37,6 +37,27 @@ class FakeHodithRepositoryTest {
         occurredAt: Long = 0L,
     ) = EventEntity(id = id, caseId = caseId, occurredAt = occurredAt, endedAt = null, intensity = null, note = null, loggedAt = occurredAt)
 
+    private fun testHunch(caseId: Long) =
+        HunchEntity(
+            caseId = caseId,
+            direction = HunchDirection.JUST_CURIOUS,
+            expectedCount = 1,
+            expectedPer = ExpectedPer.WEEK,
+            createdAt = 0L,
+            resolvedAt = null,
+        )
+
+    private fun testTrigger(caseId: Long) =
+        TriggerEntity(
+            caseId = caseId,
+            kind = TriggerKind.AT_LEAST,
+            threshold = 3,
+            windowDays = 7,
+            enabled = true,
+            armed = true,
+            lastFiredAt = null,
+        )
+
     @Test
     fun `insertCase assigns incrementing ids and updateCase replaces by id`() =
         runTest {
@@ -87,18 +108,26 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `deleteCase cascades to its events but leaves other cases' events alone`() =
+    fun `deleteCase cascades to its events, hunches, and triggers but leaves other cases' alone`() =
         runTest {
             val deletedId = repository.insertCase(testCase())
             val keptId = repository.insertCase(testCase(name = "Other"))
             repository.insertEvent(testEvent(caseId = deletedId))
             repository.insertEvent(testEvent(caseId = keptId))
+            repository.insertHunch(testHunch(caseId = deletedId))
+            repository.insertHunch(testHunch(caseId = keptId))
+            repository.insertTrigger(testTrigger(caseId = deletedId))
+            repository.insertTrigger(testTrigger(caseId = keptId))
 
             repository.deleteCase(repository.getCase(deletedId)!!)
 
             assertNull(repository.getCase(deletedId))
             assertTrue(repository.events.value.none { it.caseId == deletedId })
             assertEquals(1, repository.events.value.count { it.caseId == keptId })
+            assertTrue(repository.hunches.value.none { it.caseId == deletedId })
+            assertEquals(1, repository.hunches.value.count { it.caseId == keptId })
+            assertTrue(repository.triggers.value.none { it.caseId == deletedId })
+            assertEquals(1, repository.triggers.value.count { it.caseId == keptId })
         }
 
     @Test

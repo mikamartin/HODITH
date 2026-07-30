@@ -62,6 +62,8 @@ class FakeHodithRepository : HodithRepository {
     override suspend fun deleteCase(case: CaseEntity) {
         cases.update { list -> list.filterNot { it.id == case.id } }
         events.update { list -> list.filterNot { it.caseId == case.id } }
+        hunches.update { list -> list.filterNot { it.caseId == case.id } }
+        triggers.update { list -> list.filterNot { it.caseId == case.id } }
     }
 
     override suspend fun deleteAllData() {
