@@ -15,6 +15,55 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/trigger-data (Phase 9, branch 3 of 6)
+
+**Scope:** Repository-layer follow-up on `TriggerEntity`/`TriggerDao`, which had already been
+scaffolded ahead of schedule — entity, DAO, `TriggerKind` enum, and Room's FK cascade-delete
+(`onDelete = CASCADE` on `caseId`) all existed from early Case-CRUD work, and `HodithRepository`/
+`RoomHodithRepository` already had thin pass-through CRUD (`observeTriggersForCase`,
+`getEnabledTriggers`, insert/update/delete). Walked the diff against CLEANUP_CHECKLIST.md and all
+four DEV_PLAYBOOK.md §3 checks (`ktlintCheck`, `lintDebug`, `test`, `assembleDebug`) plus the two
+touched instrumented test classes (`TriggerDaoTest`, `CaseDaoTest`) re-run on-device via
+`connectedDebugAndroidTest` — all passed clean both before and after. Added
+`TriggerDao.getById`/`getTriggersForCase` (one-shot suspend variants, mirroring `CaseDao`/
+`EventDao`'s existing `getById` pattern) and mirrored both through `HodithRepository`/
+`RoomHodithRepository`/`FakeHodithRepository`.
+
+**Found & fixed:**
+- **Real latent bug in the test double:** `FakeHodithRepository.deleteCase` only cascaded
+  `events`, not `hunches`/`triggers`, unlike Room's real `ON DELETE CASCADE` on all three. Any
+  future ViewModel unit test exercising delete-Case against a Case with an active Hunch or Trigger
+  would have silently diverged from real app behavior. Fixed to cascade all three; extended
+  `FakeHodithRepositoryTest`'s existing cascade test to assert hunches/triggers alongside events.
+- **Stale premise going into this branch:** initial research (an Explore sub-agent) reported no
+  cascade-delete test existed for Triggers — wrong; `CaseDaoTest.deletingCase_cascadesToEventsHunchesAndTriggers`
+  already covers it, added in `feature/trigger-checkin-engine`'s own pass alongside the Trigger
+  schema-v5 bump. Verified directly (read the file) before writing what would have been a
+  duplicate test, so no redundant coverage landed.
+
+**Considered, not changed:**
+- `TriggerDao.observeTriggersForCase` and the new `getTriggersForCase` run the identical SQL query
+  text (`SELECT * FROM triggers WHERE caseId = :caseId`) — not consolidated, because Room requires
+  separate DAO methods for `Flow`-returning vs. one-shot `suspend` queries; `CaseDao.observeById`/
+  `getById` already establish the same paired-method idiom for the identical reason.
+- `getTrigger`/`getTriggersForCase` have no callers yet — added ahead of
+  `feature/notification-infra`, which will consume them to resolve a fired trigger's Case and
+  events. Matches this repo's own precedent of scaffolding data-layer methods a documented future
+  branch needs, same as how this branch's own starting point (`TriggerEntity`/`TriggerDao`) was
+  scaffolded ahead of schedule during Case-CRUD.
+- An `armed`-aware query (e.g. `getFirableTriggers()` filtering `enabled AND armed`) was discussed
+  and deliberately deferred to `feature/notification-infra`, the branch that actually consumes it —
+  shaping the query around real usage there rather than guessing now.
+
+**Deferred:** nothing beyond the "Considered, not changed" items above.
+
+**Docs updated:** PROGRESS.md (Phase 9 branch 3 checked off with what was actually built). This
+file. (HODITH_SPEC.md and TESTING.md needed no changes — no user-facing or spec-level behavior
+changed, and TESTING.md's "Room DAOs" row already named CRUD-per-entity and cascade-delete as
+planned coverage before this branch touched anything.)
+
+---
+
 ## feature/trigger-checkin-engine (Phase 9, branch 2 of 6)
 
 **Scope:** Post-work cleanup pass for the Trigger/check-in evaluation engines, walked against the full
