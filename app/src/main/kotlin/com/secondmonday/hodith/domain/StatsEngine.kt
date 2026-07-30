@@ -6,7 +6,6 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 /** Spec §10 frequency/trend: below this span, a Case hasn't been running long enough to bucket by week/month or trend at all. */
 internal const val STATS_SHORT_SPAN_MAX_DAYS = 56L // 8 weeks
@@ -40,9 +39,7 @@ internal fun observationSpanDays(
     zone: ZoneId = ZoneId.systemDefault(),
 ): Long {
     val startMillis = minOf(caseCreatedAt, events.minOfOrNull { it.occurredAt } ?: caseCreatedAt)
-    val startDate = Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
-    val nowDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-    return ChronoUnit.DAYS.between(startDate, nowDate)
+    return daysBetween(startMillis, now, zone)
 }
 
 /** Picks bucket granularity from the Case's observation span: short spans read fine day-by-day, long ones need months. */

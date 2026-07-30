@@ -3,9 +3,7 @@ package com.secondmonday.hodith.domain
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchEntity
-import java.time.Instant
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 /** Spec §8 confidence tiers: both the event count and the day count must clear their bar. */
 internal const val PRELIMINARY_MIN_EVENTS = 5
@@ -42,9 +40,7 @@ internal fun computeVerdict(
 ): VerdictResult {
     val zone = ZoneId.systemDefault()
     val windowStartMillis = minOf(caseCreatedAt, events.minOfOrNull { it.occurredAt } ?: caseCreatedAt)
-    val windowStartDate = Instant.ofEpochMilli(windowStartMillis).atZone(zone).toLocalDate()
-    val nowDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-    val windowDays = ChronoUnit.DAYS.between(windowStartDate, nowDate)
+    val windowDays = daysBetween(windowStartMillis, now, zone)
 
     val eventCount = events.size
     val tier = confidenceTierFor(eventCount, windowDays)

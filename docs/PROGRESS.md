@@ -12,7 +12,6 @@ Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pic
 
 - [ ] Insights tab's rhythm grid cells convey their count by shading alone — no content description or visible number, unlike the calendar heatmap's day-of-month numbers and the intensity squares' level numbers. Same color-only gap already deferred for the dot timeline (`feature/case-insights-visuals`); revisit alongside making either grid tappable.
 - [ ] Compose UI instrumented test files each hand-roll their own `CaseEntity`/`EventEntity` fixtures instead of the shared `testCase()`/`testEvent()` builders in `data/TestFixtures.kt` (added for DAO tests, unused by any `ui` test so far). Left alone when `CaseDetailInsightsTest` adopted them, since each screen's local fixture varies enough (different `logFlow`/`durationMode`/`intensityEnabled` combos) that a shared builder wouldn't remove much duplication as-is — revisit if a `ui`-test-specific set of builders would actually pay for itself once more screens use `testCase()`/`testEvent()`.
-- [ ] `VerdictEngine.kt`, `InsightsEngine.kt`, and `StatsEngine.kt` each still have their own inline/local calendar-date `daysBetween` (via `ZoneId`/`ChronoUnit`) instead of the shared one in `domain/CalendarMath.kt` (added in `feature/trigger-checkin-engine` when that branch's own two new copies got consolidated there). Pre-existing in all three, not introduced by that branch — consolidate all five call sites in one dedicated pass.
 
 ## Phase order
 
