@@ -15,6 +15,55 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/trigger-checkin-engine (Phase 9, branch 2 of 6)
+
+**Scope:** Post-work cleanup pass for the Trigger/check-in evaluation engines, walked against the full
+working diff (nothing committed yet) per CLEANUP_CHECKLIST.md, plus all four DEV_PLAYBOOK.md §3 checks
+(`ktlintCheck`, `lintDebug`, `test`, `assembleDebug`) run sequentially, plus the existing `TriggerDaoTest`
+instrumented suite re-run on-device (the schema bump touches it directly) — all passed clean both before
+and after the fixes below. New `domain/TriggerEngine.kt` (`evaluateTrigger`'s shared armed/fired state
+machine, `evaluateAtLeast`, `evaluateSilentFor`) and `domain/TriggerDecision.kt`; `TriggerEntity` gained
+`armed: Boolean` (schema v4 → v5, no real migration needed pre-release); `evaluateCheckIn`/
+`CheckInDecision` added to the existing `domain/CheckIn.kt`. 26 new unit tests across
+`TriggerEngineTest`/`CheckInTest`, mirroring `VerdictEngineTest`'s boundary-value style.
+
+**Found & fixed:**
+- **Fresh duplication, same shape as a past-flagged one:** `TriggerEngine.kt` and `CheckIn.kt` each
+  wrote their own private `daysBetween` (calendar-date diff via `ZoneId`/`ChronoUnit`, to stay correct
+  across DST) — two new copies of a calculation that already existed, inline or as a local function, in
+  `VerdictEngine.kt`, `InsightsEngine.kt`, and `StatsEngine.kt`. The previous entry below (`checkin-settings`)
+  already established that "a past commit accepted this duplication shape" isn't a reason to repeat it in
+  a portfolio repo — the fix there was extracting to `domain/CalendarMath.kt`, which already holds
+  `DAYS_PER_WEEK`/`DAYS_PER_MONTH`. Applied the same fix here: `daysBetween` now lives in
+  `CalendarMath.kt`, and both new files import it instead of redeclaring it. Left `VerdictEngine.kt`/
+  `InsightsEngine.kt`/`StatsEngine.kt`'s own inline/local copies untouched — they predate this branch and
+  aren't part of its diff; consolidating those too is a separate, deliberate refactor, not something to
+  fold into an unrelated branch's cleanup pass.
+- **Test-plan gap:** TESTING.md's "Trigger evaluation" planned-coverage row explicitly names "deleted
+  events un-fire correctly on next evaluation" as a scenario to cover. The original test set covered
+  re-arming via time-based window aging but not the deletion framing specifically. Added
+  `evaluateAtLeast re-arms when a previously-counted event is deleted, without waiting for the window to
+  age` to make that exact documented scenario explicit, even though it exercises the same code path as
+  the aging test (the pure function can't distinguish "removed by deletion" from "removed by aging" —
+  both are just a shorter `events` list on the next call).
+- **Spec drift:** HODITH_SPEC.md's Trigger field table (§5) didn't mention the new `armed` field. Added a
+  row describing it as the edge-trigger state `lastFiredAt` alone can't carry, and tightened
+  `lastFiredAt`'s own row (it no longer needs to explain dedupe — `armed` does that job now).
+
+**Deferred:**
+- **`VerdictEngine.kt`/`InsightsEngine.kt`/`StatsEngine.kt`'s own `daysBetween` duplication** — pre-existing,
+  not introduced by this branch, out of scope for this pass. Worth a dedicated opportunistic pass
+  (Housekeeping-style) consolidating all five call sites onto `CalendarMath.daysBetween` in one go, once
+  Phase 9 lands.
+- **Not visually verified on-device** — N/A this branch; no UI was touched. `TriggerDaoTest` was run
+  on-device specifically to validate the schema change, not as a substitute for UI verification (still
+  the human's step, per this repo's own working agreement).
+
+**Docs updated:** HODITH_SPEC.md §5 (Trigger table's `armed` row, `lastFiredAt` reworded). PROGRESS.md
+(Phase 9 branch 2 checked off with what was actually built). This file.
+
+---
+
 ## feature/checkin-settings (Phase 9, branch 1 of 6)
 
 **Scope:** Post-work cleanup pass for the check-in Settings branch, walked against the full working

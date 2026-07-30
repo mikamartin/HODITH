@@ -124,7 +124,8 @@ Optional, many per Case.
 | threshold | n |
 | windowDays | rolling window for `AT_LEAST` (7, 30, or custom) |
 | enabled | boolean |
-| lastFiredAt | nullable — dedupe: fire once per window / once per silence streak |
+| armed | boolean, defaults true — edge-trigger state: fires (and flips to false) when the condition first becomes true, flips back to true once the condition stops being true. Prevents refiring on every evaluation while the condition remains met. |
+| lastFiredAt | nullable — when it last fired, for notification copy |
 
 Verdicts are **computed, never stored** — the verdict engine is a set of pure functions over `(hunch, events, now)`. Deliberate: it makes the app's riskiest logic its most unit-testable surface.
 
