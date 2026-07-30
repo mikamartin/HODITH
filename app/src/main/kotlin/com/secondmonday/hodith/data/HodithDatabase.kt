@@ -13,7 +13,7 @@ import androidx.room.TypeConverters
         HunchEntity::class,
         TriggerEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

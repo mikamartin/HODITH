@@ -76,6 +76,7 @@ fun testTrigger(
     threshold: Int = 3,
     windowDays: Int? = 7,
     enabled: Boolean = true,
+    armed: Boolean = true,
     lastFiredAt: Long? = null,
 ) = TriggerEntity(
     caseId = caseId,
@@ -83,5 +84,6 @@ fun testTrigger(
     threshold = threshold,
     windowDays = windowDays,
     enabled = enabled,
+    armed = armed,
     lastFiredAt = lastFiredAt,
 )

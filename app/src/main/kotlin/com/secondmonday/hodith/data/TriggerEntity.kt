@@ -24,5 +24,6 @@ data class TriggerEntity(
     val threshold: Int,
     val windowDays: Int?,
     val enabled: Boolean,
+    val armed: Boolean = true,
     val lastFiredAt: Long?,
 )
