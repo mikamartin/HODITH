@@ -3,7 +3,6 @@ package com.secondmonday.hodith.domain
 import com.secondmonday.hodith.data.EventEntity
 import java.time.Instant
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
@@ -56,8 +55,7 @@ internal fun computeTimelineWindow(
     }
 
     val capped = withinDefault.takeLast(TIMELINE_MAX_DOTS)
-    val earliestDate = Instant.ofEpochMilli(capped.first().occurredAt).atZone(zone).toLocalDate()
-    val shrunkDays = ChronoUnit.DAYS.between(earliestDate, nowDate).coerceAtLeast(TIMELINE_MIN_WINDOW_DAYS)
+    val shrunkDays = daysBetween(capped.first().occurredAt, now, zone).coerceAtLeast(TIMELINE_MIN_WINDOW_DAYS)
     return TimelineWindow(windowDays = shrunkDays, events = capped)
 }
 
@@ -73,17 +71,8 @@ internal fun computeGapStats(
 ): GapStats {
     val sorted = events.sortedBy { it.occurredAt }
 
-    fun daysBetween(
-        fromMillis: Long,
-        toMillis: Long,
-    ): Long {
-        val fromDate = Instant.ofEpochMilli(fromMillis).atZone(zone).toLocalDate()
-        val toDate = Instant.ofEpochMilli(toMillis).atZone(zone).toLocalDate()
-        return ChronoUnit.DAYS.between(fromDate, toDate)
-    }
-
-    val pastGaps = sorted.zipWithNext { a, b -> daysBetween(a.occurredAt, b.occurredAt) }
-    val currentGapDays = sorted.lastOrNull()?.let { daysBetween(it.occurredAt, now) } ?: 0L
+    val pastGaps = sorted.zipWithNext { a, b -> daysBetween(a.occurredAt, b.occurredAt, zone) }
+    val currentGapDays = sorted.lastOrNull()?.let { daysBetween(it.occurredAt, now, zone) } ?: 0L
     val longestPastGap = pastGaps.maxOrNull() ?: 0L
 
     return GapStats(
