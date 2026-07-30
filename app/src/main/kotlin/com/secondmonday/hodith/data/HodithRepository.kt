@@ -70,7 +70,11 @@ interface HodithRepository {
     suspend fun deleteHunch(hunch: HunchEntity)
 
     // Trigger
+    suspend fun getTrigger(triggerId: Long): TriggerEntity?
+
     fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>>
+
+    suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity>
 
     suspend fun getEnabledTriggers(): List<TriggerEntity>
 

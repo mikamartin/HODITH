@@ -88,7 +88,11 @@ class RoomHodithRepository
         override suspend fun deleteHunch(hunch: HunchEntity) = hunchDao.delete(hunch)
 
         // Trigger
+        override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggerDao.getById(triggerId)
+
         override fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>> = triggerDao.observeTriggersForCase(caseId)
+
+        override suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity> = triggerDao.getTriggersForCase(caseId)
 
         override suspend fun getEnabledTriggers(): List<TriggerEntity> = triggerDao.getEnabledTriggers()
 

@@ -62,6 +62,8 @@ class FakeHodithRepository : HodithRepository {
     override suspend fun deleteCase(case: CaseEntity) {
         cases.update { list -> list.filterNot { it.id == case.id } }
         events.update { list -> list.filterNot { it.caseId == case.id } }
+        hunches.update { list -> list.filterNot { it.caseId == case.id } }
+        triggers.update { list -> list.filterNot { it.caseId == case.id } }
     }
 
     override suspend fun deleteAllData() {
@@ -172,8 +174,12 @@ class FakeHodithRepository : HodithRepository {
     }
 
     // Trigger
+    override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggers.value.find { it.id == triggerId }
+
     override fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>> =
         triggers.map { list -> list.filter { it.caseId == caseId } }
+
+    override suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity> = triggers.value.filter { it.caseId == caseId }
 
     override suspend fun getEnabledTriggers(): List<TriggerEntity> = triggers.value.filter { it.enabled }
 
