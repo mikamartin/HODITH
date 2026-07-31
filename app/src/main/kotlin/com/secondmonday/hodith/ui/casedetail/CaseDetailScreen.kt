@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -88,6 +89,7 @@ private const val HUNCH_TAB = 2
 fun CaseDetailRoute(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
+    onOpenTriggers: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CaseDetailViewModel = hiltViewModel(),
 ) {
@@ -96,6 +98,7 @@ fun CaseDetailRoute(
         uiState = uiState,
         onBack = onBack,
         onEditCase = onEditCase,
+        onOpenTriggers = onOpenTriggers,
         onDeleteEvent = viewModel::deleteEvent,
         newEventDraft = viewModel::newEventDraft,
         onSaveEvent = viewModel::saveEvent,
@@ -121,6 +124,7 @@ fun CaseDetailScreen(
     uiState: CaseDetailUiState,
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
+    onOpenTriggers: (Long) -> Unit,
     onDeleteEvent: (EventEntity) -> Unit,
     newEventDraft: () -> LogDraft,
     onSaveEvent: (LogDraft, EventEntity?, List<TagEntity>) -> Unit,
@@ -153,6 +157,9 @@ fun CaseDetailScreen(
                 },
                 actions = {
                     if (case != null) {
+                        IconButton(onClick = { onOpenTriggers(case.id) }) {
+                            Icon(Icons.Filled.Notifications, contentDescription = voice.triggersOpenDescription)
+                        }
                         IconButton(onClick = { onEditCase(case.id) }) {
                             Icon(Icons.Filled.Edit, contentDescription = voice.caseDetailEditDescription)
                         }

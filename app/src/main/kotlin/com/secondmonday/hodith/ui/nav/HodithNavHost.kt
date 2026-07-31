@@ -21,11 +21,13 @@ import com.secondmonday.hodith.ui.case.CaseEditRoute
 import com.secondmonday.hodith.ui.casedetail.CaseDetailRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
 import com.secondmonday.hodith.ui.settings.SettingsRoute
+import com.secondmonday.hodith.ui.triggers.TriggersRoute
 import com.secondmonday.hodith.ui.voice.LocalVoice
 
 private const val CASE_EDIT_ROUTE = "case_edit"
 private const val CASE_DETAIL_ROUTE = "case_detail"
 private const val ARCHIVED_CASES_ROUTE = "archived_cases"
+private const val TRIGGERS_ROUTE = "triggers"
 private const val CASE_ID_ARG = "caseId"
 private const val NO_CASE_ID = -1L
 
@@ -46,6 +48,7 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
             val onDetailScreen =
                 currentRoute?.startsWith(CASE_EDIT_ROUTE) == true ||
                     currentRoute?.startsWith(CASE_DETAIL_ROUTE) == true ||
+                    currentRoute?.startsWith(TRIGGERS_ROUTE) == true ||
                     currentRoute == ARCHIVED_CASES_ROUTE
             if (!onDetailScreen) {
                 NavigationBar {
@@ -106,10 +109,17 @@ fun HodithNavHost(modifier: Modifier = Modifier) {
                 CaseDetailRoute(
                     onBack = { navController.popBackStack() },
                     onEditCase = { caseId -> navController.navigate("$CASE_EDIT_ROUTE?$CASE_ID_ARG=$caseId") },
+                    onOpenTriggers = { caseId -> navController.navigate("$TRIGGERS_ROUTE/$caseId") },
                 )
             }
             composable(ARCHIVED_CASES_ROUTE) {
                 ArchivedCasesRoute(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = "$TRIGGERS_ROUTE/{$CASE_ID_ARG}",
+                arguments = listOf(navArgument(CASE_ID_ARG) { type = NavType.LongType }),
+            ) {
+                TriggersRoute(onBack = { navController.popBackStack() })
             }
         }
     }

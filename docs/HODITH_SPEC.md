@@ -272,7 +272,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 | **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/hunches/triggers). Reached via Home's archived-cases link. |
 | **Log detail sheet** | §6 — reachable from widget (trampoline activity), Home, case detail. |
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
-| **Triggers** | Per Case: list, create, enable/disable. |
+| **Triggers** | Per Case: list, create, enable/disable, delete (confirm dialog). Reached from Case Detail's header. |
 | **Settings** | Theme/voice picker with live preview card, default check-in interval (off / 7 / 14 / 30 days), "Load demo data" / "Delete all data" (confirm dialog; permanent), export/import JSON, About. |
 | **About** | Version, privacy statement ("everything stays on your phone"), licenses. |
 
@@ -299,6 +299,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 - **Animated story export** — the four-beat arc as a short video/GIF for stories. Static cards first.
 - **Theme/voice mixing** — pair, e.g., goth skin with serious voice, if users ask.
 - **Confirmed-quiet checkpoints** — the check-in "All quiet" answer could be stored, letting verdicts distinguish confirmed silence from unknown silence and raising confidence accordingly. Adds an entity and verdict complexity; revisit after v1 data habits are observed.
+- **Hunch/Trigger relationship** — `AT_LEAST` triggers ("N+ times in a rolling window") and Hunches ("~N times per period", verdict computed over the whole observation window) currently overlap: a user with an active Hunch may re-enter nearly the same numbers to also get notified. They're not actually the same thing (rolling-window burst detection vs. whole-history average), so a naive prefill would misrepresent what the alert means. Options considered: (1) a genuinely new hunch-verdict-based alert kind, evaluated via the verdict engine rather than `TriggerEngine`; (2) prefill `AT_LEAST`'s fields from the active Hunch as a labelled approximation; (3) leave both engines as-is and just surface trigger creation contextually from the Hunch tab instead of a separate entry point. Deliberately left unresolved — revisit once alpha testing shows how people actually use the two features.
 - **Weekly digest notification** — opt-in "your week in events" summary.
 - **Wear OS tile** — one-tap logging from a watch.
 
