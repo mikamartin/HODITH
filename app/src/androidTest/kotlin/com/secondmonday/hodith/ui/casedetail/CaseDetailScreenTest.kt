@@ -61,6 +61,8 @@ class CaseDetailScreenTest {
         events: List<EventWithTags> = emptyList(),
         activeHunch: HunchEntity? = null,
         hunchHistory: List<HunchEntity> = emptyList(),
+        onEditCase: (Long) -> Unit = {},
+        onOpenTriggers: (Long) -> Unit = {},
         onSaveEvent: (LogDraft, EventEntity?, List<TagEntity>) -> Unit = { _, _, _ -> },
         onStopEvent: (EventEntity) -> Unit = {},
         onDismissStalePrompt: (EventEntity) -> Unit = {},
@@ -81,7 +83,8 @@ class CaseDetailScreenTest {
                             isLoading = false,
                         ),
                     onBack = {},
-                    onEditCase = {},
+                    onEditCase = onEditCase,
+                    onOpenTriggers = onOpenTriggers,
                     onDeleteEvent = {},
                     newEventDraft = {
                         LogDraft(
@@ -104,6 +107,22 @@ class CaseDetailScreenTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun headerActions_editAndTriggersIcons_invokeCallbacksWithCaseId() {
+        var editedCaseId: Long? = null
+        var triggersCaseId: Long? = null
+        setCaseDetailScreenContent(
+            onEditCase = { editedCaseId = it },
+            onOpenTriggers = { triggersCaseId = it },
+        )
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.triggersOpenDescription).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.caseDetailEditDescription).performClick()
+
+        assertEquals(startStopCase.id, triggersCaseId)
+        assertEquals(startStopCase.id, editedCaseId)
     }
 
     @Smoke
