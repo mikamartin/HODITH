@@ -3,6 +3,7 @@ package com.secondmonday.hodith.ui.voice
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.HunchDirection
+import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -312,6 +313,49 @@ interface Voice {
             ConfidenceTier.PRELIMINARY -> "Preliminary"
             else -> "Confident"
         }
+
+    // ---- Triggers (Phase 9, spec §11/§14) ----
+    val triggersScreenTitle: String
+    val triggersOpenDescription: String
+    val triggersFabDescription: String
+    val triggersEmptyTitle: String
+    val triggersEmptyBody: String
+    val triggersEmptyCta: String
+
+    fun triggerKindLabel(kind: TriggerKind): String
+
+    /** [windowDays] only applies to [TriggerKind.AT_LEAST]; ignored for [TriggerKind.SILENT_FOR]. */
+    fun triggerSummary(
+        kind: TriggerKind,
+        threshold: Int,
+        windowDays: Int?,
+    ): String
+
+    fun triggerFiredAgo(daysAgo: Long): String
+
+    fun triggerToggleDescription(summary: String): String
+
+    fun triggerDeleteDescription(summary: String): String
+
+    val triggersDeleteConfirmTitle: String
+    val triggersDeleteConfirmBody: String
+    val triggersDeleteConfirmAction: String
+    val triggersDeleteCancelAction: String
+    val triggersCreateTitle: String
+    val triggersKindPickerLabel: String
+    val triggersAtLeastLabel: String
+    val triggersAtLeastSuffix: String
+    val triggersWindowLabel: String
+    val triggersWindowSeven: String
+    val triggersWindowThirty: String
+    val triggersWindowCustom: String
+    val triggersWindowCustomHint: String
+    val triggersSilentLabel: String
+    val triggersSilentSuffix: String
+    val triggersSaveButton: String
+    val triggersCancelButton: String
+    val triggersDecreaseCountDescription: String
+    val triggersIncreaseCountDescription: String
 
     /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown once, the first time
      * a widget is added with nothing yet pinned (spec §15). */
@@ -634,6 +678,54 @@ object PlainVoice : Voice {
 
     override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months ago"
 
+    override val triggersScreenTitle = "Triggers"
+    override val triggersOpenDescription = "Open triggers"
+    override val triggersFabDescription = "New trigger"
+    override val triggersEmptyTitle = "No triggers yet"
+    override val triggersEmptyBody = "Get a nudge when something happens too often, or goes quiet too long."
+    override val triggersEmptyCta = "Add a trigger"
+
+    override fun triggerKindLabel(kind: TriggerKind) =
+        when (kind) {
+            TriggerKind.AT_LEAST -> "Happens too often"
+            TriggerKind.SILENT_FOR -> "Goes quiet too long"
+        }
+
+    override fun triggerSummary(
+        kind: TriggerKind,
+        threshold: Int,
+        windowDays: Int?,
+    ) = when (kind) {
+        TriggerKind.AT_LEAST -> "$threshold+ times in $windowDays days"
+        TriggerKind.SILENT_FOR -> "No events for $threshold days"
+    }
+
+    override fun triggerFiredAgo(daysAgo: Long) = "Fired $daysAgo days ago"
+
+    override fun triggerToggleDescription(summary: String) = "Toggle trigger: $summary"
+
+    override fun triggerDeleteDescription(summary: String) = "Delete trigger: $summary"
+
+    override val triggersDeleteConfirmTitle = "Delete this trigger?"
+    override val triggersDeleteConfirmBody = "You won't be notified by it anymore."
+    override val triggersDeleteConfirmAction = "Delete"
+    override val triggersDeleteCancelAction = "Cancel"
+    override val triggersCreateTitle = "New trigger"
+    override val triggersKindPickerLabel = "What should trigger it?"
+    override val triggersAtLeastLabel = "At least"
+    override val triggersAtLeastSuffix = "times"
+    override val triggersWindowLabel = "Within"
+    override val triggersWindowSeven = "7 days"
+    override val triggersWindowThirty = "30 days"
+    override val triggersWindowCustom = "Custom"
+    override val triggersWindowCustomHint = "Days"
+    override val triggersSilentLabel = "No events for"
+    override val triggersSilentSuffix = "days"
+    override val triggersSaveButton = "Save trigger"
+    override val triggersCancelButton = "Cancel"
+    override val triggersDecreaseCountDescription = "Decrease threshold"
+    override val triggersIncreaseCountDescription = "Increase threshold"
+
     override val widgetConfigureTitle = "Pick Cases for this widget"
     override val widgetConfigureBody = "Choose which Cases show up here. You can change this later from each Case's settings."
     override val widgetConfigureNoCasesMessage = "No cases yet. Add one in the app first."
@@ -948,6 +1040,54 @@ object IntenseVoice : Voice {
 
     override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months past"
 
+    override val triggersScreenTitle = "Alarms"
+    override val triggersOpenDescription = "Tend the alarms"
+    override val triggersFabDescription = "Set a new alarm"
+    override val triggersEmptyTitle = "No alarm is set"
+    override val triggersEmptyBody = "Nothing yet watches this case. Set an alarm, and be warned when the pattern breaks."
+    override val triggersEmptyCta = "Set an alarm"
+
+    override fun triggerKindLabel(kind: TriggerKind) =
+        when (kind) {
+            TriggerKind.AT_LEAST -> "It comes too often"
+            TriggerKind.SILENT_FOR -> "It falls silent too long"
+        }
+
+    override fun triggerSummary(
+        kind: TriggerKind,
+        threshold: Int,
+        windowDays: Int?,
+    ) = when (kind) {
+        TriggerKind.AT_LEAST -> "$threshold or more, within $windowDays days"
+        TriggerKind.SILENT_FOR -> "$threshold days of silence"
+    }
+
+    override fun triggerFiredAgo(daysAgo: Long) = "Sounded $daysAgo days ago"
+
+    override fun triggerToggleDescription(summary: String) = "Toggle the alarm: $summary"
+
+    override fun triggerDeleteDescription(summary: String) = "Silence the alarm: $summary"
+
+    override val triggersDeleteConfirmTitle = "Silence this alarm?"
+    override val triggersDeleteConfirmBody = "It will warn you no longer."
+    override val triggersDeleteConfirmAction = "Silence it"
+    override val triggersDeleteCancelAction = "Abandon"
+    override val triggersCreateTitle = "Set an alarm"
+    override val triggersKindPickerLabel = "What should you be warned of?"
+    override val triggersAtLeastLabel = "At least"
+    override val triggersAtLeastSuffix = "times"
+    override val triggersWindowLabel = "Within"
+    override val triggersWindowSeven = "7 days"
+    override val triggersWindowThirty = "30 days"
+    override val triggersWindowCustom = "Custom"
+    override val triggersWindowCustomHint = "Days"
+    override val triggersSilentLabel = "Silence of"
+    override val triggersSilentSuffix = "days"
+    override val triggersSaveButton = "Set the alarm"
+    override val triggersCancelButton = "Abandon"
+    override val triggersDecreaseCountDescription = "Diminish the threshold"
+    override val triggersIncreaseCountDescription = "Swell the threshold"
+
     override val widgetConfigureTitle = "Which cases shall haunt this widget?"
     override val widgetConfigureBody = "Choose what stands watch here. The choice may be revisited from any case's settings."
     override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Summon a case first."
@@ -1259,6 +1399,54 @@ object BrightVoice : Voice {
     }
 
     override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months ago"
+
+    override val triggersScreenTitle = "Alerts!"
+    override val triggersOpenDescription = "Check your alerts!"
+    override val triggersFabDescription = "New alert!"
+    override val triggersEmptyTitle = "No alerts yet!"
+    override val triggersEmptyBody = "Want a nudge when something happens a lot, or goes quiet for a while? Set one up!"
+    override val triggersEmptyCta = "Add an alert!"
+
+    override fun triggerKindLabel(kind: TriggerKind) =
+        when (kind) {
+            TriggerKind.AT_LEAST -> "Happening a lot"
+            TriggerKind.SILENT_FOR -> "Gone quiet"
+        }
+
+    override fun triggerSummary(
+        kind: TriggerKind,
+        threshold: Int,
+        windowDays: Int?,
+    ) = when (kind) {
+        TriggerKind.AT_LEAST -> "$threshold+ times in $windowDays days"
+        TriggerKind.SILENT_FOR -> "Quiet for $threshold days"
+    }
+
+    override fun triggerFiredAgo(daysAgo: Long) = "Popped off $daysAgo days ago!"
+
+    override fun triggerToggleDescription(summary: String) = "Toggle alert: $summary"
+
+    override fun triggerDeleteDescription(summary: String) = "Remove alert: $summary"
+
+    override val triggersDeleteConfirmTitle = "Remove this alert?"
+    override val triggersDeleteConfirmBody = "No more heads-up from this one."
+    override val triggersDeleteConfirmAction = "Remove it"
+    override val triggersDeleteCancelAction = "Never mind"
+    override val triggersCreateTitle = "New alert!"
+    override val triggersKindPickerLabel = "What should trigger it?"
+    override val triggersAtLeastLabel = "At least"
+    override val triggersAtLeastSuffix = "times"
+    override val triggersWindowLabel = "Within"
+    override val triggersWindowSeven = "7 days"
+    override val triggersWindowThirty = "30 days"
+    override val triggersWindowCustom = "Custom"
+    override val triggersWindowCustomHint = "Days"
+    override val triggersSilentLabel = "Quiet for"
+    override val triggersSilentSuffix = "days"
+    override val triggersSaveButton = "Save alert!"
+    override val triggersCancelButton = "Never mind"
+    override val triggersDecreaseCountDescription = "Fewer!"
+    override val triggersIncreaseCountDescription = "More!"
 
     override val widgetConfigureTitle = "Pick your widget's stars!"
     override val widgetConfigureBody = "Choose which Cases get to show off here. Change your mind anytime from that Case's settings."

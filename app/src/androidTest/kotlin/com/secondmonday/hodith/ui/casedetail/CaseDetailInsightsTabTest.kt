@@ -60,6 +60,7 @@ class CaseDetailInsightsTabTest {
                     uiState = CaseDetailUiState(case = case, events = events, isLoading = false),
                     onBack = {},
                     onEditCase = {},
+                    onOpenTriggers = {},
                     onDeleteEvent = {},
                     newEventDraft = {
                         LogDraft(
