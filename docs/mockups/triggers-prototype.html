@@ -1,0 +1,608 @@
+<title>Phase 9 — Triggers screen (prototype)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --devpanel-bg: #ffffff;
+  --devpanel-fg: #1c2226;
+  --devpanel-muted: #5b6670;
+  --devpanel-border: #dde3e6;
+  --devpanel-accent: #3a6b76;
+  --stage-bg: #eef1f3;
+}
+:root[data-theme="dark"] {
+  --devpanel-bg: #181c1f; --devpanel-fg: #e7ecef; --devpanel-muted: #96a3ab;
+  --devpanel-border: #2a3237; --devpanel-accent: #6fa8b5; --stage-bg: #101315;
+}
+:root[data-theme="light"] {
+  --devpanel-bg: #ffffff; --devpanel-fg: #1c2226; --devpanel-muted: #5b6670;
+  --devpanel-border: #dde3e6; --devpanel-accent: #3a6b76; --stage-bg: #eef1f3;
+}
+
+/* ---- Plain ---- */
+.phone[data-skin="plain"] {
+  --bg: #F4F6F8; --on-bg: #1B2126; --surface: #FFFFFF; --on-surface: #1B2126;
+  --surface-variant: #DEE4E7; --on-surface-variant: #5B6670; --surface-high: #E9ECEE;
+  --outline: #D3DAE0; --outline-variant: #E7ECEE;
+  --primary: #3A6B76; --on-primary: #FFFFFF; --primary-container: #C7E8ED; --on-primary-container: #082024;
+  --secondary: #57646C; --on-secondary: #FFFFFF; --secondary-container: #DAE4E9; --on-secondary-container: #141E24;
+  --error: #BA1A1A; --on-error: #FFFFFF; --error-container: #FFDAD6; --on-error-container: #410002;
+  --font-display: 'Inter', system-ui, sans-serif; --font-display-weight: 600; --font-body: 'Inter', system-ui, sans-serif;
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 8px; --radius-xl: 12px;
+}
+.phone[data-skin="plain"][data-mode="dark"] {
+  --bg: #14181B; --on-bg: #E7ECEF; --surface: #1C2226; --on-surface: #E7ECEF;
+  --surface-variant: #3A444A; --on-surface-variant: #96A3AB; --surface-high: #232A2E;
+  --outline: #2A3237; --outline-variant: #3A444A;
+  --primary: #6FA8B5; --on-primary: #0B1416; --primary-container: #1F3A40; --on-primary-container: #C7E8ED;
+  --secondary: #B8C4C9; --on-secondary: #283338; --secondary-container: #3F4C51; --on-secondary-container: #D4E0E4;
+  --error: #FFB4AB; --on-error: #690005; --error-container: #93000A; --on-error-container: #FFDAD6;
+}
+
+/* ---- Intense ---- */
+.phone[data-skin="intense"] {
+  --bg: #FAFAF8; --on-bg: #141414; --surface: #FFFFFF; --on-surface: #141414;
+  --surface-variant: #E3E3E1; --on-surface-variant: #6B6B6B; --surface-high: #EDEDEB;
+  --outline: #3D3D3D; --outline-variant: #D8D8D6;
+  --primary: #A3132E; --on-primary: #FFFFFF; --primary-container: #FFD9DE; --on-primary-container: #3F0012;
+  --secondary: #5A5A5E; --on-secondary: #FFFFFF; --secondary-container: #E3E3E1; --on-secondary-container: #1C1C1E;
+  --error: #8A4B00; --on-error: #FFFFFF; --error-container: #FFDDB3; --on-error-container: #2B1700;
+  --font-display: 'Oswald', 'Arial Narrow', sans-serif; --font-display-weight: 700; --font-body: Georgia, 'Times New Roman', serif;
+  --radius-xs: 0px; --radius-sm: 2px; --radius-md: 2px; --radius-lg: 2px; --radius-xl: 4px;
+}
+.phone[data-skin="intense"][data-mode="dark"] {
+  --bg: #0D0D0F; --on-bg: #F2F2F0; --surface: #18181B; --on-surface: #F2F2F0;
+  --surface-variant: #3A3A3E; --on-surface-variant: #9A9A9E; --surface-high: #232326;
+  --outline: #3A3A3E; --outline-variant: #2A2A2D;
+  --primary: #D0324C; --on-primary: #FFFFFF; --primary-container: #5C0A1F; --on-primary-container: #FFD9DE;
+  --secondary: #B8B8BC; --on-secondary: #2A2A2D; --secondary-container: #3F3F43; --on-secondary-container: #EAEAEC;
+  --error: #FFB870; --on-error: #452B00; --error-container: #643F00; --on-error-container: #FFDDB3;
+}
+
+/* ---- Bright ---- */
+.phone[data-skin="bright"] {
+  --bg: #FFF7ED; --on-bg: #2B2118; --surface: #FFFFFF; --on-surface: #2B2118;
+  --surface-variant: #F2E4D4; --on-surface-variant: #8A7A68; --surface-high: #FBEEE0;
+  --outline: #F2DCC4; --outline-variant: #F6E9D9;
+  --primary: #FF6B4A; --on-primary: #FFFFFF; --primary-container: #FFDBCF; --on-primary-container: #3A0900;
+  --secondary: #17B3A3; --on-secondary: #FFFFFF; --secondary-container: #CBF1EB; --on-secondary-container: #00201C;
+  --error: #BA1A1A; --on-error: #FFFFFF; --error-container: #FFDAD6; --on-error-container: #410002;
+  --font-display: 'Baloo 2', 'Comic Sans MS', cursive, sans-serif; --font-display-weight: 700; --font-body: 'Nunito', system-ui, sans-serif;
+  --radius-xs: 12px; --radius-sm: 16px; --radius-md: 20px; --radius-lg: 24px; --radius-xl: 28px;
+}
+.phone[data-skin="bright"][data-mode="dark"] {
+  --bg: #2A1E1A; --on-bg: #FFF3E6; --surface: #35271F; --on-surface: #FFF3E6;
+  --surface-variant: #4A372C; --on-surface-variant: #C9AF9C; --surface-high: #403026;
+  --outline: #4A372C; --outline-variant: #5C4736;
+  --primary: #FF8266; --on-primary: #3A0900; --primary-container: #5C2210; --on-primary-container: #FFDBCF;
+  --secondary: #34D6C4; --on-secondary: #00201C; --secondary-container: #0B4A42; --on-secondary-container: #CBF1EB;
+  --error: #FFB4AB; --on-error: #690005; --error-container: #93000A; --on-error-container: #FFDAD6;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--stage-bg);
+  color: var(--devpanel-fg);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, auto);
+  gap: 32px;
+  align-items: start;
+  padding: 32px;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+@media (max-width: 860px) {
+  .stage { grid-template-columns: 1fr; }
+}
+
+/* ---------- Dev panel ---------- */
+.devpanel {
+  background: var(--devpanel-bg);
+  border: 1px solid var(--devpanel-border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  position: sticky;
+  top: 32px;
+}
+.devpanel h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; letter-spacing: 0.01em; }
+.devpanel .kicker {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--devpanel-accent); font-weight: 600; margin: 0 0 10px;
+}
+.devpanel p.note { font-size: 13px; line-height: 1.55; color: var(--devpanel-muted); margin: 0 0 20px; }
+.field { margin-bottom: 18px; }
+.field label {
+  display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--devpanel-muted); font-weight: 600; margin-bottom: 8px;
+}
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button {
+  font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 10px;
+  border-radius: 7px; border: 1px solid var(--devpanel-border); background: transparent;
+  color: var(--devpanel-fg); cursor: pointer; line-height: 1.2;
+}
+.seg button:hover { border-color: var(--devpanel-accent); }
+.seg button.is-active { background: var(--devpanel-accent); border-color: var(--devpanel-accent); color: #fff; }
+.seg.wrap-col { flex-direction: column; align-items: stretch; }
+.seg.wrap-col button { text-align: left; }
+
+.tabdesc { border-top: 1px solid var(--devpanel-border); padding-top: 16px; margin-top: 4px; }
+.tabdesc h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--devpanel-accent); margin: 0 0 8px; }
+.tabdesc p { font-size: 13px; line-height: 1.6; margin: 0; color: var(--devpanel-fg); }
+.tabdesc p + p { margin-top: 8px; }
+
+/* ---------- Phone frame ---------- */
+.phone-wrap { display: flex; justify-content: center; }
+.phone {
+  width: 375px; height: 780px; background: var(--bg); color: var(--on-bg);
+  font-family: var(--font-body); border-radius: 34px; border: 8px solid #111;
+  box-shadow: 0 24px 60px -20px rgba(0,0,0,0.45), 0 4px 14px rgba(0,0,0,0.12);
+  overflow: hidden; display: flex; flex-direction: column; position: relative;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.statusbar {
+  height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px; font-size: 12px; font-weight: 600; color: var(--on-bg);
+}
+.appbar { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 8px; background: var(--bg); }
+.appbar .icon-btn {
+  width: 40px; height: 40px; border-radius: 20px; display: flex; align-items: center;
+  justify-content: center; color: var(--on-surface-variant); flex: none; font-size: 16px; position: relative;
+}
+.appbar .icon-btn.is-new::after {
+  content: ""; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--primary);
+}
+.appbar .title {
+  flex: 1; font-family: var(--font-display); font-weight: var(--font-display-weight);
+  font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.content { flex: 1; position: relative; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* ---- Empty state ---- */
+.empty {
+  height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 32px; gap: 14px;
+}
+.empty .glyph { font-size: 42px; }
+.empty .title { font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 17px; }
+.empty .body { font-size: 13.5px; line-height: 1.5; color: var(--on-surface-variant); max-width: 260px; }
+.btn-primary {
+  font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 13.5px;
+  background: var(--primary); color: var(--on-primary); border: none; border-radius: var(--radius-md);
+  padding: 11px 20px; cursor: pointer; margin-top: 4px;
+}
+
+/* ---- Trigger list ---- */
+.trigger-list { padding: 6px 12px 90px; }
+.trigger-card {
+  background: var(--surface); border: 1px solid var(--outline-variant); border-radius: var(--radius-md);
+  padding: 12px 14px; margin: 10px 0; display: flex; gap: 10px; align-items: flex-start;
+}
+.trigger-card.is-disabled { opacity: 0.55; }
+.trigger-card .kind-glyph {
+  width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--secondary-container);
+  color: var(--on-secondary-container); flex: none; display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.trigger-card .body { flex: 1; min-width: 0; }
+.trigger-card .summary { font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 14px; }
+.trigger-card .detail { font-size: 12px; color: var(--on-surface-variant); margin-top: 3px; }
+.trigger-card .fired { font-size: 11.5px; color: var(--primary); margin-top: 4px; font-weight: 600; }
+.trigger-card .controls { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: none; }
+
+.switch { width: 38px; height: 22px; border-radius: 11px; background: var(--outline); position: relative; cursor: pointer; border: none; padding: 0; flex: none; }
+.switch.is-on { background: var(--primary); }
+.switch .knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); transition: left 0.12s ease; }
+.switch.is-on .knob { left: 18px; background: var(--on-primary); }
+
+.icon-btn-sm {
+  width: 26px; height: 26px; border-radius: 50%; border: none; background: transparent;
+  color: var(--on-surface-variant); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.icon-btn-sm:hover { background: var(--surface-variant); }
+
+.fab {
+  position: absolute; right: 16px; bottom: 20px; background: var(--secondary-container); color: var(--on-secondary-container);
+  border: none; border-radius: var(--radius-lg); padding: 14px 20px 14px 16px; font-family: var(--font-display);
+  font-size: 13.5px; font-weight: var(--font-display-weight); display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 6px 16px -6px rgba(0,0,0,0.35); cursor: pointer;
+}
+.fab .plus { font-size: 20px; line-height: 1; font-weight: 700; transform: translateY(-1px); }
+
+/* ---- Overlay sheets/dialogs ---- */
+.overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: none;
+  align-items: flex-end; justify-content: center; z-index: 5;
+}
+.overlay.is-open { display: flex; }
+.overlay.is-center { align-items: center; }
+.sheet {
+  width: 100%; background: var(--surface); color: var(--on-surface); border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 18px 18px 22px; max-height: 88%; overflow-y: auto;
+}
+.dialog {
+  width: 84%; background: var(--surface); color: var(--on-surface); border-radius: var(--radius-lg);
+  padding: 20px; margin: 0 auto;
+}
+.sheet h3, .dialog h3 { font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 16px; margin: 0 0 14px; }
+.dialog p { font-size: 13.5px; line-height: 1.5; color: var(--on-surface-variant); margin: 0 0 18px; }
+
+.formfield { margin-bottom: 16px; }
+.formfield label { display: block; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); margin-bottom: 7px; }
+.kindpicker { display: flex; flex-direction: column; gap: 8px; }
+.kindpicker .opt {
+  border: 1px solid var(--outline-variant); border-radius: var(--radius-md); padding: 10px 12px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; font-size: 13.5px;
+}
+.kindpicker .opt.is-active { border-color: var(--primary); background: var(--primary-container); color: var(--on-primary-container); }
+.kindpicker .opt .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--on-surface-variant); flex: none; position: relative; }
+.kindpicker .opt.is-active .radio { border-color: var(--on-primary-container); }
+.kindpicker .opt.is-active .radio::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--on-primary-container); }
+
+.numrow { display: flex; align-items: center; gap: 10px; }
+.numrow .stepper { display: flex; align-items: center; background: var(--surface-variant); border-radius: var(--radius-sm); }
+.numrow .stepper button { width: 32px; height: 32px; border: none; background: none; font-size: 15px; cursor: pointer; color: var(--on-surface); }
+.numrow .stepper .val { width: 30px; text-align: center; font-weight: 600; font-size: 14px; }
+.numrow .suffix { font-size: 13px; color: var(--on-surface-variant); }
+
+.seg-inline { display: flex; gap: 6px; }
+.seg-inline button {
+  flex: 1; font-size: 12.5px; font-weight: 600; padding: 9px 4px; border-radius: var(--radius-sm);
+  border: 1px solid var(--outline-variant); background: var(--surface); color: var(--on-surface); cursor: pointer;
+}
+.seg-inline button.is-active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.custom-days { margin-top: 8px; display: none; }
+.custom-days.is-shown { display: block; }
+.custom-days input {
+  width: 100%; padding: 9px 10px; border-radius: var(--radius-sm); border: 1px solid var(--outline-variant);
+  background: var(--surface); color: var(--on-surface); font-size: 13.5px;
+}
+
+.sheet-actions, .dialog-actions { display: flex; gap: 10px; margin-top: 6px; }
+.btn-secondary, .btn-destructive, .btn-save {
+  flex: 1; font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 13.5px;
+  border-radius: var(--radius-md); padding: 12px; cursor: pointer; border: none; text-align: center;
+}
+.btn-secondary { background: transparent; color: var(--on-surface-variant); border: 1px solid var(--outline-variant); }
+.btn-save { background: var(--primary); color: var(--on-primary); }
+.btn-destructive { background: var(--error); color: var(--on-error); }
+
+/* ---- Header entry-point illustration ---- */
+.header-demo { margin-top: 30px; }
+.header-demo .caption { font-size: 12px; color: var(--devpanel-muted); margin: 8px 2px 0; line-height: 1.5; }
+.mini-phone { width: 375px; border-radius: 20px; overflow: hidden; border: 1px solid var(--devpanel-border); }
+</style>
+
+<div class="stage" id="stage">
+  <aside class="devpanel">
+    <p class="kicker">Phase 9 planning &middot; not shipped copy</p>
+    <h1>Triggers screen &mdash; structure &amp; content prototype</h1>
+    <p class="note">Same colors/shapes from <code>ui/theme/</code> as the Phase 6 Case Detail prototype (fonts approximated here, not embedded). All copy is a draft to react to, not final Voice-layer strings.</p>
+
+    <div class="field">
+      <label>Theme skin</label>
+      <div class="seg" id="skin-switch">
+        <button data-skin="plain" class="is-active">Plain</button>
+        <button data-skin="intense">Intense</button>
+        <button data-skin="bright">Bright</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Screen state</label>
+      <div class="seg wrap-col" id="state-switch">
+        <button data-state="empty">Empty (no triggers yet)</button>
+        <button data-state="list" class="is-active">List (mixed enabled/disabled/fired)</button>
+        <button data-state="create-kind">Create &mdash; picking kind</button>
+        <button data-state="create-atleast">Create &mdash; At least &hellip; times</button>
+        <button data-state="create-silent">Create &mdash; No events for &hellip; days</button>
+        <button data-state="delete">Delete confirm dialog</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Appearance</label>
+      <div class="seg" id="mode-switch">
+        <button data-mode="light">Light</button>
+        <button data-mode="dark">Dark</button>
+        <button data-mode="auto" class="is-active">Auto</button>
+      </div>
+    </div>
+
+    <div class="tabdesc" id="tab-desc"></div>
+
+    <div class="header-demo">
+      <label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--devpanel-muted);font-weight:600;margin-bottom:8px;">Entry point &mdash; Case Detail header</label>
+      <div class="mini-phone">
+        <div class="phone" id="mini-phone" data-skin="plain" style="width:100%;height:auto;border:none;border-radius:0;box-shadow:none;">
+          <div class="appbar">
+            <div class="icon-btn">&#8592;</div>
+            <div class="title">&#128118; Kiddo interrupts calls</div>
+            <div class="icon-btn is-new">&#128276;</div>
+            <div class="icon-btn">&#9998;</div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">New bell icon sits left of the existing pencil (Edit) action &mdash; both are one-tap header actions, no overflow menu. Dot marks it as new for this pass; not part of the real design.</p>
+    </div>
+  </aside>
+
+  <div class="phone-wrap">
+    <div class="phone" id="phone" data-skin="plain">
+      <div class="statusbar"><span>9:41</span><span>&#9679;&#9679;&#9679;</span></div>
+      <div class="appbar">
+        <div class="icon-btn">&#8592;</div>
+        <div class="title" data-v="screenTitle">Triggers</div>
+      </div>
+      <div class="content">
+
+        <!-- EMPTY STATE -->
+        <div class="empty" id="pane-empty" style="display:none;">
+          <div class="glyph">&#128276;</div>
+          <div class="title" data-v="emptyTitle">No triggers yet</div>
+          <div class="body" data-v="emptyBody">Get a nudge when something happens too often, or goes quiet too long.</div>
+          <button class="btn-primary" data-v="emptyCta">Add a trigger</button>
+        </div>
+
+        <!-- LIST STATE -->
+        <div class="trigger-list" id="pane-list" style="display:none;">
+          <div class="trigger-card">
+            <div class="kind-glyph">&#8593;</div>
+            <div class="body">
+              <div class="summary" data-v="row1Summary">5+ times in 7 days</div>
+              <div class="detail" data-v="row1Kind">Happens too often</div>
+            </div>
+            <div class="controls">
+              <button class="switch is-on"><span class="knob"></span></button>
+              <button class="icon-btn-sm" title="Delete">&#128465;</button>
+            </div>
+          </div>
+          <div class="trigger-card">
+            <div class="kind-glyph">&#8942;</div>
+            <div class="body">
+              <div class="summary" data-v="row2Summary">No events for 14 days</div>
+              <div class="detail" data-v="row2Kind">Goes quiet too long</div>
+              <div class="fired" data-v="row2Fired">Fired 3 days ago</div>
+            </div>
+            <div class="controls">
+              <button class="switch is-on"><span class="knob"></span></button>
+              <button class="icon-btn-sm" title="Delete">&#128465;</button>
+            </div>
+          </div>
+          <div class="trigger-card is-disabled">
+            <div class="kind-glyph">&#8593;</div>
+            <div class="body">
+              <div class="summary" data-v="row3Summary">3+ times in 30 days</div>
+              <div class="detail" data-v="row3Kind">Happens too often</div>
+            </div>
+            <div class="controls">
+              <button class="switch"><span class="knob"></span></button>
+              <button class="icon-btn-sm" title="Delete">&#128465;</button>
+            </div>
+          </div>
+          <button class="fab"><span class="plus">+</span><span class="fab-label" data-v="fabLabel">New trigger</span></button>
+        </div>
+
+      </div>
+
+      <!-- CREATE SHEET -->
+      <div class="overlay" id="overlay-create">
+        <div class="sheet">
+          <h3 data-v="createTitle">New trigger</h3>
+
+          <div class="formfield">
+            <label data-v="kindLabel">What should trigger it?</label>
+            <div class="kindpicker">
+              <div class="opt" id="opt-atleast">
+                <div class="radio"></div>
+                <div data-v="kindAtLeastLabel">Happens too often</div>
+              </div>
+              <div class="opt" id="opt-silent">
+                <div class="radio"></div>
+                <div data-v="kindSilentLabel">Goes quiet too long</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="fields-atleast" style="display:none;">
+            <div class="formfield">
+              <label data-v="atLeastLabel">At least</label>
+              <div class="numrow">
+                <div class="stepper"><button>&minus;</button><span class="val">5</span><button>+</button></div>
+                <span class="suffix" data-v="atLeastSuffix">times</span>
+              </div>
+            </div>
+            <div class="formfield">
+              <label data-v="windowLabel">Within</label>
+              <div class="seg-inline">
+                <button data-v="window7">7 days</button>
+                <button class="is-active" data-v="window30">30 days</button>
+                <button data-v="windowCustom">Custom</button>
+              </div>
+              <div class="custom-days"><input type="number" value="21" min="1"></div>
+            </div>
+          </div>
+
+          <div id="fields-silent" style="display:none;">
+            <div class="formfield">
+              <label data-v="silentLabel">No events for</label>
+              <div class="numrow">
+                <div class="stepper"><button>&minus;</button><span class="val">14</span><button>+</button></div>
+                <span class="suffix" data-v="silentSuffix">days</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sheet-actions">
+            <button class="btn-secondary" data-v="cancelBtn">Cancel</button>
+            <button class="btn-save" data-v="saveBtn">Save trigger</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DELETE CONFIRM -->
+      <div class="overlay is-center" id="overlay-delete">
+        <div class="dialog">
+          <h3 data-v="deleteTitle">Delete this trigger?</h3>
+          <p data-v="deleteBody">You won&rsquo;t be notified by it anymore.</p>
+          <div class="dialog-actions">
+            <button class="btn-secondary" data-v="cancelBtn">Cancel</button>
+            <button class="btn-destructive" data-v="deleteBtn">Delete</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const VOICE = {
+  plain: {
+    screenTitle: "Triggers",
+    emptyTitle: "No triggers yet",
+    emptyBody: "Get a nudge when something happens too often, or goes quiet too long.",
+    emptyCta: "Add a trigger",
+    fabLabel: "New trigger",
+    row1Summary: "5+ times in 7 days", row1Kind: "Happens too often",
+    row2Summary: "No events for 14 days", row2Kind: "Goes quiet too long", row2Fired: "Fired 3 days ago",
+    row3Summary: "3+ times in 30 days", row3Kind: "Happens too often",
+    createTitle: "New trigger",
+    kindLabel: "What should trigger it?",
+    kindAtLeastLabel: "Happens too often", kindSilentLabel: "Goes quiet too long",
+    atLeastLabel: "At least", atLeastSuffix: "times",
+    windowLabel: "Within", window7: "7 days", window30: "30 days", windowCustom: "Custom",
+    silentLabel: "No events for", silentSuffix: "days",
+    cancelBtn: "Cancel", saveBtn: "Save trigger",
+    deleteTitle: "Delete this trigger?", deleteBody: "You won&rsquo;t be notified by it anymore.", deleteBtn: "Delete",
+  },
+  intense: {
+    screenTitle: "Alarms",
+    emptyTitle: "No alarm is set",
+    emptyBody: "Nothing yet watches this case. Set an alarm, and be warned when the pattern breaks.",
+    emptyCta: "Set an alarm",
+    fabLabel: "New alarm",
+    row1Summary: "Five times or more, within seven days", row1Kind: "It comes too often",
+    row2Summary: "Fourteen days of silence", row2Kind: "It falls silent too long", row2Fired: "Sounded 3 days ago",
+    row3Summary: "Three times or more, within thirty days", row3Kind: "It comes too often",
+    createTitle: "Set an alarm",
+    kindLabel: "What should you be warned of?",
+    kindAtLeastLabel: "It comes too often", kindSilentLabel: "It falls silent too long",
+    atLeastLabel: "At least", atLeastSuffix: "times",
+    windowLabel: "Within", window7: "7 days", window30: "30 days", windowCustom: "Custom",
+    silentLabel: "Silence of", silentSuffix: "days",
+    cancelBtn: "Abandon", saveBtn: "Set the alarm",
+    deleteTitle: "Silence this alarm?", deleteBody: "It will warn you no longer.", deleteBtn: "Silence it",
+  },
+  bright: {
+    screenTitle: "Alerts!",
+    emptyTitle: "No alerts yet!",
+    emptyBody: "Want a nudge when something happens a lot, or goes quiet for a while? Set one up!",
+    emptyCta: "Add an alert!",
+    fabLabel: "New alert",
+    row1Summary: "5+ times in 7 days", row1Kind: "Happening a lot",
+    row2Summary: "Quiet for 14 days", row2Kind: "Gone quiet", row2Fired: "Popped off 3 days ago!",
+    row3Summary: "3+ times in 30 days", row3Kind: "Happening a lot",
+    createTitle: "New alert!",
+    kindLabel: "What should trigger it?",
+    kindAtLeastLabel: "Happening a lot", kindSilentLabel: "Gone quiet",
+    atLeastLabel: "At least", atLeastSuffix: "times",
+    windowLabel: "Within", window7: "7 days", window30: "30 days", windowCustom: "Custom",
+    silentLabel: "Quiet for", silentSuffix: "days",
+    cancelBtn: "Never mind", saveBtn: "Save alert!",
+    deleteTitle: "Remove this alert?", deleteBody: "No more heads-up from this one.", deleteBtn: "Remove it",
+  },
+};
+
+const stateDescriptions = {
+  empty: { title: "Empty state", body: ["Shown when a Case has zero triggers. Same glyph-title-body-CTA shape as other empty states in the app (Home, Big Picture)."] },
+  list: { title: "List state", body: ["Three sample triggers: an AT_LEAST trigger armed and enabled, a SILENT_FOR trigger enabled and recently fired (shows lastFiredAt), and a disabled AT_LEAST trigger (dimmed, switch off). Delete is available per-row; edit is not offered per this pass's scope decision &mdash; a wrong trigger gets deleted and recreated rather than edited in place."] },
+  "create-kind": { title: "Create &mdash; kind picker", body: ["First step of the create sheet: choose AT_LEAST vs SILENT_FOR. Selecting a kind reveals its fields below (see the next two states)."] },
+  "create-atleast": { title: "Create &mdash; AT_LEAST fields", body: ["Threshold stepper plus a segmented 7/30/Custom window picker, matching the check-in interval picker's pattern already used in Settings and Case Edit. Custom reveals a plain day-count field."] },
+  "create-silent": { title: "Create &mdash; SILENT_FOR fields", body: ["Just a day-count threshold &mdash; no window, since SILENT_FOR measures the gap since the last event, not a rolling count."] },
+  delete: { title: "Delete confirmation", body: ["Reached from a row's trash icon. Simple confirm, no \"type to confirm\" friction since deleting a trigger is low-stakes (no data loss, just stops a notification)."] },
+};
+
+const phone = document.getElementById('phone');
+const miniPhone = document.getElementById('mini-phone');
+const overlayCreate = document.getElementById('overlay-create');
+const overlayDelete = document.getElementById('overlay-delete');
+const paneEmpty = document.getElementById('pane-empty');
+const paneList = document.getElementById('pane-list');
+const fieldsAtLeast = document.getElementById('fields-atleast');
+const fieldsSilent = document.getElementById('fields-silent');
+const optAtLeast = document.getElementById('opt-atleast');
+const optSilent = document.getElementById('opt-silent');
+
+function applyVoice(skin) {
+  document.querySelectorAll('[data-v]').forEach(el => {
+    const text = VOICE[skin][el.dataset.v];
+    if (text !== undefined) el.innerHTML = text;
+  });
+}
+
+function setState(state) {
+  document.getElementById('state-switch').querySelectorAll('button').forEach(el => el.classList.toggle('is-active', el.dataset.state === state));
+  const desc = stateDescriptions[state];
+  document.getElementById('tab-desc').innerHTML = '<h2>' + desc.title + '</h2>' + desc.body.map(p => '<p>' + p + '</p>').join('');
+
+  paneEmpty.style.display = state === 'empty' ? 'flex' : 'none';
+  paneList.style.display = state === 'list' ? 'block' : 'none';
+  overlayCreate.classList.toggle('is-open', state.startsWith('create'));
+  overlayDelete.classList.toggle('is-open', state === 'delete');
+
+  if (state === 'create-kind') {
+    optAtLeast.classList.remove('is-active'); optSilent.classList.remove('is-active');
+    fieldsAtLeast.style.display = 'none'; fieldsSilent.style.display = 'none';
+  } else if (state === 'create-atleast') {
+    optAtLeast.classList.add('is-active'); optSilent.classList.remove('is-active');
+    fieldsAtLeast.style.display = 'block'; fieldsSilent.style.display = 'none';
+  } else if (state === 'create-silent') {
+    optAtLeast.classList.remove('is-active'); optSilent.classList.add('is-active');
+    fieldsAtLeast.style.display = 'none'; fieldsSilent.style.display = 'block';
+  }
+}
+
+document.getElementById('state-switch').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (btn) setState(btn.dataset.state);
+});
+document.getElementById('skin-switch').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.getElementById('skin-switch').querySelectorAll('button').forEach(el => el.classList.toggle('is-active', el === btn));
+  phone.dataset.skin = btn.dataset.skin;
+  miniPhone.dataset.skin = btn.dataset.skin;
+  applyVoice(btn.dataset.skin);
+});
+document.getElementById('mode-switch').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.getElementById('mode-switch').querySelectorAll('button').forEach(el => el.classList.toggle('is-active', el === btn));
+  const mode = btn.dataset.mode;
+  document.documentElement.removeAttribute('data-theme');
+  phone.removeAttribute('data-mode');
+  miniPhone.removeAttribute('data-mode');
+  if (mode === 'light' || mode === 'dark') {
+    document.documentElement.setAttribute('data-theme', mode);
+    phone.setAttribute('data-mode', mode);
+    miniPhone.setAttribute('data-mode', mode);
+  }
+});
+document.getElementById('overlay-create').addEventListener('click', e => {
+  if (e.target.id === 'overlay-create') setState('list');
+});
+document.getElementById('overlay-delete').addEventListener('click', e => {
+  if (e.target.id === 'overlay-delete') setState('list');
+});
+
+setState('list');
+applyVoice('plain');
+</script>

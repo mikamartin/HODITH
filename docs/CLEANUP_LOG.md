@@ -15,6 +15,53 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/triggers-screen (Phase 9, branch 4 of 6)
+
+**Scope:** HTML mockup (`docs/mockups/triggers-prototype.html`) validated first, then the real
+Triggers screen: `TriggersScreen`/`TriggersRoute`/`TriggerCreationSheet` (`ui/triggers/`),
+`TriggersViewModel`/`TriggerRow` (`viewmodel/`), a new bell icon + `onOpenTriggers` wiring in Case
+Detail's header, the `triggers/{caseId}` nav route, and ~24 new `Voice` keys × three voices. Walked
+the full working diff against CLEANUP_CHECKLIST.md and all four DEV_PLAYBOOK.md §3 checks, plus
+`connectedDebugAndroidTest` on-device (111 tests) — all passed clean after the fixes below. One
+instrumented run hit a single unrelated flaky failure (`HomeScreenTest.staleOngoingBanner_...`, an
+`ActivityScenario` teardown timeout on an evidently loaded emulator — 28 min run vs. the usual
+~5–10); re-ran that class alone (clean, 1m38s) and the full suite again (clean, 111/111) to confirm
+it wasn't a regression — `HomeScreenTest` touches nothing this branch changed.
+
+**Found & fixed:**
+- **Real duplication:** `TriggerCreationSheet`'s threshold +/- stepper was a near-verbatim copy of
+  the inline stepper already in `HunchCreationSheet.kt`. Extracted `ui/common/NumberStepper.kt`;
+  both sheets now share it.
+- **Two pre-existing tests broke:** `CaseDetailScreenTest`/`CaseDetailInsightsTabTest` call
+  `CaseDetailScreen` directly and needed the new `onOpenTriggers` param — added no-op lambdas. Only
+  surfaced once `connectedDebugAndroidTest` actually compiled the `androidTest` source set; the
+  `test`/`lintDebug`/`assembleDebug` trio doesn't.
+- **API assumed from memory, not verified:** the first `TriggersScreenTest` draft used
+  `onNode(isToggleable())`, assuming the classic Compose-testing matcher API. This project's Compose
+  UI version (1.11.4) only ships the newer, narrower "v2" finder set — no generic `onNode(matcher)`.
+  Fixed properly rather than working around it: gave the enable/disable `Switch` an explicit
+  `contentDescription` (new `triggerToggleDescription` Voice key, also a real accessibility win),
+  then targeted it the same way as every other icon-action in the file.
+- **Test coverage gap:** neither the new bell icon nor the pre-existing Edit icon in
+  `CaseDetailScreen`'s header had a test verifying they actually invoke their callbacks. Added
+  `onEditCase`/`onOpenTriggers` params to `CaseDetailScreenTest`'s content-setter and one new test
+  covering both.
+- **`@Smoke` over-tagged:** `TriggersScreenTest` had two `@Smoke` tests; `TESTING.md` documents
+  `@Smoke` as one representative happy path per class. Trimmed to one (the create flow).
+- **Spec left behind:** the Triggers row in HODITH_SPEC.md §14 said "list, create, enable/disable" —
+  delete was added intentionally (confirmed with the user) but the spec wasn't updated. Fixed.
+
+**Deferred:**
+- The Hunch/`AT_LEAST` Trigger conceptual overlap the user found during exploratory testing —
+  logged as a new HODITH_SPEC.md §17 item, left alone pending alpha-testing feedback per the user's
+  explicit call. Not a cleanup-pass item; a product decision.
+
+**Docs updated:** HODITH_SPEC.md (§14 Triggers row now mentions delete; new §17 item on the
+Hunch/Trigger overlap), TESTING.md (new "Compose UI — Triggers" instrumented-coverage row),
+PROGRESS.md (Phase 9 branch 4 checked off).
+
+---
+
 ## feature/trigger-data (Phase 9, branch 3 of 6)
 
 **Scope:** Repository-layer follow-up on `TriggerEntity`/`TriggerDao`, which had already been
