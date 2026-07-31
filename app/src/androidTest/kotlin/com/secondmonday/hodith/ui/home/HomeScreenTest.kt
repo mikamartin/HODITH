@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -48,6 +49,8 @@ class HomeScreenTest {
             durationMode = DurationMode.NONE,
             intensityEnabled = false,
         )
+
+    private val ongoingEvent = testEvent(caseId = 2L)
 
     private fun setHomeScreenContent(
         uiState: HomeUiState = HomeUiState(cases = listOf(oneTapRow), isLoading = false),
@@ -146,7 +149,6 @@ class HomeScreenTest {
 
     @Test
     fun ongoingRow_showsStopButtonInsteadOfQuickLog_andInvokesOnQuickLogTap() {
-        val ongoingEvent = EventEntity(caseId = 2L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
         val ongoingRow =
             oneTapRow.copy(caseId = 2L, name = "Ongoing Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
         var quickLogTapped: HomeCaseRow? = null
@@ -172,7 +174,6 @@ class HomeScreenTest {
 
     @Test
     fun staleOngoingBanner_showsPastThreshold_andStillGoingInvokesDismiss() {
-        val ongoingEvent = EventEntity(caseId = 2L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
         val staleRow =
             oneTapRow.copy(caseId = 2L, name = "Stale Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
         var dismissed: EventEntity? = null
@@ -191,7 +192,6 @@ class HomeScreenTest {
 
     @Test
     fun staleOngoingBanner_doesNotShowBeforeThreshold() {
-        val ongoingEvent = EventEntity(caseId = 2L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
         val ongoingRow =
             oneTapRow.copy(caseId = 2L, name = "Fresh Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
         setHomeScreenContent(
