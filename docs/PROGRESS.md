@@ -11,7 +11,6 @@ Where the build stands right now, and the intended phase order. Update the statu
 Cross-cutting tooling/repo-hygiene work, unrelated to any specific phase — pick up whenever convenient, not gated on phase progress.
 
 - [ ] Insights tab's rhythm grid cells convey their count by shading alone — no content description or visible number, unlike the calendar heatmap's day-of-month numbers and the intensity squares' level numbers. Same color-only gap already deferred for the dot timeline (`feature/case-insights-visuals`); revisit alongside making either grid tappable.
-- [ ] Compose UI instrumented test files each hand-roll their own `CaseEntity`/`EventEntity` fixtures instead of the shared `testCase()`/`testEvent()` builders in `data/TestFixtures.kt` (added for DAO tests, unused by any `ui` test so far). Left alone when `CaseDetailInsightsTest` adopted them, since each screen's local fixture varies enough (different `logFlow`/`durationMode`/`intensityEnabled` combos) that a shared builder wouldn't remove much duplication as-is — revisit if a `ui`-test-specific set of builders would actually pay for itself once more screens use `testCase()`/`testEvent()`.
 
 ## Phase order
 

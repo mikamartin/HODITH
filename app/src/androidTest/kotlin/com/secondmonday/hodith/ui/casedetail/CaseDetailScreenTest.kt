@@ -15,6 +15,8 @@ import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.testCase
+import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -44,24 +46,15 @@ class CaseDetailScreenTest {
     private val staleNow = 24 * 60 * 60_000L + 1
 
     private val startStopCase =
-        CaseEntity(
+        testCase(
             id = 1L,
             name = "Focus session",
             icon = "⏱️",
-            createdAt = 0L,
             logFlow = LogFlow.DETAIL_SHEET,
             durationMode = DurationMode.START_STOP,
-            intensityEnabled = false,
-            hunchNudgeDismissed = false,
-            pinned = false,
-            checkInsEnabled = true,
-            lastCheckInAt = null,
-            sortOrder = 0,
-            archived = false,
         )
 
-    private fun ongoingEvent() =
-        EventEntity(id = 5L, caseId = 1L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L)
+    private fun ongoingEvent() = testEvent(id = 5L, caseId = 1L)
 
     private fun setCaseDetailScreenContent(
         case: CaseEntity = startStopCase,
@@ -195,15 +188,7 @@ class CaseDetailScreenTest {
     ): List<EventWithTags> =
         List(count) {
             EventWithTags(
-                EventEntity(
-                    id = it.toLong(),
-                    caseId = 1L,
-                    occurredAt = occurredAt,
-                    endedAt = null,
-                    intensity = null,
-                    note = null,
-                    loggedAt = occurredAt,
-                ),
+                testEvent(id = it.toLong(), caseId = 1L, occurredAt = occurredAt),
                 emptyList(),
             )
         }

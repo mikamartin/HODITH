@@ -7,6 +7,7 @@ fun createInMemoryDatabase(): HodithDatabase =
     Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), HodithDatabase::class.java).build()
 
 fun testCase(
+    id: Long = 0L,
     name: String = "Test Case",
     description: String? = null,
     icon: String = "🐛",
@@ -21,6 +22,7 @@ fun testCase(
     sortOrder: Int = 0,
     archived: Boolean = false,
 ) = CaseEntity(
+    id = id,
     name = name,
     description = description,
     icon = icon,
