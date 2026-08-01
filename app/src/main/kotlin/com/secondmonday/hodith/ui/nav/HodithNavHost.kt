@@ -7,6 +7,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -32,9 +33,20 @@ private const val CASE_ID_ARG = "caseId"
 private const val NO_CASE_ID = -1L
 
 @Composable
-fun HodithNavHost(modifier: Modifier = Modifier) {
+fun HodithNavHost(
+    modifier: Modifier = Modifier,
+    deepLinkCaseId: Long? = null,
+) {
     val navController = rememberNavController()
     val voice = LocalVoice.current
+
+    // Notification taps (trigger fired / check-in due) carry a caseId to land directly on that
+    // Case's detail screen. Start destination stays Home; this navigates on top of it once per
+    // fresh launch — MainActivity's PendingIntents use FLAG_ACTIVITY_CLEAR_TASK, guaranteeing a
+    // fresh composition each tap, so `Unit` as the key (fire-once) is correct here.
+    LaunchedEffect(Unit) {
+        deepLinkCaseId?.let { caseId -> navController.navigate("$CASE_DETAIL_ROUTE/$caseId") }
+    }
     val currentRoute =
         navController
             .currentBackStackEntryAsState()

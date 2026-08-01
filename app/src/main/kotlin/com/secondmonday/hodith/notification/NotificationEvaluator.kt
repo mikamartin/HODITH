@@ -5,6 +5,7 @@ import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.domain.CheckInDecision
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.evaluateAtLeast
@@ -49,7 +50,28 @@ class NotificationEvaluator
                 val case = repo.getCase(caseId)
                 if (case != null && !case.archived) evaluateTriggers(repo, case, triggers, voice)
             }
-            repo.getActiveCases().forEach { case -> evaluateCheckInForCase(repo, case, voice) }
+            evaluateCheckIns(repo, voice)
+        }
+
+        /**
+         * Spec §11 anti-spam: a single due check-in posts its own notification (with Log/All quiet
+         * actions), but 2+ in the same pass collapse into one summary instead of alerting once per
+         * Case. Only reachable from the periodic job — the immediate per-event hook only ever
+         * touches the one Case an event mutation just affected.
+         */
+        private suspend fun evaluateCheckIns(
+            repo: HodithRepository,
+            voice: Voice,
+        ) {
+            val due =
+                repo.getActiveCases().mapNotNull { case ->
+                    dueCheckInDecision(repo, case)?.let { case to it.silentDays }
+                }
+            when (due.size) {
+                0 -> Unit
+                1 -> due.single().let { (case, silentDays) -> notifier.notifyCheckInDue(case, silentDays, voice) }
+                else -> notifier.notifyCheckInsSummary(due.map { it.first }, voice)
+            }
         }
 
         private suspend fun currentVoice(): Voice = voiceFor(settingsRepository.observeTheme().first())
@@ -92,17 +114,24 @@ class NotificationEvaluator
             case: CaseEntity,
             voice: Voice,
         ) {
-            if (!case.checkInsEnabled) return
+            val decision = dueCheckInDecision(repo, case) ?: return
+            notifier.notifyCheckInDue(case, decision.silentDays, voice)
+        }
+
+        /**
+         * Null unless due. Re-arming (moving `lastCheckInAt`/the anchor forward) only happens via
+         * the "All quiet" notification action or a new event on the Case — never automatically at
+         * evaluation time — so an ignored check-in keeps recurring on each periodic pass until acted on.
+         */
+        private suspend fun dueCheckInDecision(
+            repo: HodithRepository,
+            case: CaseEntity,
+        ): CheckInDecision? {
+            if (!case.checkInsEnabled) return null
             val hunch = repo.getActiveHunch(case.id)
             val settingsDefaultDays = settingsRepository.getCheckInDefaultInterval().days
             val mostRecentEventAt = repo.getMostRecentEventForCase(case.id)?.occurredAt
-            val now = clock.nowMillis()
-            val decision = evaluateCheckIn(case, hunch, settingsDefaultDays, mostRecentEventAt, now)
-            if (decision.due) {
-                // Fixes the fire at `now`, so this Case can't check in again before its own interval
-                // elapses even though "All quiet" — the real re-arm action — is branch 6 (see notifier docs).
-                repo.updateCase(case.copy(lastCheckInAt = now))
-                notifier.notifyCheckInDue(case, decision.silentDays, voice)
-            }
+            val decision = evaluateCheckIn(case, hunch, settingsDefaultDays, mostRecentEventAt, clock.nowMillis())
+            return decision.takeIf { it.due }
         }
     }

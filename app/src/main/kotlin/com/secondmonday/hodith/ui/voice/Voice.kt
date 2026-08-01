@@ -369,6 +369,13 @@ interface Voice {
 
     fun checkInDueNotificationBody(silentDays: Long): String
 
+    /** Check-in notification action buttons — [feature/notification-actions]. */
+    val notificationLogAction: String
+    val notificationAllQuietAction: String
+
+    /** Anti-spam notification collapsing 2+ same-cycle due check-ins into one. */
+    fun checkInsSummaryNotificationTitle(count: Int): String
+
     val notificationsDeniedBannerMessage: String
     val notificationsDeniedBannerAction: String
 
@@ -750,6 +757,11 @@ object PlainVoice : Voice {
 
     override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days."
 
+    override val notificationLogAction = "Log"
+    override val notificationAllQuietAction = "All quiet"
+
+    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases are quiet — tap to review"
+
     override val notificationsDeniedBannerMessage =
         "Notifications are off, so triggers and check-ins won't alert you — check back here instead."
     override val notificationsDeniedBannerAction = "Turn on notifications"
@@ -1125,6 +1137,11 @@ object IntenseVoice : Voice {
 
     override fun checkInDueNotificationBody(silentDays: Long) = "$silentDays days of silence. Has it stopped, or have you?"
 
+    override val notificationLogAction = "Log it"
+    override val notificationAllQuietAction = "All is still"
+
+    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases have fallen silent — see which"
+
     override val notificationsDeniedBannerMessage =
         "Notifications are silenced. Alarms and the watch kept will not reach you — only what you find here."
     override val notificationsDeniedBannerAction = "Break the silence"
@@ -1497,6 +1514,11 @@ object BrightVoice : Voice {
     override fun checkInDueNotificationTitle(caseName: String) = "Quick check-in: $caseName"
 
     override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days — all quiet, or did you forget?"
+
+    override val notificationLogAction = "Log it!"
+    override val notificationAllQuietAction = "All quiet!"
+
+    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases are quiet — tap to check in!"
 
     override val notificationsDeniedBannerMessage =
         "Notifications are off, so trigger and check-in nudges can't reach you — swing by here instead!"

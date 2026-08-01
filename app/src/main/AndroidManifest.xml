@@ -35,6 +35,10 @@
         </activity>
 
         <receiver
+            android:name=".notification.NotificationActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".widget.ListWidgetReceiver"
             android:exported="false"
             android:label="@string/list_widget_label">
