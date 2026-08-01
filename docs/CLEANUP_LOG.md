@@ -15,6 +15,42 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/about-screen (Phase 10, branch 2 of 3)
+
+**Scope:** About screen wiring only (spec §14, §16; PROGRESS.md Phase 10) — placeholder copy for
+version/privacy/licenses, real content deferred to Phase 12. New `ui/about/AboutScreen.kt`
+(`AboutRoute`/`AboutScreen`, stateless, no ViewModel — there's no logic to own), following
+`TriggersScreen`'s `Scaffold`/`TopAppBar`/back-arrow pattern. `app/build.gradle.kts` gets
+`buildFeatures.buildConfig = true` (previously only `compose` was enabled) so the version section
+can read `BuildConfig.VERSION_NAME`. Six new Voice keys (`aboutScreenTitle`,
+`aboutVersionLabel`/`aboutPrivacyLabel`/`aboutPrivacyBody`/`aboutLicensesLabel`/
+`aboutLicensesBody`) added to the interface and all three voice objects in the same commit; the
+back button reuses the existing shared `backButtonDescription` key rather than adding a new one.
+Settings gets a new About row (`OutlinedButton`, bottom of the screen) wired through
+`SettingsRoute(onOpenAbout)` to a new `about` nav route in `HodithNavHost.kt`, added to the
+bottom-bar-hiding detail-screen check alongside Triggers/Case Detail/Archived Cases. Walked the
+full working diff against CLEANUP_CHECKLIST.md; all four DEV_PLAYBOOK.md §3 checks (`ktlintCheck`,
+`lintDebug`, `test`, `assembleDebug`) run sequentially, clean.
+
+**Found & fixed:**
+- An early draft of `AboutSection` took an unused `voice: Voice` parameter (leftover from copying
+  the section-header pattern elsewhere) — dropped the parameter and the now-unused `Voice` import
+  before it ever landed in a commit.
+
+**Deferred:**
+- `connectedDebugAndroidTest` (the new `AboutScreenTest`, plus the updated `SettingsScreenTest`)
+  hasn't been run on-device yet — no emulator available in this pass. Per DEV_PLAYBOOK.md §3 this
+  is a human step before merge, same as every other branch.
+- Real About content (final version/privacy/licenses copy, hosted privacy policy link) — already
+  tracked as PROGRESS.md Phase 12's "About screen content polish" item; this branch is deliberately
+  wiring-only, matching the Phase 10 scope note.
+
+**Docs updated:** TESTING.md's "Planned instrumented coverage" table gains an About row.
+HODITH_SPEC.md §14 already described this screen (version/privacy/licenses) before this branch —
+no divergence, so no spec edit needed.
+
+---
+
 ## feature/export-import (Phase 10, branch 1 of 3)
 
 **Scope:** Settings export/import JSON (spec §16, PROGRESS.md Phase 10). Room entities annotated

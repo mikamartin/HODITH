@@ -142,6 +142,12 @@ interface Voice {
     val settingsImportFailureInvalidMessage: String
     val settingsImportFailureVersionMessage: String
     val settingsImportFailureIoMessage: String
+    val aboutScreenTitle: String
+    val aboutVersionLabel: String
+    val aboutPrivacyLabel: String
+    val aboutPrivacyBody: String
+    val aboutLicensesLabel: String
+    val aboutLicensesBody: String
     val hunchTabNoneTitle: String
     val hunchTabNoneBody: String
     val hunchAddButtonLabel: String
@@ -544,6 +550,13 @@ object PlainVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That file isn't a valid HODITH backup."
     override val settingsImportFailureVersionMessage = "That backup was made by a version of HODITH this app can't read."
     override val settingsImportFailureIoMessage = "Couldn't read that file."
+    override val aboutScreenTitle = "About"
+    override val aboutVersionLabel = "Version"
+    override val aboutPrivacyLabel = "Privacy"
+    override val aboutPrivacyBody =
+        "Everything stays on your phone. HODITH has no network access and sends nothing anywhere."
+    override val aboutLicensesLabel = "Licenses"
+    override val aboutLicensesBody = "Open-source license details coming soon."
     override val hunchTabNoneTitle = "No hunch yet"
     override val hunchTabNoneBody =
         "Got a feeling about how often this happens? Add a Hunch to see how it compares to reality."
@@ -941,6 +954,13 @@ object IntenseVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That file holds no case files this app recognizes."
     override val settingsImportFailureVersionMessage = "That file was sealed by a version of this app no longer spoken here."
     override val settingsImportFailureIoMessage = "That file could not be read."
+    override val aboutScreenTitle = "The record"
+    override val aboutVersionLabel = "Version"
+    override val aboutPrivacyLabel = "What leaves this phone"
+    override val aboutPrivacyBody =
+        "Nothing. No network, no signal sent outward — every case stays sealed here."
+    override val aboutLicensesLabel = "Borrowed bones"
+    override val aboutLicensesBody = "The debts owed to other code will be listed here, in time."
     override val hunchTabNoneTitle = "No claim has been made"
     override val hunchTabNoneBody =
         "You have watched this case, but sworn nothing about it. State a hunch, and the record will one day answer."
@@ -1332,6 +1352,12 @@ object BrightVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That's not a HODITH backup file!"
     override val settingsImportFailureVersionMessage = "That backup's from a version this app can't read."
     override val settingsImportFailureIoMessage = "Couldn't read that file. Weird."
+    override val aboutScreenTitle = "About HODITH!"
+    override val aboutVersionLabel = "Version"
+    override val aboutPrivacyLabel = "Privacy"
+    override val aboutPrivacyBody = "Everything stays right here on your phone — no internet, no sneaky data stuff!"
+    override val aboutLicensesLabel = "Licenses"
+    override val aboutLicensesBody = "The nerdy open-source credits are coming soon!"
     override val hunchTabNoneTitle = "No guess yet!"
     override val hunchTabNoneBody = "Got a gut feeling about how often this happens? Make a guess and see if reality agrees."
     override val hunchAddButtonLabel = "Make a guess!"
