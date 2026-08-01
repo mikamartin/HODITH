@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.Flow
 fun HodithApp(
     themeFlow: Flow<AppTheme>,
     notificationPermissionRequests: Flow<Unit>,
+    deepLinkCaseId: Long? = null,
 ) {
     val theme by themeFlow.collectAsStateWithLifecycle(initialValue = AppTheme.PLAIN)
 
@@ -38,7 +39,7 @@ fun HodithApp(
     ) {
         HodithTheme(theme = theme) {
             Surface(modifier = Modifier.fillMaxSize()) {
-                HodithNavHost(modifier = Modifier.fillMaxSize().safeDrawingPadding())
+                HodithNavHost(modifier = Modifier.fillMaxSize().safeDrawingPadding(), deepLinkCaseId = deepLinkCaseId)
             }
         }
     }

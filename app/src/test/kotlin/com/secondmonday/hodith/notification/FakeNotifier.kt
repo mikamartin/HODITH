@@ -8,6 +8,7 @@ import com.secondmonday.hodith.ui.voice.Voice
 class FakeNotifier : Notifier {
     val firedTriggers = mutableListOf<TriggerEntity>()
     val dueCheckIns = mutableListOf<Pair<CaseEntity, Long>>()
+    val checkInSummaries = mutableListOf<List<CaseEntity>>()
 
     override fun notifyTriggerFired(
         case: CaseEntity,
@@ -23,5 +24,12 @@ class FakeNotifier : Notifier {
         voice: Voice,
     ) {
         dueCheckIns += case to silentDays
+    }
+
+    override fun notifyCheckInsSummary(
+        cases: List<CaseEntity>,
+        voice: Voice,
+    ) {
+        checkInSummaries += cases
     }
 }

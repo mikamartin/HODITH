@@ -165,7 +165,7 @@ class NotificationEvaluatorTest {
         }
 
     @Test
-    fun `evaluateCase fires a due check-in and updates lastCheckInAt so it can't refire immediately`() =
+    fun `evaluateCase fires a due check-in without auto-rearming it`() =
         runTest {
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
             repository.cases.value = listOf(case(createdAt = 0L, checkInsEnabled = true))
@@ -173,8 +173,9 @@ class NotificationEvaluatorTest {
             evaluator.evaluateCase(1L)
 
             assertEquals(1, notifier.dueCheckIns.size)
-            assertEquals(
-                clock.nowMillis(),
+            // Re-arming is the "All quiet" action's job (or a new event), not automatic at fire
+            // time — an ignored check-in must be able to fire again on the next periodic pass.
+            assertNull(
                 repository.cases.value
                     .single()
                     .lastCheckInAt,
@@ -229,5 +230,44 @@ class NotificationEvaluatorTest {
                     .single()
                     .first.id,
             )
+        }
+
+    @Test
+    fun `evaluateAll collapses 2 or more due check-ins into a single summary notification`() =
+        runTest {
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
+            repository.cases.value =
+                listOf(
+                    case(id = 1L, createdAt = 0L, checkInsEnabled = true),
+                    case(id = 2L, createdAt = 0L, checkInsEnabled = true),
+                )
+
+            evaluator.evaluateAll()
+
+            assertTrue(notifier.dueCheckIns.isEmpty())
+            assertEquals(1, notifier.checkInSummaries.size)
+            assertEquals(
+                setOf(1L, 2L),
+                notifier.checkInSummaries
+                    .single()
+                    .map { it.id }
+                    .toSet(),
+            )
+        }
+
+    @Test
+    fun `evaluateAll posts an individual notification when exactly one check-in is due`() =
+        runTest {
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
+            repository.cases.value =
+                listOf(
+                    case(id = 1L, createdAt = 0L, checkInsEnabled = true),
+                    case(id = 2L, createdAt = 0L, checkInsEnabled = false),
+                )
+
+            evaluator.evaluateAll()
+
+            assertEquals(1, notifier.dueCheckIns.size)
+            assertTrue(notifier.checkInSummaries.isEmpty())
         }
 }
