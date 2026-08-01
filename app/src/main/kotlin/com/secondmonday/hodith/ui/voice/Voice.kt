@@ -129,6 +129,19 @@ interface Voice {
     val settingsDeleteAllDataConfirmBody: String
     val settingsDeleteAllDataConfirmAction: String
     val settingsDeleteAllDataCancelAction: String
+    val settingsBackupSectionLabel: String
+    val settingsExportButton: String
+    val settingsImportButton: String
+    val settingsImportConfirmTitle: String
+    val settingsImportConfirmBody: String
+    val settingsImportConfirmAction: String
+    val settingsImportCancelAction: String
+    val settingsExportSuccessMessage: String
+    val settingsExportFailureMessage: String
+    val settingsImportSuccessMessage: String
+    val settingsImportFailureInvalidMessage: String
+    val settingsImportFailureVersionMessage: String
+    val settingsImportFailureIoMessage: String
     val hunchTabNoneTitle: String
     val hunchTabNoneBody: String
     val hunchAddButtonLabel: String
@@ -517,6 +530,20 @@ object PlainVoice : Voice {
         "Every case and event will be permanently deleted. This can't be undone."
     override val settingsDeleteAllDataConfirmAction = "Delete everything"
     override val settingsDeleteAllDataCancelAction = "Cancel"
+    override val settingsBackupSectionLabel = "Backup"
+    override val settingsExportButton = "Export data"
+    override val settingsImportButton = "Import data"
+    override val settingsImportConfirmTitle = "Replace all data?"
+    override val settingsImportConfirmBody =
+        "Importing will delete everything currently in the app and replace it with the backup file. This can't be undone."
+    override val settingsImportConfirmAction = "Replace everything"
+    override val settingsImportCancelAction = "Cancel"
+    override val settingsExportSuccessMessage = "Backup saved."
+    override val settingsExportFailureMessage = "Couldn't save the backup."
+    override val settingsImportSuccessMessage = "Backup restored."
+    override val settingsImportFailureInvalidMessage = "That file isn't a valid HODITH backup."
+    override val settingsImportFailureVersionMessage = "That backup was made by a version of HODITH this app can't read."
+    override val settingsImportFailureIoMessage = "Couldn't read that file."
     override val hunchTabNoneTitle = "No hunch yet"
     override val hunchTabNoneBody =
         "Got a feeling about how often this happens? Add a Hunch to see how it compares to reality."
@@ -900,6 +927,20 @@ object IntenseVoice : Voice {
         "Every case and record will be struck from existence, beyond recall."
     override val settingsDeleteAllDataConfirmAction = "Erase it all"
     override val settingsDeleteAllDataCancelAction = "Abandon"
+    override val settingsBackupSectionLabel = "The archive"
+    override val settingsExportButton = "Copy the case files"
+    override val settingsImportButton = "Restore the case files"
+    override val settingsImportConfirmTitle = "Erase the present for the past?"
+    override val settingsImportConfirmBody =
+        "Every case and record here will be struck out, replaced by whatever's in that file. There's no undoing it."
+    override val settingsImportConfirmAction = "Restore it"
+    override val settingsImportCancelAction = "Abandon"
+    override val settingsExportSuccessMessage = "The case files are copied."
+    override val settingsExportFailureMessage = "The case files couldn't be copied."
+    override val settingsImportSuccessMessage = "The case files are restored."
+    override val settingsImportFailureInvalidMessage = "That file holds no case files this app recognizes."
+    override val settingsImportFailureVersionMessage = "That file was sealed by a version of this app no longer spoken here."
+    override val settingsImportFailureIoMessage = "That file could not be read."
     override val hunchTabNoneTitle = "No claim has been made"
     override val hunchTabNoneBody =
         "You have watched this case, but sworn nothing about it. State a hunch, and the record will one day answer."
@@ -1278,6 +1319,19 @@ object BrightVoice : Voice {
     override val settingsDeleteAllDataConfirmBody = "Every case and event goes poof — for real, no take-backs."
     override val settingsDeleteAllDataConfirmAction = "Yeet it all"
     override val settingsDeleteAllDataCancelAction = "Nah, never mind"
+    override val settingsBackupSectionLabel = "Backup"
+    override val settingsExportButton = "Save a backup!"
+    override val settingsImportButton = "Restore a backup!"
+    override val settingsImportConfirmTitle = "Swap in the backup?"
+    override val settingsImportConfirmBody = "Everything here gets wiped and replaced with what's in that file. No undo button, promise!"
+    override val settingsImportConfirmAction = "Swap it in!"
+    override val settingsImportCancelAction = "Nah, never mind"
+    override val settingsExportSuccessMessage = "Backup saved!"
+    override val settingsExportFailureMessage = "Backup didn't save. Oops."
+    override val settingsImportSuccessMessage = "Backup restored!"
+    override val settingsImportFailureInvalidMessage = "That's not a HODITH backup file!"
+    override val settingsImportFailureVersionMessage = "That backup's from a version this app can't read."
+    override val settingsImportFailureIoMessage = "Couldn't read that file. Weird."
     override val hunchTabNoneTitle = "No guess yet!"
     override val hunchTabNoneBody = "Got a gut feeling about how often this happens? Make a guess and see if reality agrees."
     override val hunchAddButtonLabel = "Make a guess!"

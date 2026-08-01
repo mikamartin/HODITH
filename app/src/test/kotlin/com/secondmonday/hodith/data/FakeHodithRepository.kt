@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.data
 
+import com.secondmonday.hodith.data.backup.BackupData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -202,5 +203,25 @@ class FakeHodithRepository : HodithRepository {
 
     override suspend fun deleteTrigger(trigger: TriggerEntity) {
         triggers.update { list -> list.filterNot { it.id == trigger.id } }
+    }
+
+    // Backup
+    override suspend fun exportBackupData(): BackupData =
+        BackupData(
+            cases = cases.value,
+            tags = tags.value,
+            events = events.value,
+            eventTags = eventTags.value,
+            hunches = hunches.value,
+            triggers = triggers.value,
+        )
+
+    override suspend fun importBackupData(backup: BackupData) {
+        cases.value = backup.cases
+        tags.value = backup.tags
+        events.value = backup.events
+        eventTags.value = backup.eventTags
+        hunches.value = backup.hunches
+        triggers.value = backup.triggers
     }
 }

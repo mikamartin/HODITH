@@ -274,4 +274,17 @@ class FakeHodithRepositoryTest {
             assertEquals(1, enabled.size)
             assertTrue(enabled.single().enabled)
         }
+
+    @Test
+    fun `importBackupData replaces all existing data rather than merging`() =
+        runTest {
+            val staleId = repository.insertCase(testCase(name = "Stale"))
+            repository.insertEvent(testEvent(caseId = staleId))
+
+            val backup = repository.exportBackupData().copy(cases = listOf(testCase(id = 5L, name = "Restored")), events = emptyList())
+            repository.importBackupData(backup)
+
+            assertEquals(listOf("Restored"), repository.cases.value.map { it.name })
+            assertTrue(repository.events.value.isEmpty())
+        }
 }

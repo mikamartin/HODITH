@@ -43,4 +43,10 @@ interface TagDao {
     // cascade when cases are deleted — deleteAllData() must clear them explicitly.
     @Query("DELETE FROM tags")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM tags ORDER BY name")
+    suspend fun getAll(): List<TagEntity>
+
+    @Query("SELECT * FROM event_tags")
+    suspend fun getAllEventTags(): List<EventTagCrossRef>
 }

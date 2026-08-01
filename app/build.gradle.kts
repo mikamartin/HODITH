@@ -77,6 +77,9 @@ dependencies {
 
     implementation(libs.datastore.preferences)
 
+    implementation(libs.moshi)
+    ksp(libs.moshi.kotlin.codegen)
+
     implementation(libs.glance.appwidget)
 
     implementation(libs.work.runtime)

@@ -4,6 +4,8 @@ import com.secondmonday.hodith.data.DataStoreSettingsRepository
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.RoomHodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
+import com.secondmonday.hodith.data.backup.BackupFileWriter
+import com.secondmonday.hodith.data.backup.ContentResolverBackupFileWriter
 import com.secondmonday.hodith.notification.Notifier
 import com.secondmonday.hodith.notification.SystemNotifier
 import com.secondmonday.hodith.widget.GlanceWidgetRefresher
@@ -32,4 +34,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindNotifier(systemNotifier: SystemNotifier): Notifier
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupFileWriter(contentResolverBackupFileWriter: ContentResolverBackupFileWriter): BackupFileWriter
 }

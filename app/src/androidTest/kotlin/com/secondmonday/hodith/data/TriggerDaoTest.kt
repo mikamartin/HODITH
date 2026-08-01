@@ -87,6 +87,18 @@ class TriggerDaoTest {
         }
 
     @Test
+    fun getAll_returnsEveryTriggerAcrossAllCases() =
+        runTest {
+            val otherCaseId = db.caseDao().insert(testCase(name = "Other"))
+            triggerDao.insert(testTrigger(caseId = caseId))
+            triggerDao.insert(testTrigger(caseId = otherCaseId))
+
+            val all = triggerDao.getAll()
+
+            assertEquals(2, all.size)
+        }
+
+    @Test
     fun getTriggersForCase_scopesToCase() =
         runTest {
             val otherCaseId = db.caseDao().insert(testCase(name = "Other"))

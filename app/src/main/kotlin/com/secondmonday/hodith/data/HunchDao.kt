@@ -26,4 +26,7 @@ interface HunchDao {
 
     @Query("SELECT * FROM hunches WHERE caseId = :caseId ORDER BY createdAt DESC")
     fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>>
+
+    @Query("SELECT * FROM hunches")
+    suspend fun getAll(): List<HunchEntity>
 }

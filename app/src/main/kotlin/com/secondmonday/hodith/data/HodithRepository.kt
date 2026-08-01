@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.data
 
+import com.secondmonday.hodith.data.backup.BackupData
 import kotlinx.coroutines.flow.Flow
 
 interface HodithRepository {
@@ -89,4 +90,10 @@ interface HodithRepository {
     suspend fun updateTrigger(trigger: TriggerEntity)
 
     suspend fun deleteTrigger(trigger: TriggerEntity)
+
+    // Backup (spec §16)
+    suspend fun exportBackupData(): BackupData
+
+    /** Full restore: replaces all existing data with [backup]'s, atomically. Not a merge. */
+    suspend fun importBackupData(backup: BackupData)
 }

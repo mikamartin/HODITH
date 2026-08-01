@@ -29,4 +29,7 @@ interface TriggerDao {
 
     @Query("SELECT * FROM triggers WHERE enabled = 1")
     suspend fun getEnabledTriggers(): List<TriggerEntity>
+
+    @Query("SELECT * FROM triggers")
+    suspend fun getAll(): List<TriggerEntity>
 }
