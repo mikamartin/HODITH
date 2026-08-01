@@ -9,6 +9,7 @@ import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -134,18 +135,7 @@ class HomeViewModel
 
         private fun quickLogOneTap(row: HomeCaseRow) {
             viewModelScope.launch {
-                val now = clock.nowMillis()
-                val eventId =
-                    repository.insertEvent(
-                        EventEntity(
-                            caseId = row.caseId,
-                            occurredAt = now,
-                            endedAt = null,
-                            intensity = null,
-                            note = null,
-                            loggedAt = now,
-                        ),
-                    )
+                val eventId = repository.insertEvent(quickLogEvent(caseId = row.caseId, now = clock.nowMillis()))
                 _quickLogUndo.send(QuickLogUndo(eventId = eventId, caseName = row.name))
             }
         }

@@ -27,3 +27,9 @@ data class EventEntity(
     val loggedAt: Long,
     val staleNudgeDismissedAt: Long? = null,
 )
+
+/** The instantaneous, undurationed event every `ONE_TAP` quick-log path creates. */
+fun quickLogEvent(
+    caseId: Long,
+    now: Long,
+) = EventEntity(caseId = caseId, occurredAt = now, endedAt = null, intensity = null, note = null, loggedAt = now)

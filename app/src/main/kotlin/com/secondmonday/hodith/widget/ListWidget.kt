@@ -40,8 +40,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
@@ -70,12 +70,7 @@ class QuickLogAction : ActionCallback {
     ) {
         val caseId = parameters[CaseIdParam] ?: return
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-        val now = entryPoint.clock().nowMillis()
-        // endedAt always null here, matching HomeViewModel.quickLogOneTap: a ONE_TAP case with
-        // durationMode START_STOP starts an ongoing event rather than an instantaneous one.
-        entryPoint.repository().insertEvent(
-            EventEntity(caseId = caseId, occurredAt = now, endedAt = null, intensity = null, note = null, loggedAt = now),
-        )
+        entryPoint.repository().insertEvent(quickLogEvent(caseId = caseId, now = entryPoint.clock().nowMillis()))
         ListWidget().updateAll(context)
     }
 }
