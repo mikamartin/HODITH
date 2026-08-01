@@ -50,7 +50,7 @@ data class CheckInDecision(
  * from the latest of last event, last check-in, or case creation. That "latest of" is what makes a
  * created-but-never-logged Case eventually check in too, without a special case.
  */
-internal fun evaluateCheckIn(
+fun evaluateCheckIn(
     case: CaseEntity,
     hunch: HunchEntity?,
     settingsDefaultDays: Int?,

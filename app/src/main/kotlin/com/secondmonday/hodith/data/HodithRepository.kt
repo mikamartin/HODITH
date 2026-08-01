@@ -6,6 +6,8 @@ interface HodithRepository {
     // Case
     fun observeActiveCases(): Flow<List<CaseEntity>>
 
+    suspend fun getActiveCases(): List<CaseEntity>
+
     fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>>
 
     fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>>
@@ -32,6 +34,8 @@ interface HodithRepository {
         windowStart: Long,
         windowEnd: Long,
     ): List<EventEntity>
+
+    suspend fun getMostRecentEventForCase(caseId: Long): EventEntity?
 
     suspend fun insertEvent(event: EventEntity): Long
 
@@ -60,6 +64,8 @@ interface HodithRepository {
 
     // Hunch
     fun observeActiveHunch(caseId: Long): Flow<HunchEntity?>
+
+    suspend fun getActiveHunch(caseId: Long): HunchEntity?
 
     fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>>
 

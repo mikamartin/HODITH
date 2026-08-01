@@ -1,7 +1,11 @@
 package com.secondmonday.hodith.data
 
+import com.secondmonday.hodith.notification.NotificationEvaluator
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
@@ -13,9 +17,22 @@ class RoomHodithRepository
         private val tagDao: TagDao,
         private val hunchDao: HunchDao,
         private val triggerDao: TriggerDao,
+        private val notificationEvaluator: Provider<NotificationEvaluator>,
+        private val applicationScope: CoroutineScope,
     ) : HodithRepository {
+        /**
+         * Spec §11: Triggers/check-ins evaluate immediately on every event mutation, not just the
+         * ~6h periodic job — launched fire-and-forget on [applicationScope] so quick-log/start-stop
+         * stay instant rather than waiting on DB reads and notification posting.
+         */
+        private fun evaluateNotificationsForCase(caseId: Long) {
+            applicationScope.launch { notificationEvaluator.get().evaluateCase(caseId) }
+        }
+
         // Case
         override fun observeActiveCases(): Flow<List<CaseEntity>> = caseDao.observeActiveCases()
+
+        override suspend fun getActiveCases(): List<CaseEntity> = caseDao.getActiveCases()
 
         override fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeActiveCasesWithEvents()
 
@@ -47,13 +64,26 @@ class RoomHodithRepository
             windowEnd: Long,
         ): List<EventEntity> = eventDao.eventsInWindow(caseId, windowStart, windowEnd)
 
-        override suspend fun insertEvent(event: EventEntity): Long = eventDao.insert(event)
+        override suspend fun getMostRecentEventForCase(caseId: Long): EventEntity? = eventDao.getMostRecentEventForCase(caseId)
 
-        override suspend fun updateEvent(event: EventEntity) = eventDao.update(event)
+        override suspend fun insertEvent(event: EventEntity): Long =
+            eventDao.insert(event).also { evaluateNotificationsForCase(event.caseId) }
 
-        override suspend fun deleteEvent(event: EventEntity) = eventDao.delete(event)
+        override suspend fun updateEvent(event: EventEntity) {
+            eventDao.update(event)
+            evaluateNotificationsForCase(event.caseId)
+        }
 
-        override suspend fun deleteEventById(eventId: Long) = eventDao.deleteById(eventId)
+        override suspend fun deleteEvent(event: EventEntity) {
+            eventDao.delete(event)
+            evaluateNotificationsForCase(event.caseId)
+        }
+
+        override suspend fun deleteEventById(eventId: Long) {
+            val caseId = eventDao.getById(eventId)?.caseId
+            eventDao.deleteById(eventId)
+            caseId?.let(::evaluateNotificationsForCase)
+        }
 
         // Tag
         override fun observeAllTags(): Flow<List<TagEntity>> = tagDao.observeAllTags()
@@ -78,6 +108,8 @@ class RoomHodithRepository
 
         // Hunch
         override fun observeActiveHunch(caseId: Long): Flow<HunchEntity?> = hunchDao.observeActiveHunch(caseId)
+
+        override suspend fun getActiveHunch(caseId: Long): HunchEntity? = hunchDao.getActiveHunch(caseId)
 
         override fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>> = hunchDao.observeHunchHistory(caseId)
 

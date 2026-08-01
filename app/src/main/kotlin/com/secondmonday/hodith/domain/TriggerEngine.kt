@@ -10,7 +10,7 @@ import com.secondmonday.hodith.data.TriggerEntity
  * [evaluateSilentFor] only differ in how they compute [conditionMet]. Never mutates [trigger] —
  * callers persist [TriggerDecision.newArmed]/[TriggerDecision.newLastFiredAt] back to it.
  */
-internal fun evaluateTrigger(
+fun evaluateTrigger(
     trigger: TriggerEntity,
     conditionMet: Boolean,
     now: Long,
@@ -27,7 +27,7 @@ internal fun evaluateTrigger(
     }
 
 /** `AT_LEAST`'s condition (spec §11): the rolling [TriggerEntity.windowDays]-day event count has reached [TriggerEntity.threshold]. */
-internal fun evaluateAtLeast(
+fun evaluateAtLeast(
     trigger: TriggerEntity,
     events: List<EventEntity>,
     now: Long,
@@ -38,7 +38,7 @@ internal fun evaluateAtLeast(
 }
 
 /** `SILENT_FOR`'s condition (spec §11): days since the latest of last event / case creation has reached [TriggerEntity.threshold]. */
-internal fun evaluateSilentFor(
+fun evaluateSilentFor(
     trigger: TriggerEntity,
     mostRecentEventAt: Long?,
     caseCreatedAt: Long,

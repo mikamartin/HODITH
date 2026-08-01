@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class FakeSettingsRepository : SettingsRepository {
     val theme = MutableStateFlow(AppTheme.PLAIN)
     val checkInDefaultInterval = MutableStateFlow(CheckInDefaultInterval.SEVEN)
+    val notificationPermissionRequested = MutableStateFlow(false)
 
     override fun observeTheme(): Flow<AppTheme> = theme
 
@@ -16,7 +17,17 @@ class FakeSettingsRepository : SettingsRepository {
 
     override fun observeCheckInDefaultInterval(): Flow<CheckInDefaultInterval> = checkInDefaultInterval
 
+    override suspend fun getCheckInDefaultInterval(): CheckInDefaultInterval = checkInDefaultInterval.value
+
     override suspend fun setCheckInDefaultInterval(interval: CheckInDefaultInterval) {
         this.checkInDefaultInterval.value = interval
+    }
+
+    override suspend fun hasRequestedNotificationPermission(): Boolean = notificationPermissionRequested.value
+
+    override fun observeHasRequestedNotificationPermission(): Flow<Boolean> = notificationPermissionRequested
+
+    override suspend fun setNotificationPermissionRequested() {
+        notificationPermissionRequested.value = true
     }
 }

@@ -63,6 +63,22 @@ class HunchDaoTest {
         }
 
     @Test
+    fun getActiveHunch_ignoresResolvedHunches() =
+        runTest {
+            hunchDao.insert(testHunch(caseId = caseId, createdAt = 0L, resolvedAt = 100L))
+
+            assertNull(hunchDao.getActiveHunch(caseId))
+        }
+
+    @Test
+    fun getActiveHunch_returnsTheUnresolvedHunch() =
+        runTest {
+            val id = hunchDao.insert(testHunch(caseId = caseId, expectedCount = 3))
+
+            assertEquals(id, hunchDao.getActiveHunch(caseId)?.id)
+        }
+
+    @Test
     fun observeHunchHistory_returnsAllHunchesNewestFirst() =
         runTest {
             hunchDao.insert(testHunch(caseId = caseId, createdAt = 0L, resolvedAt = 50L))
