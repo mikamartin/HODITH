@@ -1,13 +1,7 @@
 package com.secondmonday.hodith.ui.common
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -15,7 +9,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 
@@ -50,11 +43,7 @@ fun StopIconButton(
     }
 }
 
-/**
- * The 24h "still going, or forgot to stop it?" gentle prompt (spec §6). First `Card`-based
- * component in the app — kept intentionally small (message + two text actions) rather than
- * introducing a heavier banner system for a single use case.
- */
+/** The 24h "still going, or forgot to stop it?" gentle prompt (spec §6). */
 @Composable
 fun StaleOngoingBanner(
     caseName: String,
@@ -64,13 +53,8 @@ fun StaleOngoingBanner(
     onStillGoing: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(voice.staleOngoingPromptMessage(caseName, elapsed), style = MaterialTheme.typography.bodyMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onEditEndTime) { Text(voice.staleOngoingEditEndTimeAction) }
-                TextButton(onClick = onStillGoing) { Text(voice.staleOngoingStillGoingAction) }
-            }
-        }
+    ActionBanner(message = voice.staleOngoingPromptMessage(caseName, elapsed), modifier = modifier) {
+        TextButton(onClick = onEditEndTime) { Text(voice.staleOngoingEditEndTimeAction) }
+        TextButton(onClick = onStillGoing) { Text(voice.staleOngoingStillGoingAction) }
     }
 }
