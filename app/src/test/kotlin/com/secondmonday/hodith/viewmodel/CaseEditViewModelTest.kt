@@ -4,8 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
 import com.secondmonday.hodith.widget.FakeWidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,6 +25,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class CaseEditViewModelTest {
     private val repository = FakeHodithRepository()
+    private val settingsRepository = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
 
     @Before
@@ -35,10 +38,25 @@ class CaseEditViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun newCaseViewModel() = CaseEditViewModel(repository, clock, FakeWidgetRefresher(), SavedStateHandle())
+    private fun newCaseViewModel() =
+        CaseEditViewModel(
+            repository,
+            settingsRepository,
+            clock,
+            FakeWidgetRefresher(),
+            NotificationPermissionRequestSignal(),
+            SavedStateHandle(),
+        )
 
     private fun editViewModel(caseId: Long) =
-        CaseEditViewModel(repository, clock, FakeWidgetRefresher(), SavedStateHandle(mapOf("caseId" to caseId)))
+        CaseEditViewModel(
+            repository,
+            settingsRepository,
+            clock,
+            FakeWidgetRefresher(),
+            NotificationPermissionRequestSignal(),
+            SavedStateHandle(mapOf("caseId" to caseId)),
+        )
 
     private fun existingCase(id: Long = 1L) =
         CaseEntity(

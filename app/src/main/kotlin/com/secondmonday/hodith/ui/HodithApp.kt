@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.ui.common.NotificationPermissionRequestEffect
 import com.secondmonday.hodith.ui.nav.HodithNavHost
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
@@ -17,9 +18,19 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * [notificationPermissionRequests] is collected here, at the app root, rather than inside whichever
+ * screen requests it (Case Edit, Triggers) — Case Edit navigates away the instant a save completes,
+ * which could dispose that screen's own effect before it gets a chance to launch the system dialog.
+ */
 @Composable
-fun HodithApp(themeFlow: Flow<AppTheme>) {
+fun HodithApp(
+    themeFlow: Flow<AppTheme>,
+    notificationPermissionRequests: Flow<Unit>,
+) {
     val theme by themeFlow.collectAsStateWithLifecycle(initialValue = AppTheme.PLAIN)
+
+    NotificationPermissionRequestEffect(events = notificationPermissionRequests)
 
     CompositionLocalProvider(
         LocalVoice provides voiceFor(theme),

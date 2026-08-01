@@ -7,7 +7,9 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
 import com.secondmonday.hodith.widget.WidgetRefresher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,8 +45,10 @@ class CaseEditViewModel
     @Inject
     constructor(
         private val repository: HodithRepository,
+        private val settingsRepository: SettingsRepository,
         private val clock: Clock,
         private val widgetRefresher: WidgetRefresher,
+        private val notificationPermissionRequestSignal: NotificationPermissionRequestSignal,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long? = savedStateHandle.get<Long>("caseId")?.takeIf { it != NO_CASE_ID }
@@ -140,6 +144,10 @@ class CaseEditViewModel
                 // pinned/archived both affect what the List widget shows — refresh it whenever
                 // either could have changed, not just from the widget's own configure flow.
                 widgetRefresher.refreshListWidget()
+                if (state.checkInsEnabled && !settingsRepository.hasRequestedNotificationPermission()) {
+                    settingsRepository.setNotificationPermissionRequested()
+                    notificationPermissionRequestSignal.request()
+                }
                 _uiState.update { it.copy(isSaved = true) }
             }
         }

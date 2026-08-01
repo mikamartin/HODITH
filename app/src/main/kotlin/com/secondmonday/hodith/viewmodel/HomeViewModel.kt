@@ -7,6 +7,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,6 +46,8 @@ data class HomeUiState(
     val cases: List<HomeCaseRow> = emptyList(),
     val archivedCount: Int = 0,
     val isLoading: Boolean = true,
+    /** Once true, Home shows a banner if the system notification permission is off (spec §11/§14). */
+    val notificationPermissionRequested: Boolean = false,
 )
 
 /**
@@ -76,17 +79,20 @@ class HomeViewModel
     @Inject
     constructor(
         private val repository: HodithRepository,
+        private val settingsRepository: SettingsRepository,
         private val clock: Clock,
     ) : ViewModel() {
         val uiState: StateFlow<HomeUiState> =
             combine(
                 repository.observeActiveCasesWithEvents(),
                 repository.observeArchivedCasesWithEvents().map { it.size },
-            ) { casesWithEvents, archivedCount ->
+                settingsRepository.observeHasRequestedNotificationPermission(),
+            ) { casesWithEvents, archivedCount, notificationPermissionRequested ->
                 HomeUiState(
                     cases = homeCaseRows(casesWithEvents, clock.nowMillis()),
                     archivedCount = archivedCount,
                     isLoading = false,
+                    notificationPermissionRequested = notificationPermissionRequested,
                 )
             }.stateIn(
                 scope = viewModelScope,
