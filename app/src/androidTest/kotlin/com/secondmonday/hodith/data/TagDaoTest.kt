@@ -70,6 +70,30 @@ class TagDaoTest {
         }
 
     @Test
+    fun getAll_returnsEveryTag() =
+        runTest {
+            tagDao.insert(TagEntity(name = "at-dinner"))
+            tagDao.insert(TagEntity(name = "at-work"))
+
+            val all = tagDao.getAll()
+
+            assertEquals(listOf("at-dinner", "at-work"), all.map { it.name })
+        }
+
+    @Test
+    fun getAllEventTags_returnsEveryCrossRef() =
+        runTest {
+            val otherEventId = eventDao.insert(testEvent(caseId = caseId))
+            val tagId = tagDao.insert(TagEntity(name = "at-dinner"))
+            tagDao.insertEventTag(EventTagCrossRef(eventId = eventId, tagId = tagId))
+            tagDao.insertEventTag(EventTagCrossRef(eventId = otherEventId, tagId = tagId))
+
+            val all = tagDao.getAllEventTags()
+
+            assertEquals(2, all.size)
+        }
+
+    @Test
     fun deletingEvent_cascadesToEventTagCrossRefButKeepsTag() =
         runTest {
             val tagId = tagDao.insert(TagEntity(name = "at-dinner"))

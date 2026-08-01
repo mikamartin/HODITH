@@ -79,6 +79,17 @@ class HunchDaoTest {
         }
 
     @Test
+    fun getAll_returnsEveryHunchRegardlessOfResolvedStatus() =
+        runTest {
+            hunchDao.insert(testHunch(caseId = caseId, createdAt = 0L, resolvedAt = 50L))
+            hunchDao.insert(testHunch(caseId = caseId, createdAt = 100L))
+
+            val all = hunchDao.getAll()
+
+            assertEquals(2, all.size)
+        }
+
+    @Test
     fun observeHunchHistory_returnsAllHunchesNewestFirst() =
         runTest {
             hunchDao.insert(testHunch(caseId = caseId, createdAt = 0L, resolvedAt = 50L))

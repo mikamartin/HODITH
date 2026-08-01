@@ -148,6 +148,17 @@ class CaseDaoTest {
         }
 
     @Test
+    fun getAll_returnsEveryCaseRegardlessOfArchivedStatus() =
+        runTest {
+            caseDao.insert(testCase(name = "Active", archived = false))
+            caseDao.insert(testCase(name = "Archived", archived = true))
+
+            val all = caseDao.getAll()
+
+            assertEquals(setOf("Active", "Archived"), all.map { it.name }.toSet())
+        }
+
+    @Test
     fun caseDaoDeleteAll_doesNotOnItsOwnRemoveTags() =
         runTest {
             // Documents why RoomHodithRepository.deleteAllData() must also call tagDao.deleteAll():

@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.data
 
+import androidx.room.withTransaction
+import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.notification.NotificationEvaluator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -12,6 +14,7 @@ import javax.inject.Singleton
 class RoomHodithRepository
     @Inject
     constructor(
+        private val database: HodithDatabase,
         private val caseDao: CaseDao,
         private val eventDao: EventDao,
         private val tagDao: TagDao,
@@ -133,4 +136,28 @@ class RoomHodithRepository
         override suspend fun updateTrigger(trigger: TriggerEntity) = triggerDao.update(trigger)
 
         override suspend fun deleteTrigger(trigger: TriggerEntity) = triggerDao.delete(trigger)
+
+        // Backup
+        override suspend fun exportBackupData(): BackupData =
+            BackupData(
+                cases = caseDao.getAll(),
+                tags = tagDao.getAll(),
+                events = eventDao.getAll(),
+                eventTags = tagDao.getAllEventTags(),
+                hunches = hunchDao.getAll(),
+                triggers = triggerDao.getAll(),
+            )
+
+        override suspend fun importBackupData(backup: BackupData) {
+            database.withTransaction {
+                deleteAllData()
+                // FK-safe order: cases/tags before anything referencing them, events before event_tags.
+                backup.cases.forEach { caseDao.insert(it) }
+                backup.tags.forEach { tagDao.insert(it) }
+                backup.events.forEach { eventDao.insert(it) }
+                backup.eventTags.forEach { tagDao.insertEventTag(it) }
+                backup.hunches.forEach { hunchDao.insert(it) }
+                backup.triggers.forEach { triggerDao.insert(it) }
+            }
+        }
     }

@@ -136,6 +136,18 @@ class EventDaoTest {
         }
 
     @Test
+    fun getAll_returnsEveryEventAcrossAllCases() =
+        runTest {
+            val otherCaseId = db.caseDao().insert(testCase(name = "Other"))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            eventDao.insert(testEvent(caseId = otherCaseId, occurredAt = 200L))
+
+            val all = eventDao.getAll()
+
+            assertEquals(setOf(100L, 200L), all.map { it.occurredAt }.toSet())
+        }
+
+    @Test
     fun observeEventsWithTagsForCase_ordersNewestFirst() =
         runTest {
             eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))

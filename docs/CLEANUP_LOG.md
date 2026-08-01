@@ -15,6 +15,76 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/export-import (Phase 10, branch 1 of 3)
+
+**Scope:** Settings export/import JSON (spec §16, PROGRESS.md Phase 10). Room entities annotated
+directly with Moshi `@JsonClass` (no parallel DTO layer — export shape is the DB shape); new
+`BackupData`/`BackupSerializer` in `data/backup/`; `HodithRepository.exportBackupData`/
+`importBackupData`, the Room side running the restore in one `withTransaction` (delete-all then
+FK-ordered reinsert: cases/tags → events → event_tags → hunches/triggers) — full replace, not a
+merge, so original ids never need remapping. Settings gets a new Backup section (SAF document
+picker, no new permissions) with its own destructive confirm dialog before import, and distinct
+Voice-driven snackbar messages for export success/failure and three import failure reasons
+(invalid file, unsupported schema version, unreadable file), all three voices. `SettingsViewModel`
+exposes the real logic as plain-data `performExport()`/`performImport(json)` — a
+`BackupFileWriter` seam replaces a direct `Context` dependency specifically so the ViewModel stays
+constructible in this project's plain JVM unit tests (no Robolectric, no mocking library here);
+the thin `exportData(uri)`/`importData(uri)` wrappers that touch `ContentResolver` are deliberately
+untested framework glue, same category as `WidgetLogTrampolineActivity`/
+`NotificationActionReceiver`. Walked the full working diff against CLEANUP_CHECKLIST.md, plus all
+four DEV_PLAYBOOK.md §3 checks (`ktlintCheck`, `lintDebug`, `test`, `assembleDebug`) run
+sequentially, clean both before and after the fixes below — plus a full `connectedDebugAndroidTest`
+run against a running emulator (API36_Default AVD): 132/132 instrumented tests green on the final
+run.
+
+**Found & fixed:**
+- **Real coverage gap for the branch's central risk:** the "all-or-nothing" guarantee (spec §16)
+  had a Fake-level test (`FakeHodithRepositoryTest`/`SettingsViewModelTest`) but nothing proving
+  rollback actually holds against a real Room transaction — the one place this branch's own logic
+  (not just a DAO query) matters. Added
+  `RoomHodithRepositoryBackupTest.importBackupData_rollsBackEverythingWhenAnInsertFails`: forces a
+  foreign-key violation partway through a restore and asserts the pre-existing data survived
+  untouched rather than landing in a half-imported state.
+- **Missing `@Smoke` tag:** every existing Dao/repository instrumented test class tags exactly one
+  test as its representative happy path (CI's shard-split signal); the new
+  `RoomHodithRepositoryBackupTest` didn't. Tagged `exportThenImport_roundTripsEveryTableIntoAFreshDatabase`.
+- **TESTING.md's Room DAOs coverage row** didn't mention the new backup round-trip/rollback
+  coverage. Added.
+- **TESTING.md's manual-seed item 7** carried an open question ("decide and document whether theme
+  choice is included") from before this branch existed. Resolved and documented: export/import
+  scope is Room data only — Settings prefs (theme, check-in default) are a device preference, not
+  investigation data, and are deliberately excluded.
+- **Real bug surfaced by the on-device `connectedDebugAndroidTest` run:**
+  `RoomHodithRepositoryBackupTest`'s round-trip test seeded its event via
+  `repository.insertEvent(...)` — the public wrapper, which fires notification evaluation as a
+  fire-and-forget side effect on `applicationScope`. On the emulator, with the test's
+  `Dispatchers.Unconfined` scope, that side effect ran eagerly and invoked the test's
+  intentionally-throwing `NotificationEvaluator` stand-in, failing the test. This never surfaced in
+  the earlier `compileDebugAndroidTestKotlin`-only check since that only compiles, doesn't execute. Fixed by
+  seeding via the raw `eventDao.insert(...)` instead, matching how `insertCase`/`insertHunch`/
+  `insertTrigger`/`addTagToEvent` (none of which touch notification evaluation) were already seeded
+  in the same test — keeps the class's own doc comment ("notification evaluation is never invoked
+  here") actually true.
+
+**Deferred:**
+- **Kapt-codegen deprecation warning from `hiltJavaCompileDebug`** ("Kapt support in Moshi Kotlin
+  Code Gen is deprecated") — Moshi's codegen artifact is wired in via `ksp()` only, and
+  `kspDebugKotlin` generates the adapters correctly, so this appears to be Moshi's processor
+  printing its warning whenever it's discoverable on any annotation-processing-adjacent classpath,
+  regardless of which mechanism actually invokes it. Cosmetic; not chased further within this
+  branch's scope.
+- **`@ApplicationContext`/K2 "applied to value parameter only" forward-compat notice** on the new
+  `ContentResolverBackupFileWriter.kt` — pre-existing warning already present on `Notifier.kt`/
+  `WidgetRefresher.kt` before this branch; this file just follows the same established
+  `@ApplicationContext` constructor-param pattern. Not new tech debt introduced here.
+
+**Docs updated:** TESTING.md (Room DAOs coverage row, manual-seed item 7's resolved open question),
+MANUAL_TEST_PLAN.md (new "Data & backup" section — 5 steps covering the system file-picker/
+content-provider boundary the automated tests can't drive), PROGRESS.md (branch checkbox, once
+committed).
+
+---
+
 ## feature/notification-actions (Phase 9, branch 6 of 6 — phase complete)
 
 **Scope:** Closes out Phase 9. New `notification/NotificationActionReceiver.kt`: a single

@@ -3,6 +3,7 @@ package com.secondmonday.hodith.data
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import com.squareup.moshi.JsonClass
 
 @Entity(
     tableName = "event_tags",
@@ -23,6 +24,7 @@ import androidx.room.Index
     ],
     indices = [Index("eventId"), Index("tagId")],
 )
+@JsonClass(generateAdapter = true)
 data class EventTagCrossRef(
     val eventId: Long,
     val tagId: Long,

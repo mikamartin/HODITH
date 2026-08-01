@@ -12,6 +12,7 @@ import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import com.secondmonday.hodith.viewmodel.BackupEvent
 import com.secondmonday.hodith.viewmodel.SettingsUiState
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
@@ -33,20 +34,26 @@ class SettingsScreenTest {
     private fun setContent(
         uiState: SettingsUiState = SettingsUiState(theme = AppTheme.PLAIN, isLoading = false),
         demoDataLoaded: MutableSharedFlow<Unit> = MutableSharedFlow(extraBufferCapacity = 1),
+        backupEvents: MutableSharedFlow<BackupEvent> = MutableSharedFlow(extraBufferCapacity = 1),
         onThemeSelect: (AppTheme) -> Unit = {},
         onCheckInDefaultIntervalSelect: (CheckInDefaultInterval) -> Unit = {},
         onLoadDemoData: () -> Unit = {},
         onDeleteAllData: () -> Unit = {},
+        onExportClick: () -> Unit = {},
+        onImportConfirm: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 SettingsScreen(
                     uiState = uiState,
                     demoDataLoaded = demoDataLoaded,
+                    backupEvents = backupEvents,
                     onThemeSelect = onThemeSelect,
                     onCheckInDefaultIntervalSelect = onCheckInDefaultIntervalSelect,
                     onLoadDemoData = onLoadDemoData,
                     onDeleteAllData = onDeleteAllData,
+                    onExportClick = onExportClick,
+                    onImportConfirm = onImportConfirm,
                 )
             }
         }
@@ -147,5 +154,55 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataCancelAction).performClick()
 
         assertFalse(deleted)
+    }
+
+    @Smoke
+    @Test
+    fun exportButton_tapInvokesCallback() {
+        var exported = false
+        setContent(onExportClick = { exported = true })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportButton).performClick()
+
+        assertEquals(true, exported)
+    }
+
+    @Smoke
+    @Test
+    fun importButton_opensConfirmDialog_confirmInvokesCallback() {
+        var confirmed = false
+        setContent(onImportConfirm = { confirmed = true })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsImportButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsImportConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsImportConfirmAction).performClick()
+
+        assertEquals(true, confirmed)
+    }
+
+    @Test
+    fun importButton_cancelDoesNotInvokeCallback() {
+        var confirmed = false
+        setContent(onImportConfirm = { confirmed = true })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsImportButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsImportCancelAction).performClick()
+
+        assertFalse(confirmed)
+    }
+
+    @Test
+    fun backupEvent_showsMatchingSnackbarMessage() {
+        val backupEvents = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 1)
+        setContent(backupEvents = backupEvents)
+
+        composeTestRule.runOnIdle { backupEvents.tryEmit(BackupEvent.ExportSuccess) }
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule
+                .onAllNodesWithText(PlainVoice.settingsExportSuccessMessage)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
     }
 }

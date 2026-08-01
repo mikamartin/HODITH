@@ -42,4 +42,7 @@ interface CaseDao {
     // Events/tags/hunches/triggers cascade via their FOREIGN KEY(...) ON DELETE CASCADE.
     @Query("DELETE FROM cases")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM cases")
+    suspend fun getAll(): List<CaseEntity>
 }

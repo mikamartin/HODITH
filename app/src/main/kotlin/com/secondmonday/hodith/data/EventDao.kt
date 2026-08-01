@@ -47,4 +47,7 @@ interface EventDao {
 
     @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC LIMIT 1")
     suspend fun getMostRecentEventForCase(caseId: Long): EventEntity?
+
+    @Query("SELECT * FROM events")
+    suspend fun getAll(): List<EventEntity>
 }
