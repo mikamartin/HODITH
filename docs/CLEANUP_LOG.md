@@ -15,6 +15,78 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/notification-actions (Phase 9, branch 6 of 6 — phase complete)
+
+**Scope:** Closes out Phase 9. New `notification/NotificationActionReceiver.kt`: a single
+`BroadcastReceiver` handling both check-in notification actions — **Log** looks up the Case's
+`logFlow` itself and branches (direct `insertEvent` for `ONE_TAP`, launches the existing
+`WidgetLogTrampolineActivity` for `DETAIL_SHEET`) rather than deciding at notification-construction
+time which kind of `PendingIntent` the action needs; **All quiet** re-arms by updating
+`lastCheckInAt`. Both explicit-cancel the notification (`NotificationManagerCompat.cancel`) rather
+than relying on `setAutoCancel`, which doesn't reliably dismiss on an action-button tap. Trigger and
+check-in notifications' content tap now deep-links to that Case's detail screen — new
+`deepLinkCaseId` plumbing threaded `MainActivity` → `HodithApp` → `HodithNavHost`, landing on
+`case_detail/{id}` on top of Home rather than changing the start destination. Re-arming a check-in
+moved from automatic-at-post-time (a stated stopgap from the previous branch) to explicit-only —
+`NotificationEvaluator` no longer touches `lastCheckInAt`; only the All-quiet action or a new event
+does — a confirmed design decision, so an ignored check-in now recurs on each ~6h periodic pass
+rather than firing at most once per interval. `evaluateAll` collapses 2+ due check-ins into one
+`notifyCheckInsSummary` notification (opens Home) instead of firing one per Case; exactly one due
+check-in still fires its own per-Case notification with actions. Three new Voice keys
+(`notificationLogAction`/`notificationAllQuietAction`/`checkInsSummaryNotificationTitle`), all three
+voices. Walked the full working diff against CLEANUP_CHECKLIST.md, plus all four DEV_PLAYBOOK.md §3
+checks (`ktlintCheck`, `lintDebug`, `test`, `assembleDebug`) run sequentially — clean both before and
+after the fixes below. No instrumented run this pass — no Compose UI or Room changes; the new
+receiver is framework glue in the same untested-by-precedent category as `WidgetLogTrampolineActivity`/
+`ListWidgetReceiver`.
+
+**Found & fixed:**
+- **Real duplication, introduced by this branch's own new call site:** `NotificationActionReceiver`'s
+  `ONE_TAP` branch built the exact same `EventEntity(caseId, occurredAt = now, endedAt = null,
+  intensity = null, note = null, loggedAt = now)` shape already duplicated in `HomeViewModel.
+  quickLogOneTap` and `ListWidget.QuickLogAction` — a third copy of the identical one-tap event
+  construction, this time added with full knowledge of the other two (found them while researching
+  this branch's own plan). Per this repo's own precedent (`checkin-settings` entry below: citing
+  "duplication already existed" isn't a reason to add to it in a portfolio repo), extracted a
+  `quickLogEvent(caseId, now)` factory in `data/EventEntity.kt` and switched all three call sites —
+  `HomeViewModel`, `ListWidget`, and the new receiver — onto it.
+- **Spec drift, the exact kind this pass exists to catch:** HODITH_SPEC.md §11 stated "A Case never
+  fires a check-in more than once per its effective interval" — true under the old auto-rearm
+  behavior, false the moment this branch moved re-arming to explicit-only (an intentional,
+  user-confirmed design decision, not a bug). Reworded to describe the actual re-fire-until-acted-on
+  behavior. TESTING.md's "Check-in scheduling" and "Notification evaluation" rows carried the same
+  stale "at most one fire per interval" framing and a since-false claim that the evaluator persists
+  `lastCheckInAt`; both corrected.
+- **Manual-only journeys promoted from aspirational to real:** MANUAL_TEST_PLAN.md's "Notifications &
+  permissions" section only covered generic tap-opens-the-app behavior (with an explicit note that
+  deep-link/actions/summary weren't buildable yet). Now that they are, expanded to 8 concrete items:
+  deep-link tap-through for both notification kinds, Log on both `logFlow` variants, All quiet,
+  ignored-check-in re-fire, and summary collapsing.
+
+**Considered, not changed:**
+- `NotificationActionReceiver.onReceive` creates a fresh `CoroutineScope(Dispatchers.IO)` per call
+  (via `goAsync()` + `pendingResult.finish()`) rather than reusing the injectable app-scoped
+  `CoroutineScope` (`di/CoroutineScopeModule.kt`) that `RoomHodithRepository`/`HodithApplication` use
+  elsewhere for fire-and-forget work. Not an inconsistency to fix: that shared scope has no way to
+  signal completion back to `goAsync`'s `PendingResult` without extra plumbing, whereas a
+  receiver-local scope is the standard, Google-documented shape for `BroadcastReceiver` + coroutines
+  specifically because a receiver has no lifecycle-scoped `CoroutineScope` of its own — the two
+  existing uses of the shared scope are a different problem (ongoing app-lifetime work), not
+  precedent this should match.
+- The pre-existing Kotlin compiler warning on `SystemNotifier`'s `@Inject constructor` ("this
+  annotation is currently applied to the value parameter only... KT-73255") is a forward-compat
+  notice tied to the compiler version, not this diff — every `@Inject constructor` in the codebase
+  triggers it identically. Not a new warning to resolve here.
+
+**Deferred:** nothing beyond the "Considered, not changed" items above.
+
+**Docs updated:** HODITH_SPEC.md §11 (re-arm-timing sentence). TESTING.md ("Check-in scheduling" and
+"Notification evaluation" rows). MANUAL_TEST_PLAN.md (Notifications & permissions section expanded
+from 3 to 8 items). PROGRESS.md (Phase 9 branch 6 checked off, Phase 9 marked complete, current-status
+paragraph rewritten for the finished notification behavior). This file.
+
+---
+
 ## feature/notification-infra (Phase 9, branch 5 of 6)
 
 **Scope:** Triggers and check-ins now evaluate for real. `domain/TriggerEngine.kt`/`CheckIn.kt`'s

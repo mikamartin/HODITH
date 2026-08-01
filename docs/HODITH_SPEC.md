@@ -216,7 +216,7 @@ Silence in a Case is ambiguous: did the event stop happening, or did the user st
   - Case without a Hunch — the **app-level default** from Settings (`off / 7 / 14 / 30 days`).
   - A Case can opt out entirely (`checkInsEnabled = false`) but has no custom interval of its own — a Case wanting a specific silence threshold gets a `SILENT_FOR` Trigger instead, rather than a second, overlapping way to configure the same idea.
 - Notification actions: **Log** (respects the Case's `logFlow` — one-tap logs directly, detail-sheet opens the sheet) and **All quiet** (re-arms the check-in; no event created).
-- Anti-spam: check-ins are evaluated by the same WorkManager job as triggers; multiple due check-ins collapse into a single summary notification ("3 cases are quiet — tap to review"). A Case never fires a check-in more than once per its effective interval.
+- Anti-spam: check-ins are evaluated by the same WorkManager job as triggers; multiple due check-ins collapse into a single summary notification ("3 cases are quiet — tap to review"). Re-arming only happens explicitly — via **All quiet**, or a new event moving the anchor forward — never automatically at fire time, so an ignored check-in recurs on each ~6h evaluation pass rather than waiting out its full interval again.
 
 ### Permissions
 
