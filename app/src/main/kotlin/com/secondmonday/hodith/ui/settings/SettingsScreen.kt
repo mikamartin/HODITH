@@ -48,6 +48,7 @@ private const val BACKUP_MIME_TYPE = "application/json"
 
 @Composable
 fun SettingsRoute(
+    onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -72,6 +73,7 @@ fun SettingsRoute(
         onDeleteAllData = viewModel::deleteAllData,
         onExportClick = { exportLauncher.launch(BACKUP_FILE_NAME) },
         onImportConfirm = { importLauncher.launch(arrayOf("*/*")) },
+        onOpenAbout = onOpenAbout,
         modifier = modifier,
     )
 }
@@ -87,6 +89,7 @@ fun SettingsScreen(
     onDeleteAllData: () -> Unit,
     onExportClick: () -> Unit,
     onImportConfirm: () -> Unit,
+    onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -168,6 +171,7 @@ fun SettingsScreen(
             )
             DemoDataSection(voice = voice, onLoadDemoData = onLoadDemoData, onDeleteAllData = { showDeleteAllConfirm = true })
             BackupSection(voice = voice, onExportClick = onExportClick, onImportClick = { showImportConfirm = true })
+            AboutSection(voice = voice, onOpenAbout = onOpenAbout)
         }
     }
 }
@@ -247,6 +251,16 @@ private fun BackupSection(
                 Text(voice.settingsImportButton)
             }
         }
+    }
+}
+
+@Composable
+private fun AboutSection(
+    voice: Voice,
+    onOpenAbout: () -> Unit,
+) {
+    OutlinedButton(onClick = onOpenAbout, modifier = Modifier.fillMaxWidth()) {
+        Text(voice.aboutScreenTitle)
     }
 }
 

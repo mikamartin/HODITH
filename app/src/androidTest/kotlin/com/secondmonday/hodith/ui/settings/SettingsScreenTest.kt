@@ -41,6 +41,7 @@ class SettingsScreenTest {
         onDeleteAllData: () -> Unit = {},
         onExportClick: () -> Unit = {},
         onImportConfirm: () -> Unit = {},
+        onOpenAbout: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
@@ -54,9 +55,20 @@ class SettingsScreenTest {
                     onDeleteAllData = onDeleteAllData,
                     onExportClick = onExportClick,
                     onImportConfirm = onImportConfirm,
+                    onOpenAbout = onOpenAbout,
                 )
             }
         }
+    }
+
+    @Test
+    fun aboutButton_invokesOnOpenAbout() {
+        var opened = false
+        setContent(onOpenAbout = { opened = true })
+
+        composeTestRule.onNodeWithText(PlainVoice.aboutScreenTitle).performClick()
+
+        assertEquals(true, opened)
     }
 
     @Test
