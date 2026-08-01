@@ -32,7 +32,7 @@ Rule of thumb: **if logic can be tested on the JVM, it must not require an emula
 
 | Area | What to cover |
 |---|---|
-| Room DAOs | CRUD per entity, cascade delete case → events/hunches/triggers, delete-all-cases (and that it doesn't on its own remove the case-independent `tags` table), tag join queries, "events in window" queries, all-cases-with-events query feeding the Big Picture |
+| Room DAOs | CRUD per entity, cascade delete case → events/hunches/triggers, delete-all-cases (and that it doesn't on its own remove the case-independent `tags` table), tag join queries, "events in window" queries, all-cases-with-events query feeding the Big Picture, backup export/import round-trip and its all-or-nothing rollback on a mid-transaction failure |
 | Compose UI | Create Case incl. skipping the Hunch step; one-tap log + undo; detail sheet save with retro time; start/stop flow; theme switch re-words visible strings; hunch nudge appears at 5th event and dismisses permanently; archive a Case from Case Edit (confirm dialog, hidden when creating new); Archived Cases list with unarchive (immediate) and delete-forever (confirm dialog naming the event count); Settings theme selection, check-in default interval selection, live preview card, demo-data actions, delete-all confirm dialog |
 | Compose UI — Big Picture | Grid renders real cases/events from `HodithRepository`; empty-state placeholder shows with zero cases; early-days placeholder shows with cases but zero events; day cell tap opens that day's events; month title tap opens the month picker; day-tap → detail-dialog flow still works under Intense's and Bright's bespoke cell styles, not just Plain's |
 | Compose UI — Case Detail Insights | Not-enough-data placeholder below the minimum event count; timeline/heatmap/frequency/rhythm/gaps cards render once past it; trend card hidden below 8 weeks of observation, shown above with direction-aware copy; duration/intensity cards gated on the Case's `durationMode`/`intensityEnabled` rather than on data presence alone; tag breakdown only when an event carries a tag; frequency granularity toggle switches the bucket label format; heatmap "show more months" reveals history beyond the default three-month window |
@@ -49,7 +49,7 @@ Cadence: before every release; full pass before Play submissions.
 4. Reboot device with an ongoing event — state survives, elapsed correct
 5. Trigger notification fires; tap opens the right Case
 6. POST_NOTIFICATIONS: deny → in-app banner fallback works
-7. Export → wipe app data → import → everything restored (decide and document whether theme choice — stored in prefs — is included)
+7. Export → wipe app data → import → everything restored. Scope is Room data only (cases/events/tags/hunches/triggers) — Settings prefs (theme, default check-in interval) are a device preference, not investigation data, and are deliberately excluded; round-trip equality, malformed-file rejection, and schema-version rejection are covered by `BackupSerializerTest`/`FakeHodithRepositoryTest`/`RoomHodithRepositoryBackupTest`/`SettingsViewModelTest`, so this manual pass is about the real system file picker, not the underlying logic
 8. Timezone change / DST night with events on both sides — day-bucketing in stats, calendar heatmap, and Big Picture stays sane
 9. Big Picture with 15+ cases and a year of data — scrolling stays responsive on a mid-range device
 10. Check-in notification: "Log" action logs correctly per the Case's logFlow; "All quiet" dismisses and re-arms; several due check-ins arrive as one summary notification

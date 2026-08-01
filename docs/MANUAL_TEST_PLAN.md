@@ -35,3 +35,22 @@ submissions.
      action opens system notification settings; re-enabling there and returning to Home clears the
      banner without restarting the app.
    - **Grant:** no banner; notifications post as in items 1–7.
+
+## Data & backup
+
+The round-trip logic itself (schema-version rejection, malformed-JSON rejection, all-or-nothing
+rollback) is covered by `BackupSerializerTest`/`FakeHodithRepositoryTest`/
+`RoomHodithRepositoryBackupTest`/`SettingsViewModelTest` — these steps are about the real system
+file picker and content-provider boundary those tests can't drive.
+
+1. **Export.** With real data logged, tap Settings → Export data. The system "save to" picker opens;
+   choosing a location produces a valid `.json` file there, and a success snackbar appears.
+2. **Import (happy path).** Tap Import data → confirm the replace-all-data warning → pick a
+   previously exported file in the system picker. A success snackbar appears and every Case/event
+   from that file is back, replacing whatever was there before.
+3. **Import cancel.** Tap Import data, then cancel the confirm dialog — no file picker opens, no
+   data changes.
+4. **Import a non-HODITH file.** Pick an arbitrary file (a photo, a text file) via the import picker
+   — a "not a valid backup" snackbar appears and existing data is untouched.
+5. **Import across app installs.** Export from one install (or before a fresh reinstall/data wipe),
+   then import that file on the clean install — full restore, including tags and Hunch history.
