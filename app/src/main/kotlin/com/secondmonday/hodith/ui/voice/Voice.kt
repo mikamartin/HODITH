@@ -357,6 +357,21 @@ interface Voice {
     val triggersDecreaseCountDescription: String
     val triggersIncreaseCountDescription: String
 
+    // ---- Notifications (Phase 9, spec §11) ----
+
+    /** Shown in system Settings > App notifications, not in-app. */
+    val notificationChannelName: String
+    val notificationChannelDescription: String
+
+    fun triggerFiredNotificationTitle(caseName: String): String
+
+    fun checkInDueNotificationTitle(caseName: String): String
+
+    fun checkInDueNotificationBody(silentDays: Long): String
+
+    val notificationsDeniedBannerMessage: String
+    val notificationsDeniedBannerAction: String
+
     /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown once, the first time
      * a widget is added with nothing yet pinned (spec §15). */
     val widgetConfigureTitle: String
@@ -726,6 +741,19 @@ object PlainVoice : Voice {
     override val triggersDecreaseCountDescription = "Decrease threshold"
     override val triggersIncreaseCountDescription = "Increase threshold"
 
+    override val notificationChannelName = "Notifications"
+    override val notificationChannelDescription = "Trigger and check-in alerts."
+
+    override fun triggerFiredNotificationTitle(caseName: String) = "$caseName trigger"
+
+    override fun checkInDueNotificationTitle(caseName: String) = "$caseName check-in"
+
+    override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days."
+
+    override val notificationsDeniedBannerMessage =
+        "Notifications are off, so triggers and check-ins won't alert you — check back here instead."
+    override val notificationsDeniedBannerAction = "Turn on notifications"
+
     override val widgetConfigureTitle = "Pick Cases for this widget"
     override val widgetConfigureBody = "Choose which Cases show up here. You can change this later from each Case's settings."
     override val widgetConfigureNoCasesMessage = "No cases yet. Add one in the app first."
@@ -1088,6 +1116,19 @@ object IntenseVoice : Voice {
     override val triggersDecreaseCountDescription = "Diminish the threshold"
     override val triggersIncreaseCountDescription = "Swell the threshold"
 
+    override val notificationChannelName = "Alarms"
+    override val notificationChannelDescription = "What has stirred, and what has gone quiet."
+
+    override fun triggerFiredNotificationTitle(caseName: String) = "$caseName has stirred"
+
+    override fun checkInDueNotificationTitle(caseName: String) = "$caseName has gone quiet"
+
+    override fun checkInDueNotificationBody(silentDays: Long) = "$silentDays days of silence. Has it stopped, or have you?"
+
+    override val notificationsDeniedBannerMessage =
+        "Notifications are silenced. Alarms and the watch kept will not reach you — only what you find here."
+    override val notificationsDeniedBannerAction = "Break the silence"
+
     override val widgetConfigureTitle = "Which cases shall haunt this widget?"
     override val widgetConfigureBody = "Choose what stands watch here. The choice may be revisited from any case's settings."
     override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Summon a case first."
@@ -1447,6 +1488,19 @@ object BrightVoice : Voice {
     override val triggersCancelButton = "Never mind"
     override val triggersDecreaseCountDescription = "Fewer!"
     override val triggersIncreaseCountDescription = "More!"
+
+    override val notificationChannelName = "Nudges"
+    override val notificationChannelDescription = "Heads-up for triggers and check-ins."
+
+    override fun triggerFiredNotificationTitle(caseName: String) = "$caseName just hit a trigger!"
+
+    override fun checkInDueNotificationTitle(caseName: String) = "Quick check-in: $caseName"
+
+    override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days — all quiet, or did you forget?"
+
+    override val notificationsDeniedBannerMessage =
+        "Notifications are off, so trigger and check-in nudges can't reach you — swing by here instead!"
+    override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick your widget's stars!"
     override val widgetConfigureBody = "Choose which Cases get to show off here. Change your mind anytime from that Case's settings."

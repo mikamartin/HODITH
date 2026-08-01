@@ -44,4 +44,7 @@ interface EventDao {
 
     @Query("SELECT * FROM events WHERE caseId = :caseId AND endedAt IS NULL LIMIT 1")
     suspend fun getOngoingEvent(caseId: Long): EventEntity?
+
+    @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC LIMIT 1")
+    suspend fun getMostRecentEventForCase(caseId: Long): EventEntity?
 }

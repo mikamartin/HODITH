@@ -88,6 +88,26 @@ class EventDaoTest {
         }
 
     @Test
+    fun getMostRecentEventForCase_returnsTheLatestByOccurredAt() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            val latestId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L))
+
+            val mostRecent = eventDao.getMostRecentEventForCase(caseId)
+
+            assertEquals(latestId, mostRecent?.id)
+        }
+
+    @Test
+    fun getMostRecentEventForCase_returnsNullWithNoEvents() =
+        runTest {
+            val mostRecent = eventDao.getMostRecentEventForCase(caseId)
+
+            assertNull(mostRecent)
+        }
+
+    @Test
     fun getOngoingEvent_returnsEventWithNullEndedAt() =
         runTest {
             eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 200L))

@@ -85,6 +85,18 @@ class CaseDaoTest {
         }
 
     @Test
+    fun getActiveCases_excludesArchivedAndOrdersBySortOrder() =
+        runTest {
+            caseDao.insert(testCase(name = "Second", sortOrder = 1))
+            caseDao.insert(testCase(name = "First", sortOrder = 0))
+            caseDao.insert(testCase(name = "Archived", sortOrder = -1, archived = true))
+
+            val active = caseDao.getActiveCases()
+
+            assertEquals(listOf("First", "Second"), active.map { it.name })
+        }
+
+    @Test
     fun observeArchivedCasesWithEvents_returnsOnlyArchivedOrderedByNameWithEventCounts() =
         runTest {
             val eventDao = db.eventDao()

@@ -3,9 +3,11 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -25,6 +27,7 @@ private const val MILLIS_PER_DAY = 86_400_000L
 @OptIn(ExperimentalCoroutinesApi::class)
 class TriggersViewModelTest {
     private val repository = FakeHodithRepository()
+    private val settingsRepository = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
     private val caseId = 1L
 
@@ -38,7 +41,14 @@ class TriggersViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = TriggersViewModel(repository, clock, SavedStateHandle(mapOf("caseId" to caseId)))
+    private fun viewModel() =
+        TriggersViewModel(
+            repository,
+            settingsRepository,
+            clock,
+            NotificationPermissionRequestSignal(),
+            SavedStateHandle(mapOf("caseId" to caseId)),
+        )
 
     private fun atLeastTrigger(
         id: Long = 1L,

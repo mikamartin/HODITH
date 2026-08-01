@@ -15,6 +15,81 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/notification-infra (Phase 9, branch 5 of 6)
+
+**Scope:** Triggers and check-ins now evaluate for real. `domain/TriggerEngine.kt`/`CheckIn.kt`'s
+evaluation functions widened from `internal` to public for a new `notification/` package:
+`NotificationEvaluator` (orchestrates both engines against real repository data, persists
+`armed`/`lastFiredAt`/`lastCheckInAt`), `Notifier`/`SystemNotifier` (minimal notification — title,
+body, tap opens the app), `NotificationChannels`, `NotificationEvalWorker` (~6h periodic, same
+plain-constructor + Hilt `@EntryPoint` pattern as `WidgetRefreshWorker`, for the same
+`Configuration.Provider`/`HiltTestApplication` conflict reason). `RoomHodithRepository`'s event
+mutations now launch immediate per-Case evaluation fire-and-forget on a new app-scoped
+`CoroutineScope`. `POST_NOTIFICATIONS` is requested once (first Trigger created or first check-in
+enabled) via a new `NotificationPermissionRequestSignal` singleton, collected at the app root; Home
+gained a `NotificationsDeniedBanner`. New Voice `Notifications` section, all three voices. Walked
+the full diff against CLEANUP_CHECKLIST.md and DEV_PLAYBOOK.md §3's four checks, plus
+`connectedDebugAndroidTest` on-device — clean (see note on emulator flakiness below).
+
+**Found & fixed:**
+- **Real bug, caught by the new tests, not by inspection:** `NotificationEvaluator`'s `AT_LEAST`
+  branch called `HodithRepository.eventsInWindow(caseId, windowStart, now)` — but `eventsInWindow`'s
+  range is half-open (`[start, end)`), so an event occurring at exactly `now` was silently excluded
+  from its own trigger's count. That's precisely the common case for the immediate-eval hook (the
+  event that was just logged). Fixed by passing `now + 1` as the end bound; a regression test
+  (`evaluateCase fires an AT_LEAST trigger once its window count reaches threshold`) pinned it.
+- **Real duplication:** `NotificationsDeniedBanner` copied `StaleOngoingBanner`'s exact
+  `Card`/`Column(padding 12dp, spacedBy 8dp)`/`Text` shape, second occurrence of the same pattern —
+  same call as `feature/triggers-screen`'s `NumberStepper` extraction. Extracted
+  `ui/common/ActionBanner.kt`; both banners now delegate to it, unchanged rendered output (existing
+  `HomeScreenTest`/`CaseDetailScreenTest` coverage of `StaleOngoingBanner` still passes, since they
+  assert on text/labels, not structure).
+- **Magic numbers:** `Notifier`'s per-Trigger/per-Case notification-ID scheme (`% 100_000`,
+  `1_000_000 +`) was inline; named `NOTIFICATION_ID_MODULUS`/`CHECK_IN_NOTIFICATION_ID_BASE`.
+- **No app icon exists yet** (open Ship Checklist item) — `Notifier` needs a `setSmallIcon()`
+  regardless, so added a minimal `res/drawable/ic_notification.xml` (standard Material bell glyph)
+  scoped to notifications only; not a substitute for the real app icon.
+
+**Design decision surfaced mid-branch, corrected with the user:** the plan going in cited
+`WidgetRefresher` as precedent for putting the immediate-eval hook inside `RoomHodithRepository`
+itself — checking the actual code showed `WidgetRefresher` is called from ViewModels, not the
+repository, so the precedent claim was wrong. Went back to the user with the corrected comparison
+(repository choke point vs. matching the ~10-call-site ViewModel pattern); repository was
+re-confirmed on the merits (harder to forget in a future logging flow), not the false precedent.
+
+**Considered, not changed:**
+- `NotificationEvaluator.evaluateCase`/`evaluateAll` each re-fetch `getMostRecentEventForCase` for a
+  Case with both a `SILENT_FOR` Trigger and check-ins enabled — one redundant local SQLite read per
+  evaluation. Not worth restructuring `evaluateAll`'s two separate iteration passes (by-Trigger, then
+  by-Case) to share it; this runs at most once per event log plus every ~6h, on a personal app's
+  modest per-case event counts.
+
+**Deferred:**
+- Notification content stays intentionally minimal this branch (title + body, tap opens the app
+  generically) — richer voice-flavoured content, tap-to-the-right-Case, Log/All-quiet actions, and
+  anti-spam summary collapsing are `feature/notification-actions`, the next branch.
+- `TESTING.md`'s existing manual-only seed list items #5/#10 (full trigger/check-in notification
+  journeys) stay as-is rather than being migrated — they describe the branch-6 end state (deep-link,
+  actions, summary), not what's testable yet.
+- One instrumented run hit `INSTRUMENTATION_ABORTED: System has crashed` on an unrelated test
+  (`ArchivedCasesScreenTest`, untouched by this branch) partway through, after a prior clean 118/118
+  run on the same code; the emulator's `package` service stayed dead afterward (`installPackages`
+  failures, unreadable test-result XML) until a restart. Emulator-level, not a regression — same
+  class of flakiness the `feature/triggers-screen` entry above already documents. Confirmed clean
+  (118/118) after the restart.
+
+**Docs updated:** HODITH_SPEC.md reviewed (§11 Triggers/check-ins/notifications, §14 Home row) —
+already accurately describes the end state this branch partially builds toward; no changes needed.
+TESTING.md (WorkManager row corrected to describe what's actually instrumented-tested vs. unit-tested
+per the doc's own JVM-first rule; new "Notification evaluation" row). New `docs/MANUAL_TEST_PLAN.md`
+— didn't exist yet despite CLAUDE.md's "create from the seed list... when the first widget/notification
+flow lands" (the widget flow landing in Phase 8 didn't trigger it); scoped to only this branch's new
+system-process-boundary flows (trigger/check-in notification firing, the permission dialog, the
+denied-banner fallback) rather than backfilling the full TESTING.md seed list, which spans unrelated
+already-shipped features outside this diff. PROGRESS.md (status line, Phase 9 branch 5 checked off).
+
+---
+
 ## feature/triggers-screen (Phase 9, branch 4 of 6)
 
 **Scope:** HTML mockup (`docs/mockups/triggers-prototype.html`) validated first, then the real

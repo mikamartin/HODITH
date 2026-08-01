@@ -4,9 +4,11 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.HodithRepository
+import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,7 +41,9 @@ class TriggersViewModel
     @Inject
     constructor(
         private val repository: HodithRepository,
+        private val settingsRepository: SettingsRepository,
         private val clock: Clock,
+        private val notificationPermissionRequestSignal: NotificationPermissionRequestSignal,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
@@ -71,6 +75,10 @@ class TriggersViewModel
                         lastFiredAt = null,
                     ),
                 )
+                if (!settingsRepository.hasRequestedNotificationPermission()) {
+                    settingsRepository.setNotificationPermissionRequested()
+                    notificationPermissionRequestSignal.request()
+                }
             }
         }
 

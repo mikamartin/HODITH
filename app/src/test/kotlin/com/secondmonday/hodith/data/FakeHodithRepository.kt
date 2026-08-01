@@ -31,6 +31,8 @@ class FakeHodithRepository : HodithRepository {
     override fun observeActiveCases(): Flow<List<CaseEntity>> =
         cases.map { list -> list.filterNot { it.archived }.sortedBy { it.sortOrder } }
 
+    override suspend fun getActiveCases(): List<CaseEntity> = cases.value.filterNot { it.archived }.sortedBy { it.sortOrder }
+
     override fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>> =
         combine(cases, events) { caseList, eventList ->
             caseList.filterNot { it.archived }.sortedBy { it.sortOrder }.map { case ->
@@ -95,6 +97,9 @@ class FakeHodithRepository : HodithRepository {
             .filter { it.caseId == caseId && it.occurredAt >= windowStart && it.occurredAt < windowEnd }
             .sortedBy { it.occurredAt }
 
+    override suspend fun getMostRecentEventForCase(caseId: Long): EventEntity? =
+        events.value.filter { it.caseId == caseId }.maxByOrNull { it.occurredAt }
+
     override suspend fun insertEvent(event: EventEntity): Long {
         val id = if (event.id != 0L) event.id else nextEventId++
         events.update { it + event.copy(id = id) }
@@ -155,6 +160,8 @@ class FakeHodithRepository : HodithRepository {
     // Hunch
     override fun observeActiveHunch(caseId: Long): Flow<HunchEntity?> =
         hunches.map { list -> list.find { it.caseId == caseId && it.resolvedAt == null } }
+
+    override suspend fun getActiveHunch(caseId: Long): HunchEntity? = hunches.value.find { it.caseId == caseId && it.resolvedAt == null }
 
     override fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>> =
         hunches.map { list -> list.filter { it.caseId == caseId }.sortedByDescending { it.createdAt } }

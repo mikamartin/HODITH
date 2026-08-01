@@ -210,6 +210,14 @@ class VoiceTest {
                 assertTrue(voice.verdictMeta(tier, eventCount = 15, windowDays = 50).isNotBlank())
                 assertTrue(voice.hunchTierBadgeLabel(tier).isNotBlank())
             }
+
+            assertTrue(voice.notificationChannelName.isNotBlank())
+            assertTrue(voice.notificationChannelDescription.isNotBlank())
+            assertTrue(voice.triggerFiredNotificationTitle(caseName = "Test Case").isNotBlank())
+            assertTrue(voice.checkInDueNotificationTitle(caseName = "Test Case").isNotBlank())
+            assertTrue(voice.checkInDueNotificationBody(silentDays = 9).isNotBlank())
+            assertTrue(voice.notificationsDeniedBannerMessage.isNotBlank())
+            assertTrue(voice.notificationsDeniedBannerAction.isNotBlank())
         }
     }
 }

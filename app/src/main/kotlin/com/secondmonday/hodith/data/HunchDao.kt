@@ -21,6 +21,9 @@ interface HunchDao {
     @Query("SELECT * FROM hunches WHERE caseId = :caseId AND resolvedAt IS NULL LIMIT 1")
     fun observeActiveHunch(caseId: Long): Flow<HunchEntity?>
 
+    @Query("SELECT * FROM hunches WHERE caseId = :caseId AND resolvedAt IS NULL LIMIT 1")
+    suspend fun getActiveHunch(caseId: Long): HunchEntity?
+
     @Query("SELECT * FROM hunches WHERE caseId = :caseId ORDER BY createdAt DESC")
     fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>>
 }

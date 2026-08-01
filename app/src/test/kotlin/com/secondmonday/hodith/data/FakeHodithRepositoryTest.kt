@@ -148,6 +148,22 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
+    fun `getMostRecentEventForCase returns the latest event scoped to the given case`() =
+        runTest {
+            val caseId = 1L
+            repository.events.value =
+                listOf(
+                    testEvent(id = 1L, caseId = caseId, occurredAt = 100L),
+                    testEvent(id = 2L, caseId = caseId, occurredAt = 300L),
+                    testEvent(id = 3L, caseId = 2L, occurredAt = 500L),
+                )
+
+            val mostRecent = repository.getMostRecentEventForCase(caseId)
+
+            assertEquals(300L, mostRecent?.occurredAt)
+        }
+
+    @Test
     fun `observeEventsWithTagsForCase sorts newest-first and attaches only that event's tags`() =
         runTest {
             val caseId = repository.insertCase(testCase())
