@@ -398,6 +398,49 @@ interface Voice {
     val notificationsDeniedBannerMessage: String
     val notificationsDeniedBannerAction: String
 
+    // ---- Share cards (Phase 10, spec §13) ----
+    val shareOpenDescription: String
+
+    val shareRealityKicker: String get() = "Reality"
+    val shareRealityEventsLabel: String get() = "events"
+    val shareRealityDaysObservedLabel: String get() = "days observed"
+
+    val shareHunchRealityKicker: String get() = "Hunch vs. reality"
+    val shareHunchExpectedLabel: String
+    val shareHunchObservedLabel: String
+
+    val shareCardFooter: String get() = "counted with HODITH"
+
+    /** Intense skin's rotated corner stamp — structural, like [shareRealityKicker]; never rendered under Plain/Bright. */
+    val shareIntenseStampLabel: String get() = "Case File"
+
+    /** Frequency section's share-card title, e.g. "Frequency by week" — reuses the granularity chip labels. */
+    fun shareFrequencyTitle(granularity: FrequencyGranularity): String =
+        "Frequency by ${
+            when (granularity) {
+                FrequencyGranularity.DAY -> insightsFrequencyGranularityDay
+                FrequencyGranularity.WEEK -> insightsFrequencyGranularityWeek
+                FrequencyGranularity.MONTH -> insightsFrequencyGranularityMonth
+            }.lowercase()
+        }"
+
+    /** Share preview screen's format toggle — structural, identical across all three voices. */
+    val shareFormatStoryLabel: String get() = "Story"
+    val shareFormatSquareLabel: String get() = "Square"
+
+    /** Toggles the Hunch vs. Reality beat on/off — only shown on Story format with a resolved Hunch. */
+    val shareHunchVsRealityToggleLabel: String
+
+    val shareNameFieldLabel: String
+    val shareSectionsPickerLabel: String
+
+    /** The share card's one-line caption. Impersonal only — no "I"/"you": whoever the card is shared
+     * with isn't the one who made the Hunch, so first/second person addresses the wrong audience. */
+    fun sharePunchline(
+        direction: HunchDirection,
+        band: ComparisonBand,
+    ): String
+
     /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown once, the first time
      * a widget is added with nothing yet pinned (spec §15). */
     val widgetConfigureTitle: String
@@ -816,6 +859,43 @@ object PlainVoice : Voice {
     override val widgetStopAction = "Stop"
 
     override fun widgetTodayCount(count: Int) = "Today: $count"
+
+    override val shareOpenDescription = "Share"
+    override val shareHunchExpectedLabel = "expected"
+    override val shareHunchObservedLabel = "observed"
+    override val shareHunchVsRealityToggleLabel = "Show Hunch vs. Reality"
+    override val shareNameFieldLabel = "Name on card"
+    override val shareSectionsPickerLabel = "Include in card"
+
+    override fun sharePunchline(
+        direction: HunchDirection,
+        band: ComparisonBand,
+    ) = when (direction) {
+        HunchDirection.TOO_OFTEN ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "Way less often than feared."
+                ComparisonBand.LESS -> "A little less often than feared."
+                ComparisonBand.ABOUT_RIGHT -> "Just as often as expected."
+                ComparisonBand.MORE -> "Plot twist: more often than expected."
+                ComparisonBand.MUCH_MORE -> "Way more often than feared."
+            }
+        HunchDirection.NOT_ENOUGH ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "Confirmed: happening far less than hoped."
+                ComparisonBand.LESS -> "Still happening less than hoped."
+                ComparisonBand.ABOUT_RIGHT -> "Just about as often as hoped."
+                ComparisonBand.MORE -> "Good news: more often than expected."
+                ComparisonBand.MUCH_MORE -> "Happening far more than expected."
+            }
+        HunchDirection.JUST_CURIOUS ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "Way less than the guess."
+                ComparisonBand.LESS -> "A little less than the guess."
+                ComparisonBand.ABOUT_RIGHT -> "Right on the money."
+                ComparisonBand.MORE -> "A little more than the guess."
+                ComparisonBand.MUCH_MORE -> "Way more than the guess."
+            }
+    }
 }
 
 object IntenseVoice : Voice {
@@ -1217,6 +1297,43 @@ object IntenseVoice : Voice {
     override val widgetStopAction = "Seal"
 
     override fun widgetTodayCount(count: Int) = "Today: $count"
+
+    override val shareOpenDescription = "Share the record"
+    override val shareHunchExpectedLabel = "claimed"
+    override val shareHunchObservedLabel = "confirmed"
+    override val shareHunchVsRealityToggleLabel = "Unveil the reckoning"
+    override val shareNameFieldLabel = "Name for the record"
+    override val shareSectionsPickerLabel = "What the record shows"
+
+    override fun sharePunchline(
+        direction: HunchDirection,
+        band: ComparisonBand,
+    ) = when (direction) {
+        HunchDirection.TOO_OFTEN ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "The dread was overblown. Far less than feared."
+                ComparisonBand.LESS -> "Less than feared, though the trail runs on."
+                ComparisonBand.ABOUT_RIGHT -> "The record confirms the dread, near enough."
+                ComparisonBand.MORE -> "Worse than feared, the evidence shows."
+                ComparisonBand.MUCH_MORE -> "The dread was justified. Far more than feared."
+            }
+        HunchDirection.NOT_ENOUGH ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "The fear is confirmed. Far less than hoped."
+                ComparisonBand.LESS -> "Still wanting, less than hoped."
+                ComparisonBand.ABOUT_RIGHT -> "The record agrees, near enough to hope."
+                ComparisonBand.MORE -> "Better than dared hoped, the evidence shows."
+                ComparisonBand.MUCH_MORE -> "Far beyond hope, the evidence shows."
+            }
+        HunchDirection.JUST_CURIOUS ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "Curiosity answered. Far below the guess."
+                ComparisonBand.LESS -> "A little below the guess, the record shows."
+                ComparisonBand.ABOUT_RIGHT -> "Curiosity answered. Near enough to the guess."
+                ComparisonBand.MORE -> "A little above the guess, the record shows."
+                ComparisonBand.MUCH_MORE -> "Curiosity answered. Far above the guess."
+            }
+    }
 }
 
 object BrightVoice : Voice {
@@ -1614,6 +1731,43 @@ object BrightVoice : Voice {
     override val widgetStopAction = "Stop!"
 
     override fun widgetTodayCount(count: Int) = "Today: $count"
+
+    override val shareOpenDescription = "Share it!"
+    override val shareHunchExpectedLabel = "guessed"
+    override val shareHunchObservedLabel = "turns out"
+    override val shareHunchVsRealityToggleLabel = "Show the surprise!"
+    override val shareNameFieldLabel = "Name it!"
+    override val shareSectionsPickerLabel = "Pick what to show!"
+
+    override fun sharePunchline(
+        direction: HunchDirection,
+        band: ComparisonBand,
+    ) = when (direction) {
+        HunchDirection.TOO_OFTEN ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "Phew! Way less than feared!"
+                ComparisonBand.LESS -> "Whew, a little less than feared!"
+                ComparisonBand.ABOUT_RIGHT -> "Nailed the guess!"
+                ComparisonBand.MORE -> "Uh oh, more than expected!"
+                ComparisonBand.MUCH_MORE -> "Whoa! Way more than feared!"
+            }
+        HunchDirection.NOT_ENOUGH ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "Yep, called it — barely happening!"
+                ComparisonBand.LESS -> "Still not enough, just as guessed!"
+                ComparisonBand.ABOUT_RIGHT -> "Nailed it — right where expected!"
+                ComparisonBand.MORE -> "More than expected — nice!"
+                ComparisonBand.MUCH_MORE -> "Whoa, way more than hoped!"
+            }
+        HunchDirection.JUST_CURIOUS ->
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "Surprise! Way less than guessed!"
+                ComparisonBand.LESS -> "Turns out, a bit less than guessed!"
+                ComparisonBand.ABOUT_RIGHT -> "Nailed it — right on the money!"
+                ComparisonBand.MORE -> "Turns out, a bit more than guessed!"
+                ComparisonBand.MUCH_MORE -> "Surprise! Way more than guessed!"
+            }
+    }
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }
