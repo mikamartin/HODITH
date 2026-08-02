@@ -194,6 +194,53 @@ class CaseEditViewModelTest {
         }
 
     @Test
+    fun `save with a name matching another active case shows a duplicate error and does not persist`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(id = 1L))
+            val vm = newCaseViewModel()
+            vm.onNameChange("Coffee")
+            vm.onIconSelect("🍵")
+
+            vm.save()
+
+            assertTrue(vm.uiState.value.showDuplicateNameError)
+            assertFalse(vm.uiState.value.isSaved)
+            assertEquals(1, repository.cases.value.size)
+        }
+
+    @Test
+    fun `save keeps an existing case's own unchanged name`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(id = 1L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.save()
+
+            assertTrue(vm.uiState.value.isSaved)
+            assertFalse(vm.uiState.value.showDuplicateNameError)
+        }
+
+    @Test
+    fun `onNameChange truncates to the max case name length`() =
+        runTest {
+            val vm = newCaseViewModel()
+
+            vm.onNameChange("a".repeat(CASE_NAME_MAX_LENGTH + 10))
+
+            assertEquals(CASE_NAME_MAX_LENGTH, vm.uiState.value.name.length)
+        }
+
+    @Test
+    fun `onDescriptionChange truncates to the max case description length`() =
+        runTest {
+            val vm = newCaseViewModel()
+
+            vm.onDescriptionChange("a".repeat(CASE_DESCRIPTION_MAX_LENGTH + 10))
+
+            assertEquals(CASE_DESCRIPTION_MAX_LENGTH, vm.uiState.value.description.length)
+        }
+
+    @Test
     fun `archive marks the case archived`() =
         runTest {
             repository.cases.value = listOf(existingCase())

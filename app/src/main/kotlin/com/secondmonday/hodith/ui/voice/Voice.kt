@@ -39,6 +39,7 @@ interface Voice {
     val caseNameLabel: String
     val caseNameHint: String
     val caseNameRequiredError: String
+    val caseNameDuplicateError: String
     val caseDescriptionLabel: String
     val caseDescriptionHint: String
     val caseIconLabel: String
@@ -479,6 +480,7 @@ object PlainVoice : Voice {
     override val caseNameLabel = "Name"
     override val caseNameHint = "e.g. Kiddo was rude"
     override val caseNameRequiredError = "Name is required."
+    override val caseNameDuplicateError = "A case with this name already exists."
     override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Any more detail worth noting"
     override val caseIconLabel = "Icon"
@@ -514,7 +516,8 @@ object PlainVoice : Voice {
     override val archiveCaseDescription = "Archive case"
     override val archiveCaseConfirmTitle = "Archive this case?"
     override val archiveCaseConfirmBody =
-        "It will be hidden from Home and Big Picture, but its data stays intact. You can view and restore it later."
+        "It will be hidden from Home and Big Picture, but its data stays intact. You can restore it, or delete it forever, " +
+            "from Archived Cases."
     override val archiveCaseConfirmAction = "Archive"
     override val archiveCaseCancelAction = "Cancel"
     override val archivedCasesTitle = "Archived cases"
@@ -919,6 +922,7 @@ object IntenseVoice : Voice {
     override val caseNameLabel = "Name"
     override val caseNameHint = "e.g. Kiddo was rude"
     override val caseNameRequiredError = "It needs a name to be watched."
+    override val caseNameDuplicateError = "Another case already bears this name."
     override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Say more, if the shadows require it"
     override val caseIconLabel = "Icon"
@@ -955,7 +959,8 @@ object IntenseVoice : Voice {
     override val archiveCaseDescription = "Bury this case"
     override val archiveCaseConfirmTitle = "Bury this case?"
     override val archiveCaseConfirmBody =
-        "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed."
+        "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed, " +
+            "or erased forever if you so choose."
     override val archiveCaseConfirmAction = "Bury it"
     override val archiveCaseCancelAction = "Abandon"
     override val archivedCasesTitle = "The buried cases"
@@ -1357,6 +1362,7 @@ object BrightVoice : Voice {
     override val caseNameLabel = "Name"
     override val caseNameHint = "e.g. Kiddo was rude"
     override val caseNameRequiredError = "Give it a name first!"
+    override val caseNameDuplicateError = "You've already got a case with that name!"
     override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Spill any extra details"
     override val caseIconLabel = "Icon"
@@ -1392,7 +1398,8 @@ object BrightVoice : Voice {
     override val archiveCaseDescription = "Shelve this case"
     override val archiveCaseConfirmTitle = "Shelve this case?"
     override val archiveCaseConfirmBody =
-        "It'll hide from Home and Big Picture, but nothing gets deleted — find it in the archive whenever you want it back."
+        "It'll hide from Home and Big Picture, but nothing's deleted here — find it in the archive to bring it back, " +
+            "or to yeet it forever instead."
     override val archiveCaseConfirmAction = "Shelve it"
     override val archiveCaseCancelAction = "Nah, keep it out"
     override val archivedCasesTitle = "The archive"

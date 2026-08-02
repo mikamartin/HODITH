@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
@@ -141,7 +141,7 @@ fun CaseEditScreen(
                 actions = {
                     if (uiState.canArchive) {
                         IconButton(onClick = { showArchiveConfirm = true }) {
-                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = voice.archiveCaseDescription)
+                            Icon(Icons.Filled.Delete, contentDescription = voice.archiveCaseDescription)
                         }
                     }
                 },
@@ -195,8 +195,13 @@ private fun CaseEditForm(
             onValueChange = onNameChange,
             label = { Text(voice.caseNameLabel) },
             placeholder = { Text(voice.caseNameHint) },
-            isError = uiState.showNameError,
-            supportingText = { if (uiState.showNameError) Text(voice.caseNameRequiredError) },
+            isError = uiState.showNameError || uiState.showDuplicateNameError,
+            supportingText = {
+                when {
+                    uiState.showNameError -> Text(voice.caseNameRequiredError)
+                    uiState.showDuplicateNameError -> Text(voice.caseNameDuplicateError)
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         )
 

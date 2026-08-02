@@ -15,6 +15,61 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/case-edit-delete-and-validation
+
+**Scope:** Closed out PROGRESS.md's "Case Edit" section: swapped Edit Case's unclear `ExitToApp`
+(door) archive icon for `Delete` (trash can, matching Archived Cases' hard-delete icon) after the
+product owner said they'd forgotten what it did; updated the archive confirm-dialog copy in all
+three Voices to note that permanent delete is available from Archived Cases; added a 60-char cap
+on Case name and 280-char cap on description (silent truncation as you type); added a
+case-insensitive duplicate-name check against other active Cases (archived Cases and the Case's own
+unchanged name are exempt), blocking Save with a new inline error distinct from the existing
+required-name error. `save()` was restructured so validation and the sort-order lookup share one
+`observeActiveCases().first()` call inside the existing `viewModelScope.launch`, instead of the old
+synchronous pre-launch validation plus a second, separate active-cases query later for sort order.
+Walked the full working diff against CLEANUP_CHECKLIST.md; `ktlintCheck`, `lintDebug`, `test` (all
+green), and `assembleDebug` run sequentially, clean; `connectedDebugAndroidTest` run in full against
+a live emulator (API36_Default) — 152/152, 0 failed.
+
+**Found & fixed:**
+- No duplicated composables/strings/ViewModel logic, no stray `android.*` imports, no new hardcoded
+  colors, no unused imports (ktlint clean), no new deprecation warnings.
+- `HODITH_SPEC.md`'s New/edit Case row was accurate on hard-delete already living only in Archived
+  Cases, but silent on the new required/unique/length-capped name and description rules — added
+  those. `TESTING.md`'s generic "ViewModels" unit-coverage row didn't call out the new validation;
+  added a clause naming it specifically, matching how other rows in that table itemize by feature
+  rather than staying generic.
+- **`save()` queried active Cases before validating even a blank name or missing icon** —
+  previously the blank-name case failed synchronously with no repository call at all. Guarded the
+  `observeActiveCases().first()` call behind a cheap `name.isBlank() || icon == null` check so an
+  obviously-invalid save short-circuits without touching the repository, same as before this branch.
+- **Pre-existing spec drift, caught while reviewing the touched New/edit Case row**:
+  `HODITH_SPEC.md` said New/edit Case ends with "the skippable Hunch step," and `TESTING.md`'s planned
+  Compose UI coverage listed "Create Case incl. skipping the Hunch step." Neither has ever been true —
+  traced the phrase back to the very first spec commit (`243f5cb`), before any code existed; `git log
+  -S"HunchStep"` finds no such composable ever built. Hunch creation was actually implemented as the
+  nudge card on Case Detail's Hunch tab instead (§7, already documented correctly), so this was the
+  original plan superseded by a different design that never got reflected back into the screen-table
+  row. Intentional divergence per CLAUDE.md's spec rule → removed the stale clause from both docs
+  rather than leaving it open.
+
+**Deferred:**
+- `CASE_NAME_MAX_LENGTH`/`CASE_DESCRIPTION_MAX_LENGTH` stay as `internal const` in
+  `CaseEditViewModel.kt`, not `domain/`. Raised explicitly with the product owner: CLAUDE.md's
+  "product constants live in the domain layer" rule is written for verdict/trigger/stats thresholds
+  (confidence tiers, comparison bands, nudge count) — `domain/` is explicitly scoped to "verdict,
+  trigger, and stats code." These are UI text-field caps with a single caller, following the same
+  file's existing `NO_CASE_ID` precedent; moving them to `domain/` would imply they're product-tunable
+  business rules in the way a comparison band is, which they aren't. Confirmed as the intended
+  reading of that rule, not left as an unreviewed judgment call.
+
+**Docs updated:** HODITH_SPEC.md (New/edit Case row: name/description validation rules, archive
+dialog copy note, stale Hunch-step clause removed), TESTING.md (ViewModels unit-coverage row, stale
+Hunch-step clause removed from planned Compose UI coverage), PROGRESS.md (Case Edit section resolved
+and removed).
+
+---
+
 ## feature/big-picture-polish (Phase 11)
 
 **Scope:** Big Picture follow-ups (PROGRESS.md Phase 11): tapping an event in the day/week detail

@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val NO_CASE_ID = -1L
+internal const val CASE_NAME_MAX_LENGTH = 60
+internal const val CASE_DESCRIPTION_MAX_LENGTH = 280
 
 data class CaseEditUiState(
     val isEditing: Boolean = false,
@@ -34,6 +36,7 @@ data class CaseEditUiState(
     val pinned: Boolean = false,
     val checkInsEnabled: Boolean = true,
     val showNameError: Boolean = false,
+    val showDuplicateNameError: Boolean = false,
     val showIconError: Boolean = false,
     val isSaved: Boolean = false,
     val canArchive: Boolean = false,
@@ -70,9 +73,12 @@ class CaseEditViewModel
             }
         }
 
-        fun onNameChange(value: String) = _uiState.update { it.copy(name = value, showNameError = false) }
+        fun onNameChange(value: String) =
+            _uiState.update {
+                it.copy(name = value.take(CASE_NAME_MAX_LENGTH), showNameError = false, showDuplicateNameError = false)
+            }
 
-        fun onDescriptionChange(value: String) = _uiState.update { it.copy(description = value) }
+        fun onDescriptionChange(value: String) = _uiState.update { it.copy(description = value.take(CASE_DESCRIPTION_MAX_LENGTH)) }
 
         fun onIconSelect(icon: String) = _uiState.update { it.copy(icon = icon, showIconError = false) }
 
@@ -93,16 +99,24 @@ class CaseEditViewModel
         fun onCheckInToggle(enabled: Boolean) = _uiState.update { it.copy(checkInsEnabled = enabled) }
 
         fun save() {
-            val state = _uiState.value
-            val validation = validateCaseEdit(state.name, state.icon)
-            if (!validation.isValid) {
-                _uiState.update {
-                    it.copy(showNameError = !validation.nameValid, showIconError = !validation.iconValid)
-                }
-                return
-            }
-
             viewModelScope.launch {
+                val state = _uiState.value
+                // Skip the query entirely when name/icon are already invalid on their own —
+                // no duplicate check or sort-order lookup can change that outcome.
+                val activeCases =
+                    if (state.name.isBlank() || state.icon == null) emptyList() else repository.observeActiveCases().first()
+                val validation = validateCaseEdit(state.name, state.icon, existingCase?.id, activeCases)
+                if (!validation.isValid) {
+                    _uiState.update {
+                        it.copy(
+                            showNameError = !validation.nameValid,
+                            showDuplicateNameError = validation.nameDuplicate,
+                            showIconError = !validation.iconValid,
+                        )
+                    }
+                    return@launch
+                }
+
                 val name = state.name.trim()
                 val description = state.description.trim().takeIf { it.isNotEmpty() }
                 val icon = requireNotNull(state.icon)
@@ -122,7 +136,6 @@ class CaseEditViewModel
                         ),
                     )
                 } else {
-                    val sortOrder = repository.observeActiveCases().first().size
                     repository.insertCase(
                         CaseEntity(
                             name = name,
@@ -136,7 +149,7 @@ class CaseEditViewModel
                             pinned = state.pinned,
                             checkInsEnabled = state.checkInsEnabled,
                             lastCheckInAt = null,
-                            sortOrder = sortOrder,
+                            sortOrder = activeCases.size,
                             archived = false,
                         ),
                     )
@@ -183,15 +196,29 @@ internal fun CaseEntity.toUiState() =
  */
 internal data class CaseEditValidation(
     val nameValid: Boolean,
+    val nameDuplicate: Boolean,
     val iconValid: Boolean,
 ) {
-    val isValid: Boolean get() = nameValid && iconValid
+    val isValid: Boolean get() = nameValid && !nameDuplicate && iconValid
 }
 
+/**
+ * [otherActiveCases] should already be scoped to active (non-archived) Cases — a name only needs
+ * to be unique among Cases currently visible on Home, not ones tucked away in the archive.
+ */
 internal fun validateCaseEdit(
     name: String,
     icon: String?,
-): CaseEditValidation = CaseEditValidation(nameValid = name.isNotBlank(), iconValid = icon != null)
+    editingCaseId: Long?,
+    otherActiveCases: List<CaseEntity>,
+): CaseEditValidation {
+    val trimmedName = name.trim()
+    val nameValid = trimmedName.isNotBlank()
+    val nameDuplicate =
+        nameValid &&
+            otherActiveCases.any { it.id != editingCaseId && it.name.equals(trimmedName, ignoreCase = true) }
+    return CaseEditValidation(nameValid = nameValid, nameDuplicate = nameDuplicate, iconValid = icon != null)
+}
 
 /**
  * One-tap is an instant insert with no fields, so it can never capture a typed [DurationMode.MANUAL]

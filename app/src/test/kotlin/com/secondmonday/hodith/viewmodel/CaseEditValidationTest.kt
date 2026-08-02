@@ -9,9 +9,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CaseEditValidationTest {
+    private fun otherCase(
+        id: Long,
+        name: String,
+    ) = CaseEntity(
+        id = id,
+        name = name,
+        icon = "🤕",
+        createdAt = 0,
+        logFlow = LogFlow.DETAIL_SHEET,
+        durationMode = DurationMode.NONE,
+        intensityEnabled = false,
+        hunchNudgeDismissed = false,
+        pinned = false,
+        checkInsEnabled = true,
+        lastCheckInAt = null,
+        sortOrder = 0,
+        archived = false,
+    )
+
     @Test
     fun `blank name and missing icon are both invalid`() {
-        val validation = validateCaseEdit(name = "  ", icon = null)
+        val validation = validateCaseEdit(name = "  ", icon = null, editingCaseId = null, otherActiveCases = emptyList())
 
         assertFalse(validation.nameValid)
         assertFalse(validation.iconValid)
@@ -20,7 +39,8 @@ class CaseEditValidationTest {
 
     @Test
     fun `non-blank name and selected icon are valid`() {
-        val validation = validateCaseEdit(name = "Migraines", icon = "🤕")
+        val validation =
+            validateCaseEdit(name = "Migraines", icon = "🤕", editingCaseId = null, otherActiveCases = emptyList())
 
         assertTrue(validation.nameValid)
         assertTrue(validation.iconValid)
@@ -29,8 +49,50 @@ class CaseEditValidationTest {
 
     @Test
     fun `blank name is invalid even with an icon selected`() {
-        val validation = validateCaseEdit(name = "", icon = "🤕")
+        val validation = validateCaseEdit(name = "", icon = "🤕", editingCaseId = null, otherActiveCases = emptyList())
 
+        assertFalse(validation.isValid)
+    }
+
+    @Test
+    fun `name matching another active case is a case-insensitive duplicate`() {
+        val validation =
+            validateCaseEdit(
+                name = "migraines",
+                icon = "🤕",
+                editingCaseId = null,
+                otherActiveCases = listOf(otherCase(id = 1L, name = "Migraines")),
+            )
+
+        assertTrue(validation.nameDuplicate)
+        assertFalse(validation.isValid)
+    }
+
+    @Test
+    fun `editing a case does not flag its own unchanged name as a duplicate`() {
+        val validation =
+            validateCaseEdit(
+                name = "Migraines",
+                icon = "🤕",
+                editingCaseId = 1L,
+                otherActiveCases = listOf(otherCase(id = 1L, name = "Migraines")),
+            )
+
+        assertFalse(validation.nameDuplicate)
+        assertTrue(validation.isValid)
+    }
+
+    @Test
+    fun `name matching a different case while editing is still a duplicate`() {
+        val validation =
+            validateCaseEdit(
+                name = "Migraines",
+                icon = "🤕",
+                editingCaseId = 1L,
+                otherActiveCases = listOf(otherCase(id = 2L, name = "Migraines")),
+            )
+
+        assertTrue(validation.nameDuplicate)
         assertFalse(validation.isValid)
     }
 
