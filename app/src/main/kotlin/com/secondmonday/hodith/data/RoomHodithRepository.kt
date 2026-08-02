@@ -39,6 +39,9 @@ class RoomHodithRepository
 
         override fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeActiveCasesWithEvents()
 
+        override fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>> =
+            caseDao.observeActiveCasesWithEventsAndTags()
+
         override fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeArchivedCasesWithEvents()
 
         override fun observeCase(caseId: Long): Flow<CaseEntity?> = caseDao.observeById(caseId)

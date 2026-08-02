@@ -2,7 +2,7 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.secondmonday.hodith.data.CaseWithEvents
+import com.secondmonday.hodith.data.CaseWithEventsAndTags
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,9 +25,11 @@ data class CalendarCase(
 
 /** One event as plotted on the Big Picture grid — icon-only per day, no intensity/duration encoding (spec §9). */
 data class CalendarEvent(
+    val id: Long,
     val caseId: Long,
     val occurredAt: Long,
     val note: String? = null,
+    val tags: List<String> = emptyList(),
 )
 
 data class BigPictureUiState(
@@ -50,7 +52,7 @@ class BigPictureViewModel
     ) : ViewModel() {
         val uiState: StateFlow<BigPictureUiState> =
             repository
-                .observeActiveCasesWithEvents()
+                .observeActiveCasesWithEventsAndTags()
                 .map { casesWithEvents -> bigPictureUiState(casesWithEvents, clock.nowMillis()) }
                 .stateIn(
                     scope = viewModelScope,
@@ -65,7 +67,7 @@ class BigPictureViewModel
  * present in [casesWithEvents] — falls back to `currentMonth` when there are no cases at all.
  */
 internal fun bigPictureUiState(
-    casesWithEvents: List<CaseWithEvents>,
+    casesWithEvents: List<CaseWithEventsAndTags>,
     nowMillis: Long,
     zoneId: ZoneId = ZoneId.systemDefault(),
 ): BigPictureUiState {
@@ -80,7 +82,15 @@ internal fun bigPictureUiState(
         cases = casesWithEvents.map { CalendarCase(id = it.case.id, icon = it.case.icon, name = it.case.name) },
         events =
             casesWithEvents.flatMap { (case, events) ->
-                events.map { CalendarEvent(caseId = case.id, occurredAt = it.occurredAt, note = it.note) }
+                events.map {
+                    CalendarEvent(
+                        id = it.event.id,
+                        caseId = case.id,
+                        occurredAt = it.event.occurredAt,
+                        note = it.event.note,
+                        tags = it.tags.map { tag -> tag.name },
+                    )
+                }
             },
         earliestMonth = earliestMonth,
         currentMonth = currentMonth,

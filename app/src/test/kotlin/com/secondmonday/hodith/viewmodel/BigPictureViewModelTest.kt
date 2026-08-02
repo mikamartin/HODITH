@@ -2,11 +2,13 @@ package com.secondmonday.hodith.viewmodel
 
 import app.cash.turbine.test
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.CaseWithEvents
+import com.secondmonday.hodith.data.CaseWithEventsAndTags
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.FakeClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -92,6 +94,25 @@ class BigPictureViewModelTest {
         }
 
     @Test
+    fun `uiState maps each event's id and tag names`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val event = testEvent(note = "felt fine")
+            repository.events.value = listOf(event)
+            repository.tags.value = listOf(TagEntity(id = 1L, name = "late night"))
+            repository.eventTags.value = listOf(EventTagCrossRef(eventId = event.id, tagId = 1L))
+            val viewModel = BigPictureViewModel(repository, clock)
+
+            viewModel.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                val mappedEvent = state.events.single()
+                assertEquals(event.id, mappedEvent.id)
+                assertEquals(listOf("late night"), mappedEvent.tags)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `bigPictureUiState derives earliestMonth from the oldest case createdAt`() {
         val marchCreatedAt = Instant.parse("2026-03-15T00:00:00Z").toEpochMilli()
         val aprilCreatedAt = Instant.parse("2026-04-01T00:00:00Z").toEpochMilli()
@@ -116,5 +137,5 @@ class BigPictureViewModelTest {
         assertTrue(state.events.isEmpty())
     }
 
-    private fun withNoEvents(case: CaseEntity) = CaseWithEvents(case = case, events = emptyList())
+    private fun withNoEvents(case: CaseEntity) = CaseWithEventsAndTags(case = case, events = emptyList())
 }

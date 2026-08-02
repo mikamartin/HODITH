@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.bigpicture
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
@@ -44,13 +45,14 @@ class BigPictureScreenTest {
     private fun setContent(
         uiState: BigPictureUiState,
         cellStyle: BigPictureCellStyle = BigPictureCellStyle.PLAIN,
+        onOpenCase: (Long) -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(
                 LocalVoice provides PlainVoice,
                 LocalBigPictureCellStyle provides cellStyle,
             ) {
-                BigPictureScreen(uiState = uiState)
+                BigPictureScreen(uiState = uiState, onOpenCase = onOpenCase)
             }
         }
     }
@@ -67,12 +69,17 @@ class BigPictureScreenTest {
         isLoading = false,
     )
 
-    private fun eventToday(note: String? = null) =
-        CalendarEvent(
-            caseId = case.id,
-            occurredAt = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-            note = note,
-        )
+    private fun eventToday(
+        id: Long = 1L,
+        note: String? = null,
+        tags: List<String> = emptyList(),
+    ) = CalendarEvent(
+        id = id,
+        caseId = case.id,
+        occurredAt = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+        note = note,
+        tags = tags,
+    )
 
     @Test
     fun emptyState_showsWhenNoCases() {
@@ -148,5 +155,100 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(case.name).assertExists()
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
         composeTestRule.onNodeWithText("felt fine").assertExists()
+    }
+
+    @Test
+    fun dayDetailDialog_showsEventTimestampAndTags() {
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine", tags = listOf("late night")))),
+        )
+
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+
+        // Midnight (today.atStartOfDay) formats as "12:00 AM".
+        composeTestRule.onNodeWithText("12:00 AM").assertExists()
+        // One "late night" node is the filter chip above the grid, the other is the tag pill on
+        // this event row inside the now-open dialog — both coexist since the dialog overlays
+        // rather than replacing the screen.
+        composeTestRule.onAllNodesWithText("late night").assertCountEquals(2)
+    }
+
+    @Test
+    fun dayDetailDialog_eventRowTap_opensCaseDetailAndDismissesDialog() {
+        var openedCaseId: Long? = null
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))),
+            onOpenCase = { openedCaseId = it },
+        )
+        val dayTitle = today.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText("${case.icon} ${case.name}").performClick()
+
+        assert(openedCaseId == case.id) { "expected onOpenCase to be called with ${case.id}, was $openedCaseId" }
+        composeTestRule.onNodeWithText(dayTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun tagFilterChip_deselecting_hidesEventsOfOtherTags() {
+        val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
+        val urgentEvent = eventToday(id = 1L, note = "urgent note", tags = listOf("urgent"))
+        val laterEvent =
+            CalendarEvent(id = 2L, caseId = secondCase.id, occurredAt = urgentEvent.occurredAt, note = "later note", tags = listOf("later"))
+        setContent(uiStateWith(cases = listOf(case, secondCase), events = listOf(urgentEvent, laterEvent)))
+
+        // Deselect while only the filter-chip row is on screen, before opening the dialog risks
+        // matching the tag pill inside it too.
+        composeTestRule.onNodeWithText("later").performClick()
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText("urgent note").assertExists()
+        composeTestRule.onNodeWithText("later note").assertDoesNotExist()
+    }
+
+    @Test
+    fun tagFilterChip_deselecting_hidesUntaggedEventsToo() {
+        val taggedEvent = eventToday(id = 1L, note = "tagged note", tags = listOf("urgent"))
+        val untaggedEvent = eventToday(id = 2L, note = "plain note")
+        setContent(uiStateWith(cases = listOf(case), events = listOf(taggedEvent, untaggedEvent)))
+
+        composeTestRule.onNodeWithText("urgent").performClick()
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText("tagged note").assertDoesNotExist()
+        composeTestRule.onNodeWithText("plain note").assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureDayDetailEmptyState).assertExists()
+    }
+
+    @Test
+    fun weekDetailDialog_showsEventTimestampAndTags() {
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine", tags = listOf("late night")))),
+        )
+
+        // Today's week is the last (bottom-most) rendered week row.
+        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+
+        // Midnight (today.atStartOfDay) formats as "12:00 AM".
+        composeTestRule.onNodeWithText("12:00 AM").assertExists()
+        // One "late night" node is the filter chip above the grid, the other is the tag pill on
+        // this event row inside the now-open dialog.
+        composeTestRule.onAllNodesWithText("late night").assertCountEquals(2)
+    }
+
+    @Test
+    fun weekDetailDialog_eventRowTap_opensCaseDetailAndDismissesDialog() {
+        var openedCaseId: Long? = null
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))),
+            onOpenCase = { openedCaseId = it },
+        )
+        val formattedWeekStart = weekStart.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
+        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+
+        composeTestRule.onNodeWithText("${case.icon} ${case.name}").performClick()
+
+        assert(openedCaseId == case.id) { "expected onOpenCase to be called with ${case.id}, was $openedCaseId" }
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertDoesNotExist()
     }
 }

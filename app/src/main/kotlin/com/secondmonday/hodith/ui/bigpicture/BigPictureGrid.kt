@@ -49,6 +49,7 @@ import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
 import kotlinx.coroutines.launch
@@ -88,13 +89,21 @@ fun BigPictureGrid(
     cases: List<CalendarCase>,
     events: List<CalendarEvent>,
     today: LocalDate,
+    onOpenCase: (Long) -> Unit,
     modifier: Modifier = Modifier,
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     var visibleCaseIds by remember(cases) { mutableStateOf(cases.map { it.id }.toSet()) }
+    val allTagNames = remember(events) { events.flatMap { it.tags }.distinct().sorted() }
+    var visibleTagNames by remember(allTagNames) { mutableStateOf(allTagNames.toSet()) }
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
     var selectedWeek by remember { mutableStateOf<List<LocalDate>?>(null) }
     var showMonthPicker by remember { mutableStateOf(false) }
+
+    val isEventVisible: (CalendarEvent) -> Boolean = { event ->
+        event.caseId in visibleCaseIds &&
+            (visibleTagNames.size == allTagNames.size || event.tags.any { it in visibleTagNames })
+    }
 
     val eventsByDay =
         remember(events, zoneId) {
@@ -113,21 +122,18 @@ fun BigPictureGrid(
 
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
         Column {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                cases.forEach { case ->
-                    CaseFilterChip(
-                        case = case,
-                        selected = case.id in visibleCaseIds,
-                        onToggle = {
-                            visibleCaseIds =
-                                if (case.id in visibleCaseIds) visibleCaseIds - case.id else visibleCaseIds + case.id
-                        },
-                    )
-                }
-            }
+            FilterChipsRow(
+                cases = cases,
+                visibleCaseIds = visibleCaseIds,
+                onToggleCase = { caseId ->
+                    visibleCaseIds = if (caseId in visibleCaseIds) visibleCaseIds - caseId else visibleCaseIds + caseId
+                },
+                allTagNames = allTagNames,
+                visibleTagNames = visibleTagNames,
+                onToggleTag = { tag ->
+                    visibleTagNames = if (tag in visibleTagNames) visibleTagNames - tag else visibleTagNames + tag
+                },
+            )
             WeekdayHeader(modifier = Modifier.padding(horizontal = 12.dp))
             LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
                 items(months) { month ->
@@ -152,7 +158,7 @@ fun BigPictureGrid(
                                     today = today,
                                     eventsByDay = eventsByDay,
                                     caseById = caseById,
-                                    visibleCaseIds = visibleCaseIds,
+                                    isEventVisible = isEventVisible,
                                     onDayTap = { selectedDay = it },
                                     onWeekTap = { selectedWeek = week },
                                 )
@@ -176,8 +182,10 @@ fun BigPictureGrid(
     selectedDay?.let { day ->
         DayDetailDialog(
             day = day,
-            events = eventsByDay[day].orEmpty().filter { it.caseId in visibleCaseIds },
+            events = eventsByDay[day].orEmpty().filter(isEventVisible),
             caseById = caseById,
+            zoneId = zoneId,
+            onOpenCase = onOpenCase,
             onDismiss = { selectedDay = null },
         )
     }
@@ -187,9 +195,41 @@ fun BigPictureGrid(
             today = today,
             eventsByDay = eventsByDay,
             caseById = caseById,
-            visibleCaseIds = visibleCaseIds,
+            isEventVisible = isEventVisible,
+            zoneId = zoneId,
+            onOpenCase = onOpenCase,
             onDismiss = { selectedWeek = null },
         )
+    }
+}
+
+/** Case chips double as a legend and visibility toggle; the tag row below is omitted entirely when no event carries a tag. */
+@Composable
+private fun FilterChipsRow(
+    cases: List<CalendarCase>,
+    visibleCaseIds: Set<Long>,
+    onToggleCase: (Long) -> Unit,
+    allTagNames: List<String>,
+    visibleTagNames: Set<String>,
+    onToggleTag: (String) -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        cases.forEach { case ->
+            CaseFilterChip(case = case, selected = case.id in visibleCaseIds, onToggle = { onToggleCase(case.id) })
+        }
+    }
+    if (allTagNames.isNotEmpty()) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            allTagNames.forEach { tag ->
+                TagFilterChip(tag = tag, selected = tag in visibleTagNames, onToggle = { onToggleTag(tag) })
+            }
+        }
     }
 }
 
@@ -230,7 +270,7 @@ private fun WeekRow(
     today: LocalDate,
     eventsByDay: Map<LocalDate, List<CalendarEvent>>,
     caseById: Map<Long, CalendarCase>,
-    visibleCaseIds: Set<Long>,
+    isEventVisible: (CalendarEvent) -> Boolean,
     onDayTap: (LocalDate) -> Unit,
     onWeekTap: () -> Unit,
 ) {
@@ -268,9 +308,9 @@ private fun WeekRow(
                     icons =
                         eventsByDay[day]
                             .orEmpty()
+                            .filter(isEventVisible)
                             .mapNotNull { caseById[it.caseId] }
-                            .distinctBy { it.id }
-                            .filter { it.id in visibleCaseIds },
+                            .distinctBy { it.id },
                     onClick = { onDayTap(day) },
                     modifier = Modifier.weight(1f),
                 )
@@ -279,11 +319,15 @@ private fun WeekRow(
     }
 }
 
+private val EVENT_TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
+
 @Composable
 private fun DayDetailDialog(
     day: LocalDate,
     events: List<CalendarEvent>,
     caseById: Map<Long, CalendarCase>,
+    zoneId: ZoneId,
+    onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val voice = LocalVoice.current
@@ -297,17 +341,7 @@ private fun DayDetailDialog(
         } else {
             Column {
                 events.forEach { event ->
-                    val case = caseById[event.caseId]
-                    Text(
-                        text = "${case?.icon.orEmpty()} ${case?.name.orEmpty()}",
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Text(
-                        text = event.note?.takeIf { it.isNotBlank() } ?: voice.bigPictureEventNoteEmptyState,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
+                    EventDetailRow(event, caseById[event.caseId], zoneId, onOpenCase, onDismiss, voice)
                 }
             }
         }
@@ -320,7 +354,9 @@ private fun WeekDetailDialog(
     today: LocalDate,
     eventsByDay: Map<LocalDate, List<CalendarEvent>>,
     caseById: Map<Long, CalendarCase>,
-    visibleCaseIds: Set<Long>,
+    isEventVisible: (CalendarEvent) -> Boolean,
+    zoneId: ZoneId,
+    onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val voice = LocalVoice.current
@@ -335,7 +371,7 @@ private fun WeekDetailDialog(
     ) {
         Column {
             validDays.forEach { day ->
-                val dayEvents = eventsByDay[day].orEmpty().filter { it.caseId in visibleCaseIds }
+                val dayEvents = eventsByDay[day].orEmpty().filter(isEventVisible)
                 if (dayEvents.isNotEmpty()) {
                     Text(
                         text = day.format(DateTimeFormatter.ofPattern("EEE d", Locale.US)),
@@ -343,13 +379,62 @@ private fun WeekDetailDialog(
                         modifier = Modifier.padding(top = 6.dp),
                     )
                     dayEvents.forEach { event ->
-                        val case = caseById[event.caseId]
-                        Text("${case?.icon.orEmpty()} ${case?.name.orEmpty()}", style = MaterialTheme.typography.bodyMedium)
+                        EventDetailRow(event, caseById[event.caseId], zoneId, onOpenCase, onDismiss, voice)
                     }
                 }
             }
-            if (validDays.all { eventsByDay[it].orEmpty().none { event -> event.caseId in visibleCaseIds } }) {
+            if (validDays.all { eventsByDay[it].orEmpty().none(isEventVisible) }) {
                 Text(voice.bigPictureWeekDetailEmptyState)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventDetailRow(
+    event: CalendarEvent,
+    case: CalendarCase?,
+    zoneId: ZoneId,
+    onOpenCase: (Long) -> Unit,
+    onDismiss: () -> Unit,
+    voice: Voice,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onDismiss()
+                    onOpenCase(event.caseId)
+                }.padding(vertical = 6.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "${case?.icon.orEmpty()} ${case?.name.orEmpty()}",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text =
+                    Instant
+                        .ofEpochMilli(event.occurredAt)
+                        .atZone(zoneId)
+                        .toLocalTime()
+                        .format(EVENT_TIME_FORMATTER),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = event.note?.takeIf { it.isNotBlank() } ?: voice.bigPictureEventNoteEmptyState,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (event.tags.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier.padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                event.tags.forEach { tag -> TagPill(tag) }
             }
         }
     }
@@ -378,6 +463,44 @@ private fun CaseFilterChip(
         Text(case.icon)
         Text(case.name, style = MaterialTheme.typography.labelSmall, color = content)
     }
+}
+
+@Composable
+private fun TagFilterChip(
+    tag: String,
+    selected: Boolean,
+    onToggle: () -> Unit,
+) {
+    val background = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface
+    val border = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.outlineVariant
+    val content = if (selected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = tag,
+        style = MaterialTheme.typography.labelSmall,
+        color = content,
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(background)
+                .border(1.dp, border, RoundedCornerShape(16.dp))
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+    )
+}
+
+/** Read-only tag badge for event detail rows — no [onToggle], unlike [TagFilterChip]. */
+@Composable
+private fun TagPill(tag: String) {
+    Text(
+        text = tag,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onTertiaryContainer,
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
 }
 
 @Composable
@@ -626,6 +749,7 @@ private fun previewSeedData(): PreviewSeedData {
             null,
             "Leg day",
         )
+    var nextEventId = 1L
     val events =
         generateSequence(earliestMonth) { it.plusMonths(1) }
             .takeWhile { !it.isAfter(currentMonth) }
@@ -633,6 +757,7 @@ private fun previewSeedData(): PreviewSeedData {
                 (1..24).map { day ->
                     val caseIndex = day % cases.size
                     CalendarEvent(
+                        id = nextEventId++,
                         caseId = cases[caseIndex].id,
                         occurredAt =
                             month
@@ -646,6 +771,7 @@ private fun previewSeedData(): PreviewSeedData {
             }.toList() +
             listOf(1L, 2L, 3L, 4L, 5L).map { caseId ->
                 CalendarEvent(
+                    id = nextEventId++,
                     caseId = caseId,
                     occurredAt =
                         currentMonth
@@ -654,6 +780,7 @@ private fun previewSeedData(): PreviewSeedData {
                             .toInstant()
                             .toEpochMilli(),
                     note = notes[(caseId - 1).toInt()],
+                    tags = if (caseId == 1L) listOf("weekend", "late night") else emptyList(),
                 )
             }
     return PreviewSeedData(cases, events, earliestMonth, currentMonth)
@@ -668,6 +795,7 @@ private fun BigPictureGridPreviewContent() {
         cases = seed.cases,
         events = seed.events,
         today = LocalDate.now(),
+        onOpenCase = {},
     )
 }
 

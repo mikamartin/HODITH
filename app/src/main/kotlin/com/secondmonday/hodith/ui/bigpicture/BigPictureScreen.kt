@@ -15,16 +15,18 @@ import com.secondmonday.hodith.viewmodel.BigPictureViewModel
 
 @Composable
 fun BigPictureRoute(
+    onOpenCase: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BigPictureViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    BigPictureScreen(uiState = uiState, modifier = modifier)
+    BigPictureScreen(uiState = uiState, onOpenCase = onOpenCase, modifier = modifier)
 }
 
 @Composable
 fun BigPictureScreen(
     uiState: BigPictureUiState,
+    onOpenCase: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -44,6 +46,7 @@ fun BigPictureScreen(
                     cases = uiState.cases,
                     events = uiState.events,
                     today = uiState.today!!,
+                    onOpenCase = onOpenCase,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

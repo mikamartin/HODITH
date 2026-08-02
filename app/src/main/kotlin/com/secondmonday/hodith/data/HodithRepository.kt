@@ -11,6 +11,8 @@ interface HodithRepository {
 
     fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>>
 
+    fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>>
+
     fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>>
 
     fun observeCase(caseId: Long): Flow<CaseEntity?>

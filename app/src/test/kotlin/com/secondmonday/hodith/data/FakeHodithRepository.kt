@@ -48,6 +48,18 @@ class FakeHodithRepository : HodithRepository {
             }
         }
 
+    override fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>> =
+        combine(cases, events, tags, eventTags) { caseList, eventList, tagList, crossRefs ->
+            caseList.filterNot { it.archived }.sortedBy { it.sortOrder }.map { case ->
+                val eventsWithTags =
+                    eventList.filter { it.caseId == case.id }.map { event ->
+                        val tagIds = crossRefs.filter { it.eventId == event.id }.map { it.tagId }.toSet()
+                        EventWithTags(event, tagList.filter { it.id in tagIds })
+                    }
+                CaseWithEventsAndTags(case, eventsWithTags)
+            }
+        }
+
     override fun observeCase(caseId: Long): Flow<CaseEntity?> = cases.map { list -> list.find { it.id == caseId } }
 
     override suspend fun getCase(caseId: Long): CaseEntity? = cases.value.find { it.id == caseId }
