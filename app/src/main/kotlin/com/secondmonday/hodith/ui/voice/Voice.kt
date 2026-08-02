@@ -39,6 +39,7 @@ interface Voice {
     val caseNameLabel: String
     val caseNameHint: String
     val caseNameRequiredError: String
+    val caseNameDuplicateError: String
     val caseDescriptionLabel: String
     val caseDescriptionHint: String
     val caseIconLabel: String
@@ -479,6 +480,7 @@ object PlainVoice : Voice {
     override val caseNameLabel = "Name"
     override val caseNameHint = "e.g. Kiddo was rude"
     override val caseNameRequiredError = "Name is required."
+    override val caseNameDuplicateError = "A case with this name already exists."
     override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Any more detail worth noting"
     override val caseIconLabel = "Icon"
@@ -920,6 +922,7 @@ object IntenseVoice : Voice {
     override val caseNameLabel = "Name"
     override val caseNameHint = "e.g. Kiddo was rude"
     override val caseNameRequiredError = "It needs a name to be watched."
+    override val caseNameDuplicateError = "Another case already bears this name."
     override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Say more, if the shadows require it"
     override val caseIconLabel = "Icon"
@@ -1359,6 +1362,7 @@ object BrightVoice : Voice {
     override val caseNameLabel = "Name"
     override val caseNameHint = "e.g. Kiddo was rude"
     override val caseNameRequiredError = "Give it a name first!"
+    override val caseNameDuplicateError = "You've already got a case with that name!"
     override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Spill any extra details"
     override val caseIconLabel = "Icon"

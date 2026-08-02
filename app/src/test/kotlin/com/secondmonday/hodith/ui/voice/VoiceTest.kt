@@ -28,6 +28,7 @@ class VoiceTest {
             assertTrue(voice.caseNameLabel.isNotBlank())
             assertTrue(voice.caseNameHint.isNotBlank())
             assertTrue(voice.caseNameRequiredError.isNotBlank())
+            assertTrue(voice.caseNameDuplicateError.isNotBlank())
             assertTrue(voice.caseDescriptionLabel.isNotBlank())
             assertTrue(voice.caseDescriptionHint.isNotBlank())
             assertTrue(voice.caseIconLabel.isNotBlank())

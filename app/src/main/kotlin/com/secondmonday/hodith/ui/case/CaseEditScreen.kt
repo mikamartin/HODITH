@@ -195,8 +195,13 @@ private fun CaseEditForm(
             onValueChange = onNameChange,
             label = { Text(voice.caseNameLabel) },
             placeholder = { Text(voice.caseNameHint) },
-            isError = uiState.showNameError,
-            supportingText = { if (uiState.showNameError) Text(voice.caseNameRequiredError) },
+            isError = uiState.showNameError || uiState.showDuplicateNameError,
+            supportingText = {
+                when {
+                    uiState.showNameError -> Text(voice.caseNameRequiredError)
+                    uiState.showDuplicateNameError -> Text(voice.caseNameDuplicateError)
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         )
 
