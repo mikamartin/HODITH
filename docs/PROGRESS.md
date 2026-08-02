@@ -15,11 +15,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 - [ ] Rework the screen: move About to the top; drop the Theme picker's live preview card in favor of an info icon; add Rate the App and Contact Us actions; add a Developer Mode section; and reorganize the whole screen by app area instead of the current flat list — right now it's hard to make sense of at a glance.
 - [ ] About screen real content (currently wiring-only placeholder copy): version/privacy statement/licenses text, plus a privacy policy hosted on the SecondMonday Studios website and linked from the screen.
 
-## Case Edit
-
-- [ ] Edit Case screen has no delete option — deleting a Case is only reachable from Case Detail's header menu, not from Edit Case itself.
-- [ ] New/Edit Case input fields lack length limits and validation (e.g. duplicate Case names).
-
 ## Insights tab
 
 - [ ] Needs an overall rework — several stat sections' squares (heatmap/rhythm) look visually similar to each other, undermining at-a-glance usefulness.
