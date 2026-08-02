@@ -15,6 +15,54 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/big-picture-polish (Phase 11)
+
+**Scope:** Big Picture follow-ups (PROGRESS.md Phase 11): tapping an event in the day/week detail
+dialogs opens that Case's detail screen; those dialogs now show each event's timestamp and tags;
+tag filter chips sit alongside the existing case filter chips. Data plumbing needed a Big-Picture-only
+Room query (`CaseDao.observeActiveCasesWithEventsAndTags`, nested `@Relation` to `EventWithTags`) so
+`CalendarEvent` could carry `id`/`tags` without adding a join to Home/Archived's shared
+`CaseWithEvents` query. Walked the full working diff against CLEANUP_CHECKLIST.md; `ktlintCheck`,
+`lintDebug`, `test` (all green), and `assembleDebug` run sequentially, clean; `connectedDebugAndroidTest`
+scoped to the touched classes also ran clean on an emulator — 14/14 in
+`com.secondmonday.hodith.ui.bigpicture` (7 pre-existing plus 7 new, including two added after an
+initial pass only covered `DayDetailDialog` and left `WeekDetailDialog`'s shared `EventDetailRow`
+usage unproven) and 2/2 for the new `CaseWithEventsAndTagsTest`, which is also what confirmed the
+nested `@Relation` actually resolves at runtime, not just compiles.
+
+**Found & fixed:**
+- **`BigPictureGrid`'s top-level composable was creeping past ~140 lines** after the tag-filter-row
+  addition — extracted the case-chip and tag-chip `FlowRow`s into a private `FilterChipsRow`
+  composable, grouping the two related filter UIs together and shrinking the parent function back down.
+- **Missing JVM-level coverage for the new tag mapping** — the Room-relation nesting was covered by a
+  new instrumented test, but nothing verified `bigPictureUiState`'s pure mapping from
+  `CaseWithEventsAndTags` to `CalendarEvent.id`/`.tags`. Added a `BigPictureViewModelTest` case seeding
+  `FakeHodithRepository`'s tags/eventTags state directly.
+- **`HODITH_SPEC.md` §9 undersold the day/week detail dialogs and case filter chips** — still described
+  event rows as "(case, note)" with no mention of time/tags/tap-through, and the filter chips paragraph
+  didn't mention the new tag row. Updated both.
+- **`TESTING.md`'s Big Picture rows didn't list the new coverage** — added the tag-nesting DAO query
+  and the new day/week detail dialog behaviors (timestamp/tags display, tap-to-navigate, tag filter
+  hiding untagged events) to the Room DAO and Compose UI — Big Picture rows.
+
+**Deferred:**
+- Considered merging `TagFilterChip` and the new read-only `TagPill` (event-row tag badge) into one
+  shared composable — their pill/clip/background/border modifier chains rhyme closely. Kept them
+  separate: they serve different interaction roles (toggleable filter vs. inline read-only badge) and
+  deliberately differ in size, so a merged `onToggle: (() -> Unit)?` parameter would trade a real
+  distinction for a smaller diff. Revisit if a third variant shows up.
+- `TagFilterChip`'s touch target matches the existing (pre-branch) `CaseFilterChip` sizing, which is
+  already below the 48dp guideline — not a new regression introduced by this branch, but Big Picture's
+  chips as a whole would benefit from a dedicated accessibility pass if that's ever prioritized.
+
+**Docs updated:** HODITH_SPEC.md §9 (Big Picture detail-dialog and filter-chip description),
+TESTING.md (Room DAOs and Compose UI — Big Picture rows), PROGRESS.md (Phase 11 checked off, the
+standalone Housekeeping section folded into Phase 12, five new Phase 12 items added from product-owner
+notes: Edit Case missing a delete action, New/Edit Case input validation, two Insights-tab layout gaps,
+and an Insights-tab usefulness rework).
+
+---
+
 ## feature/share-cards (Phase 10, branch 3 of 3)
 
 **Scope:** Share cards end to end (spec §13, PROGRESS.md Phase 10) — `Voice.kt` copy, pure

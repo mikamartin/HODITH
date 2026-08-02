@@ -103,7 +103,9 @@ fun HodithNavHost(
                     onOpenArchivedCases = { navController.navigate(ARCHIVED_CASES_ROUTE) },
                 )
             }
-            composable(HodithDestination.BIG_PICTURE.route) { BigPictureRoute() }
+            composable(HodithDestination.BIG_PICTURE.route) {
+                BigPictureRoute(onOpenCase = { caseId -> navController.navigate("$CASE_DETAIL_ROUTE/$caseId") })
+            }
             composable(HodithDestination.SETTINGS.route) {
                 SettingsRoute(onOpenAbout = { navController.navigate(ABOUT_ROUTE) })
             }

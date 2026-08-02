@@ -50,7 +50,7 @@ This repo is public on GitHub. Treat every commit as visible to the world from d
 
 ## Source-of-truth docs (`docs/`)
 
-- [PROGRESS.md](docs/PROGRESS.md) — current phase status and build order; check this first in a new session
+- [PROGRESS.md](docs/PROGRESS.md) — outstanding work now that main development is complete; check this first in a new session
 - [HODITH_SPEC.md](docs/HODITH_SPEC.md) — what the app does, data model, screens, future work
 - [TESTING.md](docs/TESTING.md) — test strategy, coverage, deferrals
 - [MANUAL_TEST_PLAN.md](docs/MANUAL_TEST_PLAN.md) — deliberately manual-only journeys *(create from the seed list in TESTING.md when the first widget/notification flow lands)*

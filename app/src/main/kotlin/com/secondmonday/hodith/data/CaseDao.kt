@@ -36,6 +36,10 @@ interface CaseDao {
     fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>>
 
     @Transaction
+    @Query("SELECT * FROM cases WHERE archived = 0 ORDER BY sortOrder")
+    fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>>
+
+    @Transaction
     @Query("SELECT * FROM cases WHERE archived = 1 ORDER BY name COLLATE NOCASE")
     fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>>
 

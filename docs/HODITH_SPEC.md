@@ -170,12 +170,12 @@ A scrollable multi-month calendar grid (day columns × week rows, like a standar
 - Only days up to and including today are ever shown; future days render as blank space.
 - A day cell belongs to exactly one month — the neighbouring month's leading/trailing days that would normally pad out a boundary week are left blank rather than duplicating that date under both months.
 - A day over its icon capacity shows a "+N" overflow badge rather than silently cropping.
-- Tapping a day opens that day's logged events (case, note); a separate small chevron on each week opens a week view listing that week's events with full case names — kept as its own tap target from the day cells.
-- Case filter chips (icon + name, ordered by Home's manual `sortOrder`) sit above the grid, doubling as a legend and a per-case visibility toggle.
+- Tapping a day opens that day's logged events (case, time, note, tags); tapping an event opens that Case's detail screen. A separate small chevron on each week opens a week view listing that week's events the same way — kept as its own tap target from the day cells.
+- Case filter chips (icon + name, ordered by Home's manual `sortOrder`) sit above the grid, doubling as a legend and a per-case visibility toggle. A second row of tag filter chips follows the same pattern — shown only once any event carries a tag — and filters the grid and detail dialogs identically; deselecting any tag also hides untagged events, since they have nothing left to match against.
 - Intensity and duration are not encoded on the grid — a day cell shows icon-only, cross-case co-occurrence; both remain visible in the day/week detail dialogs' event notes and in a case's own stats (§10).
 - Early-days placeholder is two-tier: zero active Cases shows the same empty state as Home; at least one Case but zero events logged anywhere shows a distinct "not enough data yet" placeholder. Below either threshold the grid itself never renders.
 
-*(This replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired after on-device testing showed it didn't read clearly and since deleted outright — see PROGRESS.md for the build/retirement history.)*
+*(This replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired after on-device testing showed it didn't read clearly and since deleted outright — see CLEANUP_LOG.md for the build/retirement history.)*
 
 ### Per-case: dot timeline (primary)
 
