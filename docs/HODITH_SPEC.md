@@ -175,7 +175,7 @@ A scrollable multi-month calendar grid (day columns × week rows, like a standar
 - Intensity and duration are not encoded on the grid — a day cell shows icon-only, cross-case co-occurrence; both remain visible in the day/week detail dialogs' event notes and in a case's own stats (§10).
 - Early-days placeholder is two-tier: zero active Cases shows the same empty state as Home; at least one Case but zero events logged anywhere shows a distinct "not enough data yet" placeholder. Below either threshold the grid itself never renders.
 
-*(This replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired after on-device testing showed it didn't read clearly and since deleted outright — see PROGRESS.md for the build/retirement history.)*
+*(This replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired after on-device testing showed it didn't read clearly and since deleted outright — see CLEANUP_LOG.md for the build/retirement history.)*
 
 ### Per-case: dot timeline (primary)
 
