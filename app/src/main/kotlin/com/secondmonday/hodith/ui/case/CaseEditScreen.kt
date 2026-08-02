@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
@@ -141,7 +141,7 @@ fun CaseEditScreen(
                 actions = {
                     if (uiState.canArchive) {
                         IconButton(onClick = { showArchiveConfirm = true }) {
-                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = voice.archiveCaseDescription)
+                            Icon(Icons.Filled.Delete, contentDescription = voice.archiveCaseDescription)
                         }
                     }
                 },

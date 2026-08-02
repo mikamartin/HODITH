@@ -514,7 +514,8 @@ object PlainVoice : Voice {
     override val archiveCaseDescription = "Archive case"
     override val archiveCaseConfirmTitle = "Archive this case?"
     override val archiveCaseConfirmBody =
-        "It will be hidden from Home and Big Picture, but its data stays intact. You can view and restore it later."
+        "It will be hidden from Home and Big Picture, but its data stays intact. You can restore it, or delete it forever, " +
+            "from Archived Cases."
     override val archiveCaseConfirmAction = "Archive"
     override val archiveCaseCancelAction = "Cancel"
     override val archivedCasesTitle = "Archived cases"
@@ -955,7 +956,8 @@ object IntenseVoice : Voice {
     override val archiveCaseDescription = "Bury this case"
     override val archiveCaseConfirmTitle = "Bury this case?"
     override val archiveCaseConfirmBody =
-        "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed."
+        "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed, " +
+            "or erased forever if you so choose."
     override val archiveCaseConfirmAction = "Bury it"
     override val archiveCaseCancelAction = "Abandon"
     override val archivedCasesTitle = "The buried cases"
@@ -1392,7 +1394,8 @@ object BrightVoice : Voice {
     override val archiveCaseDescription = "Shelve this case"
     override val archiveCaseConfirmTitle = "Shelve this case?"
     override val archiveCaseConfirmBody =
-        "It'll hide from Home and Big Picture, but nothing gets deleted — find it in the archive whenever you want it back."
+        "It'll hide from Home and Big Picture, but nothing's deleted here — find it in the archive to bring it back, " +
+            "or to yeet it forever instead."
     override val archiveCaseConfirmAction = "Shelve it"
     override val archiveCaseCancelAction = "Nah, keep it out"
     override val archivedCasesTitle = "The archive"
