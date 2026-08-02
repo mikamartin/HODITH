@@ -243,18 +243,17 @@ All three Home header phrasings mean the same thing and each one's six words' fi
 
 The social payoff of the app: turning a finished (or in-progress) investigation into something you can drop into a group chat or post as a story. *"I checked: it does NOT always rain on my day off."*
 
-- **Share card** — a rendered image, generated locally (offscreen Compose → bitmap → Android share sheet via FileProvider; no network involved, consistent with §16). Two sizes: **story** (1080×1920, 9:16) and **square** (1080×1080) for feeds and messengers.
-- **Story template** — the card tells the investigation as a short arc, in the active theme's skin and voice:
-  1. *The case* — icon + name ("Case: ☕ Perfect coffee")
-  2. *The hunch* — "I felt this almost never happens"
-  3. *The evidence* — the dot timeline snippet + headline numbers ("14 times in 60 days")
-  4. *The verdict* — the voice-flavoured punchline ("Plot twist: more often than I thought.")
-  Cases without a Hunch get a two-beat version: the case + the evidence.
-- **Templates are theme-based** — Plain renders like a clean report card, Intense like a pulp detective dossier (high-contrast black-and-white, a stamped-crimson accent), Bright like a playful reveal. The template follows the *currently active* theme; switching themes before sharing restyles the card.
+- **Share card** — a rendered image, generated locally (Compose capture → bitmap → Android share sheet via FileProvider; no network involved, consistent with §16). Two formats: **story** (minimum 9:16 portrait shape, matching 1080×1920) and **square** (minimum 1:1, matching 1080×1080) — both content-driven in height, growing taller than their minimum if the selected content needs more room.
+- **Card content**, in order, in the active theme's skin and voice:
+  1. *The case* — icon + name.
+  2. *The top beat* — either **Hunch vs. Reality** (expected-vs-observed rate pair plus a voice-flavoured, impersonal punchline, e.g. "Plot twist: more often than expected.") when the Case has a resolved Hunch and the user has it toggled on — story format only — or a plain **Reality** fallback (event count + days observed) otherwise. Square always gets Reality; there's no independent toggle for it, since the card always needs at least one beat.
+  3. *Insights sections* — a checklist-driven picker across Frequency, Rhythm, Gaps & clusters, Trend, Duration, and Intensity, rendered as faithful mini-copies of the real Insights tab's cards. Duration/Intensity are only offered when the Case tracks them.
+- **Templates are theme-based** — Plain renders like a clean report card, Intense like a bordered dossier with a rotated corner stamp, Bright with a banner header and sticker. The template follows the *currently active* theme; switching themes before sharing restyles the card.
 - **Preview before share, always.** The share flow opens a preview screen where the user can:
-  - pick story vs square,
+  - pick story vs. square,
+  - show/hide the Hunch vs. Reality beat (story only, when applicable),
   - edit the displayed case name (real names can be personal — "Kiddo was rude" might become "Someone was grumpy"),
-  - toggle sections on/off.
+  - toggle Insights sections on/off.
   Notes and tags are **never** included on share cards — they're the most personal data in the app and stay out entirely.
 - Entry point: Share action on the case detail header. Sharing the Big Picture (multiple cases at once) is deliberately excluded — see §17.
 - HODITH branding on the card is a small, unobtrusive footer ("counted with HODITH") — honest attribution, not an ad.
@@ -296,7 +295,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 - **Charting library evaluation** — if custom Compose visuals hit their limit (zoom, very long ranges), evaluate Vico or similar.
 - **Tag-level insights** — verdicts and triggers scoped to a tag ("rude *at dinner*").
 - **Big Picture sharing** — a multi-case share card. Excluded from v1: several case names on one image multiplies the privacy footguns; needs careful anonymisation UX first.
-- **Animated story export** — the four-beat arc as a short video/GIF for stories. Static cards first.
+- **Animated story export** — the share card as a short video/GIF for stories. Static cards first.
 - **Theme/voice mixing** — pair, e.g., goth skin with serious voice, if users ask.
 - **Confirmed-quiet checkpoints** — the check-in "All quiet" answer could be stored, letting verdicts distinguish confirmed silence from unknown silence and raising confidence accordingly. Adds an entity and verdict complexity; revisit after v1 data habits are observed.
 - **Hunch/Trigger relationship** — `AT_LEAST` triggers ("N+ times in a rolling window") and Hunches ("~N times per period", verdict computed over the whole observation window) currently overlap: a user with an active Hunch may re-enter nearly the same numbers to also get notified. They're not actually the same thing (rolling-window burst detection vs. whole-history average), so a naive prefill would misrepresent what the alert means. Options considered: (1) a genuinely new hunch-verdict-based alert kind, evaluated via the verdict engine rather than `TriggerEngine`; (2) prefill `AT_LEAST`'s fields from the active Hunch as a labelled approximation; (3) leave both engines as-is and just surface trigger creation contextually from the Hunch tab instead of a separate entry point. Deliberately left unresolved — revisit once alpha testing shows how people actually use the two features.
