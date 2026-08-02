@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -90,6 +91,7 @@ fun CaseDetailRoute(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
     onOpenTriggers: (Long) -> Unit,
+    onOpenShare: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CaseDetailViewModel = hiltViewModel(),
 ) {
@@ -99,6 +101,7 @@ fun CaseDetailRoute(
         onBack = onBack,
         onEditCase = onEditCase,
         onOpenTriggers = onOpenTriggers,
+        onOpenShare = onOpenShare,
         onDeleteEvent = viewModel::deleteEvent,
         newEventDraft = viewModel::newEventDraft,
         onSaveEvent = viewModel::saveEvent,
@@ -125,6 +128,7 @@ fun CaseDetailScreen(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
     onOpenTriggers: (Long) -> Unit,
+    onOpenShare: (Long) -> Unit,
     onDeleteEvent: (EventEntity) -> Unit,
     newEventDraft: () -> LogDraft,
     onSaveEvent: (LogDraft, EventEntity?, List<TagEntity>) -> Unit,
@@ -157,6 +161,9 @@ fun CaseDetailScreen(
                 },
                 actions = {
                     if (case != null) {
+                        IconButton(onClick = { onOpenShare(case.id) }) {
+                            Icon(Icons.Filled.Share, contentDescription = voice.shareOpenDescription)
+                        }
                         IconButton(onClick = { onOpenTriggers(case.id) }) {
                             Icon(Icons.Filled.Notifications, contentDescription = voice.triggersOpenDescription)
                         }
