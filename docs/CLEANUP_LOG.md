@@ -15,6 +15,84 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/share-cards (Phase 10, branch 3 of 3)
+
+**Scope:** Share cards end to end (spec §13, PROGRESS.md Phase 10) — `Voice.kt` copy, pure
+`shareCardState` assembly, the render pipeline (`FileProvider` + `ComposeShareImageExporter`), a
+`ShareViewModel`, the actual `ShareCardTemplate` composable (per-theme chrome via a new
+`ShareCardSkin`), `SharePreviewScreen`, and nav/Case-Detail-header wiring. Walked the full working
+diff against CLEANUP_CHECKLIST.md; all four DEV_PLAYBOOK.md §3 checks (`ktlintCheck`, `lintDebug`,
+`test` — 349/349 — `assembleDebug`) run sequentially, clean both before and after the fixes below,
+plus `connectedDebugAndroidTest` scoped to the branch's new/touched instrumented classes (32/32,
+API36_Repro emulator) — the very first full-suite attempt overwhelmed that emulator into a pile of
+ANRs and a killed test process after ~30 minutes; a scoped rerun against just the touched classes
+completed cleanly in ~2 minutes, so the crash was the emulator running out of steam on a long
+continuous run, not a product bug.
+
+**Found & fixed:**
+- **Inline string bypassing the Voice layer:** Intense's corner stamp hardcoded `"CASE FILE"`
+  directly in `ShareCardTemplate.kt` instead of going through `Voice` — added
+  `shareIntenseStampLabel` (structural default, like `shareRealityKicker`) and wired it through.
+- **UI-toolkit type leaking into the data and viewmodel layers:** `ShareImageExporter`/
+  `ComposeShareImageExporter` (`data/share/`) and `ShareViewModel.share()` all took Compose's
+  `ImageBitmap` directly. Switched every one to plain `android.graphics.Bitmap` — matching how
+  `SettingsViewModel` already takes `android.net.Uri`, not a Compose type — and moved the
+  `ImageBitmap.asAndroidBitmap()` conversion to the one Composable call site (`SharePreviewRoute`)
+  that actually captured the bitmap.
+- **Single-caller composable not earning its keep:** `LaunchedShareRequests` wrapped one
+  `LaunchedEffect` for exactly one call site; inlined it into `SharePreviewRoute` and switched its
+  key from `viewModel` to `Unit`, matching `SettingsScreen`'s existing one-shot-collection pattern.
+- **Story and Square rendered with identical dimensions** — a real gap the product owner caught
+  visually (asked "what's the difference?") after the screen first landed: only the top beat choice
+  differed, with no shape difference at all. Fixed with per-format `heightIn(min = ...)` (Story ~9:16,
+  Square 1:1, both still content-driven beyond their minimum) plus `weight(1f)` on the inner content
+  Box so short content still pins the footer to the card's bottom instead of leaving it stranded
+  mid-card. The same investigation surfaced a second bug: the `@Preview` functions always built
+  `ShareCardData` with the Hunch-vs-Reality beat regardless of format, contradicting
+  `shareCardState`'s real "Square never gets it" rule — fixed `previewData(format)` to branch the
+  same way the real assembly does, and added a dedicated `ShareCardTemplateTest` regression test.
+- **`HODITH_SPEC.md` §13 had drifted from what was actually built** — still described the dropped
+  fixed 4-beat "evidence" arc and literal 1080×1920/1080×1080 canvases. Rewritten to describe the
+  Hunch vs. Reality/Reality beat choice and the Insights section picker that actually shipped, plus
+  the minimum-shape (not fixed-canvas) sizing; §17's "four-beat arc" cross-reference updated too.
+- **`VoiceTest` predated this branch** — none of the ~20 new share-card `Voice` keys, including the
+  45-branch `sharePunchline`, had coverage. Added exhaustive non-blank assertions for all of them,
+  plus a dedicated regression test asserting `sharePunchline` never uses a first/second-person
+  pronoun across all three voices — turning a conversation-level design rule (the card is read by
+  whoever it's shared with, not the user) into something that can't silently regress on a future edit.
+- **`TESTING.md`'s planned-coverage rows still described the old spec's arc** — updated "Share card
+  assembly"'s unit-coverage row and added a "Compose UI — Share preview" instrumented-coverage row
+  (Story/Square shape difference, checklist/toggle gating).
+- **No `MANUAL_TEST_PLAN.md` section existed for the share flow**, even though `TESTING.md`'s
+  manual-only seed list already named it — added one covering the parts only a real device can prove
+  (actual share-sheet handoff, all three themes through the real pipeline, edited name/section
+  choices landing correctly on the exported image).
+- `PROGRESS.md`'s existing KT-73255 housekeeping note (Kotlin K2 `@ApplicationContext` forward-compat
+  warning) didn't mention `ComposeShareImageExporter.kt`, which now also carries it — updated the list.
+- **Real accessibility gap caught by the instrumented run, not just review:** `ToggleRow` (the
+  section-checklist rows and the Hunch-vs-Reality switch) made only the tiny `Switch` itself
+  clickable — a screen reader would announce it with no indication of what it toggles, since the
+  label `Text` and the `Switch` were never merged into one semantics node. Made the whole row
+  toggleable (`Modifier.toggleable(role = Role.Switch)`, `Switch`'s own `onCheckedChange` set to
+  `null` per Material's guidance for a label+control row) — bigger tap target and a screen reader
+  now gets one merged "Rhythm, Switch, on" node. `SharePreviewScreenTest`'s section-toggle test
+  needed a `testTag` (an `onNodeWithText` match is ambiguous once the same label can also appear in
+  the live card preview above) and a `performScrollTo()` before `performClick()` — the screen is a
+  scrolling `Column` and this project's `junit4.v2` testing API needs the target actually reachable,
+  not just present in the semantics tree.
+
+**Deferred:**
+- The Rhythm mini-section's cells convey their count by shading alone, same as the real
+  `RhythmCard`'s already-tracked gap (PROGRESS.md's Housekeeping section). Since the share card's
+  Rhythm section is deliberately a faithful mini-copy of the real one, it inherits this rather than
+  introducing a new gap — not fixed here; worth revisiting alongside that existing item, not on its own.
+
+**Docs updated:** HODITH_SPEC.md §13 (and a stale §17 cross-reference), PROGRESS.md (Phase 10 branch 3
+entry + the KT-73255 housekeeping note), TESTING.md (planned unit + instrumented coverage tables),
+MANUAL_TEST_PLAN.md (new Share cards section).
+
+---
+
 ## feature/about-screen (Phase 10, branch 2 of 3)
 
 **Scope:** About screen wiring only (spec §14, §16; PROGRESS.md Phase 10) — placeholder copy for

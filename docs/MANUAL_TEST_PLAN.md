@@ -36,6 +36,30 @@ submissions.
      banner without restarting the app.
    - **Grant:** no banner; notifications post as in items 1–7.
 
+## Share cards
+
+The card assembly logic (top-beat selection, section filtering, display-name override) is unit-tested
+(`ShareCardStateTest`) and the preview screen's own gating is instrumented-tested
+(`SharePreviewScreenTest`, not yet run on-device — see TESTING.md's Known environment issues). These
+steps are about the parts only a real device/FileProvider/share-sheet handoff can prove: the actual
+bitmap capture, the system share sheet, and how the image looks once it lands somewhere else.
+
+1. **Share sheet opens with a real image.** From a Case with a handful of logged events, tap the
+   Share icon on Case Detail's header, then tap Share on the preview screen — the system share sheet
+   opens, and picking a target (e.g. a messenger app, or "Save to Photos") produces the actual
+   rendered card image, not a blank/corrupt file.
+2. **Story vs. Square both render correctly end to end.** Toggle between Story and Square on the
+   preview screen — both formats produce a correctly-shaped image through the full capture → share
+   pipeline (not just in the in-app preview).
+3. **All three themes render correctly through the real pipeline.** Switch the app's theme
+   (Settings) between Plain/Intense/Bright, then share from the same Case each time — the captured
+   image matches that theme's skin (Intense's stamp, Bright's banner/sticker), not a stale or
+   default one.
+4. **Edited display name shows up on the shared image.** Type a custom name in the preview screen's
+   name field, then share — the exported image shows the typed name, not the Case's actual name.
+5. **Section checklist choices are reflected in the shared image**, not just the in-app preview —
+   toggle a couple of sections off/on and confirm the exported image matches what was checked.
+
 ## Data & backup
 
 The round-trip logic itself (schema-version rejection, malformed-JSON rejection, all-or-nothing

@@ -1,0 +1,814 @@
+<title>Phase 10 — Share cards (prototype)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --devpanel-bg: #ffffff;
+  --devpanel-fg: #1c2226;
+  --devpanel-muted: #5b6670;
+  --devpanel-border: #dde3e6;
+  --devpanel-accent: #3a6b76;
+  --stage-bg: #eef1f3;
+}
+:root[data-theme="dark"] {
+  --devpanel-bg: #181c1f; --devpanel-fg: #e7ecef; --devpanel-muted: #96a3ab;
+  --devpanel-border: #2a3237; --devpanel-accent: #6fa8b5; --stage-bg: #101315;
+}
+:root[data-theme="light"] {
+  --devpanel-bg: #ffffff; --devpanel-fg: #1c2226; --devpanel-muted: #5b6670;
+  --devpanel-border: #dde3e6; --devpanel-accent: #3a6b76; --stage-bg: #eef1f3;
+}
+
+/* ---- Plain ---- */
+.card[data-skin="plain"] {
+  --bg: #F4F6F8; --on-bg: #1B2126; --surface: #FFFFFF; --on-surface: #1B2126;
+  --surface-variant: #DEE4E7; --on-surface-variant: #5B6670; --surface-high: #E9ECEE;
+  --outline: #D3DAE0; --outline-variant: #E7ECEE;
+  --primary: #3A6B76; --on-primary: #FFFFFF; --primary-container: #C7E8ED; --on-primary-container: #082024;
+  --secondary: #57646C; --on-secondary: #FFFFFF; --secondary-container: #DAE4E9; --on-secondary-container: #141E24;
+  --font-display: 'Inter', system-ui, sans-serif; --font-display-weight: 600; --font-body: 'Inter', system-ui, sans-serif;
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 8px; --radius-xl: 12px;
+}
+.card[data-skin="plain"][data-mode="dark"] {
+  --bg: #14181B; --on-bg: #E7ECEF; --surface: #1C2226; --on-surface: #E7ECEF;
+  --surface-variant: #3A444A; --on-surface-variant: #96A3AB; --surface-high: #232A2E;
+  --outline: #2A3237; --outline-variant: #3A444A;
+  --primary: #6FA8B5; --on-primary: #0B1416; --primary-container: #1F3A40; --on-primary-container: #C7E8ED;
+  --secondary: #B8C4C9; --on-secondary: #283338; --secondary-container: #3F4C51; --on-secondary-container: #D4E0E4;
+}
+
+/* ---- Intense ---- */
+.card[data-skin="intense"] {
+  --bg: #FAFAF8; --on-bg: #141414; --surface: #FFFFFF; --on-surface: #141414;
+  --surface-variant: #E3E3E1; --on-surface-variant: #6B6B6B; --surface-high: #EDEDEB;
+  --outline: #3D3D3D; --outline-variant: #D8D8D6;
+  --primary: #A3132E; --on-primary: #FFFFFF; --primary-container: #FFD9DE; --on-primary-container: #3F0012;
+  --secondary: #5A5A5E; --on-secondary: #FFFFFF; --secondary-container: #E3E3E1; --on-secondary-container: #1C1C1E;
+  --font-display: 'Oswald', 'Arial Narrow', sans-serif; --font-display-weight: 700; --font-body: Georgia, 'Times New Roman', serif;
+  --radius-xs: 0px; --radius-sm: 2px; --radius-md: 2px; --radius-lg: 2px; --radius-xl: 4px;
+}
+.card[data-skin="intense"][data-mode="dark"] {
+  --bg: #0D0D0F; --on-bg: #F2F2F0; --surface: #18181B; --on-surface: #F2F2F0;
+  --surface-variant: #3A3A3E; --on-surface-variant: #9A9A9E; --surface-high: #232326;
+  --outline: #3A3A3E; --outline-variant: #2A2A2D;
+  --primary: #D0324C; --on-primary: #FFFFFF; --primary-container: #5C0A1F; --on-primary-container: #FFD9DE;
+  --secondary: #B8B8BC; --on-secondary: #2A2A2D; --secondary-container: #3F3F43; --on-secondary-container: #EAEAEC;
+}
+
+/* ---- Bright ---- */
+.card[data-skin="bright"] {
+  --bg: #FFF7ED; --on-bg: #2B2118; --surface: #FFFFFF; --on-surface: #2B2118;
+  --surface-variant: #F2E4D4; --on-surface-variant: #8A7A68; --surface-high: #FBEEE0;
+  --outline: #F2DCC4; --outline-variant: #F6E9D9;
+  --primary: #FF6B4A; --on-primary: #FFFFFF; --primary-container: #FFDBCF; --on-primary-container: #3A0900;
+  --secondary: #17B3A3; --on-secondary: #FFFFFF; --secondary-container: #CBF1EB; --on-secondary-container: #00201C;
+  --font-display: 'Baloo 2', 'Comic Sans MS', cursive, sans-serif; --font-display-weight: 700; --font-body: 'Nunito', system-ui, sans-serif;
+  --radius-xs: 12px; --radius-sm: 16px; --radius-md: 20px; --radius-lg: 24px; --radius-xl: 28px;
+}
+.card[data-skin="bright"][data-mode="dark"] {
+  --bg: #2A1E1A; --on-bg: #FFF3E6; --surface: #35271F; --on-surface: #FFF3E6;
+  --surface-variant: #4A372C; --on-surface-variant: #C9AF9C; --surface-high: #403026;
+  --outline: #4A372C; --outline-variant: #5C4736;
+  --primary: #FF8266; --on-primary: #3A0900; --primary-container: #5C2210; --on-primary-container: #FFDBCF;
+  --secondary: #34D6C4; --on-secondary: #00201C; --secondary-container: #0B4A42; --on-secondary-container: #CBF1EB;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--stage-bg);
+  color: var(--devpanel-fg);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, auto);
+  gap: 32px;
+  align-items: start;
+  padding: 32px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+@media (max-width: 980px) {
+  .stage { grid-template-columns: 1fr; }
+}
+
+/* ---------- Dev panel ---------- */
+.devpanel {
+  background: var(--devpanel-bg);
+  border: 1px solid var(--devpanel-border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  position: sticky;
+  top: 32px;
+}
+.devpanel h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; letter-spacing: 0.01em; }
+.devpanel .kicker {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--devpanel-accent); font-weight: 600; margin: 0 0 10px;
+}
+.devpanel p.note { font-size: 13px; line-height: 1.55; color: var(--devpanel-muted); margin: 0 0 20px; }
+.field { margin-bottom: 18px; }
+.field label {
+  display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--devpanel-muted); font-weight: 600; margin-bottom: 8px;
+}
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button {
+  font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 10px;
+  border-radius: 7px; border: 1px solid var(--devpanel-border); background: transparent;
+  color: var(--devpanel-fg); cursor: pointer; line-height: 1.2;
+}
+.seg button:hover { border-color: var(--devpanel-accent); }
+.seg button.is-active { background: var(--devpanel-accent); border-color: var(--devpanel-accent); color: #fff; }
+
+.checklist { display: flex; flex-direction: column; gap: 7px; }
+.checklist label {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500;
+  text-transform: none; letter-spacing: normal; color: var(--devpanel-fg); cursor: pointer;
+}
+.checklist input { accent-color: var(--devpanel-accent); width: 15px; height: 15px; }
+.checklist .hint { font-size: 11px; color: var(--devpanel-muted); margin-top: 2px; font-weight: 400; }
+
+.tabdesc { border-top: 1px solid var(--devpanel-border); padding-top: 16px; margin-top: 4px; }
+.tabdesc h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--devpanel-accent); margin: 0 0 8px; }
+.tabdesc p { font-size: 13px; line-height: 1.6; margin: 0; color: var(--devpanel-fg); }
+.tabdesc p + p { margin-top: 8px; }
+
+/* ---------- Card sections ---------- */
+.format-section { margin-bottom: 40px; }
+.format-section h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--devpanel-muted); margin: 0 0 16px; font-weight: 700;
+}
+.card-row { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+.card-frame { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.card-frame .card-label { font-size: 12px; font-weight: 600; color: var(--devpanel-muted); }
+
+/* Card length is NOT fixed — min-height only, so it grows/shrinks with whatever beats/sections
+   are selected (spec decision: card length adjusts to content, not a rigid 1920/1080px canvas). */
+.card {
+  background: var(--bg); color: var(--on-bg); font-family: var(--font-body);
+  border-radius: 14px; overflow: hidden; position: relative;
+  box-shadow: 0 16px 40px -16px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.12);
+  display: flex; flex-direction: column;
+}
+.card[data-format="story"] { width: 270px; min-height: 480px; }
+.card[data-format="square"] { width: 270px; min-height: 270px; }
+
+.card-inner { flex: 1; display: flex; flex-direction: column; padding: 20px 18px 14px; }
+.beat { display: flex; flex-direction: column; }
+.beat + .beat { margin-top: 13px; }
+
+.beat-kicker {
+  font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 700;
+  opacity: 0.5; margin: 0 0 5px;
+}
+
+.beat-case { display: flex; align-items: center; gap: 8px; }
+.beat-case .icon { font-size: 22px; line-height: 1; }
+.beat-case .name { font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 15px; }
+
+/* ---- Hunch vs. Reality: expected/observed rate + punchline, one unit ---- */
+.hv-row { display: flex; align-items: center; gap: 8px; }
+.hv-stat { flex: 1; min-width: 0; text-align: center; }
+.hv-stat .hv-value {
+  display: block; font-family: var(--font-display); font-weight: var(--font-display-weight);
+  font-size: 16px; white-space: nowrap;
+}
+.hv-stat .hv-label { display: block; font-size: 9px; opacity: 0.65; margin-top: 2px; }
+.hv-arrow { font-size: 14px; opacity: 0.55; flex: none; padding-top: 2px; }
+.beat-hunchreality .punchline {
+  font-family: var(--font-display); font-weight: var(--font-display-weight);
+  font-size: 14.5px; line-height: 1.35; margin: 10px 0 0; color: var(--primary);
+}
+
+/* ---- Sections beat: each one an InsightsCard-equivalent (InsightsTab.kt line ~135:
+   Card + 16dp padding + 8dp vertical spacing) — same chrome as the real Insights tab, mini-scaled,
+   not an invented chip design. ---- */
+.beat-sections { gap: 8px; display: flex; flex-direction: column; }
+.insight-card {
+  background: var(--surface); color: var(--on-surface, var(--on-bg));
+  border: 1px solid var(--outline-variant); border-radius: var(--radius-md);
+  padding: 9px 10px; display: flex; flex-direction: column; gap: 5px;
+}
+.insight-title {
+  font-family: var(--font-display); font-weight: var(--font-display-weight);
+  font-size: 10.5px; margin: 0;
+}
+.insight-subtitle { font-size: 8px; opacity: 0.6; margin: -3px 0 1px; }
+
+/* Frequency: bar row with per-bar counts + a unit subtitle, mirrors FrequencyCard */
+.insight-freq-bars { display: flex; align-items: flex-end; gap: 4px; height: 30px; }
+.insight-freq-bars .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.insight-freq-bars .count { font-size: 6.5px; opacity: 0.7; margin-bottom: 1px; }
+.insight-freq-bars .bar { width: 100%; background: var(--primary); border-radius: var(--radius-xs) var(--radius-xs) 0 0; }
+
+/* Rhythm: 7-day x 4-time-of-day grid WITH its day/time legend, mirrors RhythmCard exactly
+   (RhythmCard always shows day-of-week column headers + time-of-day row labels — the grid alone,
+   with no legend, is illegible). Fixed small cell size, NOT 1fr. */
+.insight-rhythmgrid {
+  display: grid; grid-template-columns: 18px repeat(7, 13px); grid-auto-rows: 13px; gap: 2px; align-items: center;
+}
+.insight-rhythmgrid .corner { }
+.insight-rhythmgrid .daylabel { font-size: 6.5px; opacity: 0.6; text-align: center; }
+.insight-rhythmgrid .timelabel { font-size: 6px; opacity: 0.6; text-align: right; padding-right: 2px; white-space: nowrap; }
+.insight-rhythmgrid .cell { width: 13px; height: 13px; border-radius: var(--radius-xs); background: var(--primary); }
+.insight-rhythmgrid .cell.empty { background: var(--surface-variant); }
+.insight-rhythmgrid .cell.l1 { opacity: 0.3; }
+.insight-rhythmgrid .cell.l4 { opacity: 0.5; }
+.insight-rhythmgrid .cell.l7 { opacity: 0.75; }
+.insight-rhythmgrid .cell.l10 { opacity: 1; }
+
+/* Gaps / Duration / Intensity-average: label-left/value-right StatRow, mirrors StatRow (InsightsTab.kt line ~580) */
+.insight-statrow { display: flex; justify-content: space-between; font-size: 10px; }
+.insight-statrow .label { color: var(--on-surface-variant, var(--on-bg)); opacity: 0.85; }
+
+/* Trend: arrow + full sentence, mirrors TrendCard */
+.insight-trend-row { display: flex; align-items: flex-start; gap: 6px; }
+.insight-trend-row .arrow { font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 13px; color: var(--primary); line-height: 1.2; }
+.insight-trend-row .sentence { font-size: 9.5px; line-height: 1.35; }
+
+/* Intensity: 5 shaded cells (levels 1-5), mirrors IntensityCard's row of squares */
+.insight-intensity-cells { display: flex; gap: 4px; }
+.insight-intensity-cells .cell {
+  flex: 1; aspect-ratio: 1; border-radius: var(--radius-xs); background: var(--primary);
+  display: flex; align-items: center; justify-content: center; font-size: 8px; color: var(--on-primary);
+}
+.insight-intensity-cells .cell.l1 { background: var(--surface-variant); color: var(--on-surface-variant, var(--on-bg)); opacity: 0.7; }
+.insight-intensity-cells .cell.l4 { opacity: 0.55; }
+.insight-intensity-cells .cell.l7 { opacity: 0.8; }
+.insight-intensity-cells .cell.l10 { opacity: 1; }
+
+.card-footer {
+  flex: none; padding: 10px 18px 14px; font-size: 9.5px; letter-spacing: 0.04em;
+  color: var(--on-surface-variant, var(--on-bg)); opacity: 0.55; text-transform: uppercase;
+}
+
+/* Square: tighter spacing */
+.card[data-format="square"] .card-inner { padding: 16px 16px 10px; }
+.card[data-format="square"] .beat + .beat { margin-top: 10px; }
+.card[data-format="square"] .insight-card { padding: 7px 8px; }
+
+/* ---- Plain: clean report card ---- */
+.card[data-skin="plain"] .card-inner { border-top: 3px solid var(--primary); padding-top: 17px; }
+.card[data-skin="plain"] .beat-hunchreality, .card[data-skin="plain"] .beat-reality { padding-top: 13px; border-top: 1px solid var(--outline-variant); }
+
+/* ---- Intense: pulp dossier ---- */
+.card[data-skin="intense"] { border: 2px solid var(--on-bg); }
+.card[data-skin="intense"] .card-inner { position: relative; }
+.card[data-skin="intense"] .beat-kicker { opacity: 0.65; }
+.card[data-skin="intense"] .beat-case .name { text-transform: uppercase; letter-spacing: 0.02em; }
+.card[data-skin="intense"] .hv-value, .card[data-skin="intense"] .hv-label { text-transform: uppercase; }
+.card[data-skin="intense"] .insight-card { border-width: 1px; }
+.card[data-skin="intense"] .insight-title { text-transform: uppercase; }
+.card[data-skin="intense"] .insight-rhythmgrid .cell, .card[data-skin="intense"] .insight-intensity-cells .cell { border-radius: 0; }
+.card[data-skin="intense"] .insight-freq-bars .bar { border-radius: 0; }
+.card[data-skin="intense"] .stamp {
+  position: absolute; top: 14px; right: -6px; border: 2px solid var(--primary); color: var(--primary);
+  font-family: var(--font-display); font-weight: 700; font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; padding: 3px 8px; transform: rotate(9deg); opacity: 0.85;
+  border-radius: 2px; pointer-events: none;
+}
+.card[data-skin="intense"] .card-footer { border-top: 1px solid var(--outline-variant); padding-top: 8px; }
+
+/* ---- Bright: playful reveal ---- */
+.card[data-skin="bright"] .beat-case { background: var(--secondary-container); color: var(--on-secondary-container); margin: -20px -18px 0; padding: 16px 18px 12px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.card[data-format="square"][data-skin="bright"] .beat-case { margin: -16px -16px 0; padding: 14px 16px 10px; }
+.card[data-skin="bright"] .beat-case + .beat { margin-top: 15px; }
+.card[data-skin="bright"] .hv-stat { background: var(--surface-variant); border-radius: var(--radius-sm); padding: 6px 4px; }
+.card[data-skin="bright"] .hv-stat:last-child { background: var(--primary-container); color: var(--on-primary-container); }
+.card[data-skin="bright"] .sticker {
+  position: absolute; top: 10px; right: 10px; font-size: 20px; transform: rotate(12deg);
+}
+
+</style>
+
+<div class="stage" id="stage">
+  <aside class="devpanel">
+    <p class="kicker">Phase 10 planning &middot; not shipped copy</p>
+    <h1>Share cards &mdash; template prototype</h1>
+    <p class="note">Same theme tokens (colors/shapes) as the Case Detail and Triggers prototypes, applied to spec &sect;13's story/square share card. Fonts approximated, not embedded. All copy here is illustrative, reacting material for the visual direction &mdash; not final Voice-layer strings (those get written in Kotlin once this pass is signed off).</p>
+
+    <div class="field">
+      <label>Hunch vs. Reality beat (story only)</label>
+      <div class="seg" id="hunch-switch">
+        <button data-hunch="with" class="is-active">Shown</button>
+        <button data-hunch="without">Hidden</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Insights sections to include</label>
+      <div class="checklist" id="section-checklist">
+        <label><input type="checkbox" data-section="frequency"> Frequency over time</label>
+        <label><input type="checkbox" data-section="rhythm" checked> Rhythm</label>
+        <label><input type="checkbox" data-section="gaps"> Gaps &amp; clusters</label>
+        <label><input type="checkbox" data-section="trend" checked> Trend</label>
+        <label><input type="checkbox" data-section="duration"> Duration*</label>
+        <label><input type="checkbox" data-section="intensity" checked> Intensity*</label>
+      </div>
+      <p class="hint">*Duration/Intensity only offered for Cases that track them &mdash; same conditional as the in-app Insights tab.</p>
+    </div>
+
+    <div class="field">
+      <label>Appearance</label>
+      <div class="seg" id="mode-switch">
+        <button data-mode="light">Light</button>
+        <button data-mode="dark">Dark</button>
+        <button data-mode="auto" class="is-active">Auto</button>
+      </div>
+    </div>
+
+    <div class="tabdesc">
+      <h2>What changed from the last pass</h2>
+      <p><strong>Rhythm's cells were invisible</strong> &mdash; a real bug: adding the day/time legend meant vertically centering label text next to the grid, which required <code>align-items: center</code> on the grid container. Grid items default to <em>stretch</em>, which is what made the empty <code>.cell</code> divs visible as squares before; switching to <code>center</code> let them collapse to zero height since they have no content of their own. Fixed by giving cells an explicit size instead of relying on stretch.</p>
+      <p><strong>Reality section brought back</strong> &mdash; whenever Hunch vs. Reality isn't shown (always on Square, and on Story when there's no Hunch or it's toggled off), a compact <strong>Reality</strong> section now shows total events and observation length ("14 events" / "60 days observed") &mdash; the two numbers the old Evidence beat carried, restored as a fallback rather than as its own permanent beat. This also resolves the "empty card" gap flagged last pass (no-Hunch Story / Square with nothing else selected): there's always at least this.</p>
+      <p>Unchanged from last pass: Rhythm's day-of-week/time-of-day legend, Frequency's "by week" unit subtitle, Insights sections reusing the real <code>InsightsCard</code> chrome and per-section layouts, and content-driven card length (min-height only, no clipping).</p>
+    </div>
+  </aside>
+
+  <div>
+    <div class="format-section">
+      <h2>Story &middot; 1080 wide, height follows content (min 1920)</h2>
+      <div class="card-row" id="story-row">
+        <div class="card-frame">
+          <div class="card" data-format="story" data-skin="plain">
+            <div class="card-inner">
+              <div class="beat beat-case"><span class="icon">&#9749;</span><span class="name">Perfect coffee</span></div>
+              <div class="beat beat-reality" data-beat="reality" style="display:none;">
+                <p class="beat-kicker">Reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">14</span><span class="hv-label">events</span></div>
+                  <div class="hv-stat"><span class="hv-value">60</span><span class="hv-label">days observed</span></div>
+                </div>
+              </div>
+              <div class="beat beat-hunchreality" data-beat="hunch">
+                <p class="beat-kicker">Hunch vs. reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">~2/mo</span><span class="hv-label">expected</span></div>
+                  <div class="hv-arrow">&rarr;</div>
+                  <div class="hv-stat"><span class="hv-value">7/mo</span><span class="hv-label">observed</span></div>
+                </div>
+                <p class="punchline">Plot twist: more often than I thought.</p>
+              </div>
+              <div class="beat beat-sections">
+                <div class="insight-card" data-section="frequency" style="display:none;">
+                  <p class="insight-title">Frequency over time</p>
+                  <p class="insight-subtitle">By week</p>
+                  <div class="insight-freq-bars">
+                    <div class="bar-col"><span class="count">3</span><div class="bar" style="height:33%;"></div></div>
+                    <div class="bar-col"><span class="count">5</span><div class="bar" style="height:56%;"></div></div>
+                    <div class="bar-col"><span class="count">2</span><div class="bar" style="height:22%;"></div></div>
+                    <div class="bar-col"><span class="count">7</span><div class="bar" style="height:78%;"></div></div>
+                    <div class="bar-col"><span class="count">4</span><div class="bar" style="height:44%;"></div></div>
+                    <div class="bar-col"><span class="count">9</span><div class="bar" style="height:100%;"></div></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="rhythm">
+                  <p class="insight-title">Rhythm</p>
+                  <div class="insight-rhythmgrid">
+                    <div class="corner"></div><div class="daylabel">M</div><div class="daylabel">T</div><div class="daylabel">W</div><div class="daylabel">T</div><div class="daylabel">F</div><div class="daylabel">S</div><div class="daylabel">S</div>
+                    <div class="timelabel">Mor</div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div>
+                    <div class="timelabel">Aft</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Eve</div><div class="cell l4"></div><div class="cell l10"></div><div class="cell l7"></div><div class="cell l7"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Nig</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div><div class="cell empty"></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="gaps" style="display:none;">
+                  <p class="insight-title">Gaps &amp; clusters</p>
+                  <div class="insight-statrow"><span class="label">Longest gap</span><span class="value">9 days</span></div>
+                  <div class="insight-statrow"><span class="label">Current gap</span><span class="value">3 days</span></div>
+                  <div class="insight-statrow"><span class="label">Average gap</span><span class="value">5.2 days</span></div>
+                </div>
+                <div class="insight-card" data-section="trend">
+                  <p class="insight-title">Trend</p>
+                  <div class="insight-trend-row">
+                    <span class="arrow">&#8593;</span>
+                    <span class="sentence">8 events in the last 30 days &mdash; up from 5 the 30 days before.</span>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="duration" style="display:none;">
+                  <p class="insight-title">Duration</p>
+                  <div class="insight-statrow"><span class="label">Average</span><span class="value">18 min</span></div>
+                  <div class="insight-statrow"><span class="label">Longest</span><span class="value">45 min</span></div>
+                  <div class="insight-statrow"><span class="label">Total</span><span class="value">4h 12m</span></div>
+                </div>
+                <div class="insight-card" data-section="intensity">
+                  <p class="insight-title">Intensity</p>
+                  <div class="insight-statrow"><span class="label">Average intensity</span><span class="value">3.2</span></div>
+                  <div class="insight-intensity-cells">
+                    <div class="cell l1">1</div><div class="cell l4">2</div><div class="cell l10">3</div><div class="cell l7">4</div><div class="cell l1">5</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">counted with HODITH</div>
+          </div>
+          <div class="card-label">Plain</div>
+        </div>
+
+        <div class="card-frame">
+          <div class="card" data-format="story" data-skin="intense">
+            <div class="card-inner">
+              <div class="stamp">Case&nbsp;File</div>
+              <div class="beat beat-case"><span class="icon">&#9749;</span><span class="name">Perfect Coffee</span></div>
+              <div class="beat beat-reality" data-beat="reality" style="display:none;">
+                <p class="beat-kicker">Reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">14</span><span class="hv-label">events</span></div>
+                  <div class="hv-stat"><span class="hv-value">60</span><span class="hv-label">days observed</span></div>
+                </div>
+              </div>
+              <div class="beat beat-hunchreality" data-beat="hunch">
+                <p class="beat-kicker">Hunch vs. reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">~2/MO</span><span class="hv-label">claimed</span></div>
+                  <div class="hv-arrow">&rarr;</div>
+                  <div class="hv-stat"><span class="hv-value">7/MO</span><span class="hv-label">confirmed</span></div>
+                </div>
+                <p class="punchline">The evidence says otherwise. Far more than suspected.</p>
+              </div>
+              <div class="beat beat-sections">
+                <div class="insight-card" data-section="frequency" style="display:none;">
+                  <p class="insight-title">Frequency over time</p>
+                  <p class="insight-subtitle">By week</p>
+                  <div class="insight-freq-bars">
+                    <div class="bar-col"><span class="count">3</span><div class="bar" style="height:33%;"></div></div>
+                    <div class="bar-col"><span class="count">5</span><div class="bar" style="height:56%;"></div></div>
+                    <div class="bar-col"><span class="count">2</span><div class="bar" style="height:22%;"></div></div>
+                    <div class="bar-col"><span class="count">7</span><div class="bar" style="height:78%;"></div></div>
+                    <div class="bar-col"><span class="count">4</span><div class="bar" style="height:44%;"></div></div>
+                    <div class="bar-col"><span class="count">9</span><div class="bar" style="height:100%;"></div></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="rhythm">
+                  <p class="insight-title">Rhythm</p>
+                  <div class="insight-rhythmgrid">
+                    <div class="corner"></div><div class="daylabel">M</div><div class="daylabel">T</div><div class="daylabel">W</div><div class="daylabel">T</div><div class="daylabel">F</div><div class="daylabel">S</div><div class="daylabel">S</div>
+                    <div class="timelabel">Mor</div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div>
+                    <div class="timelabel">Aft</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Eve</div><div class="cell l4"></div><div class="cell l10"></div><div class="cell l7"></div><div class="cell l7"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Nig</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div><div class="cell empty"></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="gaps" style="display:none;">
+                  <p class="insight-title">Gaps &amp; clusters</p>
+                  <div class="insight-statrow"><span class="label">Longest gap</span><span class="value">9 days</span></div>
+                  <div class="insight-statrow"><span class="label">Current gap</span><span class="value">3 days</span></div>
+                  <div class="insight-statrow"><span class="label">Average gap</span><span class="value">5.2 days</span></div>
+                </div>
+                <div class="insight-card" data-section="trend">
+                  <p class="insight-title">Trend</p>
+                  <div class="insight-trend-row">
+                    <span class="arrow">&#8593;</span>
+                    <span class="sentence">8 events in the last 30 days &mdash; up from 5 the 30 days before.</span>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="duration" style="display:none;">
+                  <p class="insight-title">Duration</p>
+                  <div class="insight-statrow"><span class="label">Average</span><span class="value">18 min</span></div>
+                  <div class="insight-statrow"><span class="label">Longest</span><span class="value">45 min</span></div>
+                  <div class="insight-statrow"><span class="label">Total</span><span class="value">4h 12m</span></div>
+                </div>
+                <div class="insight-card" data-section="intensity">
+                  <p class="insight-title">Intensity</p>
+                  <div class="insight-statrow"><span class="label">Average intensity</span><span class="value">3.2</span></div>
+                  <div class="insight-intensity-cells">
+                    <div class="cell l1">1</div><div class="cell l4">2</div><div class="cell l10">3</div><div class="cell l7">4</div><div class="cell l1">5</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">counted with HODITH</div>
+          </div>
+          <div class="card-label">Intense</div>
+        </div>
+
+        <div class="card-frame">
+          <div class="card" data-format="story" data-skin="bright">
+            <div class="card-inner">
+              <div class="sticker">&#10024;</div>
+              <div class="beat beat-case"><span class="icon">&#9749;</span><span class="name">Perfect coffee</span></div>
+              <div class="beat beat-reality" data-beat="reality" style="display:none;">
+                <p class="beat-kicker">Reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">14</span><span class="hv-label">events</span></div>
+                  <div class="hv-stat"><span class="hv-value">60</span><span class="hv-label">days observed</span></div>
+                </div>
+              </div>
+              <div class="beat beat-hunchreality" data-beat="hunch">
+                <p class="beat-kicker">Hunch vs. reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">~2/mo</span><span class="hv-label">I guessed</span></div>
+                  <div class="hv-arrow">&rarr;</div>
+                  <div class="hv-stat"><span class="hv-value">7/mo</span><span class="hv-label">turns out</span></div>
+                </div>
+                <p class="punchline">Surprise! Way more than I guessed!</p>
+              </div>
+              <div class="beat beat-sections">
+                <div class="insight-card" data-section="frequency" style="display:none;">
+                  <p class="insight-title">Frequency over time</p>
+                  <p class="insight-subtitle">By week</p>
+                  <div class="insight-freq-bars">
+                    <div class="bar-col"><span class="count">3</span><div class="bar" style="height:33%;"></div></div>
+                    <div class="bar-col"><span class="count">5</span><div class="bar" style="height:56%;"></div></div>
+                    <div class="bar-col"><span class="count">2</span><div class="bar" style="height:22%;"></div></div>
+                    <div class="bar-col"><span class="count">7</span><div class="bar" style="height:78%;"></div></div>
+                    <div class="bar-col"><span class="count">4</span><div class="bar" style="height:44%;"></div></div>
+                    <div class="bar-col"><span class="count">9</span><div class="bar" style="height:100%;"></div></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="rhythm">
+                  <p class="insight-title">Rhythm</p>
+                  <div class="insight-rhythmgrid">
+                    <div class="corner"></div><div class="daylabel">M</div><div class="daylabel">T</div><div class="daylabel">W</div><div class="daylabel">T</div><div class="daylabel">F</div><div class="daylabel">S</div><div class="daylabel">S</div>
+                    <div class="timelabel">Mor</div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div>
+                    <div class="timelabel">Aft</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Eve</div><div class="cell l4"></div><div class="cell l10"></div><div class="cell l7"></div><div class="cell l7"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Nig</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div><div class="cell empty"></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="gaps" style="display:none;">
+                  <p class="insight-title">Gaps &amp; clusters</p>
+                  <div class="insight-statrow"><span class="label">Longest gap</span><span class="value">9 days</span></div>
+                  <div class="insight-statrow"><span class="label">Current gap</span><span class="value">3 days</span></div>
+                  <div class="insight-statrow"><span class="label">Average gap</span><span class="value">5.2 days</span></div>
+                </div>
+                <div class="insight-card" data-section="trend">
+                  <p class="insight-title">Trend</p>
+                  <div class="insight-trend-row">
+                    <span class="arrow">&#8593;</span>
+                    <span class="sentence">8 events in the last 30 days &mdash; up from 5 the 30 days before.</span>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="duration" style="display:none;">
+                  <p class="insight-title">Duration</p>
+                  <div class="insight-statrow"><span class="label">Average</span><span class="value">18 min</span></div>
+                  <div class="insight-statrow"><span class="label">Longest</span><span class="value">45 min</span></div>
+                  <div class="insight-statrow"><span class="label">Total</span><span class="value">4h 12m</span></div>
+                </div>
+                <div class="insight-card" data-section="intensity">
+                  <p class="insight-title">Intensity</p>
+                  <div class="insight-statrow"><span class="label">Average intensity</span><span class="value">3.2</span></div>
+                  <div class="insight-intensity-cells">
+                    <div class="cell l1">1</div><div class="cell l4">2</div><div class="cell l10">3</div><div class="cell l7">4</div><div class="cell l1">5</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">counted with HODITH</div>
+          </div>
+          <div class="card-label">Bright</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="format-section">
+      <h2>Square &middot; 1080 wide, height follows content (min 1080) &mdash; no Hunch vs. Reality</h2>
+      <div class="card-row">
+        <div class="card-frame">
+          <div class="card" data-format="square" data-skin="plain">
+            <div class="card-inner">
+              <div class="beat beat-case"><span class="icon">&#9749;</span><span class="name">Perfect coffee</span></div>
+              <div class="beat beat-reality">
+                <p class="beat-kicker">Reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">14</span><span class="hv-label">events</span></div>
+                  <div class="hv-stat"><span class="hv-value">60</span><span class="hv-label">days observed</span></div>
+                </div>
+              </div>
+              <div class="beat beat-sections">
+                <div class="insight-card" data-section="frequency" style="display:none;">
+                  <p class="insight-title">Frequency over time</p>
+                  <p class="insight-subtitle">By week</p>
+                  <div class="insight-freq-bars">
+                    <div class="bar-col"><span class="count">3</span><div class="bar" style="height:33%;"></div></div>
+                    <div class="bar-col"><span class="count">5</span><div class="bar" style="height:56%;"></div></div>
+                    <div class="bar-col"><span class="count">2</span><div class="bar" style="height:22%;"></div></div>
+                    <div class="bar-col"><span class="count">7</span><div class="bar" style="height:78%;"></div></div>
+                    <div class="bar-col"><span class="count">4</span><div class="bar" style="height:44%;"></div></div>
+                    <div class="bar-col"><span class="count">9</span><div class="bar" style="height:100%;"></div></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="rhythm">
+                  <p class="insight-title">Rhythm</p>
+                  <div class="insight-rhythmgrid">
+                    <div class="corner"></div><div class="daylabel">M</div><div class="daylabel">T</div><div class="daylabel">W</div><div class="daylabel">T</div><div class="daylabel">F</div><div class="daylabel">S</div><div class="daylabel">S</div>
+                    <div class="timelabel">Mor</div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div>
+                    <div class="timelabel">Aft</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Eve</div><div class="cell l4"></div><div class="cell l10"></div><div class="cell l7"></div><div class="cell l7"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Nig</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div><div class="cell empty"></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="gaps" style="display:none;">
+                  <p class="insight-title">Gaps &amp; clusters</p>
+                  <div class="insight-statrow"><span class="label">Longest gap</span><span class="value">9 days</span></div>
+                  <div class="insight-statrow"><span class="label">Current gap</span><span class="value">3 days</span></div>
+                  <div class="insight-statrow"><span class="label">Average gap</span><span class="value">5.2 days</span></div>
+                </div>
+                <div class="insight-card" data-section="trend">
+                  <p class="insight-title">Trend</p>
+                  <div class="insight-trend-row">
+                    <span class="arrow">&#8593;</span>
+                    <span class="sentence">8 events in the last 30 days &mdash; up from 5 the 30 days before.</span>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="duration" style="display:none;">
+                  <p class="insight-title">Duration</p>
+                  <div class="insight-statrow"><span class="label">Average</span><span class="value">18 min</span></div>
+                  <div class="insight-statrow"><span class="label">Longest</span><span class="value">45 min</span></div>
+                  <div class="insight-statrow"><span class="label">Total</span><span class="value">4h 12m</span></div>
+                </div>
+                <div class="insight-card" data-section="intensity">
+                  <p class="insight-title">Intensity</p>
+                  <div class="insight-statrow"><span class="label">Average intensity</span><span class="value">3.2</span></div>
+                  <div class="insight-intensity-cells">
+                    <div class="cell l1">1</div><div class="cell l4">2</div><div class="cell l10">3</div><div class="cell l7">4</div><div class="cell l1">5</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">counted with HODITH</div>
+          </div>
+          <div class="card-label">Plain</div>
+        </div>
+
+        <div class="card-frame">
+          <div class="card" data-format="square" data-skin="intense">
+            <div class="card-inner">
+              <div class="stamp">Case&nbsp;File</div>
+              <div class="beat beat-case"><span class="icon">&#9749;</span><span class="name">Perfect Coffee</span></div>
+              <div class="beat beat-reality">
+                <p class="beat-kicker">Reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">14</span><span class="hv-label">events</span></div>
+                  <div class="hv-stat"><span class="hv-value">60</span><span class="hv-label">days observed</span></div>
+                </div>
+              </div>
+              <div class="beat beat-sections">
+                <div class="insight-card" data-section="frequency" style="display:none;">
+                  <p class="insight-title">Frequency over time</p>
+                  <p class="insight-subtitle">By week</p>
+                  <div class="insight-freq-bars">
+                    <div class="bar-col"><span class="count">3</span><div class="bar" style="height:33%;"></div></div>
+                    <div class="bar-col"><span class="count">5</span><div class="bar" style="height:56%;"></div></div>
+                    <div class="bar-col"><span class="count">2</span><div class="bar" style="height:22%;"></div></div>
+                    <div class="bar-col"><span class="count">7</span><div class="bar" style="height:78%;"></div></div>
+                    <div class="bar-col"><span class="count">4</span><div class="bar" style="height:44%;"></div></div>
+                    <div class="bar-col"><span class="count">9</span><div class="bar" style="height:100%;"></div></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="rhythm">
+                  <p class="insight-title">Rhythm</p>
+                  <div class="insight-rhythmgrid">
+                    <div class="corner"></div><div class="daylabel">M</div><div class="daylabel">T</div><div class="daylabel">W</div><div class="daylabel">T</div><div class="daylabel">F</div><div class="daylabel">S</div><div class="daylabel">S</div>
+                    <div class="timelabel">Mor</div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div>
+                    <div class="timelabel">Aft</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Eve</div><div class="cell l4"></div><div class="cell l10"></div><div class="cell l7"></div><div class="cell l7"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Nig</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div><div class="cell empty"></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="gaps" style="display:none;">
+                  <p class="insight-title">Gaps &amp; clusters</p>
+                  <div class="insight-statrow"><span class="label">Longest gap</span><span class="value">9 days</span></div>
+                  <div class="insight-statrow"><span class="label">Current gap</span><span class="value">3 days</span></div>
+                  <div class="insight-statrow"><span class="label">Average gap</span><span class="value">5.2 days</span></div>
+                </div>
+                <div class="insight-card" data-section="trend">
+                  <p class="insight-title">Trend</p>
+                  <div class="insight-trend-row">
+                    <span class="arrow">&#8593;</span>
+                    <span class="sentence">8 events in the last 30 days &mdash; up from 5 the 30 days before.</span>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="duration" style="display:none;">
+                  <p class="insight-title">Duration</p>
+                  <div class="insight-statrow"><span class="label">Average</span><span class="value">18 min</span></div>
+                  <div class="insight-statrow"><span class="label">Longest</span><span class="value">45 min</span></div>
+                  <div class="insight-statrow"><span class="label">Total</span><span class="value">4h 12m</span></div>
+                </div>
+                <div class="insight-card" data-section="intensity">
+                  <p class="insight-title">Intensity</p>
+                  <div class="insight-statrow"><span class="label">Average intensity</span><span class="value">3.2</span></div>
+                  <div class="insight-intensity-cells">
+                    <div class="cell l1">1</div><div class="cell l4">2</div><div class="cell l10">3</div><div class="cell l7">4</div><div class="cell l1">5</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">counted with HODITH</div>
+          </div>
+          <div class="card-label">Intense</div>
+        </div>
+
+        <div class="card-frame">
+          <div class="card" data-format="square" data-skin="bright">
+            <div class="card-inner">
+              <div class="sticker">&#10024;</div>
+              <div class="beat beat-case"><span class="icon">&#9749;</span><span class="name">Perfect coffee</span></div>
+              <div class="beat beat-reality">
+                <p class="beat-kicker">Reality</p>
+                <div class="hv-row">
+                  <div class="hv-stat"><span class="hv-value">14</span><span class="hv-label">events</span></div>
+                  <div class="hv-stat"><span class="hv-value">60</span><span class="hv-label">days observed</span></div>
+                </div>
+              </div>
+              <div class="beat beat-sections">
+                <div class="insight-card" data-section="frequency" style="display:none;">
+                  <p class="insight-title">Frequency over time</p>
+                  <p class="insight-subtitle">By week</p>
+                  <div class="insight-freq-bars">
+                    <div class="bar-col"><span class="count">3</span><div class="bar" style="height:33%;"></div></div>
+                    <div class="bar-col"><span class="count">5</span><div class="bar" style="height:56%;"></div></div>
+                    <div class="bar-col"><span class="count">2</span><div class="bar" style="height:22%;"></div></div>
+                    <div class="bar-col"><span class="count">7</span><div class="bar" style="height:78%;"></div></div>
+                    <div class="bar-col"><span class="count">4</span><div class="bar" style="height:44%;"></div></div>
+                    <div class="bar-col"><span class="count">9</span><div class="bar" style="height:100%;"></div></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="rhythm">
+                  <p class="insight-title">Rhythm</p>
+                  <div class="insight-rhythmgrid">
+                    <div class="corner"></div><div class="daylabel">M</div><div class="daylabel">T</div><div class="daylabel">W</div><div class="daylabel">T</div><div class="daylabel">F</div><div class="daylabel">S</div><div class="daylabel">S</div>
+                    <div class="timelabel">Mor</div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div>
+                    <div class="timelabel">Aft</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Eve</div><div class="cell l4"></div><div class="cell l10"></div><div class="cell l7"></div><div class="cell l7"></div><div class="cell l4"></div><div class="cell l1"></div><div class="cell empty"></div>
+                    <div class="timelabel">Nig</div><div class="cell empty"></div><div class="cell l4"></div><div class="cell empty"></div><div class="cell l1"></div><div class="cell empty"></div><div class="cell empty"></div><div class="cell empty"></div>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="gaps" style="display:none;">
+                  <p class="insight-title">Gaps &amp; clusters</p>
+                  <div class="insight-statrow"><span class="label">Longest gap</span><span class="value">9 days</span></div>
+                  <div class="insight-statrow"><span class="label">Current gap</span><span class="value">3 days</span></div>
+                  <div class="insight-statrow"><span class="label">Average gap</span><span class="value">5.2 days</span></div>
+                </div>
+                <div class="insight-card" data-section="trend">
+                  <p class="insight-title">Trend</p>
+                  <div class="insight-trend-row">
+                    <span class="arrow">&#8593;</span>
+                    <span class="sentence">8 events in the last 30 days &mdash; up from 5 the 30 days before.</span>
+                  </div>
+                </div>
+                <div class="insight-card" data-section="duration" style="display:none;">
+                  <p class="insight-title">Duration</p>
+                  <div class="insight-statrow"><span class="label">Average</span><span class="value">18 min</span></div>
+                  <div class="insight-statrow"><span class="label">Longest</span><span class="value">45 min</span></div>
+                  <div class="insight-statrow"><span class="label">Total</span><span class="value">4h 12m</span></div>
+                </div>
+                <div class="insight-card" data-section="intensity">
+                  <p class="insight-title">Intensity</p>
+                  <div class="insight-statrow"><span class="label">Average intensity</span><span class="value">3.2</span></div>
+                  <div class="insight-intensity-cells">
+                    <div class="cell l1">1</div><div class="cell l4">2</div><div class="cell l10">3</div><div class="cell l7">4</div><div class="cell l1">5</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">counted with HODITH</div>
+          </div>
+          <div class="card-label">Bright</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('mode-switch').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.getElementById('mode-switch').querySelectorAll('button').forEach(el => el.classList.toggle('is-active', el === btn));
+  const mode = btn.dataset.mode;
+  document.documentElement.removeAttribute('data-theme');
+  document.querySelectorAll('.card').forEach(card => card.removeAttribute('data-mode'));
+  if (mode === 'light' || mode === 'dark') {
+    document.documentElement.setAttribute('data-theme', mode);
+    document.querySelectorAll('.card').forEach(card => card.setAttribute('data-mode', mode));
+  }
+});
+
+document.getElementById('hunch-switch').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.getElementById('hunch-switch').querySelectorAll('button').forEach(el => el.classList.toggle('is-active', el === btn));
+  const withHunch = btn.dataset.hunch === 'with';
+  document.querySelectorAll('#story-row [data-beat="hunch"]').forEach(el => {
+    el.style.display = withHunch ? '' : 'none';
+  });
+  document.querySelectorAll('#story-row [data-beat="reality"]').forEach(el => {
+    el.style.display = withHunch ? 'none' : '';
+  });
+});
+
+document.getElementById('section-checklist').addEventListener('change', e => {
+  const cb = e.target.closest('input[type="checkbox"]');
+  if (!cb) return;
+  const section = cb.dataset.section;
+  document.querySelectorAll(`[data-section="${section}"]`).forEach(el => {
+    el.style.display = cb.checked ? '' : 'none';
+  });
+});
+</script>

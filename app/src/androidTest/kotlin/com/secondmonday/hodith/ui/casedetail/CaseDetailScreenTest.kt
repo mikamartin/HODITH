@@ -63,6 +63,7 @@ class CaseDetailScreenTest {
         hunchHistory: List<HunchEntity> = emptyList(),
         onEditCase: (Long) -> Unit = {},
         onOpenTriggers: (Long) -> Unit = {},
+        onOpenShare: (Long) -> Unit = {},
         onSaveEvent: (LogDraft, EventEntity?, List<TagEntity>) -> Unit = { _, _, _ -> },
         onStopEvent: (EventEntity) -> Unit = {},
         onDismissStalePrompt: (EventEntity) -> Unit = {},
@@ -85,6 +86,7 @@ class CaseDetailScreenTest {
                     onBack = {},
                     onEditCase = onEditCase,
                     onOpenTriggers = onOpenTriggers,
+                    onOpenShare = onOpenShare,
                     onDeleteEvent = {},
                     newEventDraft = {
                         LogDraft(
@@ -110,17 +112,21 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun headerActions_editAndTriggersIcons_invokeCallbacksWithCaseId() {
+    fun headerActions_editTriggersAndShareIcons_invokeCallbacksWithCaseId() {
         var editedCaseId: Long? = null
         var triggersCaseId: Long? = null
+        var shareCaseId: Long? = null
         setCaseDetailScreenContent(
             onEditCase = { editedCaseId = it },
             onOpenTriggers = { triggersCaseId = it },
+            onOpenShare = { shareCaseId = it },
         )
 
+        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
         composeTestRule.onNodeWithContentDescription(PlainVoice.triggersOpenDescription).performClick()
         composeTestRule.onNodeWithContentDescription(PlainVoice.caseDetailEditDescription).performClick()
 
+        assertEquals(startStopCase.id, shareCaseId)
         assertEquals(startStopCase.id, triggersCaseId)
         assertEquals(startStopCase.id, editedCaseId)
     }

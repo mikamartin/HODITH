@@ -218,6 +218,50 @@ class VoiceTest {
             assertTrue(voice.checkInDueNotificationBody(silentDays = 9).isNotBlank())
             assertTrue(voice.notificationsDeniedBannerMessage.isNotBlank())
             assertTrue(voice.notificationsDeniedBannerAction.isNotBlank())
+
+            assertTrue(voice.shareOpenDescription.isNotBlank())
+            assertTrue(voice.shareRealityKicker.isNotBlank())
+            assertTrue(voice.shareRealityEventsLabel.isNotBlank())
+            assertTrue(voice.shareRealityDaysObservedLabel.isNotBlank())
+            assertTrue(voice.shareHunchRealityKicker.isNotBlank())
+            assertTrue(voice.shareHunchExpectedLabel.isNotBlank())
+            assertTrue(voice.shareHunchObservedLabel.isNotBlank())
+            assertTrue(voice.shareCardFooter.isNotBlank())
+            assertTrue(voice.shareIntenseStampLabel.isNotBlank())
+            assertTrue(voice.shareFormatStoryLabel.isNotBlank())
+            assertTrue(voice.shareFormatSquareLabel.isNotBlank())
+            assertTrue(voice.shareHunchVsRealityToggleLabel.isNotBlank())
+            assertTrue(voice.shareNameFieldLabel.isNotBlank())
+            assertTrue(voice.shareSectionsPickerLabel.isNotBlank())
+
+            for (granularity in FrequencyGranularity.entries) {
+                assertTrue(voice.shareFrequencyTitle(granularity).isNotBlank())
+            }
+
+            for (direction in HunchDirection.entries) {
+                for (band in ComparisonBand.entries) {
+                    assertTrue(voice.sharePunchline(direction, band).isNotBlank())
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `sharePunchline never uses first- or second-person pronouns`() {
+        // Share cards are viewed by whoever the card is shared with, not just the user who made
+        // the Hunch — "you"/"your"/"I"/"my" would address the wrong audience once it leaves the app.
+        val pronounPattern = Regex("""\b(I|I'm|I've|I'd|you|your|you're|you've|you'd|my)\b""", RegexOption.IGNORE_CASE)
+
+        for (voice in voices) {
+            for (direction in HunchDirection.entries) {
+                for (band in ComparisonBand.entries) {
+                    val punchline = voice.sharePunchline(direction, band)
+                    assertTrue(
+                        "Expected no first/second-person pronoun in \"$punchline\" ($voice, $direction/$band)",
+                        !pronounPattern.containsMatchIn(punchline),
+                    )
+                }
+            }
         }
     }
 }

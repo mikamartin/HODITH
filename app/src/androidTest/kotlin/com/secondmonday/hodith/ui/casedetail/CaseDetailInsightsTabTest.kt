@@ -61,6 +61,7 @@ class CaseDetailInsightsTabTest {
                     onBack = {},
                     onEditCase = {},
                     onOpenTriggers = {},
+                    onOpenShare = {},
                     onDeleteEvent = {},
                     newEventDraft = {
                         LogDraft(
