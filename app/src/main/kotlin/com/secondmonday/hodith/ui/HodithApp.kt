@@ -13,7 +13,9 @@ import com.secondmonday.hodith.ui.common.NotificationPermissionRequestEffect
 import com.secondmonday.hodith.ui.nav.HodithNavHost
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
+import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
 import com.secondmonday.hodith.ui.theme.bigPictureCellStyle
+import com.secondmonday.hodith.ui.theme.shareCardSkin
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import kotlinx.coroutines.flow.Flow
@@ -36,6 +38,7 @@ fun HodithApp(
     CompositionLocalProvider(
         LocalVoice provides voiceFor(theme),
         LocalBigPictureCellStyle provides bigPictureCellStyle(theme),
+        LocalShareCardSkin provides shareCardSkin(theme),
     ) {
         HodithTheme(theme = theme) {
             Surface(modifier = Modifier.fillMaxSize()) {

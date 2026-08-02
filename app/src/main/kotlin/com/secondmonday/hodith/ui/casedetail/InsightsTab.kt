@@ -33,12 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.domain.FrequencyGranularity
-import com.secondmonday.hodith.domain.HEATMAP_TIER_COUNT
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.domain.INTENSITY_MIN
@@ -48,6 +46,8 @@ import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.common.toCellColor
+import com.secondmonday.hodith.ui.common.toTextColor
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.DurationDisplay
 import com.secondmonday.hodith.viewmodel.FrequencyDisplay
@@ -300,33 +300,6 @@ private fun HeatmapCell(
         }
     }
 }
-
-/** L1's minimum shade — any lower and the lightest tier would be indistinguishable from [HeatmapLevel.EMPTY]. */
-private const val HEATMAP_MIN_SHADE_FRACTION = 0.28f
-
-/** Past this tier, a cell is saturated enough to need on-primary contrast; lighter tiers read fine with the muted default. */
-private const val HEATMAP_CONTRAST_TIER_THRESHOLD = HEATMAP_TIER_COUNT / 2 + 1
-
-/** Linear lerp between [HEATMAP_MIN_SHADE_FRACTION] (L1) and full (the top tier) across all [HEATMAP_TIER_COUNT] tiers. */
-private fun HeatmapLevel.shadeFraction(): Float {
-    if (this == HeatmapLevel.EMPTY) return 0f
-    val tier = ordinal
-    return HEATMAP_MIN_SHADE_FRACTION + (1f - HEATMAP_MIN_SHADE_FRACTION) * (tier - 1) / (HEATMAP_TIER_COUNT - 1)
-}
-
-@Composable
-private fun HeatmapLevel.toCellColor(): Color {
-    if (this == HeatmapLevel.EMPTY) return MaterialTheme.colorScheme.surfaceVariant
-    return lerp(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.primary, shadeFraction())
-}
-
-@Composable
-private fun HeatmapLevel.toTextColor(): Color =
-    if (this != HeatmapLevel.EMPTY && ordinal >= HEATMAP_CONTRAST_TIER_THRESHOLD) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
 
 private fun YearMonth.monthYearLabel(): String = "${month.name.lowercase().replaceFirstChar { it.uppercase() }} $year"
 
@@ -589,7 +562,7 @@ private fun StatRow(
 }
 
 /** "3.5 days" for non-integer values (e.g. average gap), "3 days" for whole ones (e.g. longest/current gap). */
-private fun formatDays(days: Double): String {
+internal fun formatDays(days: Double): String {
     val label = if (days == days.roundToInt().toDouble()) days.roundToInt().toString() else String.format(Locale.US, "%.1f", days)
     return "$label days"
 }
