@@ -2,29 +2,33 @@ package com.secondmonday.hodith.ui.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,15 +37,14 @@ import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
-import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
-import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.BackupEvent
 import com.secondmonday.hodith.viewmodel.ImportFailureReason
 import com.secondmonday.hodith.viewmodel.SettingsUiState
 import com.secondmonday.hodith.viewmodel.SettingsViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 
 private const val BACKUP_FILE_NAME = "hodith-backup.json"
 private const val BACKUP_MIME_TYPE = "application/json"
@@ -94,8 +97,13 @@ fun SettingsScreen(
 ) {
     val voice = LocalVoice.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     var showDeleteAllConfirm by remember { mutableStateOf(false) }
     var showImportConfirm by remember { mutableStateOf(false) }
+
+    fun showComingSoonSnackbar() {
+        coroutineScope.launch { snackbarHostState.showSnackbar(voice.comingSoonPlaceholder, duration = SnackbarDuration.Short) }
+    }
 
     LaunchedEffect(Unit) {
         demoDataLoaded.collect {
@@ -161,17 +169,40 @@ fun SettingsScreen(
                     .padding(contentPadding)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            ThemeSection(theme = uiState.theme, voice = voice, onThemeSelect = onThemeSelect)
-            CheckInSection(
-                interval = uiState.checkInDefaultInterval,
-                voice = voice,
-                onCheckInDefaultIntervalSelect = onCheckInDefaultIntervalSelect,
-            )
-            DemoDataSection(voice = voice, onLoadDemoData = onLoadDemoData, onDeleteAllData = { showDeleteAllConfirm = true })
-            BackupSection(voice = voice, onExportClick = onExportClick, onImportClick = { showImportConfirm = true })
-            AboutSection(voice = voice, onOpenAbout = onOpenAbout)
+            Plank(voice.settingsSupportSectionLabel) {
+                ActionRow(voice.aboutScreenTitle, onClick = onOpenAbout)
+                ActionRow(voice.settingsRateAppButton, onClick = { showComingSoonSnackbar() })
+                ActionRow(voice.settingsContactUsButton, onClick = { showComingSoonSnackbar() })
+            }
+
+            Plank(voice.settingsAppearanceSectionLabel) {
+                ThemeSection(theme = uiState.theme, voice = voice, onThemeSelect = onThemeSelect)
+            }
+
+            // No outer AreaHeader here: CheckInSection already carries its own label + info icon
+            // (unlike Theme, there's no separate "area" beyond the one control), so an extra plank
+            // title would just repeat "Check-ins" twice.
+            Plank(title = null) {
+                CheckInSection(
+                    interval = uiState.checkInDefaultInterval,
+                    voice = voice,
+                    onCheckInDefaultIntervalSelect = onCheckInDefaultIntervalSelect,
+                )
+            }
+
+            Plank(voice.settingsDataSectionLabel) {
+                ActionRow(voice.settingsExportButton, onClick = onExportClick)
+                ActionRow(voice.settingsImportButton, onClick = { showImportConfirm = true })
+                ActionRow(voice.settingsDeleteAllDataButton, onClick = { showDeleteAllConfirm = true }, isDestructive = true)
+            }
+
+            if (uiState.developerModeUnlocked) {
+                Plank(voice.settingsDeveloperModeSectionLabel) {
+                    ActionRow(voice.settingsLoadDemoDataButton, onClick = onLoadDemoData)
+                }
+            }
         }
     }
 }
@@ -189,24 +220,13 @@ private fun ThemeSection(
             AppTheme.BRIGHT to voice.themeOptionBright,
         )
 
-    Column {
-        Text(voice.settingsThemeSectionLabel, style = MaterialTheme.typography.labelLarge)
+    SectionWithInfo(
+        label = voice.settingsThemeSectionLabel,
+        infoTitle = voice.settingsThemeInfoTitle,
+        infoBody = voice.settingsThemeInfoBody,
+        infoDescription = voice.caseSectionInfoDescription,
+    ) {
         SegmentedChoiceRow(options = options, selected = theme, onSelect = onThemeSelect)
-
-        val previewVoice = voiceFor(theme)
-        HodithTheme(theme = theme) {
-            Card(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(voice.settingsPreviewLabel, style = MaterialTheme.typography.labelMedium)
-                    Text(previewVoice.homeHeaderTitle, style = MaterialTheme.typography.headlineSmall)
-                    Text(previewVoice.noCasesEmptyState, style = MaterialTheme.typography.bodyMedium)
-                    Text(previewVoice.bigPictureEarlyDays, style = MaterialTheme.typography.bodyMedium)
-                    Button(onClick = {}, enabled = false) {
-                        Text(previewVoice.caseSaveButton)
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -235,50 +255,51 @@ private fun CheckInSection(
     }
 }
 
+/** Area grouping for the Settings screen: a crisp white/thin-border card with a small-caps title. */
 @Composable
-private fun BackupSection(
-    voice: Voice,
-    onExportClick: () -> Unit,
-    onImportClick: () -> Unit,
+private fun Plank(
+    title: String?,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column {
-        Text(voice.settingsBackupSectionLabel, style = MaterialTheme.typography.labelLarge)
-        Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onExportClick, modifier = Modifier.fillMaxWidth()) {
-                Text(voice.settingsExportButton)
-            }
-            OutlinedButton(onClick = onImportClick, modifier = Modifier.fillMaxWidth()) {
-                Text(voice.settingsImportButton)
-            }
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            title?.let { AreaHeader(it) }
+            content()
         }
     }
 }
 
 @Composable
-private fun AboutSection(
-    voice: Voice,
-    onOpenAbout: () -> Unit,
-) {
-    OutlinedButton(onClick = onOpenAbout, modifier = Modifier.fillMaxWidth()) {
-        Text(voice.aboutScreenTitle)
-    }
+private fun AreaHeader(title: String) {
+    Text(
+        title.uppercase(),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        textAlign = TextAlign.Start,
+    )
 }
 
 @Composable
-private fun DemoDataSection(
-    voice: Voice,
-    onLoadDemoData: () -> Unit,
-    onDeleteAllData: () -> Unit,
+private fun ActionRow(
+    label: String,
+    onClick: () -> Unit,
+    isDestructive: Boolean = false,
 ) {
-    Column {
-        Text(voice.settingsDemoDataSectionLabel, style = MaterialTheme.typography.labelLarge)
-        Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onLoadDemoData, modifier = Modifier.fillMaxWidth()) {
-                Text(voice.settingsLoadDemoDataButton)
-            }
-            TextButton(onClick = onDeleteAllData, modifier = Modifier.fillMaxWidth()) {
-                Text(voice.settingsDeleteAllDataButton, color = MaterialTheme.colorScheme.error)
-            }
-        }
-    }
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            if (isDestructive) {
+                ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            } else {
+                ButtonDefaults.filledTonalButtonColors()
+            },
+    ) { Text(label) }
 }

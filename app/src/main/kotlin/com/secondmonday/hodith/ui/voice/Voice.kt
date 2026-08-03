@@ -110,11 +110,16 @@ interface Voice {
     val staleOngoingEditEndTimeAction: String
     val staleOngoingStillGoingAction: String
     val quickLogUndoAction: String
+    val settingsSupportSectionLabel: String
+    val settingsRateAppButton: String
+    val settingsContactUsButton: String
+    val settingsAppearanceSectionLabel: String
     val settingsThemeSectionLabel: String
     val themeOptionPlain: String
     val themeOptionIntense: String
     val themeOptionBright: String
-    val settingsPreviewLabel: String
+    val settingsThemeInfoTitle: String
+    val settingsThemeInfoBody: String
     val settingsCheckInSectionLabel: String
     val checkInIntervalOptionOff: String
     val checkInIntervalOptionSeven: String
@@ -122,15 +127,12 @@ interface Voice {
     val checkInIntervalOptionThirty: String
     val settingsCheckInInfoTitle: String
     val settingsCheckInInfoBody: String
-    val settingsDemoDataSectionLabel: String
-    val settingsLoadDemoDataButton: String
-    val settingsDemoDataLoadedMessage: String
+    val settingsDataSectionLabel: String
     val settingsDeleteAllDataButton: String
     val settingsDeleteAllDataConfirmTitle: String
     val settingsDeleteAllDataConfirmBody: String
     val settingsDeleteAllDataConfirmAction: String
     val settingsDeleteAllDataCancelAction: String
-    val settingsBackupSectionLabel: String
     val settingsExportButton: String
     val settingsImportButton: String
     val settingsImportConfirmTitle: String
@@ -143,8 +145,16 @@ interface Voice {
     val settingsImportFailureInvalidMessage: String
     val settingsImportFailureVersionMessage: String
     val settingsImportFailureIoMessage: String
+    val settingsDeveloperModeSectionLabel: String
+    val settingsLoadDemoDataButton: String
+    val settingsDemoDataLoadedMessage: String
     val aboutScreenTitle: String
     val aboutVersionLabel: String
+
+    /** Countdown feedback for the hidden developer-mode unlock gesture (tapping the version row), once it starts counting down. */
+    fun aboutVersionTapCountdown(remainingTaps: Int): String
+
+    val aboutDeveloperModeUnlockedMessage: String
     val aboutPrivacyLabel: String
     val aboutPrivacyBody: String
     val aboutLicensesLabel: String
@@ -558,11 +568,17 @@ object PlainVoice : Voice {
     override val staleOngoingEditEndTimeAction = "Edit end time"
     override val staleOngoingStillGoingAction = "Still going"
     override val quickLogUndoAction = "Undo"
+    override val settingsSupportSectionLabel = "Support"
+    override val settingsRateAppButton = "Rate the app"
+    override val settingsContactUsButton = "Contact us"
+    override val settingsAppearanceSectionLabel = "Appearance"
     override val settingsThemeSectionLabel = "Theme"
     override val themeOptionPlain = "Plain"
     override val themeOptionIntense = "Intense"
     override val themeOptionBright = "Bright"
-    override val settingsPreviewLabel = "Preview"
+    override val settingsThemeInfoTitle = "About themes"
+    override val settingsThemeInfoBody =
+        "Each theme pairs its own colors with a distinct tone of voice used throughout the app."
     override val settingsCheckInSectionLabel = "Check-ins"
     override val checkInIntervalOptionOff = "Off"
     override val checkInIntervalOptionSeven = "7d"
@@ -573,16 +589,13 @@ object PlainVoice : Voice {
         "How many days of silence trigger a check-in nudge, for cases without their own Hunch. A case with " +
             "an active Hunch uses its own pace-derived interval instead. Off turns off the app-wide default; " +
             "individual cases can still be turned off from their edit screen."
-    override val settingsDemoDataSectionLabel = "Demo data"
-    override val settingsLoadDemoDataButton = "Load demo data"
-    override val settingsDemoDataLoadedMessage = "Demo data loaded."
+    override val settingsDataSectionLabel = "Data"
     override val settingsDeleteAllDataButton = "Delete all data"
     override val settingsDeleteAllDataConfirmTitle = "Delete all data?"
     override val settingsDeleteAllDataConfirmBody =
         "Every case and event will be permanently deleted. This can't be undone."
     override val settingsDeleteAllDataConfirmAction = "Delete everything"
     override val settingsDeleteAllDataCancelAction = "Cancel"
-    override val settingsBackupSectionLabel = "Backup"
     override val settingsExportButton = "Export data"
     override val settingsImportButton = "Import data"
     override val settingsImportConfirmTitle = "Replace all data?"
@@ -596,8 +609,15 @@ object PlainVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That file isn't a valid HODITH backup."
     override val settingsImportFailureVersionMessage = "That backup was made by a version of HODITH this app can't read."
     override val settingsImportFailureIoMessage = "Couldn't read that file."
+    override val settingsDeveloperModeSectionLabel = "Developer mode"
+    override val settingsLoadDemoDataButton = "Load demo data"
+    override val settingsDemoDataLoadedMessage = "Demo data loaded."
     override val aboutScreenTitle = "About"
     override val aboutVersionLabel = "Version"
+
+    override fun aboutVersionTapCountdown(remainingTaps: Int) = "$remainingTaps taps to developer mode"
+
+    override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
         "Everything stays on your phone. HODITH has no network access and sends nothing anywhere."
@@ -1001,11 +1021,17 @@ object IntenseVoice : Voice {
     override val staleOngoingEditEndTimeAction = "Mark when it ended"
     override val staleOngoingStillGoingAction = "Still unfolding"
     override val quickLogUndoAction = "Reverse it"
+    override val settingsSupportSectionLabel = "The outside world"
+    override val settingsRateAppButton = "Render a verdict"
+    override val settingsContactUsButton = "Send word"
+    override val settingsAppearanceSectionLabel = "The face it wears"
     override val settingsThemeSectionLabel = "The chosen skin"
     override val themeOptionPlain = "Plain"
     override val themeOptionIntense = "Intense"
     override val themeOptionBright = "Bright"
-    override val settingsPreviewLabel = "A glimpse"
+    override val settingsThemeInfoTitle = "On the chosen skin"
+    override val settingsThemeInfoBody =
+        "Each skin carries its own hues — and its own tongue. Change it, and the words themselves change shape."
     override val settingsCheckInSectionLabel = "The watch kept"
     override val checkInIntervalOptionOff = "Off"
     override val checkInIntervalOptionSeven = "7d"
@@ -1016,16 +1042,13 @@ object IntenseVoice : Voice {
         "How many days of silence rouse a check-in nudge, for any case with no Hunch watching over it. A " +
             "case bound to an active Hunch keeps its own pace-derived vigil instead. Off lays the app-wide " +
             "watch to rest; a single case's watch can still be silenced from its own page."
-    override val settingsDemoDataSectionLabel = "Phantom data"
-    override val settingsLoadDemoDataButton = "Conjure phantom cases"
-    override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
+    override val settingsDataSectionLabel = "The archive"
     override val settingsDeleteAllDataButton = "Erase everything"
     override val settingsDeleteAllDataConfirmTitle = "Erase everything?"
     override val settingsDeleteAllDataConfirmBody =
         "Every case and record will be struck from existence, beyond recall."
     override val settingsDeleteAllDataConfirmAction = "Erase it all"
     override val settingsDeleteAllDataCancelAction = "Abandon"
-    override val settingsBackupSectionLabel = "The archive"
     override val settingsExportButton = "Copy the case files"
     override val settingsImportButton = "Restore the case files"
     override val settingsImportConfirmTitle = "Erase the present for the past?"
@@ -1039,8 +1062,15 @@ object IntenseVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That file holds no case files this app recognizes."
     override val settingsImportFailureVersionMessage = "That file was sealed by a version of this app no longer spoken here."
     override val settingsImportFailureIoMessage = "That file could not be read."
+    override val settingsDeveloperModeSectionLabel = "Behind the curtain"
+    override val settingsLoadDemoDataButton = "Conjure phantom cases"
+    override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
     override val aboutScreenTitle = "The record"
     override val aboutVersionLabel = "Version"
+
+    override fun aboutVersionTapCountdown(remainingTaps: Int) = "$remainingTaps more, and the curtain falls"
+
+    override val aboutDeveloperModeUnlockedMessage = "The curtain has fallen. What lies behind is yours now."
     override val aboutPrivacyLabel = "What leaves this phone"
     override val aboutPrivacyBody =
         "Nothing. No network, no signal sent outward — every case stays sealed here."
@@ -1440,11 +1470,17 @@ object BrightVoice : Voice {
     override val staleOngoingEditEndTimeAction = "Fix the end time"
     override val staleOngoingStillGoingAction = "Yep, still going!"
     override val quickLogUndoAction = "Oops, undo!"
+    override val settingsSupportSectionLabel = "Spread the word!"
+    override val settingsRateAppButton = "Give us stars!"
+    override val settingsContactUsButton = "Say hello!"
+    override val settingsAppearanceSectionLabel = "Look & feel!"
     override val settingsThemeSectionLabel = "Pick your vibe"
     override val themeOptionPlain = "Plain"
     override val themeOptionIntense = "Intense"
     override val themeOptionBright = "Bright"
-    override val settingsPreviewLabel = "Sneak peek"
+    override val settingsThemeInfoTitle = "About themes!"
+    override val settingsThemeInfoBody =
+        "Every theme comes with its own colors and its own voice — switch it up and watch the whole app talk differently!"
     override val settingsCheckInSectionLabel = "Nudge me"
     override val checkInIntervalOptionOff = "Off"
     override val checkInIntervalOptionSeven = "7d"
@@ -1455,15 +1491,12 @@ object BrightVoice : Voice {
         "Sets how many quiet days trigger a nudge, for cases without their own Hunch. Got a Hunch running? " +
             "That case gets its own smarter timing instead. Off means no app-wide nudges — you can still " +
             "flip a single case off from its edit screen."
-    override val settingsDemoDataSectionLabel = "Pretend data"
-    override val settingsLoadDemoDataButton = "Load some pretend chaos!"
-    override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
+    override val settingsDataSectionLabel = "Your stuff!"
     override val settingsDeleteAllDataButton = "Nuke everything"
     override val settingsDeleteAllDataConfirmTitle = "Nuke everything?"
     override val settingsDeleteAllDataConfirmBody = "Every case and event goes poof — for real, no take-backs."
     override val settingsDeleteAllDataConfirmAction = "Yeet it all"
     override val settingsDeleteAllDataCancelAction = "Nah, never mind"
-    override val settingsBackupSectionLabel = "Backup"
     override val settingsExportButton = "Save a backup!"
     override val settingsImportButton = "Restore a backup!"
     override val settingsImportConfirmTitle = "Swap in the backup?"
@@ -1476,8 +1509,15 @@ object BrightVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That's not a HODITH backup file!"
     override val settingsImportFailureVersionMessage = "That backup's from a version this app can't read."
     override val settingsImportFailureIoMessage = "Couldn't read that file. Weird."
+    override val settingsDeveloperModeSectionLabel = "Nerd mode!"
+    override val settingsLoadDemoDataButton = "Load some pretend chaos!"
+    override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
     override val aboutScreenTitle = "About HODITH!"
     override val aboutVersionLabel = "Version"
+
+    override fun aboutVersionTapCountdown(remainingTaps: Int) = "$remainingTaps more taps and it's unlocked!"
+
+    override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked! Go wild."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody = "Everything stays right here on your phone — no internet, no sneaky data stuff!"
     override val aboutLicensesLabel = "Licenses"

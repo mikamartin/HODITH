@@ -8,6 +8,7 @@ class FakeSettingsRepository : SettingsRepository {
     val theme = MutableStateFlow(AppTheme.PLAIN)
     val checkInDefaultInterval = MutableStateFlow(CheckInDefaultInterval.SEVEN)
     val notificationPermissionRequested = MutableStateFlow(false)
+    val developerModeUnlocked = MutableStateFlow(false)
 
     override fun observeTheme(): Flow<AppTheme> = theme
 
@@ -29,5 +30,11 @@ class FakeSettingsRepository : SettingsRepository {
 
     override suspend fun setNotificationPermissionRequested() {
         notificationPermissionRequested.value = true
+    }
+
+    override fun observeDeveloperModeUnlocked(): Flow<Boolean> = developerModeUnlocked
+
+    override suspend fun setDeveloperModeUnlocked() {
+        developerModeUnlocked.value = true
     }
 }

@@ -14,6 +14,7 @@ import javax.inject.Singleton
 private val THEME_KEY = stringPreferencesKey("theme")
 private val CHECK_IN_DEFAULT_INTERVAL_KEY = stringPreferencesKey("check_in_default_interval")
 private val NOTIFICATION_PERMISSION_REQUESTED_KEY = booleanPreferencesKey("notification_permission_requested")
+private val DEVELOPER_MODE_UNLOCKED_KEY = booleanPreferencesKey("developer_mode_unlocked")
 
 @Singleton
 class DataStoreSettingsRepository
@@ -52,5 +53,12 @@ class DataStoreSettingsRepository
 
         override suspend fun setNotificationPermissionRequested() {
             dataStore.edit { preferences -> preferences[NOTIFICATION_PERMISSION_REQUESTED_KEY] = true }
+        }
+
+        override fun observeDeveloperModeUnlocked(): Flow<Boolean> =
+            dataStore.data.map { preferences -> preferences[DEVELOPER_MODE_UNLOCKED_KEY] ?: false }
+
+        override suspend fun setDeveloperModeUnlocked() {
+            dataStore.edit { preferences -> preferences[DEVELOPER_MODE_UNLOCKED_KEY] = true }
         }
     }

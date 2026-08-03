@@ -66,6 +66,19 @@ class SettingsViewModelTest {
         }
 
     @Test
+    fun `uiState reflects developer mode unlock state`() =
+        runTest {
+            settingsRepository.developerModeUnlocked.value = true
+            val viewModel = viewModel()
+
+            viewModel.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertTrue(state.developerModeUnlocked)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `uiState reflects the persisted check-in default interval`() =
         runTest {
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.THIRTY

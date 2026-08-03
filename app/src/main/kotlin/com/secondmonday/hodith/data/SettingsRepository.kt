@@ -19,4 +19,9 @@ interface SettingsRepository {
     fun observeHasRequestedNotificationPermission(): Flow<Boolean>
 
     suspend fun setNotificationPermissionRequested()
+
+    /** Hidden developer-mode unlock (About screen's version-tap gesture) — one-way, like [setNotificationPermissionRequested]. */
+    fun observeDeveloperModeUnlocked(): Flow<Boolean>
+
+    suspend fun setDeveloperModeUnlocked()
 }

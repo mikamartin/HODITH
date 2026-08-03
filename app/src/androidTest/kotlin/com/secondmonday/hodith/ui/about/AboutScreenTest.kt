@@ -2,6 +2,7 @@ package com.secondmonday.hodith.ui.about
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -9,6 +10,8 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import com.secondmonday.hodith.viewmodel.DeveloperModeUnlockEvent
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -22,10 +25,14 @@ class AboutScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private fun setContent(onBack: () -> Unit = {}) {
+    private fun setContent(
+        onBack: () -> Unit = {},
+        unlockEvents: MutableSharedFlow<DeveloperModeUnlockEvent> = MutableSharedFlow(extraBufferCapacity = 1),
+        onVersionTapped: () -> Unit = {},
+    ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                AboutScreen(onBack = onBack)
+                AboutScreen(onBack = onBack, unlockEvents = unlockEvents, onVersionTapped = onVersionTapped)
             }
         }
     }
@@ -50,5 +57,45 @@ class AboutScreenTest {
         composeTestRule.onNodeWithContentDescription(PlainVoice.backButtonDescription).performClick()
 
         assertEquals(true, backPressed)
+    }
+
+    @Test
+    fun versionRow_tapInvokesOnVersionTapped() {
+        var tapCount = 0
+        setContent(onVersionTapped = { tapCount++ })
+
+        composeTestRule.onNodeWithText(PlainVoice.aboutVersionLabel).performClick()
+
+        assertEquals(1, tapCount)
+    }
+
+    @Test
+    fun unlockCountdownEvent_showsSnackbarMessage() {
+        val unlockEvents = MutableSharedFlow<DeveloperModeUnlockEvent>(extraBufferCapacity = 1)
+        setContent(unlockEvents = unlockEvents)
+
+        composeTestRule.runOnIdle { unlockEvents.tryEmit(DeveloperModeUnlockEvent.Countdown(remainingTaps = 2)) }
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule
+                .onAllNodesWithText(PlainVoice.aboutVersionTapCountdown(remainingTaps = 2))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+    }
+
+    @Test
+    fun unlockedEvent_showsSnackbarMessage() {
+        val unlockEvents = MutableSharedFlow<DeveloperModeUnlockEvent>(extraBufferCapacity = 1)
+        setContent(unlockEvents = unlockEvents)
+
+        composeTestRule.runOnIdle { unlockEvents.tryEmit(DeveloperModeUnlockEvent.Unlocked) }
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule
+                .onAllNodesWithText(PlainVoice.aboutDeveloperModeUnlockedMessage)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
     }
 }
