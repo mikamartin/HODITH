@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground layer: 1b colorway's ink-teal glass lens + handle, centered in
+     the 66dp safe zone. Also reused directly as the splash screen's animated icon (see
+     Theme.Hodith.Splash in styles.xml) since both contexts want the same glyph at a similar
+     scale. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M62,62L74,74"
+        android:strokeColor="#1F3A40"
+        android:strokeAlpha="0.75"
+        android:strokeWidth="9"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M48,48m-19,0a19,19 0 1,0 38,0a19,19 0 1,0 -38,0"
+        android:strokeColor="#1F3A40"
+        android:strokeAlpha="0.7"
+        android:strokeWidth="6.5">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="44"
+                android:centerY="42"
+                android:gradientRadius="18">
+                <item android:offset="0" android:color="#99FFFFFF" />
+                <item android:offset="0.6" android:color="#26FFFFFF" />
+                <item android:offset="1" android:color="#0AFFFFFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <group
+        android:pivotX="41"
+        android:pivotY="40"
+        android:rotation="-35">
+        <path
+            android:pathData="M35.5,40a5.5,2.6 0 1,0 11,0a5.5,2.6 0 1,0 -11,0"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.7" />
+    </group>
+</vector>

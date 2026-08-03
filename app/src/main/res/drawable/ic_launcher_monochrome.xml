@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13+ themed icon layer: the system re-tints this from the device wallpaper, so
+     only the silhouette (no fill/gradient/glint) matters here. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M62,62L74,74"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="9"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M48,48m-19,0a19,19 0 1,0 38,0a19,19 0 1,0 -38,0"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6.5" />
+</vector>

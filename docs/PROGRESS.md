@@ -8,7 +8,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 - [ ] Review Bright theme's color palette — the current colors aren't landing with the product owner; revisit.
 - [ ] Review phrasing across all three Voice implementations (Plain/Intense/Bright) for quality and consistency.
-- [ ] Create a real app icon (PNG/JPG source, working in all three theme contexts) — ties into DEV_PLAYBOOK.md's Ship Checklist app-icon item and the Widgets section's picker-preview-image item below, both blocked on real artwork existing.
 
 ## Settings
 
@@ -24,7 +23,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 ## Widgets
 
-- [ ] Widget-picker preview image (deferred from Phase 8; tied to the app-icon item above).
 - [ ] Single-case widget (spec §15, deferred from Phase 8): small widget bound to one Case — tap logs per its `logFlow`, shows icon + today's count, ongoing state supported (elapsed + Stop, matching the List widget's per-row treatment).
 
 ## Testing & tooling

@@ -15,6 +15,58 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/app-icon
+
+**Scope:** HODITH's first real app icon: a magnifying-glass mark, iterated through several
+color/translucency mockups with the product owner (paled teal field, ink-teal glass ring with a
+glass-highlight glint), landing on the "1b" colorway. Built as an Android adaptive icon
+(`drawable/ic_launcher_background.xml` + `ic_launcher_foreground.xml`, both hand-authored vector
+drawables reproducing the mockup's gradients exactly) plus a themed/monochrome layer
+(`ic_launcher_monochrome.xml`) for Android 13+, wired via `mipmap-anydpi-v26/ic_launcher(.xml/
+_round.xml)` and `android:icon`/`android:roundIcon` on `<application>`. Added a matching splash
+screen theme (`Theme.Hodith.Splash`, MainActivity only) using the platform SplashScreen attributes
+directly rather than the AndroidX `core-splashscreen` library, since minSdk 31 already meets the
+platform API's own minimum — no library dependency or `installSplashScreen()` call needed. Also
+exported portfolio/store assets (icon SVG + 512px PNG, feature graphic SVG + 1024×500 PNG) to the
+sibling `icons/HODITH` folder, matching the file-set convention already established in
+`icons/EarnIt`. Also set the List Widget's `android:previewImage` to `@mipmap/ic_launcher`
+explicitly, rather than relying on the undocumented per-launcher fallback behavior when
+`previewImage`/`previewLayout` is omitted — product call was that an icon in the widget picker is
+enough, no separate screenshot-style widget mockup needed. `ktlintCheck`, `lintDebug`, `test`, and
+`assembleDebug` all run clean (no `IconMissingDensityFolder` or similar lint findings; minSdk 31
+means no legacy raster mipmaps are needed at all, adaptive icon alone covers every supported API
+level; `ktlintCheck`/`test` are no-ops here since the diff touches no `.kt` files, but were run
+rather than assumed).
+
+**Found & fixed:**
+- No legacy `mipmap-*dpi` PNG fallbacks added — deliberate, not an oversight: minSdk 31 exceeds
+  adaptive icons' own API 26 requirement, so no supported device ever falls back to them.
+- First two build attempts failed: `android:Theme.SplashScreen` and `android:postSplashScreenTheme`
+  are AndroidX-library-only names, not public platform resources — the platform-only splash
+  attributes go directly on a normal theme instead. Documented in a comment so it isn't
+  re-attempted later.
+- The first `hodith_icon_512.png` export (headless-browser screenshot of the standalone SVG) was
+  off-center: the SVG's declared intrinsic size (672×672) didn't match the screenshot window size
+  (512×512), so Chromium cropped instead of scaling. Fixed by rendering through a sized HTML shell
+  instead of pointing the browser at the bare `.svg` file; the source SVGs themselves were correct
+  throughout.
+- `ic_launcher_foreground.xml`'s glyph color (`#1F3A40`) happens to match `Color.kt`'s
+  `plainDark.primaryContainer` exactly, an inline hex duplicating a named token. Left as-is:
+  vector drawables can't reference Kotlin `Color()` constants, the project has no `colors.xml`
+  bridging layer, and Android Studio's own generated adaptive-icon templates hardcode hex the same
+  way — routing one icon's color through a new shared resource layer for this alone would be the
+  kind of premature abstraction CLAUDE.md warns against.
+
+**Deferred:**
+- Per-voice icon variants (Intense/Bright) — current read is one static launcher icon regardless
+  of in-app voice, matching normal Android convention; flagged to the product owner, not yet an
+  explicit decision.
+
+**Docs updated:** PROGRESS.md (struck the resolved app-icon and widget-picker-preview-image items).
+DEV_PLAYBOOK.md (struck the Ship Checklist's app-icon line).
+
+---
+
 ## fix/case-edit-delete-and-validation
 
 **Scope:** Closed out PROGRESS.md's "Case Edit" section: swapped Edit Case's unclear `ExitToApp`
