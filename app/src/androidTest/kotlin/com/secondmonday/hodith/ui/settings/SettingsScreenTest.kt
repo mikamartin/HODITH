@@ -2,14 +2,17 @@ package com.secondmonday.hodith.ui.settings
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.BackupEvent
@@ -72,6 +75,34 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun rateAppButton_showsComingSoonSnackbar() {
+        setContent()
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsRateAppButton).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule
+                .onAllNodesWithText(PlainVoice.comingSoonPlaceholder)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+    }
+
+    @Test
+    fun contactUsButton_showsComingSoonSnackbar() {
+        setContent()
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsContactUsButton).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule
+                .onAllNodesWithText(PlainVoice.comingSoonPlaceholder)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+    }
+
+    @Test
     fun themeSection_showsAllThreeOptions() {
         setContent()
 
@@ -89,6 +120,22 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.themeOptionIntense).performClick()
 
         assertEquals(AppTheme.INTENSE, selected)
+    }
+
+    @Test
+    fun themeInfoIcon_opensAndDismissesDialog() {
+        setContent()
+
+        // Theme's info icon is the first of the screen's two (Theme, then Check-ins) — see
+        // CaseEditScreenTest for the same shared-content-description convention.
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onFirst()
+            .performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsThemeInfoTitle).assertExists()
+
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsThemeInfoTitle).assertDoesNotExist()
     }
 
     @Test
@@ -113,19 +160,43 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun previewCard_showsPreviewedThemeHeaderAndEmptyState() {
-        setContent(uiState = SettingsUiState(theme = AppTheme.BRIGHT, isLoading = false))
+    fun checkInInfoIcon_opensDialog() {
+        setContent()
 
-        composeTestRule.onNodeWithText(BrightVoice.homeHeaderTitle).assertExists()
-        composeTestRule.onNodeWithText(BrightVoice.noCasesEmptyState).assertExists()
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onLast()
+            .performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsCheckInInfoTitle).assertExists()
+    }
+
+    @Test
+    fun developerMode_hiddenByDefault() {
+        setContent()
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataButton).assertDoesNotExist()
+    }
+
+    @Test
+    fun developerMode_shownWhenUnlocked() {
+        setContent(uiState = SettingsUiState(theme = AppTheme.PLAIN, developerModeUnlocked = true, isLoading = false))
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataButton).assertExists()
     }
 
     @Test
     fun loadDemoData_tapInvokesCallback() {
         var loaded = false
-        setContent(onLoadDemoData = { loaded = true })
+        setContent(
+            uiState = SettingsUiState(theme = AppTheme.PLAIN, developerModeUnlocked = true, isLoading = false),
+            onLoadDemoData = { loaded = true },
+        )
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataButton).performClick()
+        // performScrollTo() first: the Developer Mode plank is the last item in this screen's
+        // scrolling Column, below the fold on typical screen sizes — see SharePreviewScreenTest
+        // for the same pattern.
+        composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataButton).performScrollTo().performClick()
 
         assertEquals(true, loaded)
     }

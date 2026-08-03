@@ -15,6 +15,68 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/settings-rework
+
+**Scope:** Full Settings screen rework, prototyped first as throwaway Compose Previews (compared
+card-grouped vs. flat-list layouts, and outlined/filled-tonal/card-row action styles) before being
+folded into `SettingsScreen.kt` once a direction was picked. Reorganized the previously flat list
+into area cards ("planks" — white `OutlinedCard` with a thin `outlineVariant` border and a
+small-caps header, holding up better than the stock tonal-fill `Card` which read as muddy):
+**Support** (About, plus placeholder Rate the App/Contact Us rows) pinned above **Appearance**
+(Theme picker, live preview card dropped in favor of a tappable info icon reusing the existing
+`SectionWithInfo` pattern), **Check-ins** (unchanged, its own label+info icon carries the plank so
+there's no duplicate header), **Data** (export/import/delete-all), and a new hidden **Developer
+Mode** area holding "Load demo data" (moved out of Data), gated behind a persisted
+`developerModeUnlocked` DataStore flag unlocked by tapping the About screen's version row 7 times
+— same convention as Android's own Developer Options, with a countdown snackbar on the last few
+taps and an "unlocked" snackbar on the last one. New `AboutViewModel` owns the tap-counting/unlock
+logic (unit tested); `SettingsRepository`/`DataStoreSettingsRepository`/`FakeSettingsRepository`
+gained the matching persistence methods, mirroring the existing
+`hasRequestedNotificationPermission`/`setNotificationPermissionRequested` one-way-flag pattern.
+Action rows use `FilledTonalButton` — a style not used anywhere else in the app (existing
+vocabulary is `Button`/`OutlinedButton`/`TextButton`), deliberately scoped to Settings only per
+product-owner call; flagged in PROGRESS.md to revisit. All new/changed Voice strings (Support,
+Appearance, Data, Developer Mode headers; Rate the App/Contact Us; Theme's info dialog; the
+version-tap countdown/unlocked messages) added to all three voices in this same change.
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean; `connectedDebugAndroidTest`
+(160 tests) also runs clean on an emulator, after the fix noted below.
+
+**Found & fixed:**
+- Three Voice keys became dead once the live preview card and the Data area's two separate
+  sub-headers were removed: `settingsPreviewLabel`, `settingsDemoDataSectionLabel`,
+  `settingsBackupSectionLabel`. Deleted from the interface and all three voice objects rather than
+  left as unused strings.
+- Reusing `voice.caseSectionInfoDescription` for Theme's new info icon means two info icons on the
+  same screen now share one content description (Theme's and Check-in's) — confirmed this already
+  matches an existing precedent (`CaseEditScreen.kt` reuses the same description across three info
+  icons), so it's consistent with the established convention rather than a new problem; the
+  instrumented tests target them via `onAllNodesWithContentDescription(...).onFirst()/.onLast()`,
+  same technique `CaseEditScreenTest` already uses.
+- `SettingsScreenTest.loadDemoData_tapInvokesCallback` failed deterministically the first time it
+  ran on an emulator: the Developer Mode plank is the last item in the screen's scrolling Column,
+  below the fold on the emulator's screen size, and real-device `performClick()` dispatches an
+  actual synthetic touch at the node's on-screen coordinates rather than invoking its semantics
+  action directly — so `assertExists()` passed but the click landed nowhere. Fixed by adding
+  `.performScrollTo()` before `.performClick()`, the same pattern already used in
+  `CaseDetailInsightsTabTest`/`SharePreviewScreenTest` for the same reason. A second, unrelated
+  failure (`importButton_opensConfirmDialog_confirmInvokesCallback` timing out waiting for its
+  `ActivityScenario` to reach `DESTROYED` during teardown) didn't reproduce on a second full run —
+  emulator flakiness, not a code issue.
+
+**Deferred:**
+- Whether `FilledTonalButton` should spread app-wide or Settings should conform back to
+  `Button`/`OutlinedButton`/`TextButton` — product-owner call to make later, logged in PROGRESS.md.
+- Rate the App / Contact Us are coming-soon placeholders until there's a real Play Store listing
+  and support channel to point them at — logged in PROGRESS.md.
+- The version-tap row's touch target may run a little under the 48dp accessibility guideline —
+  low priority since it's a deliberately hidden, non-primary gesture; logged in PROGRESS.md.
+
+**Docs updated:** HODITH_SPEC.md §14's Settings/About rows now describe the area-grouped layout
+and the hidden Developer Mode unlock instead of the old flat list and live preview card; TESTING.md's
+planned-coverage rows for Compose UI/About updated to match.
+
+---
+
 ## feature/app-icon
 
 **Scope:** HODITH's first real app icon: a magnifying-glass mark, iterated through several

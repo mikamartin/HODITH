@@ -27,6 +27,7 @@ import javax.inject.Inject
 data class SettingsUiState(
     val theme: AppTheme = AppTheme.PLAIN,
     val checkInDefaultInterval: CheckInDefaultInterval = CheckInDefaultInterval.SEVEN,
+    val developerModeUnlocked: Boolean = false,
     val isLoading: Boolean = true,
 )
 
@@ -60,8 +61,14 @@ class SettingsViewModel
             combine(
                 settingsRepository.observeTheme(),
                 settingsRepository.observeCheckInDefaultInterval(),
-            ) { theme, checkInDefaultInterval ->
-                SettingsUiState(theme = theme, checkInDefaultInterval = checkInDefaultInterval, isLoading = false)
+                settingsRepository.observeDeveloperModeUnlocked(),
+            ) { theme, checkInDefaultInterval, developerModeUnlocked ->
+                SettingsUiState(
+                    theme = theme,
+                    checkInDefaultInterval = checkInDefaultInterval,
+                    developerModeUnlocked = developerModeUnlocked,
+                    isLoading = false,
+                )
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
