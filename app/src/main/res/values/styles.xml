@@ -8,4 +8,18 @@
         <item name="android:windowAnimationStyle">@null</item>
         <item name="android:windowIsFloating">false</item>
     </style>
+
+    <!-- minSdk 31 already matches the platform SplashScreen API's own minimum. "Theme.SplashScreen"
+         (no android: prefix) is an AndroidX core-splashscreen library style, used only to backport
+         this to pre-31 devices; since that isn't needed, the splash attributes are added directly
+         to a normal theme instead, with no installSplashScreen() call needed in MainActivity either.
+         postSplashScreenTheme is an AndroidX-only attribute for swapping themes after the library's
+         splash exit animation, not needed here since this theme differs from the app's default
+         only by these two extra (post-launch-inert) items, so MainActivity just keeps it. The system
+         only supports a flat background color and a small centered icon here, no gradients, so this
+         is necessarily flatter than the launcher icon itself. -->
+    <style name="Theme.Hodith.Splash" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowSplashScreenBackground">#D7EDEF</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
 </resources>

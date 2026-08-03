@@ -7,4 +7,5 @@
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:configure="com.secondmonday.hodith.widget.ListWidgetConfigureActivity"
+    android:previewImage="@mipmap/ic_launcher"
     android:updatePeriodMillis="0" />

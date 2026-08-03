@@ -16,9 +16,6 @@ Strip completed items — this list only contains open work.
 - [ ] Full-history hygiene audit, not just the latest diff (CLAUDE.md "Git hygiene") — secrets, real local paths, personal info can hide in old commits that going public would expose
 
 ### Before first release
-**Play Store**
-- [ ] App icon that works in all three theme contexts
-
 **Closed Testing**
 - [ ] Write CLOSED_TESTING_GUIDE.md (plain-language guide for testing recruits) when the track opens
 
