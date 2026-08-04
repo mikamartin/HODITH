@@ -6,7 +6,7 @@ class FakeWidgetRefresher : WidgetRefresher {
     var refreshCount = 0
         private set
 
-    override suspend fun refreshListWidget() {
+    override suspend fun refreshWidgets() {
         refreshCount++
     }
 }

@@ -22,8 +22,8 @@ import org.junit.runner.RunWith
  * resolves [WidgetRefresher] via [dagger.hilt.android.EntryPointAccessors] at `doWork()` time,
  * which requires a real, populated Hilt component. Scoped to this one test class only — no
  * `HiltTestRunner`/shared-infra changes. Uses the real `GlanceWidgetRefresher` rather than a fake:
- * a `SUCCEEDED` terminal state already proves `doWork()` called `refreshListWidget()` without
- * throwing, and `ListWidget().updateAll()` safely no-ops with zero installed widget instances.
+ * a `SUCCEEDED` terminal state already proves `doWork()` called `refreshWidgets()` without
+ * throwing, and `updateAll()` safely no-ops on both widget types with zero installed instances.
  *
  * Split into two tests rather than one: `PeriodicWorkRequest` never settles on a durable
  * `SUCCEEDED` `WorkInfo.State` — after each successful run WorkManager cycles it straight back to

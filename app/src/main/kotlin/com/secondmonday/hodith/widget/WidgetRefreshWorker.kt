@@ -14,10 +14,10 @@ import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
 
 /**
- * Keeps the List widget's elapsed-time and today's-count fresh even when nothing else triggers a
- * refresh — [ListWidget.provideGlance] computes both once per invocation (Room read via `.first()`,
- * `System.currentTimeMillis()` baked into the label), so without this periodic nudge they go stale
- * until the next tap/log/pin change.
+ * Keeps both widgets' elapsed-time and today's-count fresh even when nothing else triggers a
+ * refresh — [ListWidget.provideGlance]/[SingleCaseWidget.provideGlance] compute both once per
+ * invocation (Room read via `.first()`, `System.currentTimeMillis()` baked into the label), so
+ * without this periodic nudge they go stale until the next tap/log/pin change.
  *
  * Resolves [WidgetRefresher] via [EntryPointAccessors] rather than constructor injection: a
  * `@HiltWorker`/`HiltWorkerFactory` would need `HodithApplication` to implement
@@ -41,7 +41,7 @@ class WidgetRefreshWorker(
             EntryPointAccessors
                 .fromApplication(applicationContext, WidgetRefresherEntryPoint::class.java)
                 .widgetRefresher()
-        widgetRefresher.refreshListWidget()
+        widgetRefresher.refreshWidgets()
         return Result.success()
     }
 

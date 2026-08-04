@@ -51,14 +51,14 @@ class ArchivedCasesViewModel
                 val case = repository.getCase(caseId) ?: return@launch
                 val sortOrder = repository.observeActiveCases().first().size
                 repository.updateCase(case.copy(archived = false, sortOrder = sortOrder))
-                widgetRefresher.refreshListWidget()
+                widgetRefresher.refreshWidgets()
             }
         }
 
         fun deleteForever(caseId: Long) {
             viewModelScope.launch {
                 repository.getCase(caseId)?.let { repository.deleteCase(it) }
-                widgetRefresher.refreshListWidget()
+                widgetRefresher.refreshWidgets()
             }
         }
     }

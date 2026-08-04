@@ -154,9 +154,9 @@ class CaseEditViewModel
                         ),
                     )
                 }
-                // pinned/archived both affect what the List widget shows — refresh it whenever
-                // either could have changed, not just from the widget's own configure flow.
-                widgetRefresher.refreshListWidget()
+                // pinned/archived both affect what a widget shows — refresh whenever either could
+                // have changed, not just from a widget's own configure flow.
+                widgetRefresher.refreshWidgets()
                 if (state.checkInsEnabled && !settingsRepository.hasRequestedNotificationPermission()) {
                     settingsRepository.setNotificationPermissionRequested()
                     notificationPermissionRequestSignal.request()
@@ -169,7 +169,7 @@ class CaseEditViewModel
             val current = existingCase ?: return
             viewModelScope.launch {
                 repository.updateCase(current.copy(archived = true))
-                widgetRefresher.refreshListWidget()
+                widgetRefresher.refreshWidgets()
                 _uiState.update { it.copy(isArchived = true) }
             }
         }

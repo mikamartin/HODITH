@@ -77,7 +77,7 @@ class WidgetLogSheetViewModel
                     )
                 val eventId = repository.insertEvent(plan.entity)
                 plan.tagDiff.toAdd.forEach { repository.addTagToEvent(eventId, it) }
-                widgetRefresher.refreshListWidget()
+                widgetRefresher.refreshWidgets()
                 onSaved()
             }
         }

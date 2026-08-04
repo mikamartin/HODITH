@@ -3,25 +3,21 @@ package com.secondmonday.hodith.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
-import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -41,54 +37,12 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.homeCaseRows
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
-
-private object WidgetPalette {
-    val background = Color(0xFF1C1C1E)
-    val surface = Color(0xFF2C2C2E)
-    val onSurface = Color(0xFFF2F2F7)
-    val onSurfaceMuted = Color(0xFFA0A0A5)
-    val accent = Color(0xFF64D2FF)
-    val stopBackground = Color(0xFFFF9F0A)
-    val onStopBackground = Color(0xFF1C1C1E)
-}
-
-private val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
-private val EventIdParam = ActionParameters.Key<Long>("com.secondmonday.hodith.widget.EXTRA_EVENT_ID")
-
-class QuickLogAction : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
-        val caseId = parameters[CaseIdParam] ?: return
-        val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-        entryPoint.repository().insertEvent(quickLogEvent(caseId = caseId, now = entryPoint.clock().nowMillis()))
-        ListWidget().updateAll(context)
-    }
-}
-
-class StopEventAction : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
-        val eventId = parameters[EventIdParam] ?: return
-        val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-        val repository = entryPoint.repository()
-        val event = repository.getEvent(eventId) ?: return
-        repository.updateEvent(event.copy(endedAt = entryPoint.clock().nowMillis()))
-        ListWidget().updateAll(context)
-    }
-}
 
 class ListWidget : GlanceAppWidget() {
     override suspend fun provideGlance(
@@ -147,10 +101,6 @@ private fun androidx.glance.appwidget.lazy.LazyListScope.items(
         itemContent(rows[index])
     }
 }
-
-/** Minimum tappable target on any axis (Android accessibility guidance) — the widget's compact
- * rows would otherwise size the "+" and "Stop" tap targets to their text alone. */
-private val MinTapTarget = 48.dp
 
 @Composable
 private fun CaseRow(
