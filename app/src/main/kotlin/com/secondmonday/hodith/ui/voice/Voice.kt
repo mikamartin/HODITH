@@ -460,11 +460,25 @@ interface Voice {
     val widgetConfigureConfirmAction: String
     val widgetConfigureSkipAction: String
 
-    /** [com.secondmonday.hodith.widget.ListWidget]'s own copy. Only [PlainVoice]'s versions ever
-     * render — the widget's chrome is fixed regardless of in-app theme (DEV_PLAYBOOK.md §4) — but
-     * all three still get an entry per the Voice layer rule. */
+    /** [com.secondmonday.hodith.widget.SingleCaseWidgetConfigureActivity] — shown every time a
+     * Single-case widget is added, since (unlike List widget's Case-level `pinned` flag) each
+     * instance is bound to its own Case and there's nothing to skip straight past. Reuses
+     * [widgetConfigureNoCasesMessage] and [widgetConfigureSkipAction] — that copy doesn't assume
+     * single vs. multi selection. */
+    val singleCaseWidgetConfigureTitle: String
+    val singleCaseWidgetConfigureBody: String
+    val singleCaseWidgetConfigureConfirmAction: String
+
+    /** [com.secondmonday.hodith.widget.ListWidget]/[com.secondmonday.hodith.widget.SingleCaseWidget]'s
+     * own copy. Only [PlainVoice]'s versions ever render — the widgets' chrome is fixed regardless
+     * of in-app theme (DEV_PLAYBOOK.md §4) — but all three still get an entry per the Voice layer
+     * rule. */
     val widgetNoPinnedCasesMessage: String
     val widgetStopAction: String
+
+    /** [com.secondmonday.hodith.widget.SingleCaseWidget] — shown when its bound Case has been
+     * deleted or archived since the widget was configured. */
+    val widgetCaseNotFoundMessage: String
 
     fun widgetTodayCount(count: Int): String
 }
@@ -878,8 +892,13 @@ object PlainVoice : Voice {
     override val widgetConfigureConfirmAction = "Add to widget"
     override val widgetConfigureSkipAction = "Cancel"
 
+    override val singleCaseWidgetConfigureTitle = "Pick a Case for this widget"
+    override val singleCaseWidgetConfigureBody = "Choose which Case shows up here. Add another widget to track a different one."
+    override val singleCaseWidgetConfigureConfirmAction = "Add to widget"
+
     override val widgetNoPinnedCasesMessage = "No pinned Cases yet. Pin one from its Case screen to see it here."
     override val widgetStopAction = "Stop"
+    override val widgetCaseNotFoundMessage = "This Case is gone. Tap to open HODITH."
 
     override fun widgetTodayCount(count: Int) = "Today: $count"
 
@@ -1328,8 +1347,13 @@ object IntenseVoice : Voice {
     override val widgetConfigureConfirmAction = "Bind to widget"
     override val widgetConfigureSkipAction = "Abandon"
 
+    override val singleCaseWidgetConfigureTitle = "Which case shall haunt this widget?"
+    override val singleCaseWidgetConfigureBody = "Choose what stands watch here. Summon another widget to keep watch over something else."
+    override val singleCaseWidgetConfigureConfirmAction = "Bind to widget"
+
     override val widgetNoPinnedCasesMessage = "Nothing pinned yet. Pin a case from its own screen to keep watch here."
     override val widgetStopAction = "Seal"
+    override val widgetCaseNotFoundMessage = "This watch has ended. Tap to return to HODITH."
 
     override fun widgetTodayCount(count: Int) = "Today: $count"
 
@@ -1774,8 +1798,13 @@ object BrightVoice : Voice {
     override val widgetConfigureConfirmAction = "Add to widget!"
     override val widgetConfigureSkipAction = "Never mind"
 
+    override val singleCaseWidgetConfigureTitle = "Pick your widget's star!"
+    override val singleCaseWidgetConfigureBody = "Choose which Case gets to show off here. Add another widget for a different star!"
+    override val singleCaseWidgetConfigureConfirmAction = "Add to widget!"
+
     override val widgetNoPinnedCasesMessage = "No pinned Cases yet! Pin one from its Case screen to see it here."
     override val widgetStopAction = "Stop!"
+    override val widgetCaseNotFoundMessage = "This Case wandered off! Tap to open HODITH."
 
     override fun widgetTodayCount(count: Int) = "Today: $count"
 

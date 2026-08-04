@@ -11,9 +11,9 @@ import com.secondmonday.hodith.data.quickLogEvent
 import dagger.hilt.android.EntryPointAccessors
 
 /**
- * Shared widget infrastructure — pulled out of [ListWidget] so other widget types can reuse the
- * same fixed neutral chrome (DEV_PLAYBOOK.md §4: Glance theming is limited, so widgets don't
- * follow the in-app theme) and log/stop actions without duplicating them.
+ * Shared between [ListWidget] and [SingleCaseWidget] — both render the same fixed neutral chrome
+ * (DEV_PLAYBOOK.md §4: Glance theming is limited, so widgets don't follow the in-app theme) and
+ * log/stop actions, pulled out of [ListWidget] so [SingleCaseWidget] could reuse them unchanged.
  */
 internal object WidgetPalette {
     val background = Color(0xFF1C1C1E)
@@ -35,10 +35,11 @@ internal val WidgetCornerRadius = 16.dp
 internal val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
 internal val EventIdParam = ActionParameters.Key<Long>("com.secondmonday.hodith.widget.EXTRA_EVENT_ID")
 
-/** Refreshes every Glance widget type after a data change, so a log/stop on one widget keeps any
- * other widget showing the same Case in sync. */
+/** Refreshes every Glance widget type after a data change — a log/stop on one widget keeps the
+ * other in sync if the same Case happens to be shown in both. */
 internal suspend fun refreshAllWidgets(context: Context) {
     ListWidget().updateAll(context)
+    SingleCaseWidget().updateAll(context)
 }
 
 class QuickLogAction : ActionCallback {
