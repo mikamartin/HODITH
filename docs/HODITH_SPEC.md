@@ -278,7 +278,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 ## 15. Widgets (Jetpack Glance)
 
 - **List widget** (resizable): pinned Cases; each row = icon, name, today count, one-tap log (respecting the Case's `logFlow` — `DETAIL_SHEET` opens the sheet via trampoline). Ongoing Cases show elapsed time + Stop.
-- **Single-case widget** (small): one Case; tap = log per its flow; shows icon + today count; ongoing state supported.
+- **Single-case widget** (small): bound to one Case via its own configure step (not the Case-level `pinned` flag). Shows icon + today count; a dedicated log button respects the Case's `logFlow` (matching the List widget's per-row treatment), tapping elsewhere on the Case opens its detail screen. Ongoing Cases show elapsed time + Stop, same as the List widget.
 - Known Glance constraint: widget theming is limited, so widgets use a fixed neutral palette that sits acceptably in all three themes. Documented as a known limitation.
 
 ## 16. Data, privacy, distribution

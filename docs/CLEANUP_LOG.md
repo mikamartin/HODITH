@@ -15,6 +15,86 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/single-case-widget
+
+**Scope:** Built the Single-case widget (spec §15, deferred from Phase 8) and fixed four
+List-widget bugs logged in PROGRESS.md's Widgets section (black background, black-and-white
+empty-state font, empty state/title/case row not opening the app), bundled into one branch/PR since
+the new widget reuses the List widget's action classes and palette and should launch without
+inheriting the same bugs.
+
+Extracted `WidgetPalette`, `MinTapTarget`, `WidgetCornerRadius`, `CaseIdParam`/`EventIdParam`, and
+`QuickLogAction`/`StopEventAction` out of `ListWidget.kt` into a new `WidgetCommon.kt` so
+`SingleCaseWidget.kt` could reuse them unchanged rather than duplicating; both actions now call a
+shared `refreshAllWidgets(context)` (refreshes both `ListWidget` and `SingleCaseWidget`) instead of
+only `ListWidget().updateAll()`. Renamed `WidgetRefresher.refreshListWidget()` →
+`refreshWidgets()` for the same reason — it's called from `CaseEditViewModel`,
+`ArchivedCasesViewModel`, `WidgetLogSheetViewModel`, and the 15-minute `WidgetRefreshWorker`, none
+of which should only refresh one widget type once two exist.
+
+The black background/font bugs trace to a real, documented Glance gap: the root `Column`/`Box` set
+`.background(...)` but never called `androidx.glance.appwidget.appWidgetBackground()`, the modifier
+that marks a view as the App Widget's actual `@android:id/background` for the system's corner-mask
+compositing. Added it (plus `cornerRadius()`) to both widgets' roots. Couldn't verify the visual fix
+on-device — that's a manual step, added to MANUAL_TEST_PLAN.md's new Widgets section.
+
+The other two bugs (title/empty-state/case-row tap not opening the app) were just missing
+`clickable`s — wired to `MainActivity` via `actionStartActivity`, reusing the `EXTRA_CASE_ID` extra
+`WidgetLogTrampolineActivity.kt` already defines and `MainActivity.kt` already reads for a Case
+Detail deep link (confirmed with the user: a case row/single-case-widget-body tap deep-links to that
+Case; the title/empty state open Home).
+
+Single-case widget's Case binding is per-widget-instance Glance `Preferences` state
+(`CaseIdKey`/`PreferencesGlanceStateDefinition`), not a Case-level flag like List widget's `pinned`
+— each instance gets its own `SingleCaseWidgetConfigureActivity` picker every time it's added (no
+"already configured" skip), backed by a new `SingleCaseWidgetConfigureViewModel`
+(unit-tested, mirroring `ListWidgetConfigureViewModelTest`) that only tracks the in-progress
+selection — the Activity itself owns writing the confirmed Case id into Glance state, since that's
+Context-bound infrastructure the ViewModel would otherwise need to fake in tests.
+
+Per user direction, this is an intentional divergence from spec §15's original "tap = log" phrasing
+for the Single-case widget: a dedicated `+`/Stop button (matching the List widget's per-row
+treatment) logs or stops, and tapping the rest of the widget opens that Case's detail screen —
+spec updated to match.
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Found & fixed:**
+- `WidgetCornerRadius` was first added as a `private val` duplicated identically in both
+  `ListWidget.kt` and `SingleCaseWidget.kt` — moved into `WidgetCommon.kt` alongside the other
+  already-shared widget constants once the duplication was noticed on the checklist pass.
+- Undersized tap targets: the new `ListWidget.kt` title and empty-state clicks were plain `Text`
+  composables with a `clickable` modifier and no explicit height — at 13sp with no padding beyond
+  the title's original 8dp, both sized to well under the 48dp accessibility minimum the same
+  checklist item caught for the `+`/Stop buttons in the original List widget pass (see
+  `feature/list-widget` below). Wrapped both in a `Box` sized to `MinTapTarget` (48dp), same fix
+  shape as that precedent. `SingleCaseWidget.kt`'s equivalent "Case not found" message didn't need
+  the same fix — its `clickable` already spans the widget's full `fillMaxSize()`, well over 48dp
+  given the widget's own 60dp minimum size.
+
+`connectedDebugAndroidTest` (160 tests) also runs clean on an emulator: 159/160 passed first try,
+the lone failure (`ShareCardTemplateTest.squareNeverShowsTheHunchVsRealityBeatEvenWhenDataProvidesIt`,
+untouched by this branch) passed on its own on rerun — the same `ActivityScenario` teardown-timeout
+signature (`Activity never becomes requested state [DESTROYED]`) already documented as emulator
+flakiness in the `feature/settings-rework` entry below, not a regression. Both `WidgetRefreshWorkerTest`
+cases passed. The Widgets section in MANUAL_TEST_PLAN.md still covers what only a human eye can
+check (the appWidgetBackground visual fix, launcher-specific corner rendering).
+
+**Deferred:**
+- `ListWidgetConfigureActivity` and `SingleCaseWidgetConfigureActivity` share a similar
+  `AlertDialog`-based picker shape but weren't merged into one component — the underlying state
+  differs enough (multi-select `Set<Long>` writing straight to Case `pinned` vs. single-select
+  `Long?` handed back to the caller to write into Glance state) that a shared abstraction would be
+  forced for two call sites. Revisit only if a third widget configure flow shows up.
+
+**Docs updated:** HODITH_SPEC.md §15 now describes the Single-case widget's actual `+`-button +
+tap-to-open-details interaction instead of the original terse "tap = log"; PROGRESS.md's Widgets
+section (all five items resolved) removed entirely; MANUAL_TEST_PLAN.md gained a new Widgets
+section — the seed list in TESTING.md had anticipated these widget journeys but they'd never
+actually been transcribed in.
+
+---
+
 ## feature/settings-rework
 
 **Scope:** Full Settings screen rework, prototyped first as throwaway Compose Previews (compared

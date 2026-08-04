@@ -24,14 +24,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 - [ ] Calendar heatmap: a visually large gap appears between the current month and prior months right when a new month has just begun.
 - [ ] Rhythm grid: large gap between the legend and the grid squares under the Intense theme specifically.
 
-## Widgets
-
-- [ ] Single-case widget (spec §15, deferred from Phase 8): small widget bound to one Case — tap logs per its `logFlow`, shows icon + today's count, ongoing state supported (elapsed + Stop, matching the List widget's per-row treatment).
-- [ ] Widget background renders black instead of its intended theme color/surface.
-- [ ] Widget empty state uses black-and-white font instead of themed colors.
-- [ ] Widget empty state: tapping it should open the app; currently doesn't.
-- [ ] Widget: tapping a case row or the widget title doesn't open the app.
-
 ## App icon
 
 - [ ] Dark spot visible on the circle/handle at larger icon sizes — the invisible lens ring fix addressed a related issue, but this artifact remains at bigger resolutions.
