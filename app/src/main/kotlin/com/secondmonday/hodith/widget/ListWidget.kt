@@ -14,6 +14,7 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
@@ -36,6 +37,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.secondmonday.hodith.MainActivity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
@@ -56,32 +58,52 @@ class ListWidget : GlanceAppWidget() {
 
         provideContent {
             GlanceTheme {
+                val context = LocalContext.current
                 Column(
                     modifier =
                         GlanceModifier
                             .fillMaxSize()
                             .background(WidgetPalette.background)
+                            .cornerRadius(WidgetCornerRadius)
+                            .appWidgetBackground()
                             .padding(12.dp),
                 ) {
                     // Widget copy is pinned to PlainVoice regardless of the user's chosen in-app
                     // theme — mirrors the widget's fixed neutral palette (DEV_PLAYBOOK.md §4):
                     // colors already don't follow theme here, so reading Settings/DataStore just
                     // to swap text and not color would be inconsistent theming, not more of it.
-                    Text(
-                        text = PlainVoice.homeHeaderTitle,
-                        style =
-                            TextStyle(
-                                color = ColorProvider(WidgetPalette.onSurfaceMuted),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                            ),
-                        modifier = GlanceModifier.padding(bottom = 8.dp),
-                    )
-                    if (rows.isEmpty()) {
+                    Box(
+                        modifier =
+                            GlanceModifier
+                                .fillMaxWidth()
+                                .height(MinTapTarget)
+                                .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
                         Text(
-                            text = PlainVoice.widgetNoPinnedCasesMessage,
-                            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 13.sp),
+                            text = PlainVoice.homeHeaderTitle,
+                            style =
+                                TextStyle(
+                                    color = ColorProvider(WidgetPalette.onSurfaceMuted),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                ),
                         )
+                    }
+                    if (rows.isEmpty()) {
+                        Box(
+                            modifier =
+                                GlanceModifier
+                                    .fillMaxWidth()
+                                    .height(MinTapTarget)
+                                    .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            Text(
+                                text = PlainVoice.widgetNoPinnedCasesMessage,
+                                style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 13.sp),
+                            )
+                        }
                     } else {
                         LazyColumn(modifier = GlanceModifier.fillMaxWidth()) {
                             items(rows) { row -> CaseRow(row, now) }
@@ -108,6 +130,7 @@ private fun CaseRow(
     now: Long,
 ) {
     val ongoing = row.ongoingEvent
+    val context = LocalContext.current
     Row(
         modifier =
             GlanceModifier
@@ -118,7 +141,18 @@ private fun CaseRow(
     ) {
         Text(text = row.icon, style = TextStyle(fontSize = 20.sp))
         Spacer(modifier = GlanceModifier.width(10.dp))
-        Column(modifier = GlanceModifier.defaultWeight()) {
+        Column(
+            modifier =
+                GlanceModifier
+                    .defaultWeight()
+                    .clickable(
+                        actionStartActivity(
+                            intent =
+                                Intent(context, MainActivity::class.java)
+                                    .putExtra(EXTRA_CASE_ID, row.caseId),
+                        ),
+                    ),
+        ) {
             Text(
                 text = row.name,
                 maxLines = 1,
@@ -162,7 +196,6 @@ private fun CaseRow(
                 )
             }
         } else {
-            val context = LocalContext.current
             val tapAction =
                 when (row.logFlow) {
                     LogFlow.ONE_TAP -> actionRunCallback<QuickLogAction>(actionParametersOf(CaseIdParam to row.caseId))

@@ -29,6 +29,9 @@ internal object WidgetPalette {
  * rows would otherwise size the "+" and "Stop" tap targets to their text alone. */
 internal val MinTapTarget = 48.dp
 
+/** App widget corner radius — matches the system-drawn corner mask on Android 12+ hosts. */
+internal val WidgetCornerRadius = 16.dp
+
 internal val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
 internal val EventIdParam = ActionParameters.Key<Long>("com.secondmonday.hodith.widget.EXTRA_EVENT_ID")
 
