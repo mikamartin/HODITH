@@ -49,7 +49,6 @@ class VoiceTest {
             assertTrue(voice.caseDurationModeInfoTitle.isNotBlank())
             assertTrue(voice.caseDurationModeInfoBody.isNotBlank())
             assertTrue(voice.caseIntensityToggleLabel.isNotBlank())
-            assertTrue(voice.casePinnedToggleLabel.isNotBlank())
             assertTrue(voice.caseCheckInLabel.isNotBlank())
             assertTrue(voice.caseCheckInInfoTitle.isNotBlank())
             assertTrue(voice.caseCheckInInfoBody.isNotBlank())

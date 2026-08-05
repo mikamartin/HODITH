@@ -15,6 +15,71 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/single-case-widget (bug-fix follow-up)
+
+**Scope:** Fixed both widgets getting stuck on their empty/not-found state right after a correct,
+verified configure flow (two stacked causes: missing `android:initialLayout`, then non-reactive
+`provideGlance()` state reads — full root-cause writeup in `DEV_PLAYBOOK.md`'s new §5), plus a
+handful of smaller fixes found along the way and two new instrumented test files. Physical-device
+verification (the blocker at the end of the previous session on this branch) is done: both widgets
+populate immediately after configuring, and the Single-case widget correctly reflects a logged
+event's duration.
+
+**Found & fixed:**
+- *Duplication* — `WidgetPalette` (`WidgetCommon.kt`) hardcoded seven hex values that are literal
+  copies of `plainLight`'s fields in `ui/theme/Color.kt`, restated correctly this pass to actually
+  match the Plain theme (previously they were just an unrelated dark palette, so the duplication
+  hadn't been *live* duplication before). Extracted the seven overlapping values into named
+  `internal` constants next to `plainLight` (`PlainLightPrimary`, `PlainLightBackground`, etc.) and
+  pointed both `plainLight` and `WidgetPalette` at them, instead of leaving two independently
+  hardcoded copies that could silently drift.
+- *Duplication* — `ListWidgetConfigureFlowTest.toggleCase` and
+  `SingleCaseWidgetConfigureFlowTest.selectCase` were near-identical (same vertical bounds-overlap
+  matching against a `ComposeTestRule`, differing only in `isToggleable()` vs `isSelectable()`).
+  Extracted into a shared `ComposeTestRule.clickRowControl(caseName, control)` in a new
+  `WidgetConfigureTestFixtures.kt`, removing the duplicate implementation and its now-orphaned
+  `SemanticsMatcher`/`hasText` imports from both files.
+- *Deprecated APIs* — both new configure-flow test files used `createEmptyComposeRule()` (v1,
+  deprecated in favor of the `androidx.compose.ui.test.junit4.v2` variant) — new to the codebase
+  this pass, not a pre-existing tolerated warning. Migrated both to the v2 import; re-ran the two
+  tests 5x on-device afterward specifically to check whether the v2 dispatcher change
+  (`UnconfinedTestDispatcher` → `StandardTestDispatcher`) destabilized the hard-won click-matching
+  in these tests — it didn't, all 5 runs passed.
+- *Tests* — `QuickLogAction`/`StopEventAction` (the widgets' one-tap-log and Stop buttons) had zero
+  coverage of any kind, not even unit tests: both need a real `Context` with a live Hilt component
+  and a real `WorkManager`, neither available on the JVM, and this repo doesn't use Robolectric or
+  a mocking library (precedent: `WidgetLogTrampolineActivity`/`NotificationActionReceiver` in
+  `docs/CLEANUP_LOG.md`'s `feature/export-import` entry). Added `WidgetActionsFlowTest`, a real
+  `AppWidgetHost`-driven click-through test, discovering along the way that the List widget's
+  `LazyColumn` rows can't be exercised this way at all (see Deferred) — the test drives the
+  Single-case widget instead, which runs the exact same two callbacks.
+
+**Deferred:**
+- The List widget's `LazyColumn` rows are untestable via a bare `AppWidgetHost`: Glance backs them
+  with a `RemoteViewsService`/`ListView` adapter that only populates once the host view is attached
+  to a real window and laid out, which `AppWidgetHost.createView()` never triggers (confirmed by
+  dumping the rendered view tree — the `ListView` had zero children after 10s of polling). Not
+  fixed this pass — would need either a real window-attached host or a different test approach
+  entirely; documented as a known limitation in `DEV_PLAYBOOK.md` §5 rather than worked around.
+- The List widget's Case selection is still the Case-level `pinned` flag rather than
+  per-widget-instance selection (each widget picking its own Cases, mirroring the Single-case
+  widget) — real redesign (Room migration, ViewModel/Activity rewrite), scoped as its own future
+  branch per the previous session's note, not bundled with this bug-fix pass.
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean. `connectedDebugAndroidTest`
+(165 tests, including the three widget instrumented test files) passes clean on an emulator — one
+run hit an unrelated mid-suite emulator system crash (`INSTRUMENTATION_ABORTED: System has
+crashed`), a full clean rerun immediately after passed all 165 with zero failures.
+
+**Docs updated:** DEV_PLAYBOOK.md gained a new §5 "Testing App Widgets" (renumbering the old §5 to
+§6) covering the reactive-`provideGlance()` pattern, `android:initialLayout`, targeted
+configure-time updates, the `AppWidgetHost` instrumented-test pattern, and its `LazyColumn`
+limitation; HODITH_SPEC.md's `pinned` row and §14's New/edit Case row updated to drop the removed
+"Pin to widget" toggle; PROGRESS.md's Widgets section rewritten with this pass's outcome and the
+remaining per-instance-redesign punch list item.
+
+---
+
 ## feature/single-case-widget
 
 **Scope:** Built the Single-case widget (spec §15, deferred from Phase 8) and fixed four

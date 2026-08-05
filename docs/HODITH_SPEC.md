@@ -69,7 +69,7 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 | durationMode | `NONE` \| `MANUAL` \| `START_STOP` |
 | intensityEnabled | boolean — show 1–5 intensity on the detail sheet |
 | hunchNudgeDismissed | boolean — user said "stop asking" (see §7) |
-| pinned | boolean — appears in the list widget |
+| pinned | boolean — appears in the list widget; set only via the List widget's own configure picker, not from Case Edit |
 | checkInsEnabled | boolean — whether this Case participates in check-ins (§11); the interval itself is always the app-level default from Settings, or hunch-derived if the Case has an active Hunch. A Case wanting a custom silence threshold instead gets a `SILENT_FOR` Trigger (§11), which already covers exactly that. |
 | lastCheckInAt | nullable — when a check-in last fired or was answered "all quiet"; used for re-arming |
 | sortOrder | manual ordering on Home and Big Picture |
@@ -267,7 +267,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 | **Home** | Case list (drag to reorder): icon, name, today/this-week count, quick-log button, ongoing indicator. FAB: new Case. Trigger banners if notifications are denied. Text link to **Archived Cases**, shown only once at least one Case is archived. |
 | **Big Picture** | §9 flagship view. |
 | **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10), **Hunch** (verdict card or hunch creation, hunch history). Header: icon, name, share action (§13), config access. |
-| **New/edit Case** | Name (required, capped at 60 characters, must be unique among active Cases case-insensitively), optional description (capped at 280 characters), collapsible icon picker (expanded by default for a new Case, collapsed with an icon summary when editing), logFlow, durationMode, intensity toggle, pinned toggle, check-in toggle (on/off). Logging, Duration, and Check-in each carry a tappable info icon opening a plain explanatory dialog. The Logging control's "One tap" option is disabled whenever durationMode is Manual and/or intensity tracking is on (one-tap can't capture a typed duration or intensity rating; Start/stop is unaffected) — an existing Case's logFlow silently corrects to Detail sheet the moment its duration/intensity settings make One tap invalid, whether that happens while editing or because a previously-valid stored value became invalid. Header also carries an **Archive** action on an existing Case (confirm dialog noting the Case stays intact and pointing to Archived Cases for permanent delete; not shown when creating a new Case) — navigates to Home on confirm. |
+| **New/edit Case** | Name (required, capped at 60 characters, must be unique among active Cases case-insensitively), optional description (capped at 280 characters), collapsible icon picker (expanded by default for a new Case, collapsed with an icon summary when editing), logFlow, durationMode, intensity toggle, check-in toggle (on/off). Logging, Duration, and Check-in each carry a tappable info icon opening a plain explanatory dialog. The Logging control's "One tap" option is disabled whenever durationMode is Manual and/or intensity tracking is on (one-tap can't capture a typed duration or intensity rating; Start/stop is unaffected) — an existing Case's logFlow silently corrects to Detail sheet the moment its duration/intensity settings make One tap invalid, whether that happens while editing or because a previously-valid stored value became invalid. Header also carries an **Archive** action on an existing Case (confirm dialog noting the Case stays intact and pointing to Archived Cases for permanent delete; not shown when creating a new Case) — navigates to Home on confirm. |
 | **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/hunches/triggers). Reached via Home's archived-cases link. |
 | **Log detail sheet** | §6 — reachable from widget (trampoline activity), Home, case detail. |
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
@@ -279,7 +279,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 
 - **List widget** (resizable): pinned Cases; each row = icon, name, today count, one-tap log (respecting the Case's `logFlow` — `DETAIL_SHEET` opens the sheet via trampoline). Ongoing Cases show elapsed time + Stop.
 - **Single-case widget** (small): bound to one Case via its own configure step (not the Case-level `pinned` flag). Shows icon + today count; a dedicated log button respects the Case's `logFlow` (matching the List widget's per-row treatment), tapping elsewhere on the Case opens its detail screen. Ongoing Cases show elapsed time + Stop, same as the List widget.
-- Known Glance constraint: widget theming is limited, so widgets use a fixed neutral palette that sits acceptably in all three themes. Documented as a known limitation.
+- Known Glance constraint: widget theming is limited, so widgets always render the Plain theme's light palette, regardless of the user's chosen in-app theme or the system's light/dark mode. Documented as a known limitation.
 
 ## 16. Data, privacy, distribution
 

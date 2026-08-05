@@ -24,6 +24,10 @@ Items that need a design pass or a product decision before (or instead of) strai
 - [ ] Calendar heatmap: a visually large gap appears between the current month and prior months right when a new month has just begun.
 - [ ] Rhythm grid: large gap between the legend and the grid squares under the Intense theme specifically.
 
+## Widgets
+
+- [ ] List widget's Case selection becomes per-widget-instance (each widget picks its own Cases) instead of the current global `pinned` flag. Case Edit's "Pin to widget" toggle is already removed (the widget's own configure picker is now the only thing that sets `pinned`). Remaining work is the real redesign — Room migration to drop `CaseEntity.pinned` entirely, `ListWidgetConfigureViewModel`/`Activity` rewritten from skip-if-pinned to always-show-multi-select backed by per-instance Glance state (mirroring the Single-case widget), and likely the backup/restore format — HODITH_SPEC.md's §5 `pinned` row, §14 New/edit Case screen, and §15 widget descriptions need updating once this lands. Scope as its own branch, not bundled with small widget bug fixes.
+
 ## App icon
 
 - [ ] Dark spot visible on the circle/handle at larger icon sizes — the invisible lens ring fix addressed a related issue, but this artifact remains at bigger resolutions.
