@@ -44,10 +44,11 @@ fun HodithNavHost(
     val navController = rememberNavController()
     val voice = LocalVoice.current
 
-    // Notification taps (trigger fired / check-in due) carry a caseId to land directly on that
-    // Case's detail screen. Start destination stays Home; this navigates on top of it once per
-    // fresh launch — MainActivity's PendingIntents use FLAG_ACTIVITY_CLEAR_TASK, guaranteeing a
-    // fresh composition each tap, so `Unit` as the key (fire-once) is correct here.
+    // Notification taps (trigger fired / check-in due) and widget Case taps (List/Single-case)
+    // carry a caseId to land directly on that Case's detail screen. Start destination stays
+    // Home; this navigates on top of it once per fresh launch — all of these MainActivity
+    // intents use FLAG_ACTIVITY_CLEAR_TASK, guaranteeing a fresh composition each tap, so `Unit`
+    // as the key (fire-once) is correct here.
     LaunchedEffect(Unit) {
         deepLinkCaseId?.let { caseId -> navController.navigate("$CASE_DETAIL_ROUTE/$caseId") }
     }

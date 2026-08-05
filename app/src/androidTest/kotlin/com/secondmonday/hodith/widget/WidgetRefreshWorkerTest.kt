@@ -18,12 +18,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * First Hilt-based instrumented test in the repo — needed here because [WidgetRefreshWorker]
- * resolves [WidgetRefresher] via [dagger.hilt.android.EntryPointAccessors] at `doWork()` time,
- * which requires a real, populated Hilt component. Scoped to this one test class only — no
- * `HiltTestRunner`/shared-infra changes. Uses the real `GlanceWidgetRefresher` rather than a fake:
- * a `SUCCEEDED` terminal state already proves `doWork()` called `refreshListWidget()` without
- * throwing, and `ListWidget().updateAll()` safely no-ops with zero installed widget instances.
+ * First Hilt-based instrumented test in the repo — needed here because `doWork()` calls
+ * [refreshAllWidgets], whose `updateAll()` calls invoke each widget's `provideGlance()`, which
+ * resolves its repository/clock via [dagger.hilt.android.EntryPointAccessors] and so needs a
+ * real, populated Hilt component. Scoped to this one test class only — no
+ * `HiltTestRunner`/shared-infra changes. A `SUCCEEDED` terminal state already proves `doWork()`
+ * completed without throwing, and `updateAll()` safely no-ops on both widget types with zero
+ * installed instances.
  *
  * Split into two tests rather than one: `PeriodicWorkRequest` never settles on a durable
  * `SUCCEEDED` `WorkInfo.State` — after each successful run WorkManager cycles it straight back to
@@ -61,6 +62,29 @@ class WidgetRefreshWorkerTest {
             attempts++
         }
         assertEquals(WorkInfo.State.SUCCEEDED, info.state)
+    }
+
+    @Test
+    fun enqueueRefresh_registersUnderTheOneOffWorkNameAndSucceeds() {
+        // A second call is exactly what a rapid double-tap looks like — ExistingWorkPolicy.REPLACE
+        // means it shouldn't throw or leave the unique name in a broken state, but the test's
+        // SynchronousExecutor already runs the first request to a terminal state before this line
+        // returns, so there's nothing left for the second call to actually replace; this only
+        // proves the pair of calls is safe, not the cancellation itself.
+        WidgetRefreshWorker.enqueueRefresh(context)
+        WidgetRefreshWorker.enqueueRefresh(context)
+
+        val workManager = WorkManager.getInstance(context)
+        var infos = workManager.getWorkInfosForUniqueWork(WidgetRefreshWorker.ONE_OFF_WORK_NAME).get()
+        var attempts = 0
+        while (infos.any { !it.state.isFinished } && attempts < 50) {
+            Thread.sleep(100)
+            infos = workManager.getWorkInfosForUniqueWork(WidgetRefreshWorker.ONE_OFF_WORK_NAME).get()
+            attempts++
+        }
+
+        assertEquals(true, infos.isNotEmpty())
+        assertEquals(true, infos.all { it.state == WorkInfo.State.SUCCEEDED })
     }
 
     @Test

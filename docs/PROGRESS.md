@@ -26,11 +26,7 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 ## Widgets
 
-- [ ] Single-case widget (spec §15, deferred from Phase 8): small widget bound to one Case — tap logs per its `logFlow`, shows icon + today's count, ongoing state supported (elapsed + Stop, matching the List widget's per-row treatment).
-- [ ] Widget background renders black instead of its intended theme color/surface.
-- [ ] Widget empty state uses black-and-white font instead of themed colors.
-- [ ] Widget empty state: tapping it should open the app; currently doesn't.
-- [ ] Widget: tapping a case row or the widget title doesn't open the app.
+- [ ] List widget's Case selection becomes per-widget-instance (each widget picks its own Cases) instead of the current global `pinned` flag. Case Edit's "Pin to widget" toggle is already removed (the widget's own configure picker is now the only thing that sets `pinned`). Remaining work is the real redesign — Room migration to drop `CaseEntity.pinned` entirely, `ListWidgetConfigureViewModel`/`Activity` rewritten from skip-if-pinned to always-show-multi-select backed by per-instance Glance state (mirroring the Single-case widget), and likely the backup/restore format — HODITH_SPEC.md's §5 `pinned` row, §14 New/edit Case screen, and §15 widget descriptions need updating once this lands. Scope as its own branch, not bundled with small widget bug fixes.
 
 ## App icon
 

@@ -37,6 +37,15 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".widget.SingleCaseWidgetConfigureActivity"
+            android:exported="true"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".notification.NotificationActionReceiver"
             android:exported="false" />
@@ -61,6 +70,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/list_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.SingleCaseWidgetReceiver"
+            android:exported="false"
+            android:label="@string/single_case_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/single_case_widget_info" />
         </receiver>
     </application>
 

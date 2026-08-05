@@ -46,7 +46,6 @@ class CaseEditScreenTest {
                     onLogFlowChange = {},
                     onDurationModeChange = {},
                     onIntensityToggle = {},
-                    onPinnedToggle = {},
                     onCheckInToggle = {},
                     onSave = {},
                     onArchive = onArchive,

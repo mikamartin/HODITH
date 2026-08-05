@@ -12,16 +12,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Switch
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.secondmonday.hodith.data.AppTheme
@@ -31,25 +31,25 @@ import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
-import com.secondmonday.hodith.viewmodel.ListWidgetConfigureUiState
-import com.secondmonday.hodith.viewmodel.ListWidgetConfigureViewModel
+import com.secondmonday.hodith.viewmodel.SingleCaseWidgetConfigureUiState
+import com.secondmonday.hodith.viewmodel.SingleCaseWidgetConfigureViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * The List widget's mandatory `android:configure` activity (spec §15) — the system launches this
- * automatically every time the widget is added, before it shows any content. Since `pinned` is a
- * Case-level flag rather than per-widget-instance data, [ListWidgetConfigureViewModel] skips
- * straight through with no UI whenever something is already pinned; the picker only appears the
- * very first time, when the widget would otherwise render its empty state.
+ * The Single-case widget's mandatory `android:configure` activity (spec §15). Unlike
+ * [ListWidgetConfigureActivity], which skips its picker once anything is Case-level `pinned`,
+ * this one always shows a single-select picker — each widget instance is bound to its own Case via
+ * this widget's own Glance [CaseIdKey] state (per-instance, not a Case flag), so there's nothing to
+ * skip.
  */
 @AndroidEntryPoint
-class ListWidgetConfigureActivity : ComponentActivity() {
+class SingleCaseWidgetConfigureActivity : ComponentActivity() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
-    private val viewModel: ListWidgetConfigureViewModel by viewModels()
+    private val viewModel: SingleCaseWidgetConfigureViewModel by viewModels()
 
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
@@ -72,15 +72,14 @@ class ListWidgetConfigureActivity : ComponentActivity() {
             CompositionLocalProvider(LocalVoice provides voiceFor(theme)) {
                 HodithTheme(theme = theme) {
                     when (val state = uiState) {
-                        ListWidgetConfigureUiState.Loading -> Unit
-                        ListWidgetConfigureUiState.AlreadyConfigured -> LaunchedEffect(Unit) { finishConfigure() }
-                        is ListWidgetConfigureUiState.Picker ->
+                        SingleCaseWidgetConfigureUiState.Loading -> Unit
+                        is SingleCaseWidgetConfigureUiState.Picker ->
                             CasePickerDialog(
                                 voice = LocalVoice.current,
                                 cases = state.cases,
-                                selectedCaseIds = state.selectedCaseIds,
-                                onToggle = viewModel::toggle,
-                                onConfirm = { viewModel.confirmSelection { finishConfigure() } },
+                                selectedCaseId = state.selectedCaseId,
+                                onSelect = viewModel::select,
+                                onConfirm = { viewModel.confirmSelection(::finishConfigure) },
                                 onDismiss = { finish() },
                             )
                     }
@@ -89,14 +88,17 @@ class ListWidgetConfigureActivity : ComponentActivity() {
         }
     }
 
-    private fun finishConfigure() {
-        // Targeted update(context, glanceId) rather than updateAll(): updateAll() only refreshes
-        // widget instances Glance already knows about, and this widget is being configured for
-        // the first time — it isn't necessarily in that list yet, so updateAll() can silently
-        // miss it and leave it stuck on its empty state.
+    private fun finishConfigure(caseId: Long) {
         lifecycleScope.launch {
             val glanceId = GlanceAppWidgetManager(applicationContext).getGlanceIdBy(appWidgetId)
-            ListWidget().update(applicationContext, glanceId)
+            updateAppWidgetState(applicationContext, glanceId) { prefs -> prefs[CaseIdKey] = caseId }
+            // Targeted update(context, glanceId) rather than updateAll(): updateAll() only
+            // refreshes widget instances Glance already knows about, and this widget is being
+            // configured for the first time — it isn't necessarily in that list yet, so
+            // updateAll() can silently miss it. SingleCaseWidget.provideGlance reads CaseIdKey
+            // reactively via currentState(), so this call mainly nudges the host to repaint
+            // promptly rather than being the only thing that can make the new value visible.
+            SingleCaseWidget().update(applicationContext, glanceId)
             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
             finish()
         }
@@ -107,32 +109,34 @@ class ListWidgetConfigureActivity : ComponentActivity() {
 private fun CasePickerDialog(
     voice: Voice,
     cases: List<CaseEntity>,
-    selectedCaseIds: Set<Long>,
-    onToggle: (Long) -> Unit,
+    selectedCaseId: Long?,
+    onSelect: (Long) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(voice.widgetConfigureTitle) },
+        title = { Text(voice.singleCaseWidgetConfigureTitle) },
         text = {
             if (cases.isEmpty()) {
                 Text(voice.widgetConfigureNoCasesMessage)
             } else {
                 LazyColumn {
-                    item { Text(voice.widgetConfigureBody) }
+                    item { Text(voice.singleCaseWidgetConfigureBody) }
                     items(items = cases, key = { it.id }) { case ->
                         CasePickerRow(
                             case = case,
-                            checked = case.id in selectedCaseIds,
-                            onCheckedChange = { onToggle(case.id) },
+                            selected = case.id == selectedCaseId,
+                            onSelect = { onSelect(case.id) },
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text(voice.widgetConfigureConfirmAction) }
+            TextButton(onClick = onConfirm, enabled = selectedCaseId != null) {
+                Text(voice.singleCaseWidgetConfigureConfirmAction)
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(voice.widgetConfigureSkipAction) }
@@ -143,8 +147,8 @@ private fun CasePickerDialog(
 @Composable
 private fun CasePickerRow(
     case: CaseEntity,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    selected: Boolean,
+    onSelect: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -152,6 +156,6 @@ private fun CasePickerRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("${case.icon}  ${case.name}")
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        RadioButton(selected = selected, onClick = onSelect)
     }
 }
