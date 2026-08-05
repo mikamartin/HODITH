@@ -21,7 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.glance.appwidget.updateAll
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.secondmonday.hodith.data.AppTheme
@@ -90,9 +90,16 @@ class ListWidgetConfigureActivity : ComponentActivity() {
     }
 
     private fun finishConfigure() {
-        lifecycleScope.launch { ListWidget().updateAll(applicationContext) }
-        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-        finish()
+        // Targeted update(context, glanceId) rather than updateAll(): updateAll() only refreshes
+        // widget instances Glance already knows about, and this widget is being configured for
+        // the first time — it isn't necessarily in that list yet, so updateAll() can silently
+        // miss it and leave it stuck on its empty state.
+        lifecycleScope.launch {
+            val glanceId = GlanceAppWidgetManager(applicationContext).getGlanceIdBy(appWidgetId)
+            ListWidget().update(applicationContext, glanceId)
+            setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
+            finish()
+        }
     }
 }
 

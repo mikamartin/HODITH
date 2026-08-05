@@ -85,7 +85,6 @@ fun CaseEditRoute(
         onLogFlowChange = viewModel::onLogFlowChange,
         onDurationModeChange = viewModel::onDurationModeChange,
         onIntensityToggle = viewModel::onIntensityToggle,
-        onPinnedToggle = viewModel::onPinnedToggle,
         onCheckInToggle = viewModel::onCheckInToggle,
         onSave = viewModel::save,
         onArchive = viewModel::archive,
@@ -104,7 +103,6 @@ fun CaseEditScreen(
     onLogFlowChange: (LogFlow) -> Unit,
     onDurationModeChange: (DurationMode) -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
-    onPinnedToggle: (Boolean) -> Unit,
     onCheckInToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
     onArchive: () -> Unit,
@@ -159,7 +157,6 @@ fun CaseEditScreen(
             onLogFlowChange = onLogFlowChange,
             onDurationModeChange = onDurationModeChange,
             onIntensityToggle = onIntensityToggle,
-            onPinnedToggle = onPinnedToggle,
             onCheckInToggle = onCheckInToggle,
             onSave = onSave,
             modifier = Modifier.padding(contentPadding),
@@ -178,7 +175,6 @@ private fun CaseEditForm(
     onLogFlowChange: (LogFlow) -> Unit,
     onDurationModeChange: (DurationMode) -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
-    onPinnedToggle: (Boolean) -> Unit,
     onCheckInToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -244,7 +240,6 @@ private fun CaseEditForm(
         }
 
         ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
-        ToggleRow(label = voice.casePinnedToggleLabel, checked = uiState.pinned, onCheckedChange = onPinnedToggle)
 
         RowWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
             Switch(checked = uiState.checkInsEnabled, onCheckedChange = onCheckInToggle)

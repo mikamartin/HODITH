@@ -92,6 +92,12 @@ class SingleCaseWidgetConfigureActivity : ComponentActivity() {
         lifecycleScope.launch {
             val glanceId = GlanceAppWidgetManager(applicationContext).getGlanceIdBy(appWidgetId)
             updateAppWidgetState(applicationContext, glanceId) { prefs -> prefs[CaseIdKey] = caseId }
+            // Targeted update(context, glanceId) rather than updateAll(): updateAll() only
+            // refreshes widget instances Glance already knows about, and this widget is being
+            // configured for the first time — it isn't necessarily in that list yet, so
+            // updateAll() can silently miss it. SingleCaseWidget.provideGlance reads CaseIdKey
+            // reactively via currentState(), so this call mainly nudges the host to repaint
+            // promptly rather than being the only thing that can make the new value visible.
             SingleCaseWidget().update(applicationContext, glanceId)
             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
             finish()

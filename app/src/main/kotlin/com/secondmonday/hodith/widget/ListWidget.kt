@@ -3,6 +3,8 @@ package com.secondmonday.hodith.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -44,7 +46,6 @@ import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.homeCaseRows
 import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.flow.first
 
 class ListWidget : GlanceAppWidget() {
     override suspend fun provideGlance(
@@ -52,11 +53,21 @@ class ListWidget : GlanceAppWidget() {
         id: GlanceId,
     ) {
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-        val casesWithEvents = entryPoint.repository().observeActiveCasesWithEvents().first()
-        val now = entryPoint.clock().nowMillis()
-        val rows = homeCaseRows(casesWithEvents.filter { it.case.pinned }, now)
 
         provideContent {
+            // Read reactively via produceState rather than a one-shot suspend read outside
+            // provideContent — see SingleCaseWidget's provideGlance for why: a value captured
+            // outside provideContent is frozen for the session's lifetime once Android's
+            // bind-before-configure sequence starts an early session, and update() calls
+            // afterward can't force a recompute against something that isn't Compose State.
+            val now = entryPoint.clock().nowMillis()
+            val rows by
+                produceState(initialValue = emptyList<HomeCaseRow>()) {
+                    entryPoint.repository().observeActiveCasesWithEvents().collect { casesWithEvents ->
+                        value = homeCaseRows(casesWithEvents.filter { it.case.pinned }, now)
+                    }
+                }
+
             GlanceTheme {
                 val context = LocalContext.current
                 Column(
@@ -149,6 +160,7 @@ private fun CaseRow(
                         actionStartActivity(
                             intent =
                                 Intent(context, MainActivity::class.java)
+                                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                                     .putExtra(EXTRA_CASE_ID, row.caseId),
                         ),
                     ),

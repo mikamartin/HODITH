@@ -33,7 +33,6 @@ data class CaseEditUiState(
     val logFlow: LogFlow = LogFlow.DETAIL_SHEET,
     val durationMode: DurationMode = DurationMode.NONE,
     val intensityEnabled: Boolean = false,
-    val pinned: Boolean = false,
     val checkInsEnabled: Boolean = true,
     val showNameError: Boolean = false,
     val showDuplicateNameError: Boolean = false,
@@ -94,8 +93,6 @@ class CaseEditViewModel
                 it.copy(intensityEnabled = enabled, logFlow = coerceLogFlow(it.logFlow, it.durationMode, enabled))
             }
 
-        fun onPinnedToggle(pinned: Boolean) = _uiState.update { it.copy(pinned = pinned) }
-
         fun onCheckInToggle(enabled: Boolean) = _uiState.update { it.copy(checkInsEnabled = enabled) }
 
         fun save() {
@@ -131,7 +128,6 @@ class CaseEditViewModel
                             logFlow = state.logFlow,
                             durationMode = state.durationMode,
                             intensityEnabled = state.intensityEnabled,
-                            pinned = state.pinned,
                             checkInsEnabled = state.checkInsEnabled,
                         ),
                     )
@@ -146,7 +142,9 @@ class CaseEditViewModel
                             durationMode = state.durationMode,
                             intensityEnabled = state.intensityEnabled,
                             hunchNudgeDismissed = false,
-                            pinned = state.pinned,
+                            // New Cases start unpinned — pinning a Case to the List widget is now
+                            // done from the widget's own configure picker, not from Case Edit.
+                            pinned = false,
                             checkInsEnabled = state.checkInsEnabled,
                             lastCheckInAt = null,
                             sortOrder = activeCases.size,
@@ -154,8 +152,8 @@ class CaseEditViewModel
                         ),
                     )
                 }
-                // pinned/archived both affect what a widget shows — refresh whenever either could
-                // have changed, not just from a widget's own configure flow.
+                // A widget currently showing this Case can be affected by name/icon/archived
+                // changes made here — refresh in case one is.
                 widgetRefresher.refreshWidgets()
                 if (state.checkInsEnabled && !settingsRepository.hasRequestedNotificationPermission()) {
                     settingsRepository.setNotificationPermissionRequested()
@@ -185,7 +183,6 @@ internal fun CaseEntity.toUiState() =
         logFlow = coerceLogFlow(logFlow, durationMode, intensityEnabled),
         durationMode = durationMode,
         intensityEnabled = intensityEnabled,
-        pinned = pinned,
         canArchive = true,
         checkInsEnabled = checkInsEnabled,
     )

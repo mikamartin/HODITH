@@ -60,7 +60,6 @@ interface Voice {
     val caseDurationModeInfoTitle: String
     val caseDurationModeInfoBody: String
     val caseIntensityToggleLabel: String
-    val casePinnedToggleLabel: String
     val caseCheckInLabel: String
     val caseCheckInInfoTitle: String
     val caseCheckInInfoBody: String
@@ -529,7 +528,6 @@ object PlainVoice : Voice {
         "None skips duration entirely. Manual lets you type a duration when logging. Start/stop tracks an " +
             "ongoing event live, from Start until you Stop it."
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
-    override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
     override val caseCheckInInfoTitle = "About check-in"
     override val caseCheckInInfoBody =
@@ -986,7 +984,6 @@ object IntenseVoice : Voice {
         "None takes no account of how long a thing lingers. Manual lets you name its length yourself. " +
             "Start/stop watches it unfold in real time, from the moment it begins until you declare it done."
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
-    override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
     override val caseCheckInInfoTitle = "On the watch kept"
     override val caseCheckInInfoBody =
@@ -1441,7 +1438,6 @@ object BrightVoice : Voice {
         "None means duration's not tracked. Manual lets you type in how long it took. Start/stop tracks it " +
             "live — hit Start, then Stop when it's over."
     override val caseIntensityToggleLabel = "Track intensity (1-5)"
-    override val casePinnedToggleLabel = "Pin to widget"
     override val caseCheckInLabel = "Check-in"
     override val caseCheckInInfoTitle = "Check-in, explained"
     override val caseCheckInInfoBody =

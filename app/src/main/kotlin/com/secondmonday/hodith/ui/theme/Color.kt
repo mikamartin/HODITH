@@ -22,9 +22,21 @@ fun hodithColorScheme(
         AppTheme.BRIGHT -> if (darkTheme) brightDark else brightLight
     }
 
+// Named rather than inlined below, specifically for these seven roles: Glance widget theming
+// can't consume a Compose Material3 ColorScheme (DEV_PLAYBOOK.md §4), so WidgetCommon.kt's
+// WidgetPalette — which renders the Plain theme's light palette regardless of the user's chosen
+// in-app theme — sources these same values from here instead of duplicating the hex literals.
+internal val PlainLightPrimary = Color(0xFF3A6B76)
+internal val PlainLightBackground = Color(0xFFF4F6F8)
+internal val PlainLightSurface = Color(0xFFFFFFFF)
+internal val PlainLightOnSurface = Color(0xFF1B2126)
+internal val PlainLightOnSurfaceVariant = Color(0xFF5B6670)
+internal val PlainLightError = Color(0xFFBA1A1A)
+internal val PlainLightOnError = Color(0xFFFFFFFF)
+
 private val plainLight =
     lightColorScheme(
-        primary = Color(0xFF3A6B76),
+        primary = PlainLightPrimary,
         onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFC7E8ED),
         onPrimaryContainer = Color(0xFF082024),
@@ -32,16 +44,16 @@ private val plainLight =
         onSecondary = Color(0xFFFFFFFF),
         secondaryContainer = Color(0xFFDAE4E9),
         onSecondaryContainer = Color(0xFF141E24),
-        error = Color(0xFFBA1A1A),
-        onError = Color(0xFFFFFFFF),
+        error = PlainLightError,
+        onError = PlainLightOnError,
         errorContainer = Color(0xFFFFDAD6),
         onErrorContainer = Color(0xFF410002),
-        background = Color(0xFFF4F6F8),
+        background = PlainLightBackground,
         onBackground = Color(0xFF1B2126),
-        surface = Color(0xFFFFFFFF),
-        onSurface = Color(0xFF1B2126),
+        surface = PlainLightSurface,
+        onSurface = PlainLightOnSurface,
         surfaceVariant = Color(0xFFDEE4E7),
-        onSurfaceVariant = Color(0xFF5B6670),
+        onSurfaceVariant = PlainLightOnSurfaceVariant,
         surfaceContainerHigh = Color(0xFFE9ECEE),
         outline = Color(0xFFD3DAE0),
         outlineVariant = Color(0xFFE7ECEE),
