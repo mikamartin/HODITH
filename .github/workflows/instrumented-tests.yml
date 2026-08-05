@@ -85,7 +85,9 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096
           disable-animations: true
-          script: ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.${{ matrix.filterKey }}=${{ matrix.filterValue }} --no-daemon
+          script: |
+            adb shell appwidget grantbind --package com.secondmonday.hodith --user 0
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.${{ matrix.filterKey }}=${{ matrix.filterValue }} --no-daemon
 
       - name: Upload test results
         if: always()
