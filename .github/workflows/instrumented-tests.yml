@@ -86,6 +86,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096
           disable-animations: true
           script: |
+            ./gradlew installDebug --no-daemon
             adb shell appwidget grantbind --package com.secondmonday.hodith --user 0
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.${{ matrix.filterKey }}=${{ matrix.filterValue }} --no-daemon
 
