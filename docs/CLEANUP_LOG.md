@@ -15,6 +15,56 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow (Big Picture)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Big Picture slice — `BigPictureGrid.kt`'s
+`BrightDayCell` replaces today's border+elevation-only marker with a blurred primary-tint ring
+(Soft Glow mockup's `.cal-cell.today` box-shadow ring). Flagged in PROGRESS.md as a real behavior
+change to already-shipped Bright code, not new work — and, like the Home pass, it's live the
+moment it ships, not just inert infrastructure.
+
+**Found & fixed:**
+- *Approach* — confirmed with the user before implementing, since `IconHalo`'s own doc comment
+  anticipated being reused here but its API (fixed `Dp` size, hardcoded `CircleShape`) doesn't fit
+  a dynamic-width rounded-square grid cell, and the mockup's ring is drawn directly on the cell's
+  own rounded-square shape via `box-shadow`, never a circular badge. Built the ring locally in
+  `BrightDayCell` using the same blur+tint recipe instead of forcing `IconHalo`'s shape, and left
+  `IconHalo` and its two shipped Home call sites untouched.
+- *Own mistake caught by the build* — first pass imported `matchParentSize` as a top-level import;
+  it's a `BoxScope` member function, not an importable symbol. `lintDebug`'s `compileDebugKotlin`
+  step caught the unresolved reference; removed the bad import.
+- *Tests* — replaced the single `BigPictureGridBrightPreview` with paired light/dark previews
+  (`BigPictureGridBrightLightPreview`/`...DarkPreview`), matching the Home pass's precedent and
+  PROGRESS.md's "Compose Preview per changed composable" checklist item.
+
+**Deferred:**
+- *Duplication* — the ring's blur+tint layer duplicates ~2 lines of `IconHalo`'s glow recipe
+  (`tint.copy(alpha = 0.45f)` behind a `blur()`) rather than sharing code, for the API-mismatch
+  reason above; documented in `BrightDayCell`'s doc comment. Worth revisiting only if a third call
+  site needs the same square-ring treatment.
+- *Tests* — no new pure logic, so no new unit coverage; `BigPictureDecorationTest`'s theme→style
+  mapping test is unaffected by a purely visual change inside the existing `BRIGHT` branch. Manual
+  on-device confirmation that Plain/Intense render unchanged and the Bright ring reads correctly is
+  the user's side of the workflow, not run here.
+- *Spec Review* — HODITH_SPEC.md doesn't describe per-theme cell decoration at this granularity
+  (same conclusion as the Home pass) — no update needed.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Hardcoded
+  Values (the `0.45f` alpha matches `IconHalo`'s own constant rather than introducing a new one; the
+  `10.dp` blur radius is a one-off visual tuning value inline like the file's existing
+  `2.dp`/`3.dp`/`6.dp`/`15.dp` constants — not a product constant); Deprecated APIs (none);
+  Accessibility (today's cell already signals "today" via bold day-number text plus a border/ring,
+  never color alone; no new icon-only tap targets, no tap-target size change).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Big Picture bullet, noted
+the ring is live alongside Home's row change; added two new bullets for gaps spotted during this
+pass but out of its scope: the bottom `NavigationBar`'s active-tab glow, which is a shared app-wide
+component and not this pass's to fix, and Big Picture's filter chips, which are still fully
+unbranched across all three themes).
+
+---
+
 ## feature/bright-theme-soft-glow (Home rows)
 
 **Scope:** PROGRESS.md's Bright theme redesign checklist, Home slice — `HomeScreen.kt`'s
