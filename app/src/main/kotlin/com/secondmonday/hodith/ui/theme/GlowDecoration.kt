@@ -2,6 +2,7 @@ package com.secondmonday.hodith.ui.theme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -31,12 +32,15 @@ import com.secondmonday.hodith.data.AppTheme
  * Bright-only "gradient-wash card": diagonal tint-to-surface gradient, hairline border, soft
  * tinted shadow (Soft Glow mockup's `.card`/`.hrow`, docs/mockups/bright-theme-soft-glow.html).
  * Meant to be reached only from a [LocalCardDecorationStyle.BRIGHT] branch — Plain/Intense keep
- * plain [androidx.compose.material3.Card] and never call this.
+ * plain [androidx.compose.material3.Card] and never call this. [onClick], not a `Modifier
+ * .clickable` tacked onto [modifier] by the caller, so the ripple is clipped to [shape] instead
+ * of spilling into the card's rounded corners.
  */
 @Composable
 fun GlowCard(
     modifier: Modifier = Modifier,
     tint: Color = MaterialTheme.colorScheme.primary,
+    onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = MaterialTheme.shapes.large
@@ -52,6 +56,7 @@ fun GlowCard(
                     spotColor = tint.copy(alpha = 0.35f),
                 ).clip(shape)
                 .background(Brush.linearGradient(listOf(lerp(surface, tint, 0.07f), surface)))
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
                 .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f), shape)
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

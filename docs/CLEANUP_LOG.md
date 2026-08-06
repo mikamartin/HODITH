@@ -15,6 +15,54 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow (Home rows)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Home slice — `HomeScreen.kt`'s
+`HomeCaseListItem` now branches on `LocalCardDecorationStyle`: Plain/Intense render the exact
+original row (extracted unchanged into `PlainHomeCaseListItem`), Bright wraps rows in `GlowCard`,
+alternates `IconHalo` tint primary/secondary per row by list index, and promotes the case name to
+the theme's display font. Unlike the foundations pass, this is genuinely live — anyone with Bright
+selected today sees the new row look, not just inert infrastructure.
+
+**Found & fixed:**
+- *`GlowCard` had no click support* — Home rows are a whole-row tap target, and appending a caller-
+  supplied `Modifier.clickable` to `GlowCard`'s `modifier` param would land before its internal
+  `.clip(shape)`, so the ripple would render as a rectangle instead of respecting the rounded card.
+  Added an `onClick` param to `GlowCard` that applies `clickable` after `clip`, matching how M3
+  `Card`'s own `onClick` overload avoids the same problem.
+- *Tests* — added a light + dark Compose Preview (`HomeBrightRowsLightPreview`/`...DarkPreview`)
+  for the wired rows, per PROGRESS.md's checklist item asking for one per changed composable.
+
+**Deferred:**
+- *Duplication* — `PlainHomeCaseListItem`/`BrightHomeCaseListItem` are two full, independent
+  composables with substantial structural overlap (icon, name/meta column, action button,
+  `StaleOngoingBanner`) rather than one function sharing an extracted inner block. Follows this
+  codebase's own precedent exactly: `BigPictureGrid.kt`'s `PlainDayCell`/`IntenseDayCell`/
+  `BrightDayCell` are three fully independent composables with the same kind of overlap, dispatched
+  from `DayCell` the same way `HomeCaseListItem` now dispatches to these two.
+- *Tests* — no new instrumented coverage added for Bright's row click-through specifically, and the
+  existing `HomeScreenTest` wasn't re-run on a device/emulator (not something this pass can do —
+  manual/on-device verification is the human's side of this workflow). Existing test should be
+  unaffected: it doesn't reference `AppTheme`, so it exercises `LocalCardDecorationStyle`'s default
+  (`PLAIN`), which routes to `PlainHomeCaseListItem` — byte-for-byte the original implementation,
+  same `caseId` keys via `itemsIndexed`. Worth an eyes-on pass (Previews or a real device) before
+  this goes further, since it's the first change in this branch that actually changes what ships.
+- *Spec Review* — HODITH_SPEC.md's §12 stays at the palette/type-feel/sample-copy level for all
+  three themes; it doesn't describe any theme's row/card decoration today (Big Picture's per-theme
+  cell treatments aren't spec'd either), so no update needed — consistent with existing granularity.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Hardcoded
+  Values (no new literal colors, only theme-derived `tint`; `index % 2` mirrors `BrightDayCell`'s
+  own unextracted alternation pattern); Deprecated APIs (none); most of Accessibility (existing
+  `IconButton`/`StopIconButton` content descriptions untouched; the new whole-row tap target is
+  larger than the old one, not smaller).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Home bullet, noted the
+row change is live, not just inert infrastructure).
+
+---
+
 ## feature/bright-theme-soft-glow
 
 **Scope:** PROGRESS.md's Bright theme redesign (Soft Glow) checklist, foundations slice: `Color.kt`'s
