@@ -10,15 +10,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 - [ ] Big picture: Cases/tags filters feel too crowded — needs a design pass on layout, not just content.
 - [ ] Settings rework introduces `FilledTonalButton` for its action rows, a style not used anywhere else in the app (existing vocabulary is `Button`/`OutlinedButton`/`TextButton`). Bright now uses a flat label + chevron row instead (`ActionRow`'s `BrightActionRow` branch, resolved alongside the Bright theme redesign's Settings pass); Plain/Intense still use `FilledTonalButton`. Revisit whether Plain/Intense should adopt the flat-row look too, or whether Settings should conform to the existing three-tier button system instead.
 
-## Bright theme redesign (Soft Glow)
-
-Direction is settled — the coral/turquoise "Soft Glow" mockup at [docs/mockups/bright-theme-soft-glow.html](mockups/bright-theme-soft-glow.html) (Home, Big Picture, Case Detail, Edit Case, Settings) is the reference. Palette stays coral/turquoise, `Baloo 2` + `Nunito`, and the existing shape scale in `Type.kt`/`Shape.kt` are unchanged.
-
-Foundations are in: `Color.kt`'s primary-tinted ink, a `LocalCardDecorationStyle` fork point (mirrors `LocalBigPictureCellStyle`/`LocalShareCardSkin`, covered by `CardDecorationStyleTest`), and the shared `GlowCard`/`IconHalo` primitives (`ui/theme/GlowDecoration.kt`, with their own Compose Previews). Home and Big Picture are wired and genuinely live now — anyone with Bright selected sees the new row look and today-cell ring, not just a Preview. What's left is wiring the remaining screens' `BRIGHT` branch to the new primitives:
-
-- [ ] Big Picture filter chips (`BigPictureGrid.kt`'s `CaseFilterChip`/`TagFilterChip`): currently unbranched — same `MaterialTheme.colorScheme.secondaryContainer`/`tertiaryContainer` chip in all three themes. Mockup's `.chip`/`.chip.on` use a tint-wash pill + hairline border with a glow ring on the selected state, same pill idiom as Settings' segmented controls. Spotted alongside the Big Picture ring pass; wasn't in the original checklist.
-- [ ] Compose Preview per changed composable (Bright, light + dark); check whether `HodithThemeTest`/`BigPictureDecorationTest` need new coverage for the glow decoration; manual on-device pass confirming Plain/Intense are unaffected.
-
 ## Settings
 
 - [ ] About screen real content (currently wiring-only placeholder copy): version/privacy statement/licenses text, plus a privacy policy hosted on the SecondMonday Studios website and linked from the screen.

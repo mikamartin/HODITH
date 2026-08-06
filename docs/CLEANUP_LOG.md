@@ -15,6 +15,37 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow (Big Picture filter chips)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Big Picture's filter chips —
+`BigPictureGrid.kt`'s `CaseFilterChip`/`TagFilterChip` now branch on `LocalCardDecorationStyle`:
+Bright gets a tint-wash pill with a hairline border, plus an outer 3dp ring at 10%-alpha tint when
+selected (Soft Glow mockup's `.chip`/`.chip.on`), approximating the mockup's zero-blur
+`box-shadow: 0 0 0 3px` spread (no direct Compose equivalent) as a padded outer `Modifier.border`.
+Both chips share the new `BrightChip` container rather than each reimplementing the pill+ring
+chrome, since only their inner content (icon+name vs. tag text) differs. Plain/Intense untouched.
+
+**Found & fixed:**
+- *Preview fidelity gap* — `BigPictureGridBrightLightPreview`/`...DarkPreview` only provided
+  `LocalBigPictureCellStyle`, not `LocalCardDecorationStyle` (nothing in this file dispatched on
+  the latter before this pass). Left as-is, the new chip branch would have silently rendered
+  Plain-style chips inside the "Bright" grid preview. Added `LocalCardDecorationStyle provides
+  CardDecorationStyle.BRIGHT` alongside the existing provider in both.
+- *Stale-comment risk* — first pass cited a specific mockup CSS line number
+  (`bright-theme-soft-glow.html ~line 112`) in `BrightChip`'s doc comment. Every other Bright-pass
+  comment in this codebase cites the CSS selector and file, never a line number, since the mockup
+  can be edited independently and a cited line drifts silently. Dropped the line reference.
+
+**Deferred:**
+- *Chip touch target* — `CaseFilterChip`/`TagFilterChip`'s effective tap height (6dp+6dp padding
+  around ~14sp text, ~26dp) is under the 48dp accessibility minimum, but that's pre-existing across
+  all three themes, unchanged by this pass — not introduced or worsened here.
+
+**Docs updated:** none — cosmetic per-theme decoration, no spec-level divergence; TESTING.md's Big
+Picture row already covers filter-chip *behaviour* generically, not per-theme styling.
+
+---
+
 ## feature/bright-theme-soft-glow (bottom navigation)
 
 **Scope:** PROGRESS.md's Bright theme redesign checklist, bottom navigation item —
