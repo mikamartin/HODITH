@@ -15,6 +15,67 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## test/automate-manual-plan
+
+**Scope:** PROGRESS.md's testing item asked for a deliberate pass over MANUAL_TEST_PLAN.md to find
+steps that could move from manual to automated coverage instead of assuming every entry still needs
+a human. Added five new instrumented test classes: `WidgetChromeNavigationTest` (List widget
+title/empty-state taps, Single-case widget's "Case is gone" tap — all outside the List widget's
+`LazyColumn`/`ListView`, so clickable via a real `AppWidgetHost`), `WidgetLogTrampolineActivityTest`
+(the DETAIL_SHEET trampoline sheet, launched directly), `NotifierContentTest` (real `Notifier`
+posts a correctly `Voice`-worded notification), `NotificationActionReceiverTest` (Log/All quiet
+broadcast actions), and `ContentResolverBackupFileWriterTest` (the real `ContentResolver` boundary
+under export/import). No production code changed — test-only, plus the three test docs.
+
+**Found & fixed:**
+- *Bugs, both in new test setup, not production code* — `NotificationActionReceiver.onReceive`
+  calls `goAsync()`, which throws `NullPointerException` unless the system's real broadcast dispatch
+  set up the receiver's pending-result state first; the first pass called `onReceive` directly on a
+  bare instance. Fixed by dispatching through a real `Context.sendBroadcast`. Separately,
+  instrumented tests run inside `HiltTestApplication` (`HiltTestRunner`), not the real
+  `HodithApplication`, so the `hodith_alerts` notification channel that `HodithApplication.onCreate()`
+  normally creates never exists under test — `NotificationManagerCompat.notify()` silently drops a
+  notification posted to a channel that doesn't exist. Both `NotifierContentTest` and
+  `NotificationActionReceiverTest` now call `ensureNotificationChannel()` in `setUp`.
+- *Docs* — MANUAL_TEST_PLAN.md's Widgets/Notifications/Data & backup sections rewritten: items now
+  fully covered by the new tests removed outright (Widgets 14 → 11 items, Notifications 8 → 5);
+  items only partly covered narrowed to just the still-manual slice (visual checks, notification tap
+  targets — `PendingIntent` doesn't expose its wrapped `Intent` through any public API, so that part
+  stays human-only). Also documented three pre-existing test classes
+  (`ListWidgetConfigureFlowTest`/`SingleCaseWidgetConfigureFlowTest`/`WidgetActionsFlowTest`) whose
+  coverage the manual plan hadn't caught up to yet. TESTING.md's "Planned instrumented coverage"
+  table gained rows for all of the above; its manual-only seed list left as historical rather than
+  rewritten item-by-item, with a note pointing at MANUAL_TEST_PLAN.md as the authoritative version.
+
+**Deferred:**
+- *Duplication* — the small Android `View`-traversal click-helpers (`findClickableAncestorOfText`)
+  and the POST_NOTIFICATIONS shell-grant/`waitFor` polling helpers are each duplicated across two new
+  test files rather than extracted to a shared utility. Follows this test suite's existing
+  convention (e.g. `SingleCaseWidgetConfigureFlowTest` already keeps its own `collectText` rather
+  than sharing `WidgetActionsFlowTest`'s) — one-off per-file helpers over a shared abstraction for
+  small, single-purpose Android test plumbing.
+- Several manual items stay open because nothing added coverage for them: the List widget's row
+  content (blocked by the `ListView`-under-`AppWidgetHost` limitation), a second independent List
+  widget configure instance and its Edit re-entry path, Single-case widget's icon/count-area tap to
+  open Case details, and the `DETAIL_SHEET` case's widget-button tap specifically (its trampoline
+  sheet is covered; the button click that launches it isn't). None were in scope for this pass —
+  listed in MANUAL_TEST_PLAN.md with what is and isn't covered for each.
+- Not tagged `@UiTest`: none of the five new classes are Compose *screen* tests, and no existing
+  class with incidental Compose interaction (`ListWidgetConfigureFlowTest`,
+  `SingleCaseWidgetConfigureFlowTest`) is tagged either — followed that precedent rather than
+  introducing a new one.
+- Sections not applicable: Decoupling, Complexity & Pattern Health, Naming Consistency, Hardcoded
+  Values, Accessibility, Deprecated APIs, Spec Review — no production `main` source changed.
+
+`ktlintCheck`, `lintDebug`, and `test` all run clean. `connectedDebugAndroidTest` — the full suite,
+not just the new classes — passes clean (176 tests) on an emulator.
+
+**Docs updated:** MANUAL_TEST_PLAN.md (Widgets/Notifications/Data & backup sections narrowed/
+trimmed per above) and TESTING.md ("Planned instrumented coverage" table gained three rows; manual
+seed list annotated as historical). PROGRESS.md's now-completed testing item struck.
+
+---
+
 ## feature/list-widget-per-instance-cases
 
 **Scope:** The redesign deferred at the end of `feature/single-case-widget (bug-fix follow-up)`
