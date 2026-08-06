@@ -1,14 +1,22 @@
 package com.secondmonday.hodith.ui.nav
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -16,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.ui.about.AboutRoute
 import com.secondmonday.hodith.ui.archivedcases.ArchivedCasesRoute
 import com.secondmonday.hodith.ui.bigpicture.BigPictureRoute
@@ -24,6 +33,10 @@ import com.secondmonday.hodith.ui.casedetail.CaseDetailRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
 import com.secondmonday.hodith.ui.settings.SettingsRoute
 import com.secondmonday.hodith.ui.share.SharePreviewRoute
+import com.secondmonday.hodith.ui.theme.CardDecorationStyle
+import com.secondmonday.hodith.ui.theme.HodithTheme
+import com.secondmonday.hodith.ui.theme.IconHalo
+import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.triggers.TriggersRoute
 import com.secondmonday.hodith.ui.voice.LocalVoice
 
@@ -70,10 +83,12 @@ fun HodithNavHost(
                     currentRoute == ARCHIVED_CASES_ROUTE ||
                     currentRoute == ABOUT_ROUTE
             if (!onDetailScreen) {
+                val decorationStyle = LocalCardDecorationStyle.current
                 NavigationBar {
                     HodithDestination.entries.forEach { destination ->
+                        val selected = currentRoute == destination.route
                         NavigationBarItem(
-                            selected = currentRoute == destination.route,
+                            selected = selected,
                             onClick = {
                                 navController.navigate(destination.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -84,8 +99,22 @@ fun HodithNavHost(
                             // contentDescription is null: the visible label below already provides
                             // the accessible name, and a second description here would make
                             // TalkBack announce the same text twice.
-                            icon = { Icon(destination.icon, contentDescription = null) },
+                            icon = {
+                                if (decorationStyle == CardDecorationStyle.BRIGHT) {
+                                    BrightNavIcon(icon = destination.icon, selected = selected)
+                                } else {
+                                    Icon(destination.icon, contentDescription = null)
+                                }
+                            },
                             label = { Text(destination.label(voice)) },
+                            colors =
+                                if (decorationStyle == CardDecorationStyle.BRIGHT) {
+                                    // Material3's default pill indicator is replaced by BrightNavIcon's
+                                    // IconHalo glow, so the indicator itself must be transparent.
+                                    NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
+                                } else {
+                                    NavigationBarItemDefaults.colors()
+                                },
                         )
                     }
                 }
@@ -155,5 +184,61 @@ fun HodithNavHost(
                 AboutRoute(onBack = { navController.popBackStack() })
             }
         }
+    }
+}
+
+/**
+ * Soft Glow mockup's `.navitem.on .ico` — the active tab's icon sits inside an [IconHalo] glow
+ * instead of Material3's default pill indicator (suppressed via `indicatorColor = Color
+ * .Transparent` at the call site). Shared/app-wide like the bottom nav itself, so it branches on
+ * [LocalCardDecorationStyle] here rather than per-screen.
+ */
+@Composable
+private fun BrightNavIcon(
+    icon: ImageVector,
+    selected: Boolean,
+) {
+    if (selected) {
+        // Smaller than IconHalo's own 34dp default: the mockup's nav icon sits in a compact 26px
+        // circle, well below the card/stat-tile icons IconHalo's default size was tuned for.
+        IconHalo(size = 28.dp) { Icon(icon, contentDescription = null) }
+    } else {
+        Icon(icon, contentDescription = null)
+    }
+}
+
+@Composable
+private fun NavBrightIconPreviewContent() {
+    NavigationBar {
+        NavigationBarItem(
+            selected = true,
+            onClick = {},
+            icon = { BrightNavIcon(icon = Icons.Filled.Home, selected = true) },
+            label = { Text("Home") },
+            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = {},
+            icon = { BrightNavIcon(icon = Icons.Filled.DateRange, selected = false) },
+            label = { Text("Big Picture") },
+            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
+        )
+    }
+}
+
+@Preview(name = "Bottom nav — Bright light", showBackground = true, widthDp = 380)
+@Composable
+private fun NavBrightIconLightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        NavBrightIconPreviewContent()
+    }
+}
+
+@Preview(name = "Bottom nav — Bright dark", showBackground = true, widthDp = 380)
+@Composable
+private fun NavBrightIconDarkPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
+        NavBrightIconPreviewContent()
     }
 }

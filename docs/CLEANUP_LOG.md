@@ -15,6 +15,60 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow (bottom navigation)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, bottom navigation item —
+`HodithNavHost.kt`'s `NavigationBar`/`NavigationBarItem` now branches on
+`LocalCardDecorationStyle`: the active tab's icon sits inside `IconHalo`'s glow (Soft Glow
+mockup's `.navitem.on .ico`), with Material3's default pill indicator suppressed
+(`indicatorColor = Color.Transparent`) so the two don't stack. Shared/app-wide component, wired
+in its own pass per the checklist's own note rather than folded into a screen. Plain/Intense
+untouched.
+
+**Found & fixed:**
+- *Naming* — first pass named the new preview composables `BrightNavIconPreviewContent`/
+  `BrightNavIconLightPreview`/`BrightNavIconDarkPreview`, "Bright" leading. Every other Bright-pass
+  preview follows `<Subject>Bright<Descriptor>PreviewContent`/`...LightPreview`/`...DarkPreview`
+  (`HomeBrightRowsPreviewContent`, `SettingsBrightPlankPreviewContent`,
+  `SegmentedChoiceRowBrightPreviewContent`, `InsightsBrightCardsPreviewContent`) — "Bright" placed
+  after the subject, not before. Renamed to `NavBrightIconPreviewContent`/
+  `NavBrightIconLightPreview`/`NavBrightIconDarkPreview` to match. (The branch composable itself,
+  `BrightNavIcon`, keeps "Bright" leading — the separate, consistent convention already used by
+  `BrightIconChoice`/`BrightDayCell`/`BrightActionRow`/`BrightHomeCaseListItem`.)
+- *Hardcoded value* — `IconHalo(size = 28.dp)` deviates from `IconHalo`'s own 34dp default with no
+  comment explaining why (Edit Case's icon-picker grid pass, by contrast, declared a named
+  `BRIGHT_ICON_CHOICE_VISUAL_SIZE` constant specifically to document that its value matches the
+  default on purpose). Added an inline comment explaining the smaller size matches the mockup's
+  compact nav-icon circle; skipped a named constant since, unlike Edit Case's two-call-site match,
+  nothing else needs this exact value.
+
+**Deferred:**
+- *Duplication* — none found; `BrightNavIcon` follows the same `when`/`if`-on-
+  `LocalCardDecorationStyle` idiom as `HomeCaseListItem`/`ActionRow`/`InsightsCard`.
+- *Complexity & Pattern Health* — `BrightNavIcon` does replace Material3's own selected-item
+  indicator visual; deliberate, matching the mockup, same category of call already made for
+  `GlowCard` over `Card` and `BrightSegmentedChoiceRow` over `SegmentedButton`.
+- *Accessibility* — unchanged: `contentDescription = null` on nav icons was already correct before
+  this pass (the visible label supplies the accessible name), and the touch target is still the
+  full `NavigationBarItem`, not the icon glyph — the 28dp `IconHalo` sits well inside it.
+- *Tests* — no new pure logic (purely visual); no `HodithNavHost` unit/instrumented test exists to
+  update, confirmed by search. Not run on a device (the user's side of the workflow).
+- *Spec Review* — HODITH_SPEC.md's nav mention ("Bottom navigation: Home · Big Picture · Settings")
+  documents the three destinations, not per-item chrome; no update needed, same conclusion as every
+  prior Bright pass.
+- *TESTING.md* — not touched, matching every prior Bright pass's own wiring commit.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Repo Hygiene
+  (only `HodithNavHost.kt` changed, confirmed via `git status`); Hardcoded Values beyond the one
+  comment above (no new `Color(0xFF...)`; `Color.Transparent` is a standard API value, not a
+  literal); Deprecated APIs (`compileDebugKotlin --warning-mode all` shows nothing new for this
+  file); Naming Consistency beyond the one fix above (no new `Voice` keys needed — labels already
+  come from `destination.label(voice)`).
+
+**Docs updated:** PROGRESS.md — bottom navigation item struck from the Bright theme redesign
+checklist.
+
+---
+
 ## feature/bright-theme-soft-glow (Edit Case)
 
 **Scope:** PROGRESS.md's Bright theme redesign checklist, Edit Case slice — `CaseEditScreen.kt`'s
