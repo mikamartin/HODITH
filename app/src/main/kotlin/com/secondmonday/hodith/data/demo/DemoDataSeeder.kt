@@ -139,7 +139,6 @@ class DemoDataSeeder
                             durationMode = caseSeed.durationMode,
                             intensityEnabled = caseSeed.intensityEnabled,
                             hunchNudgeDismissed = false,
-                            pinned = false,
                             checkInsEnabled = true,
                             lastCheckInAt = null,
                             sortOrder = index,

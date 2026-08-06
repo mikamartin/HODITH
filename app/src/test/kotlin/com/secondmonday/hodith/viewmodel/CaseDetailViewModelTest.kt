@@ -54,7 +54,6 @@ class CaseDetailViewModelTest {
             durationMode = durationMode,
             intensityEnabled = false,
             hunchNudgeDismissed = false,
-            pinned = false,
             checkInsEnabled = true,
             lastCheckInAt = null,
             sortOrder = 0,

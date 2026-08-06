@@ -90,8 +90,8 @@ class ListWidgetConfigureFlowTest {
             val suffix = System.currentTimeMillis()
             val coffeeName = "Coffee $suffix"
             val migraineName = "Migraine $suffix"
-            insertedCaseIds += repository.insertCase(testCase(name = coffeeName, pinned = false))
-            insertedCaseIds += repository.insertCase(testCase(name = migraineName, pinned = false))
+            insertedCaseIds += repository.insertCase(testCase(name = coffeeName))
+            insertedCaseIds += repository.insertCase(testCase(name = migraineName))
 
             appWidgetId = host.allocateAppWidgetId()
             val provider = ComponentName(context, ListWidgetReceiver::class.java)
@@ -120,11 +120,6 @@ class ListWidgetConfigureFlowTest {
                 scenario.state == Lifecycle.State.DESTROYED,
             )
 
-            val coffee = requireNotNull(repository.getCase(insertedCaseIds[0]))
-            val migraine = requireNotNull(repository.getCase(insertedCaseIds[1]))
-            assertTrue("Expected Coffee to be pinned after confirming the real picker", coffee.pinned)
-            assertTrue("Expected Migraine to be pinned after confirming the real picker", migraine.pinned)
-
             var view = renderedView()
             var renderAttempts = 0
             while (!containsListView(view) && renderAttempts < 30) {
@@ -133,10 +128,10 @@ class ListWidgetConfigureFlowTest {
                 renderAttempts++
             }
             assertFalse(
-                "Widget still shows the no-pinned-Cases empty state after the real configure flow",
-                collectText(view).any { it.contains(PlainVoice.widgetNoPinnedCasesMessage) },
+                "Widget still shows the no-Cases-selected empty state after the real configure flow",
+                collectText(view).any { it.contains(PlainVoice.widgetNoCasesSelectedMessage) },
             )
-            assertTrue("Expected the pinned-Cases row list (a ListView) to be present", containsListView(view))
+            assertTrue("Expected the selected-Cases row list (a ListView) to be present", containsListView(view))
         }
 
     private fun renderedView(): View {

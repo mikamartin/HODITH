@@ -58,7 +58,6 @@ class NotificationEvaluatorTest {
         durationMode = DurationMode.NONE,
         intensityEnabled = false,
         hunchNudgeDismissed = false,
-        pinned = false,
         checkInsEnabled = checkInsEnabled,
         lastCheckInAt = lastCheckInAt,
         sortOrder = 0,

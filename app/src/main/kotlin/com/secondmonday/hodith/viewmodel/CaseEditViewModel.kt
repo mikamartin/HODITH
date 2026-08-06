@@ -142,9 +142,6 @@ class CaseEditViewModel
                             durationMode = state.durationMode,
                             intensityEnabled = state.intensityEnabled,
                             hunchNudgeDismissed = false,
-                            // New Cases start unpinned — pinning a Case to the List widget is now
-                            // done from the widget's own configure picker, not from Case Edit.
-                            pinned = false,
                             checkInsEnabled = state.checkInsEnabled,
                             lastCheckInAt = null,
                             sortOrder = activeCases.size,

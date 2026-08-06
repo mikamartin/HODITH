@@ -15,10 +15,6 @@ import javax.inject.Inject
 sealed interface ListWidgetConfigureUiState {
     data object Loading : ListWidgetConfigureUiState
 
-    /** At least one Case is already pinned — the widget already has something to show, so the
-     * picker is skipped entirely rather than re-asked on every widget add. */
-    data object AlreadyConfigured : ListWidgetConfigureUiState
-
     data class Picker(
         val cases: List<CaseEntity>,
         val selectedCaseIds: Set<Long>,
@@ -27,9 +23,12 @@ sealed interface ListWidgetConfigureUiState {
 
 /**
  * Backs [com.secondmonday.hodith.widget.ListWidgetConfigureActivity], the widget's mandatory
- * `android:configure` step (spec §15). `pinned` is a Case-level flag, not per-widget-instance
- * data — every List widget instance shows the same pinned set — so this only ever needs to ask
- * once, the first time nothing is pinned yet.
+ * `android:configure` step (spec §15). Each List widget instance is bound to its own selected
+ * Cases via the widget's own Glance state (per-instance, not a Case flag) — mirroring
+ * [SingleCaseWidgetConfigureViewModel] — so the picker always shows and this ViewModel only
+ * tracks the in-progress selection; the Activity owns writing the confirmed set into the widget's
+ * own Glance state, since that's Context-bound infrastructure this ViewModel would otherwise need
+ * to fake in tests.
  */
 @HiltViewModel
 class ListWidgetConfigureViewModel
@@ -43,12 +42,7 @@ class ListWidgetConfigureViewModel
         init {
             viewModelScope.launch {
                 val cases = repository.observeActiveCases().first()
-                _uiState.value =
-                    if (cases.any { it.pinned }) {
-                        ListWidgetConfigureUiState.AlreadyConfigured
-                    } else {
-                        ListWidgetConfigureUiState.Picker(cases = cases, selectedCaseIds = emptySet())
-                    }
+                _uiState.value = ListWidgetConfigureUiState.Picker(cases = cases, selectedCaseIds = emptySet())
             }
         }
 
@@ -64,18 +58,9 @@ class ListWidgetConfigureViewModel
             _uiState.value = current.copy(selectedCaseIds = selected)
         }
 
-        fun confirmSelection(onDone: () -> Unit) {
+        fun confirmSelection(onDone: (Set<Long>) -> Unit) {
             val current = _uiState.value
-            if (current !is ListWidgetConfigureUiState.Picker) {
-                onDone()
-                return
-            }
-            viewModelScope.launch {
-                current.selectedCaseIds.forEach { caseId ->
-                    val case = current.cases.find { it.id == caseId } ?: return@forEach
-                    repository.updateCase(case.copy(pinned = true))
-                }
-                onDone()
-            }
+            if (current !is ListWidgetConfigureUiState.Picker) return
+            onDone(current.selectedCaseIds)
         }
     }

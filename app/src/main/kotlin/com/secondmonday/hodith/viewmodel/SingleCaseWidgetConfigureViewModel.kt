@@ -23,10 +23,9 @@ sealed interface SingleCaseWidgetConfigureUiState {
 
 /**
  * Backs [com.secondmonday.hodith.widget.SingleCaseWidgetConfigureActivity], the Single-case
- * widget's mandatory `android:configure` step (spec §15). Unlike [ListWidgetConfigureViewModel],
- * which skips straight past the picker once anything is pinned (a Case-level flag shared by every
- * List widget instance), each Single-case widget instance is bound to its own Case — there's
- * nothing to skip, so the picker always shows. This ViewModel only tracks the in-progress
+ * widget's mandatory `android:configure` step (spec §15). Each Single-case widget instance is
+ * bound to its own Case, so the picker always shows, mirroring [ListWidgetConfigureViewModel]'s
+ * multi-select equivalent for the List widget. This ViewModel only tracks the in-progress
  * selection; the Activity owns writing the confirmed Case id into the widget's own Glance state,
  * since that's Context-bound infrastructure this ViewModel would otherwise need to fake in tests.
  */

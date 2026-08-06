@@ -37,7 +37,6 @@ private fun testCase(
     durationMode = DurationMode.NONE,
     intensityEnabled = false,
     hunchNudgeDismissed = hunchNudgeDismissed,
-    pinned = false,
     checkInsEnabled = true,
     lastCheckInAt = null,
     sortOrder = 0,

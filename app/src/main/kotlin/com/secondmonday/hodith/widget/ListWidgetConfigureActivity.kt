@@ -17,11 +17,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.secondmonday.hodith.data.AppTheme
@@ -39,10 +39,9 @@ import javax.inject.Inject
 
 /**
  * The List widget's mandatory `android:configure` activity (spec §15) — the system launches this
- * automatically every time the widget is added, before it shows any content. Since `pinned` is a
- * Case-level flag rather than per-widget-instance data, [ListWidgetConfigureViewModel] skips
- * straight through with no UI whenever something is already pinned; the picker only appears the
- * very first time, when the widget would otherwise render its empty state.
+ * automatically every time the widget is added, before it shows any content. Each instance is
+ * bound to its own selected Cases via this widget's own Glance [CaseIdsKey] state (per-instance,
+ * not a Case flag), mirroring [SingleCaseWidgetConfigureActivity], so the picker always shows.
  */
 @AndroidEntryPoint
 class ListWidgetConfigureActivity : ComponentActivity() {
@@ -73,14 +72,13 @@ class ListWidgetConfigureActivity : ComponentActivity() {
                 HodithTheme(theme = theme) {
                     when (val state = uiState) {
                         ListWidgetConfigureUiState.Loading -> Unit
-                        ListWidgetConfigureUiState.AlreadyConfigured -> LaunchedEffect(Unit) { finishConfigure() }
                         is ListWidgetConfigureUiState.Picker ->
                             CasePickerDialog(
                                 voice = LocalVoice.current,
                                 cases = state.cases,
                                 selectedCaseIds = state.selectedCaseIds,
                                 onToggle = viewModel::toggle,
-                                onConfirm = { viewModel.confirmSelection { finishConfigure() } },
+                                onConfirm = { viewModel.confirmSelection(::finishConfigure) },
                                 onDismiss = { finish() },
                             )
                     }
@@ -89,13 +87,18 @@ class ListWidgetConfigureActivity : ComponentActivity() {
         }
     }
 
-    private fun finishConfigure() {
-        // Targeted update(context, glanceId) rather than updateAll(): updateAll() only refreshes
-        // widget instances Glance already knows about, and this widget is being configured for
-        // the first time — it isn't necessarily in that list yet, so updateAll() can silently
-        // miss it and leave it stuck on its empty state.
+    private fun finishConfigure(caseIds: Set<Long>) {
         lifecycleScope.launch {
             val glanceId = GlanceAppWidgetManager(applicationContext).getGlanceIdBy(appWidgetId)
+            updateAppWidgetState(applicationContext, glanceId) { prefs ->
+                prefs[CaseIdsKey] = caseIds.map { it.toString() }.toSet()
+            }
+            // Targeted update(context, glanceId) rather than updateAll(): updateAll() only
+            // refreshes widget instances Glance already knows about, and this widget is being
+            // configured for the first time — it isn't necessarily in that list yet, so
+            // updateAll() can silently miss it. ListWidget.provideGlance reads CaseIdsKey
+            // reactively via currentState(), so this call mainly nudges the host to repaint
+            // promptly rather than being the only thing that can make the new value visible.
             ListWidget().update(applicationContext, glanceId)
             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
             finish()

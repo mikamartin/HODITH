@@ -451,8 +451,8 @@ interface Voice {
         band: ComparisonBand,
     ): String
 
-    /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown once, the first time
-     * a widget is added with nothing yet pinned (spec §15). */
+    /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown every time a List
+     * widget is added or reconfigured (spec §15); each instance picks its own Cases. */
     val widgetConfigureTitle: String
     val widgetConfigureBody: String
     val widgetConfigureNoCasesMessage: String
@@ -460,10 +460,9 @@ interface Voice {
     val widgetConfigureSkipAction: String
 
     /** [com.secondmonday.hodith.widget.SingleCaseWidgetConfigureActivity] — shown every time a
-     * Single-case widget is added, since (unlike List widget's Case-level `pinned` flag) each
-     * instance is bound to its own Case and there's nothing to skip straight past. Reuses
-     * [widgetConfigureNoCasesMessage] and [widgetConfigureSkipAction] — that copy doesn't assume
-     * single vs. multi selection. */
+     * Single-case widget is added, since each instance is bound to its own Case and there's
+     * nothing to skip straight past. Reuses [widgetConfigureNoCasesMessage] and
+     * [widgetConfigureSkipAction] — that copy doesn't assume single vs. multi selection. */
     val singleCaseWidgetConfigureTitle: String
     val singleCaseWidgetConfigureBody: String
     val singleCaseWidgetConfigureConfirmAction: String
@@ -472,7 +471,7 @@ interface Voice {
      * own copy. Only [PlainVoice]'s versions ever render — the widgets' chrome is fixed regardless
      * of in-app theme (DEV_PLAYBOOK.md §4) — but all three still get an entry per the Voice layer
      * rule. */
-    val widgetNoPinnedCasesMessage: String
+    val widgetNoCasesSelectedMessage: String
     val widgetStopAction: String
 
     /** [com.secondmonday.hodith.widget.SingleCaseWidget] — shown when its bound Case has been
@@ -885,7 +884,7 @@ object PlainVoice : Voice {
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick Cases for this widget"
-    override val widgetConfigureBody = "Choose which Cases show up here. You can change this later from each Case's settings."
+    override val widgetConfigureBody = "Choose which Cases show up here. Long-press this widget and tap Edit to change your picks later."
     override val widgetConfigureNoCasesMessage = "No cases yet. Add one in the app first."
     override val widgetConfigureConfirmAction = "Add to widget"
     override val widgetConfigureSkipAction = "Cancel"
@@ -894,7 +893,7 @@ object PlainVoice : Voice {
     override val singleCaseWidgetConfigureBody = "Choose which Case shows up here. Add another widget to track a different one."
     override val singleCaseWidgetConfigureConfirmAction = "Add to widget"
 
-    override val widgetNoPinnedCasesMessage = "No pinned Cases yet. Pin one from its Case screen to see it here."
+    override val widgetNoCasesSelectedMessage = "No Cases picked for this widget yet. Long-press it and tap Edit to choose some."
     override val widgetStopAction = "Stop"
     override val widgetCaseNotFoundMessage = "This Case is gone. Tap to open HODITH."
 
@@ -1339,7 +1338,7 @@ object IntenseVoice : Voice {
     override val notificationsDeniedBannerAction = "Break the silence"
 
     override val widgetConfigureTitle = "Which cases shall haunt this widget?"
-    override val widgetConfigureBody = "Choose what stands watch here. The choice may be revisited from any case's settings."
+    override val widgetConfigureBody = "Choose what stands watch here. Hold the widget and choose Edit to summon different watchers later."
     override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Summon a case first."
     override val widgetConfigureConfirmAction = "Bind to widget"
     override val widgetConfigureSkipAction = "Abandon"
@@ -1348,7 +1347,7 @@ object IntenseVoice : Voice {
     override val singleCaseWidgetConfigureBody = "Choose what stands watch here. Summon another widget to keep watch over something else."
     override val singleCaseWidgetConfigureConfirmAction = "Bind to widget"
 
-    override val widgetNoPinnedCasesMessage = "Nothing pinned yet. Pin a case from its own screen to keep watch here."
+    override val widgetNoCasesSelectedMessage = "Nothing stands watch here yet. Hold the widget and choose Edit to summon one."
     override val widgetStopAction = "Seal"
     override val widgetCaseNotFoundMessage = "This watch has ended. Tap to return to HODITH."
 
@@ -1789,7 +1788,7 @@ object BrightVoice : Voice {
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick your widget's stars!"
-    override val widgetConfigureBody = "Choose which Cases get to show off here. Change your mind anytime from that Case's settings."
+    override val widgetConfigureBody = "Choose which Cases get to show off here. Long-press it and tap Edit to pick new stars anytime!"
     override val widgetConfigureNoCasesMessage = "No cases yet! Make one in the app first."
     override val widgetConfigureConfirmAction = "Add to widget!"
     override val widgetConfigureSkipAction = "Never mind"
@@ -1798,7 +1797,7 @@ object BrightVoice : Voice {
     override val singleCaseWidgetConfigureBody = "Choose which Case gets to show off here. Add another widget for a different star!"
     override val singleCaseWidgetConfigureConfirmAction = "Add to widget!"
 
-    override val widgetNoPinnedCasesMessage = "No pinned Cases yet! Pin one from its Case screen to see it here."
+    override val widgetNoCasesSelectedMessage = "No stars picked for this widget yet! Long-press it and tap Edit to choose some."
     override val widgetStopAction = "Stop!"
     override val widgetCaseNotFoundMessage = "This Case wandered off! Tap to open HODITH."
 

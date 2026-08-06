@@ -85,7 +85,7 @@ class SingleCaseWidgetConfigureFlowTest {
         runBlocking {
             val caseIcon = "🐛"
             val caseName = "Coffee ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, icon = caseIcon, pinned = false))
+            insertedCaseId = repository.insertCase(testCase(name = caseName, icon = caseIcon))
 
             appWidgetId = host.allocateAppWidgetId()
             val provider = ComponentName(context, SingleCaseWidgetReceiver::class.java)

@@ -15,8 +15,9 @@ the system configure flow can only be checked on a real home screen.
    (previously-known bug; fixed via `appWidgetBackground()`/`cornerRadius()`). Check on at least one
    launcher in dark mode and one in light mode, since the launcher — not HODITH's theme — decides the
    surrounding corner mask.
-2. **List widget empty state.** With no Case pinned, the widget shows its "no pinned Cases" message
-   in the intended muted color (not stark black-and-white), and tapping the message opens the app.
+2. **List widget empty state.** With no Case picked for this widget instance, it shows its
+   "no Cases selected" message in the intended muted color (not stark black-and-white), and
+   tapping the message opens the app.
 3. **List widget title tap.** Tapping the "How often does it truly happen?" header opens the app to
    Home (no specific Case).
 4. **List widget case row tap.** Tapping a case row's icon/name/count area (not the `+`/Stop button)
@@ -27,21 +28,25 @@ the system configure flow can only be checked on a real home screen.
    the event appears in-app.
 7. **List widget ongoing/elapsed/Stop.** Start an event on a `START_STOP` Case — the widget row shows
    ticking elapsed time and a Stop button; tapping Stop ends the event without opening the app.
-8. **Single-case widget configure flow.** Add the Single-case widget — a single-select Case picker
-   always appears (unlike the List widget's picker, which skips once anything is already pinned).
-   Cancel leaves no widget placed; picking a Case and confirming places a widget bound to it.
-9. **Single-case widget log + open details.** For the bound Case: tapping the dedicated `+`/log
-   button logs per its `logFlow` (directly for `ONE_TAP`, via the trampoline sheet for
-   `DETAIL_SHEET`); tapping the icon/count area elsewhere on the widget opens that Case's detail
-   screen instead.
-10. **Single-case widget ongoing/elapsed/Stop** — same as the List widget's per-row treatment (item
+8. **List widget configure flow, per-instance selection.** Add two List widgets to the home
+   screen and pick a different set of Cases for each — each shows only its own picks, not the
+   other's. Long-press a placed List widget and choose Edit to reopen its picker and change its
+   selection.
+9. **Single-case widget configure flow.** Add the Single-case widget — a single-select Case picker
+   always appears. Cancel leaves no widget placed; picking a Case and confirming places a widget
+   bound to it.
+10. **Single-case widget log + open details.** For the bound Case: tapping the dedicated `+`/log
+    button logs per its `logFlow` (directly for `ONE_TAP`, via the trampoline sheet for
+    `DETAIL_SHEET`); tapping the icon/count area elsewhere on the widget opens that Case's detail
+    screen instead.
+11. **Single-case widget ongoing/elapsed/Stop** — same as the List widget's per-row treatment (item
     7), scoped to the one bound Case.
-11. **Single-case widget with a missing Case.** Archive or delete the Case a Single-case widget is
+12. **Single-case widget with a missing Case.** Archive or delete the Case a Single-case widget is
     bound to — the widget switches to its "Case is gone" message, and tapping it opens the app
     (Home, no deep link, since the Case is gone).
-12. **Add two widgets for the same Case** (e.g. a Single-case widget and pin the same Case to the
-    List widget) — logging or stopping from either one refreshes both.
-13. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
+13. **Add two widgets for the same Case** (e.g. a Single-case widget and the same Case selected on
+    a List widget) — logging or stopping from either one refreshes both.
+14. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
     afterward, not a reset or stale value.
 
 ## Notifications & permissions
