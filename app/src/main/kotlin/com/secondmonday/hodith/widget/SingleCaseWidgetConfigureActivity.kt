@@ -38,11 +38,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * The Single-case widget's mandatory `android:configure` activity (spec §15). Unlike
- * [ListWidgetConfigureActivity], which skips its picker once anything is Case-level `pinned`,
- * this one always shows a single-select picker — each widget instance is bound to its own Case via
- * this widget's own Glance [CaseIdKey] state (per-instance, not a Case flag), so there's nothing to
- * skip.
+ * The Single-case widget's mandatory `android:configure` activity (spec §15). Shows a
+ * single-select picker — each widget instance is bound to its own Case via this widget's own
+ * Glance [CaseIdKey] state (per-instance, not a Case flag), mirroring
+ * [ListWidgetConfigureActivity]'s multi-select picker for the List widget.
  */
 @AndroidEntryPoint
 class SingleCaseWidgetConfigureActivity : ComponentActivity() {

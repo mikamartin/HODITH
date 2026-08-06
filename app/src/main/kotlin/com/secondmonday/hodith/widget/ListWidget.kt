@@ -7,6 +7,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
@@ -22,6 +24,7 @@ import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -35,6 +38,7 @@ import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.semantics.contentDescription
 import androidx.glance.semantics.semantics
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -47,7 +51,15 @@ import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.homeCaseRows
 import dagger.hilt.android.EntryPointAccessors
 
+/** Per-instance Glance state key — each List widget placement picks its own set of Cases, so the
+ * selection lives in this widget's own [PreferencesGlanceStateDefinition] state rather than on
+ * [com.secondmonday.hodith.data.CaseEntity]. No native `Set<Long>` Preferences type exists, so ids
+ * are stored as strings. */
+internal val CaseIdsKey = stringSetPreferencesKey("case_ids")
+
 class ListWidget : GlanceAppWidget() {
+    override val stateDefinition = PreferencesGlanceStateDefinition
+
     override suspend fun provideGlance(
         context: Context,
         id: GlanceId,
@@ -55,16 +67,17 @@ class ListWidget : GlanceAppWidget() {
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
 
         provideContent {
-            // Read reactively via produceState rather than a one-shot suspend read outside
-            // provideContent — see SingleCaseWidget's provideGlance for why: a value captured
-            // outside provideContent is frozen for the session's lifetime once Android's
+            // Read reactively via currentState()/produceState rather than one-shot suspend reads
+            // outside provideContent — see SingleCaseWidget's provideGlance for why: a value
+            // captured outside provideContent is frozen for the session's lifetime once Android's
             // bind-before-configure sequence starts an early session, and update() calls
             // afterward can't force a recompute against something that isn't Compose State.
+            val selectedCaseIds = currentState<Preferences>()[CaseIdsKey].orEmpty().mapNotNull { it.toLongOrNull() }.toSet()
             val now = entryPoint.clock().nowMillis()
             val rows by
-                produceState(initialValue = emptyList<HomeCaseRow>()) {
+                produceState(initialValue = emptyList<HomeCaseRow>(), selectedCaseIds) {
                     entryPoint.repository().observeActiveCasesWithEvents().collect { casesWithEvents ->
-                        value = homeCaseRows(casesWithEvents.filter { it.case.pinned }, now)
+                        value = homeCaseRows(casesWithEvents.filter { it.case.id in selectedCaseIds }, now)
                     }
                 }
 
@@ -111,7 +124,7 @@ class ListWidget : GlanceAppWidget() {
                             contentAlignment = Alignment.CenterStart,
                         ) {
                             Text(
-                                text = PlainVoice.widgetNoPinnedCasesMessage,
+                                text = PlainVoice.widgetNoCasesSelectedMessage,
                                 style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 13.sp),
                             )
                         }

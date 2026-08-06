@@ -54,11 +54,11 @@ class CaseDaoTest {
             val id = caseDao.insert(testCase(name = "Migraines"))
             val loaded = caseDao.getById(id)!!
 
-            caseDao.update(loaded.copy(name = "Bad Migraines", pinned = true))
+            caseDao.update(loaded.copy(name = "Bad Migraines", archived = true))
 
             val updated = caseDao.getById(id)
             assertEquals("Bad Migraines", updated?.name)
-            assertEquals(true, updated?.pinned)
+            assertEquals(true, updated?.archived)
         }
 
     @Test

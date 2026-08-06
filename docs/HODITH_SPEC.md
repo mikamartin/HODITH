@@ -69,7 +69,6 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 | durationMode | `NONE` \| `MANUAL` \| `START_STOP` |
 | intensityEnabled | boolean — show 1–5 intensity on the detail sheet |
 | hunchNudgeDismissed | boolean — user said "stop asking" (see §7) |
-| pinned | boolean — appears in the list widget; set only via the List widget's own configure picker, not from Case Edit |
 | checkInsEnabled | boolean — whether this Case participates in check-ins (§11); the interval itself is always the app-level default from Settings, or hunch-derived if the Case has an active Hunch. A Case wanting a custom silence threshold instead gets a `SILENT_FOR` Trigger (§11), which already covers exactly that. |
 | lastCheckInAt | nullable — when a check-in last fired or was answered "all quiet"; used for re-arming |
 | sortOrder | manual ordering on Home and Big Picture |
@@ -277,8 +276,8 @@ Bottom navigation: **Home · Big Picture · Settings**.
 
 ## 15. Widgets (Jetpack Glance)
 
-- **List widget** (resizable): pinned Cases; each row = icon, name, today count, one-tap log (respecting the Case's `logFlow` — `DETAIL_SHEET` opens the sheet via trampoline). Ongoing Cases show elapsed time + Stop.
-- **Single-case widget** (small): bound to one Case via its own configure step (not the Case-level `pinned` flag). Shows icon + today count; a dedicated log button respects the Case's `logFlow` (matching the List widget's per-row treatment), tapping elsewhere on the Case opens its detail screen. Ongoing Cases show elapsed time + Stop, same as the List widget.
+- **List widget** (resizable): shows the Cases picked via its own configure picker (per-widget-instance — each placement can pick a different set); each row = icon, name, today count, one-tap log (respecting the Case's `logFlow` — `DETAIL_SHEET` opens the sheet via trampoline). Ongoing Cases show elapsed time + Stop.
+- **Single-case widget** (small): bound to one Case via its own configure step. Shows icon + today count; a dedicated log button respects the Case's `logFlow` (matching the List widget's per-row treatment), tapping elsewhere on the Case opens its detail screen. Ongoing Cases show elapsed time + Stop, same as the List widget.
 - Known Glance constraint: widget theming is limited, so widgets always render the Plain theme's light palette, regardless of the user's chosen in-app theme or the system's light/dark mode. Documented as a known limitation.
 
 ## 16. Data, privacy, distribution

@@ -27,7 +27,6 @@ class BackupSerializerTest {
                         durationMode = DurationMode.NONE,
                         intensityEnabled = false,
                         hunchNudgeDismissed = false,
-                        pinned = false,
                         checkInsEnabled = true,
                         lastCheckInAt = null,
                         sortOrder = 0,

@@ -15,6 +15,61 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/list-widget-per-instance-cases
+
+**Scope:** The redesign deferred at the end of `feature/single-case-widget (bug-fix follow-up)`
+below: List widget Case selection moved from the Case-level `pinned` flag to per-widget-instance
+selection, mirroring the Single-case widget's own `PreferencesGlanceStateDefinition` pattern. Each
+List widget placement now stores its own `Set<Long>` of Case ids (`CaseIdsKey`, a
+`stringSetPreferencesKey`) instead of every instance sharing one Case-level flag. `CaseEntity.pinned`
+removed entirely (Room bumped to v6 — no real `Migration` exists pre-release, destructive fallback
+covers it). `ListWidgetConfigureViewModel`/`Activity` rewritten from skip-once-anything-pinned to
+always-show-multi-select, matching `SingleCaseWidgetConfigureViewModel`/`Activity`'s shape.
+
+**Found & fixed:**
+- *Docs* — `widgetConfigureBody`'s copy ("You can change this later from each Case's settings")
+  predated this branch and was already stale — that toggle was removed from Case Edit in the prior
+  pass, so the sentence pointed at a control that no longer exists. Reworded across all three
+  voices to point at long-pressing the widget and tapping Edit (the actual reconfigure path), which
+  is also now literally true instead of aspirational.
+- *Naming* — renamed `widgetNoPinnedCasesMessage` to `widgetNoCasesSelectedMessage` and reworded it
+  in all three voices, since "pin one from its Case screen" no longer describes how selection
+  works.
+- *Tests* — the first pass at rewriting `ListWidgetConfigureFlowTest` added assertions that each
+  selected Case's name renders inside the List widget's `ListView` after a real configure flow.
+  That's unverifiable and failed on-device: Glance backs the List widget's `LazyColumn` with a
+  `RemoteViewsService`/`ListView` adapter that only populates once the host view is attached to a
+  real window, which `AppWidgetHost.createView()` never triggers (same limitation already
+  documented in `DEV_PLAYBOOK.md` §5 and the `feature/single-case-widget (bug-fix follow-up)` entry
+  below) — the original test never asserted on row content for exactly this reason. Reverted to the
+  original's achievable assertion level: ListView present, no-Cases-selected empty state absent.
+
+**Deferred:**
+- Reconfiguring an already-placed List widget (long-press → Edit) opens the picker with nothing
+  pre-selected, rather than showing its current picks checked. This matches the Single-case
+  widget's existing behavior (its picker doesn't pre-select the currently-bound Case either) —
+  deliberately not scope-creeped into "pre-populate from existing per-instance state," which
+  neither widget does today and PROGRESS.md's item didn't ask for.
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean, including the Room v6 schema
+export and the rewritten `ListWidgetConfigureViewModelTest`. `connectedDebugAndroidTest` (165
+tests, including the rewritten `ListWidgetConfigureFlowTest` and `CaseDaoTest`'s round-trip swapped
+from `pinned` to `archived`) passes clean on an emulator, after two unrelated environment hiccups
+mid-session: the emulator's `system_server` degraded after ~10h uptime (needed a fresh
+emulator instance) and, separately, `SettingsScreenTest` — a class untouched by this branch —
+threw an unrelated lifecycle-teardown timeout on a different test each of two full-suite runs
+(`checkInInfoIcon_opensDialog`, then `rateAppButton_showsComingSoonSnackbar`), neither reproducing
+on retry. Worth a look if `SettingsScreenTest` keeps flaking on future branches, but not chased
+further here since it's unrelated to this change.
+
+**Docs updated:** HODITH_SPEC.md's §5 Case field table (`pinned` row removed) and §15 (List widget
+bullet now describes per-instance selection; Single-case widget bullet's now-pointless contrast
+against the `pinned` flag dropped). MANUAL_TEST_PLAN.md's Widgets section gained a per-instance
+multi-widget configure step and had its empty-state/"pin the same Case" wording updated to match.
+PROGRESS.md's Widgets item struck as done.
+
+---
+
 ## feature/single-case-widget (bug-fix follow-up)
 
 **Scope:** Fixed both widgets getting stuck on their empty/not-found state right after a correct,

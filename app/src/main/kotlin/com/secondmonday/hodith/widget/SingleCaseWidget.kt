@@ -48,9 +48,10 @@ import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.homeCaseRows
 import dagger.hilt.android.EntryPointAccessors
 
-/** Per-instance Glance state key — unlike List widget's Case-level `pinned` flag, each Single-case
- * widget placement is bound to its own Case, so the binding lives in this widget's own
- * [PreferencesGlanceStateDefinition] state rather than on [com.secondmonday.hodith.data.CaseEntity]. */
+/** Per-instance Glance state key — each Single-case widget placement is bound to its own Case, so
+ * the binding lives in this widget's own [PreferencesGlanceStateDefinition] state rather than on
+ * [com.secondmonday.hodith.data.CaseEntity] (mirroring [com.secondmonday.hodith.widget.CaseIdsKey],
+ * the List widget's equivalent for a set of Cases). */
 internal val CaseIdKey = longPreferencesKey("case_id")
 
 class SingleCaseWidget : GlanceAppWidget() {

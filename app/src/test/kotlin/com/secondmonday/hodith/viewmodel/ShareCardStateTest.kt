@@ -36,7 +36,6 @@ private fun testCase(
     durationMode = durationMode,
     intensityEnabled = intensityEnabled,
     hunchNudgeDismissed = false,
-    pinned = false,
     checkInsEnabled = true,
     lastCheckInAt = null,
     sortOrder = 0,

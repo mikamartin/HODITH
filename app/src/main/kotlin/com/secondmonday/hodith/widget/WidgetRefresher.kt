@@ -6,7 +6,7 @@ import javax.inject.Inject
 
 /**
  * Abstracts triggering a widget refresh, the same way [com.secondmonday.hodith.domain.Clock]
- * abstracts real time — so ViewModels that need to refresh widgets after a `pinned`/`archived`
+ * abstracts real time — so ViewModels that need to refresh widgets after a Case/archive
  * change (Case edit, archive, unarchive, delete forever) or a widget-triggered log
  * ([com.secondmonday.hodith.viewmodel.WidgetLogSheetViewModel]) stay unit-testable on the JVM
  * without a real `Context` or Glance. Refreshes every widget type ([ListWidget] and
