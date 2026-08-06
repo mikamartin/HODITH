@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.case
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,11 +29,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchColors
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,23 +47,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.theme.CardDecorationStyle
+import com.secondmonday.hodith.ui.theme.HodithTheme
+import com.secondmonday.hodith.ui.theme.IconHalo
+import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
+import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
 import com.secondmonday.hodith.viewmodel.CaseEditViewModel
 import com.secondmonday.hodith.viewmodel.isOneTapAllowed
 
 private val ICON_CHOICE_SIZE = 48.dp
+
+/** Matches [IconHalo]'s own default size, so the selected icon's halo isn't rescaled from its usual look. */
+private val BRIGHT_ICON_CHOICE_VISUAL_SIZE = 34.dp
 
 @Composable
 fun CaseEditRoute(
@@ -186,6 +202,8 @@ private fun CaseEditForm(
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        val fieldShape = caseEditTextFieldShape()
+
         OutlinedTextField(
             value = uiState.name,
             onValueChange = onNameChange,
@@ -198,6 +216,7 @@ private fun CaseEditForm(
                     uiState.showDuplicateNameError -> Text(voice.caseNameDuplicateError)
                 }
             },
+            shape = fieldShape,
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -207,6 +226,7 @@ private fun CaseEditForm(
             label = { Text(voice.caseDescriptionLabel) },
             placeholder = { Text(voice.caseDescriptionHint) },
             minLines = 2,
+            shape = fieldShape,
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -242,7 +262,7 @@ private fun CaseEditForm(
         ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
 
         RowWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
-            Switch(checked = uiState.checkInsEnabled, onCheckedChange = onCheckInToggle)
+            Switch(checked = uiState.checkInsEnabled, onCheckedChange = onCheckInToggle, colors = caseEditSwitchColors())
         }
 
         Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
@@ -304,17 +324,63 @@ private fun IconChoice(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val background = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT -> BrightIconChoice(icon = icon, selected = selected, onClick = onClick)
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
+            val background = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+            Box(
+                modifier =
+                    Modifier
+                        .size(ICON_CHOICE_SIZE)
+                        .clip(CircleShape)
+                        .background(background)
+                        .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = icon, style = MaterialTheme.typography.headlineSmall)
+            }
+        }
+    }
+}
+
+/**
+ * Bright-only icon choice (Soft Glow mockup's `.icon-choice`/`.icon-choice.on`): the selected icon
+ * gets [IconHalo]'s tint-wash + glow ring, the rest a plain thin-bordered circle — both sized to
+ * [IconHalo]'s own default, smaller than the 48dp touch target ([ICON_CHOICE_SIZE]) they sit inside,
+ * same touch-target-larger-than-visual pattern as the ripple already clipped to a circle for
+ * Plain/Intense's [IconChoice] branch above.
+ */
+@Composable
+private fun BrightIconChoice(
+    icon: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     Box(
         modifier =
             Modifier
                 .size(ICON_CHOICE_SIZE)
                 .clip(CircleShape)
-                .background(background)
                 .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = icon, style = MaterialTheme.typography.headlineSmall)
+        if (selected) {
+            IconHalo(size = BRIGHT_ICON_CHOICE_VISUAL_SIZE, tint = MaterialTheme.colorScheme.primary) {
+                Text(text = icon, style = MaterialTheme.typography.titleMedium)
+            }
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .size(BRIGHT_ICON_CHOICE_VISUAL_SIZE)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = icon, style = MaterialTheme.typography.titleMedium)
+            }
+        }
     }
 }
 
@@ -330,6 +396,95 @@ private fun ToggleRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, colors = caseEditSwitchColors())
+    }
+}
+
+/** Bright-only pill switch colors matching the mockup's `.mswitch`/`.mswitch.on` (white thumb both states, tinted track when on). */
+@Composable
+private fun caseEditSwitchColors(): SwitchColors =
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT ->
+            SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.surface,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                checkedBorderColor = Color.Transparent,
+                uncheckedThumbColor = MaterialTheme.colorScheme.surface,
+                uncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+                uncheckedBorderColor = Color.Transparent,
+            )
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> SwitchDefaults.colors()
+    }
+
+/** Bright-only field shape matching the mockup's `.field .input` 16dp radius (Bright's `shapes.small`); Plain/Intense keep the M3 default. */
+@Composable
+private fun caseEditTextFieldShape() =
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT -> MaterialTheme.shapes.small
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> OutlinedTextFieldDefaults.shape
+    }
+
+private val previewUiState =
+    CaseEditUiState(
+        isEditing = true,
+        isLoading = false,
+        name = "Went for a run",
+        description = "Any jog, walk, or run counted with intention.",
+        icon = CASE_ICONS.first(),
+        logFlow = LogFlow.DETAIL_SHEET,
+        durationMode = DurationMode.START_STOP,
+        intensityEnabled = true,
+        checkInsEnabled = false,
+        canArchive = true,
+    )
+
+/** Exercises the full Bright form: fields, a selected icon, both segmented rows, and both switch states (one on, one off). */
+@Preview(name = "CaseEditScreen — Bright light", showBackground = true, widthDp = 360, heightDp = 900)
+@Composable
+private fun CaseEditScreenBrightLightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        CompositionLocalProvider(
+            LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT,
+            LocalVoice provides voiceFor(AppTheme.BRIGHT),
+        ) {
+            CaseEditScreen(
+                uiState = previewUiState,
+                onNameChange = {},
+                onDescriptionChange = {},
+                onIconSelect = {},
+                onLogFlowChange = {},
+                onDurationModeChange = {},
+                onIntensityToggle = {},
+                onCheckInToggle = {},
+                onSave = {},
+                onArchive = {},
+                onBack = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "CaseEditScreen — Bright dark", showBackground = true, widthDp = 360, heightDp = 900)
+@Composable
+private fun CaseEditScreenBrightDarkPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
+        CompositionLocalProvider(
+            LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT,
+            LocalVoice provides voiceFor(AppTheme.BRIGHT),
+        ) {
+            CaseEditScreen(
+                uiState = previewUiState,
+                onNameChange = {},
+                onDescriptionChange = {},
+                onIconSelect = {},
+                onLogFlowChange = {},
+                onDurationModeChange = {},
+                onIntensityToggle = {},
+                onCheckInToggle = {},
+                onSave = {},
+                onArchive = {},
+                onBack = {},
+            )
+        }
     }
 }

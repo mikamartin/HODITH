@@ -15,6 +15,80 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow (Edit Case)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Edit Case slice — `CaseEditScreen.kt`'s
+name/description fields, icon-picker grid, and both toggle rows now branch on
+`LocalCardDecorationStyle`, and `SegmentedChoiceRow.kt` (shared by five other screens: Settings,
+Share preview, Insights, Triggers, Hunch) picks up a Bright-only continuous "pill track" look.
+Text fields get Bright's `shapes.small` (16dp) radius; the icon grid's selected choice gets
+`IconHalo`'s tint-wash + glow, the rest a plain thin-bordered circle, both at `IconHalo`'s own
+34dp default inside the existing 48dp touch target; both `Switch`es get Bright-tinted colors
+matching the mockup's `.mswitch`. Live the moment it ships, same as every prior Bright pass.
+
+**Found & fixed:**
+- *Scope/approach, caught before writing code* — the mockup's `.segrow`/`.seg.on` is a single
+  tinted track with the selected option popped forward as a floating capsule, a different visual
+  metaphor than M3's bordered `SegmentedButton` chrome (which only rounds a group's outer ends,
+  not each segment individually). Raised it rather than guessing; user's answer was to match the
+  mockup as closely as possible, which pointed at a custom Bright-only composable
+  (`BrightSegmentedChoiceRow`) rather than fighting `SegmentedButton`'s built-in border/divider/
+  sizing assumptions — the same call already made for `GlowCard` over a restyled M3 `Card`. Since
+  `SegmentedChoiceRow` is a single shared function, branching it wires all five call sites the
+  moment this commits; added Compose Previews exercising both a two-option (logFlow, including its
+  disabled-when-unavailable state) and three-option (durationMode/theme-picker) shape as the cheap
+  validation CLAUDE.md's collaboration rule calls for, ahead of committing to it broadly.
+- *Accessibility semantics* — `BrightSegmentedChoiceRow` manually replicates the
+  `selectableGroup`/`Role.RadioButton` semantics `SegmentedButton` normally provides for free, same
+  idiom already used by this file's own icon-picker grid (`selectableGroup` + per-icon
+  `selectable(..., role = Role.RadioButton)`).
+- *Lint* — `AutoboxingStateCreation`: the new `SegmentedChoiceRow` preview's local `Int` state used
+  `mutableStateOf` instead of `mutableIntStateOf`; fixed both.
+- *Compile* — an explicit `import androidx.compose.foundation.layout.weight` resolved to an
+  internal `RowColumnParentData` property of the same name instead of `RowScope`'s member
+  `weight()` extension (which needs no import at all, confirmed against every other file in the
+  app that calls `.weight(...)`); removed the import.
+- *Tests* — added light + dark Compose Previews for `SegmentedChoiceRow`'s Bright branch (in both
+  shapes above) and for the full `CaseEditScreen` Bright form, matching every prior pass's
+  precedent of a screen-level preview pair.
+
+**Deferred:**
+- *Duplication* — none found; `IconChoice`/`caseEditSwitchColors`/`caseEditTextFieldShape` all
+  branch on `LocalCardDecorationStyle` with the same `when` shape as `Plank`/`ActionRow`/
+  `InsightsCard`. The Bright icon-choice/segmented-row composables are single-caller extractions,
+  same accepted convention as `BrightActionRow`.
+- *Complexity & Pattern Health* — `BrightSegmentedChoiceRow` and `BrightIconChoice` do reimplement
+  something M3 already provides (`SegmentedButton`, and `IconChoice`'s own existing selectable
+  circle); deliberate, per the approach decision above, not an oversight.
+- *Accessibility* — segment touch height in `BrightSegmentedChoiceRow` lands at roughly 42dp (track
+  padding + 7dp segment padding + `labelLarge`'s line height), under the 48dp guideline but not a
+  new regression: M3's own `SegmentedButton` it replaces is already sub-48dp too, matching the
+  same already-accepted precedent noted for `BrightActionRow` in the Settings pass. Icon-choice
+  emoji `Text` still carries no `contentDescription` in either branch — pre-existing on the
+  Plain/Intense side already, not something this pass introduced or was scoped to fix.
+- *Tests* — no new pure logic (branch is purely visual), so no unit coverage needed;
+  `CardDecorationStyleTest`'s mapping is unaffected. `CaseEditScreenTest` only ever provides
+  `PlainVoice` with no `LocalCardDecorationStyle` override, so it exercises the untouched `PLAIN`
+  default — confirmed by rereading the test file — and wasn't re-run on a device (the user's side
+  of the workflow).
+- *Spec Review* — HODITH_SPEC.md §14's Edit Case row and §12's theme table describe flow/content
+  and high-level palette/type feel, not per-component chrome; same "no update needed" conclusion as
+  every prior Bright pass.
+- *TESTING.md* — not touched, matching every prior Bright pass's own wiring commit.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Naming
+  Consistency (`Bright`-prefixed composables follow the established convention; no new `Voice` keys
+  needed, every label reuses an existing key); Hardcoded Values (no new `Color(0xFF...)` literals;
+  the new `onSurface.copy(alpha = ...)` track/border/switch tints and `Dp` layout literals are UI
+  values like the file's existing ones, not domain-layer product constants); Deprecated APIs
+  (checked the actual `lintDebug` HTML report, not just its exit code — zero findings against
+  either changed file); Repo Hygiene (`git status` shows only the two expected modified files).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Edit Case bullet).
+
+---
+
 ## feature/bright-theme-soft-glow (Settings)
 
 **Scope:** PROGRESS.md's Bright theme redesign checklist, Settings slice — `SettingsScreen.kt`'s
