@@ -15,6 +15,67 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow (Insights)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Case Detail Insights slice —
+`InsightsTab.kt`'s shared `InsightsCard` shell now branches on `LocalCardDecorationStyle`: Bright
+wraps every stat card (Dot timeline, Heatmap, Frequency, Rhythm, Gaps, Trend, Duration, Intensity,
+Tags) in `GlowCard`, Plain/Intense keep today's plain `Card`. `FrequencyCard`'s bars swap their flat
+`colorScheme.primary` fill for a primary→surface-tinted vertical gradient on Bright, unchanged flat
+fill elsewhere. Live the moment it ships, same as the Home and Big Picture passes before it.
+
+**Found & fixed:**
+- *Scope, caught before writing code* — the mockup's Insights screen also shows a two-up stat-tile
+  row ("Longest gap" / "Most common day") sitting outside any card, and PROGRESS.md's original
+  bullet described it as a new component to build. "Most common day" isn't computed anywhere in the
+  domain layer today, and the tile row would have pulled `GapsCard`'s existing `longestGapDays` row
+  out into new UI — both are feature additions, not a restyle of something already shipping. Raised
+  it; user's answer was explicit: this pass changes design only, and anything the mockup shows that
+  isn't already a feature in the app gets ignored rather than built. Result: no tile row, no new
+  component, `GapsCard` and every other stat card's content untouched — only the shared shell and
+  the bar-chart fill actually changed.
+- *Tests* — added a light + dark Compose Preview (`InsightsBrightCardsLightPreview`/
+  `...DarkPreview`) exercising `FrequencyCard` and `GapsCard` together, covering both the new
+  `GlowCard` branch and the gradient bars — `InsightsTab.kt` had no previews at all before this
+  pass, unlike Home/Big Picture's composables.
+
+**Deferred:**
+- *Duplication* — none found; `InsightsCard`'s branch is a straight `when` mirroring
+  `HomeCaseListItem`'s existing dispatch pattern, and `frequencyBarBrush` is a small standalone
+  helper rather than something with an existing home.
+- *Tests* — no new pure logic (the gradient is a `Brush`, not domain code), so no unit coverage
+  needed; `CardDecorationStyleTest`'s theme→style mapping is unaffected by a purely visual change
+  inside the existing `BRIGHT` branch. The instrumented `CaseDetailInsightsTabTest` doesn't reference
+  `AppTheme`/`LocalCardDecorationStyle`, so it exercises the untouched Plain path — wasn't re-run on
+  a device (not something this pass can do; manual/on-device confirmation is the user's side of the
+  workflow).
+- *Spec Review* — HODITH_SPEC.md's §9-10 describe the Insights tab's data/layout, not per-theme card
+  chrome, and no theme's card decoration is spec'd at that granularity today (same conclusion as the
+  Home and Big Picture passes) — no update needed.
+- *TESTING.md* — not touched, matching the Home and Big Picture commits, neither of which updated it
+  for their own (larger) Bright wiring changes either; confirmed via `git show --stat` rather than
+  assumed.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Complexity &
+  Pattern Health (`FrequencyCard` is 71 lines, well under the ~150-line split threshold;
+  `frequencyBarBrush`'s single-caller extraction earns its keep — computes the `Brush` once outside
+  the bar-drawing loop rather than per-bar); Naming Consistency (`frequencyBarBrush` is lowerCamelCase,
+  correct for a `@Composable` that returns a value rather than emitting UI); Repo Hygiene (`git
+  status` shows only the three expected modified files, nothing stray or secret-shaped); Hardcoded
+  Values (no new literal colors — `frequencyBarBrush`'s `0.4f` tint fraction is a named constant,
+  `FREQUENCY_BAR_GRADIENT_END_TINT_FRACTION`, following the file's existing constant style, not a
+  product constant); Deprecated APIs (checked the actual `lintDebug` HTML report, not just its exit
+  code — zero issues flagged anywhere in `InsightsTab.kt`); Accessibility (no new icon-only tap
+  targets or tap-target size changes — cards remain non-interactive containers, and the frequency
+  bars' gradient is purely decorative alongside their existing numeric count labels, not a new
+  color-only signal).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Insights bullet; no new
+gaps spotted this pass, unlike Big Picture's).
+
+---
+
 ## feature/bright-theme-soft-glow (Big Picture)
 
 **Scope:** PROGRESS.md's Bright theme redesign checklist, Big Picture slice — `BigPictureGrid.kt`'s

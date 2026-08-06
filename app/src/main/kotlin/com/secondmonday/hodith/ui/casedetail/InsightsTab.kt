@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,10 +33,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INTENSITY_MAX
@@ -48,8 +53,15 @@ import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.toCellColor
 import com.secondmonday.hodith.ui.common.toTextColor
+import com.secondmonday.hodith.ui.theme.CardDecorationStyle
+import com.secondmonday.hodith.ui.theme.GlowCard
+import com.secondmonday.hodith.ui.theme.HodithTheme
+import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
+import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
+import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.DurationDisplay
+import com.secondmonday.hodith.viewmodel.FrequencyBar
 import com.secondmonday.hodith.viewmodel.FrequencyDisplay
 import com.secondmonday.hodith.viewmodel.GapsDisplay
 import com.secondmonday.hodith.viewmodel.HeatmapDay
@@ -130,11 +142,19 @@ private fun StatsSectionCards(
     if (stats.tags.isNotEmpty()) TagsCard(stats.tags, stats.totalEventCount, voice)
 }
 
-/** Shared shell for both Insights cards — full-width [Card] with a padded, vertically-spaced [Column]. */
+/**
+ * Shared shell for every Insights card — full-width [Card] with a padded, vertically-spaced
+ * [Column]. Bright branches to [GlowCard] (Soft Glow mockup's `.card`), same dispatch as
+ * [com.secondmonday.hodith.ui.home.HomeCaseListItem].
+ */
 @Composable
 private fun InsightsCard(content: @Composable ColumnScope.() -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT -> GlowCard(content = content)
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+            }
     }
 }
 
@@ -331,6 +351,7 @@ private fun FrequencyCard(
                 selected = granularityOverride ?: display.granularity,
                 onSelect = onGranularityChange,
             )
+            val barBrush = frequencyBarBrush(LocalCardDecorationStyle.current)
             Row(modifier = Modifier.fillMaxWidth().padding(top = FREQUENCY_CHART_TOP_SPACING.dp).height(FREQUENCY_BAR_CHART_HEIGHT.dp)) {
                 display.bars.forEach { bar ->
                     val barHeight =
@@ -346,7 +367,7 @@ private fun FrequencyCard(
                                     .padding(horizontal = 1.dp)
                                     .height(barHeight)
                                     .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                                    .background(MaterialTheme.colorScheme.primary),
+                                    .background(barBrush),
                         )
                         if (bar.count > 0) {
                             Text(
@@ -373,6 +394,21 @@ private fun FrequencyCard(
                 )
             }
         }
+    }
+}
+
+/** Bright's bars fade from full [Color]`.primary` at the top to this fraction toward the surface at the bottom (mockup's `.bars-row .bar` gradient); Plain/Intense keep a flat fill. */
+private const val FREQUENCY_BAR_GRADIENT_END_TINT_FRACTION = 0.4f
+
+@Composable
+private fun frequencyBarBrush(decorationStyle: CardDecorationStyle): Brush {
+    val primary = MaterialTheme.colorScheme.primary
+    return when (decorationStyle) {
+        CardDecorationStyle.BRIGHT ->
+            Brush.verticalGradient(
+                listOf(primary, lerp(primary, MaterialTheme.colorScheme.surface, FREQUENCY_BAR_GRADIENT_END_TINT_FRACTION)),
+            )
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> Brush.verticalGradient(listOf(primary, primary))
     }
 }
 
@@ -565,4 +601,50 @@ private fun StatRow(
 internal fun formatDays(days: Double): String {
     val label = if (days == days.roundToInt().toDouble()) days.roundToInt().toString() else String.format(Locale.US, "%.1f", days)
     return "$label days"
+}
+
+private val previewFrequencyDisplay =
+    FrequencyDisplay(
+        granularity = FrequencyGranularity.WEEK,
+        bars =
+            listOf(
+                FrequencyBar(LocalDate.of(2026, 6, 1), 2, 0.35f),
+                FrequencyBar(LocalDate.of(2026, 6, 8), 3, 0.55f),
+                FrequencyBar(LocalDate.of(2026, 7, 1), 3, 0.40f),
+                FrequencyBar(LocalDate.of(2026, 7, 8), 5, 0.80f),
+                FrequencyBar(LocalDate.of(2026, 7, 15), 4, 0.60f),
+                FrequencyBar(LocalDate.of(2026, 8, 1), 6, 0.95f),
+            ),
+    )
+
+private val previewGapsDisplay = GapsDisplay(longestGapDays = 5, currentGapDays = 2, averageGapDays = 3.5, isBursty = true)
+
+/** Exercises [InsightsCard]'s Bright branch (via [FrequencyCard]/[GapsCard]) and [FrequencyCard]'s gradient bars together. */
+@Composable
+private fun InsightsBrightCardsPreviewContent() {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT,
+        LocalVoice provides voiceFor(AppTheme.BRIGHT),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            FrequencyCard(previewFrequencyDisplay, null, {}, LocalVoice.current)
+            GapsCard(previewGapsDisplay, LocalVoice.current)
+        }
+    }
+}
+
+@Preview(name = "Insights cards — Bright light", showBackground = true, widthDp = 380)
+@Composable
+private fun InsightsBrightCardsLightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        InsightsBrightCardsPreviewContent()
+    }
+}
+
+@Preview(name = "Insights cards — Bright dark", showBackground = true, widthDp = 380)
+@Composable
+private fun InsightsBrightCardsDarkPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
+        InsightsBrightCardsPreviewContent()
+    }
 }
