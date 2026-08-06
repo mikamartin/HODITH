@@ -3,16 +3,21 @@ package com.secondmonday.hodith.ui.settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
@@ -21,14 +26,17 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,8 +45,13 @@ import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.theme.CardDecorationStyle
+import com.secondmonday.hodith.ui.theme.GlowCard
+import com.secondmonday.hodith.ui.theme.HodithTheme
+import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
+import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.BackupEvent
 import com.secondmonday.hodith.viewmodel.ImportFailureReason
 import com.secondmonday.hodith.viewmodel.SettingsUiState
@@ -255,21 +268,33 @@ private fun CheckInSection(
     }
 }
 
-/** Area grouping for the Settings screen: a crisp white/thin-border card with a small-caps title. */
+/**
+ * Area grouping for the Settings screen: a crisp white/thin-border card with a small-caps title.
+ * Bright branches to [GlowCard] (Soft Glow mockup's `.plank`), same dispatch as
+ * [com.secondmonday.hodith.ui.casedetail.InsightsTab]'s `InsightsCard`.
+ */
 @Composable
 private fun Plank(
     title: String?,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            title?.let { AreaHeader(it) }
-            content()
-        }
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT ->
+            GlowCard {
+                title?.let { AreaHeader(it) }
+                content()
+            }
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    title?.let { AreaHeader(it) }
+                    content()
+                }
+            }
     }
 }
 
@@ -289,17 +314,88 @@ private fun ActionRow(
     onClick: () -> Unit,
     isDestructive: Boolean = false,
 ) {
-    FilledTonalButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors =
-            if (isDestructive) {
-                ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            } else {
-                ButtonDefaults.filledTonalButtonColors()
-            },
-    ) { Text(label) }
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT -> BrightActionRow(label, onClick, isDestructive)
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+            FilledTonalButton(
+                onClick = onClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors =
+                    if (isDestructive) {
+                        ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    } else {
+                        ButtonDefaults.filledTonalButtonColors()
+                    },
+            ) { Text(label) }
+    }
+}
+
+/**
+ * Bright-only flat label + chevron row (Soft Glow mockup's `.arow`) — [GlowCard]'s tinted surface
+ * already reads as chrome, so a filled button pill on top of it would double up; Plain/Intense
+ * keep [FilledTonalButton] (tracked separately in PROGRESS.md's `FilledTonalButton` item).
+ */
+@Composable
+private fun BrightActionRow(
+    label: String,
+    onClick: () -> Unit,
+    isDestructive: Boolean,
+) {
+    val contentColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, modifier = Modifier.weight(1f), color = contentColor, style = MaterialTheme.typography.labelLarge)
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = if (isDestructive) contentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Exercises [Plank]'s Bright branch and [BrightActionRow], including the destructive tint. */
+@Composable
+private fun SettingsBrightPlankPreviewContent() {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT,
+        LocalVoice provides voiceFor(AppTheme.BRIGHT),
+    ) {
+        val voice = LocalVoice.current
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Plank(voice.settingsSupportSectionLabel) {
+                ActionRow(voice.aboutScreenTitle, onClick = {})
+                ActionRow(voice.settingsRateAppButton, onClick = {})
+                ActionRow(voice.settingsContactUsButton, onClick = {})
+            }
+            Plank(voice.settingsDataSectionLabel) {
+                ActionRow(voice.settingsExportButton, onClick = {})
+                ActionRow(voice.settingsDeleteAllDataButton, onClick = {}, isDestructive = true)
+            }
+        }
+    }
+}
+
+@Preview(name = "Settings planks — Bright light", showBackground = true, widthDp = 360)
+@Composable
+private fun SettingsBrightPlankLightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        SettingsBrightPlankPreviewContent()
+    }
+}
+
+@Preview(name = "Settings planks — Bright dark", showBackground = true, widthDp = 360)
+@Composable
+private fun SettingsBrightPlankDarkPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
+        SettingsBrightPlankPreviewContent()
+    }
 }

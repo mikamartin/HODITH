@@ -15,6 +15,73 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow (Settings)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Settings slice — `SettingsScreen.kt`'s
+shared `Plank` shell now branches on `LocalCardDecorationStyle`: Bright wraps every settings
+section ("Spread the word", "Look & feel", "Nudge me", "Your stuff") in `GlowCard`, Plain/Intense
+keep today's `OutlinedCard`. `ActionRow` (About HODITH, Rate the app, Contact us, Export, Import,
+Delete all data, Load demo data) also branches: Bright renders a flat label + chevron row
+(`BrightActionRow`, matching the mockup's `.arow`) instead of `FilledTonalButton`, Plain/Intense
+unchanged. Live the moment it ships, same as Home/Big Picture/Insights before it.
+
+**Found & fixed:**
+- *Scope, caught before writing code* — PROGRESS.md's Settings bullet explicitly tied `ActionRow`'s
+  `FilledTonalButton` question to this pass, and the mockup's `.arow` look (flat chevron row) is
+  visually nothing like today's button pill — a real ambiguity, not a call to make solo. Raised it;
+  user's answer: adopt the flat chevron-row look for `ActionRow`, but Bright-only (branched on
+  `LocalCardDecorationStyle` like `Plank`), not app-wide. Plain/Intense keep `FilledTonalButton`;
+  PROGRESS.md's standing `FilledTonalButton` item stays open, reworded to reflect that Bright is
+  now resolved while Plain/Intense's styling is still an open product-owner question.
+- *Tests* — added a light + dark Compose Preview (`SettingsBrightPlankLightPreview`/
+  `...DarkPreview`) exercising `Plank` and `ActionRow` together, including the destructive
+  (`Delete all data`) tint — `SettingsScreen.kt` had no previews at all before this pass, same gap
+  `InsightsTab.kt` had before its own Bright pass.
+
+**Deferred:**
+- *Duplication* — none found; `Plank`'s branch is a straight `when` mirroring `InsightsCard`'s/
+  `HomeCaseListItem`'s existing dispatch pattern. `BrightActionRow` follows the same
+  single-caller-branch convention as `BrightHomeCaseListItem`.
+- *Complexity & Pattern Health* — considered whether `BrightActionRow` should use M3's `ListItem`
+  (headline + trailing icon) instead of a plain `Row`; kept `Row` for consistency with the app's
+  existing row convention (`PlainHomeCaseListItem`, `BrightHomeCaseListItem` are both plain `Row`s
+  too, not `ListItem`), not because `ListItem` couldn't do the job.
+- *Accessibility* — the chevron `Icon` has `contentDescription = null`: it's decorative, not an
+  icon-only tap target — the row itself is the click target and already carries the visible label
+  Text, same pattern as `HomeCaseListItem`'s existing clickable `Row`. Touch-target height: Bright's
+  `BrightActionRow` lands at roughly 42dp (11dp padding + `labelLarge`'s ~20dp line height), close to
+  but still under the 48dp guideline — not a new regression, though, since the `FilledTonalButton`
+  it replaces is already only 40dp tall (M3's `ButtonDefaults` minimum) in Plain/Intense; this
+  matches the already-flagged, already-accepted sub-48dp precedent noted in PROGRESS.md's Settings
+  section (Developer Mode's tap target) rather than introducing a new one.
+- *Tests* — no new pure logic (branch is purely visual), so no unit coverage needed;
+  `CardDecorationStyleTest`'s theme→style mapping is unaffected. `SettingsScreenTest` only ever
+  provides `PlainVoice` with no `LocalCardDecorationStyle` override, so it exercises the untouched
+  `PLAIN` default — confirmed by rereading the test file, not assumed — and wasn't re-run on a
+  device (the user's side of the workflow).
+- *Spec Review* — HODITH_SPEC.md's Settings mentions (data model, About screen, bottom nav) don't
+  describe per-theme card/button chrome at this granularity, same conclusion as every prior Bright
+  pass — no update needed.
+- *TESTING.md* — not touched, matching Home/Big Picture/Insights, none of which updated it for their
+  own Bright wiring either; confirmed via `git show --stat` on those three commits rather than
+  assumed.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Naming
+  Consistency (`BrightActionRow` follows the established `Bright`-prefix convention; no new `Voice`
+  keys needed — every label reuses an existing key); Hardcoded Values (no new literal colors, all
+  via `MaterialTheme.colorScheme`; the `11.dp` row padding is a plain UI layout value like the
+  file's other inline `Dp` literals, not a product constant per CLAUDE.md's domain-layer rule);
+  Deprecated APIs (checked the actual `lintDebug` HTML report, not just its exit code — only the
+  pre-existing, unrelated `ObsoleteSdkInt` notice, nothing new); Repo Hygiene (`git status`/`git
+  diff --stat` show only the one expected modified file).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Settings bullet; reworded
+the `FilledTonalButton` "needs design" item to reflect Bright's resolution, left it open for
+Plain/Intense).
+
+---
+
 ## feature/bright-theme-soft-glow (Insights)
 
 **Scope:** PROGRESS.md's Bright theme redesign checklist, Case Detail Insights slice —
