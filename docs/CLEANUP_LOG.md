@@ -15,6 +15,49 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow
+
+**Scope:** PROGRESS.md's Bright theme redesign (Soft Glow) checklist, foundations slice: `Color.kt`'s
+primary-tinted ink for `brightLight`/`brightDark`, a new `LocalCardDecorationStyle` fork point
+(mirrors the existing `LocalBigPictureCellStyle`/`LocalShareCardSkin` split), and the shared
+`GlowCard`/`IconHalo` primitives those screens will consume. No screen wired to the new fork point
+yet — Plain/Intense/current-Bright are all unaffected.
+
+**Found & fixed:**
+- *Naming Consistency* — the file holding `GlowCard` and `IconHalo` was named `GlowCardDecoration.kt`,
+  which overclaims (`IconHalo` isn't card decoration). Renamed to `GlowDecoration.kt`.
+- *Tests* — `cardDecorationStyle`'s `when` mapping had the same copy-paste risk (two themes
+  accidentally mapping to the same style) that `BigPictureDecorationTest` already guards for
+  `bigPictureCellStyle`, with no equivalent coverage. Added `CardDecorationStyleTest`, mirroring it.
+- *Docs* — PROGRESS.md's Bright theme redesign section struck the three now-complete foundation
+  bullets (ink formula, card-decoration primitive, icon-halo primitive) and rewrote the five
+  remaining bullets to name the concrete `GlowCard`/`IconHalo`/`LocalCardDecorationStyle` symbols
+  now that they exist, instead of speculative "needs to be built" language.
+
+**Deferred:**
+- Considered building `GlowCard` on top of Material3 `Card`/`Surface` instead of a raw `Column` with
+  manual `shadow`/`background`/`border`. Kept the manual version: `Card`'s `containerColor` only
+  accepts a solid `Color`, not a `Brush`, and its elevation API doesn't expose a per-tint
+  ambient/spot shadow color the way `Modifier.shadow` does — wrapping `Card` with a transparent
+  container and layering the gradient on top would add a wrapper with no functional benefit over the
+  direct approach.
+- `GlowCard`/`IconHalo` have no real callers yet, only their own Compose Previews. Intentional — this
+  is the foundations step of a staged plan; consumers land screen-by-screen in the checklist's
+  remaining bullets.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); most of
+  Accessibility (no clickable targets introduced — both primitives are decorative containers, tap
+  targets are each future consumer's responsibility); Deprecated APIs (none); Spec Review (nothing
+  user-visible has shipped yet — HODITH_SPEC.md's theme section doesn't need updating until a screen
+  actually renders the new look); most of Tests (no domain/ViewModel logic, no bug fix, no
+  instrumented tests, no flow crossing a system-process boundary — this is unshipped UI plumbing).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck 3 completed bullets, rewrote
+the remaining 6 to point at the new primitives by name).
+
+---
+
 ## test/automate-manual-plan
 
 **Scope:** PROGRESS.md's testing item asked for a deliberate pass over MANUAL_TEST_PLAN.md to find

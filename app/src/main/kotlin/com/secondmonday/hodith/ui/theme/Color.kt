@@ -139,6 +139,17 @@ private val intenseDark =
 
 // Bright: the "playful accent pair" is a real functional pair, not decorative — secondary
 // is the turquoise half, used for selected states, distinct from the coral primary.
+//
+// onBackground/onSurface/BrightXHeadingInk aren't flat ink — both are the primary blended into
+// a warm neutral (Soft Glow mockup formula, docs/mockups/bright-theme-soft-glow.html: 26% primary
+// for body-weight ink, 52% for heading-weight ink), so text reads as part of the coral/turquoise
+// palette rather than generic near-black/near-white. *HeadingInk isn't a ColorScheme role — it's
+// for Baloo 2 heading-weight text (screen titles, card labels) once those screens pick it up
+// (PROGRESS.md's Bright theme redesign checklist); body-weight ink covers everything else via
+// onBackground/onSurface.
+internal val BrightLightHeadingInk = Color(0xFFA8523A)
+internal val BrightDarkHeadingInk = Color(0xFFFFB8A3)
+
 private val brightLight =
     lightColorScheme(
         primary = Color(0xFFFF6B4A),
@@ -154,9 +165,9 @@ private val brightLight =
         errorContainer = Color(0xFFFFDAD6),
         onErrorContainer = Color(0xFF410002),
         background = Color(0xFFFFF7ED),
-        onBackground = Color(0xFF2B2118),
+        onBackground = Color(0xFF794531),
         surface = Color(0xFFFFFFFF),
-        onSurface = Color(0xFF2B2118),
+        onSurface = Color(0xFF794531),
         surfaceVariant = Color(0xFFF2E4D4),
         onSurfaceVariant = Color(0xFF8A7A68),
         surfaceContainerHigh = Color(0xFFFBEEE0),
@@ -179,9 +190,9 @@ private val brightDark =
         errorContainer = Color(0xFF93000A),
         onErrorContainer = Color(0xFFFFDAD6),
         background = Color(0xFF2A1E1A),
-        onBackground = Color(0xFFFFF3E6),
+        onBackground = Color(0xFFFFD6C5),
         surface = Color(0xFF35271F),
-        onSurface = Color(0xFFFFF3E6),
+        onSurface = Color(0xFFFFD6C5),
         surfaceVariant = Color(0xFF4A372C),
         onSurfaceVariant = Color(0xFFC9AF9C),
         surfaceContainerHigh = Color(0xFF403026),

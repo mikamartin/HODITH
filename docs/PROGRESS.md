@@ -6,10 +6,22 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 Items that need a design pass or a product decision before (or instead of) straight implementation.
 
-- [ ] Review Bright theme's color palette — the current colors aren't landing with the product owner; revisit.
 - [ ] Review phrasing across all three Voice implementations (Plain/Intense/Bright) for quality and consistency.
 - [ ] Big picture: Cases/tags filters feel too crowded — needs a design pass on layout, not just content.
 - [ ] Settings rework introduces `FilledTonalButton` for its action rows, a style not used anywhere else in the app (existing vocabulary is `Button`/`OutlinedButton`/`TextButton`). Deliberately scoped to Settings for now — revisit whether it should spread app-wide or Settings should conform to the existing three-tier system instead.
+
+## Bright theme redesign (Soft Glow)
+
+Direction is settled — the coral/turquoise "Soft Glow" mockup at [docs/mockups/bright-theme-soft-glow.html](mockups/bright-theme-soft-glow.html) (Home, Big Picture, Case Detail, Edit Case, Settings) is the reference. Palette stays coral/turquoise, `Baloo 2` + `Nunito`, and the existing shape scale in `Type.kt`/`Shape.kt` are unchanged.
+
+Foundations are in: `Color.kt`'s primary-tinted ink, a `LocalCardDecorationStyle` fork point (mirrors `LocalBigPictureCellStyle`/`LocalShareCardSkin`, covered by `CardDecorationStyleTest`), and the shared `GlowCard`/`IconHalo` primitives (`ui/theme/GlowDecoration.kt`, with their own Compose Previews). Nothing consumes the fork point yet, so Plain/Intense/current-Bright are all unchanged. What's left is wiring each screen's `BRIGHT` branch to the new primitives:
+
+- [ ] Home (`HomeScreen.kt`'s `HomeCaseListItem`): branch on `LocalCardDecorationStyle`, wrap rows in `GlowCard`; promote the case name to `Baloo 2` (today only the header uses the display face — the list itself reads like Plain theme recolored); alternate `IconHalo` tint primary/secondary per row.
+- [ ] Big Picture (`BigPictureGrid.kt`'s `BrightDayCell`): replace the shipped fanned-sticker-cluster treatment with `IconHalo` as a ring on today's cell. This is a real behavior change to existing code, not just filling in something new — flag it in review.
+- [ ] Case Detail Insights (`InsightsTab.kt`): branch `InsightsCard` on `LocalCardDecorationStyle` to use `GlowCard`; frequency chart bars use a primary gradient fill; the two-up stat-tile layout (e.g. longest gap / most common day) doesn't exist as a component yet and needs building, not just restyling.
+- [ ] Settings (`SettingsScreen.kt`'s `Plank`): branch on `LocalCardDecorationStyle` to use `GlowCard`. Resolve alongside the existing `FilledTonalButton` item below — both touch `ActionRow` in the same file.
+- [ ] Edit Case (`CaseEditScreen.kt`): restyle text fields, the icon-picker grid, and toggle rows to match, using `GlowCard`/`IconHalo` where the mockup calls for them. `SegmentedChoiceRow` is shared by five other screens (Settings, Share preview, Insights, Triggers, Hunch) — branch it on `LocalCardDecorationStyle` too rather than restyling it outright, and confirm the new segmented "on" pill treatment reads fine everywhere it's reused; it has the widest blast radius of anything in this list.
+- [ ] Compose Preview per changed composable (Bright, light + dark); check whether `HodithThemeTest`/`BigPictureDecorationTest` need new coverage for the glow decoration; manual on-device pass confirming Plain/Intense are unaffected.
 
 ## Settings
 
