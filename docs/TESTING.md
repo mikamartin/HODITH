@@ -40,8 +40,16 @@ Rule of thumb: **if logic can be tested on the JVM, it must not require an emula
 | Compose UI — About | Version/privacy/licenses sections render their Voice-provided copy; back button invokes the callback; Settings' About row navigates there; version row tap invokes the callback; unlock-countdown and unlocked events show their matching snackbar message |
 | Compose UI — Share preview | Story renders taller than Square for identical content (the two formats' minimum shapes actually differ, not just their top beat); format toggle and section checklist invoke their callbacks; Hunch vs. Reality show/hide switch only appears on Story with a resolved Hunch; Duration/Intensity checklist rows only appear when the Case tracks them; Case Detail header's Share icon navigates there |
 | WorkManager | Periodic notification-eval job enqueued once as unique work; resolves the real `NotificationEvaluator` via Hilt and completes — the firing behaviour itself is unit-tested (JVM) per this doc's own JVM-first rule, not re-proven at this layer |
+| Widgets — chrome & trampoline | List widget title/empty-state tap and Single-case widget's "Case is gone" tap all open `MainActivity`, driven via a real `AppWidgetHost` (`WidgetChromeNavigationTest`) — everything *inside* the List widget's `LazyColumn` row still needs the manual pass (see MANUAL_TEST_PLAN.md's Widgets section for why); the `DETAIL_SHEET` trampoline sheet (`WidgetLogTrampolineActivityTest`) saves a real event and finishes, driven directly since the row that launches it is inside that same unreachable `LazyColumn` |
+| Notifications | The real `Notifier` posts a correctly `Voice`-worded, correctly-actioned notification (`NotifierContentTest`) and `NotificationActionReceiver`'s Log (`ONE_TAP` direct, `DETAIL_SHEET` via the trampoline) and All quiet actions update the right data and cancel the notification (`NotificationActionReceiverTest`) — both dispatch through the real `NotificationManager`/a real broadcast rather than `NotificationEvaluator`'s data-dependent Trigger/check-in selection, which stays JVM-only per this doc's own JVM-first rule. A notification's tap target isn't checked here: `PendingIntent` doesn't expose its wrapped `Intent` through any public API |
+| Backup file I/O | `ContentResolverBackupFileWriter` round-trips bytes through a real `Uri` via the real `ContentResolver` (`ContentResolverBackupFileWriterTest`) — the one piece of export/import nothing else touches; the system "save to"/"open" picker UI itself stays manual |
 
 ## Manual-only journeys (seed list for MANUAL_TEST_PLAN.md)
+
+The original coarse-grained starting point MANUAL_TEST_PLAN.md grew from journey by journey — kept
+here for history rather than kept in lockstep with it. MANUAL_TEST_PLAN.md is the authoritative,
+current breakdown of what's still manual and what each item's automated coverage is; when the two
+disagree, MANUAL_TEST_PLAN.md wins.
 
 Cadence: before every release; full pass before Play submissions.
 
@@ -54,7 +62,7 @@ Cadence: before every release; full pass before Play submissions.
 7. Export → wipe app data → import → everything restored. Scope is Room data only (cases/events/tags/hunches/triggers) — Settings prefs (theme, default check-in interval) are a device preference, not investigation data, and are deliberately excluded; round-trip equality, malformed-file rejection, and schema-version rejection are covered by `BackupSerializerTest`/`FakeHodithRepositoryTest`/`RoomHodithRepositoryBackupTest`/`SettingsViewModelTest`, so this manual pass is about the real system file picker, not the underlying logic
 8. Timezone change / DST night with events on both sides — day-bucketing in stats, calendar heatmap, and Big Picture stays sane
 9. Big Picture with 15+ cases and a year of data — scrolling stays responsive on a mid-range device
-10. Check-in notification: "Log" action logs correctly per the Case's logFlow; "All quiet" dismisses and re-arms; several due check-ins arrive as one summary notification
+10. Check-in notification: several due check-ins arrive as one summary notification, and each notification's tap target opens the right place — see MANUAL_TEST_PLAN.md's Notifications section for what's now covered by `NotifierContentTest`/`NotificationActionReceiverTest` instead
 11. Share flow: preview renders in all three themes, edited display name shows on the card, share sheet opens and the image lands correctly in a messenger app (both story and square)
 
 ## Deferrals

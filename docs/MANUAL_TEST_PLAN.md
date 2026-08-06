@@ -6,80 +6,95 @@ submissions.
 
 ## Widgets
 
-Neither Glance widget host renders in an instrumented test (`WidgetRefreshWorkerTest` only proves
-the periodic refresh call resolves and doesn't throw) — actual on-screen rendering, tap targets, and
-the system configure flow can only be checked on a real home screen.
+The List widget's `LazyColumn` renders as a `RemoteViewsService`-backed `ListView` that only
+populates once attached to a real window — `AppWidgetHost.createView()` alone never triggers that
+(confirmed by manual inspection; see `WidgetActionsFlowTest`'s doc comment), so anything *inside* a
+List widget row still needs a real home screen. Chrome outside that row list (title, empty state),
+the Single-case widget's own content (it isn't behind a `ListView`), the configure flows, and the
+DETAIL_SHEET trampoline sheet are covered by instrumented tests instead — see each item below for
+which test.
 
 1. **List widget background and corners.** Add the List widget to a home screen — its surface
    renders the intended dark neutral color and rounded corners, not a plain black rectangle
    (previously-known bug; fixed via `appWidgetBackground()`/`cornerRadius()`). Check on at least one
    launcher in dark mode and one in light mode, since the launcher — not HODITH's theme — decides the
    surrounding corner mask.
-2. **List widget empty state.** With no Case picked for this widget instance, it shows its
-   "no Cases selected" message in the intended muted color (not stark black-and-white), and
-   tapping the message opens the app.
-3. **List widget title tap.** Tapping the "How often does it truly happen?" header opens the app to
-   Home (no specific Case).
-4. **List widget case row tap.** Tapping a case row's icon/name/count area (not the `+`/Stop button)
+2. **List widget empty state color.** With no Case picked for this widget instance, it shows its
+   "no Cases selected" message in the intended muted color (not stark black-and-white). (Tapping the
+   message to open the app is covered by `WidgetChromeNavigationTest.listWidget_emptyStateTap_opensMainActivity`.)
+3. **List widget case row tap.** Tapping a case row's icon/name/count area (not the `+`/Stop button)
    opens the app directly on that Case's detail screen. The `+`/Stop button itself still only logs or
-   stops — it doesn't also navigate.
-5. **List widget one-tap log** on a `ONE_TAP` case via its `+` button — event appears in-app.
-6. **List widget `DETAIL_SHEET` tap** on its `+` button — sheet opens via the trampoline, saves, and
-   the event appears in-app.
-7. **List widget ongoing/elapsed/Stop.** Start an event on a `START_STOP` Case — the widget row shows
-   ticking elapsed time and a Stop button; tapping Stop ends the event without opening the app.
-8. **List widget configure flow, per-instance selection.** Add two List widgets to the home
+   stops — it doesn't also navigate. (Inside the row `ListView` — can't be driven from an instrumented
+   test; see the note above.)
+4. **List widget one-tap log** on a `ONE_TAP` case via its `+` button — event appears in-app. (Same
+   `ListView` limitation as item 3; the underlying `QuickLogAction` callback itself is covered via the
+   Single-case widget in `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase`, which wires
+   up the identical callback outside a `ListView`.)
+5. **List widget `DETAIL_SHEET` tap** on its `+` button — sheet opens via the trampoline, saves, and
+   the event appears in-app. Only the row tap itself needs a human (same `ListView` limitation as item
+   3) — the trampoline sheet it opens is covered end-to-end by `WidgetLogTrampolineActivityTest`.
+6. **List widget ongoing/elapsed/Stop.** Start an event on a `START_STOP` Case — the widget row shows
+   ticking elapsed time and a Stop button; tapping Stop ends the event without opening the app. Only
+   the ticking-elapsed *display* and the row tap need a human (same `ListView` limitation) — the Stop
+   action itself is covered via the Single-case widget in `WidgetActionsFlowTest.stopTap_endsTheOngoingEventForAStartStopCase`.
+7. **List widget configure flow, per-instance selection.** Add two List widgets to the home
    screen and pick a different set of Cases for each — each shows only its own picks, not the
    other's. Long-press a placed List widget and choose Edit to reopen its picker and change its
-   selection.
-9. **Single-case widget configure flow.** Add the Single-case widget — a single-select Case picker
-   always appears. Cancel leaves no widget placed; picking a Case and confirming places a widget
-   bound to it.
-10. **Single-case widget log + open details.** For the bound Case: tapping the dedicated `+`/log
-    button logs per its `logFlow` (directly for `ONE_TAP`, via the trampoline sheet for
-    `DETAIL_SHEET`); tapping the icon/count area elsewhere on the widget opens that Case's detail
-    screen instead.
-11. **Single-case widget ongoing/elapsed/Stop** — same as the List widget's per-row treatment (item
-    7), scoped to the one bound Case.
-12. **Single-case widget with a missing Case.** Archive or delete the Case a Single-case widget is
-    bound to — the widget switches to its "Case is gone" message, and tapping it opens the app
-    (Home, no deep link, since the Case is gone).
-13. **Add two widgets for the same Case** (e.g. a Single-case widget and the same Case selected on
+   selection. (Picking Cases via the real configure Activity and confirming is covered by
+   `ListWidgetConfigureFlowTest` for a single instance; this item is about a *second* independent
+   instance and the Edit re-entry path, neither of which has coverage yet.)
+8. **Single-case widget configure flow: Cancel.** Add the Single-case widget and cancel its picker —
+   no widget is placed. (Picking a Case and confirming is covered by
+   `SingleCaseWidgetConfigureFlowTest.singleCaseWidget_showsBoundCase_afterRealConfigureFlow`.)
+9. **Single-case widget: tap the icon/count area to open Case details.** Tapping elsewhere on the
+   widget (not the dedicated `+`/log button) opens that Case's detail screen. (The `+`/log button
+   itself — logging directly for `ONE_TAP`, via the trampoline sheet for `DETAIL_SHEET` — is covered
+   by `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase` for the `ONE_TAP` case; the
+   `DETAIL_SHEET` case's button tap doesn't have widget-click coverage yet, though the trampoline sheet
+   it opens does, via `WidgetLogTrampolineActivityTest`.)
+10. **Add two widgets for the same Case** (e.g. a Single-case widget and the same Case selected on
     a List widget) — logging or stopping from either one refreshes both.
-14. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
+11. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
     afterward, not a reset or stale value.
 
 ## Notifications & permissions
 
-1. **Trigger fires a notification.** Create an `AT_LEAST` Trigger, then log enough events to reach
-   its threshold (or create a `SILENT_FOR` Trigger and wait past its interval, or advance device
-   time). A notification appears with voice-flavoured title/body; tapping it opens directly on that
-   Case's detail screen (not just the app generically).
-2. **Check-in fires a notification.** Enable check-ins on a Case with no recent events past its
-   effective interval (Hunch-derived, or the Settings default). A notification appears with Log/All
-   quiet actions; tapping the notification body (not an action) opens directly on that Case.
-3. **Check-in "Log" action, `ONE_TAP` Case.** Tap Log on a due check-in for a Case whose `logFlow`
-   is `ONE_TAP` — an event is logged directly (no sheet), the notification is dismissed, and the
-   new event appears in-app.
-4. **Check-in "Log" action, `DETAIL_SHEET` Case.** Same, but for a `DETAIL_SHEET` Case — the log
-   sheet opens via the same trampoline the widget uses; saving dismisses the notification and the
-   event appears in-app.
-5. **Check-in "All quiet" action.** Tap All quiet on a due check-in — no event is created, the
-   notification is dismissed, and the check-in doesn't re-fire until its full effective interval
-   elapses again from this point.
-6. **Ignored check-in re-fires.** Leave a due check-in notification untouched (tap neither action)
+The real `Notifier` posting a correctly-worded notification (title/body/actions per the active
+`Voice`) is covered by `NotifierContentTest`, and the Log/All quiet action handling by
+`NotificationActionReceiverTest` — both call the real Android APIs (`NotificationManager`, a real
+broadcast) rather than going through `NotificationEvaluator`'s Trigger/check-in *selection* logic
+against the shared on-device database, which stays flaky at the instrumented layer (see
+`NotifierContentTest`'s doc comment) but is already covered against a fake repository per
+`TESTING.md`. What's left below is specifically what those tests can't reach: a notification's tap
+target (`PendingIntent` doesn't expose its wrapped `Intent` through any public API, so this can only
+be checked by actually tapping) and the real permission dialog/banner round trip.
+
+1. **Trigger fires a notification: tap target.** Create an `AT_LEAST` Trigger, then log enough
+   events to reach its threshold (or create a `SILENT_FOR` Trigger and wait past its interval, or
+   advance device time). Tapping the notification opens directly on that Case's detail screen (not
+   just the app generically). (The notification's voice-flavoured title/body is covered by
+   `NotifierContentTest.notifyTriggerFired_postsANotificationWithTheVoiceTitleAndBody`.)
+2. **Check-in fires a notification: tap target.** Enable check-ins on a Case with no recent events
+   past its effective interval (Hunch-derived, or the Settings default). Tapping the notification
+   body (not an action) opens directly on that Case. (Title/body/Log/All quiet actions are covered
+   by `NotifierContentTest.notifyCheckInDue_postsANotificationWithLogAndAllQuietActions`.)
+3. **Ignored check-in re-fires.** Leave a due check-in notification untouched (tap neither action)
    through another periodic evaluation pass (~6h, or trigger the WorkManager job manually) — it
    fires again rather than staying silently resolved.
-7. **Check-in summary collapsing.** Get 2+ Cases due for a check-in in the same evaluation pass
-   (e.g. advance device time past several Cases' intervals at once) — one summary notification
-   appears ("N cases are quiet — tap to review") instead of one per Case; tapping it opens Home.
-8. **POST_NOTIFICATIONS permission flow.**
+4. **Check-in summary collapsing: real due-count selection and tap target.** Get 2+ Cases due for a
+   check-in in the same evaluation pass (e.g. advance device time past several Cases' intervals at
+   once) — one summary notification appears instead of one per Case, and tapping it opens Home.
+   (The summary notification's own title and that it's a single collapsed post are covered by
+   `NotifierContentTest.notifyCheckInsSummary_postsOneCollapsedNotification`; this item is about
+   `NotificationEvaluator` actually selecting "2+ due" from real data and the tap target, neither of
+   which that test exercises.)
+5. **POST_NOTIFICATIONS permission flow.**
    - First Trigger created, or first Case check-in enabled → the system permission dialog appears
      (once — creating a second Trigger or enabling check-ins on another Case doesn't ask again).
    - **Deny:** no notifications post; Home shows the "notifications are off" banner; tapping its
      action opens system notification settings; re-enabling there and returning to Home clears the
      banner without restarting the app.
-   - **Grant:** no banner; notifications post as in items 1–7.
+   - **Grant:** no banner; notifications post as in items 1–4.
 
 ## Share cards
 
@@ -109,8 +124,10 @@ bitmap capture, the system share sheet, and how the image looks once it lands so
 
 The round-trip logic itself (schema-version rejection, malformed-JSON rejection, all-or-nothing
 rollback) is covered by `BackupSerializerTest`/`FakeHodithRepositoryTest`/
-`RoomHodithRepositoryBackupTest`/`SettingsViewModelTest` — these steps are about the real system
-file picker and content-provider boundary those tests can't drive.
+`RoomHodithRepositoryBackupTest`/`SettingsViewModelTest`, and the real `ContentResolver` boundary
+underneath the system picker (writing/reading bytes through a real `Uri`) is covered by
+`ContentResolverBackupFileWriterTest` — these steps are about what's left: the real system "save
+to"/"open" picker UI itself.
 
 1. **Export.** With real data logged, tap Settings → Export data. The system "save to" picker opens;
    choosing a location produces a valid `.json` file there, and a success snackbar appears.
