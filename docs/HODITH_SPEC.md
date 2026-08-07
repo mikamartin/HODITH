@@ -176,25 +176,23 @@ A scrollable multi-month calendar grid (day columns × week rows, like a standar
 
 *(This replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired after on-device testing showed it didn't read clearly and since deleted outright — see CLEANUP_LOG.md for the build/retirement history.)*
 
-### Per-case: dot timeline (primary)
+### Per-case: calendar heatmap
 
-The same dot-on-a-time-axis rendering, one Case, full width, at the top of the case detail screen. Bursts, droughts, and rhythm are visible before a single number is read. Current gap is annotated ("11 days quiet").
-
-### Per-case: calendar heatmap (secondary)
-
-A year-in-pixels month grid — each day a cell, shaded by event count that day. Cozier, good for "what did this month look like". Sits below the dot timeline on the Insights tab. Shows the three most recent months by default, most-recent-first, with an option to reveal the Case's full history.
+A year-in-pixels month grid — each day a cell, shaded by event count that day. Cozier, good for "what did this month look like". Rendered last on the Insights tab, after the §10 stat cards below. Shows the three most recent months by default, most-recent-first, with an option to reveal the Case's full history.
 
 ## 10. Stats (descriptive)
 
-On the case detail Insights tab, below the visuals:
+On the case detail Insights tab, in this order:
 
 - **Frequency over time** — counts per day/week/month (granularity auto-picked from data density, user-overridable)
-- **Rhythm heatmap** — day-of-week × time-of-day grid, cell shade = count
-- **Gaps & clusters** — longest gap, current gap, average gap; "tends to come in bursts" flag when gap variance is high
-- **Trend arrow** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise hidden)
+- **Rhythm heatmap** — day-of-week × time-of-day grid, cell shade = count, shaded on a finer 20-tier scale than the calendar heatmap or intensity stats for more visible contrast between nearby counts
+- **Gaps & streaks** — longest gap, current gap, average gap; longest streak, average streak (a streak is a run of consecutive calendar days with at least one event); "tends to come in bursts" flag when gap variance is high
+- **Trend arrow** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise hidden); when shown, also notes a noticeable shift in average gap or streak length between the earlier and more recent half of the Case's history, if present
 - **Duration stats** (if durationMode ≠ NONE) — average, longest, total time
 - **Intensity stats** (if enabled) — average, distribution mini-bars
 - **Tag breakdown** — counts per tag, shown against the Case's total event count so an individual tag's count reads in proportion rather than in isolation
+
+The calendar heatmap (§9) follows the tag breakdown as the tab's final section.
 
 ## 11. Triggers, check-ins & notifications
 
@@ -246,7 +244,7 @@ The social payoff of the app: turning a finished (or in-progress) investigation 
 - **Card content**, in order, in the active theme's skin and voice:
   1. *The case* — icon + name.
   2. *The top beat* — either **Hunch vs. Reality** (expected-vs-observed rate pair plus a voice-flavoured, impersonal punchline, e.g. "Plot twist: more often than expected.") when the Case has a resolved Hunch and the user has it toggled on — story format only — or a plain **Reality** fallback (event count + days observed) otherwise. Square always gets Reality; there's no independent toggle for it, since the card always needs at least one beat.
-  3. *Insights sections* — a checklist-driven picker across Frequency, Rhythm, Gaps & clusters, Trend, Duration, and Intensity, rendered as faithful mini-copies of the real Insights tab's cards. Duration/Intensity are only offered when the Case tracks them.
+  3. *Insights sections* — a checklist-driven picker across Frequency, Rhythm, Gaps & streaks, Trend, Duration, and Intensity, rendered as faithful mini-copies of the real Insights tab's cards. Duration/Intensity are only offered when the Case tracks them.
 - **Templates are theme-based** — Plain renders like a clean report card, Intense like a bordered dossier with a rotated corner stamp, Bright with a banner header and sticker. The template follows the *currently active* theme; switching themes before sharing restyles the card.
 - **Preview before share, always.** The share flow opens a preview screen where the user can:
   - pick story vs. square,

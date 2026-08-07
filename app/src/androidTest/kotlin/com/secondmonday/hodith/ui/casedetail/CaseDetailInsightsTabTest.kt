@@ -12,6 +12,7 @@ import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
@@ -25,7 +26,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Drives [CaseDetailScreen]'s Insights tab (dot timeline, calendar heatmap, seven stat cards),
+ * Drives [CaseDetailScreen]'s Insights tab (seven stat cards, then the calendar heatmap),
  * same stateless pattern as `CaseDetailScreenTest`'s Log/Hunch coverage but split into its own
  * class given the number of gating scenarios. Boundary values below (2 events, 56-day trend span,
  * 3-month heatmap default) mirror HODITH_SPEC.md §9-10 and the `domain` constants they're drawn
@@ -114,7 +115,7 @@ class CaseDetailInsightsTabTest {
         setInsightsTabContent(events = listOf(eventAt(1)))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsNotEnoughDataMessage).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTimeline).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
     }
 
     @Smoke
@@ -122,7 +123,6 @@ class CaseDetailInsightsTabTest {
     fun atInsightsMinEvents_showsCoreCards_butNotOptionalOnes() {
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTimeline).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelHeatmap).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertExists()
@@ -155,6 +155,27 @@ class CaseDetailInsightsTabTest {
         composeTestRule
             .onNodeWithText(PlainVoice.insightsTrendSentence(TrendDirection.UP, recentCount = 3, priorCount = 1))
             .assertExists()
+    }
+
+    @Test
+    fun gapsCard_showsLongestAndAverageStreakLabelsAlongsideGapLabels() {
+        setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsLongestLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsStreakLongestLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsStreakAverageLabel).assertExists()
+    }
+
+    @Test
+    fun trendCard_showsGapShiftNote_whenAverageGapWidensNoticeably() {
+        // Past gaps in chronological order: 4, 4, 4, 20, 20, 20 -- clearly widening in the second half.
+        setInsightsTabContent(
+            caseCreatedAt = daysAgo(100),
+            events = listOf(97L, 93L, 89L, 85L, 65L, 45L, 25L).map { eventAt(it) },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapShiftSentence(ShiftDirection.UP)).assertExists()
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FrequencyGranularity
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendDirection
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -171,10 +172,7 @@ class VoiceTest {
             assertTrue(voice.caseDetailInsightsTabLabel.isNotBlank())
             assertTrue(voice.caseDetailHunchTabLabel.isNotBlank())
             assertTrue(voice.insightsNotEnoughDataMessage.isNotBlank())
-            assertTrue(voice.insightsSectionLabelTimeline.isNotBlank())
             assertTrue(voice.insightsSectionLabelHeatmap.isNotBlank())
-            assertTrue(voice.insightsGapNoteCurrent(days = 11).isNotBlank())
-            assertTrue(voice.insightsGapNoteLongest(days = 11).isNotBlank())
             assertTrue(voice.insightsHeatmapShowMoreAction.isNotBlank())
             assertTrue(voice.insightsHeatmapShowFewerAction.isNotBlank())
             assertTrue(voice.insightsSectionLabelFrequency.isNotBlank())
@@ -188,6 +186,8 @@ class VoiceTest {
             assertTrue(voice.insightsGapsLongestLabel.isNotBlank())
             assertTrue(voice.insightsGapsCurrentLabel.isNotBlank())
             assertTrue(voice.insightsGapsAverageLabel.isNotBlank())
+            assertTrue(voice.insightsStreakLongestLabel.isNotBlank())
+            assertTrue(voice.insightsStreakAverageLabel.isNotBlank())
             assertTrue(voice.insightsBurstFlagLabel.isNotBlank())
             assertTrue(voice.insightsDurationAverageLabel.isNotBlank())
             assertTrue(voice.insightsDurationLongestLabel.isNotBlank())
@@ -208,6 +208,10 @@ class VoiceTest {
 
             for (direction in TrendDirection.entries) {
                 assertTrue(voice.insightsTrendSentence(direction, recentCount = 12, priorCount = 18).isNotBlank())
+            }
+            for (direction in ShiftDirection.entries) {
+                assertTrue(voice.insightsGapShiftSentence(direction).isNotBlank())
+                assertTrue(voice.insightsStreakShiftSentence(direction).isNotBlank())
             }
             assertTrue(voice.hunchNudgeBody(caseIcon = "🐛", caseName = "Test Case").isNotBlank())
             assertTrue(voice.hunchProgressLabel(eventCount = 3, windowDays = 9).isNotBlank())

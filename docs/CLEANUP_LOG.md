@@ -15,6 +15,60 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/insights-tab-rework
+
+**Scope:** PROGRESS.md's Insights tab rework — dropped the dot timeline entirely; reordered the
+tab to Frequency → Rhythm → Gaps & streaks → Trend → Duration/Intensity → Tags → Calendar heatmap
+(moved to the very end); gave Rhythm its own finer 20-tier color scale (`RHYTHM_TIER_COUNT`,
+threaded through `heatmapLevelFor`/`toCellColor`/`toTextColor` without touching the calendar
+heatmap's or Intensity's shared 10-tier scale); renamed "Gaps & clusters" to "Gaps & streaks" and
+added longest/average streak (`computeStreakStats`, a run of consecutive active days); added an
+optional Trend note when the average gap or streak length has shifted noticeably across history
+(`computeGapShift`/`computeStreakShift`), gated on Trend's existing 8-week span.
+
+**Found & fixed:**
+- *Real UI bug from manual on-device review* — Rhythm's time-of-day label column used a fixed
+  68dp width (copied from the share card's `MINI_RHYTHM_LABEL_WIDTH`, believed proven-safe since
+  it uses the same `labelSmall` style). On-device it wrapped to two lines for Plain (Inter) and
+  Bright (Baloo2) — only Intense's condensed Oswald happened to fit. Bumped both the main and
+  mini-share-card constants to 88dp and added `maxLines = 1` + `TextOverflow.Ellipsis` as a safety
+  net so a future font swap can't silently wrap again instead of failing visibly.
+- *Stale doc/comment references to the removed dot timeline* — `TESTING.md`'s "Compose UI — Case
+  Detail Insights" row still said "timeline/heatmap/frequency/..."; `DemoDataSeeder.kt`'s
+  `RECENT_SURGE_DAYS`/`QUIET_SPELL_DAYS` comments and one `DemoDataSeederTest.kt` test name
+  justified themselves by the now-deleted dot timeline's window-shrink/gap-note behavior instead
+  of the still-live Trend/Gaps-&-streaks features those same seed knobs also exercise.
+- *Demo data didn't showcase the new streak stat* — none of the six seed Cases were guaranteed to
+  produce a multi-day streak (a run of consecutive active days) worth looking at. Coffee's existing
+  `recentSurge` flag (one event on each of the most recent `RECENT_SURGE_DAYS` = 12 days) already
+  produces one incidentally; documented that dual purpose in the comment and added a regression
+  test (`` `seed gives Coffee's recent surge a genuine multi-day streak` ``) locking in ≥12 days
+  instead of leaving it an unverified accident.
+- *Instrumented coverage gap* — the new Gaps & streaks stat rows and Trend shift note had unit
+  coverage (domain math) and viewmodel-wiring coverage, but nothing exercised them through the
+  actual composed UI the way every sibling stat card already is in
+  `CaseDetailInsightsTabTest.kt`. Added `gapsCard_showsLongestAndAverageStreakLabelsAlongsideGapLabels`
+  and `trendCard_showsGapShiftNote_whenAverageGapWidensNoticeably`.
+- Unused `java.time.Instant` import left behind in `InsightsEngine.kt` after
+  `computeTimelineWindow`/`groupEventsByDay` were deleted (caught by `ktlintCheck`).
+
+**Deferred:**
+- Rhythm/calendar-heatmap cells still convey their count by shading alone (no content description
+  or visible number) — pre-existing PROGRESS.md item, not touched by this pass since it needs its
+  own tap-target design, not a drive-by fix.
+- Share card's `MiniGapsSection`/`MiniTrendSection` don't surface the new streak/shift fields —
+  `GapsDisplay`/`TrendDisplay` gaining fields doesn't break them, and surfacing the new content
+  there wasn't part of this request; flagging here rather than silently expanding scope.
+
+**Docs updated:** HODITH_SPEC.md §9 (dropped the dot timeline subsection, calendar heatmap now
+described as rendering last) and §10 (reordered stat list description, Gaps & streaks content,
+Rhythm's 20-tier note, Trend's shift note) and its share-card section list; TESTING.md's "Stats &
+visual data prep" and "Compose UI — Case Detail Insights" rows; PROGRESS.md (struck the
+now-resolved Rhythm legend-gap bullet, trimmed the stale "dot timeline" cross-reference from the
+remaining color-only-shading bullet).
+
+---
+
 ## fix/calendar-heatmap-current-month-gap
 
 **Scope:** PROGRESS.md's Insights tab bug — the calendar heatmap's current-month grid always

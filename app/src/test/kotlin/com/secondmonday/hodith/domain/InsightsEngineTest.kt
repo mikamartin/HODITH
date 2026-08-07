@@ -28,55 +28,6 @@ private fun eventAtDay(epochDay: Long) =
     )
 
 class InsightsEngineTest {
-    // ---- computeTimelineWindow ----
-
-    @Test
-    fun `computeTimelineWindow keeps the default window when event count is under the dot cap`() {
-        val today = 100L
-        val events = listOf(eventAtDay(today - 30), eventAtDay(today - 10), eventAtDay(today))
-
-        val result = computeTimelineWindow(events, now = millisAtDay(today))
-
-        assertEquals(TIMELINE_DEFAULT_WINDOW_DAYS, result.windowDays)
-        assertEquals(3, result.events.size)
-    }
-
-    @Test
-    fun `computeTimelineWindow excludes events older than the default window`() {
-        val today = 100L
-        val events = listOf(eventAtDay(today - 40), eventAtDay(today - 10))
-
-        val result = computeTimelineWindow(events, now = millisAtDay(today))
-
-        assertEquals(1, result.events.size)
-        assertEquals(millisAtDay(today - 10), result.events.single().occurredAt)
-    }
-
-    @Test
-    fun `computeTimelineWindow shrinks around the most recent events when the default window is too dense`() {
-        val today = 100L
-        // One event a day for the last 30 days: 30 events fall in the 35-day default window,
-        // more than TIMELINE_MAX_DOTS (24), so the window must shrink to bound just the cap.
-        val events = (0 until 30).map { daysAgo -> eventAtDay(today - daysAgo) }
-
-        val result = computeTimelineWindow(events, now = millisAtDay(today))
-
-        assertEquals(TIMELINE_MAX_DOTS, result.events.size)
-        assertEquals(TIMELINE_MAX_DOTS - 1L, result.windowDays)
-        assertEquals(millisAtDay(today - (TIMELINE_MAX_DOTS - 1)), result.events.first().occurredAt)
-    }
-
-    @Test
-    fun `computeTimelineWindow floors the shrunk window even when all capped events land on one day`() {
-        val today = 100L
-        val events = List(TIMELINE_MAX_DOTS + 5) { eventAtDay(today) }
-
-        val result = computeTimelineWindow(events, now = millisAtDay(today))
-
-        assertEquals(TIMELINE_MAX_DOTS, result.events.size)
-        assertEquals(TIMELINE_MIN_WINDOW_DAYS, result.windowDays)
-    }
-
     // ---- computeGapStats ----
 
     @Test
@@ -157,27 +108,93 @@ class InsightsEngineTest {
         assertTrue(!result.isBursty)
     }
 
-    // ---- groupEventsByDay ----
+    // ---- computeStreakStats ----
 
     @Test
-    fun `groupEventsByDay merges same-day events into a single group, counting them`() {
-        val events = listOf(eventAtDay(5), eventAtDay(5), eventAtDay(5))
+    fun `computeStreakStats is all-zero with no active dates`() {
+        val result = computeStreakStats(emptyList())
 
-        val groups = groupEventsByDay(events)
-
-        assertEquals(1, groups.size)
-        assertEquals(3, groups.single().count)
-        assertEquals(millisAtDay(5), groups.single().representativeMillis)
+        assertEquals(0, result.longestStreakDays)
+        assertEquals(0.0, result.averageStreakDays, 0.0001)
     }
 
     @Test
-    fun `groupEventsByDay returns one group per distinct day in ascending date order`() {
-        val events = listOf(eventAtDay(8), eventAtDay(0), eventAtDay(0), eventAtDay(5))
+    fun `computeStreakStats treats a single active day as a streak of one`() {
+        val result = computeStreakStats(listOf(LocalDate.ofEpochDay(5)))
 
-        val groups = groupEventsByDay(events)
+        assertEquals(1, result.longestStreakDays)
+        assertEquals(1.0, result.averageStreakDays, 0.0001)
+    }
 
-        assertEquals(listOf(0L, 5L, 8L), groups.map { it.date.toEpochDay() })
-        assertEquals(listOf(2, 1, 1), groups.map { it.count })
+    @Test
+    fun `computeStreakStats collapses consecutive days into a single run, duplicates and all`() {
+        val dates = listOf(0L, 1L, 1L, 2L, 3L).map { LocalDate.ofEpochDay(it) }
+
+        val result = computeStreakStats(dates)
+
+        assertEquals(4, result.longestStreakDays)
+        assertEquals(4.0, result.averageStreakDays, 0.0001)
+    }
+
+    @Test
+    fun `computeStreakStats reports the longest run and the average across several runs`() {
+        // Runs: [0,1,2] (3 days), [5] (1 day), [8,9] (2 days) -> longest 3, average 2.
+        val dates = listOf(0L, 1L, 2L, 5L, 8L, 9L).map { LocalDate.ofEpochDay(it) }
+
+        val result = computeStreakStats(dates)
+
+        assertEquals(3, result.longestStreakDays)
+        assertEquals(2.0, result.averageStreakDays, 0.0001)
+    }
+
+    // ---- computeGapShift ----
+
+    @Test
+    fun `computeGapShift is null below the minimum sample count`() {
+        val pastGaps = List(GAP_SHIFT_MIN_SAMPLE_COUNT - 1) { 5L }
+
+        assertEquals(null, computeGapShift(pastGaps))
+    }
+
+    @Test
+    fun `computeGapShift reports UP when the second half's average gap grew noticeably`() {
+        val pastGaps = listOf(2L, 2L, 2L, 10L, 10L, 10L)
+
+        assertEquals(ShiftDirection.UP, computeGapShift(pastGaps))
+    }
+
+    @Test
+    fun `computeGapShift reports DOWN when the second half's average gap shrank noticeably`() {
+        val pastGaps = listOf(10L, 10L, 10L, 2L, 2L, 2L)
+
+        assertEquals(ShiftDirection.DOWN, computeGapShift(pastGaps))
+    }
+
+    @Test
+    fun `computeGapShift is null when the change is too small to be noticeable`() {
+        val pastGaps = listOf(10L, 10L, 10L, 11L, 11L, 11L)
+
+        assertEquals(null, computeGapShift(pastGaps))
+    }
+
+    // ---- computeStreakShift ----
+
+    @Test
+    fun `computeStreakShift is null below the minimum sample count`() {
+        // Only 3 one-day runs (below STREAK_SHIFT_MIN_SAMPLE_COUNT), all isolated days.
+        val dates = listOf(0L, 2L, 4L).map { LocalDate.ofEpochDay(it) }
+
+        assertEquals(null, computeStreakShift(dates))
+    }
+
+    @Test
+    fun `computeStreakShift reports UP when later runs are noticeably longer`() {
+        // First half: three 1-day runs. Second half: three 4-day runs.
+        val isolatedDays = listOf(0L, 10L, 20L)
+        val longRunStarts = listOf(100L, 200L, 300L)
+        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.ofEpochDay(it) }
+
+        assertEquals(ShiftDirection.UP, computeStreakShift(dates))
     }
 
     // ---- heatmapLevelFor ----
@@ -217,5 +234,12 @@ class InsightsEngineTest {
         assertEquals(HeatmapLevel.L3, heatmapLevelFor(count = 3, maxCountInRange = 10))
         // 1 of 3 is 33% -- just past tier 3's 30% boundary, so it rounds up into tier 4.
         assertEquals(HeatmapLevel.L4, heatmapLevelFor(count = 1, maxCountInRange = 3))
+    }
+
+    @Test
+    fun `heatmapLevelFor buckets into a custom tier count, for Rhythm's finer 20-tier scale`() {
+        assertEquals(HeatmapLevel.L1, heatmapLevelFor(count = 1, maxCountInRange = 20, tierCount = RHYTHM_TIER_COUNT))
+        assertEquals(HeatmapLevel.L10, heatmapLevelFor(count = 10, maxCountInRange = 20, tierCount = RHYTHM_TIER_COUNT))
+        assertEquals(HeatmapLevel.L20, heatmapLevelFor(count = 20, maxCountInRange = 20, tierCount = RHYTHM_TIER_COUNT))
     }
 }

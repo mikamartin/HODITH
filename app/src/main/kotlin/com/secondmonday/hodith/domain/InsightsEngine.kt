@@ -1,25 +1,20 @@
 package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.EventEntity
-import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
-/** Spec §9: below this many events, a Case's timeline/heatmap have no gap or pattern to show yet. */
+/** Spec §9: below this many events, a Case's visuals/stats have no gap or pattern to show yet. */
 internal const val INSIGHTS_MIN_EVENTS = 2
 
-/** Spec §9 dot timeline: default lookback window before density-based shrinking. */
-internal const val TIMELINE_DEFAULT_WINDOW_DAYS = 35L
-
-/** Spec §9 dot timeline: the window shrinks (never grows) to keep at most this many dots on screen. */
-internal const val TIMELINE_MAX_DOTS = 24
-
-/** Spec §9 dot timeline: the window never shrinks below this floor, even for very dense logging. */
-internal const val TIMELINE_MIN_WINDOW_DAYS = 1L
-
-/** Spec §10 heatmap: number of non-empty shaded tiers ([HeatmapLevel.L1]..[HeatmapLevel.L10]), bucketed by ratio to the Case's own busiest day in range. */
+/** Spec §10 heatmap: number of non-empty shaded tiers most consumers bucket into ([HeatmapLevel.L1]..[HeatmapLevel.L10]), by ratio to the Case's own busiest day in range. */
 internal const val HEATMAP_TIER_COUNT = 10
+
+/** Spec §10 Rhythm heatmap: Rhythm alone buckets into twice as many tiers as [HEATMAP_TIER_COUNT], for finer shading between nearby counts. */
+internal const val RHYTHM_TIER_COUNT = 20
 
 /**
  * Spec §10 "tends to come in bursts" flag: past gaps need at least this many data points before
@@ -31,38 +26,21 @@ internal const val GAP_BURST_MIN_GAP_COUNT = 3
 internal const val GAP_BURST_MIN_COEFFICIENT_OF_VARIATION = 1.0
 
 /**
- * Picks the dot timeline's lookback window (spec §9): starts at [TIMELINE_DEFAULT_WINDOW_DAYS],
- * then shrinks toward [TIMELINE_MIN_WINDOW_DAYS] until at most [TIMELINE_MAX_DOTS] events fall
- * inside it, so a dense Case still reads as individual bursts rather than a solid smear of dots.
+ * Spec §10 Trend card's gap/streak shift note: needs at least this many past gaps (or streak runs)
+ * before a first-half-vs-second-half comparison is meaningful — same reasoning as
+ * [GAP_BURST_MIN_GAP_COUNT], just a higher bar since a half/half split halves the sample further.
  */
-internal fun computeTimelineWindow(
-    events: List<EventEntity>,
-    now: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
-): TimelineWindow {
-    val sorted = events.sortedBy { it.occurredAt }
-    val nowDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-    val defaultCutoffMillis =
-        nowDate
-            .minusDays(TIMELINE_DEFAULT_WINDOW_DAYS)
-            .atStartOfDay(zone)
-            .toInstant()
-            .toEpochMilli()
-    val withinDefault = sorted.filter { it.occurredAt >= defaultCutoffMillis }
+internal const val GAP_SHIFT_MIN_SAMPLE_COUNT = 6
+internal const val STREAK_SHIFT_MIN_SAMPLE_COUNT = 6
 
-    if (withinDefault.size <= TIMELINE_MAX_DOTS) {
-        return TimelineWindow(windowDays = TIMELINE_DEFAULT_WINDOW_DAYS, events = withinDefault)
-    }
-
-    val capped = withinDefault.takeLast(TIMELINE_MAX_DOTS)
-    val shrunkDays = daysBetween(capped.first().occurredAt, now, zone).coerceAtLeast(TIMELINE_MIN_WINDOW_DAYS)
-    return TimelineWindow(windowDays = shrunkDays, events = capped)
-}
+/** A shift only counts as "noticeable" once it clears both a relative and an absolute floor — the former ignores small-value swings, the latter ignores day-scale noise on already-long gaps/streaks. */
+internal const val SHIFT_MIN_FRACTION = 0.3
+internal const val SHIFT_MIN_ABSOLUTE_DAYS = 1.0
 
 /**
- * Current gap vs. the longest gap ever observed across the Case's full history — [events] need
- * not be limited to [TimelineWindow], since "the longest stretch since it started" (spec §9) is
- * an all-time comparison, not a windowed one.
+ * Current gap vs. the longest gap ever observed across the Case's full history — the "current gap
+ * annotated" rule (spec §10's gaps & streaks card): "how long since the last event" compared
+ * against "the longest stretch since it started".
  */
 internal fun computeGapStats(
     events: List<EventEntity>,
@@ -81,6 +59,7 @@ internal fun computeGapStats(
         isCurrentGapLongest = currentGapDays >= longestPastGap,
         averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
         isBursty = pastGaps.size >= GAP_BURST_MIN_GAP_COUNT && coefficientOfVariation(pastGaps) > GAP_BURST_MIN_COEFFICIENT_OF_VARIATION,
+        pastGaps = pastGaps,
     )
 }
 
@@ -93,29 +72,80 @@ private fun coefficientOfVariation(gaps: List<Long>): Double {
 }
 
 /**
- * Collapses [events] onto their calendar days, in ascending date order — the dot timeline draws
- * one dot per [TimelineDayGroup] rather than one per event, so a day with several events shows as
- * a single, more heavily shaded dot instead of a cluster of overlapping ones.
+ * Spec §10 gaps & streaks card: a streak is a run of consecutive calendar days that each have at
+ * least one event. [activeDates] need not be sorted or distinct.
  */
-internal fun groupEventsByDay(
-    events: List<EventEntity>,
-    zone: ZoneId = ZoneId.systemDefault(),
-): List<TimelineDayGroup> =
-    events
-        .sortedBy { it.occurredAt }
-        .groupBy { Instant.ofEpochMilli(it.occurredAt).atZone(zone).toLocalDate() }
-        .toSortedMap()
-        .map { (date, dayEvents) ->
-            TimelineDayGroup(date = date, representativeMillis = dayEvents.first().occurredAt, count = dayEvents.size)
-        }
+internal fun computeStreakStats(activeDates: List<LocalDate>): StreakStats {
+    val runs = consecutiveRunLengths(activeDates)
+    return StreakStats(
+        longestStreakDays = runs.maxOrNull() ?: 0,
+        averageStreakDays = if (runs.isEmpty()) 0.0 else runs.average(),
+    )
+}
 
-/** Buckets [count] relative to [maxCountInRange] into one of [HeatmapLevel]'s [HEATMAP_TIER_COUNT] shaded tiers. */
+/** Each maximal run of back-to-back calendar days in [dates], as its day-count — e.g. `[3, 1, 2]` for three runs of those lengths. */
+private fun consecutiveRunLengths(dates: List<LocalDate>): List<Int> {
+    val sorted = dates.distinct().sorted()
+    if (sorted.isEmpty()) return emptyList()
+
+    val runs = mutableListOf<Int>()
+    var runLength = 1
+    for (i in 1 until sorted.size) {
+        if (sorted[i].toEpochDay() == sorted[i - 1].toEpochDay() + 1) {
+            runLength++
+        } else {
+            runs += runLength
+            runLength = 1
+        }
+    }
+    runs += runLength
+    return runs
+}
+
+/**
+ * Spec §10 Trend card: whether [pastGaps]' average has shifted noticeably between the earlier and
+ * more recent half of the Case's history — `null` below [GAP_SHIFT_MIN_SAMPLE_COUNT] gaps, or when
+ * the shift doesn't clear [shiftDirectionFor]'s thresholds.
+ */
+internal fun computeGapShift(pastGaps: List<Long>): ShiftDirection? {
+    if (pastGaps.size < GAP_SHIFT_MIN_SAMPLE_COUNT) return null
+    val mid = pastGaps.size / 2
+    return shiftDirectionFor(
+        firstAvg = pastGaps.take(mid).average(),
+        secondAvg = pastGaps.takeLast(pastGaps.size - mid).average(),
+    )
+}
+
+/** As [computeGapShift], but over [activeDates]' streak run lengths rather than event-to-event gaps. */
+internal fun computeStreakShift(activeDates: List<LocalDate>): ShiftDirection? {
+    val runs = consecutiveRunLengths(activeDates)
+    if (runs.size < STREAK_SHIFT_MIN_SAMPLE_COUNT) return null
+    val mid = runs.size / 2
+    return shiftDirectionFor(
+        firstAvg = runs.take(mid).map { it.toDouble() }.average(),
+        secondAvg = runs.takeLast(runs.size - mid).map { it.toDouble() }.average(),
+    )
+}
+
+/** `null` unless the change from [firstAvg] to [secondAvg] clears both [SHIFT_MIN_FRACTION] and [SHIFT_MIN_ABSOLUTE_DAYS]. */
+private fun shiftDirectionFor(
+    firstAvg: Double,
+    secondAvg: Double,
+): ShiftDirection? {
+    val delta = secondAvg - firstAvg
+    val fraction = if (firstAvg == 0.0) Double.POSITIVE_INFINITY else abs(delta) / firstAvg
+    if (abs(delta) < SHIFT_MIN_ABSOLUTE_DAYS || fraction < SHIFT_MIN_FRACTION) return null
+    return if (delta > 0) ShiftDirection.UP else ShiftDirection.DOWN
+}
+
+/** Buckets [count] relative to [maxCountInRange] into one of [HeatmapLevel]'s [tierCount] shaded tiers. */
 internal fun heatmapLevelFor(
     count: Int,
     maxCountInRange: Int,
+    tierCount: Int = HEATMAP_TIER_COUNT,
 ): HeatmapLevel {
     if (count <= 0 || maxCountInRange <= 0) return HeatmapLevel.EMPTY
     val ratio = count.toDouble() / maxCountInRange
-    val tier = ceil(ratio * HEATMAP_TIER_COUNT).toInt().coerceIn(1, HEATMAP_TIER_COUNT)
+    val tier = ceil(ratio * tierCount).toInt().coerceIn(1, tierCount)
     return HeatmapLevel.entries[tier]
 }
