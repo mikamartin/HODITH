@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
@@ -25,16 +25,21 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.NotificationsDeniedBanner
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.StaleOngoingBanner
@@ -42,8 +47,14 @@ import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.acronymHighlighted
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
+import com.secondmonday.hodith.ui.theme.CardDecorationStyle
+import com.secondmonday.hodith.ui.theme.GlowCard
+import com.secondmonday.hodith.ui.theme.HodithTheme
+import com.secondmonday.hodith.ui.theme.IconHalo
+import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
+import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.HomeLogSheetState
 import com.secondmonday.hodith.viewmodel.HomeUiState
@@ -144,10 +155,11 @@ fun HomeScreen(
                     }
                     else -> {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(uiState.cases, key = { it.caseId }) { row ->
+                            itemsIndexed(uiState.cases, key = { _, row -> row.caseId }) { index, row ->
                                 HomeCaseListItem(
                                     row = row,
                                     voice = voice,
+                                    isEvenRow = index % 2 == 0,
                                     onClick = { onOpenCase(row.caseId) },
                                     onQuickLogTap = { onQuickLogTap(row) },
                                     onEditEndTime = { onOpenCase(row.caseId) },
@@ -187,8 +199,32 @@ fun HomeScreen(
     }
 }
 
+/**
+ * Dispatches to the active theme's row treatment (mirrors `BigPictureGrid.kt`'s `DayCell`
+ * dispatch pattern) — Plain and Intense share [PlainHomeCaseListItem] since neither has a
+ * structural difference here today, only [CardDecorationStyle.BRIGHT] gets [BrightHomeCaseListItem].
+ */
 @Composable
 private fun HomeCaseListItem(
+    row: HomeCaseRow,
+    voice: Voice,
+    isEvenRow: Boolean,
+    onClick: () -> Unit,
+    onQuickLogTap: () -> Unit,
+    onEditEndTime: () -> Unit,
+    onDismissStalePrompt: (EventEntity) -> Unit,
+    nowMillis: () -> Long,
+) {
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT ->
+            BrightHomeCaseListItem(row, voice, isEvenRow, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+            PlainHomeCaseListItem(row, voice, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+    }
+}
+
+@Composable
+private fun PlainHomeCaseListItem(
     row: HomeCaseRow,
     voice: Voice,
     onClick: () -> Unit,
@@ -246,5 +282,133 @@ private fun HomeCaseListItem(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
+    }
+}
+
+/** Soft Glow mockup's `.hrow` — alternates [IconHalo] tint primary/secondary per row via [isEvenRow]. */
+@Composable
+private fun BrightHomeCaseListItem(
+    row: HomeCaseRow,
+    voice: Voice,
+    isEvenRow: Boolean,
+    onClick: () -> Unit,
+    onQuickLogTap: () -> Unit,
+    onEditEndTime: () -> Unit,
+    onDismissStalePrompt: (EventEntity) -> Unit,
+    nowMillis: () -> Long,
+) {
+    val ongoing = row.ongoingEvent
+    val now by rememberTickingNow(clockNow = nowMillis)
+    val tint = if (isEvenRow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+    val nameStyle =
+        MaterialTheme.typography.titleMedium.copy(
+            fontFamily = MaterialTheme.typography.labelLarge.fontFamily,
+            fontWeight = FontWeight.Bold,
+        )
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
+        GlowCard(tint = tint, onClick = onClick) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconHalo(tint = tint) { Text(text = row.icon, style = MaterialTheme.typography.headlineSmall) }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = row.name, style = nameStyle)
+                    if (ongoing != null) {
+                        OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
+                    } else {
+                        Text(
+                            text = voice.homeCaseCounts(row.todayCount, row.weekCount),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+                if (ongoing != null) {
+                    StopIconButton(caseName = row.name, voice = voice, onClick = onQuickLogTap)
+                } else {
+                    val description =
+                        if (row.durationMode == DurationMode.START_STOP) {
+                            voice.startActionDescription(row.name)
+                        } else {
+                            voice.quickLogButtonDescription(row.name)
+                        }
+                    IconButton(onClick = onQuickLogTap) {
+                        Icon(Icons.Filled.AddCircle, contentDescription = description)
+                    }
+                }
+            }
+        }
+        if (ongoing != null && isStaleOngoing(ongoing, now)) {
+            StaleOngoingBanner(
+                caseName = row.name,
+                elapsed = formatElapsedDuration(ongoing.occurredAt, now),
+                voice = voice,
+                onEditEndTime = onEditEndTime,
+                onStillGoing = { onDismissStalePrompt(ongoing) },
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+private val previewRows =
+    listOf(
+        HomeCaseRow(
+            caseId = 1,
+            icon = "🏃",
+            name = "Went for a run",
+            todayCount = 1,
+            weekCount = 4,
+            logFlow = LogFlow.ONE_TAP,
+            durationMode = DurationMode.NONE,
+            intensityEnabled = false,
+        ),
+        HomeCaseRow(
+            caseId = 2,
+            icon = "☕",
+            name = "Coffee before noon",
+            todayCount = 0,
+            weekCount = 6,
+            logFlow = LogFlow.ONE_TAP,
+            durationMode = DurationMode.NONE,
+            intensityEnabled = false,
+        ),
+    )
+
+@Composable
+private fun HomeBrightRowsPreviewContent() {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT,
+        LocalVoice provides voiceFor(AppTheme.BRIGHT),
+    ) {
+        Column {
+            previewRows.forEachIndexed { index, row ->
+                HomeCaseListItem(
+                    row = row,
+                    voice = LocalVoice.current,
+                    isEvenRow = index % 2 == 0,
+                    onClick = {},
+                    onQuickLogTap = {},
+                    onEditEndTime = {},
+                    onDismissStalePrompt = {},
+                    nowMillis = { 0L },
+                )
+            }
+        }
+    }
+}
+
+@Preview(name = "Home rows — Bright light", showBackground = true, widthDp = 380)
+@Composable
+private fun HomeBrightRowsLightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        HomeBrightRowsPreviewContent()
+    }
+}
+
+@Preview(name = "Home rows — Bright dark", showBackground = true, widthDp = 380)
+@Composable
+private fun HomeBrightRowsDarkPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
+        HomeBrightRowsPreviewContent()
     }
 }

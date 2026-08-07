@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -36,8 +38,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,8 +50,10 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.domain.weeksInGrid
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
+import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
+import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CalendarCase
@@ -446,22 +452,27 @@ private fun CaseFilterChip(
     selected: Boolean,
     onToggle: () -> Unit,
 ) {
-    val background = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
-    val border = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant
-    val content = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        modifier =
-            Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(background)
-                .border(1.dp, border, RoundedCornerShape(16.dp))
-                .clickable(onClick = onToggle)
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(case.icon)
-        Text(case.name, style = MaterialTheme.typography.labelSmall, color = content)
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT -> BrightCaseFilterChip(case = case, selected = selected, onToggle = onToggle)
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
+            val background = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+            val border = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant
+            val content = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            Row(
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(background)
+                        .border(1.dp, border, RoundedCornerShape(16.dp))
+                        .clickable(onClick = onToggle)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(case.icon)
+                Text(case.name, style = MaterialTheme.typography.labelSmall, color = content)
+            }
+        }
     }
 }
 
@@ -471,21 +482,133 @@ private fun TagFilterChip(
     selected: Boolean,
     onToggle: () -> Unit,
 ) {
-    val background = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface
-    val border = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.outlineVariant
-    val content = if (selected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    Text(
-        text = tag,
-        style = MaterialTheme.typography.labelSmall,
-        color = content,
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT -> BrightTagFilterChip(tag = tag, selected = selected, onToggle = onToggle)
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
+            val background = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface
+            val border = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.outlineVariant
+            val content = if (selected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = tag,
+                style = MaterialTheme.typography.labelSmall,
+                color = content,
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(background)
+                        .border(1.dp, border, RoundedCornerShape(16.dp))
+                        .clickable(onClick = onToggle)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Shared Bright chip pill (Soft Glow mockup's `.chip`/`.chip.on`,
+ * docs/mockups/bright-theme-soft-glow.html): tint-wash background + hairline border when selected,
+ * plain surface otherwise. The mockup's selected-state ring is a zero-blur `box-shadow: 0 0 0 3px`
+ * spread, which Compose has no direct primitive for; it's approximated here as an outer
+ * [Modifier.border] on a Box padded out by the same 3dp, which at the mockup's 10%-alpha tint reads
+ * as the same soft halo. [CaseFilterChip] and [TagFilterChip] share this rather than each
+ * reimplementing the pill+ring chrome, since only their inner content (icon+name vs. tag text)
+ * differs.
+ */
+@Composable
+private fun BrightChip(
+    selected: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val tint = MaterialTheme.colorScheme.primary
+    val surface = MaterialTheme.colorScheme.surface
+    val shape = RoundedCornerShape(16.dp)
+    Box(
         modifier =
-            Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(background)
-                .border(1.dp, border, RoundedCornerShape(16.dp))
-                .clickable(onClick = onToggle)
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-    )
+            if (selected) {
+                Modifier.border(3.dp, tint.copy(alpha = 0.10f), RoundedCornerShape(19.dp)).padding(3.dp)
+            } else {
+                Modifier
+            },
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .clip(shape)
+                    .background(if (selected) lerp(surface, tint, 0.14f) else surface)
+                    .border(
+                        width = 1.dp,
+                        color = if (selected) tint.copy(alpha = 0.35f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                        shape = shape,
+                    ).clickable(onClick = onToggle)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun BrightCaseFilterChip(
+    case: CalendarCase,
+    selected: Boolean,
+    onToggle: () -> Unit,
+) {
+    BrightChip(selected = selected, onToggle = onToggle) {
+        Text(case.icon)
+        Text(
+            text = case.name,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun BrightTagFilterChip(
+    tag: String,
+    selected: Boolean,
+    onToggle: () -> Unit,
+) {
+    BrightChip(selected = selected, onToggle = onToggle) {
+        Text(
+            text = tag,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Exercises both chip kinds' on/off states side by side — they share [BrightChip]'s pill/ring but differ in content. */
+@Composable
+private fun FilterChipBrightPreviewContent() {
+    Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        CaseFilterChip(case = CalendarCase(id = 1, icon = "🏃", name = "Runs"), selected = true, onToggle = {})
+        CaseFilterChip(case = CalendarCase(id = 2, icon = "☕", name = "Coffee"), selected = false, onToggle = {})
+        TagFilterChip(tag = "weekend", selected = true, onToggle = {})
+        TagFilterChip(tag = "solo", selected = false, onToggle = {})
+    }
+}
+
+@Preview(name = "FilterChip — Bright light", showBackground = true, widthDp = 380, heightDp = 100)
+@Composable
+private fun FilterChipBrightLightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT) {
+            FilterChipBrightPreviewContent()
+        }
+    }
+}
+
+@Preview(name = "FilterChip — Bright dark", showBackground = true, widthDp = 380, heightDp = 100)
+@Composable
+private fun FilterChipBrightDarkPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
+        CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT) {
+            FilterChipBrightPreviewContent()
+        }
+    }
 }
 
 /** Read-only tag badge for event detail rows — no [onToggle], unlike [TagFilterChip]. */
@@ -650,7 +773,13 @@ private fun IntenseDayCell(
     }
 }
 
-/** Playful-reveal read: a floating shadowed card, case icons as a fanned sticker cluster. */
+/**
+ * Playful-reveal read: a floating shadowed card, case icons as a fanned sticker cluster. Today's
+ * cell also carries a blurred primary-tint ring (Soft Glow mockup's `.cal-cell.today` box-shadow
+ * ring) built from the same blur+tint technique as [com.secondmonday.hodith.ui.theme.IconHalo],
+ * not that composable itself — it's a fixed-size circular badge, and this cell is a dynamic-width
+ * rounded square, so the ring is drawn locally instead of forcing a shape mismatch.
+ */
 @Composable
 private fun BrightDayCell(
     day: LocalDate,
@@ -660,59 +789,71 @@ private fun BrightDayCell(
     modifier: Modifier = Modifier,
 ) {
     val shape = MaterialTheme.shapes.small
+    val tint = MaterialTheme.colorScheme.primary
 
-    Surface(
-        modifier = modifier.aspectRatio(1f).padding(2.dp).clickable(onClick = onClick),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = if (isToday) 6.dp else 3.dp,
-        border = if (isToday) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-    ) {
-        Column(modifier = Modifier.padding(5.dp)) {
-            Text(
-                text = day.dayOfMonth.toString(),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurface,
+    Box(modifier = modifier.aspectRatio(1f).padding(2.dp)) {
+        if (isToday) {
+            Box(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .blur(10.dp)
+                        .background(tint.copy(alpha = 0.45f), shape),
             )
-            Spacer(modifier = Modifier.weight(1f))
-            Row {
-                icons.take(MAX_ICONS_PER_CELL).forEachIndexed { index, case ->
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(15.dp)
-                                .offset(x = (-4 * index).dp)
-                                .rotate(if (index % 2 == 0) -6f else 5f)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface)
-                                .then(
-                                    if (isToday) {
-                                        Modifier
-                                    } else {
-                                        Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                                    },
-                                ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(case.icon, style = MaterialTheme.typography.labelSmall)
+        }
+        Surface(
+            modifier = Modifier.fillMaxSize().clickable(onClick = onClick),
+            shape = shape,
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = if (isToday) 6.dp else 3.dp,
+            border = if (isToday) BorderStroke(2.dp, tint) else null,
+        ) {
+            Column(modifier = Modifier.padding(5.dp)) {
+                Text(
+                    text = day.dayOfMonth.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Row {
+                    icons.take(MAX_ICONS_PER_CELL).forEachIndexed { index, case ->
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(15.dp)
+                                    .offset(x = (-4 * index).dp)
+                                    .rotate(if (index % 2 == 0) -6f else 5f)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .then(
+                                        if (isToday) {
+                                            Modifier
+                                        } else {
+                                            Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                        },
+                                    ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(case.icon, style = MaterialTheme.typography.labelSmall)
+                        }
                     }
-                }
-                if (icons.size > MAX_ICONS_PER_CELL) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(15.dp)
-                                .offset(x = (-4 * MAX_ICONS_PER_CELL).dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.secondary),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "+${icons.size - MAX_ICONS_PER_CELL}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondary,
-                        )
+                    if (icons.size > MAX_ICONS_PER_CELL) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(15.dp)
+                                    .offset(x = (-4 * MAX_ICONS_PER_CELL).dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.secondary),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "+${icons.size - MAX_ICONS_PER_CELL}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondary,
+                            )
+                        }
                     }
                 }
             }
@@ -817,11 +958,27 @@ private fun BigPictureGridIntensePreview() {
     }
 }
 
-@Preview(name = "Bright", showBackground = true, widthDp = 380, heightDp = 700)
+@Preview(name = "Bright light", showBackground = true, widthDp = 380, heightDp = 700)
 @Composable
-private fun BigPictureGridBrightPreview() {
-    CompositionLocalProvider(LocalBigPictureCellStyle provides BigPictureCellStyle.BRIGHT) {
-        HodithTheme(theme = AppTheme.BRIGHT) {
+private fun BigPictureGridBrightLightPreview() {
+    CompositionLocalProvider(
+        LocalBigPictureCellStyle provides BigPictureCellStyle.BRIGHT,
+        LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT,
+    ) {
+        HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+            BigPictureGridPreviewContent()
+        }
+    }
+}
+
+@Preview(name = "Bright dark", showBackground = true, widthDp = 380, heightDp = 700)
+@Composable
+private fun BigPictureGridBrightDarkPreview() {
+    CompositionLocalProvider(
+        LocalBigPictureCellStyle provides BigPictureCellStyle.BRIGHT,
+        LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT,
+    ) {
+        HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
             BigPictureGridPreviewContent()
         }
     }

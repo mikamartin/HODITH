@@ -15,6 +15,434 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/bright-theme-soft-glow (Big Picture filter chips)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Big Picture's filter chips —
+`BigPictureGrid.kt`'s `CaseFilterChip`/`TagFilterChip` now branch on `LocalCardDecorationStyle`:
+Bright gets a tint-wash pill with a hairline border, plus an outer 3dp ring at 10%-alpha tint when
+selected (Soft Glow mockup's `.chip`/`.chip.on`), approximating the mockup's zero-blur
+`box-shadow: 0 0 0 3px` spread (no direct Compose equivalent) as a padded outer `Modifier.border`.
+Both chips share the new `BrightChip` container rather than each reimplementing the pill+ring
+chrome, since only their inner content (icon+name vs. tag text) differs. Plain/Intense untouched.
+
+**Found & fixed:**
+- *Preview fidelity gap* — `BigPictureGridBrightLightPreview`/`...DarkPreview` only provided
+  `LocalBigPictureCellStyle`, not `LocalCardDecorationStyle` (nothing in this file dispatched on
+  the latter before this pass). Left as-is, the new chip branch would have silently rendered
+  Plain-style chips inside the "Bright" grid preview. Added `LocalCardDecorationStyle provides
+  CardDecorationStyle.BRIGHT` alongside the existing provider in both.
+- *Stale-comment risk* — first pass cited a specific mockup CSS line number
+  (`bright-theme-soft-glow.html ~line 112`) in `BrightChip`'s doc comment. Every other Bright-pass
+  comment in this codebase cites the CSS selector and file, never a line number, since the mockup
+  can be edited independently and a cited line drifts silently. Dropped the line reference.
+
+**Deferred:**
+- *Chip touch target* — `CaseFilterChip`/`TagFilterChip`'s effective tap height (6dp+6dp padding
+  around ~14sp text, ~26dp) is under the 48dp accessibility minimum, but that's pre-existing across
+  all three themes, unchanged by this pass — not introduced or worsened here.
+
+**Docs updated:** none — cosmetic per-theme decoration, no spec-level divergence; TESTING.md's Big
+Picture row already covers filter-chip *behaviour* generically, not per-theme styling.
+
+---
+
+## feature/bright-theme-soft-glow (bottom navigation)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, bottom navigation item —
+`HodithNavHost.kt`'s `NavigationBar`/`NavigationBarItem` now branches on
+`LocalCardDecorationStyle`: the active tab's icon sits inside `IconHalo`'s glow (Soft Glow
+mockup's `.navitem.on .ico`), with Material3's default pill indicator suppressed
+(`indicatorColor = Color.Transparent`) so the two don't stack. Shared/app-wide component, wired
+in its own pass per the checklist's own note rather than folded into a screen. Plain/Intense
+untouched.
+
+**Found & fixed:**
+- *Naming* — first pass named the new preview composables `BrightNavIconPreviewContent`/
+  `BrightNavIconLightPreview`/`BrightNavIconDarkPreview`, "Bright" leading. Every other Bright-pass
+  preview follows `<Subject>Bright<Descriptor>PreviewContent`/`...LightPreview`/`...DarkPreview`
+  (`HomeBrightRowsPreviewContent`, `SettingsBrightPlankPreviewContent`,
+  `SegmentedChoiceRowBrightPreviewContent`, `InsightsBrightCardsPreviewContent`) — "Bright" placed
+  after the subject, not before. Renamed to `NavBrightIconPreviewContent`/
+  `NavBrightIconLightPreview`/`NavBrightIconDarkPreview` to match. (The branch composable itself,
+  `BrightNavIcon`, keeps "Bright" leading — the separate, consistent convention already used by
+  `BrightIconChoice`/`BrightDayCell`/`BrightActionRow`/`BrightHomeCaseListItem`.)
+- *Hardcoded value* — `IconHalo(size = 28.dp)` deviates from `IconHalo`'s own 34dp default with no
+  comment explaining why (Edit Case's icon-picker grid pass, by contrast, declared a named
+  `BRIGHT_ICON_CHOICE_VISUAL_SIZE` constant specifically to document that its value matches the
+  default on purpose). Added an inline comment explaining the smaller size matches the mockup's
+  compact nav-icon circle; skipped a named constant since, unlike Edit Case's two-call-site match,
+  nothing else needs this exact value.
+
+**Deferred:**
+- *Duplication* — none found; `BrightNavIcon` follows the same `when`/`if`-on-
+  `LocalCardDecorationStyle` idiom as `HomeCaseListItem`/`ActionRow`/`InsightsCard`.
+- *Complexity & Pattern Health* — `BrightNavIcon` does replace Material3's own selected-item
+  indicator visual; deliberate, matching the mockup, same category of call already made for
+  `GlowCard` over `Card` and `BrightSegmentedChoiceRow` over `SegmentedButton`.
+- *Accessibility* — unchanged: `contentDescription = null` on nav icons was already correct before
+  this pass (the visible label supplies the accessible name), and the touch target is still the
+  full `NavigationBarItem`, not the icon glyph — the 28dp `IconHalo` sits well inside it.
+- *Tests* — no new pure logic (purely visual); no `HodithNavHost` unit/instrumented test exists to
+  update, confirmed by search. Not run on a device (the user's side of the workflow).
+- *Spec Review* — HODITH_SPEC.md's nav mention ("Bottom navigation: Home · Big Picture · Settings")
+  documents the three destinations, not per-item chrome; no update needed, same conclusion as every
+  prior Bright pass.
+- *TESTING.md* — not touched, matching every prior Bright pass's own wiring commit.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Repo Hygiene
+  (only `HodithNavHost.kt` changed, confirmed via `git status`); Hardcoded Values beyond the one
+  comment above (no new `Color(0xFF...)`; `Color.Transparent` is a standard API value, not a
+  literal); Deprecated APIs (`compileDebugKotlin --warning-mode all` shows nothing new for this
+  file); Naming Consistency beyond the one fix above (no new `Voice` keys needed — labels already
+  come from `destination.label(voice)`).
+
+**Docs updated:** PROGRESS.md — bottom navigation item struck from the Bright theme redesign
+checklist.
+
+---
+
+## feature/bright-theme-soft-glow (Edit Case)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Edit Case slice — `CaseEditScreen.kt`'s
+name/description fields, icon-picker grid, and both toggle rows now branch on
+`LocalCardDecorationStyle`, and `SegmentedChoiceRow.kt` (shared by five other screens: Settings,
+Share preview, Insights, Triggers, Hunch) picks up a Bright-only continuous "pill track" look.
+Text fields get Bright's `shapes.small` (16dp) radius; the icon grid's selected choice gets
+`IconHalo`'s tint-wash + glow, the rest a plain thin-bordered circle, both at `IconHalo`'s own
+34dp default inside the existing 48dp touch target; both `Switch`es get Bright-tinted colors
+matching the mockup's `.mswitch`. Live the moment it ships, same as every prior Bright pass.
+
+**Found & fixed:**
+- *Scope/approach, caught before writing code* — the mockup's `.segrow`/`.seg.on` is a single
+  tinted track with the selected option popped forward as a floating capsule, a different visual
+  metaphor than M3's bordered `SegmentedButton` chrome (which only rounds a group's outer ends,
+  not each segment individually). Raised it rather than guessing; user's answer was to match the
+  mockup as closely as possible, which pointed at a custom Bright-only composable
+  (`BrightSegmentedChoiceRow`) rather than fighting `SegmentedButton`'s built-in border/divider/
+  sizing assumptions — the same call already made for `GlowCard` over a restyled M3 `Card`. Since
+  `SegmentedChoiceRow` is a single shared function, branching it wires all five call sites the
+  moment this commits; added Compose Previews exercising both a two-option (logFlow, including its
+  disabled-when-unavailable state) and three-option (durationMode/theme-picker) shape as the cheap
+  validation CLAUDE.md's collaboration rule calls for, ahead of committing to it broadly.
+- *Accessibility semantics* — `BrightSegmentedChoiceRow` manually replicates the
+  `selectableGroup`/`Role.RadioButton` semantics `SegmentedButton` normally provides for free, same
+  idiom already used by this file's own icon-picker grid (`selectableGroup` + per-icon
+  `selectable(..., role = Role.RadioButton)`).
+- *Lint* — `AutoboxingStateCreation`: the new `SegmentedChoiceRow` preview's local `Int` state used
+  `mutableStateOf` instead of `mutableIntStateOf`; fixed both.
+- *Compile* — an explicit `import androidx.compose.foundation.layout.weight` resolved to an
+  internal `RowColumnParentData` property of the same name instead of `RowScope`'s member
+  `weight()` extension (which needs no import at all, confirmed against every other file in the
+  app that calls `.weight(...)`); removed the import.
+- *Tests* — added light + dark Compose Previews for `SegmentedChoiceRow`'s Bright branch (in both
+  shapes above) and for the full `CaseEditScreen` Bright form, matching every prior pass's
+  precedent of a screen-level preview pair.
+
+**Deferred:**
+- *Duplication* — none found; `IconChoice`/`caseEditSwitchColors`/`caseEditTextFieldShape` all
+  branch on `LocalCardDecorationStyle` with the same `when` shape as `Plank`/`ActionRow`/
+  `InsightsCard`. The Bright icon-choice/segmented-row composables are single-caller extractions,
+  same accepted convention as `BrightActionRow`.
+- *Complexity & Pattern Health* — `BrightSegmentedChoiceRow` and `BrightIconChoice` do reimplement
+  something M3 already provides (`SegmentedButton`, and `IconChoice`'s own existing selectable
+  circle); deliberate, per the approach decision above, not an oversight.
+- *Accessibility* — segment touch height in `BrightSegmentedChoiceRow` lands at roughly 42dp (track
+  padding + 7dp segment padding + `labelLarge`'s line height), under the 48dp guideline but not a
+  new regression: M3's own `SegmentedButton` it replaces is already sub-48dp too, matching the
+  same already-accepted precedent noted for `BrightActionRow` in the Settings pass. Icon-choice
+  emoji `Text` still carries no `contentDescription` in either branch — pre-existing on the
+  Plain/Intense side already, not something this pass introduced or was scoped to fix.
+- *Tests* — no new pure logic (branch is purely visual), so no unit coverage needed;
+  `CardDecorationStyleTest`'s mapping is unaffected. `CaseEditScreenTest` only ever provides
+  `PlainVoice` with no `LocalCardDecorationStyle` override, so it exercises the untouched `PLAIN`
+  default — confirmed by rereading the test file — and wasn't re-run on a device (the user's side
+  of the workflow).
+- *Spec Review* — HODITH_SPEC.md §14's Edit Case row and §12's theme table describe flow/content
+  and high-level palette/type feel, not per-component chrome; same "no update needed" conclusion as
+  every prior Bright pass.
+- *TESTING.md* — not touched, matching every prior Bright pass's own wiring commit.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Naming
+  Consistency (`Bright`-prefixed composables follow the established convention; no new `Voice` keys
+  needed, every label reuses an existing key); Hardcoded Values (no new `Color(0xFF...)` literals;
+  the new `onSurface.copy(alpha = ...)` track/border/switch tints and `Dp` layout literals are UI
+  values like the file's existing ones, not domain-layer product constants); Deprecated APIs
+  (checked the actual `lintDebug` HTML report, not just its exit code — zero findings against
+  either changed file); Repo Hygiene (`git status` shows only the two expected modified files).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Edit Case bullet).
+
+---
+
+## feature/bright-theme-soft-glow (Settings)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Settings slice — `SettingsScreen.kt`'s
+shared `Plank` shell now branches on `LocalCardDecorationStyle`: Bright wraps every settings
+section ("Spread the word", "Look & feel", "Nudge me", "Your stuff") in `GlowCard`, Plain/Intense
+keep today's `OutlinedCard`. `ActionRow` (About HODITH, Rate the app, Contact us, Export, Import,
+Delete all data, Load demo data) also branches: Bright renders a flat label + chevron row
+(`BrightActionRow`, matching the mockup's `.arow`) instead of `FilledTonalButton`, Plain/Intense
+unchanged. Live the moment it ships, same as Home/Big Picture/Insights before it.
+
+**Found & fixed:**
+- *Scope, caught before writing code* — PROGRESS.md's Settings bullet explicitly tied `ActionRow`'s
+  `FilledTonalButton` question to this pass, and the mockup's `.arow` look (flat chevron row) is
+  visually nothing like today's button pill — a real ambiguity, not a call to make solo. Raised it;
+  user's answer: adopt the flat chevron-row look for `ActionRow`, but Bright-only (branched on
+  `LocalCardDecorationStyle` like `Plank`), not app-wide. Plain/Intense keep `FilledTonalButton`;
+  PROGRESS.md's standing `FilledTonalButton` item stays open, reworded to reflect that Bright is
+  now resolved while Plain/Intense's styling is still an open product-owner question.
+- *Tests* — added a light + dark Compose Preview (`SettingsBrightPlankLightPreview`/
+  `...DarkPreview`) exercising `Plank` and `ActionRow` together, including the destructive
+  (`Delete all data`) tint — `SettingsScreen.kt` had no previews at all before this pass, same gap
+  `InsightsTab.kt` had before its own Bright pass.
+
+**Deferred:**
+- *Duplication* — none found; `Plank`'s branch is a straight `when` mirroring `InsightsCard`'s/
+  `HomeCaseListItem`'s existing dispatch pattern. `BrightActionRow` follows the same
+  single-caller-branch convention as `BrightHomeCaseListItem`.
+- *Complexity & Pattern Health* — considered whether `BrightActionRow` should use M3's `ListItem`
+  (headline + trailing icon) instead of a plain `Row`; kept `Row` for consistency with the app's
+  existing row convention (`PlainHomeCaseListItem`, `BrightHomeCaseListItem` are both plain `Row`s
+  too, not `ListItem`), not because `ListItem` couldn't do the job.
+- *Accessibility* — the chevron `Icon` has `contentDescription = null`: it's decorative, not an
+  icon-only tap target — the row itself is the click target and already carries the visible label
+  Text, same pattern as `HomeCaseListItem`'s existing clickable `Row`. Touch-target height: Bright's
+  `BrightActionRow` lands at roughly 42dp (11dp padding + `labelLarge`'s ~20dp line height), close to
+  but still under the 48dp guideline — not a new regression, though, since the `FilledTonalButton`
+  it replaces is already only 40dp tall (M3's `ButtonDefaults` minimum) in Plain/Intense; this
+  matches the already-flagged, already-accepted sub-48dp precedent noted in PROGRESS.md's Settings
+  section (Developer Mode's tap target) rather than introducing a new one.
+- *Tests* — no new pure logic (branch is purely visual), so no unit coverage needed;
+  `CardDecorationStyleTest`'s theme→style mapping is unaffected. `SettingsScreenTest` only ever
+  provides `PlainVoice` with no `LocalCardDecorationStyle` override, so it exercises the untouched
+  `PLAIN` default — confirmed by rereading the test file, not assumed — and wasn't re-run on a
+  device (the user's side of the workflow).
+- *Spec Review* — HODITH_SPEC.md's Settings mentions (data model, About screen, bottom nav) don't
+  describe per-theme card/button chrome at this granularity, same conclusion as every prior Bright
+  pass — no update needed.
+- *TESTING.md* — not touched, matching Home/Big Picture/Insights, none of which updated it for their
+  own Bright wiring either; confirmed via `git show --stat` on those three commits rather than
+  assumed.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Naming
+  Consistency (`BrightActionRow` follows the established `Bright`-prefix convention; no new `Voice`
+  keys needed — every label reuses an existing key); Hardcoded Values (no new literal colors, all
+  via `MaterialTheme.colorScheme`; the `11.dp` row padding is a plain UI layout value like the
+  file's other inline `Dp` literals, not a product constant per CLAUDE.md's domain-layer rule);
+  Deprecated APIs (checked the actual `lintDebug` HTML report, not just its exit code — only the
+  pre-existing, unrelated `ObsoleteSdkInt` notice, nothing new); Repo Hygiene (`git status`/`git
+  diff --stat` show only the one expected modified file).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Settings bullet; reworded
+the `FilledTonalButton` "needs design" item to reflect Bright's resolution, left it open for
+Plain/Intense).
+
+---
+
+## feature/bright-theme-soft-glow (Insights)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Case Detail Insights slice —
+`InsightsTab.kt`'s shared `InsightsCard` shell now branches on `LocalCardDecorationStyle`: Bright
+wraps every stat card (Dot timeline, Heatmap, Frequency, Rhythm, Gaps, Trend, Duration, Intensity,
+Tags) in `GlowCard`, Plain/Intense keep today's plain `Card`. `FrequencyCard`'s bars swap their flat
+`colorScheme.primary` fill for a primary→surface-tinted vertical gradient on Bright, unchanged flat
+fill elsewhere. Live the moment it ships, same as the Home and Big Picture passes before it.
+
+**Found & fixed:**
+- *Scope, caught before writing code* — the mockup's Insights screen also shows a two-up stat-tile
+  row ("Longest gap" / "Most common day") sitting outside any card, and PROGRESS.md's original
+  bullet described it as a new component to build. "Most common day" isn't computed anywhere in the
+  domain layer today, and the tile row would have pulled `GapsCard`'s existing `longestGapDays` row
+  out into new UI — both are feature additions, not a restyle of something already shipping. Raised
+  it; user's answer was explicit: this pass changes design only, and anything the mockup shows that
+  isn't already a feature in the app gets ignored rather than built. Result: no tile row, no new
+  component, `GapsCard` and every other stat card's content untouched — only the shared shell and
+  the bar-chart fill actually changed.
+- *Tests* — added a light + dark Compose Preview (`InsightsBrightCardsLightPreview`/
+  `...DarkPreview`) exercising `FrequencyCard` and `GapsCard` together, covering both the new
+  `GlowCard` branch and the gradient bars — `InsightsTab.kt` had no previews at all before this
+  pass, unlike Home/Big Picture's composables.
+
+**Deferred:**
+- *Duplication* — none found; `InsightsCard`'s branch is a straight `when` mirroring
+  `HomeCaseListItem`'s existing dispatch pattern, and `frequencyBarBrush` is a small standalone
+  helper rather than something with an existing home.
+- *Tests* — no new pure logic (the gradient is a `Brush`, not domain code), so no unit coverage
+  needed; `CardDecorationStyleTest`'s theme→style mapping is unaffected by a purely visual change
+  inside the existing `BRIGHT` branch. The instrumented `CaseDetailInsightsTabTest` doesn't reference
+  `AppTheme`/`LocalCardDecorationStyle`, so it exercises the untouched Plain path — wasn't re-run on
+  a device (not something this pass can do; manual/on-device confirmation is the user's side of the
+  workflow).
+- *Spec Review* — HODITH_SPEC.md's §9-10 describe the Insights tab's data/layout, not per-theme card
+  chrome, and no theme's card decoration is spec'd at that granularity today (same conclusion as the
+  Home and Big Picture passes) — no update needed.
+- *TESTING.md* — not touched, matching the Home and Big Picture commits, neither of which updated it
+  for their own (larger) Bright wiring changes either; confirmed via `git show --stat` rather than
+  assumed.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Complexity &
+  Pattern Health (`FrequencyCard` is 71 lines, well under the ~150-line split threshold;
+  `frequencyBarBrush`'s single-caller extraction earns its keep — computes the `Brush` once outside
+  the bar-drawing loop rather than per-bar); Naming Consistency (`frequencyBarBrush` is lowerCamelCase,
+  correct for a `@Composable` that returns a value rather than emitting UI); Repo Hygiene (`git
+  status` shows only the three expected modified files, nothing stray or secret-shaped); Hardcoded
+  Values (no new literal colors — `frequencyBarBrush`'s `0.4f` tint fraction is a named constant,
+  `FREQUENCY_BAR_GRADIENT_END_TINT_FRACTION`, following the file's existing constant style, not a
+  product constant); Deprecated APIs (checked the actual `lintDebug` HTML report, not just its exit
+  code — zero issues flagged anywhere in `InsightsTab.kt`); Accessibility (no new icon-only tap
+  targets or tap-target size changes — cards remain non-interactive containers, and the frequency
+  bars' gradient is purely decorative alongside their existing numeric count labels, not a new
+  color-only signal).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Insights bullet; no new
+gaps spotted this pass, unlike Big Picture's).
+
+---
+
+## feature/bright-theme-soft-glow (Big Picture)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Big Picture slice — `BigPictureGrid.kt`'s
+`BrightDayCell` replaces today's border+elevation-only marker with a blurred primary-tint ring
+(Soft Glow mockup's `.cal-cell.today` box-shadow ring). Flagged in PROGRESS.md as a real behavior
+change to already-shipped Bright code, not new work — and, like the Home pass, it's live the
+moment it ships, not just inert infrastructure.
+
+**Found & fixed:**
+- *Approach* — confirmed with the user before implementing, since `IconHalo`'s own doc comment
+  anticipated being reused here but its API (fixed `Dp` size, hardcoded `CircleShape`) doesn't fit
+  a dynamic-width rounded-square grid cell, and the mockup's ring is drawn directly on the cell's
+  own rounded-square shape via `box-shadow`, never a circular badge. Built the ring locally in
+  `BrightDayCell` using the same blur+tint recipe instead of forcing `IconHalo`'s shape, and left
+  `IconHalo` and its two shipped Home call sites untouched.
+- *Own mistake caught by the build* — first pass imported `matchParentSize` as a top-level import;
+  it's a `BoxScope` member function, not an importable symbol. `lintDebug`'s `compileDebugKotlin`
+  step caught the unresolved reference; removed the bad import.
+- *Tests* — replaced the single `BigPictureGridBrightPreview` with paired light/dark previews
+  (`BigPictureGridBrightLightPreview`/`...DarkPreview`), matching the Home pass's precedent and
+  PROGRESS.md's "Compose Preview per changed composable" checklist item.
+
+**Deferred:**
+- *Duplication* — the ring's blur+tint layer duplicates ~2 lines of `IconHalo`'s glow recipe
+  (`tint.copy(alpha = 0.45f)` behind a `blur()`) rather than sharing code, for the API-mismatch
+  reason above; documented in `BrightDayCell`'s doc comment. Worth revisiting only if a third call
+  site needs the same square-ring treatment.
+- *Tests* — no new pure logic, so no new unit coverage; `BigPictureDecorationTest`'s theme→style
+  mapping test is unaffected by a purely visual change inside the existing `BRIGHT` branch. Manual
+  on-device confirmation that Plain/Intense render unchanged and the Bright ring reads correctly is
+  the user's side of the workflow, not run here.
+- *Spec Review* — HODITH_SPEC.md doesn't describe per-theme cell decoration at this granularity
+  (same conclusion as the Home pass) — no update needed.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Hardcoded
+  Values (the `0.45f` alpha matches `IconHalo`'s own constant rather than introducing a new one; the
+  `10.dp` blur radius is a one-off visual tuning value inline like the file's existing
+  `2.dp`/`3.dp`/`6.dp`/`15.dp` constants — not a product constant); Deprecated APIs (none);
+  Accessibility (today's cell already signals "today" via bold day-number text plus a border/ring,
+  never color alone; no new icon-only tap targets, no tap-target size change).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Big Picture bullet, noted
+the ring is live alongside Home's row change; added two new bullets for gaps spotted during this
+pass but out of its scope: the bottom `NavigationBar`'s active-tab glow, which is a shared app-wide
+component and not this pass's to fix, and Big Picture's filter chips, which are still fully
+unbranched across all three themes).
+
+---
+
+## feature/bright-theme-soft-glow (Home rows)
+
+**Scope:** PROGRESS.md's Bright theme redesign checklist, Home slice — `HomeScreen.kt`'s
+`HomeCaseListItem` now branches on `LocalCardDecorationStyle`: Plain/Intense render the exact
+original row (extracted unchanged into `PlainHomeCaseListItem`), Bright wraps rows in `GlowCard`,
+alternates `IconHalo` tint primary/secondary per row by list index, and promotes the case name to
+the theme's display font. Unlike the foundations pass, this is genuinely live — anyone with Bright
+selected today sees the new row look, not just inert infrastructure.
+
+**Found & fixed:**
+- *`GlowCard` had no click support* — Home rows are a whole-row tap target, and appending a caller-
+  supplied `Modifier.clickable` to `GlowCard`'s `modifier` param would land before its internal
+  `.clip(shape)`, so the ripple would render as a rectangle instead of respecting the rounded card.
+  Added an `onClick` param to `GlowCard` that applies `clickable` after `clip`, matching how M3
+  `Card`'s own `onClick` overload avoids the same problem.
+- *Tests* — added a light + dark Compose Preview (`HomeBrightRowsLightPreview`/`...DarkPreview`)
+  for the wired rows, per PROGRESS.md's checklist item asking for one per changed composable.
+
+**Deferred:**
+- *Duplication* — `PlainHomeCaseListItem`/`BrightHomeCaseListItem` are two full, independent
+  composables with substantial structural overlap (icon, name/meta column, action button,
+  `StaleOngoingBanner`) rather than one function sharing an extracted inner block. Follows this
+  codebase's own precedent exactly: `BigPictureGrid.kt`'s `PlainDayCell`/`IntenseDayCell`/
+  `BrightDayCell` are three fully independent composables with the same kind of overlap, dispatched
+  from `DayCell` the same way `HomeCaseListItem` now dispatches to these two.
+- *Tests* — no new instrumented coverage added for Bright's row click-through specifically, and the
+  existing `HomeScreenTest` wasn't re-run on a device/emulator (not something this pass can do —
+  manual/on-device verification is the human's side of this workflow). Existing test should be
+  unaffected: it doesn't reference `AppTheme`, so it exercises `LocalCardDecorationStyle`'s default
+  (`PLAIN`), which routes to `PlainHomeCaseListItem` — byte-for-byte the original implementation,
+  same `caseId` keys via `itemsIndexed`. Worth an eyes-on pass (Previews or a real device) before
+  this goes further, since it's the first change in this branch that actually changes what ships.
+- *Spec Review* — HODITH_SPEC.md's §12 stays at the palette/type-feel/sample-copy level for all
+  three themes; it doesn't describe any theme's row/card decoration today (Big Picture's per-theme
+  cell treatments aren't spec'd either), so no update needed — consistent with existing granularity.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); Hardcoded
+  Values (no new literal colors, only theme-derived `tint`; `index % 2` mirrors `BrightDayCell`'s
+  own unextracted alternation pattern); Deprecated APIs (none); most of Accessibility (existing
+  `IconButton`/`StopIconButton` content descriptions untouched; the new whole-row tap target is
+  larger than the old one, not smaller).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck the Home bullet, noted the
+row change is live, not just inert infrastructure).
+
+---
+
+## feature/bright-theme-soft-glow
+
+**Scope:** PROGRESS.md's Bright theme redesign (Soft Glow) checklist, foundations slice: `Color.kt`'s
+primary-tinted ink for `brightLight`/`brightDark`, a new `LocalCardDecorationStyle` fork point
+(mirrors the existing `LocalBigPictureCellStyle`/`LocalShareCardSkin` split), and the shared
+`GlowCard`/`IconHalo` primitives those screens will consume. No screen wired to the new fork point
+yet — Plain/Intense/current-Bright are all unaffected.
+
+**Found & fixed:**
+- *Naming Consistency* — the file holding `GlowCard` and `IconHalo` was named `GlowCardDecoration.kt`,
+  which overclaims (`IconHalo` isn't card decoration). Renamed to `GlowDecoration.kt`.
+- *Tests* — `cardDecorationStyle`'s `when` mapping had the same copy-paste risk (two themes
+  accidentally mapping to the same style) that `BigPictureDecorationTest` already guards for
+  `bigPictureCellStyle`, with no equivalent coverage. Added `CardDecorationStyleTest`, mirroring it.
+- *Docs* — PROGRESS.md's Bright theme redesign section struck the three now-complete foundation
+  bullets (ink formula, card-decoration primitive, icon-halo primitive) and rewrote the five
+  remaining bullets to name the concrete `GlowCard`/`IconHalo`/`LocalCardDecorationStyle` symbols
+  now that they exist, instead of speculative "needs to be built" language.
+
+**Deferred:**
+- Considered building `GlowCard` on top of Material3 `Card`/`Surface` instead of a raw `Column` with
+  manual `shadow`/`background`/`border`. Kept the manual version: `Card`'s `containerColor` only
+  accepts a solid `Color`, not a `Brush`, and its elevation API doesn't expose a per-tint
+  ambient/spot shadow color the way `Modifier.shadow` does — wrapping `Card` with a transparent
+  container and layering the gradient on top would add a wrapper with no functional benefit over the
+  direct approach.
+- `GlowCard`/`IconHalo` have no real callers yet, only their own Compose Previews. Intentional — this
+  is the foundations step of a staged plan; consumers land screen-by-screen in the checklist's
+  remaining bullets.
+- Sections not applicable: Decoupling (no ViewModel/domain/data-layer code touched); most of
+  Accessibility (no clickable targets introduced — both primitives are decorative containers, tap
+  targets are each future consumer's responsibility); Deprecated APIs (none); Spec Review (nothing
+  user-visible has shipped yet — HODITH_SPEC.md's theme section doesn't need updating until a screen
+  actually renders the new look); most of Tests (no domain/ViewModel logic, no bug fix, no
+  instrumented tests, no flow crossing a system-process boundary — this is unshipped UI plumbing).
+
+`ktlintCheck`, `lintDebug`, `test`, and `assembleDebug` all run clean.
+
+**Docs updated:** PROGRESS.md (Bright theme redesign section — struck 3 completed bullets, rewrote
+the remaining 6 to point at the new primitives by name).
+
+---
+
 ## test/automate-manual-plan
 
 **Scope:** PROGRESS.md's testing item asked for a deliberate pass over MANUAL_TEST_PLAN.md to find

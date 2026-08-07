@@ -6,10 +6,9 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 Items that need a design pass or a product decision before (or instead of) straight implementation.
 
-- [ ] Review Bright theme's color palette — the current colors aren't landing with the product owner; revisit.
 - [ ] Review phrasing across all three Voice implementations (Plain/Intense/Bright) for quality and consistency.
 - [ ] Big picture: Cases/tags filters feel too crowded — needs a design pass on layout, not just content.
-- [ ] Settings rework introduces `FilledTonalButton` for its action rows, a style not used anywhere else in the app (existing vocabulary is `Button`/`OutlinedButton`/`TextButton`). Deliberately scoped to Settings for now — revisit whether it should spread app-wide or Settings should conform to the existing three-tier system instead.
+- [ ] Settings rework introduces `FilledTonalButton` for its action rows, a style not used anywhere else in the app (existing vocabulary is `Button`/`OutlinedButton`/`TextButton`). Bright now uses a flat label + chevron row instead (`ActionRow`'s `BrightActionRow` branch, resolved alongside the Bright theme redesign's Settings pass); Plain/Intense still use `FilledTonalButton`. Revisit whether Plain/Intense should adopt the flat-row look too, or whether Settings should conform to the existing three-tier button system instead.
 
 ## Settings
 
