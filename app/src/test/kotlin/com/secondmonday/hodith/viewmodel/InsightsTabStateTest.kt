@@ -7,6 +7,7 @@ import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -70,55 +71,6 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(0), eventAtDay(3)).withoutTags(), now = millisAtDay(5))
 
         assertTrue(state is InsightsTabState.Ready)
-    }
-
-    @Test
-    fun `timeline tokens alternate gap and dot, one dot per windowed event, ending on a trailing gap`() {
-        val case = testCase(createdAt = millisAtDay(0))
-        val events = listOf(eventAtDay(0), eventAtDay(3), eventAtDay(6))
-
-        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
-
-        // leading gap, dot, gap, dot, gap, dot, trailing gap = 3 dots + 4 gaps
-        val dotCount = state.timeline.tokens.count { it is TimelineToken.Dot }
-        val gapCount = state.timeline.tokens.count { it is TimelineToken.Gap }
-        assertEquals(3, dotCount)
-        assertEquals(4, gapCount)
-        assertTrue(state.timeline.tokens[1] is TimelineToken.Dot)
-    }
-
-    @Test
-    fun `several events on the same day collapse into one more heavily shaded dot instead of separate dots`() {
-        val case = testCase(createdAt = millisAtDay(0))
-        // day 5 has 3 events, the busiest day — must merge into a single dot, not three.
-        val events = listOf(eventAtDay(0), eventAtDay(5), eventAtDay(5), eventAtDay(5), eventAtDay(8))
-
-        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
-
-        val dots = state.timeline.tokens.filterIsInstance<TimelineToken.Dot>()
-        assertEquals(3, dots.size)
-        assertEquals(HeatmapLevel.L10, dots[1].level)
-    }
-
-    @Test
-    fun `gap note flags a new record when the current gap ties or beats every past gap`() {
-        val case = testCase(createdAt = millisAtDay(0))
-        val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(4))
-
-        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
-
-        assertEquals(16L, state.timeline.currentGapDays)
-        assertTrue(state.timeline.isCurrentGapLongest)
-    }
-
-    @Test
-    fun `gap note does not flag a record when a past gap was bigger than the current one`() {
-        val case = testCase(createdAt = millisAtDay(0))
-        val events = listOf(eventAtDay(0), eventAtDay(20), eventAtDay(22))
-
-        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(24)) as InsightsTabState.Ready
-
-        assertEquals(false, state.timeline.isCurrentGapLongest)
     }
 
     @Test
@@ -235,5 +187,41 @@ class InsightsTabStateTest {
 
         assertEquals(4, state.stats.totalEventCount)
         assertEquals(listOf(TagBreakdownEntry("standup", 2), TagBreakdownEntry("weekend", 1)), state.stats.tags)
+    }
+
+    // ---- stats.gaps streak fields / stats.trend shift fields ----
+
+    @Test
+    fun `gaps display reports the longest and average streak of consecutive active days`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        // Runs: [0,1,2] (3 days), [10] (1 day) -> longest 3, average 2.
+        val events = listOf(eventAtDay(0), eventAtDay(1), eventAtDay(2), eventAtDay(10))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(15)) as InsightsTabState.Ready
+
+        assertEquals(3, state.stats.gaps.longestStreakDays)
+        assertEquals(2.0, state.stats.gaps.averageStreakDays, 0.0001)
+    }
+
+    @Test
+    fun `trend flags a noticeable widening of the average gap once enough history exists`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        // Past gaps: 4, 4, 4, 20, 20, 20 -> clearly widening in the second half.
+        val events =
+            listOf(0L, 4L, 8L, 12L, 32L, 52L, 72L).map { eventAtDay(it) }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(90)) as InsightsTabState.Ready
+
+        assertEquals(ShiftDirection.UP, state.stats.trend?.gapShiftDirection)
+    }
+
+    @Test
+    fun `trend omits gap and streak shift notes below the trend card's own minimum span`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(4))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertEquals(null, state.stats.trend)
     }
 }

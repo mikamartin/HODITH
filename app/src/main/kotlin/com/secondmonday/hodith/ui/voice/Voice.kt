@@ -10,6 +10,7 @@ import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HUNCH_NUDGE_EVENT_THRESHOLD
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendDirection
 
 /**
@@ -189,14 +190,7 @@ interface Voice {
     val caseDetailInsightsTabLabel: String
     val caseDetailHunchTabLabel: String
     val insightsNotEnoughDataMessage: String
-    val insightsSectionLabelTimeline: String get() = "Dot timeline"
     val insightsSectionLabelHeatmap: String get() = "Calendar heatmap"
-
-    /** Spec §9's "current gap annotated" rule, plain phrasing: no record-breaking claim. */
-    fun insightsGapNoteCurrent(days: Long): String
-
-    /** As [insightsGapNoteCurrent], but the current gap ties or beats every past gap for this Case. */
-    fun insightsGapNoteLongest(days: Long): String
 
     /** Reveals months beyond the heatmap's default 3-month preview. */
     val insightsHeatmapShowMoreAction: String
@@ -204,10 +198,10 @@ interface Voice {
     /** Collapses the heatmap back to its default 3-month preview. */
     val insightsHeatmapShowFewerAction: String
 
-    /** Spec §10 stat section labels — structural, identical across all three voices like [insightsSectionLabelTimeline]. */
+    /** Spec §10 stat section labels — structural, identical across all three voices like [insightsSectionLabelHeatmap]. */
     val insightsSectionLabelFrequency: String get() = "Frequency over time"
     val insightsSectionLabelRhythm: String get() = "Rhythm"
-    val insightsSectionLabelGaps: String get() = "Gaps & clusters"
+    val insightsSectionLabelGaps: String get() = "Gaps & streaks"
     val insightsSectionLabelTrend: String get() = "Trend"
     val insightsSectionLabelDuration: String get() = "Duration"
     val insightsSectionLabelIntensity: String get() = "Intensity"
@@ -221,12 +215,14 @@ interface Voice {
 
     fun insightsFrequencyInfoBody(granularity: FrequencyGranularity): String
 
-    /** Gaps & clusters stat-row labels — structural, identical across all three voices. */
+    /** Gaps & streaks stat-row labels — structural, identical across all three voices. */
     val insightsGapsLongestLabel: String get() = "Longest gap"
     val insightsGapsCurrentLabel: String get() = "Current gap"
     val insightsGapsAverageLabel: String get() = "Average gap"
+    val insightsStreakLongestLabel: String get() = "Longest streak"
+    val insightsStreakAverageLabel: String get() = "Average streak"
 
-    /** Spec §10's "tends to come in bursts" flag, shown as a badge on the Gaps & clusters card. */
+    /** Spec §10's "tends to come in bursts" flag, shown as a badge on the Gaps & streaks card. */
     val insightsBurstFlagLabel: String
 
     /** Spec §10 trend arrow: last 30 days vs. the 30 before — purely descriptive, no judgement either way. */
@@ -235,6 +231,12 @@ interface Voice {
         recentCount: Int,
         priorCount: Int,
     ): String
+
+    /** Spec §10 Trend card: an optional extra line noting the average gap has shifted noticeably across the Case's history — descriptive only, absent when [com.secondmonday.hodith.domain.computeGapShift] finds nothing noticeable. */
+    fun insightsGapShiftSentence(direction: ShiftDirection): String
+
+    /** As [insightsGapShiftSentence], for streak length rather than gap length. */
+    fun insightsStreakShiftSentence(direction: ShiftDirection): String
 
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
@@ -678,10 +680,6 @@ object PlainVoice : Voice {
     override val hunchExpectedPerMonth = "Month"
     override val insightsNotEnoughDataMessage = "Not enough data yet."
 
-    override fun insightsGapNoteCurrent(days: Long) = "$days days quiet right now."
-
-    override fun insightsGapNoteLongest(days: Long) = "$days days quiet right now — the longest stretch since it started."
-
     override val insightsHeatmapShowMoreAction = "Show more months"
     override val insightsHeatmapShowFewerAction = "Show fewer months"
 
@@ -696,6 +694,18 @@ object PlainVoice : Voice {
         TrendDirection.DOWN -> "$recentCount events in the last 30 days — down from $priorCount the 30 days before."
         TrendDirection.FLAT -> "$recentCount events in the last 30 days — the same as the 30 days before."
     }
+
+    override fun insightsGapShiftSentence(direction: ShiftDirection) =
+        when (direction) {
+            ShiftDirection.UP -> "Gaps have been getting longer lately."
+            ShiftDirection.DOWN -> "Gaps have been getting shorter lately."
+        }
+
+    override fun insightsStreakShiftSentence(direction: ShiftDirection) =
+        when (direction) {
+            ShiftDirection.UP -> "Streaks have been getting longer lately."
+            ShiftDirection.DOWN -> "Streaks have been getting shorter lately."
+        }
 
     override val insightsFrequencyInfoTitle = "About this chart"
 
@@ -1149,10 +1159,6 @@ object IntenseVoice : Voice {
     override val hunchExpectedPerMonth = "Month"
     override val insightsNotEnoughDataMessage = "The file is too thin to read yet."
 
-    override fun insightsGapNoteCurrent(days: Long) = "$days days of silence. The trail has gone cold — for now."
-
-    override fun insightsGapNoteLongest(days: Long) = "$days days of silence — the coldest the trail has ever run."
-
     override val insightsHeatmapShowMoreAction = "Unseal the older files"
     override val insightsHeatmapShowFewerAction = "Reseal them"
 
@@ -1167,6 +1173,18 @@ object IntenseVoice : Voice {
         TrendDirection.DOWN -> "$recentCount marks in the last thirty days — fallen from $priorCount before. It recedes, for now."
         TrendDirection.FLAT -> "$recentCount marks in the last thirty days — unchanged from what came before. Steady, as ever."
     }
+
+    override fun insightsGapShiftSentence(direction: ShiftDirection) =
+        when (direction) {
+            ShiftDirection.UP -> "The silences grow longer than they used to be."
+            ShiftDirection.DOWN -> "The silences have been shortening."
+        }
+
+    override fun insightsStreakShiftSentence(direction: ShiftDirection) =
+        when (direction) {
+            ShiftDirection.UP -> "The waking spells run longer than they used to."
+            ShiftDirection.DOWN -> "The waking spells have been growing shorter."
+        }
 
     override val insightsFrequencyInfoTitle = "On the shape of this record"
 
@@ -1612,10 +1630,6 @@ object BrightVoice : Voice {
     override val hunchExpectedPerMonth = "Month"
     override val insightsNotEnoughDataMessage = "Give it a little more time — the pattern's not ready yet!"
 
-    override fun insightsGapNoteCurrent(days: Long) = "$days days of quiet! Suspicious… or just a slow patch?"
-
-    override fun insightsGapNoteLongest(days: Long) = "$days days of quiet — the longest it's EVER gone!"
-
     override val insightsHeatmapShowMoreAction = "Show me more!"
     override val insightsHeatmapShowFewerAction = "Okay, tuck it back away"
 
@@ -1630,6 +1644,18 @@ object BrightVoice : Voice {
         TrendDirection.DOWN -> "$recentCount logs in the last 30 days — down from $priorCount! Quieter lately."
         TrendDirection.FLAT -> "$recentCount logs in the last 30 days — same as before. Steady as she goes!"
     }
+
+    override fun insightsGapShiftSentence(direction: ShiftDirection) =
+        when (direction) {
+            ShiftDirection.UP -> "The gaps have been stretching out lately!"
+            ShiftDirection.DOWN -> "The gaps have been shrinking lately!"
+        }
+
+    override fun insightsStreakShiftSentence(direction: ShiftDirection) =
+        when (direction) {
+            ShiftDirection.UP -> "The streaks have been running longer lately!"
+            ShiftDirection.DOWN -> "The streaks have been running shorter lately!"
+        }
 
     override val insightsFrequencyInfoTitle = "What am I looking at?"
 

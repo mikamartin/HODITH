@@ -8,20 +8,21 @@ import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.GapStats
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
-import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
-import com.secondmonday.hodith.domain.TimelineWindow
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.computeDurationStats
 import com.secondmonday.hodith.domain.computeFrequencyStats
+import com.secondmonday.hodith.domain.computeGapShift
 import com.secondmonday.hodith.domain.computeGapStats
 import com.secondmonday.hodith.domain.computeIntensityStats
 import com.secondmonday.hodith.domain.computeRhythmStats
+import com.secondmonday.hodith.domain.computeStreakShift
+import com.secondmonday.hodith.domain.computeStreakStats
 import com.secondmonday.hodith.domain.computeTagBreakdown
-import com.secondmonday.hodith.domain.computeTimelineWindow
 import com.secondmonday.hodith.domain.computeTrendStats
-import com.secondmonday.hodith.domain.groupEventsByDay
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.domain.pickFrequencyGranularity
@@ -32,9 +33,6 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 
-/** A gap token never collapses to zero width — an always-visible sliver still reads as "no wait here". */
-private const val MIN_GAP_WEIGHT = 0.02f
-
 /**
  * What the Case Detail Insights tab renders (spec §9-10's visuals half), derived fresh from raw
  * data on every read — mirrors [hunchTabState]'s pure-mapping pattern. [NotEnoughData] covers the
@@ -44,7 +42,6 @@ sealed interface InsightsTabState {
     data object NotEnoughData : InsightsTabState
 
     data class Ready(
-        val timeline: TimelineDisplay,
         val heatmapMonths: List<HeatmapMonth>,
         val stats: StatsSections,
     ) : InsightsTabState
@@ -95,12 +92,17 @@ data class GapsDisplay(
     val currentGapDays: Long,
     val averageGapDays: Double,
     val isBursty: Boolean,
+    val longestStreakDays: Int,
+    val averageStreakDays: Double,
 )
 
+/** [gapShiftDirection]/[streakShiftDirection] are `null` when no noticeable shift was found (or gated off, same as [direction]). */
 data class TrendDisplay(
     val direction: TrendDirection,
     val recentCount: Int,
     val priorCount: Int,
+    val gapShiftDirection: ShiftDirection?,
+    val streakShiftDirection: ShiftDirection?,
 )
 
 data class DurationDisplay(
@@ -115,26 +117,6 @@ data class IntensityDisplay(
     val distribution: Map<Int, Int>,
     val maxCount: Int,
 )
-
-/** [tokens] alternate leading-gap/dot/gap/.../dot/trailing-gap; the "now" tick is drawn after the last token. */
-data class TimelineDisplay(
-    val tokens: List<TimelineToken>,
-    val windowDays: Long,
-    val currentGapDays: Long,
-    val isCurrentGapLongest: Boolean,
-)
-
-sealed interface TimelineToken {
-    /** [level] is shared with the heatmap's shading scale, so "darker" means the same thing in both visuals. */
-    data class Dot(
-        val level: HeatmapLevel,
-    ) : TimelineToken
-
-    /** [weight] is this gap's share of the timeline's total width, for a Row's `Modifier.weight`. */
-    data class Gap(
-        val weight: Float,
-    ) : TimelineToken
-}
 
 /** One month of the calendar heatmap. `null` day entries are out-of-month padding (spec §9's grid rule). */
 data class HeatmapMonth(
@@ -162,9 +144,8 @@ internal fun insightsTabState(
     val gapStats = computeGapStats(events, now, zone)
 
     return InsightsTabState.Ready(
-        timeline = timelineDisplay(computeTimelineWindow(events, now, zone), gapStats, maxDailyCount, now, zone),
         heatmapMonths = heatmapMonths(case, countsByDay, maxDailyCount, now, zone),
-        stats = statsSections(case, eventsWithTags, events, gapStats, now, zone, frequencyGranularityOverride),
+        stats = statsSections(case, eventsWithTags, events, gapStats, countsByDay.keys.toList(), now, zone, frequencyGranularityOverride),
     )
 }
 
@@ -174,6 +155,7 @@ private fun statsSections(
     eventsWithTags: List<EventWithTags>,
     events: List<EventEntity>,
     gapStats: GapStats,
+    activeDates: List<LocalDate>,
     now: Long,
     zone: ZoneId,
     frequencyGranularityOverride: FrequencyGranularity?,
@@ -203,13 +185,32 @@ private fun statsSections(
         RhythmDisplay(
             cells =
                 rhythmStats.cells.map { cell ->
-                    RhythmCellDisplay(cell.dayOfWeek, cell.timeOfDay, heatmapLevelFor(cell.count, rhythmStats.maxCount))
+                    val level = heatmapLevelFor(cell.count, rhythmStats.maxCount, tierCount = RHYTHM_TIER_COUNT)
+                    RhythmCellDisplay(cell.dayOfWeek, cell.timeOfDay, level)
                 },
         )
 
-    val gaps = GapsDisplay(gapStats.longestGapDays, gapStats.currentGapDays, gapStats.averageGapDays, gapStats.isBursty)
+    val streakStats = computeStreakStats(activeDates)
+    val gaps =
+        GapsDisplay(
+            longestGapDays = gapStats.longestGapDays,
+            currentGapDays = gapStats.currentGapDays,
+            averageGapDays = gapStats.averageGapDays,
+            isBursty = gapStats.isBursty,
+            longestStreakDays = streakStats.longestStreakDays,
+            averageStreakDays = streakStats.averageStreakDays,
+        )
 
-    val trend = computeTrendStats(events, now, spanDays)?.let { TrendDisplay(it.direction, it.recentCount, it.priorCount) }
+    val trend =
+        computeTrendStats(events, now, spanDays)?.let {
+            TrendDisplay(
+                direction = it.direction,
+                recentCount = it.recentCount,
+                priorCount = it.priorCount,
+                gapShiftDirection = computeGapShift(gapStats.pastGaps),
+                streakShiftDirection = computeStreakShift(activeDates),
+            )
+        }
 
     val duration =
         if (case.durationMode != DurationMode.NONE) {
@@ -236,33 +237,6 @@ private fun statsSections(
         intensity = intensity,
         tags = computeTagBreakdown(eventsWithTags),
         totalEventCount = events.size,
-    )
-}
-
-private fun timelineDisplay(
-    window: TimelineWindow,
-    gapStats: GapStats,
-    maxDailyCount: Int,
-    now: Long,
-    zone: ZoneId,
-): TimelineDisplay {
-    val windowStart = now - window.windowDays * MILLIS_PER_DAY
-    val totalSpan = (now - windowStart).toFloat().coerceAtLeast(1f)
-
-    val tokens = mutableListOf<TimelineToken>()
-    var cursor = windowStart
-    for (group in groupEventsByDay(window.events, zone)) {
-        tokens += TimelineToken.Gap(((group.representativeMillis - cursor) / totalSpan).coerceAtLeast(MIN_GAP_WEIGHT))
-        tokens += TimelineToken.Dot(heatmapLevelFor(group.count, maxDailyCount))
-        cursor = group.representativeMillis
-    }
-    tokens += TimelineToken.Gap(((now - cursor) / totalSpan).coerceAtLeast(MIN_GAP_WEIGHT))
-
-    return TimelineDisplay(
-        tokens = tokens,
-        windowDays = window.windowDays,
-        currentGapDays = gapStats.currentGapDays,
-        isCurrentGapLongest = gapStats.isCurrentGapLongest,
     )
 }
 

@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
@@ -40,6 +41,7 @@ import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.domain.INTENSITY_MIN
+import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.heatmapLevelFor
@@ -83,8 +85,8 @@ private val STORY_MIN_HEIGHT = SHARE_CARD_WIDTH * 1920 / 1080
 private val SQUARE_MIN_HEIGHT = SHARE_CARD_WIDTH
 private const val MINI_RHYTHM_CELL_SIZE = 16
 
-/** Wide enough for the longest full time-of-day word ("Afternoon") at labelSmall without wrapping — not abbreviated. */
-private const val MINI_RHYTHM_LABEL_WIDTH = 68
+/** Wide enough for "Afternoon" — the longest time-of-day label — to fit on one line in every theme's display font, Baloo2 Bold (Bright) included. */
+private const val MINI_RHYTHM_LABEL_WIDTH = 88
 private const val MINI_FREQUENCY_CHART_HEIGHT = 40
 private const val MINI_FREQUENCY_BAR_MAX_HEIGHT_FRACTION = 0.75f
 private const val MINI_FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.04f
@@ -423,6 +425,8 @@ private fun MiniRhythmSection(
                 Text(
                     text = timeOfDayLabel(timeOfDay, voice),
                     modifier = Modifier.width(MINI_RHYTHM_LABEL_WIDTH.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -434,7 +438,7 @@ private fun MiniRhythmSection(
                                 .size(MINI_RHYTHM_CELL_SIZE.dp)
                                 .padding(1.dp)
                                 .clip(MaterialTheme.shapes.extraSmall)
-                                .background(level.toCellColor()),
+                                .background(level.toCellColor(tierCount = RHYTHM_TIER_COUNT)),
                     )
                 }
             }
@@ -596,7 +600,7 @@ private fun previewData(format: ShareCardFormat): ShareCardData =
                     },
             ),
         gaps = null,
-        trend = TrendDisplay(TrendDirection.UP, 8, 5),
+        trend = TrendDisplay(TrendDirection.UP, 8, 5, gapShiftDirection = null, streakShiftDirection = null),
         duration = null,
         intensity = null,
     )

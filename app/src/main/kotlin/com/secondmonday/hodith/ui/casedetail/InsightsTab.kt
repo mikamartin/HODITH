@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -38,13 +37,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.domain.FrequencyGranularity
-import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.domain.INTENSITY_MIN
+import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
@@ -70,8 +70,6 @@ import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
-import com.secondmonday.hodith.viewmodel.TimelineDisplay
-import com.secondmonday.hodith.viewmodel.TimelineToken
 import com.secondmonday.hodith.viewmodel.TrendDisplay
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import java.time.DayOfWeek
@@ -82,9 +80,6 @@ import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private const val TIMELINE_NOW_LABEL = "Today"
-private const val DOT_SIZE = 8
-private const val NOW_TICK_HEIGHT = 14
 private const val HEATMAP_DEFAULT_MONTH_COUNT = 3
 private const val FREQUENCY_BAR_CHART_HEIGHT = 80
 private const val FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.02f
@@ -95,10 +90,13 @@ private const val FREQUENCY_BAR_LABEL_GAP = 2
 private const val FREQUENCY_CHART_TOP_SPACING = 16
 private const val RHYTHM_CELL_SIZE = 20
 
+/** Wide enough for "Afternoon" — the longest time-of-day label — to fit on one line in every theme's display font, Baloo2 Bold (Bright) included. A fixed width (not `Modifier.weight`) keeps the label snug against the grid instead of stretching to fill the row. */
+private const val RHYTHM_LABEL_WIDTH = 88
+
 /**
- * Case Detail's Insights tab (spec §9's visuals half): a full-width dot timeline, primary, atop a
- * per-case calendar heatmap, secondary. Below [com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS]
- * events neither has a gap or a pattern to show, so a placeholder replaces both entirely.
+ * Case Detail's Insights tab (spec §9-10): the seven stat cards followed by the per-case calendar
+ * heatmap. Below [com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS] events neither has a gap or
+ * a pattern to show, so a placeholder replaces the whole tab.
  */
 @Composable
 internal fun InsightsTabContent(
@@ -118,9 +116,8 @@ internal fun InsightsTabContent(
                 modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                DotTimelineCard(state.timeline, voice)
-                CalendarHeatmapCard(state.heatmapMonths, voice)
                 StatsSectionCards(state.stats, frequencyGranularityOverride, onFrequencyGranularityChange, voice)
+                CalendarHeatmapCard(state.heatmapMonths, voice)
             }
     }
 }
@@ -155,89 +152,6 @@ private fun InsightsCard(content: @Composable ColumnScope.() -> Unit) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
             }
-    }
-}
-
-@Composable
-private fun DotTimelineCard(
-    timeline: TimelineDisplay,
-    voice: Voice,
-) {
-    InsightsCard {
-        Text(voice.insightsSectionLabelTimeline, style = MaterialTheme.typography.titleSmall)
-        DotTimelineRow(timeline.tokens)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                text = formatTimelineWindowStartLabel(timeline.windowDays),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = TIMELINE_NOW_LABEL,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Text(
-            text =
-                if (timeline.isCurrentGapLongest) {
-                    voice.insightsGapNoteLongest(timeline.currentGapDays)
-                } else {
-                    voice.insightsGapNoteCurrent(timeline.currentGapDays)
-                },
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-/**
- * Dots and gaps float over a thin baseline (mirrors the validated mockup's `.dot-timeline::before`).
- * Several events on the same day collapse into one [TimelineToken.Dot], shaded by
- * [HeatmapLevel] instead of drawn as separate overlapping dots.
- */
-@Composable
-private fun DotTimelineRow(tokens: List<TimelineToken>) {
-    Box(modifier = Modifier.fillMaxWidth().height(22.dp)) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .align(Alignment.Center)
-                    .background(MaterialTheme.colorScheme.outlineVariant),
-        )
-        Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            tokens.forEach { token ->
-                when (token) {
-                    is TimelineToken.Dot ->
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(DOT_SIZE.dp)
-                                    .clip(CircleShape)
-                                    .background(token.level.toCellColor()),
-                        )
-                    is TimelineToken.Gap -> Spacer(modifier = Modifier.weight(token.weight))
-                }
-            }
-            Box(
-                modifier =
-                    Modifier
-                        .width(2.dp)
-                        .height(NOW_TICK_HEIGHT.dp)
-                        .background(MaterialTheme.colorScheme.onSurface),
-            )
-        }
-    }
-}
-
-private fun formatTimelineWindowStartLabel(windowDays: Long): String {
-    val weeks = windowDays / 7
-    val remainderDays = windowDays % 7
-    return when {
-        remainderDays == 0L && weeks >= 1 -> if (weeks == 1L) "1 week ago" else "$weeks weeks ago"
-        windowDays == 1L -> "1 day ago"
-        else -> "$windowDays days ago"
     }
 }
 
@@ -442,7 +356,7 @@ private fun RhythmCard(
     InsightsCard {
         Text(voice.insightsSectionLabelRhythm, style = MaterialTheme.typography.titleSmall)
         Row(modifier = Modifier.fillMaxWidth()) {
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp))
             DayOfWeek.entries.forEach { day ->
                 Text(
                     text = day.getDisplayName(TextStyle.NARROW, locale),
@@ -457,7 +371,9 @@ private fun RhythmCard(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = timeOfDayLabel(timeOfDay),
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -467,9 +383,9 @@ private fun RhythmCard(
                         modifier =
                             Modifier
                                 .size(RHYTHM_CELL_SIZE.dp)
-                                .padding(1.dp)
+                                .padding(2.dp)
                                 .clip(RoundedCornerShape(3.dp))
-                                .background(level.toCellColor()),
+                                .background(level.toCellColor(tierCount = RHYTHM_TIER_COUNT)),
                     )
                 }
             }
@@ -477,7 +393,7 @@ private fun RhythmCard(
     }
 }
 
-/** Spec §10 gaps & clusters: longest/current/average gap plus the "tends to come in bursts" flag. */
+/** Spec §10 gaps & streaks: longest/current/average gap, longest/average streak, plus the "tends to come in bursts" flag. */
 @Composable
 private fun GapsCard(
     display: GapsDisplay,
@@ -488,6 +404,8 @@ private fun GapsCard(
         StatRow(voice.insightsGapsLongestLabel, formatDays(display.longestGapDays.toDouble()))
         StatRow(voice.insightsGapsCurrentLabel, formatDays(display.currentGapDays.toDouble()))
         StatRow(voice.insightsGapsAverageLabel, formatDays(display.averageGapDays))
+        StatRow(voice.insightsStreakLongestLabel, formatDays(display.longestStreakDays.toDouble()))
+        StatRow(voice.insightsStreakAverageLabel, formatDays(display.averageStreakDays))
         if (display.isBursty) {
             Text(
                 text = voice.insightsBurstFlagLabel,
@@ -498,7 +416,7 @@ private fun GapsCard(
     }
 }
 
-/** Spec §10 trend arrow: last 30 days vs. the 30 before — descriptive only, never a value judgement. */
+/** Spec §10 trend arrow: last 30 days vs. the 30 before — descriptive only, never a value judgement. Gap/streak shift notes are shown only when noticeable. */
 @Composable
 private fun TrendCard(
     display: TrendDisplay,
@@ -520,6 +438,20 @@ private fun TrendCard(
             Text(
                 text = voice.insightsTrendSentence(display.direction, display.recentCount, display.priorCount),
                 style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        display.gapShiftDirection?.let {
+            Text(
+                text = voice.insightsGapShiftSentence(it),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        display.streakShiftDirection?.let {
+            Text(
+                text = voice.insightsStreakShiftSentence(it),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -617,7 +549,15 @@ private val previewFrequencyDisplay =
             ),
     )
 
-private val previewGapsDisplay = GapsDisplay(longestGapDays = 5, currentGapDays = 2, averageGapDays = 3.5, isBursty = true)
+private val previewGapsDisplay =
+    GapsDisplay(
+        longestGapDays = 5,
+        currentGapDays = 2,
+        averageGapDays = 3.5,
+        isBursty = true,
+        longestStreakDays = 3,
+        averageStreakDays = 1.8,
+    )
 
 /** Exercises [InsightsCard]'s Bright branch (via [FrequencyCard]/[GapsCard]) and [FrequencyCard]'s gradient bars together. */
 @Composable

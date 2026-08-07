@@ -22,15 +22,16 @@ private const val NOTE_CHANCE_PERCENT = 45
 private const val TAG_CHANCE_PERCENT = 50
 private const val MAX_TAGS_PER_EVENT = 2
 
-// Big enough that it reliably pushes the dot timeline's default 35-day window past its
-// TIMELINE_MAX_DOTS cap (see domain/InsightsEngine.kt), so at least one demo Case exercises the
-// window-shrink behaviour instead of every seeded Case landing comfortably under it.
+// Dense enough that at least one demo Case shows a clear recent uptick — exercises the Trend
+// card's UP direction and gives the calendar heatmap/Rhythm grid a busy recent stretch to shade.
+// One event on every one of these consecutive days also doubles as the Gaps & streaks card's
+// "longest streak" showcase, since no other density guarantees a multi-day run of active days.
 private const val RECENT_SURGE_DAYS = 12
 private const val RECENT_SURGE_PER_DAY = 3
 
 // Comfortably longer than any density's maxGapDays, so the silence this produces is guaranteed
 // to exceed every gap in the Case's own history — the only way to deterministically exercise the
-// dot timeline's "longest stretch since it started" gap note instead of the plain one.
+// Gaps & streaks card's "longest stretch since it started" note instead of the plain one.
 private const val QUIET_SPELL_DAYS = 60L
 
 private enum class SeedDensity { SPARSE, BURSTY, DENSE }
@@ -49,10 +50,9 @@ private data class CaseSeed(
 
 // Deliberately varied on every axis Big Picture and Case Detail's Insights tab need to exercise:
 // duration mode, intensity, event density (dense/bursty/sparse) spread across several months, a
-// recent logging surge dense enough to shrink the dot timeline's window, and a quiet spell long
-// enough to set a new "longest stretch since it started" record. Notes and tags are populated on
-// only some events (not all, not none) so Case Detail's empty states and the log sheet's tag
-// autocomplete both have real data to exercise.
+// recent logging surge, and a quiet spell long enough to set a new "longest stretch since it
+// started" record. Notes and tags are populated on only some events (not all, not none) so Case
+// Detail's empty states and the log sheet's tag autocomplete both have real data to exercise.
 private val CASE_SEEDS =
     listOf(
         CaseSeed(
