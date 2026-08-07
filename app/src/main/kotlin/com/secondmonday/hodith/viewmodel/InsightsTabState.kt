@@ -289,15 +289,19 @@ private fun heatmapMonths(
         HeatmapMonth(
             month = month,
             weeks =
-                weeksInGrid(month).map { week ->
-                    week.map { date ->
-                        if (date.isAfter(nowDate) || date.month != month.month) {
-                            null
-                        } else {
-                            HeatmapDay(date = date, level = heatmapLevelFor(countsByDay[date] ?: 0, maxDailyCount))
+                weeksInGrid(month)
+                    .map { week ->
+                        week.map { date ->
+                            if (date.isAfter(nowDate) || date.month != month.month) {
+                                null
+                            } else {
+                                HeatmapDay(date = date, level = heatmapLevelFor(countsByDay[date] ?: 0, maxDailyCount))
+                            }
                         }
                     }
-                },
+                    // weeksInGrid always returns full-month rows; trim trailing rows that are
+                    // entirely in the future so an in-progress month doesn't end in blank rows.
+                    .dropLastWhile { week -> week.all { it == null } },
         )
     }
 }
