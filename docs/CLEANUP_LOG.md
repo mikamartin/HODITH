@@ -15,6 +15,31 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/calendar-heatmap-current-month-gap
+
+**Scope:** PROGRESS.md's Insights tab bug — the calendar heatmap's current-month grid always
+rendered every week-row of the full month (`weeksInGrid`), then blanked out any day after "now."
+Right after a new month began, that left 3-5 fully-blank trailing rows stacked above the previous
+month's card, reading as one large gap. Fixed in `heatmapMonths()` (`InsightsTabState.kt`) by
+dropping trailing week-rows that are entirely null once built — safe because a completed month's
+last row always contains real data (nothing to drop) and the current month always keeps at least
+one row (today is never null).
+
+**Found & fixed:**
+- The gap bug itself, plus a regression test asserting the current month's last week-row isn't
+  entirely blank when `now` is early in the month.
+
+**Deferred:** nothing deferred — single-function, single-file logic change. Walked the full
+checklist against the diff: no duplication, no `android.*` creeping into the touched viewmodel
+code, no new composables/strings/colors/magic numbers, `git status` clean, no stray files, and
+HODITH_SPEC.md's heatmap description (§9) is high-level enough to still hold — it doesn't
+describe week-row layout, so nothing there needed touching.
+
+**Docs updated:** PROGRESS.md (struck the now-fixed bullet); TESTING.md's "Stats & visual data
+prep" coverage row (noted the new trailing-row-trim coverage alongside existing day-bucketing).
+
+---
+
 ## feature/big-picture-filter-redesign
 
 **Scope:** PROGRESS.md's Big Picture filter redesign — `BigPictureGrid.kt`'s always-expanded

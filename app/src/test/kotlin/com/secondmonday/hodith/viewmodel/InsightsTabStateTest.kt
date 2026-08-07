@@ -175,6 +175,31 @@ class InsightsTabStateTest {
         assertEquals(HeatmapLevel.L10, shadedDay.level)
     }
 
+    @Test
+    fun `heatmap for the current month has no trailing week-row that's entirely in the future`() {
+        // "Now" is the 2nd of the month, so only the first week-row has any real days in it —
+        // the remaining 4-5 week-rows of the month grid would otherwise be entirely blank.
+        val createdAt =
+            LocalDate
+                .of(2026, 3, 1)
+                .atStartOfDay(ZONE)
+                .toInstant()
+                .toEpochMilli()
+        val now =
+            LocalDate
+                .of(2026, 3, 2)
+                .atStartOfDay(ZONE)
+                .toInstant()
+                .toEpochMilli()
+        val events = listOf(EventEntity(0, 1, createdAt, null, null, null, createdAt), EventEntity(0, 1, now, null, null, null, now))
+
+        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
+
+        val currentMonth = state.heatmapMonths.single { it.month == YearMonth.of(2026, 3) }
+        assertTrue(currentMonth.weeks.size <= 2)
+        assertTrue(currentMonth.weeks.last().any { it != null })
+    }
+
     // ---- stats.totalEventCount / stats.tags ----
 
     @Test
