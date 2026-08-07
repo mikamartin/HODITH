@@ -28,6 +28,15 @@ interface Voice {
     val bigPictureEventNoteEmptyState: String
     val bigPictureDialogCloseAction: String
     val bigPictureWeekViewDescription: String
+    val bigPictureCasesFilterLabel: String
+    val bigPictureTagsFilterLabel: String
+    val bigPictureFilterCountAll: String
+    val bigPictureAllCasesLabel: String
+    val bigPictureAllTagsLabel: String
+    val bigPictureUntaggedOnlyLabel: String
+    val bigPictureNoCasesSelectedNote: String
+    val bigPictureSelectAllAction: String
+    val bigPictureClearAllAction: String
     val homeNavLabel: String
     val bigPictureNavLabel: String
     val settingsNavLabel: String
@@ -281,6 +290,11 @@ interface Voice {
 
     fun bigPictureWeekDetailTitle(date: String): String
 
+    fun bigPictureFilterCount(
+        selected: Int,
+        total: Int,
+    ): String
+
     fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
@@ -491,6 +505,15 @@ object PlainVoice : Voice {
     override val bigPictureEventNoteEmptyState = "No note"
     override val bigPictureDialogCloseAction = "Close"
     override val bigPictureWeekViewDescription = "Open week view"
+    override val bigPictureCasesFilterLabel = "Cases"
+    override val bigPictureTagsFilterLabel = "Tags"
+    override val bigPictureFilterCountAll = "All"
+    override val bigPictureAllCasesLabel = "All Cases"
+    override val bigPictureAllTagsLabel = "All tags"
+    override val bigPictureUntaggedOnlyLabel = "Untagged only"
+    override val bigPictureNoCasesSelectedNote = "No Cases selected — the calendar will be empty."
+    override val bigPictureSelectAllAction = "Select all"
+    override val bigPictureClearAllAction = "Clear all"
     override val homeNavLabel = "Home"
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
@@ -728,6 +751,11 @@ object PlainVoice : Voice {
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
+    override fun bigPictureFilterCount(
+        selected: Int,
+        total: Int,
+    ) = "$selected of $total"
+
     override fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
@@ -947,6 +975,15 @@ object IntenseVoice : Voice {
     override val bigPictureEventNoteEmptyState = "No notes were left."
     override val bigPictureDialogCloseAction = "Seal it shut"
     override val bigPictureWeekViewDescription = "Unveil the week"
+    override val bigPictureCasesFilterLabel = "Cases"
+    override val bigPictureTagsFilterLabel = "Tags"
+    override val bigPictureFilterCountAll = "Every one"
+    override val bigPictureAllCasesLabel = "Every Case"
+    override val bigPictureAllTagsLabel = "Every tag"
+    override val bigPictureUntaggedOnlyLabel = "Unmarked only"
+    override val bigPictureNoCasesSelectedNote = "No Cases stand watch — the calendar stays blank."
+    override val bigPictureSelectAllAction = "Mark every one"
+    override val bigPictureClearAllAction = "Clear every mark"
     override val homeNavLabel = "Home"
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
@@ -1184,6 +1221,11 @@ object IntenseVoice : Voice {
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
+    override fun bigPictureFilterCount(
+        selected: Int,
+        total: Int,
+    ) = "$selected of $total"
+
     override fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
@@ -1401,6 +1443,15 @@ object BrightVoice : Voice {
     override val bigPictureEventNoteEmptyState = "No note — mystery!"
     override val bigPictureDialogCloseAction = "Got it, close this"
     override val bigPictureWeekViewDescription = "Peek at the week!"
+    override val bigPictureCasesFilterLabel = "Cases"
+    override val bigPictureTagsFilterLabel = "Tags"
+    override val bigPictureFilterCountAll = "All!"
+    override val bigPictureAllCasesLabel = "All Cases!"
+    override val bigPictureAllTagsLabel = "All tags!"
+    override val bigPictureUntaggedOnlyLabel = "Untagged only!"
+    override val bigPictureNoCasesSelectedNote = "No Cases picked — nothing to show!"
+    override val bigPictureSelectAllAction = "Select all!"
+    override val bigPictureClearAllAction = "Clear all!"
     override val homeNavLabel = "Home"
     override val bigPictureNavLabel = "Big Picture"
     override val settingsNavLabel = "Settings"
@@ -1633,6 +1684,11 @@ object BrightVoice : Voice {
     ) = "$caseName's been going $elapsed — still happening, or did you just forget?"
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
+
+    override fun bigPictureFilterCount(
+        selected: Int,
+        total: Int,
+    ) = "$selected of $total"
 
     override fun hunchNudgeBody(
         caseIcon: String,

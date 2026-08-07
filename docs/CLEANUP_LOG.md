@@ -15,6 +15,88 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/big-picture-filter-redesign
+
+**Scope:** PROGRESS.md's Big Picture filter redesign — `BigPictureGrid.kt`'s always-expanded
+`FilterChipsRow` (two `FlowRow`s of chips permanently above the grid) replaced with two small
+trigger chips ("Cases N of M ▸" / "Tags N of M ▸") that each open the existing `CaseFilterChip`/
+`TagFilterChip` picker in an `InfoDialog`, plus one combined read-only legend row below summarizing
+the current selection with the six collapse states from the validated mockup (both full → nothing;
+zero Cases → static note; otherwise per-dimension "All Cases"/"All tags"/"Untagged only" collapse or
+itemized chips). Includes the confirmed behavior change: zero tags selected now shows untagged
+events only, not nothing. The tag-matching and legend-collapsing logic was extracted into a new
+pure, unit-tested file (`BigPictureFilterState.kt`), following the same rationale as
+`domain.weeksInGrid`/`viewmodel.bigPictureUiState`. Follow-up during review: each picker dialog also
+gained a single bulk `BulkSelectionToggle` button ("Select all"/"Clear all", labelled by the action
+it's about to take) so clearing a long preselected list doesn't require deselecting every chip
+individually — there was no select-all/clear-all precedent anywhere in the app before this.
+
+**Found & fixed:**
+- *Duplication* — `RoundedCornerShape(16.dp)` was repeated as an inline literal at four separate
+  chip call sites (`CaseFilterChip`, `TagFilterChip`, `BrightChip`'s local `shape` val, and the two
+  new composables `FilterTriggerChip`/`CaseGroupChip`) once this pass added the last two. Extracted
+  a single `private val CHIP_SHAPE` and pointed all five sites at it.
+- *KDoc-adjacency ktlint violation* — `BigPictureFilterState.kt`'s first draft had a floating
+  file-purpose KDoc block immediately followed by `isTagVisible`'s own KDoc, which ktlint rejects
+  (a KDoc may not be preceded by a KDoc). Merged the two into one KDoc on `isTagVisible` itself.
+- *Legend edge case* — `bigPictureTagLegend` initially checked `selectedTagNames.isEmpty()` before
+  the full-selection check, so when zero tags exist anywhere in the app (nothing to filter) it would
+  return `UntaggedOnly` instead of the intended vacuous `AllSelected`. Reordered the `when` and added
+  a regression test (`` `bigPictureTagLegend is AllSelected, never UntaggedOnly, when no tags exist
+  at all` ``) locking in the fix — this only matters if a future caller stops guarding the tag
+  trigger/dialog on `allTagNames.isNotEmpty()`, since today's render path never hits it.
+- *Test coverage gap* — `VoiceTest.kt`'s "every voice has a non-blank string for every key" test is a
+  manually-enumerated assertion list, not reflective; the first draft added the 8 new Big Picture
+  filter keys to `Voice.kt`/all three voice objects without adding matching assertions here, so the
+  test passed without ever checking them. Added the 8 missing assertions (existing gaps in this same
+  test predating this pass — several older Big Picture keys are also unchecked — were left alone as
+  out of this pass's scope).
+- *Test coverage gap* — no instrumented test in the app provides `LocalCardDecorationStyle`
+  (confirmed via repo-wide search), so the entire BRIGHT branch of `CaseFilterChip`/`TagFilterChip`/
+  `BrightChip` was already untested by anything but Compose Previews before this pass, and the two
+  new composables (`FilterTriggerChip`, `CaseGroupChip`) would have inherited the same gap. Added a
+  `decorationStyle` parameter to `BigPictureScreenTest`'s `setContent` helper and two new tests
+  (`filterTriggerAndCaseChip_toggleWorksUnderBrightTheme`,
+  `filterLegend_showsAllCasesGroupChipAndUntaggedOnlyChip_underBrightTheme`) exercising the BRIGHT
+  dispatch branch of all four chip composables end-to-end, run and passing on-device.
+- *`BulkSelectionToggle` follow-up walkthrough* — a second full checklist pass specifically against
+  the bulk select-all/clear-all addition (Duplication, Decoupling, Complexity, Dead Code, Naming,
+  Hardcoded Values, Accessibility, Tests) found nothing to fix: `TextButton` reuse instead of a new
+  button style, no pure logic worth extracting (`cases.map{it.id}.toSet()`/`emptySet()` stay inline,
+  same as the pre-existing per-chip toggle logic), both new instrumented tests run and passing
+  on-device. Logged as its own explicit "nothing found" result rather than folded silently into the
+  Scope paragraph, since the first pass at this entry appended that paragraph without actually
+  re-running the checklist against the diff.
+- *Cross-dimension filter bug* — user-reported: `allTagNames` was computed from every Case's events
+  globally, not just currently-selected ones, so the Tags dialog could offer a tag belonging solely
+  to a hidden Case. Selecting that tag while the owning Case was deselected made `isEventVisible`'s
+  `caseId in visibleCaseIds` and `isTagVisible(...)` clauses individually look satisfied but AND to
+  zero events, with no chip or note indicating why the grid had gone empty. Fixed by re-keying
+  `allTagNames`'s `remember` on `visibleCaseIds` too and filtering events to `visibleCaseIds` before
+  collecting tags — a one-line change reusing the existing `remember(allTagNames)` re-keying that
+  already resets `visibleTagNames`, so narrowing Cases now always resets tag selection to "everything
+  in the new scope" rather than leaving a stale, unreachable tag selection behind. Three new
+  instrumented tests: the Tags dialog only offers tags from selected Cases, and the exact reported
+  scenario (narrow tags first, then deselect the Case that owned the only selected tag) now shows the
+  remaining Case's events instead of an empty grid.
+
+**Deferred:**
+- *Chip touch target* — `FilterTriggerChip` reuses `CaseFilterChip`/`TagFilterChip`'s existing
+  10dp/6dp padding formula, so it inherits the same sub-48dp effective tap height already logged as
+  deferred in this file's `feature/bright-theme-soft-glow (Big Picture filter chips)` entry. Not a
+  new regression, not re-logged as a separate item.
+- *Manual on-device exploratory check* — build/lint/unit-test/instrumented-test verification is done
+  (including on an emulator), but actually launching the app and eyeballing the new trigger-chip/
+  dialog/legend UI is the user's side of this workflow, not run here.
+
+**Docs updated:** HODITH_SPEC.md §9 (filter-chip bullet rewritten for the trigger/dialog/legend
+structure, the corrected zero-tags semantics, the bulk toggle, and the Tags dialog's Case-scoping);
+TESTING.md (Big Picture instrumented-coverage row
+updated to match); PROGRESS.md (the "Big Picture filter redesign" section removed now that it's
+shipped, per this file's outstanding-work-only convention).
+
+---
+
 ## feature/bright-theme-soft-glow (Big Picture filter chips)
 
 **Scope:** PROGRESS.md's Bright theme redesign checklist, Big Picture's filter chips —
