@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -87,6 +88,7 @@ import java.util.Locale
  */
 private const val MAX_ICONS_PER_CELL = 3
 private val WEEK_CHEVRON_TOUCH_TARGET = 48.dp
+private val CHIP_SHAPE = RoundedCornerShape(16.dp)
 
 @Composable
 fun BigPictureGrid(
@@ -100,15 +102,26 @@ fun BigPictureGrid(
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     var visibleCaseIds by remember(cases) { mutableStateOf(cases.map { it.id }.toSet()) }
-    val allTagNames = remember(events) { events.flatMap { it.tags }.distinct().sorted() }
+    // Scoped to visibleCaseIds, not every Case's events: a tag only offered by a currently-hidden
+    // Case would otherwise let the Cases and Tags dialogs each look non-empty while their AND
+    // silently shows nothing. Re-scoping also re-keys visibleTagNames back to "everything in the
+    // new scope" whenever Case selection changes, so the reset always moves toward more results,
+    // never toward that empty trap.
+    val allTagNames =
+        remember(events, visibleCaseIds) {
+            events
+                .filter { it.caseId in visibleCaseIds }
+                .flatMap { it.tags }
+                .distinct()
+                .sorted()
+        }
     var visibleTagNames by remember(allTagNames) { mutableStateOf(allTagNames.toSet()) }
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
     var selectedWeek by remember { mutableStateOf<List<LocalDate>?>(null) }
     var showMonthPicker by remember { mutableStateOf(false) }
 
     val isEventVisible: (CalendarEvent) -> Boolean = { event ->
-        event.caseId in visibleCaseIds &&
-            (visibleTagNames.size == allTagNames.size || event.tags.any { it in visibleTagNames })
+        event.caseId in visibleCaseIds && isTagVisible(event.tags, visibleTagNames, allTagNames.size)
     }
 
     val eventsByDay =
@@ -128,17 +141,19 @@ fun BigPictureGrid(
 
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
         Column {
-            FilterChipsRow(
+            FilterSummaryRow(
                 cases = cases,
                 visibleCaseIds = visibleCaseIds,
                 onToggleCase = { caseId ->
                     visibleCaseIds = if (caseId in visibleCaseIds) visibleCaseIds - caseId else visibleCaseIds + caseId
                 },
+                onSetVisibleCaseIds = { visibleCaseIds = it },
                 allTagNames = allTagNames,
                 visibleTagNames = visibleTagNames,
                 onToggleTag = { tag ->
                     visibleTagNames = if (tag in visibleTagNames) visibleTagNames - tag else visibleTagNames + tag
                 },
+                onSetVisibleTagNames = { visibleTagNames = it },
             )
             WeekdayHeader(modifier = Modifier.padding(horizontal = 12.dp))
             LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
@@ -209,31 +224,150 @@ fun BigPictureGrid(
     }
 }
 
-/** Case chips double as a legend and visibility toggle; the tag row below is omitted entirely when no event carries a tag. */
+/**
+ * Two small trigger chips ("Cases N of M ▸" / "Tags N of M ▸") open the full picker in an
+ * [InfoDialog] each; a combined read-only legend row below summarizes the current selection
+ * (spec §9). The tag trigger and its dialog are omitted entirely when no event carries a tag,
+ * same as the old always-expanded tag row.
+ */
 @Composable
-private fun FilterChipsRow(
+private fun FilterSummaryRow(
     cases: List<CalendarCase>,
     visibleCaseIds: Set<Long>,
     onToggleCase: (Long) -> Unit,
+    onSetVisibleCaseIds: (Set<Long>) -> Unit,
     allTagNames: List<String>,
     visibleTagNames: Set<String>,
     onToggleTag: (String) -> Unit,
+    onSetVisibleTagNames: (Set<String>) -> Unit,
 ) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth().padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        cases.forEach { case ->
-            CaseFilterChip(case = case, selected = case.id in visibleCaseIds, onToggle = { onToggleCase(case.id) })
+    val voice = LocalVoice.current
+    var showCasesDialog by remember { mutableStateOf(false) }
+    var showTagsDialog by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterTriggerChip(
+                label = voice.bigPictureCasesFilterLabel,
+                count = filterCountLabel(voice, visibleCaseIds.size, cases.size),
+                onClick = { showCasesDialog = true },
+            )
+            if (allTagNames.isNotEmpty()) {
+                FilterTriggerChip(
+                    label = voice.bigPictureTagsFilterLabel,
+                    count = filterCountLabel(voice, visibleTagNames.size, allTagNames.size),
+                    onClick = { showTagsDialog = true },
+                )
+            }
+        }
+        FilterLegendRow(
+            cases = cases,
+            visibleCaseIds = visibleCaseIds,
+            allTagNames = allTagNames,
+            visibleTagNames = visibleTagNames,
+        )
+    }
+
+    if (showCasesDialog) {
+        InfoDialog(
+            title = voice.bigPictureCasesFilterLabel,
+            onDismiss = { showCasesDialog = false },
+            dismissLabel = voice.bigPictureDialogCloseAction,
+        ) {
+            Column {
+                BulkSelectionToggle(
+                    allSelected = visibleCaseIds.size == cases.size,
+                    onSelectAll = { onSetVisibleCaseIds(cases.map { it.id }.toSet()) },
+                    onClearAll = { onSetVisibleCaseIds(emptySet()) },
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    cases.forEach { case ->
+                        CaseFilterChip(case = case, selected = case.id in visibleCaseIds, onToggle = { onToggleCase(case.id) })
+                    }
+                }
+            }
         }
     }
-    if (allTagNames.isNotEmpty()) {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+    if (showTagsDialog) {
+        InfoDialog(
+            title = voice.bigPictureTagsFilterLabel,
+            onDismiss = { showTagsDialog = false },
+            dismissLabel = voice.bigPictureDialogCloseAction,
         ) {
-            allTagNames.forEach { tag ->
-                TagFilterChip(tag = tag, selected = tag in visibleTagNames, onToggle = { onToggleTag(tag) })
+            Column {
+                BulkSelectionToggle(
+                    allSelected = visibleTagNames.size == allTagNames.size,
+                    onSelectAll = { onSetVisibleTagNames(allTagNames.toSet()) },
+                    onClearAll = { onSetVisibleTagNames(emptySet()) },
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    allTagNames.forEach { tag ->
+                        TagFilterChip(tag = tag, selected = tag in visibleTagNames, onToggle = { onToggleTag(tag) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Flips the whole dialog's selection in one tap — "Select all" when not everything is selected, "Clear all" once it is. */
+@Composable
+private fun BulkSelectionToggle(
+    allSelected: Boolean,
+    onSelectAll: () -> Unit,
+    onClearAll: () -> Unit,
+) {
+    val voice = LocalVoice.current
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        TextButton(onClick = if (allSelected) onClearAll else onSelectAll) {
+            Text(if (allSelected) voice.bigPictureClearAllAction else voice.bigPictureSelectAllAction)
+        }
+    }
+}
+
+private fun filterCountLabel(
+    voice: Voice,
+    selected: Int,
+    total: Int,
+) = if (selected == total) voice.bigPictureFilterCountAll else voice.bigPictureFilterCount(selected, total)
+
+/** Read-only summary of the current selection; collapsing rules are spec §9's (see [bigPictureCaseLegend]/[bigPictureTagLegend]). */
+@Composable
+private fun FilterLegendRow(
+    cases: List<CalendarCase>,
+    visibleCaseIds: Set<Long>,
+    allTagNames: List<String>,
+    visibleTagNames: Set<String>,
+) {
+    val voice = LocalVoice.current
+    val caseLegend = bigPictureCaseLegend(cases, visibleCaseIds)
+    if (caseLegend is CaseLegendState.NoneSelected) {
+        Text(
+            text = voice.bigPictureNoCasesSelectedNote,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        return
+    }
+    val tagLegend = bigPictureTagLegend(allTagNames, visibleTagNames)
+    if (caseLegend is CaseLegendState.AllSelected && tagLegend is TagLegendState.AllSelected) {
+        return
+    }
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        when (caseLegend) {
+            CaseLegendState.AllSelected -> CaseGroupChip(voice.bigPictureAllCasesLabel)
+            is CaseLegendState.Some -> caseLegend.cases.forEach { case -> CaseFilterChip(case = case, selected = true, onToggle = null) }
+            CaseLegendState.NoneSelected -> Unit
+        }
+        if (allTagNames.isNotEmpty()) {
+            when (tagLegend) {
+                TagLegendState.AllSelected -> TagFilterChip(tag = voice.bigPictureAllTagsLabel, selected = true, onToggle = null)
+                is TagLegendState.Some -> tagLegend.tags.forEach { tag -> TagFilterChip(tag = tag, selected = true, onToggle = null) }
+                TagLegendState.UntaggedOnly -> TagFilterChip(tag = voice.bigPictureUntaggedOnlyLabel, selected = true, onToggle = null)
             }
         }
     }
@@ -446,11 +580,12 @@ private fun EventDetailRow(
     }
 }
 
+/** [onToggle] null renders a read-only pill (no click target) — used by the legend row's static chips. */
 @Composable
 private fun CaseFilterChip(
     case: CalendarCase,
     selected: Boolean,
-    onToggle: () -> Unit,
+    onToggle: (() -> Unit)?,
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT -> BrightCaseFilterChip(case = case, selected = selected, onToggle = onToggle)
@@ -461,10 +596,10 @@ private fun CaseFilterChip(
             Row(
                 modifier =
                     Modifier
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(CHIP_SHAPE)
                         .background(background)
-                        .border(1.dp, border, RoundedCornerShape(16.dp))
-                        .clickable(onClick = onToggle)
+                        .border(1.dp, border, CHIP_SHAPE)
+                        .then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -476,11 +611,12 @@ private fun CaseFilterChip(
     }
 }
 
+/** [onToggle] null renders a read-only pill (no click target) — used by the legend row's static chips. */
 @Composable
 private fun TagFilterChip(
     tag: String,
     selected: Boolean,
-    onToggle: () -> Unit,
+    onToggle: (() -> Unit)?,
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT -> BrightTagFilterChip(tag = tag, selected = selected, onToggle = onToggle)
@@ -494,10 +630,10 @@ private fun TagFilterChip(
                 color = content,
                 modifier =
                     Modifier
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(CHIP_SHAPE)
                         .background(background)
-                        .border(1.dp, border, RoundedCornerShape(16.dp))
-                        .clickable(onClick = onToggle)
+                        .border(1.dp, border, CHIP_SHAPE)
+                        .then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
                         .padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
@@ -512,17 +648,17 @@ private fun TagFilterChip(
  * [Modifier.border] on a Box padded out by the same 3dp, which at the mockup's 10%-alpha tint reads
  * as the same soft halo. [CaseFilterChip] and [TagFilterChip] share this rather than each
  * reimplementing the pill+ring chrome, since only their inner content (icon+name vs. tag text)
- * differs.
+ * differs. [onToggle] null renders a read-only pill, same as the other two.
  */
 @Composable
 private fun BrightChip(
     selected: Boolean,
-    onToggle: () -> Unit,
+    onToggle: (() -> Unit)?,
     content: @Composable RowScope.() -> Unit,
 ) {
     val tint = MaterialTheme.colorScheme.primary
     val surface = MaterialTheme.colorScheme.surface
-    val shape = RoundedCornerShape(16.dp)
+    val shape = CHIP_SHAPE
     Box(
         modifier =
             if (selected) {
@@ -540,7 +676,7 @@ private fun BrightChip(
                         width = 1.dp,
                         color = if (selected) tint.copy(alpha = 0.35f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                         shape = shape,
-                    ).clickable(onClick = onToggle)
+                    ).then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -553,7 +689,7 @@ private fun BrightChip(
 private fun BrightCaseFilterChip(
     case: CalendarCase,
     selected: Boolean,
-    onToggle: () -> Unit,
+    onToggle: (() -> Unit)?,
 ) {
     BrightChip(selected = selected, onToggle = onToggle) {
         Text(case.icon)
@@ -569,7 +705,7 @@ private fun BrightCaseFilterChip(
 private fun BrightTagFilterChip(
     tag: String,
     selected: Boolean,
-    onToggle: () -> Unit,
+    onToggle: (() -> Unit)?,
 ) {
     BrightChip(selected = selected, onToggle = onToggle) {
         Text(
@@ -577,6 +713,68 @@ private fun BrightTagFilterChip(
             style = MaterialTheme.typography.labelSmall,
             color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/** Small trigger chip ("Cases N of M ▸") opening the full picker dialog; always the neutral/unselected pill look — the label+count communicate state, not the chip's own selection styling. */
+@Composable
+private fun FilterTriggerChip(
+    label: String,
+    count: String,
+    onClick: () -> Unit,
+) {
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT ->
+            BrightChip(selected = false, onToggle = onClick) {
+                FilterTriggerChipContent(label, count)
+            }
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+            Row(
+                modifier =
+                    Modifier
+                        .clip(CHIP_SHAPE)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CHIP_SHAPE)
+                        .clickable(onClick = onClick)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                FilterTriggerChipContent(label, count)
+            }
+    }
+}
+
+@Composable
+private fun RowScope.FilterTriggerChipContent(
+    label: String,
+    count: String,
+) {
+    Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+    Text(count, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("▸", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+}
+
+/** Case-toned aggregate legend label ("All Cases") — text only (no per-case icon), always read-only. */
+@Composable
+private fun CaseGroupChip(text: String) {
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT ->
+            BrightChip(selected = true, onToggle = null) {
+                Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+            }
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier =
+                    Modifier
+                        .clip(CHIP_SHAPE)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, CHIP_SHAPE)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
     }
 }
 
@@ -607,6 +805,41 @@ private fun FilterChipBrightDarkPreview() {
     HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
         CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT) {
             FilterChipBrightPreviewContent()
+        }
+    }
+}
+
+/** Exercises the trigger-chip-row + read-only legend layout that replaced the old always-expanded [FilterChipBrightPreviewContent] rows. */
+@Composable
+private fun FilterSummaryRowBrightPreviewContent() {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterTriggerChip(label = "Cases", count = "2 of 3", onClick = {})
+            FilterTriggerChip(label = "Tags", count = "All", onClick = {})
+        }
+        FlowRow(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            CaseFilterChip(case = CalendarCase(id = 1, icon = "🏃", name = "Runs"), selected = true, onToggle = null)
+            CaseGroupChip(text = "All tags")
+        }
+    }
+}
+
+@Preview(name = "FilterSummaryRow — Bright light", showBackground = true, widthDp = 380, heightDp = 140)
+@Composable
+private fun FilterSummaryRowBrightLightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT) {
+            FilterSummaryRowBrightPreviewContent()
+        }
+    }
+}
+
+@Preview(name = "FilterSummaryRow — Bright dark", showBackground = true, widthDp = 380, heightDp = 140)
+@Composable
+private fun FilterSummaryRowBrightDarkPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
+        CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT) {
+            FilterSummaryRowBrightPreviewContent()
         }
     }
 }
