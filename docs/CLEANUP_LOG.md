@@ -15,6 +15,43 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## chore/build-warning-cleanup
+
+**Scope:** PROGRESS.md's deferred item on two cosmetic build-time warnings — investigated both
+against upstream issue trackers instead of re-guessing, fixed the one that was fixable, and
+verified both outcomes with real (non-cached, `--rerun-tasks`) Gradle output rather than assuming.
+
+**Found & fixed:**
+- *K2 `@ApplicationContext` "applied to value parameter only" forward-compat notice (KT-73255)* —
+  all four `@Inject constructor(@ApplicationContext private val context: Context)` sites
+  (`Notifier.kt`, `WidgetRefresher.kt`, `ComposeShareImageExporter.kt`,
+  `ContentResolverBackupFileWriter.kt`) declare the parameter as `val`, so it's simultaneously a
+  value parameter and a property-backing declaration — the exact ambiguity K2 warns about. The two
+  `@Provides` module functions (`DatabaseModule.kt`, `DataStoreModule.kt`) use a plain
+  `context: Context` parameter with no `val` and never warned, confirming the diagnosis. Fixed by
+  adding the compiler's own recommended explicit use-site target — `@param:ApplicationContext` —
+  on all four, which keeps the parameter-only semantics Hilt actually needs and removes the
+  ambiguity. Confirmed gone from `compileDebugKotlin --rerun-tasks` output after the change.
+
+**Deferred:**
+- *Moshi kapt-codegen deprecation notice from `hiltJavaCompileDebug`* — root-caused this time
+  instead of leaving it speculative: confirmed via repo-wide search that no `kapt` plugin or
+  `kapt(...)` dependency exists anywhere in the project, and Moshi's codegen is wired exclusively
+  through `ksp(libs.moshi.kotlin.codegen)`. The warning is a known, still-open upstream Dagger/Hilt
+  bug ([google/dagger#4116](https://github.com/google/dagger/issues/4116), filed 2023): Hilt's
+  `hiltJavaCompile` task aggregates all KSP/kapt annotation-processor jars — including Moshi's —
+  onto the javac processor path it builds for its own codegen step, so Moshi's processor gets
+  invoked via javac too and unconditionally prints its kapt-deprecation notice regardless of the
+  fact only KSP is used ([square/moshi#1779](https://github.com/square/moshi/issues/1779)
+  confirms Moshi's processor does this independent of invocation mechanism). Reconfirmed present
+  via `hiltJavaCompileDebug --rerun-tasks` after the K2 fix — nothing in this repo's build config
+  causes or can suppress it; needs an upstream Dagger/Hilt fix.
+
+**Docs updated:** PROGRESS.md (struck the now-resolved/documented checklist item — see this entry
+instead).
+
+---
+
 ## feature/insights-tab-rework
 
 **Scope:** PROGRESS.md's Insights tab rework — dropped the dot timeline entirely; reordered the
