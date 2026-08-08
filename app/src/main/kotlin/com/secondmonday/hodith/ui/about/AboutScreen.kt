@@ -56,13 +56,8 @@ fun AboutScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
-        unlockEvents.collect { event ->
-            val message =
-                when (event) {
-                    is DeveloperModeUnlockEvent.Countdown -> voice.aboutVersionTapCountdown(event.remainingTaps)
-                    DeveloperModeUnlockEvent.Unlocked -> voice.aboutDeveloperModeUnlockedMessage
-                }
-            snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
+        unlockEvents.collect {
+            snackbarHostState.showSnackbar(voice.aboutDeveloperModeUnlockedMessage, duration = SnackbarDuration.Short)
         }
     }
 

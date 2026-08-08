@@ -13,11 +13,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 - [ ] About screen real content (currently wiring-only placeholder copy): version/privacy statement/licenses text, plus a privacy policy hosted on the SecondMonday Studios website and linked from the screen.
 - [ ] Rate the App and Contact Us are placeholder rows (show a "coming soon" snackbar) — need real destinations once there's a Play Store listing and a support channel to point to.
-- [ ] Developer Mode's hidden unlock (tap About's version row 7 times) reuses `AboutSection`'s default layout as the tap target, which may run a little under the 48dp accessibility minimum. Low priority since it's a deliberately undiscoverable power-user gesture, not a primary control, but worth a look if it ever grows more than one dev tool.
-
-## Insights tab
-
-- [ ] Rhythm grid cells convey their count by shading alone — no content description or visible number, unlike the calendar heatmap's day-of-month numbers and the intensity squares' level numbers. Revisit alongside making either grid tappable. The share card's Rhythm mini-section is a faithful mini-copy of this same composable, so it inherits the identical gap — fix both together.
 
 ## App icon
 
