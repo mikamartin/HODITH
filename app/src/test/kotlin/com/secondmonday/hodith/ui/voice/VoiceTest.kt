@@ -133,7 +133,6 @@ class VoiceTest {
             assertTrue(voice.settingsDeleteAllDataCancelAction.isNotBlank())
             assertTrue(voice.aboutScreenTitle.isNotBlank())
             assertTrue(voice.aboutVersionLabel.isNotBlank())
-            assertTrue(voice.aboutVersionTapCountdown(remainingTaps = 3).isNotBlank())
             assertTrue(voice.aboutDeveloperModeUnlockedMessage.isNotBlank())
             assertTrue(voice.homeCaseCounts(todayCount = 0, weekCount = 0).isNotBlank())
             assertTrue(voice.homeCaseCounts(todayCount = 3, weekCount = 12).isNotBlank())

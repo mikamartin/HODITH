@@ -159,10 +159,6 @@ interface Voice {
     val settingsDemoDataLoadedMessage: String
     val aboutScreenTitle: String
     val aboutVersionLabel: String
-
-    /** Countdown feedback for the hidden developer-mode unlock gesture (tapping the version row), once it starts counting down. */
-    fun aboutVersionTapCountdown(remainingTaps: Int): String
-
     val aboutDeveloperModeUnlockedMessage: String
     val aboutPrivacyLabel: String
     val aboutPrivacyBody: String
@@ -650,9 +646,6 @@ object PlainVoice : Voice {
     override val settingsDemoDataLoadedMessage = "Demo data loaded."
     override val aboutScreenTitle = "About"
     override val aboutVersionLabel = "Version"
-
-    override fun aboutVersionTapCountdown(remainingTaps: Int) = "$remainingTaps taps to developer mode"
-
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
@@ -1129,9 +1122,6 @@ object IntenseVoice : Voice {
     override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
     override val aboutScreenTitle = "The record"
     override val aboutVersionLabel = "Version"
-
-    override fun aboutVersionTapCountdown(remainingTaps: Int) = "$remainingTaps more, and the curtain falls"
-
     override val aboutDeveloperModeUnlockedMessage = "The curtain has fallen. What lies behind is yours now."
     override val aboutPrivacyLabel = "What leaves this phone"
     override val aboutPrivacyBody =
@@ -1602,9 +1592,6 @@ object BrightVoice : Voice {
     override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
     override val aboutScreenTitle = "About HODITH!"
     override val aboutVersionLabel = "Version"
-
-    override fun aboutVersionTapCountdown(remainingTaps: Int) = "$remainingTaps more taps and it's unlocked!"
-
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked! Go wild."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody = "Everything stays right here on your phone — no internet, no sneaky data stuff!"

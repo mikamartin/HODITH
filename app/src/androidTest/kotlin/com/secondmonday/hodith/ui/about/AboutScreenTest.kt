@@ -70,21 +70,6 @@ class AboutScreenTest {
     }
 
     @Test
-    fun unlockCountdownEvent_showsSnackbarMessage() {
-        val unlockEvents = MutableSharedFlow<DeveloperModeUnlockEvent>(extraBufferCapacity = 1)
-        setContent(unlockEvents = unlockEvents)
-
-        composeTestRule.runOnIdle { unlockEvents.tryEmit(DeveloperModeUnlockEvent.Countdown(remainingTaps = 2)) }
-
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule
-                .onAllNodesWithText(PlainVoice.aboutVersionTapCountdown(remainingTaps = 2))
-                .fetchSemanticsNodes()
-                .isNotEmpty()
-        }
-    }
-
-    @Test
     fun unlockedEvent_showsSnackbarMessage() {
         val unlockEvents = MutableSharedFlow<DeveloperModeUnlockEvent>(extraBufferCapacity = 1)
         setContent(unlockEvents = unlockEvents)
