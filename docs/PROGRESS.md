@@ -18,8 +18,4 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 - [ ] Dark spot visible on the circle/handle at larger icon sizes — the invisible lens ring fix addressed a related issue, but this artifact remains at bigger resolutions.
 
-## Testing & tooling
-
-- [ ] Two cosmetic build-time warnings, neither worth chasing on its own: a "Kapt support in Moshi Kotlin Code Gen is deprecated" notice from `hiltJavaCompileDebug` even though Moshi is wired in via `ksp()` only (KSP-generated adapters work correctly; likely Moshi's processor warning whenever it's discoverable on any annotation-processing-adjacent classpath, regardless of which mechanism invokes it); and a K2 "`@ApplicationContext` applied to value parameter only" forward-compat notice (KT-73255) on `Notifier.kt`/`WidgetRefresher.kt`/`ComposeShareImageExporter.kt`. Worth a look if either ever escalates from warning to error on a future Kotlin/Hilt bump.
-
 Each significant change ends with a CLEANUP_CHECKLIST.md pass logged in CLEANUP_LOG.md, a TESTING.md check, and this file updated.

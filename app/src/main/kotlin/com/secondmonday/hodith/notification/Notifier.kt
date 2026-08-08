@@ -40,7 +40,7 @@ interface Notifier {
 class SystemNotifier
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : Notifier {
         override fun notifyTriggerFired(
             case: CaseEntity,

@@ -23,7 +23,7 @@ private const val SHARE_CACHE_DIR_NAME = "shared_cards"
 class ComposeShareImageExporter
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : ShareImageExporter {
         override suspend fun exportToShareUri(
             bitmap: Bitmap,

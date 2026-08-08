@@ -19,7 +19,7 @@ interface WidgetRefresher {
 class GlanceWidgetRefresher
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : WidgetRefresher {
         // Enqueues rather than calling refreshAllWidgets(context) directly — see
         // WidgetRefreshWorker's doc for why a refresh triggered from the same widget's own

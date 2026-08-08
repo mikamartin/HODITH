@@ -10,7 +10,7 @@ import javax.inject.Inject
 class ContentResolverBackupFileWriter
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : BackupFileWriter {
         override fun openOutputStream(uri: Uri): OutputStream? = context.contentResolver.openOutputStream(uri)
 
