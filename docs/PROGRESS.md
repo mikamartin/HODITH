@@ -11,8 +11,7 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 ## Settings
 
-- [ ] About screen real content (currently wiring-only placeholder copy): version/privacy statement/licenses text, plus a privacy policy hosted on the SecondMonday Studios website and linked from the screen.
-- [ ] Rate the App and Contact Us are placeholder rows (show a "coming soon" snackbar) — need real destinations once there's a Play Store listing and a support channel to point to.
+- [ ] Rate the App is still a placeholder row (shows a "coming soon" snackbar) — needs a real destination once there's a Play Store listing.
 
 ## App icon
 

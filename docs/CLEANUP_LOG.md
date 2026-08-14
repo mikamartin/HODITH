@@ -15,6 +15,41 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feature/about-contact-content
+
+**Scope:** PROGRESS.md's "About screen real content" and "Contact Us" placeholder items — unblocked
+by a hosted privacy policy URL and a contact email address the user supplied. Added an app
+idea/description section (sourced from HODITH_SPEC.md §1, not the marketing landing page) as the
+About screen's first row; a real Licenses body naming the Apache License 2.0 (all runtime deps share
+that one license, so no per-library generated screen was needed); a "read the full policy" link that
+opens the real hosted privacy policy in the browser; and wired Settings' Contact Us row to a real
+`mailto:` intent instead of a "coming soon" snackbar. Rate the App stays a placeholder — no Play
+Store listing yet.
+
+**Found & fixed:**
+- No existing pattern for opening an external app from within the app (`ACTION_VIEW`/`ACTION_SENDTO`)
+  — the closest precedent was `NotificationsDeniedBanner`'s `LocalContext` + `Intent` +
+  `context.startActivity` shape for opening system Settings. Reused that shape rather than inventing
+  a new abstraction for two call sites.
+- New `Voice` keys (`aboutIdeaLabel`/`aboutIdeaBody`, `aboutPrivacyPolicyLinkLabel`) added to all
+  three voice implementations in this same commit, and the placeholder `aboutLicensesBody` replaced
+  with real copy in all three, per the Voice layer rule.
+- New/updated instrumented tests ran clean on an emulator (API 36): 5/5 `AboutScreenTest`, 19/19
+  `SettingsScreenTest`.
+
+**Deferred:**
+- Whether the actual `Intent` resolves to a browser/email app (rather than just the callback firing)
+  isn't unit-testable here — no Espresso-Intents dependency in the repo, and adding one for two link
+  taps felt like more tooling than the feature warranted. Added to MANUAL_TEST_PLAN.md's new "About &
+  Contact" section instead.
+
+**Docs updated:** PROGRESS.md (struck both resolved items, left Rate the App as the sole open Settings
+item), HODITH_SPEC.md §14 (About/Settings rows now describe the idea section, privacy policy link,
+and wired Contact Us), TESTING.md (Compose UI and Compose UI — About rows reflect the new content and
+callbacks), MANUAL_TEST_PLAN.md (new "About & Contact" section for the two external-intent flows).
+
+---
+
 ## chore/build-warning-cleanup
 
 **Scope:** PROGRESS.md's deferred item on two cosmetic build-time warnings — investigated both
