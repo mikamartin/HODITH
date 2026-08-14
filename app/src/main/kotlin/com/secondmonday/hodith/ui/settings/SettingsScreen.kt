@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.ui.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -35,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -61,6 +64,7 @@ import kotlinx.coroutines.launch
 
 private const val BACKUP_FILE_NAME = "hodith-backup.json"
 private const val BACKUP_MIME_TYPE = "application/json"
+private const val CONTACT_EMAIL_URI = "mailto:hello@secondmondaystudios.com"
 
 @Composable
 fun SettingsRoute(
@@ -69,6 +73,7 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val exportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE)) { uri ->
             uri?.let(viewModel::exportData)
@@ -90,6 +95,9 @@ fun SettingsRoute(
         onExportClick = { exportLauncher.launch(BACKUP_FILE_NAME) },
         onImportConfirm = { importLauncher.launch(arrayOf("*/*")) },
         onOpenAbout = onOpenAbout,
+        onContactUs = {
+            context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse(CONTACT_EMAIL_URI)))
+        },
         modifier = modifier,
     )
 }
@@ -106,6 +114,7 @@ fun SettingsScreen(
     onExportClick: () -> Unit,
     onImportConfirm: () -> Unit,
     onOpenAbout: () -> Unit,
+    onContactUs: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -187,7 +196,7 @@ fun SettingsScreen(
             Plank(voice.settingsSupportSectionLabel) {
                 ActionRow(voice.aboutScreenTitle, onClick = onOpenAbout)
                 ActionRow(voice.settingsRateAppButton, onClick = { showComingSoonSnackbar() })
-                ActionRow(voice.settingsContactUsButton, onClick = { showComingSoonSnackbar() })
+                ActionRow(voice.settingsContactUsButton, onClick = onContactUs)
             }
 
             Plank(voice.settingsAppearanceSectionLabel) {

@@ -158,10 +158,13 @@ interface Voice {
     val settingsLoadDemoDataButton: String
     val settingsDemoDataLoadedMessage: String
     val aboutScreenTitle: String
+    val aboutIdeaLabel: String
+    val aboutIdeaBody: String
     val aboutVersionLabel: String
     val aboutDeveloperModeUnlockedMessage: String
     val aboutPrivacyLabel: String
     val aboutPrivacyBody: String
+    val aboutPrivacyPolicyLinkLabel: String
     val aboutLicensesLabel: String
     val aboutLicensesBody: String
     val hunchTabNoneTitle: String
@@ -645,13 +648,21 @@ object PlainVoice : Voice {
     override val settingsLoadDemoDataButton = "Load demo data"
     override val settingsDemoDataLoadedMessage = "Demo data loaded."
     override val aboutScreenTitle = "About"
+    override val aboutIdeaLabel = "What HODITH is"
+    override val aboutIdeaBody =
+        "Sometimes a thought hits you: this always happens — or this never happens anymore. " +
+            "HODITH lets you check. Open a Case on what you've noticed, log it as life happens, " +
+            "and see what the data actually says."
     override val aboutVersionLabel = "Version"
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
         "Everything stays on your phone. HODITH has no network access and sends nothing anywhere."
+    override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy"
     override val aboutLicensesLabel = "Licenses"
-    override val aboutLicensesBody = "Open-source license details coming soon."
+    override val aboutLicensesBody =
+        "HODITH is built with open-source libraries — AndroidX Jetpack, Hilt, Room, Moshi, Glance, " +
+            "WorkManager, and Kotlin Coroutines — each licensed under the Apache License 2.0."
     override val hunchTabNoneTitle = "No hunch yet"
     override val hunchTabNoneBody =
         "Got a feeling about how often this happens? Add a Hunch to see how it compares to reality."
@@ -1121,13 +1132,20 @@ object IntenseVoice : Voice {
     override val settingsLoadDemoDataButton = "Conjure phantom cases"
     override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
     override val aboutScreenTitle = "The record"
+    override val aboutIdeaLabel = "The premise"
+    override val aboutIdeaBody =
+        "A thought lands: this always happens. This never happens anymore. You don't actually know. " +
+            "Open a Case. Log the evidence. Let the Verdict speak."
     override val aboutVersionLabel = "Version"
     override val aboutDeveloperModeUnlockedMessage = "The curtain has fallen. What lies behind is yours now."
     override val aboutPrivacyLabel = "What leaves this phone"
     override val aboutPrivacyBody =
         "Nothing. No network, no signal sent outward — every case stays sealed here."
+    override val aboutPrivacyPolicyLinkLabel = "Read the full accounting"
     override val aboutLicensesLabel = "Borrowed bones"
-    override val aboutLicensesBody = "The debts owed to other code will be listed here, in time."
+    override val aboutLicensesBody =
+        "This app stands on borrowed bones: AndroidX, Hilt, Room, Moshi, Glance, WorkManager, and " +
+            "Kotlin Coroutines — each bound by the Apache License 2.0."
     override val hunchTabNoneTitle = "No claim has been made"
     override val hunchTabNoneBody =
         "You have watched this case, but sworn nothing about it. State a hunch, and the record will one day answer."
@@ -1591,12 +1609,19 @@ object BrightVoice : Voice {
     override val settingsLoadDemoDataButton = "Load some pretend chaos!"
     override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
     override val aboutScreenTitle = "About HODITH!"
+    override val aboutIdeaLabel = "What's this app about?"
+    override val aboutIdeaBody =
+        "Ever catch yourself thinking 'this ALWAYS happens'? HODITH helps you find out if that's " +
+            "actually true! Log a Case, track it over time, and see what the data says!"
     override val aboutVersionLabel = "Version"
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked! Go wild."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody = "Everything stays right here on your phone — no internet, no sneaky data stuff!"
+    override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy!"
     override val aboutLicensesLabel = "Licenses"
-    override val aboutLicensesBody = "The nerdy open-source credits are coming soon!"
+    override val aboutLicensesBody =
+        "HODITH is built on awesome open-source stuff — AndroidX Jetpack, Hilt, Room, Moshi, Glance, " +
+            "WorkManager, and Kotlin Coroutines — all under the Apache License 2.0!"
     override val hunchTabNoneTitle = "No guess yet!"
     override val hunchTabNoneBody = "Got a gut feeling about how often this happens? Make a guess and see if reality agrees."
     override val hunchAddButtonLabel = "Make a guess!"

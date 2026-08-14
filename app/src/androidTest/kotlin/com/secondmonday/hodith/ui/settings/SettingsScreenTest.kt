@@ -45,6 +45,7 @@ class SettingsScreenTest {
         onExportClick: () -> Unit = {},
         onImportConfirm: () -> Unit = {},
         onOpenAbout: () -> Unit = {},
+        onContactUs: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
@@ -59,6 +60,7 @@ class SettingsScreenTest {
                     onExportClick = onExportClick,
                     onImportConfirm = onImportConfirm,
                     onOpenAbout = onOpenAbout,
+                    onContactUs = onContactUs,
                 )
             }
         }
@@ -89,17 +91,13 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun contactUsButton_showsComingSoonSnackbar() {
-        setContent()
+    fun contactUsButton_invokesOnContactUs() {
+        var contacted = false
+        setContent(onContactUs = { contacted = true })
 
         composeTestRule.onNodeWithText(PlainVoice.settingsContactUsButton).performClick()
 
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule
-                .onAllNodesWithText(PlainVoice.comingSoonPlaceholder)
-                .fetchSemanticsNodes()
-                .isNotEmpty()
-        }
+        assertEquals(true, contacted)
     }
 
     @Test

@@ -29,10 +29,16 @@ class AboutScreenTest {
         onBack: () -> Unit = {},
         unlockEvents: MutableSharedFlow<DeveloperModeUnlockEvent> = MutableSharedFlow(extraBufferCapacity = 1),
         onVersionTapped: () -> Unit = {},
+        onOpenPrivacyPolicy: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                AboutScreen(onBack = onBack, unlockEvents = unlockEvents, onVersionTapped = onVersionTapped)
+                AboutScreen(
+                    onBack = onBack,
+                    unlockEvents = unlockEvents,
+                    onVersionTapped = onVersionTapped,
+                    onOpenPrivacyPolicy = onOpenPrivacyPolicy,
+                )
             }
         }
     }
@@ -42,9 +48,12 @@ class AboutScreenTest {
     fun showsVersionPrivacyAndLicensesSections() {
         setContent()
 
+        composeTestRule.onNodeWithText(PlainVoice.aboutIdeaLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.aboutIdeaBody).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutVersionLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutPrivacyLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutPrivacyBody).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.aboutPrivacyPolicyLinkLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutLicensesLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutLicensesBody).assertExists()
     }
@@ -65,6 +74,16 @@ class AboutScreenTest {
         setContent(onVersionTapped = { tapCount++ })
 
         composeTestRule.onNodeWithText(PlainVoice.aboutVersionLabel).performClick()
+
+        assertEquals(1, tapCount)
+    }
+
+    @Test
+    fun privacyPolicyLink_tapInvokesOnOpenPrivacyPolicy() {
+        var tapCount = 0
+        setContent(onOpenPrivacyPolicy = { tapCount++ })
+
+        composeTestRule.onNodeWithText(PlainVoice.aboutPrivacyPolicyLinkLabel).performClick()
 
         assertEquals(1, tapCount)
     }

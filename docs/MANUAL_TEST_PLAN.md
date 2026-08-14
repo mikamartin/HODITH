@@ -120,6 +120,19 @@ bitmap capture, the system share sheet, and how the image looks once it lands so
 5. **Section checklist choices are reflected in the shared image**, not just the in-app preview —
    toggle a couple of sections off/on and confirm the exported image matches what was checked.
 
+## About & Contact
+
+The callbacks themselves (tapping the row/link invokes the right function) are instrumented-tested
+(`AboutScreenTest`, `SettingsScreenTest`) — what's left is that the real `Intent` each callback
+builds actually resolves to the right external app, which no instrumented test in this repo can
+assert (no Espresso-Intents dependency; see TESTING.md).
+
+1. **Privacy policy link.** On the About screen, tap "Read the full privacy policy" (wording varies
+   by voice) — the device's browser opens directly to the hosted privacy policy page, not a blank tab
+   or an error.
+2. **Contact Us.** In Settings' Support section, tap Contact Us — an email app chooser (or the
+   device's default mail app) opens with the developer address pre-filled as the recipient.
+
 ## Data & backup
 
 The round-trip logic itself (schema-version rejection, malformed-JSON rejection, all-or-nothing

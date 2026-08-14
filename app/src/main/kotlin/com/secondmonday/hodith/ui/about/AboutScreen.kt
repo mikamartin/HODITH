@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.ui.about
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,11 +19,13 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.secondmonday.hodith.BuildConfig
@@ -30,16 +34,22 @@ import com.secondmonday.hodith.viewmodel.AboutViewModel
 import com.secondmonday.hodith.viewmodel.DeveloperModeUnlockEvent
 import kotlinx.coroutines.flow.Flow
 
+private const val PRIVACY_POLICY_URL = "https://secondmondaystudios.com/privacy/hodith.html"
+
 @Composable
 fun AboutRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AboutViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     AboutScreen(
         onBack = onBack,
         unlockEvents = viewModel.unlockEvents,
         onVersionTapped = viewModel::onVersionTapped,
+        onOpenPrivacyPolicy = {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)))
+        },
         modifier = modifier,
     )
 }
@@ -50,6 +60,7 @@ fun AboutScreen(
     onBack: () -> Unit,
     unlockEvents: Flow<DeveloperModeUnlockEvent>,
     onVersionTapped: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -83,12 +94,18 @@ fun AboutScreen(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
+            AboutSection(label = voice.aboutIdeaLabel, body = voice.aboutIdeaBody)
             AboutSection(
                 label = voice.aboutVersionLabel,
                 body = BuildConfig.VERSION_NAME,
                 modifier = Modifier.clickable(onClick = onVersionTapped),
             )
-            AboutSection(label = voice.aboutPrivacyLabel, body = voice.aboutPrivacyBody)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                AboutSection(label = voice.aboutPrivacyLabel, body = voice.aboutPrivacyBody)
+                TextButton(onClick = onOpenPrivacyPolicy) {
+                    Text(voice.aboutPrivacyPolicyLinkLabel)
+                }
+            }
             AboutSection(label = voice.aboutLicensesLabel, body = voice.aboutLicensesBody)
         }
     }
