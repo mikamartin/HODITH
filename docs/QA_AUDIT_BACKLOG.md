@@ -7,5 +7,9 @@ number, so it stays findable), and replace its Work Item's Steps with a short, d
 what was actually done, marked `(done)`. Once every item from a pass is resolved this way, the
 file is emptied back to this shell, ready for the next audit to repopulate.
 
-**No open findings.** No QA audit has run yet — run the first pass per QA_AUDIT_RULES.md to
-populate this file.
+**No open findings here.** The first audit pass has run, but its findings were written into
+[PROGRESS.md](PROGRESS.md) instead of this file — as items in its Testing and Shared UI logic
+sections, in that file's own Branch/Complexity/Priority format — so the outstanding-work roadmap
+stays in one place. Look there, not here. The pass's doc-hygiene fixes landed directly in
+TESTING.md and HODITH_SPEC.md §11; its mutation spot checks (QA_AUDIT_RULES.md §2) are the one
+section still outstanding, tracked in PROGRESS.md as `chore/qa-audit-mutation-checks`.

@@ -199,8 +199,8 @@ The calendar heatmap (§9) follows the tag breakdown as the tab's final section.
 ### Triggers (user-configured, about the event)
 
 - Evaluated (a) immediately on every event insert/edit/delete, and (b) by a WorkManager periodic job (~every 6 h) so `SILENT_FOR` triggers can fire without any logging happening.
-- `AT_LEAST`: fires when the rolling-window count reaches threshold; re-arms when it drops below.
-- `SILENT_FOR`: fires when the gap since the last event reaches n days; re-arms on the next event.
+- `AT_LEAST`: fires when the rolling-window count reaches threshold; re-arms when it drops below. Requires a `windowDays` — the kind has no meaning without one, so the create sheet always supplies it.
+- `SILENT_FOR`: fires when the gap since the last event reaches n days; re-arms on the next event. A Case with no events yet counts from its creation instead, so a never-logged Case still fires.
 - Notification content is voice-flavoured and factual: icon + count + case name + "tap to see". Information, not advice.
 
 ### Check-ins (app-initiated, about the data)

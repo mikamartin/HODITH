@@ -10,10 +10,11 @@ Sequencing matters more than usual here — several items collide in the same fi
 
 1. **Data & migrations** (both items, one decision session) — they gate the ship checklist and price every HODITH_SPEC §17 item. They are also the only items on this list that get *more* expensive with every day of real user data.
 2. **Auto-backup disclosure fix** — the app currently makes a privacy claim that isn't accurate. Small, and shouldn't wait behind the full toggle feature.
-3. **First QA audit pass** (`chore/qa-audit`) — the Insights coverage gap below is exactly the kind of finding that audit produces; run it before patching that one gap in isolation, so sibling gaps surface in the same sweep.
+3. **The QA audit's own findings** — the audit has run (all sections but the mutation spot checks), so the Testing and Shared UI logic sections below are no longer speculative. Take `refactor/extract-ui-input-logic` early: it's the only audit finding that contains a live user-facing bug, and it touches the log sheet, which several other items also touch.
 4. Small fixes: Case Detail tab order, dialog spacing, close-action copy, app icon.
 5. Share card sizing, then the cloud-backup toggle.
-6. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
+6. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
+7. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
 
 ## Needs design / product-owner input
 
@@ -73,6 +74,22 @@ Both need settling before the first release to real users — cheap decisions no
 
   **Tests** — `CaseDetailScreenTest` and `CaseDetailInsightsTabTest` both select tabs by label text (`onNodeWithText(PlainVoice.caseDetailInsightsTabLabel).performClick()`), so they're order-agnostic and should pass unchanged. That's a good sign, but it also means nothing currently pins the default tab: **add a test asserting which tab is selected on open, and that the FAB is present there** — otherwise this change can silently alter the landing tab and the suite stays green. Small, and it's the one behaviour this item actually risks.
 
+## Shared UI logic
+
+- [ ] Pure transformations living inline in composables, untested and independently reimplemented — the QA audit's §5 sweep. Four sites, all the same class of drift the `BigPictureFilterState`/`AcronymText` extractions were meant to fix:
+  - **Digit filtering, twice, with different rules.** `LogDetailSheet`'s duration field does `it.filter(Char::isDigit)` uncapped; `TriggersScreen`'s custom-window field does `it.filter(Char::isDigit).take(3)`. The uncapped one is a live input bug, not just a test gap: type enough digits and `computeEndedAt`'s `toIntOrNull()` overflows to null, so the event saves with **no duration and no feedback**.
+  - **Tag-name normalization, three times.** `LogDetailSheet`'s `onAddTag` trims and dedupes **case-sensitively**; `LogDetailViewModel.tagDiff` trims and drops blanks; `RoomHodithRepository.addTagToEvent` trims again. The `tags` table has a unique index on `name` and Case Edit's duplicate-name check is case-insensitive, so the sheet is the odd one out — it will happily show "Coffee" and "coffee" as two chips.
+  - **Tag suggestion filtering** in `TagsSection` — pure, and reachable only through the instrumented sheet tests.
+  - **Future-day/week trimming** inline in `BigPictureGrid` (three separate expressions: the week filter, the day-cell gate, the week-dialog's `validDays`), while the same rule in `InsightsTabState`'s `heatmapMonths` is a plain function with unit tests.
+
+  *Branch: `refactor/extract-ui-input-logic` · Complexity: M · Priority: Medium*
+
+  **Plan** — follow the `BigPictureFilterState.kt`/`AcronymText.kt` precedent: one plain-Kotlin function per transformation, filed next to its screen, with a direct unit test. Four extractions, in that order — the digit filter (shared, with an explicit cap) is the one carrying the real bug, so it's worth landing even if the rest slips.
+
+  **Tests** — new JVM tests per extracted function, and each gets the same one-mutation spot check the audit's §2 sample gets before it counts as validated rather than merely written. The existing instrumented tests should pass unchanged, since none of this changes rendered output — except the duration cap, which is a real behaviour change and needs its own test.
+
+  **Concern** — two of these are behaviour changes wearing a refactor's clothes. Decide the duration cap's value first (it's a product question: what's the longest duration worth typing?), and confirm case-insensitive tag matching is actually wanted — it matches the unique index and Case Edit, but it means typing "Coffee" against an existing "coffee" silently resolves to the existing tag rather than creating what the user typed.
+
 ## Big Picture
 
 - [ ] Cases/Tags filter dialog (`BigPictureGrid.kt`'s `InfoDialog` + `BulkSelectionToggle`) has a visually large gap between the dialog title and the Select all/Clear all row — it's Material3 `AlertDialog`'s default title→content spacing, not a custom Spacer HODITH added. `InfoDialog` is shared across every Big Picture info dialog (month/day/week detail too, not just Cases/Tags), so a fix needs to check it doesn't regress those.
@@ -107,13 +124,25 @@ Both need settling before the first release to real users — cheap decisions no
 
 ## Testing
 
-- [ ] **Run the first QA audit pass.** [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md) documents a whole-suite audit procedure and [QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md) is still its empty shell — no pass has run. The Insights gap below was found by hand and is precisely the shape of finding that audit is designed to produce systematically, which suggests there are siblings in other tabs that nobody has looked for.
+- [ ] **Finish the QA audit's mutation spot checks.** [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md) §1 and §3–§7 have run — their findings are the items in this section and in Shared UI logic, and their doc-hygiene fixes landed in TESTING.md and HODITH_SPEC.md §11. §2 (mutation spot checks) is the one section that can't run read-only: it needs source edits plus a sequential `./gradlew test` per sampled file, so it is still outstanding. Findings go here rather than into [QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md), which now just points back at this file — the outstanding-work roadmap stays in one place.
 
-  *Branch: `chore/qa-audit` · Complexity: M · Priority: Medium-High — before the item below*
+  *Branch: `chore/qa-audit-mutation-checks` · Complexity: M · Priority: Medium*
 
-  **Plan** — run the documented procedure as written (default mode: findings become proposed follow-up branches in the backlog, not inline fixes). Expect the Insights item below to come back as one of its findings, priced alongside whatever else it turns up; that's a better basis for deciding what to fix than patching one known gap in isolation.
+  **Plan** — sample is pre-selected so it can be picked up without re-deriving: `VerdictEngineTest`, `TriggerEngineTest`, `CheckInTest` (core mechanics), `StatsEngineTest`, `InsightsEngineTest` (heaviest pure-math surfaces), `NotificationEvaluatorTest` (the only orchestration tested against Fakes), `LogDetailViewModelTest` (the largest ViewModel suite), and one Room-instrumented DAO class. One mutation at a time — flipped boolean, off-by-one on a boundary, swapped operator — run that file's tests, confirm a clear failure, revert before the next.
 
-  **Concern** — none, beyond the audit being a real time cost. It is the only item here that reduces uncertainty about the *rest* of the list.
+  **Known target** — `evaluateAtLeast`'s rolling-window formula (`now - windowDays * MILLIS_PER_DAY`) exists twice: `TriggerEngine.evaluateAtLeast` computes it to *count* the events and `NotificationEvaluator.evaluateTriggers` recomputes it to *fetch* them. Change one and the fetch and the count disagree silently; the pre-filter also partly masks a mutation to the counter, which is the duplicated-code-path case §2 warns about. It's a few lines to collapse into one shared helper, and it *is* the finding, so fix it on this branch rather than spinning up another.
+
+  **Concern** — `git status` must be clean before committing; every mutation is transient. And never run Gradle tasks in parallel (CLAUDE.md) — the per-file test runs are strictly sequential, which is most of this item's time cost.
+
+- [ ] Instrumented suite hygiene: two audit findings in `app/src/androidTest`, both test-only, no production risk. (1) **Copy-pasted helpers** — `WidgetConfigureTestFixtures.kt` is the shared-fixture precedent for the widget-configure tier, but `renderedView()` is redefined in three widget test classes, and `collectText()`, `findClickableAncestorOfText()` and `bindAndRenderSingleCaseWidget()` in two each, plus `grantPostNotificationsPermission()` in both notification classes. (2) **Two tests that pass even when their setup click misses** — `BigPictureScreenTest.deselectingACase_resetsStaleTagSelection_insteadOfEmptyingTheGrid` narrows tags to "solo" and *then* deselects Tea with no assertion in between, so if the first click no-ops the end state still shows "work note" and the test is green; `bulkToggle_selectAll_reselectsEveryTag` has the identical shape.
+
+  *Branch: `test/instrumented-suite-hygiene` · Complexity: M · Priority: Medium*
+
+  **Plan** — extend `WidgetConfigureTestFixtures.kt` (or add a sibling render-support file) with the shared widget helpers and import them from `ListWidgetConfigureFlowTest`, `SingleCaseWidgetConfigureFlowTest`, `WidgetActionsFlowTest` and `WidgetChromeNavigationTest`; move `grantPostNotificationsPermission()` into a shared notification-test helper. Separately, add the missing intermediate assertion to the two BigPicture tests, then sweep the rest of `BigPictureScreenTest`/`SettingsScreenTest`/`SharePreviewScreenTest` for the same shape — the structural review flagged those three as where multi-step sequences cluster.
+
+  **Tests** — this *is* test work; verification is the same suite still passing, so it needs a real `connectedDebugAndroidTest` run rather than read-only review.
+
+  **Concern** — the added assertions have to be able to fail. Assert the *effect* of the setup click (the chip's state flipping, a filtered row disappearing), not merely that the node it targeted still exists — the latter passes just as happily on a missed tap.
 
 - [ ] Insights instrumented coverage gap: pure-Kotlin `StatsEngineTest`/`InsightsEngineTest`/`InsightsTabStateTest` (54 tests) already assert exact computed values for every Insights metric, but the instrumented `CaseDetailInsightsTabTest` (13 tests) is almost entirely card visibility/gating (`assertExists`/`assertDoesNotExist`) — only 2 tests read actual rendered text (the trend sentence, the gap-shift note). No instrumented test reads the Duration/Intensity/Frequency cards' displayed numbers off the real UI against known seeded data, so a wiring/formatting bug between correct state and the rendered `Text` wouldn't be caught by anything today.
 
@@ -125,11 +154,15 @@ Both need settling before the first release to real users — cheap decisions no
 
   **Concern** — `CaseDetailInsightsTabTest`'s class comment currently justifies the gap ("the underlying math is already covered exhaustively... on the JVM"). That reasoning is what produced the hole — correct math plus a wiring bug still ships wrong numbers — so the comment has to be corrected in the same commit, or the gap grows back.
 
-- [ ] `VoiceTest`'s completeness check is hand-maintained and rots silently. `every voice has a non-blank string for every key` is roughly 250 individually written `assertTrue(voice.someKey.isNotBlank())` lines. A new Voice key added without a matching line is simply uncovered, and nothing fails — which makes the test look like a guarantee it isn't. Replace the manual list with reflection over the `Voice` interface's properties (handling the parameterised `fun` keys separately), so every key is covered by construction.
+  **Audit note** — the QA audit's structural review confirmed this one and found no sibling of the same shape elsewhere: the other screen suites do read rendered values, so this is an isolated gap rather than a pattern to sweep.
 
-  *Branch: `test/voice-completeness-by-reflection` · Complexity: S · Priority: Medium*
+- [ ] `VoiceTest`'s completeness check is hand-maintained and has already rotted. `every voice has a non-blank string for every key` is a hand-written list of `assertTrue(voice.someKey.isNotBlank())` lines, and the QA audit measured what it actually reaches: **223 of the `Voice` interface's 292 keys — 69 are uncovered.** Not a future risk; whole surfaces are missing today. All 25 Triggers keys, all 7 About keys, all 10 Settings import/export keys, every widget-configure key, plus `bigPictureDialogCloseAction` and both notification action labels. Replace the manual list with reflection over the `Voice` interface's properties (handling the parameterised `fun` keys separately), so every key is covered by construction.
 
-  **Rationale for adding it** — surfaced while sizing the Voice phrasing review above. The Voice layer's one hard rule (CLAUDE.md: every string in all three voices, same commit) is currently enforced only by the compiler for *existence* and by a manually maintained list for *content*. The compiler half is solid; the manual half is the one that silently degrades, and it degrades fastest exactly during a large copy pass — so this is worth landing *before* the phrasing audit, not after.
+  *Branch: `test/voice-completeness-by-reflection` · Complexity: S · Priority: Medium-High — gates the Voice phrasing review*
+
+  **Rationale for adding it** — surfaced while sizing the Voice phrasing review above, then quantified by the QA audit. The Voice layer's one hard rule (CLAUDE.md: every string in all three voices, same commit) is enforced only by the compiler for *existence* and by this list for *content*. The compiler half is solid; the manual half degrades fastest exactly during a large copy pass — so this lands *before* the phrasing audit, not after.
+
+  **Tests** — beyond the reflection rewrite, add a cross-voice-uniqueness check: no key returning an identical string in all three voices, which catches the copy-paste that a compiler-satisfying "add the key to all three" pass invites. Nothing asserts that today. Expect the reflection rewrite to fail on first run against the 69 keys above — that's the point, not a defect. Add the corresponding row to TESTING.md's Voice line once both land.
 
 ## Settings
 
