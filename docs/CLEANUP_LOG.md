@@ -15,6 +15,51 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## docs/future-work-triage
+
+**Scope:** Audit of HODITH_SPEC §17's twelve deferred items against the code — which are already
+built, which rest on a premise that no longer holds, and what each would cost to pick up. Each
+surviving item gained a Status/Effort/Touches/Lean trailer, the costs common to nearly all of them
+moved into a preamble, two items were dropped outright on the product owner's call, and the two
+findings that are pre-release work rather than backlog moved to PROGRESS.md. Docs only — nothing
+under `app/` changed.
+
+**Found & fixed:**
+- Three items' descriptions no longer matched the code. "Tag-level insights" claimed work that had
+  shipped (§10's tag breakdown, §9's tag filter); retitled to "Tag-scoped verdicts & triggers", the
+  part that's actually open. The charting-library item's trip-wire named zoom, which §9 retired by
+  design; narrowed to the one surviving trigger. "Confirmed-quiet checkpoints" read as though the
+  data model were ready — `CaseEntity.lastCheckInAt` exists but keeps a single overwritten re-arm
+  anchor that `VerdictEngine` never reads; the trailer now says so.
+- The §17 heading claimed "data model stays ready", which is false for the three items needing a new
+  entity or column. Dropped from the heading.
+- Two concerns had no home: the unresolved Room migration policy (`fallbackToDestructiveMigration`
+  at schema v6, whose own code comment defers to a ship checklist that didn't list it) and backup
+  import's strict `schemaVersion` equality, which orphans existing exports at the first bump. Both
+  are pre-release decisions, so they went to PROGRESS.md's new *Data & migrations* section with a
+  gate line in DEV_PLAYBOOK §2 pointing at it rather than a second copy.
+- Checklist "living docs shouldn't narrate what changed" caught the first draft of the
+  charting-library entry, which explained what its old trigger used to say; rewritten to state only
+  the current trigger. Same pass trimmed two trailers that restated their own item's prose.
+- Checklist "no self-updating tallies" caught `app/schemas/1.json`–`6.json` in the new PROGRESS.md
+  entry — a list that grows on every schema bump. Replaced with the durable `app/schemas/*.json`.
+
+**Deferred:**
+- The Hunch/Trigger overlap stays parked until alpha testing, as its entry already says; only a
+  trailer was added, its body is untouched.
+- Theme/voice mixing and the Wear OS tile were removed from §17 entirely — the product owner's
+  decision, taken after reading the triage, not the triage acting on its own leans.
+- Nothing else in §17 was implemented or acted on, retitling aside; the remaining leans are input to
+  a decision, not the decision.
+
+**Didn't apply:** Duplication, Decoupling, Complexity & Pattern Health, Naming Consistency — no code
+in the diff. Repo hygiene checked and clean: no secrets, no local paths, no new untracked files.
+
+**Docs updated:** HODITH_SPEC §17 (rewritten), PROGRESS.md (new *Data & migrations* section; Share
+entry cross-referenced), DEV_PLAYBOOK §2 (before-first-release gate line).
+
+---
+
 ## feature/about-contact-content
 
 **Scope:** PROGRESS.md's "About screen real content" and "Contact Us" placeholder items — unblocked

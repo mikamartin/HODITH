@@ -286,18 +286,48 @@ Bottom navigation: **Home · Big Picture · Settings**.
 - Free, no ads, no IAP at launch.
 - Play data-safety form: no data collected.
 
-## 17. Future work (deferred; data model stays ready)
+## 17. Future work (deferred)
+
+Each item carries a trailer summarising what picking it up would cost: **Status** (whether any of it is already built), **Effort** (S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week), **Touches** (where the change lands), and **Lean** — a suggestion to inform the decision, not the decision itself. Nothing is dropped from this list on a lean alone.
+
+Three costs apply across almost every item and aren't repeated in each trailer:
+
+- **A new entity or column is three changes, not one** — a Room migration, a `BACKUP_SCHEMA_VERSION` bump, and import validation, since the export shape mirrors the tables one-for-one (§16).
+- **Every user-visible string is written three times**, once per Voice, in the same commit (§12).
+- **The effort grades assume today's pre-release destructive-migration fallback.** They rise once real migrations exist — see PROGRESS.md's *Data & migrations*.
+
+The list, in no particular priority order:
 
 - **Computed cross-case co-occurrence** — the math version of what the Big Picture shows visually. Statistically treacherous (small samples, confounders); needs UX that suggests, never asserts.
-- **Charting library evaluation** — if custom Compose visuals hit their limit (zoom, very long ranges), evaluate Vico or similar.
-- **Tag-level insights** — verdicts and triggers scoped to a tag ("rude *at dinner*").
+
+  *Status: open · Effort: M · Touches: a new `domain/` engine, one Big Picture or Insights surface, Voice ×3 · Lean: hold — the cross-case data plumbing already exists (`observeActiveCasesWithEventsAndTags`), so the real cost is the statistical-honesty UX, not the wiring.*
+- **Charting library evaluation** — if a custom Compose visual can't render acceptably across a multi-year range, evaluate Vico or similar. That range case is the only open trip-wire: the Big Picture grid has no pinch/continuous zoom by design (§9), and the calendar heatmap already reaches full history behind its show-more-months control.
+
+  *Status: open, on a trigger that hasn't been hit · Effort: S to evaluate · Touches: nothing until it is · Lean: abandon unless the range case appears in practice.*
+- **Tag-scoped verdicts & triggers** — verdicts and triggers narrowed to a tag ("rude *at dinner*"). Tag-level *insights* already shipped — §10's tag breakdown and §9's Big Picture tag filter — so what remains is teaching `VerdictEngine` and `TriggerEngine` to scope themselves to a tag.
+
+  *Status: open · Effort: L · Touches: `HunchEntity`/`TriggerEntity` schema, both domain engines, the Hunch and Triggers UI, Voice ×3 · Lean: hold.*
 - **Big Picture sharing** — a multi-case share card. Excluded from v1: several case names on one image multiplies the privacy footguns; needs careful anonymisation UX first.
+
+  *Status: open · Effort: L · Touches: share card templates, a new multi-case preview flow, Voice ×3 · Lean: hold — sits behind the share card's sizing bug (PROGRESS.md) as well as the anonymisation UX.*
 - **Animated story export** — the share card as a short video/GIF for stories. Static cards first.
-- **Theme/voice mixing** — pair, e.g., goth skin with serious voice, if users ask.
+
+  *Status: open · Effort: L · Touches: the share pipeline's first non-static output (encoder dependency, larger files, a longer preview flow) · Lean: hold — same sizing blocker as above, plus a new media dependency in an app that currently ships none.*
 - **Confirmed-quiet checkpoints** — the check-in "All quiet" answer could be stored, letting verdicts distinguish confirmed silence from unknown silence and raising confidence accordingly. Adds an entity and verdict complexity; revisit after v1 data habits are observed.
+
+  *Status: open — the "All quiet" action exists, but `CaseEntity.lastCheckInAt` keeps only a single overwritten re-arm anchor, read by check-in scheduling and never by `VerdictEngine`, so no history is being accumulated today · Effort: M · Touches: a new entity, `VerdictEngine` and its confidence tiers, Voice ×3 · Lean: hold until v1 data habits are observed, as written.*
 - **Hunch/Trigger relationship** — `AT_LEAST` triggers ("N+ times in a rolling window") and Hunches ("~N times per period", verdict computed over the whole observation window) currently overlap: a user with an active Hunch may re-enter nearly the same numbers to also get notified. They're not actually the same thing (rolling-window burst detection vs. whole-history average), so a naive prefill would misrepresent what the alert means. Options considered: (1) a genuinely new hunch-verdict-based alert kind, evaluated via the verdict engine rather than `TriggerEngine`; (2) prefill `AT_LEAST`'s fields from the active Hunch as a labelled approximation; (3) leave both engines as-is and just surface trigger creation contextually from the Hunch tab instead of a separate entry point. Deliberately left unresolved — revisit once alpha testing shows how people actually use the two features.
-- **Weekly digest notification** — opt-in "your week in events" summary.
-- **Wear OS tile** — one-tap logging from a watch.
+
+  *Status: open · Effort: S–L depending on which option wins — (3) is UI-only, (1) and (2) reach the schema and the notification engines · Lean: parked until alpha testing, as written.*
+- **Weekly digest notification** — opt-in "your week in events" summary. Needs a product stance before implementation: a weekly recap of the user's own logging is the exact shape a streak takes, and §4 rules out anything reading as encouragement or scolding. It stays observational only if it reports what happened, never how diligently the user logged it.
+
+  *Status: open · Effort: M · Touches: the WorkManager evaluation schedule, `Notifier`, a Settings toggle, Voice ×3 · Lean: hold — settle the copy stance first; it may not survive it.*
+- **CSV export** — alongside the existing JSON export, for people who want tabular data. JSON stays canonical for import (round-trip + schema-version semantics); CSV would be export-only since a flattened tabular format doesn't round-trip cleanly back into the relational schema.
+
+  *Status: open · Effort: S · Touches: one new writer alongside `BackupFileWriter`, a Settings row, Voice ×3 · Lean: pick up — self-contained, export-only, and the only item here with no schema impact at all.*
+- **Case grouping** — track related Cases as a named group (e.g. "Someone is always sick" spanning separate per-person/pet Cases) while keeping each Case's own Hunch/Verdict/Triggers independent. Distinct from Tags, which are event-level labels, not Case-to-Case relationships. Needs a cheap prototype before committing — likely touches the data model, Big Picture, and Insights aggregation.
+
+  *Status: open · Effort: L · Touches: a new entity, Home, Big Picture, Insights aggregation, Voice ×3 · Lean: prototype first, as written — the spread across three screens is what makes it L rather than M.*
 
 ## 18. Tech stack
 
