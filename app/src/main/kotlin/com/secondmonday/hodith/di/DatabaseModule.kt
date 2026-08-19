@@ -25,9 +25,7 @@ object DatabaseModule {
     ): HodithDatabase =
         Room
             .databaseBuilder(context, HodithDatabase::class.java, "hodith.db")
-            // No released version yet and no migration-testing infra — destructive fallback
-            // is the simplest option pre-release. Revisit before the ship checklist.
-            .fallbackToDestructiveMigration(dropAllTables = true)
+            .addMigrations(*HodithDatabase.MIGRATIONS)
             .build()
 
     @Provides
