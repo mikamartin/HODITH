@@ -15,6 +15,109 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## docs/future-work-triage (QA audit pass)
+
+**Scope:** First run of [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md)'s whole-suite test-quality audit,
+sections 1 and 3–7 (section 2's mutation spot checks need a working tree and stayed outstanding).
+Findings were written into PROGRESS.md in its own item format rather than into QA_AUDIT_BACKLOG.md,
+on the product owner's call, so the outstanding-work roadmap lives in one file. Grouped into four
+branches rather than one per finding. Docs only — nothing under `app/` changed.
+
+**Found & fixed:**
+- TESTING.md claimed a Voice test that has never existed — "no key returns an identical string
+  across all three (catches copy-paste)". `VoiceTest` has two tests: the non-blank list and the
+  `sharePunchline` pronoun rule. Claim removed from the doc; building the check is now part of
+  `test/voice-completeness-by-reflection`, which is where the doc and the suite reconverge.
+- TESTING.md described the non-`@UiTest` CI shard as "DAO tests". It is a full partition on one
+  annotation, so it also carries every notification and widget instrumented class — nine of the
+  seventeen classes in it. Restated.
+- Two real behaviours had no spec anchor, both correct and both tested, so per CLAUDE.md the spec
+  moved rather than the code: §11 now says `AT_LEAST` requires a `windowDays`, and that `SILENT_FOR`
+  counts from case creation for a Case with no events yet.
+- QA_AUDIT_BACKLOG.md still said no audit had run and offered itself as the place to populate.
+  Rewritten to point at PROGRESS.md, so a future session doesn't look in the wrong file.
+- Checklist "no self-updating tallies" caught a test count used as a sampling rationale in the new
+  mutation-check item; replaced with the durable fact (largest ViewModel suite) that motivated it.
+- Checklist "living docs shouldn't narrate what changed" caught the new Voice item, which explained
+  what TESTING.md used to claim. Rewritten to state only what is true now.
+- Checklist Spec Review pointed at "Update §14" for Future Work; §14 is Screens and Future Work is
+  §17. Corrected in CLEANUP_CHECKLIST.md itself.
+
+**Deferred:**
+- Section 2 (mutation spot checks) — needs source edits plus a sequential `./gradlew test` per
+  sampled file, which doesn't belong on a docs branch. Tracked as `chore/qa-audit-mutation-checks`
+  with the sample pre-selected and the duplicated `AT_LEAST` window formula named as its first
+  target, so it can be picked up without re-deriving.
+- Every code-level finding — the 69 uncovered Voice keys, the copy-pasted widget/notification test
+  helpers, the two BigPicture tests that pass on a missed setup click, and the four inline UI
+  transformations (including the uncapped duration field, which is a live input bug) — left as
+  proposed branches per QA_AUDIT_RULES §8 rather than fixed here.
+
+**Held up under scrutiny** (recorded because a clean result is a result): no orphan test classes —
+every unit class sits under `app/src/test/`, package matches directory throughout, no base classes,
+and the instrumented shard split is a true partition. `VerdictEngine`'s tier thresholds and all four
+comparison-band cutoffs match spec §8 including the "each cutoff belongs to the higher band" rule,
+with each boundary pinned by a named test; `CheckIn`'s clamp and both Trigger kinds' arm/re-arm match
+§11. The DAO tier shares `TestFixtures.kt` properly — the helper duplication is confined to the
+widget and notification classes.
+
+**Didn't apply:** Duplication, Decoupling, Complexity & Pattern Health, Naming Consistency,
+Hardcoded Values, Accessibility, Deprecated APIs — no code in the diff. Repo hygiene checked and
+clean: no secrets, no local paths, no new untracked files.
+
+**Docs updated:** PROGRESS.md (new *Shared UI logic* section; Testing section rewritten — the audit
+item narrowed to its outstanding section, two new items, the Voice and Insights items strengthened
+with measured findings; *Recommended order* resequenced), TESTING.md (Voice coverage row, CI shard
+description), HODITH_SPEC §11 (both Trigger bullets), QA_AUDIT_BACKLOG.md (shell now points at
+PROGRESS.md), CLEANUP_CHECKLIST.md (Future Work section reference).
+
+---
+
+## docs/future-work-triage
+
+**Scope:** Audit of HODITH_SPEC §17's twelve deferred items against the code — which are already
+built, which rest on a premise that no longer holds, and what each would cost to pick up. Each
+surviving item gained a Status/Effort/Touches/Lean trailer, the costs common to nearly all of them
+moved into a preamble, two items were dropped outright on the product owner's call, and the two
+findings that are pre-release work rather than backlog moved to PROGRESS.md. Docs only — nothing
+under `app/` changed.
+
+**Found & fixed:**
+- Three items' descriptions no longer matched the code. "Tag-level insights" claimed work that had
+  shipped (§10's tag breakdown, §9's tag filter); retitled to "Tag-scoped verdicts & triggers", the
+  part that's actually open. The charting-library item's trip-wire named zoom, which §9 retired by
+  design; narrowed to the one surviving trigger. "Confirmed-quiet checkpoints" read as though the
+  data model were ready — `CaseEntity.lastCheckInAt` exists but keeps a single overwritten re-arm
+  anchor that `VerdictEngine` never reads; the trailer now says so.
+- The §17 heading claimed "data model stays ready", which is false for the three items needing a new
+  entity or column. Dropped from the heading.
+- Two concerns had no home: the unresolved Room migration policy (`fallbackToDestructiveMigration`
+  at schema v6, whose own code comment defers to a ship checklist that didn't list it) and backup
+  import's strict `schemaVersion` equality, which orphans existing exports at the first bump. Both
+  are pre-release decisions, so they went to PROGRESS.md's new *Data & migrations* section with a
+  gate line in DEV_PLAYBOOK §2 pointing at it rather than a second copy.
+- Checklist "living docs shouldn't narrate what changed" caught the first draft of the
+  charting-library entry, which explained what its old trigger used to say; rewritten to state only
+  the current trigger. Same pass trimmed two trailers that restated their own item's prose.
+- Checklist "no self-updating tallies" caught `app/schemas/1.json`–`6.json` in the new PROGRESS.md
+  entry — a list that grows on every schema bump. Replaced with the durable `app/schemas/*.json`.
+
+**Deferred:**
+- The Hunch/Trigger overlap stays parked until alpha testing, as its entry already says; only a
+  trailer was added, its body is untouched.
+- Theme/voice mixing and the Wear OS tile were removed from §17 entirely — the product owner's
+  decision, taken after reading the triage, not the triage acting on its own leans.
+- Nothing else in §17 was implemented or acted on, retitling aside; the remaining leans are input to
+  a decision, not the decision.
+
+**Didn't apply:** Duplication, Decoupling, Complexity & Pattern Health, Naming Consistency — no code
+in the diff. Repo hygiene checked and clean: no secrets, no local paths, no new untracked files.
+
+**Docs updated:** HODITH_SPEC §17 (rewritten), PROGRESS.md (new *Data & migrations* section; Share
+entry cross-referenced), DEV_PLAYBOOK §2 (before-first-release gate line).
+
+---
+
 ## feature/about-contact-content
 
 **Scope:** PROGRESS.md's "About screen real content" and "Contact Us" placeholder items — unblocked

@@ -88,7 +88,9 @@ graph LR
 | [`docs/HODITH_SPEC.md`](docs/HODITH_SPEC.md) | Full product spec — principles, data model, screens, future work |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, coverage, deferrals |
 | [`docs/DEV_PLAYBOOK.md`](docs/DEV_PLAYBOOK.md) | Cleanup checklist, ship checklist, tooling reference |
-| [`docs/CLEANUP_LOG.md`](docs/CLEANUP_LOG.md) | Timestamped record of every cleanup pass |
+| [`docs/CLEANUP_LOG.md`](docs/CLEANUP_LOG.md) | Record of every cleanup pass, newest first |
+| [`docs/MANUAL_TEST_PLAN.md`](docs/MANUAL_TEST_PLAN.md) | Manual-only test journeys that cross system-process boundaries |
+| [`docs/QA_AUDIT_RULES.md`](docs/QA_AUDIT_RULES.md) | Periodic whole-suite test-quality audit procedure |
 | [`CLAUDE.md`](CLAUDE.md) | AI collaboration rules, checked into the repo |
 
 ## AI-assisted development workflow

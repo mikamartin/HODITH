@@ -344,8 +344,8 @@ private fun ActionRow(
 
 /**
  * Bright-only flat label + chevron row (Soft Glow mockup's `.arow`) — [GlowCard]'s tinted surface
- * already reads as chrome, so a filled button pill on top of it would double up; Plain/Intense
- * keep [FilledTonalButton] (tracked separately in PROGRESS.md's `FilledTonalButton` item).
+ * already reads as chrome, so a filled button pill on top of it would double up. Plain/Intense
+ * deliberately keep [FilledTonalButton] instead — a settled per-theme divergence, not an open item.
  */
 @Composable
 private fun BrightActionRow(

@@ -56,6 +56,8 @@ This repo is public on GitHub. Treat every commit as visible to the world from d
 - [MANUAL_TEST_PLAN.md](docs/MANUAL_TEST_PLAN.md) — deliberately manual-only journeys *(create from the seed list in TESTING.md when the first widget/notification flow lands)*
 - [DEV_PLAYBOOK.md](docs/DEV_PLAYBOOK.md) — cleanup checklist, ship checklist, tooling reference
 - [CLEANUP_LOG.md](docs/CLEANUP_LOG.md) — log of every cleanup pass, in order
+- [QA_AUDIT_RULES.md](docs/QA_AUDIT_RULES.md) — periodic whole-suite test-quality audit procedure (run on request, not automatically)
+- [QA_AUDIT_BACKLOG.md](docs/QA_AUDIT_BACKLOG.md) — findings from the most recent QA audit pass
 - CLOSED_TESTING_GUIDE.md — *(create when the Play closed testing track opens)*
 
 ## Commit messages

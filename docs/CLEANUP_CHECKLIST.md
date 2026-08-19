@@ -65,7 +65,7 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Does [HODITH_SPEC.md](HODITH_SPEC.md) still describe what was built? Walk through touched sections.
 - [ ] Intentional divergence → update the spec. Unintentional divergence → log a bug, don't paper over it.
 - [ ] New patterns/components/flows undocumented? Add them.
-- [ ] Any Future Work items implemented? Update §14.
+- [ ] Any Future Work items implemented? Update §17.
 
 ### Tests
 - [ ] New Repository/ViewModel/domain logic without unit coverage?

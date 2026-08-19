@@ -16,6 +16,9 @@ Strip completed items — this list only contains open work.
 - [ ] Full-history hygiene audit, not just the latest diff (CLAUDE.md "Git hygiene") — secrets, real local paths, personal info can hide in old commits that going public would expose
 
 ### Before first release
+**Data**
+- [ ] Settle both items in [PROGRESS.md](PROGRESS.md)'s *Data & migrations* section — the Room migration policy and backup import's forward compatibility. Neither can be changed cheaply once users hold data.
+
 **Closed Testing**
 - [ ] Write CLOSED_TESTING_GUIDE.md (plain-language guide for testing recruits) when the track opens
 
