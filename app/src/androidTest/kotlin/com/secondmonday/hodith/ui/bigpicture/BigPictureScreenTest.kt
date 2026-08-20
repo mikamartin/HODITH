@@ -201,7 +201,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("later").performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
 
         composeTestRule.onNodeWithText("urgent note").assertExists()
@@ -216,7 +216,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("urgent").performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
 
         // Behavior change from the old always-expanded chips: zero tags selected now means
@@ -235,7 +235,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         composeTestRule.onNodeWithText(secondCase.name).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("work").assertExists()
@@ -253,13 +253,13 @@ class BigPictureScreenTest {
         // Narrow tags to "solo" only, while both Cases are still visible.
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("work").performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         // Deselect Tea, the only Case with "solo" events — before the tag-scoping fix, the stale
         // {"solo"} tag selection would AND against Coffee's "work"-only events to an empty grid.
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         composeTestRule.onNodeWithText(secondCase.name).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
         composeTestRule.onNodeWithText("work note").assertExists()
@@ -303,7 +303,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         composeTestRule.onNodeWithText(case.name).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureNoCasesSelectedNote).assertExists()
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
@@ -316,7 +316,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("urgent").performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureUntaggedOnlyLabel).assertExists()
     }
@@ -328,7 +328,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         composeTestRule.onNodeWithText(secondCase.name).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         // Tags stay fully selected (collapses to one "All tags" chip); Cases isn't fully selected
         // anymore, so the still-selected case is itemized rather than collapsing to "All Cases".
@@ -345,7 +345,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         composeTestRule.onNodeWithText(secondCase.name).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureFilterCount(1, 2)).assertExists()
     }
@@ -357,7 +357,7 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         // Starts fully selected, so the bulk toggle reads "Clear all".
         composeTestRule.onNodeWithText(PlainVoice.bigPictureClearAllAction).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureNoCasesSelectedNote).assertExists()
 
@@ -375,7 +375,7 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("urgent").performClick()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureSelectAllAction).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
         composeTestRule.onNodeWithText("a note").assertExists()
@@ -397,7 +397,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         composeTestRule.onNodeWithText(secondCase.name).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureFilterCount(1, 2)).assertExists()
         composeTestRule.onNodeWithText(case.name).assertExists()
@@ -412,7 +412,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("urgent").performClick()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureDialogCloseAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureAllCasesLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureUntaggedOnlyLabel).assertExists()

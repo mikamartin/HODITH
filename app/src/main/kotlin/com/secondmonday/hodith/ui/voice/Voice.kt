@@ -27,7 +27,6 @@ interface Voice {
     val bigPictureDayDetailEmptyState: String
     val bigPictureWeekDetailEmptyState: String
     val bigPictureEventNoteEmptyState: String
-    val bigPictureDialogCloseAction: String
     val bigPictureWeekViewDescription: String
     val bigPictureCasesFilterLabel: String
     val bigPictureTagsFilterLabel: String
@@ -507,7 +506,6 @@ object PlainVoice : Voice {
     override val bigPictureDayDetailEmptyState = "No events logged this day."
     override val bigPictureWeekDetailEmptyState = "No events logged this week."
     override val bigPictureEventNoteEmptyState = "No note"
-    override val bigPictureDialogCloseAction = "Close"
     override val bigPictureWeekViewDescription = "Open week view"
     override val bigPictureCasesFilterLabel = "Cases"
     override val bigPictureTagsFilterLabel = "Tags"
@@ -998,7 +996,6 @@ object IntenseVoice : Voice {
     override val bigPictureDayDetailEmptyState = "Nothing was recorded this day."
     override val bigPictureWeekDetailEmptyState = "Nothing was recorded this week."
     override val bigPictureEventNoteEmptyState = "No notes were left."
-    override val bigPictureDialogCloseAction = "Seal it shut"
     override val bigPictureWeekViewDescription = "Unveil the week"
     override val bigPictureCasesFilterLabel = "Cases"
     override val bigPictureTagsFilterLabel = "Tags"
@@ -1486,7 +1483,6 @@ object BrightVoice : Voice {
     override val bigPictureDayDetailEmptyState = "Nothing logged this day — a blank page."
     override val bigPictureWeekDetailEmptyState = "Nothing logged this week — a blank page."
     override val bigPictureEventNoteEmptyState = "No note — mystery!"
-    override val bigPictureDialogCloseAction = "Got it, close this"
     override val bigPictureWeekViewDescription = "Peek at the week!"
     override val bigPictureCasesFilterLabel = "Cases"
     override val bigPictureTagsFilterLabel = "Tags"

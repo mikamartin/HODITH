@@ -15,6 +15,40 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## chore/voice-close-action-copy
+
+**Scope:** PROGRESS.md's close-action copy item — shorten `bigPictureDialogCloseAction` to
+"Close" in all three voices. Investigating first (per the item's own note) showed that once all
+three voices say the same thing the key is voice-invariant and exists only to override
+`InfoDialog`'s shared `dismissLabel` default (`infoDialogDismissAction`). Confirmed with the user:
+delete the key entirely rather than shorten it, so Big Picture's five dialogs read "Got it" /
+"Understood" / "Got it!" like every other `InfoDialog` in the app, instead of carrying a duplicate
+key by accident. Also folded in a separate, already-decided piece of doc cleanup: the Case Detail
+tab-order item was abandoned, so it's removed from PROGRESS.md rather than left open.
+
+**Found & fixed:**
+- Removed `bigPictureDialogCloseAction` from the `Voice` interface and all three implementations
+  (`Voice.kt`).
+- Removed the `dismissLabel = voice.bigPictureDialogCloseAction` override at all five
+  `InfoDialog` call sites in `BigPictureGrid.kt` (Cases filter, Tags filter, month picker,
+  day-detail, week-detail); they now fall through to the shared default, matching
+  `SectionWithInfo.kt`'s existing usage.
+- Swapped all 13 `PlainVoice.bigPictureDialogCloseAction` references in `BigPictureScreenTest.kt`
+  to `PlainVoice.infoDialogDismissAction`. No `VoiceTest.kt` change was needed — the key was never
+  in its hand-maintained completeness list (it was one of the QA audit's 69 uncovered keys).
+- PROGRESS.md: removed the abandoned Case Detail tab-order item and its `## Case Detail` section;
+  removed the now-completed close-action-copy item; updated the "Recommended order" list; fixed a
+  stale "alongside Close" reference in the still-open dialog-spacing item to say "alongside the
+  dismiss button"; corrected the Voice-completeness item's key counts (292→291, 69→68 uncovered)
+  and dropped its now-stale mention of `bigPictureDialogCloseAction`.
+
+**Deferred:** nothing deferred.
+
+**Docs updated:** PROGRESS.md (as above). `HODITH_SPEC.md` and `TESTING.md` don't reference this
+key or the tab-order item, so nothing to correct there.
+
+---
+
 ## refactor/extract-ui-input-logic
 
 **Scope:** PROGRESS.md's Shared UI logic item — the QA audit's §5 finding that four pure
