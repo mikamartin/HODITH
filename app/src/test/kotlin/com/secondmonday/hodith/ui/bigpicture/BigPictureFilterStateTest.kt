@@ -3,8 +3,26 @@ package com.secondmonday.hodith.ui.bigpicture
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.LocalDate
 
 class BigPictureFilterStateTest {
+    private val today = LocalDate.of(2026, 3, 15)
+
+    @Test
+    fun `isPastOrToday is true for today itself`() {
+        assertEquals(true, isPastOrToday(today, today))
+    }
+
+    @Test
+    fun `isPastOrToday is true for a date before today`() {
+        assertEquals(true, isPastOrToday(today.minusDays(1), today))
+    }
+
+    @Test
+    fun `isPastOrToday is false for a date after today`() {
+        assertEquals(false, isPastOrToday(today.plusDays(1), today))
+    }
+
     @Test
     fun `isTagVisible shows every event when all tags are selected`() {
         assertEquals(true, isTagVisible(eventTags = listOf("work"), visibleTagNames = setOf("work"), allTagCount = 1))

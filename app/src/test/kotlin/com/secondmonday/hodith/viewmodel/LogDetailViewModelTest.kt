@@ -155,6 +155,16 @@ class LogDetailViewModelTest {
         assertNull(computeEndedAt(1_000L, DurationMode.MANUAL, "abc", endedAt = null, existingEndedAt = null, now = farFuture))
     }
 
+    @Test
+    fun `computeEndedAt correctly computes the longest input the duration field's digit cap allows`() {
+        // The sheet caps typed digits at DURATION_MINUTES_MAX_DIGITS (5), so "99999" is the
+        // largest string computeEndedAt can ever actually receive. Confirms that cap keeps
+        // toIntOrNull() well clear of overflowing to null (the bug this cap exists to prevent).
+        val endedAt = computeEndedAt(1_000L, DurationMode.MANUAL, "99999", endedAt = null, existingEndedAt = null, now = farFuture)
+
+        assertEquals(1_000L + 99_999 * 60_000L, endedAt)
+    }
+
     // --- LogDraft#toEventEntity ---
 
     // Far beyond any occurredAt used below, so it never clamps unless a test is specifically
@@ -379,6 +389,16 @@ class LogDetailViewModelTest {
 
         assertEquals(setOf("evening"), diff.toAdd)
         assertEquals(setOf(work), diff.toRemove)
+    }
+
+    @Test
+    fun `tagDiff treats a selection differing only in casing from an original tag as unchanged`() {
+        val coffee = TagEntity(id = 1, name = "coffee")
+
+        val diff = tagDiff(originalTags = listOf(coffee), selectedNames = listOf("Coffee"))
+
+        assertTrue(diff.toAdd.isEmpty())
+        assertTrue(diff.toRemove.isEmpty())
     }
 
     // --- applyPickedDate ---

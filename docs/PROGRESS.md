@@ -8,11 +8,10 @@ Each item carries a trailer: **Branch** (the branch to open for it), **Complexit
 
 Sequencing matters more than usual here — several items collide in the same files, and two of them are cheap now and expensive after the first release.
 
-1. **The QA audit's own findings** — the audit has run (all sections but the mutation spot checks), so the Testing and Shared UI logic sections below are no longer speculative. Take `refactor/extract-ui-input-logic` early: it's the only audit finding that contains a live user-facing bug, and it touches the log sheet, which several other items also touch.
-2. Small fixes: Case Detail tab order, dialog spacing, close-action copy, app icon.
-3. Share card sizing.
-4. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
-5. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
+1. Small fixes: Case Detail tab order, dialog spacing, close-action copy, app icon.
+2. Share card sizing.
+3. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
+4. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
 
 ## Needs design / product-owner input
 
@@ -48,22 +47,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   **Tests** — `CaseDetailScreenTest` and `CaseDetailInsightsTabTest` both select tabs by label text (`onNodeWithText(PlainVoice.caseDetailInsightsTabLabel).performClick()`), so they're order-agnostic and should pass unchanged. That's a good sign, but it also means nothing currently pins the default tab: **add a test asserting which tab is selected on open, and that the FAB is present there** — otherwise this change can silently alter the landing tab and the suite stays green. Small, and it's the one behaviour this item actually risks.
 
-## Shared UI logic
-
-- [ ] Pure transformations living inline in composables, untested and independently reimplemented — the QA audit's §5 sweep. Four sites, all the same class of drift the `BigPictureFilterState`/`AcronymText` extractions were meant to fix:
-  - **Digit filtering, twice, with different rules.** `LogDetailSheet`'s duration field does `it.filter(Char::isDigit)` uncapped; `TriggersScreen`'s custom-window field does `it.filter(Char::isDigit).take(3)`. The uncapped one is a live input bug, not just a test gap: type enough digits and `computeEndedAt`'s `toIntOrNull()` overflows to null, so the event saves with **no duration and no feedback**.
-  - **Tag-name normalization, three times.** `LogDetailSheet`'s `onAddTag` trims and dedupes **case-sensitively**; `LogDetailViewModel.tagDiff` trims and drops blanks; `RoomHodithRepository.addTagToEvent` trims again. The `tags` table has a unique index on `name` and Case Edit's duplicate-name check is case-insensitive, so the sheet is the odd one out — it will happily show "Coffee" and "coffee" as two chips.
-  - **Tag suggestion filtering** in `TagsSection` — pure, and reachable only through the instrumented sheet tests.
-  - **Future-day/week trimming** inline in `BigPictureGrid` (three separate expressions: the week filter, the day-cell gate, the week-dialog's `validDays`), while the same rule in `InsightsTabState`'s `heatmapMonths` is a plain function with unit tests.
-
-  *Branch: `refactor/extract-ui-input-logic` · Complexity: M · Priority: Medium*
-
-  **Plan** — follow the `BigPictureFilterState.kt`/`AcronymText.kt` precedent: one plain-Kotlin function per transformation, filed next to its screen, with a direct unit test. Four extractions, in that order — the digit filter (shared, with an explicit cap) is the one carrying the real bug, so it's worth landing even if the rest slips.
-
-  **Tests** — new JVM tests per extracted function, and each gets the same one-mutation spot check the audit's §2 sample gets before it counts as validated rather than merely written. The existing instrumented tests should pass unchanged, since none of this changes rendered output — except the duration cap, which is a real behaviour change and needs its own test.
-
-  **Concern** — two of these are behaviour changes wearing a refactor's clothes. Decide the duration cap's value first (it's a product question: what's the longest duration worth typing?), and confirm case-insensitive tag matching is actually wanted — it matches the unique index and Case Edit, but it means typing "Coffee" against an existing "coffee" silently resolves to the existing tag rather than creating what the user typed.
-
 ## Big Picture
 
 - [ ] Cases/Tags filter dialog (`BigPictureGrid.kt`'s `InfoDialog` + `BulkSelectionToggle`) has a visually large gap between the dialog title and the Select all/Clear all row — it's Material3 `AlertDialog`'s default title→content spacing, not a custom Spacer HODITH added. `InfoDialog` is shared across every Big Picture info dialog (month/day/week detail too, not just Cases/Tags), so a fix needs to check it doesn't regress those.
@@ -98,7 +81,7 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 ## Testing
 
-- [ ] **Finish the QA audit's mutation spot checks.** [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md) §1 and §3–§7 have run — their findings are the items in this section and in Shared UI logic, and their doc-hygiene fixes landed in TESTING.md and HODITH_SPEC.md §11. §2 (mutation spot checks) is the one section that can't run read-only: it needs source edits plus a sequential `./gradlew test` per sampled file, so it is still outstanding. Findings go here rather than into [QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md), which now just points back at this file — the outstanding-work roadmap stays in one place.
+- [ ] **Finish the QA audit's mutation spot checks.** [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md) §1 and §3–§7 have run — their findings are the items in this section (the Shared UI logic finding landed on `refactor/extract-ui-input-logic`, see CLEANUP_LOG.md), and their doc-hygiene fixes landed in TESTING.md and HODITH_SPEC.md §11. §2 (mutation spot checks) is the one section that can't run read-only: it needs source edits plus a sequential `./gradlew test` per sampled file, so it is still outstanding. Findings go here rather than into [QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md), which now just points back at this file — the outstanding-work roadmap stays in one place.
 
   *Branch: `chore/qa-audit-mutation-checks` · Complexity: M · Priority: Medium*
 

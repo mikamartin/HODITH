@@ -171,7 +171,7 @@ fun BigPictureGrid(
                                     .padding(bottom = 4.dp),
                         )
                         weeksInGrid(month)
-                            .filter { week -> !week.first().isAfter(today) }
+                            .filter { week -> isPastOrToday(week.first(), today) }
                             .forEach { week ->
                                 WeekRow(
                                     week = week,
@@ -439,7 +439,7 @@ private fun WeekRow(
             )
         }
         week.forEach { day ->
-            if (day.isAfter(today) || day.month != month.month) {
+            if (!isPastOrToday(day, today) || day.month != month.month) {
                 Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
             } else {
                 DayCell(
@@ -500,7 +500,7 @@ private fun WeekDetailDialog(
     onDismiss: () -> Unit,
 ) {
     val voice = LocalVoice.current
-    val validDays = week.filter { !it.isAfter(today) }
+    val validDays = week.filter { isPastOrToday(it, today) }
     InfoDialog(
         title =
             voice.bigPictureWeekDetailTitle(

@@ -15,6 +15,52 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## refactor/extract-ui-input-logic
+
+**Scope:** PROGRESS.md's Shared UI logic item — the QA audit's §5 finding that four pure
+transformations lived inline in composables, untested, and reimplemented with different rules in
+different places. Followed the `BigPictureFilterState.kt`/`AcronymText.kt` precedent: one plain
+Kotlin function per transformation, filed next to its screen, with a direct unit test. Two open
+product questions were resolved with the user first: the digit cap (5 digits) and whether tag
+matching becomes case-insensitive (yes, to match Case Edit's existing dupe check).
+
+**Found & fixed:**
+- The digit filter carried a live bug: `LogDetailSheet`'s duration field filtered digits with no
+  cap, so `LogDetailViewModel.computeEndedAt`'s `toIntOrNull()` could overflow to `null` on long
+  input, silently saving the event with no duration and no error shown. Extracted
+  `ui/common/DigitInput.kt`'s `filterDigitInput(value, maxDigits)`; `LogDetailSheet` now caps at 5
+  digits, `TriggersScreen`'s custom-window field keeps its existing 3-digit cap via the same
+  function. `MILLIS_PER_MINUTE` is a `Long` constant, so the multiplication that follows can't
+  overflow at 5 digits — confirmed rather than assumed.
+- Tag-name normalization was duplicated three ways with inconsistent casing rules (case-sensitive
+  in `LogDetailSheet`'s `onAddTag` and `TagDao.getByName`'s exact-match query; already
+  case-insensitive in Case Edit's duplicate check). Made matching case-insensitive throughout:
+  `TagDao.getByName` now uses `COLLATE NOCASE`, `LogDetailViewModel.tagDiff` compares on
+  lowercased names, and the sheet's add logic moved into a new pure `ui/logsheet/TagInput.kt`
+  (`tagToAdd`). "Coffee" typed against an existing "coffee" now reuses the existing tag instead of
+  creating a near-duplicate. The tags table's unique index stays case-sensitive at the schema
+  level — deliberately left as-is, since the now-case-insensitive `getByName` lookup is what
+  actually prevents the duplicate insert, and touching the index would mean a migration for no
+  behavioral gain.
+- Tag suggestion filtering (`TagEditor`'s inline `remainingSuggestions`) was pure logic reachable
+  only through instrumented tests. Extracted to `ui/logsheet/TagInput.kt`'s
+  `filterTagSuggestions`, made case-insensitive to match the rest of this pass, with a direct JVM
+  test.
+- Future-day/week trimming was three separate inline expressions in `BigPictureGrid.kt` (week
+  filter, day-cell gate, week-dialog's `validDays`) duplicating a rule `InsightsTabState` already
+  had as a tested plain function. Extracted `isPastOrToday` into `BigPictureFilterState.kt`
+  (already the file split out of `BigPictureGrid` for exactly this reason) and pointed all three
+  call sites at it.
+
+**Deferred:**
+- Nothing deferred — all four extractions from the PROGRESS.md item landed on this branch.
+
+**Docs updated:** none required. `HODITH_SPEC.md` doesn't document tag-matching casing at its
+level of detail, so there's nothing there to correct. `TESTING.md` doesn't track per-file coverage
+counts, so no tally to update. PROGRESS.md's Shared UI logic item is struck below.
+
+---
+
 ## feat/cloud-backup-toggle
 
 **Scope:** PROGRESS.md's *Correct the auto-backup disclosure* and *Add a Settings toggle for

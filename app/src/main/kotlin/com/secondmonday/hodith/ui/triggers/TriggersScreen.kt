@@ -48,6 +48,7 @@ import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.NumberStepper
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.common.filterDigitInput
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.TriggerRow
@@ -223,6 +224,7 @@ private const val DEFAULT_SILENT_THRESHOLD = 14
 private const val DEFAULT_CUSTOM_WINDOW_DAYS = 14
 private const val SEVEN_DAYS = 7
 private const val THIRTY_DAYS = 30
+private const val CUSTOM_WINDOW_MAX_DIGITS = 3
 
 /** New-Trigger bottom sheet (spec §11/§14): kind, threshold, and — for [TriggerKind.AT_LEAST] — a rolling window. Same shape as [com.secondmonday.hodith.ui.casedetail.HunchCreationSheet]. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -298,7 +300,7 @@ private fun TriggerCreationSheet(
                     if (windowPreset == WindowPreset.CUSTOM) {
                         OutlinedTextField(
                             value = customWindowText,
-                            onValueChange = { customWindowText = it.filter(Char::isDigit).take(3) },
+                            onValueChange = { customWindowText = filterDigitInput(it, maxDigits = CUSTOM_WINDOW_MAX_DIGITS) },
                             label = { Text(voice.triggersWindowCustomHint) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
