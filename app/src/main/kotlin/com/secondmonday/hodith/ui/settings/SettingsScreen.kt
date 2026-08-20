@@ -26,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -38,6 +39,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -46,8 +49,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.common.themedSwitchColors
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.GlowCard
 import com.secondmonday.hodith.ui.theme.HodithTheme
@@ -90,6 +95,7 @@ fun SettingsRoute(
         backupEvents = viewModel.backupEvents,
         onThemeSelect = viewModel::onThemeSelect,
         onCheckInDefaultIntervalSelect = viewModel::onCheckInDefaultIntervalSelect,
+        onCloudBackupToggle = viewModel::onCloudBackupToggle,
         onLoadDemoData = viewModel::loadDemoData,
         onDeleteAllData = viewModel::deleteAllData,
         onExportClick = { exportLauncher.launch(BACKUP_FILE_NAME) },
@@ -109,6 +115,7 @@ fun SettingsScreen(
     backupEvents: Flow<BackupEvent>,
     onThemeSelect: (AppTheme) -> Unit,
     onCheckInDefaultIntervalSelect: (CheckInDefaultInterval) -> Unit,
+    onCloudBackupToggle: (Boolean) -> Unit,
     onLoadDemoData: () -> Unit,
     onDeleteAllData: () -> Unit,
     onExportClick: () -> Unit,
@@ -215,6 +222,19 @@ fun SettingsScreen(
             }
 
             Plank(voice.settingsDataSectionLabel) {
+                RowWithInfo(
+                    label = voice.settingsCloudBackupToggleLabel,
+                    infoTitle = voice.settingsCloudBackupInfoTitle,
+                    infoBody = voice.settingsCloudBackupInfoBody,
+                    infoDescription = voice.caseSectionInfoDescription,
+                ) {
+                    Switch(
+                        checked = uiState.cloudBackupEnabled,
+                        onCheckedChange = onCloudBackupToggle,
+                        colors = themedSwitchColors(),
+                        modifier = Modifier.semantics { contentDescription = voice.settingsCloudBackupToggleLabel },
+                    )
+                }
                 ActionRow(voice.settingsExportButton, onClick = onExportClick)
                 ActionRow(voice.settingsImportButton, onClick = { showImportConfirm = true })
                 ActionRow(voice.settingsDeleteAllDataButton, onClick = { showDeleteAllConfirm = true }, isDestructive = true)

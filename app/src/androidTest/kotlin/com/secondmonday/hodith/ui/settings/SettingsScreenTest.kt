@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -40,6 +41,7 @@ class SettingsScreenTest {
         backupEvents: MutableSharedFlow<BackupEvent> = MutableSharedFlow(extraBufferCapacity = 1),
         onThemeSelect: (AppTheme) -> Unit = {},
         onCheckInDefaultIntervalSelect: (CheckInDefaultInterval) -> Unit = {},
+        onCloudBackupToggle: (Boolean) -> Unit = {},
         onLoadDemoData: () -> Unit = {},
         onDeleteAllData: () -> Unit = {},
         onExportClick: () -> Unit = {},
@@ -55,6 +57,7 @@ class SettingsScreenTest {
                     backupEvents = backupEvents,
                     onThemeSelect = onThemeSelect,
                     onCheckInDefaultIntervalSelect = onCheckInDefaultIntervalSelect,
+                    onCloudBackupToggle = onCloudBackupToggle,
                     onLoadDemoData = onLoadDemoData,
                     onDeleteAllData = onDeleteAllData,
                     onExportClick = onExportClick,
@@ -124,8 +127,9 @@ class SettingsScreenTest {
     fun themeInfoIcon_opensAndDismissesDialog() {
         setContent()
 
-        // Theme's info icon is the first of the screen's two (Theme, then Check-ins) — see
-        // CaseEditScreenTest for the same shared-content-description convention.
+        // Theme's info icon is the first of the screen's three (Theme, then Check-ins, then the
+        // cloud-backup toggle) — see CaseEditScreenTest for the same shared-content-description
+        // convention.
         composeTestRule
             .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
             .onFirst()
@@ -161,12 +165,25 @@ class SettingsScreenTest {
     fun checkInInfoIcon_opensDialog() {
         setContent()
 
+        // Check-ins' info icon is the middle of the screen's three (Theme, then Check-ins, then
+        // the cloud-backup toggle) — see themeInfoIcon_opensAndDismissesDialog above.
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)[1]
+            .performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsCheckInInfoTitle).assertExists()
+    }
+
+    @Test
+    fun cloudBackupInfoIcon_opensDialog() {
+        setContent()
+
         composeTestRule
             .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
             .onLast()
             .performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsCheckInInfoTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsCloudBackupInfoTitle).assertExists()
     }
 
     @Test
@@ -235,6 +252,17 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataCancelAction).performClick()
 
         assertFalse(deleted)
+    }
+
+    @Smoke
+    @Test
+    fun cloudBackupToggle_tapInvokesCallbackWithFlippedValue() {
+        var toggledTo: Boolean? = null
+        setContent(uiState = SettingsUiState(cloudBackupEnabled = true, isLoading = false), onCloudBackupToggle = { toggledTo = it })
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.settingsCloudBackupToggleLabel).performClick()
+
+        assertEquals(false, toggledTo)
     }
 
     @Smoke

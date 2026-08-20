@@ -28,6 +28,7 @@ data class SettingsUiState(
     val theme: AppTheme = AppTheme.PLAIN,
     val checkInDefaultInterval: CheckInDefaultInterval = CheckInDefaultInterval.SEVEN,
     val developerModeUnlocked: Boolean = false,
+    val cloudBackupEnabled: Boolean = true,
     val isLoading: Boolean = true,
 )
 
@@ -62,11 +63,13 @@ class SettingsViewModel
                 settingsRepository.observeTheme(),
                 settingsRepository.observeCheckInDefaultInterval(),
                 settingsRepository.observeDeveloperModeUnlocked(),
-            ) { theme, checkInDefaultInterval, developerModeUnlocked ->
+                settingsRepository.observeCloudBackupEnabled(),
+            ) { theme, checkInDefaultInterval, developerModeUnlocked, cloudBackupEnabled ->
                 SettingsUiState(
                     theme = theme,
                     checkInDefaultInterval = checkInDefaultInterval,
                     developerModeUnlocked = developerModeUnlocked,
+                    cloudBackupEnabled = cloudBackupEnabled,
                     isLoading = false,
                 )
             }.stateIn(
@@ -84,6 +87,10 @@ class SettingsViewModel
 
         fun onCheckInDefaultIntervalSelect(interval: CheckInDefaultInterval) {
             viewModelScope.launch { settingsRepository.setCheckInDefaultInterval(interval) }
+        }
+
+        fun onCloudBackupToggle(enabled: Boolean) {
+            viewModelScope.launch { settingsRepository.setCloudBackupEnabled(enabled) }
         }
 
         fun loadDemoData() {

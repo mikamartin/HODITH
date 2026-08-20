@@ -102,6 +102,29 @@ class SettingsViewModelTest {
         }
 
     @Test
+    fun `uiState reflects the persisted cloud backup preference`() =
+        runTest {
+            settingsRepository.cloudBackupEnabled.value = false
+            val viewModel = viewModel()
+
+            viewModel.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(false, state.cloudBackupEnabled)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `onCloudBackupToggle persists the new preference`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onCloudBackupToggle(false)
+
+            assertEquals(false, settingsRepository.cloudBackupEnabled.value)
+        }
+
+    @Test
     fun `loadDemoData inserts seed cases and signals completion`() =
         runTest {
             val viewModel = viewModel()

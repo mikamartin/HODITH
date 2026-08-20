@@ -32,8 +32,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchColors
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -47,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,6 +57,8 @@ import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.common.ToggleRow
+import com.secondmonday.hodith.ui.common.themedSwitchColors
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.IconHalo
@@ -262,7 +261,7 @@ private fun CaseEditForm(
         ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
 
         RowWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
-            Switch(checked = uiState.checkInsEnabled, onCheckedChange = onCheckInToggle, colors = caseEditSwitchColors())
+            Switch(checked = uiState.checkInsEnabled, onCheckedChange = onCheckInToggle, colors = themedSwitchColors())
         }
 
         Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
@@ -383,38 +382,6 @@ private fun BrightIconChoice(
         }
     }
 }
-
-@Composable
-private fun ToggleRow(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label)
-        Switch(checked = checked, onCheckedChange = onCheckedChange, colors = caseEditSwitchColors())
-    }
-}
-
-/** Bright-only pill switch colors matching the mockup's `.mswitch`/`.mswitch.on` (white thumb both states, tinted track when on). */
-@Composable
-private fun caseEditSwitchColors(): SwitchColors =
-    when (LocalCardDecorationStyle.current) {
-        CardDecorationStyle.BRIGHT ->
-            SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.surface,
-                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                checkedBorderColor = Color.Transparent,
-                uncheckedThumbColor = MaterialTheme.colorScheme.surface,
-                uncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
-                uncheckedBorderColor = Color.Transparent,
-            )
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> SwitchDefaults.colors()
-    }
 
 /** Bright-only field shape matching the mockup's `.field .input` 16dp radius (Bright's `shapes.small`); Plain/Intense keep the M3 default. */
 @Composable

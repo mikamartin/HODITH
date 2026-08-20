@@ -15,6 +15,76 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feat/cloud-backup-toggle
+
+**Scope:** PROGRESS.md's *Correct the auto-backup disclosure* and *Add a Settings toggle for
+Android's OS-level cloud backup* items, combined at the user's request into one branch (two
+commits) rather than the disclosure-only branch originally planned — the toggle resolves the
+disclosure fix's biggest weakness: without it, the corrected copy could only say backup *might* be
+happening, not let the user stop it. Rewrote `aboutPrivacyBody` in all three voices plus README and
+HODITH_SPEC §16/§4 to stop claiming an absolute "everything stays on the phone," since
+`allowBackup="true"` and an unrestricted `data_extraction_rules.xml` mean Android's own device
+backup can carry the Room DB to the user's Google account. Added a Settings toggle (default on,
+opt-out) enforced by a new `HodithBackupAgent.onFullBackup` override, following a locally reviewed
+reference implementation (EarnIt, a sibling project) directly.
+
+**Found & fixed:**
+- Checklist's Tests section caught a real gap: the disclosure-copy fix had no regression guard.
+  Added `AboutScreenTest.privacyBody_doesNotClaimEverythingStaysOnThePhone`, asserting on a literal
+  substring rather than the `Voice` constant itself, so a future revert of the copy actually fails
+  the test instead of trivially passing against whatever the string currently says (mirrors EarnIt's
+  own regression test for the same bug).
+- Checklist's Duplication/Complexity questions caught `CaseEditScreen.kt`'s private `ToggleRow`/
+  `caseEditSwitchColors` as exactly the kind of copy-paste-with-variation the `BigPictureFilterState`/
+  `AcronymText` precedent exists to avoid, now that Settings needed the identical themed-switch shape.
+  Promoted both to `ui/common/ThemedToggle.kt` (renamed `caseEditSwitchColors` → `themedSwitchColors`,
+  no longer case-specific); `CaseEditScreen.kt` now imports the shared versions instead, and three
+  now-unused imports (`SwitchColors`, `SwitchDefaults`, `Color`) came out with the private functions.
+- Checklist's Tests section, and `VoiceTest`'s own docstring ("every voice has a non-blank string for
+  every key"), didn't hold: `aboutPrivacyLabel`, `aboutPrivacyBody`, `aboutPrivacyPolicyLinkLabel`,
+  `aboutIdeaLabel`, and `aboutIdeaBody` were entirely absent from the hand-written non-blank list —
+  the QA audit's "69 uncovered keys" finding, confirmed directly against this file rather than taken
+  on faith. Added all five (plus the three new cloud-backup keys) rather than only the minimum the
+  disclosure fix touched, since the gap was fully visible in the block already being edited.
+- TESTING.md's Compose UI — Settings row hadn't been touched to mention the new toggle; updated in
+  place rather than left silently stale next to the new coverage.
+- HODITH_SPEC §16's own claim ("documented on the About screen") was the specific unintentional
+  divergence PROGRESS.md flagged — now true rather than aspirational, since the About screen actually
+  says it.
+
+**Deferred:**
+- The hosted privacy policy (linked from `AboutScreen.kt`) and the Play data-safety form both live
+  outside this repo and can't be edited from here. Replaced the two closed PROGRESS.md items with a
+  new, smaller one (*Audit the hosted privacy policy and Play data-safety form*) rather than letting
+  the follow-up go undocumented.
+- `data_extraction_rules.xml` stays unrestricted rather than adding EarnIt-style explicit `<include>`
+  scoping — optional hardening the toggle doesn't depend on, not required for this branch.
+- Instrumented tests (`AboutScreenTest`, `SettingsScreenTest`, `SettingsViewModelTest`'s JVM
+  counterparts already ran) were not run on a device — no emulator available in this session.
+  `compileDebugAndroidTestKotlin` confirms they compile; running them on a device before merge is
+  still outstanding, consistent with CLAUDE.md's "no manual UI verification" boundary for this
+  assistant.
+
+**Held up under scrutiny:** confirmed HODITH's "Delete all data" (`RoomHodithRepository.deleteAllData()`)
+only touches Room, never `DataStoreSettingsRepository` — so EarnIt's "wipe silently re-enables backup"
+edge case (their `resetForWipeEverything()` preserving the choice across a settings-wide clear)
+doesn't apply here; no equivalent guard needed. Repo hygiene clean: `git status` shows only the
+intended files (two new: `backup/HodithBackupAgent.kt`, `ui/common/ThemedToggle.kt`), no secrets, no
+local paths, no stray untracked files.
+
+**Didn't apply:** Hardcoded Values (no new colors/magic numbers — the new DataStore key string
+follows the existing `booleanPreferencesKey` naming pattern), Accessibility (no new icon-only
+buttons; the new `Switch` matches the existing check-in toggle's touch target), Deprecated APIs (no
+new warnings; `BackupAgent.onFullBackup` is the current, non-deprecated full-backup override).
+
+**Docs updated:** README.md (data-stays-yours bullet, "no cloud" softened), HODITH_SPEC.md (§4
+principle 7, §14 Settings/About rows, §16), DEV_PLAYBOOK.md (new §6 Testing Cloud Backup, Tooling
+Reference renumbered to §7), MANUAL_TEST_PLAN.md (Data & backup section, three new items),
+TESTING.md (Compose UI — Settings row), PROGRESS.md (both Settings items resolved and removed,
+replaced with the smaller external-audit follow-up, *Recommended order* renumbered).
+
+---
+
 ## feat/data-migration-and-backup-tolerance
 
 **Scope:** PROGRESS.md's *Data & migrations* item — the decision session it called for, settled and

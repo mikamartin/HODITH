@@ -60,7 +60,16 @@ Permanent accepted constraints — nothing here gets checked off.
 
 ---
 
-## 6. Tooling Upgrade Reference
+## 6. Testing Cloud Backup
+
+- **`HodithBackupAgent`'s toggle-gated skip can't be exercised by an instrumented test** — Android's real backup transport isn't available in a test harness, so verification is manual, via `adb shell bmgr` (backup manager) against a debug build with backup enabled for it. First confirm the local transport is active and the app is eligible: `adb shell bmgr enable true` then `adb shell bmgr transport com.google.android.gms/.backup.migrate.service.D2dTransport` (or the local transport on an emulator without Play Services — `adb shell bmgr list transports` shows what's available). **The app must already be installed and have logged at least one backup-eligible change** (any case/event) before a backup pass has anything to capture.
+- **Force an immediate backup pass** with `adb shell bmgr backupnow com.secondmonday.hodith` rather than waiting for the OS's own schedule — same "don't wait for the real cadence" logic as the widget `grantbind` note above. Check the toggle's effect by running this once with it on and once with it off (Settings → Data → the cloud-backup toggle), confirming via `adb shell bmgr backupnow` output ("Package com.secondmonday.hodith with result: Success" vs. no data transferred) that a backup is/isn't actually captured.
+- **To reproduce the underlying bug this feature fixes** (verifying data really does leave the phone when the toggle is on, not just inferring it from the manifest): wipe local data, uninstall the app, reinstall on the same Google account, and confirm the old data reappears unprompted from the restored backup.
+- **Restore path is a separate command**: `adb shell bmgr restore <token> com.secondmonday.hodith` (token from `adb shell bmgr list sets` after a successful backup) — the toggle only gates future *backups*, not restoring a backup that already exists from before the user opted out (see `HodithBackupAgent`'s class comment).
+
+---
+
+## 7. Tooling Upgrade Reference
 
 **Version matrix reflects the toolchain verified at project setup — re-verify before relying on it, then maintain in place (update rather than append).**
 

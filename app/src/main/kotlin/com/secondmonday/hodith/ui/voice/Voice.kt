@@ -137,6 +137,9 @@ interface Voice {
     val settingsCheckInInfoTitle: String
     val settingsCheckInInfoBody: String
     val settingsDataSectionLabel: String
+    val settingsCloudBackupToggleLabel: String
+    val settingsCloudBackupInfoTitle: String
+    val settingsCloudBackupInfoBody: String
     val settingsDeleteAllDataButton: String
     val settingsDeleteAllDataConfirmTitle: String
     val settingsDeleteAllDataConfirmBody: String
@@ -625,6 +628,12 @@ object PlainVoice : Voice {
             "an active Hunch uses its own pace-derived interval instead. Off turns off the app-wide default; " +
             "individual cases can still be turned off from their edit screen."
     override val settingsDataSectionLabel = "Data"
+    override val settingsCloudBackupToggleLabel = "Include HODITH in device backup"
+    override val settingsCloudBackupInfoTitle = "About device backup"
+    override val settingsCloudBackupInfoBody =
+        "When this is on, Android's own device backup can carry HODITH's data along with everything else " +
+            "on your phone, if you have phone backup turned on. Turning it off stops future backups from " +
+            "including HODITH's data — it won't remove a backup that's already been made."
     override val settingsDeleteAllDataButton = "Delete all data"
     override val settingsDeleteAllDataConfirmTitle = "Delete all data?"
     override val settingsDeleteAllDataConfirmBody =
@@ -657,7 +666,9 @@ object PlainVoice : Voice {
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
-        "Everything stays on your phone. HODITH has no network access and sends nothing anywhere."
+        "HODITH itself has no network access and sends nothing anywhere. But if you have your phone's own " +
+            "backup turned on, it can still include HODITH's data — a toggle in Settings lets you turn that " +
+            "off, though it only stops future backups, not ones already made."
     override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy"
     override val aboutLicensesLabel = "Licenses"
     override val aboutLicensesBody =
@@ -1109,6 +1120,12 @@ object IntenseVoice : Voice {
             "case bound to an active Hunch keeps its own pace-derived vigil instead. Off lays the app-wide " +
             "watch to rest; a single case's watch can still be silenced from its own page."
     override val settingsDataSectionLabel = "The archive"
+    override val settingsCloudBackupToggleLabel = "Let the archive travel"
+    override val settingsCloudBackupInfoTitle = "On letting it travel"
+    override val settingsCloudBackupInfoBody =
+        "Left open, the phone's own reckoning carries a copy of this archive beyond these walls, wherever " +
+            "its backup already goes. Close it, and no new copy leaves — but what has already gone cannot " +
+            "be summoned home."
     override val settingsDeleteAllDataButton = "Erase everything"
     override val settingsDeleteAllDataConfirmTitle = "Erase everything?"
     override val settingsDeleteAllDataConfirmBody =
@@ -1140,7 +1157,9 @@ object IntenseVoice : Voice {
     override val aboutDeveloperModeUnlockedMessage = "The curtain has fallen. What lies behind is yours now."
     override val aboutPrivacyLabel = "What leaves this phone"
     override val aboutPrivacyBody =
-        "Nothing. No network, no signal sent outward — every case stays sealed here."
+        "Nothing leaves through us — no network, no signal sent outward. But the phone itself may still " +
+            "carry a copy beyond these walls, if its own backup is left running. A ward in Settings can " +
+            "seal that gate; what has already escaped, it cannot call back."
     override val aboutPrivacyPolicyLinkLabel = "Read the full accounting"
     override val aboutLicensesLabel = "Borrowed bones"
     override val aboutLicensesBody =
@@ -1588,6 +1607,12 @@ object BrightVoice : Voice {
             "That case gets its own smarter timing instead. Off means no app-wide nudges — you can still " +
             "flip a single case off from its edit screen."
     override val settingsDataSectionLabel = "Your stuff!"
+    override val settingsCloudBackupToggleLabel = "Back up my stuff!"
+    override val settingsCloudBackupInfoTitle = "About backing up!"
+    override val settingsCloudBackupInfoBody =
+        "When this is on, your phone's own backup can scoop up HODITH's data along with everything else, " +
+            "if you've got phone backup turned on. Switch it off and future backups skip HODITH — but heads " +
+            "up, it won't erase a backup that already happened!"
     override val settingsDeleteAllDataButton = "Nuke everything"
     override val settingsDeleteAllDataConfirmTitle = "Nuke everything?"
     override val settingsDeleteAllDataConfirmBody = "Every case and event goes poof — for real, no take-backs."
@@ -1616,7 +1641,10 @@ object BrightVoice : Voice {
     override val aboutVersionLabel = "Version"
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked! Go wild."
     override val aboutPrivacyLabel = "Privacy"
-    override val aboutPrivacyBody = "Everything stays right here on your phone — no internet, no sneaky data stuff!"
+    override val aboutPrivacyBody =
+        "HODITH itself doesn't touch the internet — zero network access, promise! But if your phone's own " +
+            "backup is turned on, it might scoop up HODITH's data anyway. Flip the switch in Settings to " +
+            "stop that — heads up though, it only stops future backups, past ones stick around!"
     override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy!"
     override val aboutLicensesLabel = "Licenses"
     override val aboutLicensesBody =
