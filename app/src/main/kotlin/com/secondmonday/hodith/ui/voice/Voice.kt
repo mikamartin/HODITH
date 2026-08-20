@@ -137,6 +137,9 @@ interface Voice {
     val settingsCheckInInfoTitle: String
     val settingsCheckInInfoBody: String
     val settingsDataSectionLabel: String
+    val settingsCloudBackupToggleLabel: String
+    val settingsCloudBackupInfoTitle: String
+    val settingsCloudBackupInfoBody: String
     val settingsDeleteAllDataButton: String
     val settingsDeleteAllDataConfirmTitle: String
     val settingsDeleteAllDataConfirmBody: String
@@ -625,6 +628,12 @@ object PlainVoice : Voice {
             "an active Hunch uses its own pace-derived interval instead. Off turns off the app-wide default; " +
             "individual cases can still be turned off from their edit screen."
     override val settingsDataSectionLabel = "Data"
+    override val settingsCloudBackupToggleLabel = "Include HODITH in device backup"
+    override val settingsCloudBackupInfoTitle = "About device backup"
+    override val settingsCloudBackupInfoBody =
+        "When this is on, Android's own device backup can carry HODITH's data along with everything else " +
+            "on your phone, if you have phone backup turned on. Turning it off stops future backups from " +
+            "including HODITH's data — it won't remove a backup that's already been made."
     override val settingsDeleteAllDataButton = "Delete all data"
     override val settingsDeleteAllDataConfirmTitle = "Delete all data?"
     override val settingsDeleteAllDataConfirmBody =
@@ -1111,6 +1120,12 @@ object IntenseVoice : Voice {
             "case bound to an active Hunch keeps its own pace-derived vigil instead. Off lays the app-wide " +
             "watch to rest; a single case's watch can still be silenced from its own page."
     override val settingsDataSectionLabel = "The archive"
+    override val settingsCloudBackupToggleLabel = "Let the archive travel"
+    override val settingsCloudBackupInfoTitle = "On letting it travel"
+    override val settingsCloudBackupInfoBody =
+        "Left open, the phone's own reckoning carries a copy of this archive beyond these walls, wherever " +
+            "its backup already goes. Close it, and no new copy leaves — but what has already gone cannot " +
+            "be summoned home."
     override val settingsDeleteAllDataButton = "Erase everything"
     override val settingsDeleteAllDataConfirmTitle = "Erase everything?"
     override val settingsDeleteAllDataConfirmBody =
@@ -1592,6 +1607,12 @@ object BrightVoice : Voice {
             "That case gets its own smarter timing instead. Off means no app-wide nudges — you can still " +
             "flip a single case off from its edit screen."
     override val settingsDataSectionLabel = "Your stuff!"
+    override val settingsCloudBackupToggleLabel = "Back up my stuff!"
+    override val settingsCloudBackupInfoTitle = "About backing up!"
+    override val settingsCloudBackupInfoBody =
+        "When this is on, your phone's own backup can scoop up HODITH's data along with everything else, " +
+            "if you've got phone backup turned on. Switch it off and future backups skip HODITH — but heads " +
+            "up, it won't erase a backup that already happened!"
     override val settingsDeleteAllDataButton = "Nuke everything"
     override val settingsDeleteAllDataConfirmTitle = "Nuke everything?"
     override val settingsDeleteAllDataConfirmBody = "Every case and event goes poof — for real, no take-backs."

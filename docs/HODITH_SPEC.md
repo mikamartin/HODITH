@@ -269,8 +269,8 @@ Bottom navigation: **Home · Big Picture · Settings**.
 | **Log detail sheet** | §6 — reachable from widget (trampoline activity), Home, case detail. |
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
 | **Triggers** | Per Case: list, create, enable/disable, delete (confirm dialog). Reached from Case Detail's header. |
-| **Settings** | Grouped by area, each in its own card: **Support** (About, Rate the app — still a placeholder pending a store listing, Contact us — opens an email compose intent to the developer address); **Appearance** (theme/voice picker with a tappable info icon explaining themes, no live preview); **Check-ins** (default interval: off / 7 / 14 / 30 days); **Data** (export/import JSON, delete all data — confirm dialog, permanent); a hidden **Developer Mode** area, unlocked by a tap-pattern gesture on About's version row, currently holding "Load demo data". |
-| **About** | A short "what HODITH is" blurb, Version (a tap-pattern gesture on it unlocks Settings' hidden Developer Mode area), privacy statement — HODITH itself sends nothing anywhere, and explains how Android's own device backup can still carry its data — with a link to the full hosted privacy policy, licenses (open-source dependencies and their license). |
+| **Settings** | Grouped by area, each in its own card: **Support** (About, Rate the app — still a placeholder pending a store listing, Contact us — opens an email compose intent to the developer address); **Appearance** (theme/voice picker with a tappable info icon explaining themes, no live preview); **Check-ins** (default interval: off / 7 / 14 / 30 days); **Data** (cloud-backup opt-out toggle with a tappable info icon, default on — export/import JSON, delete all data — confirm dialog, permanent); a hidden **Developer Mode** area, unlocked by a tap-pattern gesture on About's version row, currently holding "Load demo data". |
+| **About** | A short "what HODITH is" blurb, Version (a tap-pattern gesture on it unlocks Settings' hidden Developer Mode area), privacy statement — HODITH itself sends nothing anywhere, and explains how Android's own device backup can still carry its data unless opted out via the Data section's toggle — with a link to the full hosted privacy policy, licenses (open-source dependencies and their license). |
 
 ## 15. Widgets (Jetpack Glance)
 
@@ -282,7 +282,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 
 - All data local: Room DB + DataStore prefs. No network permission in the manifest.
 - **Export/import**: full JSON (Moshi), schema-versioned (`schemaVersion: 1`), import validates before touching the DB and is all-or-nothing.
-- Android auto-backup enabled — documented on the About screen.
+- Android auto-backup enabled by default (`allowBackup`, unrestricted `data_extraction_rules.xml`), with a Settings toggle (default on) to opt out — documented on the About screen. One toggle governs both cloud backup and device-transfer, since both go through the same `onFullBackup` path on API 31+; enforcement lives in `HodithBackupAgent`, since the manifest flags themselves are static and can't be flipped at runtime. Opting out only stops future backups — it doesn't purge a backup already made.
 - Free, no ads, no IAP at launch.
 - Play data-safety form: no data collected.
 

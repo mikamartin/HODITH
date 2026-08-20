@@ -8,12 +8,11 @@ Each item carries a trailer: **Branch** (the branch to open for it), **Complexit
 
 Sequencing matters more than usual here — several items collide in the same files, and two of them are cheap now and expensive after the first release.
 
-1. **Auto-backup disclosure fix** — the app currently makes a privacy claim that isn't accurate. Small, and shouldn't wait behind the full toggle feature.
-2. **The QA audit's own findings** — the audit has run (all sections but the mutation spot checks), so the Testing and Shared UI logic sections below are no longer speculative. Take `refactor/extract-ui-input-logic` early: it's the only audit finding that contains a live user-facing bug, and it touches the log sheet, which several other items also touch.
-3. Small fixes: Case Detail tab order, dialog spacing, close-action copy, app icon.
-4. Share card sizing, then the cloud-backup toggle.
-5. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
-6. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
+1. **The QA audit's own findings** — the audit has run (all sections but the mutation spot checks), so the Testing and Shared UI logic sections below are no longer speculative. Take `refactor/extract-ui-input-logic` early: it's the only audit finding that contains a live user-facing bug, and it touches the log sheet, which several other items also touch.
+2. Small fixes: Case Detail tab order, dialog spacing, close-action copy, app icon.
+3. Share card sizing.
+4. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
+5. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
 
 ## Needs design / product-owner input
 
@@ -141,25 +140,11 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 ## Settings
 
-- [ ] **Correct the auto-backup disclosure.** Independent of the toggle below, the app currently says something that isn't accurate. About's privacy copy reads "Everything stays on your phone. HODITH has no network access and sends nothing anywhere" (Plain), "Nothing. No network, no signal sent outward — every case stays sealed here" (Intense), "Everything stays right here on your phone — no internet, no sneaky data stuff!" (Bright), and README says "no cloud". With `android:allowBackup="true"` and an unrestricted `data_extraction_rules.xml` (`<cloud-backup />` + `<device-transfer />` with no exclusions), the Room database *does* reach the user's Google account whenever device backup is enabled. Separately, HODITH_SPEC §16 states "Android auto-backup enabled — documented on the About screen" and the About screen documents no such thing — an unintentional spec/implementation divergence, which CLAUDE.md classifies as a bug to fix rather than a spec update.
+- [ ] **Audit the hosted privacy policy and Play data-safety form.** Both live outside this repo and likely still repeat the "nothing leaves the phone" claim that `feat/cloud-backup-toggle` just corrected in-app (About screen, README, HODITH_SPEC §16). The hosted policy is linked from `AboutScreen.kt`'s privacy section; the Play data-safety answers live in Play Console once a listing exists. Neither can be edited from this repo.
 
-  *Branch: `fix/about-backup-disclosure` · Complexity: S · Priority: High — ahead of the toggle*
+  *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium*
 
-  **Rationale for splitting it out** — the toggle below is an M-sized feature with open product questions. The inaccurate claim shouldn't sit in the app while those get answered, and a copy correction is independent of whichever way the toggle decision goes.
-
-  **Plan** — rewrite `aboutPrivacyBody` in all three voices to say plainly that HODITH itself sends nothing (still true: no INTERNET permission) *and* that Android's own device backup may include HODITH's data if the user has it on, with how to check. Also audit the two claims that live outside this repo: the hosted privacy policy at the URL `AboutScreen.kt` links to, and the Play data-safety answers, both of which probably repeat the same claim.
-
-  **Tests** — `AboutScreenTest` asserts section content; extend it for the new disclosure. `VoiceTest`'s non-blank list already covers the keys.
-
-- [ ] Add a Settings toggle for Android's OS-level cloud backup: HODITH has no INTERNET permission and doesn't sync anything itself, but `allowBackup="true"` plus an unrestricted `data_extraction_rules.xml` mean the OS's own device backup (if the user has "Back up to Google One" on) currently includes HODITH's local database like any other app's. EarnIt already implements this pattern (a custom `BackupAgent` honoring a persisted toggle, since Android has no runtime API for an app to flip its own default Auto Backup on/off) — review that implementation as a reference. Open sub-decisions: default toggle state, and whether device-transfer (new-phone setup) is gated by the same toggle or always allowed independently of cloud backup. Update About/README once resolved to state plainly whether HODITH data can reach the user's Google account and how to prevent it.
-
-  *Branch: `feat/cloud-backup-toggle` · Complexity: M · Priority: Medium (High if the disclosure fix above is skipped)*
-
-  **Plan** — the toggle value slots into the existing `DataStoreSettingsRepository` alongside theme and default check-in interval, with a `BackupAgent` reading it; the Settings row goes in the Data plank next to Export/Import/Delete. The two open sub-decisions are the actual work: **default state** (defaulting off contradicts §16's "auto-backup enabled" and silently loses new-phone restore; defaulting on contradicts the app's current framing) and **device-transfer** (`<device-transfer />` is the new-phone path and is arguably a different question from `<cloud-backup />` — data moving phone-to-phone doesn't linger in a Google account the way a cloud backup does, so gating them together may be stricter than users want).
-
-  **Tests** — the toggle's persistence and the ViewModel wiring are testable exactly like the existing theme/check-in preferences (`DataStoreSettingsRepository`, `SettingsViewModelTest`, `SettingsScreenTest`). `BackupAgent` behaviour is not practically unit-testable; verification is `adb shell bmgr` (enable, `backupnow`, wipe, restore) — document that procedure in DEV_PLAYBOOK the way the widget `grantbind` procedure is documented, and add the journey to MANUAL_TEST_PLAN.
-
-  **Concern** — EarnIt is a different repository, so "review that implementation as a reference" is a real time cost, not a free lookup; budget for it. And whichever default wins, five things move together: HODITH_SPEC §16, the About copy, README, the hosted privacy policy, and the Play data-safety form. Missing one of the two off-repo ones is the likely failure.
+  **Plan** — read both against the new About copy (HODITH itself sends nothing; Android's own device backup may include HODITH's data unless the user opts out via Settings) and update wherever they still claim otherwise.
 
 - [ ] Rate the App is still a placeholder row (shows a "coming soon" snackbar) — needs a real destination once there's a Play Store listing.
 

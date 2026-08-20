@@ -9,6 +9,7 @@ class FakeSettingsRepository : SettingsRepository {
     val checkInDefaultInterval = MutableStateFlow(CheckInDefaultInterval.SEVEN)
     val notificationPermissionRequested = MutableStateFlow(false)
     val developerModeUnlocked = MutableStateFlow(false)
+    val cloudBackupEnabled = MutableStateFlow(true)
 
     override fun observeTheme(): Flow<AppTheme> = theme
 
@@ -36,5 +37,11 @@ class FakeSettingsRepository : SettingsRepository {
 
     override suspend fun setDeveloperModeUnlocked() {
         developerModeUnlocked.value = true
+    }
+
+    override fun observeCloudBackupEnabled(): Flow<Boolean> = cloudBackupEnabled
+
+    override suspend fun setCloudBackupEnabled(enabled: Boolean) {
+        cloudBackupEnabled.value = enabled
     }
 }

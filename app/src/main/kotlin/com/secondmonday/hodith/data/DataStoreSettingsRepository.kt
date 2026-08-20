@@ -15,6 +15,7 @@ private val THEME_KEY = stringPreferencesKey("theme")
 private val CHECK_IN_DEFAULT_INTERVAL_KEY = stringPreferencesKey("check_in_default_interval")
 private val NOTIFICATION_PERMISSION_REQUESTED_KEY = booleanPreferencesKey("notification_permission_requested")
 private val DEVELOPER_MODE_UNLOCKED_KEY = booleanPreferencesKey("developer_mode_unlocked")
+private val CLOUD_BACKUP_ENABLED_KEY = booleanPreferencesKey("cloud_backup_enabled")
 
 @Singleton
 class DataStoreSettingsRepository
@@ -60,5 +61,12 @@ class DataStoreSettingsRepository
 
         override suspend fun setDeveloperModeUnlocked() {
             dataStore.edit { preferences -> preferences[DEVELOPER_MODE_UNLOCKED_KEY] = true }
+        }
+
+        override fun observeCloudBackupEnabled(): Flow<Boolean> =
+            dataStore.data.map { preferences -> preferences[CLOUD_BACKUP_ENABLED_KEY] ?: true }
+
+        override suspend fun setCloudBackupEnabled(enabled: Boolean) {
+            dataStore.edit { preferences -> preferences[CLOUD_BACKUP_ENABLED_KEY] = enabled }
         }
     }

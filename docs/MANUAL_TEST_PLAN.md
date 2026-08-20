@@ -153,3 +153,18 @@ to"/"open" picker UI itself.
    — a "not a valid backup" snackbar appears and existing data is untouched.
 5. **Import across app installs.** Export from one install (or before a fresh reinstall/data wipe),
    then import that file on the clean install — full restore, including tags and Hunch history.
+
+Android's own OS-level device backup (separate from the export/import above) can't be exercised by
+an instrumented test — Android's real backup transport isn't available in a test harness. See
+DEV_PLAYBOOK.md §6 for the exact `adb shell bmgr` commands behind each journey below.
+
+6. **Cloud backup toggle on.** With the Settings toggle on (the default), log real data, then force
+   a backup pass (`adb shell bmgr backupnow`). The command reports success, confirming HODITH's data
+   was actually captured.
+7. **Cloud backup toggle off.** Turn the toggle off, then force a backup pass the same way — the
+   command should report that HODITH was skipped (no data captured), confirming
+   `HodithBackupAgent`'s skip actually takes effect rather than only updating the preference.
+8. **Reproduce the underlying bug.** Wipe local data, uninstall, reinstall on the same Google
+   account — with the toggle left on beforehand, old data reappears unprompted from the restored
+   backup. This is the concrete verification that the About screen's disclosure is accurate, not
+   just plausible from the manifest.

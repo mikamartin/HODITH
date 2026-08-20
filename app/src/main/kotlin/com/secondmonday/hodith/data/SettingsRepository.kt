@@ -24,4 +24,9 @@ interface SettingsRepository {
     fun observeDeveloperModeUnlocked(): Flow<Boolean>
 
     suspend fun setDeveloperModeUnlocked()
+
+    /** Spec §16: opts out of Android's OS-level device backup (cloud backup and device-transfer alike). Default on. */
+    fun observeCloudBackupEnabled(): Flow<Boolean>
+
+    suspend fun setCloudBackupEnabled(enabled: Boolean)
 }
