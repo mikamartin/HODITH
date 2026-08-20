@@ -4,12 +4,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.io.File
 
-private const val FREEZE_POINT_VERSION = 6
 private val SCHEMA_DIR = File("schemas/com.secondmonday.hodith.data.HodithDatabase")
 
 /**
  * Guards against a schema bump landing without a matching [Migration][androidx.room.migration.Migration].
- * v1-5 never shipped (no fallback data at risk), so [FREEZE_POINT_VERSION] is the first version a
+ * v1-5 never shipped (no fallback data at risk), so [HODITH_DATABASE_VERSION] is the first version a
  * real migration is required from. If this fails, either add the missing `Migration` to
  * [HodithDatabase.MIGRATIONS] or the schema bump wasn't intentional.
  */
@@ -23,7 +22,7 @@ class SchemaMigrationCoverageTest {
                 .map { it.nameWithoutExtension.toInt() }
 
         val highestSchemaVersion = schemaVersions.max()
-        val expectedMigrationCount = highestSchemaVersion - FREEZE_POINT_VERSION
+        val expectedMigrationCount = highestSchemaVersion - HODITH_DATABASE_VERSION
 
         assertEquals(expectedMigrationCount, HodithDatabase.MIGRATIONS.size)
     }

@@ -11,7 +11,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 private const val TEST_DB_NAME = "fresh-install-test.db"
-private const val FREEZE_POINT_VERSION = 6
 
 /**
  * Baseline the migration guard (DatabaseModule, no `fallbackToDestructiveMigration`) rests on:
@@ -31,7 +30,7 @@ class DatabaseFreshInstallTest {
     @Test
     fun freshDatabaseAtFreezePointOpensAndDaosAreQueryable() =
         runTest {
-            migrationTestHelper.createDatabase(TEST_DB_NAME, FREEZE_POINT_VERSION).close()
+            migrationTestHelper.createDatabase(TEST_DB_NAME, HODITH_DATABASE_VERSION).close()
 
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val db =
