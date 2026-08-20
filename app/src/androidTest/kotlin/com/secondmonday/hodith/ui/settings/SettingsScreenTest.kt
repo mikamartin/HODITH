@@ -127,8 +127,9 @@ class SettingsScreenTest {
     fun themeInfoIcon_opensAndDismissesDialog() {
         setContent()
 
-        // Theme's info icon is the first of the screen's two (Theme, then Check-ins) — see
-        // CaseEditScreenTest for the same shared-content-description convention.
+        // Theme's info icon is the first of the screen's three (Theme, then Check-ins, then the
+        // cloud-backup toggle) — see CaseEditScreenTest for the same shared-content-description
+        // convention.
         composeTestRule
             .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
             .onFirst()
@@ -164,12 +165,25 @@ class SettingsScreenTest {
     fun checkInInfoIcon_opensDialog() {
         setContent()
 
+        // Check-ins' info icon is the middle of the screen's three (Theme, then Check-ins, then
+        // the cloud-backup toggle) — see themeInfoIcon_opensAndDismissesDialog above.
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)[1]
+            .performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsCheckInInfoTitle).assertExists()
+    }
+
+    @Test
+    fun cloudBackupInfoIcon_opensDialog() {
+        setContent()
+
         composeTestRule
             .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
             .onLast()
             .performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsCheckInInfoTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsCloudBackupInfoTitle).assertExists()
     }
 
     @Test
