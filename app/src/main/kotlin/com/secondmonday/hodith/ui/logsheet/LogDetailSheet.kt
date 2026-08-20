@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.filterDigitInput
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.LogDraft
@@ -70,6 +71,7 @@ import java.time.ZoneOffset
 
 private val INTENSITY_RANGE = 1..5
 private val INTENSITY_CHOICE_SIZE = 48.dp
+private const val DURATION_MINUTES_MAX_DIGITS = 5
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -145,7 +147,7 @@ fun LogDetailSheet(
             if (durationMode == DurationMode.MANUAL) {
                 OutlinedTextField(
                     value = draft.durationMinutes,
-                    onValueChange = { draft = draft.copy(durationMinutes = it.filter(Char::isDigit)) },
+                    onValueChange = { draft = draft.copy(durationMinutes = filterDigitInput(it, maxDigits = DURATION_MINUTES_MAX_DIGITS)) },
                     label = { Text(voice.logSheetDurationLabel) },
                     placeholder = { Text(voice.logSheetDurationHint) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -169,10 +171,7 @@ fun LogDetailSheet(
                 tagInput = tagInput,
                 onTagInputChange = { tagInput = it },
                 onAddTag = { name ->
-                    val trimmed = name.trim()
-                    if (trimmed.isNotEmpty() && trimmed !in draft.tags) {
-                        draft = draft.copy(tags = draft.tags + trimmed)
-                    }
+                    tagToAdd(name, draft.tags)?.let { tag -> draft = draft.copy(tags = draft.tags + tag) }
                     tagInput = ""
                 },
                 onRemoveTag = { name -> draft = draft.copy(tags = draft.tags - name) },
@@ -517,11 +516,7 @@ private fun TagEditor(
             }
         }
 
-        val remainingSuggestions =
-            suggestions.filter {
-                it !in selectedTags &&
-                    (tagInput.isEmpty() || it.contains(tagInput, ignoreCase = true))
-            }
+        val remainingSuggestions = filterTagSuggestions(suggestions, selectedTags, tagInput)
         if (remainingSuggestions.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 remainingSuggestions.forEach { suggestion ->

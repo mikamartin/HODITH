@@ -153,15 +153,20 @@ internal fun applyPickedTime(
         .toEpochMilli()
 }
 
-/** Which tags to add/remove so [originalTags] ends up matching [selectedNames]. */
+/**
+ * Which tags to add/remove so [originalTags] ends up matching [selectedNames]. Matching is
+ * case-insensitive (mirrors Case Edit's own duplicate-name check and `ui.logsheet.tagToAdd`), so
+ * a selection of "Coffee" against an original tag named "coffee" is a no-op, not an add+remove.
+ */
 internal fun tagDiff(
     originalTags: List<TagEntity>,
     selectedNames: List<String>,
 ): TagDiff {
     val selected = selectedNames.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-    val originalByName = originalTags.associateBy { it.name }
-    val toAdd = selected - originalByName.keys
-    val toRemove = originalByName.filterKeys { it !in selected }.values.toSet()
+    val selectedLower = selected.map { it.lowercase() }.toSet()
+    val originalLowerNames = originalTags.map { it.name.lowercase() }.toSet()
+    val toAdd = selected.filter { it.lowercase() !in originalLowerNames }.toSet()
+    val toRemove = originalTags.filter { it.name.lowercase() !in selectedLower }.toSet()
     return TagDiff(toAdd = toAdd, toRemove = toRemove)
 }
 

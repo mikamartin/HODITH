@@ -43,6 +43,14 @@ class TagDaoTest {
         }
 
     @Test
+    fun getByName_matchesRegardlessOfCasing() =
+        runTest {
+            tagDao.insert(TagEntity(name = "at-dinner"))
+
+            assertEquals("at-dinner", tagDao.getByName("At-Dinner")?.name)
+        }
+
+    @Test
     fun observeTagsForEvent_returnsOnlyTagsLinkedToThatEvent() =
         runTest {
             val otherEventId = eventDao.insert(testEvent(caseId = caseId))

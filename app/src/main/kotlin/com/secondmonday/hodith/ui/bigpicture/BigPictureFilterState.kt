@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.bigpicture
 
 import com.secondmonday.hodith.viewmodel.CalendarCase
+import java.time.LocalDate
 
 /**
  * Pure filter/legend logic for the Big Picture grid, split out of [BigPictureGrid] so it's
@@ -20,6 +21,12 @@ internal fun isTagVisible(
         visibleTagNames.isEmpty() -> eventTags.isEmpty()
         else -> eventTags.any { it in visibleTagNames }
     }
+
+/** Whether [date] is today or earlier — the Big Picture grid never renders future days (spec §9). */
+internal fun isPastOrToday(
+    date: LocalDate,
+    today: LocalDate,
+): Boolean = !date.isAfter(today)
 
 /** What the combined legend row shows for the Case dimension. */
 internal sealed interface CaseLegendState {

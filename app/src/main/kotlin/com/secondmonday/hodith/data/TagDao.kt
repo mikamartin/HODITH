@@ -12,7 +12,12 @@ interface TagDao {
     @Insert
     suspend fun insert(tag: TagEntity): Long
 
-    @Query("SELECT * FROM tags WHERE name = :name")
+    // Case-insensitive: tag matching is case-insensitive throughout the app (mirrors Case Edit's
+    // duplicate-name check and viewmodel.tagDiff), so "Coffee" reuses an existing "coffee" tag
+    // instead of creating a near-duplicate. The unique index on `name` stays case-sensitive at
+    // the schema level, but this lookup is what actually prevents that duplicate from being
+    // inserted in the first place.
+    @Query("SELECT * FROM tags WHERE name = :name COLLATE NOCASE")
     suspend fun getByName(name: String): TagEntity?
 
     @Query("SELECT * FROM tags ORDER BY name")
