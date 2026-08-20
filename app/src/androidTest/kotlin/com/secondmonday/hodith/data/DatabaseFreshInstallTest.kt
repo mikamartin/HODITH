@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.secondmonday.hodith.testtags.Smoke
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -27,6 +28,7 @@ class DatabaseFreshInstallTest {
             HodithDatabase::class.java,
         )
 
+    @Smoke
     @Test
     fun freshDatabaseAtFreezePointOpensAndDaosAreQueryable() =
         runTest {
