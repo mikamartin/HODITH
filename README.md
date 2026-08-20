@@ -27,11 +27,11 @@ Open a **Case** on the thing you've noticed — a teenager snapping at you, a mi
 - **Triggers.** A factual heads-up when something happens 3+ times in a week, or hasn't happened in 14 days. A count and a name — the rest is up to you.
 - **Three themes, three voices.** Plain, Intense, and Bright change the colors *and* every word the app says. The Intense verdict for a disproven fear: *"Your dread was exaggerated."*
 - **Share the reveal.** Turn a Case into a story-style card — the case, the hunch, the evidence, the verdict — styled by your theme, sized for stories or feeds. You preview first, can rename the case on the card, and notes/tags never leave the phone.
-- **Your data stays yours.** Everything lives on the phone; the app doesn't even request network permission. Export/import as JSON anytime.
+- **Your data stays yours.** HODITH itself doesn't request network permission and sends nothing anywhere; export/import as JSON anytime. Android's own device backup can still include HODITH's data if you have phone backup turned on — a Settings toggle lets you opt out.
 
 ## By design, it leaves out
 
-No streaks, scores, or reminders to "do better" — many Cases are about things nobody controls, and an event *not* happening is information, not failure. No accounts, no cloud, no analytics, no ads.
+No streaks, scores, or reminders to "do better" — many Cases are about things nobody controls, and an event *not* happening is information, not failure. No accounts, no analytics, no ads, and no sync feature of its own.
 
 ## Tech stack
 

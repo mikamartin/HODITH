@@ -657,7 +657,9 @@ object PlainVoice : Voice {
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
-        "Everything stays on your phone. HODITH has no network access and sends nothing anywhere."
+        "HODITH itself has no network access and sends nothing anywhere. But if you have your phone's own " +
+            "backup turned on, it can still include HODITH's data — a toggle in Settings lets you turn that " +
+            "off, though it only stops future backups, not ones already made."
     override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy"
     override val aboutLicensesLabel = "Licenses"
     override val aboutLicensesBody =
@@ -1140,7 +1142,9 @@ object IntenseVoice : Voice {
     override val aboutDeveloperModeUnlockedMessage = "The curtain has fallen. What lies behind is yours now."
     override val aboutPrivacyLabel = "What leaves this phone"
     override val aboutPrivacyBody =
-        "Nothing. No network, no signal sent outward — every case stays sealed here."
+        "Nothing leaves through us — no network, no signal sent outward. But the phone itself may still " +
+            "carry a copy beyond these walls, if its own backup is left running. A ward in Settings can " +
+            "seal that gate; what has already escaped, it cannot call back."
     override val aboutPrivacyPolicyLinkLabel = "Read the full accounting"
     override val aboutLicensesLabel = "Borrowed bones"
     override val aboutLicensesBody =
@@ -1616,7 +1620,10 @@ object BrightVoice : Voice {
     override val aboutVersionLabel = "Version"
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked! Go wild."
     override val aboutPrivacyLabel = "Privacy"
-    override val aboutPrivacyBody = "Everything stays right here on your phone — no internet, no sneaky data stuff!"
+    override val aboutPrivacyBody =
+        "HODITH itself doesn't touch the internet — zero network access, promise! But if your phone's own " +
+            "backup is turned on, it might scoop up HODITH's data anyway. Flip the switch in Settings to " +
+            "stop that — heads up though, it only stops future backups, past ones stick around!"
     override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy!"
     override val aboutLicensesLabel = "Licenses"
     override val aboutLicensesBody =

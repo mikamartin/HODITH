@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.about
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -56,6 +57,18 @@ class AboutScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.aboutPrivacyPolicyLinkLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutLicensesLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutLicensesBody).assertExists()
+    }
+
+    @Test
+    fun privacyBody_doesNotClaimEverythingStaysOnThePhone() {
+        // Regression guard: the original copy claimed an absolute "everything stays on your phone,"
+        // which wasn't true once `allowBackup`/`data_extraction_rules.xml` are accounted for. Checks
+        // a literal substring rather than PlainVoice.aboutPrivacyBody itself, so this still catches a
+        // future revert to the old claim instead of trivially passing against whatever the copy says.
+        setContent()
+
+        composeTestRule.onAllNodesWithText("stays on your phone", substring = true, ignoreCase = true).assertCountEquals(0)
+        composeTestRule.onNodeWithText("backup", substring = true, ignoreCase = true).assertExists()
     }
 
     @Test

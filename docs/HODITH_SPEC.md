@@ -42,7 +42,7 @@ The case → evidence → hunch → verdict framing is deliberate: it gives all 
 4. **Statistical honesty.** With too few logs there is no verdict — the app says "early days, keep logging" instead of pretending. Small-sample humility keeps the app trustworthy (and is a fun place for theme voice).
 5. **Show, don't lecture.** The flagship visual — the Big Picture — puts all your cases on one shared calendar and lets your own eyes spot the patterns when icons land on the same day.
 6. **Every Case has a face.** Each Case gets an icon (emoji), shown everywhere it appears — Home, Big Picture, widgets, notifications. Icons are the primary way cases are told apart; color is never the only distinguisher (easier to remember, better for accessibility).
-7. **Everything stays on the phone.** No accounts, no analytics, no network permission at all. Export/import is the user's escape hatch.
+7. **Nothing leaves through the app itself.** No accounts, no analytics, no network permission at all — export/import is the user's escape hatch. Android's own device backup can still carry the app's data off the phone if the user has that turned on; a Settings toggle opts out (§16).
 
 ## 4. Non-goals (v1)
 
@@ -270,7 +270,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 | **Share preview** | §13 — card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
 | **Triggers** | Per Case: list, create, enable/disable, delete (confirm dialog). Reached from Case Detail's header. |
 | **Settings** | Grouped by area, each in its own card: **Support** (About, Rate the app — still a placeholder pending a store listing, Contact us — opens an email compose intent to the developer address); **Appearance** (theme/voice picker with a tappable info icon explaining themes, no live preview); **Check-ins** (default interval: off / 7 / 14 / 30 days); **Data** (export/import JSON, delete all data — confirm dialog, permanent); a hidden **Developer Mode** area, unlocked by a tap-pattern gesture on About's version row, currently holding "Load demo data". |
-| **About** | A short "what HODITH is" blurb, Version (a tap-pattern gesture on it unlocks Settings' hidden Developer Mode area), privacy statement ("everything stays on your phone") with a link to the full hosted privacy policy, licenses (open-source dependencies and their license). |
+| **About** | A short "what HODITH is" blurb, Version (a tap-pattern gesture on it unlocks Settings' hidden Developer Mode area), privacy statement — HODITH itself sends nothing anywhere, and explains how Android's own device backup can still carry its data — with a link to the full hosted privacy policy, licenses (open-source dependencies and their license). |
 
 ## 15. Widgets (Jetpack Glance)
 
