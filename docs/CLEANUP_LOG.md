@@ -15,6 +15,63 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feat/data-migration-and-backup-tolerance
+
+**Scope:** PROGRESS.md's *Data & migrations* item — the decision session it called for, settled and
+implemented rather than left as a decision doc. Removed `fallbackToDestructiveMigration` now that
+the schema is frozen at v6 (no user holds v1-5 data, so no retroactive migration chain is needed),
+with a guard test that fails a future schema bump lacking a matching `Migration`. Made backup import
+version-tolerant: rejects only newer files, and folds older ones through a (currently empty)
+upgrade-chain mechanism instead of an exact-version match. Four commits.
+
+**Found & fixed:**
+- Checklist's Hardcoded Values/Duplication questions caught the frozen schema version (`6`)
+  declared as a private `const` in two separate test files (`SchemaMigrationCoverageTest`,
+  `DatabaseFreshInstallTest`) instead of one source of truth. Room's `@Database` annotation can't be
+  read back via reflection (`AnnotationRetention.BINARY`), so introduced a top-level
+  `HODITH_DATABASE_VERSION` const in `HodithDatabase.kt` that both the annotation and both tests
+  reference instead.
+- Getting `MigrationTestHelper` running at all needed two build-config fixes, neither anticipated by
+  the plan: `app/schemas/*.json` wasn't wired into the `androidTest` assets (no instrumented
+  migration test had ever needed it before), and Room 2.8.4's migration-bundle parser needs
+  `kotlinx-serialization-core` 1.8.1+, but the pinned Compose BOM's constraint set strictly holds it
+  to 1.7.3 — threw `AbstractMethodError` at test runtime, not compile time. Forced 1.8.1 scoped to
+  only the `androidTest` configurations (no production code uses `kotlinx.serialization`); logged as
+  a Gotcha in DEV_PLAYBOOK §6 so the next Compose BOM/Room bump doesn't rediscover it blind.
+- Checklist's Tests section, prompted by a direct question about e2e coverage: unit tests proved the
+  new version-detection logic against hand-written JSON strings, and a pre-existing instrumented
+  test proved real-database restore against raw `BackupData` objects, but nothing proved both
+  together. Added `BackupImportIntegrationTest` — real exported JSON, through
+  `BackupSerializer`'s version-tolerant parsing, into a real database.
+- `DatabaseFreshInstallTest`'s one test is the class's representative happy path; tagged `@Smoke` to
+  match the `CaseDaoTest`/`RoomHodithRepositoryBackupTest` precedent.
+- HODITH_SPEC §17's shared-cost note assumed the pre-release destructive-migration fallback this
+  branch removed — an intentional divergence, so the spec moved (CLAUDE.md rule) to state the guard
+  test that replaces it.
+- DEV_PLAYBOOK's ship checklist had an item pointing at PROGRESS.md's *Data & migrations* section,
+  now resolved; struck per CLAUDE.md ("the checklist only contains open work") rather than left
+  dangling at a section that no longer exists.
+- PROGRESS.md's *Data & migrations* section removed entirely (outstanding-work-only rule) and
+  *Recommended order* renumbered.
+
+**Deferred:** nothing — small enough scope that no code-level finding needed pushing off. (The
+upgrade-chain mechanism itself stays deliberately empty: no backup schema version older than the
+current one has ever shipped, so there is nothing to write an upgrade step *for* yet — a stated
+design constraint in the code comments, not a deferral.)
+
+**Held up under scrutiny:** `DemoDataSeeder` confirmed unaffected (inserts via `HodithRepository`,
+never touches `schemaVersion` or raw backup JSON) — checked before assuming no seed-data update was
+needed, not just asserted. Repo hygiene clean: no secrets, no local paths, no stray untracked files.
+
+**Didn't apply:** Duplication (Voice/composables/styling — no UI touched), Decoupling, Complexity &
+Pattern Health, Accessibility — no Compose code in this diff.
+
+**Docs updated:** HODITH_SPEC §17 (shared-cost note), TESTING.md (Export/import row, new Room
+migrations row, new Backup import full-chain row), DEV_PLAYBOOK §2 (ship-checklist item struck) and
+§6 (new Gotcha), PROGRESS.md (*Data & migrations* section removed, *Recommended order* renumbered).
+
+---
+
 ## docs/future-work-triage (QA audit pass)
 
 **Scope:** First run of [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md)'s whole-suite test-quality audit,

@@ -118,18 +118,22 @@ class SettingsViewModel
 
         /** Pure import logic (parse, validate, restore), split out from [importData]'s Uri/stream handling so it's unit-testable. */
         suspend fun performImport(json: String): BackupEvent {
+            val declaredVersion =
+                backupSerializer.peekSchemaVersion(json)
+                    ?: return BackupEvent.ImportFailure(ImportFailureReason.INVALID)
+
+            if (declaredVersion > BACKUP_SCHEMA_VERSION) {
+                return BackupEvent.ImportFailure(ImportFailureReason.UNSUPPORTED_VERSION)
+            }
+
             val backup =
                 try {
-                    backupSerializer.fromJson(json)
+                    backupSerializer.fromJson(json, declaredVersion)
                 } catch (e: JsonDataException) {
                     return BackupEvent.ImportFailure(ImportFailureReason.INVALID)
                 } catch (e: IOException) {
                     return BackupEvent.ImportFailure(ImportFailureReason.INVALID)
                 }
-
-            if (backup.schemaVersion != BACKUP_SCHEMA_VERSION) {
-                return BackupEvent.ImportFailure(ImportFailureReason.UNSUPPORTED_VERSION)
-            }
 
             hodithRepository.importBackupData(backup)
             return BackupEvent.ImportSuccess

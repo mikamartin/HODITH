@@ -294,7 +294,7 @@ Three costs apply across almost every item and aren't repeated in each trailer:
 
 - **A new entity or column is three changes, not one** — a Room migration, a `BACKUP_SCHEMA_VERSION` bump, and import validation, since the export shape mirrors the tables one-for-one (§16).
 - **Every user-visible string is written three times**, once per Voice, in the same commit (§12).
-- **The effort grades assume today's pre-release destructive-migration fallback.** They rise once real migrations exist — see PROGRESS.md's *Data & migrations*.
+- **A schema bump now requires a real Room `Migration`** — `fallbackToDestructiveMigration` was removed once the schema froze at v6 (v1-5 never shipped), so a version bump with no matching migration fails a guard test (`SchemaMigrationCoverageTest`) instead of silently wiping local data.
 
 The list, in no particular priority order:
 

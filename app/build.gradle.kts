@@ -20,6 +20,11 @@ android {
         testInstrumentationRunner = "com.secondmonday.hodith.HiltTestRunner"
     }
 
+    sourceSets {
+        // Exposes app/schemas/*.json to MigrationTestHelper in instrumented tests.
+        getByName("androidTest").assets.srcDirs("$projectDir/schemas")
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -47,6 +52,22 @@ android {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// Room 2.8.4's MigrationTestHelper (room-migration-bundle) needs kotlinx-serialization-core
+// 1.8.1 to deserialize schemas/*.json, but the pinned Compose BOM's constraint set strictly
+// pins it to 1.7.3, causing an AbstractMethodError at test runtime. No production code uses
+// kotlinx.serialization, so force it only for the androidTest configurations rather than
+// touching the pinned Compose BOM (DEV_PLAYBOOK §6).
+configurations.matching { it.name.contains("AndroidTest") }.configureEach {
+    resolutionStrategy {
+        force(
+            "org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1",
+            "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.8.1",
+            "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1",
+            "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.8.1",
+        )
+    }
 }
 
 dependencies {

@@ -166,4 +166,15 @@ class SettingsViewModelTest {
 
             assertEquals(BackupEvent.ImportFailure(ImportFailureReason.UNSUPPORTED_VERSION), result)
         }
+
+    @Test
+    fun `performImport treats an omitted schemaVersion as the current version`() =
+        runTest {
+            val viewModel = viewModel()
+            val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"hunches":[],"triggers":[]}"""
+
+            val result = viewModel.performImport(json)
+
+            assertEquals(BackupEvent.ImportSuccess, result)
+        }
 }

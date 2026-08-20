@@ -16,9 +16,6 @@ Strip completed items — this list only contains open work.
 - [ ] Full-history hygiene audit, not just the latest diff (CLAUDE.md "Git hygiene") — secrets, real local paths, personal info can hide in old commits that going public would expose
 
 ### Before first release
-**Data**
-- [ ] Settle both items in [PROGRESS.md](PROGRESS.md)'s *Data & migrations* section — the Room migration policy and backup import's forward compatibility. Neither can be changed cheaply once users hold data.
-
 **Closed Testing**
 - [ ] Write CLOSED_TESTING_GUIDE.md (plain-language guide for testing recruits) when the track opens
 
@@ -90,6 +87,7 @@ Permanent accepted constraints — nothing here gets checked off.
 6. **Compose API removals:** `animateItemPlacement()` → `animateItem()`; check BOM notes on every bump.
 7. **Never run Gradle tasks in parallel** (Windows Kotlin-daemon cache collision → `AccessDeniedException`, needs `./gradlew clean`). Sequential only.
 8. **Hilt `@Multibinds`/`@IntoSet` (Set multibindings) under Hilt 2.60 needs `com.google.errorprone:error_prone_annotations` as a `compileOnly` dependency** — Dagger's generated `Set` multibinding code references `@CanIgnoreReturnValue` from that package, which isn't pulled in transitively. Fails at `hiltJavaCompileDebug`/`Release` with `package com.google.errorprone.annotations does not exist` the first time any module adds a multibinding, not before.
+9. **Room 2.8.4's `MigrationTestHelper` needs `kotlinx-serialization-core` 1.8.1+ to deserialize `app/schemas/*.json`, but the pinned Compose BOM's constraint set strictly pins it to 1.7.3** — fails at test runtime with `AbstractMethodError: ... GeneratedSerializer.typeParametersSerializers()`, not at compile time, so it only surfaces the first time a `MigrationTestHelper`-based test actually runs. `app/build.gradle.kts` forces 1.8.1 scoped to the `androidTest` configurations only (no production code uses `kotlinx.serialization`). Re-check whether this force is still needed on the next Compose BOM or Room bump.
 
 ### Next upgrade checklist
 - [ ] AGP ↔ Gradle compatibility matrix before changing either
