@@ -8,13 +8,12 @@ Each item carries a trailer: **Branch** (the branch to open for it), **Complexit
 
 Sequencing matters more than usual here — several items collide in the same files, and two of them are cheap now and expensive after the first release.
 
-1. **Data & migrations** (both items, one decision session) — they gate the ship checklist and price every HODITH_SPEC §17 item. They are also the only items on this list that get *more* expensive with every day of real user data.
-2. **Auto-backup disclosure fix** — the app currently makes a privacy claim that isn't accurate. Small, and shouldn't wait behind the full toggle feature.
-3. **The QA audit's own findings** — the audit has run (all sections but the mutation spot checks), so the Testing and Shared UI logic sections below are no longer speculative. Take `refactor/extract-ui-input-logic` early: it's the only audit finding that contains a live user-facing bug, and it touches the log sheet, which several other items also touch.
-4. Small fixes: Case Detail tab order, dialog spacing, close-action copy, app icon.
-5. Share card sizing, then the cloud-backup toggle.
-6. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
-7. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
+1. **Auto-backup disclosure fix** — the app currently makes a privacy claim that isn't accurate. Small, and shouldn't wait behind the full toggle feature.
+2. **The QA audit's own findings** — the audit has run (all sections but the mutation spot checks), so the Testing and Shared UI logic sections below are no longer speculative. Take `refactor/extract-ui-input-logic` early: it's the only audit finding that contains a live user-facing bug, and it touches the log sheet, which several other items also touch.
+3. Small fixes: Case Detail tab order, dialog spacing, close-action copy, app icon.
+4. Share card sizing, then the cloud-backup toggle.
+5. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
+6. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
 
 ## Needs design / product-owner input
 
@@ -39,30 +38,6 @@ Items that need a design pass or a product decision before (or instead of) strai
   **Tests** — there's no automated coverage of colour values and shouldn't be. Contrast is the one mechanically checkable property: add a JVM test asserting WCAG AA contrast for `onSurface`/`onSurfaceVariant` against `surface`/`background`, which is worth having independently of this item. Visual verification is the human's (Compose Previews per theme, plus the widget and a heatmap-bearing screen).
 
   **Concern** — two blast radii, both easy to miss. (1) The seven `PlainLight*` constants are consumed directly by `WidgetCommon.kt`'s `WidgetPalette`, which renders every Glance widget regardless of the user's in-app theme (DEV_PLAYBOOK §4), so changing them restyles the widgets too. (2) `HeatmapShading.kt`'s `toCellColor` lerps `surfaceVariant → primary`, so `surfaceVariant` is the base of the entire shading ramp — changing it moves every calendar-heatmap cell, rhythm grid cell, intensity cell, *and* their share-card mini-copies, in all three themes' light mode. Neither is a reason not to do it; both are reasons the review pass is wider than "the Plain theme's background".
-
-## Data & migrations
-
-Both need settling before the first release to real users — cheap decisions now, expensive ones once people hold data worth keeping. **Decide them together in one session**: while destructive migration is in place, export/import is the only route data has across a schema change, and import currently rejects any version mismatch, so both doors close at the same moment.
-
-- [ ] Room migration policy is unresolved: `DatabaseModule` builds the database with `fallbackToDestructiveMigration(dropAllTables = true)` at schema v6, so every schema change wipes the user's data. Decide between real `Migration` objects with migration tests (`room.schemaLocation` is configured and the per-version `app/schemas/*.json` files are committed, so Room's `MigrationTestHelper` has everything it needs) and a consciously accepted, documented wipe for the pre-1.0 window. This decision also sets the price of every schema-touching item in HODITH_SPEC §17.
-
-  *Branch: `feat/room-migrations` (real migrations) or `docs/migration-policy` (accepted wipe) · Complexity: decision S, implementation M · Priority: High — first on the list*
-
-  **Plan** — the key simplification: v1–v5 never shipped, so no user holds that data and no retroactive 1→6 migration chain is needed. The whole requirement is *freeze the schema at the version that ships, then write real migrations forward from there*. That makes this decision cheap right now and expensive the day after release. Concretely: keep the destructive fallback for the pre-release window (documented, not implicit), and at the release-prep commit remove `fallbackToDestructiveMigration` and add the first `Migration` slot.
-
-  **Tests** — `room-testing` is already an `androidTestImplementation` dependency and `app/schemas/1.json`–`6.json` are committed, so `MigrationTestHelper` needs no setup work. Land a guard test with whichever decision wins: assert the DB opens at the declared version on a fresh install, and add a check that fails when a new `schemas/*.json` appears without a matching `Migration` — otherwise a future schema bump lands silently green.
-
-  **Concern** — `fallbackToDestructiveMigration(dropAllTables = true)` also wipes on a *downgrade*, not just an upgrade (a user sideloading an older APK, or a tester rolling back a track). If the accepted-wipe option wins, that belongs in the written statement, because it's the case people hit by accident.
-
-- [ ] Backup import has no forward-compatibility path: `SettingsViewModel.performImport` rejects any file whose `schemaVersion` isn't exactly `BACKUP_SCHEMA_VERSION`. That's correct and tested today, but the first bump to 2 makes every file a user has already exported permanently unimportable — and while the destructive migration above is in place, export/import is the only route data has across a schema change, so both doors close at once. Decide between a version-tolerant import that upgrades older payloads and a stated limitation surfaced in the export copy.
-
-  *Branch: `feat/backup-import-version-tolerance` · Complexity: M · Priority: High*
-
-  **Plan** — the minimum viable version-tolerant shape is smaller than it looks: change the check from `!=` to `>` (reject only *newer* files, which genuinely can't be understood) and add one upgrade function per bump, applied in sequence to the parsed model. Since the export shape mirrors the tables one-for-one (§16), the first §17 item that adds a column is what trips this — which is why it's paired with the migration decision rather than deferred behind it.
-
-  **Tests** — `SettingsViewModelTest` already covers exact-match rejection; extend with older-version-accepted, newer-version-rejected, and a round-trip through the upgrade chain. Once bumps start, keep one committed fixture JSON per historical version — a version-tolerant import with no old file to test against isn't tested.
-
-  **Concern** — the version check isn't where this actually breaks. `BackupData` and the entities use Moshi codegen adapters, so an older JSON missing a field that is now non-nullable-without-default throws `JsonDataException` during `fromJson`, *before* `performImport` ever reads `schemaVersion`. Two consequences: (1) a version-tolerant path has to parse into a lenient shape (or give every new column a default) rather than reusing the strict adapter — that's the real work in this item; (2) today, an old file already reports `ImportFailureReason.INVALID` ("this file is broken") rather than `UNSUPPORTED_VERSION` ("this file is too old"), which is a misleading message the user will hit first. Worth fixing regardless of which option wins.
 
 ## Case Detail
 
