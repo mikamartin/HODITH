@@ -8,7 +8,7 @@ Each item carries a trailer: **Branch** (the branch to open for it), **Complexit
 
 Sequencing matters more than usual here — several items collide in the same files, and two of them are cheap now and expensive after the first release.
 
-1. Small fixes: Case Detail tab order, dialog spacing, close-action copy, app icon.
+1. Small fixes: dialog spacing, app icon.
 2. Share card sizing.
 3. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
 4. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
@@ -37,35 +37,17 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   **Concern** — two blast radii, both easy to miss. (1) The seven `PlainLight*` constants are consumed directly by `WidgetCommon.kt`'s `WidgetPalette`, which renders every Glance widget regardless of the user's in-app theme (DEV_PLAYBOOK §4), so changing them restyles the widgets too. (2) `HeatmapShading.kt`'s `toCellColor` lerps `surfaceVariant → primary`, so `surfaceVariant` is the base of the entire shading ramp — changing it moves every calendar-heatmap cell, rhythm grid cell, intensity cell, *and* their share-card mini-copies, in all three themes' light mode. Neither is a reason not to do it; both are reasons the review pass is wider than "the Plain theme's background".
 
-## Case Detail
-
-- [ ] Reorder Case Detail tabs to Insights → Logs → Hunch (currently Logs → Insights → Hunch — `LOG_TAB`/`INSIGHTS_TAB`/`HUNCH_TAB` constants and the `Tab` declaration order in `CaseDetailScreen.kt`).
-
-  *Branch: `feat/case-detail-tab-order` · Complexity: S · Priority: Medium*
-
-  **Plan** — mechanically trivial: the three constants are `private` to `CaseDetailScreen.kt` with no usages anywhere else in the codebase, so renumbering them plus reordering the `Tab` declarations and the `when` branches is the whole change. The decision hiding inside it is the default landing tab: `selectedTab` initialises to `LOG_TAB`, and the retro-log FAB renders *only* on the Log tab. If reordering also changes what a Case opens on, the primary "add an event" action moves one tap further away, and a brand-new Case would land on the Insights tab's "not enough data" placeholder as its first impression. Recommend reordering the tabs but keeping Log as the initial selection — and if that's wrong, make it an explicit decision rather than a side effect of the constant renumbering.
-
-  **Tests** — `CaseDetailScreenTest` and `CaseDetailInsightsTabTest` both select tabs by label text (`onNodeWithText(PlainVoice.caseDetailInsightsTabLabel).performClick()`), so they're order-agnostic and should pass unchanged. That's a good sign, but it also means nothing currently pins the default tab: **add a test asserting which tab is selected on open, and that the FAB is present there** — otherwise this change can silently alter the landing tab and the suite stays green. Small, and it's the one behaviour this item actually risks.
-
 ## Big Picture
 
 - [ ] Cases/Tags filter dialog (`BigPictureGrid.kt`'s `InfoDialog` + `BulkSelectionToggle`) has a visually large gap between the dialog title and the Select all/Clear all row — it's Material3 `AlertDialog`'s default title→content spacing, not a custom Spacer HODITH added. `InfoDialog` is shared across every Big Picture info dialog (month/day/week detail too, not just Cases/Tags), so a fix needs to check it doesn't regress those.
 
   *Branch: `fix/big-picture-filter-dialog-spacing` · Complexity: S · Priority: Low*
 
-  **Plan** — the gap is that default title→content spacing *plus* `BulkSelectionToggle`'s `TextButton`, which carries Material3's 48dp minimum touch height and its own content padding, so the whitespace stacks rather than being one culprit. That points the cheapest fix at the call site rather than the shared composable: change what the Cases/Tags dialogs put at the *top* of their content — move Select all/Clear all into the dialog's button row alongside Close, or into the title slot as a trailing action — instead of restyling `InfoDialog`'s padding.
+  **Plan** — the gap is that default title→content spacing *plus* `BulkSelectionToggle`'s `TextButton`, which carries Material3's 48dp minimum touch height and its own content padding, so the whitespace stacks rather than being one culprit. That points the cheapest fix at the call site rather than the shared composable: change what the Cases/Tags dialogs put at the *top* of their content — move Select all/Clear all into the dialog's button row alongside the dismiss button, or into the title slot as a trailing action — instead of restyling `InfoDialog`'s padding.
 
   **Tests** — spacing isn't assertable and shouldn't be; this needs human visual verification. But `BigPictureScreenTest` drives dialog dismissal by text through thirteen call sites, so if the fix relocates the bulk toggle into the button row, those interactions need re-checking. Add a test that Select all/Clear all is still reachable and still functions from wherever it ends up.
 
   **Concern** — `InfoDialog` has five call sites in `BigPictureGrid.kt` plus `SectionWithInfo.kt` (the Case Edit info icons), so a change to the shared composable regresses screens this item never mentions. Prefer the call-site fix for that reason alone.
-
-- [ ] Shorten the shared dialog-dismiss Voice string (`bigPictureDialogCloseAction`) to "Close" in all three voices — currently Plain already says "Close", Intense says "Seal it shut", Bright says "Got it, close this". Update all three in the same commit per the Voice layer rule.
-
-  *Branch: `chore/voice-close-action-copy` · Complexity: XS · Priority: Low*
-
-  **Plan** — three one-line edits. But finish the thought first: if all three voices say "Close", the key no longer varies by voice, and it exists solely to *override* `InfoDialog`'s `dismissLabel` default, which is `infoDialogDismissAction` ("Got it" / "Understood" / "Got it!"). At that point the honest change is to **delete `bigPictureDialogCloseAction` entirely and drop the five `dismissLabel =` overrides**, so Big Picture's dialogs use the shared default like every other `InfoDialog` — unless the intent is specifically that Big Picture's dialogs read flatter than the rest of the app, in which case keeping a voice-invariant key is a deliberate choice worth a comment. Either outcome is fine; keeping a duplicate key by accident isn't.
-
-  **Tests** — `BigPictureScreenTest` references `PlainVoice.bigPictureDialogCloseAction` thirteen times. Shortening the string needs no test change (the constant is referenced, not the literal); deleting the key means swapping those to `PlainVoice.infoDialogDismissAction`. `VoiceTest`'s non-blank list also needs the line removed if the key goes.
 
 ## Share
 
@@ -113,7 +95,7 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   **Audit note** — the QA audit's structural review confirmed this one and found no sibling of the same shape elsewhere: the other screen suites do read rendered values, so this is an isolated gap rather than a pattern to sweep.
 
-- [ ] `VoiceTest`'s completeness check is hand-maintained and has already rotted. `every voice has a non-blank string for every key` is a hand-written list of `assertTrue(voice.someKey.isNotBlank())` lines, and the QA audit measured what it actually reaches: **223 of the `Voice` interface's 292 keys — 69 are uncovered.** Not a future risk; whole surfaces are missing today. All 25 Triggers keys, all 7 About keys, all 10 Settings import/export keys, every widget-configure key, plus `bigPictureDialogCloseAction` and both notification action labels. Replace the manual list with reflection over the `Voice` interface's properties (handling the parameterised `fun` keys separately), so every key is covered by construction.
+- [ ] `VoiceTest`'s completeness check is hand-maintained and has already rotted. `every voice has a non-blank string for every key` is a hand-written list of `assertTrue(voice.someKey.isNotBlank())` lines, and the QA audit measured what it actually reaches: **223 of the `Voice` interface's 291 keys — 68 are uncovered.** Not a future risk; whole surfaces are missing today. All 25 Triggers keys, all 7 About keys, all 10 Settings import/export keys, every widget-configure key, plus both notification action labels. Replace the manual list with reflection over the `Voice` interface's properties (handling the parameterised `fun` keys separately), so every key is covered by construction.
 
   *Branch: `test/voice-completeness-by-reflection` · Complexity: S · Priority: Medium-High — gates the Voice phrasing review*
 

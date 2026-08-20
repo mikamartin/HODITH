@@ -272,7 +272,6 @@ private fun FilterSummaryRow(
         InfoDialog(
             title = voice.bigPictureCasesFilterLabel,
             onDismiss = { showCasesDialog = false },
-            dismissLabel = voice.bigPictureDialogCloseAction,
         ) {
             Column {
                 BulkSelectionToggle(
@@ -292,7 +291,6 @@ private fun FilterSummaryRow(
         InfoDialog(
             title = voice.bigPictureTagsFilterLabel,
             onDismiss = { showTagsDialog = false },
-            dismissLabel = voice.bigPictureDialogCloseAction,
         ) {
             Column {
                 BulkSelectionToggle(
@@ -385,7 +383,6 @@ private fun MonthPickerDialog(
     InfoDialog(
         title = voice.bigPictureMonthPickerTitle,
         onDismiss = onDismiss,
-        dismissLabel = voice.bigPictureDialogCloseAction,
     ) {
         Column {
             months.asReversed().forEach { month ->
@@ -474,7 +471,6 @@ private fun DayDetailDialog(
     InfoDialog(
         title = day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)),
         onDismiss = onDismiss,
-        dismissLabel = voice.bigPictureDialogCloseAction,
     ) {
         if (events.isEmpty()) {
             Text(voice.bigPictureDayDetailEmptyState)
@@ -507,7 +503,6 @@ private fun WeekDetailDialog(
                 week.first().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)),
             ),
         onDismiss = onDismiss,
-        dismissLabel = voice.bigPictureDialogCloseAction,
     ) {
         Column {
             validDays.forEach { day ->
