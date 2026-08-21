@@ -26,13 +26,19 @@ fun evaluateTrigger(
             TriggerDecision(shouldFire = false, newArmed = trigger.armed, newLastFiredAt = trigger.lastFiredAt)
     }
 
+/** Rolling-window start for `AT_LEAST` (spec §11): shared by [evaluateAtLeast]'s own count and `NotificationEvaluator`'s fetch, so the two can't silently diverge. */
+fun atLeastWindowStart(
+    now: Long,
+    windowDays: Int?,
+): Long = now - (windowDays ?: 0) * MILLIS_PER_DAY
+
 /** `AT_LEAST`'s condition (spec §11): the rolling [TriggerEntity.windowDays]-day event count has reached [TriggerEntity.threshold]. */
 fun evaluateAtLeast(
     trigger: TriggerEntity,
     events: List<EventEntity>,
     now: Long,
 ): TriggerDecision {
-    val windowStart = now - (trigger.windowDays ?: 0) * MILLIS_PER_DAY
+    val windowStart = atLeastWindowStart(now, trigger.windowDays)
     val windowCount = events.count { it.occurredAt in windowStart..now }
     return evaluateTrigger(trigger, conditionMet = windowCount >= trigger.threshold, now = now)
 }

@@ -62,6 +62,17 @@ class InsightsEngineTest {
     }
 
     @Test
+    fun `computeGapStats flags the current gap as longest when it exactly ties the biggest past gap`() {
+        val events = listOf(eventAtDay(0), eventAtDay(5), eventAtDay(10))
+
+        val result = computeGapStats(events, now = millisAtDay(15))
+
+        assertEquals(5L, result.currentGapDays)
+        assertEquals(5L, result.longestGapDays)
+        assertTrue(result.isCurrentGapLongest)
+    }
+
+    @Test
     fun `computeGapStats averages the past gaps, excluding the current in-progress one`() {
         // Past gaps: 2, 4, 6 days (average 4); current gap (day 12 to now, day 20) must not count.
         val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(6), eventAtDay(12))

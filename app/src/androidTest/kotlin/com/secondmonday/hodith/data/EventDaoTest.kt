@@ -88,6 +88,26 @@ class EventDaoTest {
         }
 
     @Test
+    fun eventsInWindow_includesAnEventAtExactlyWindowStart() =
+        runTest {
+            val id = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+
+            val inWindow = eventDao.eventsInWindow(caseId, windowStart = 100L, windowEnd = 200L)
+
+            assertEquals(listOf(id), inWindow.map { it.id })
+        }
+
+    @Test
+    fun eventsInWindow_excludesAnEventAtExactlyWindowEnd() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L))
+
+            val inWindow = eventDao.eventsInWindow(caseId, windowStart = 100L, windowEnd = 200L)
+
+            assertEquals(emptyList<Long>(), inWindow.map { it.id })
+        }
+
+    @Test
     fun getMostRecentEventForCase_returnsTheLatestByOccurredAt() =
         runTest {
             eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))

@@ -62,16 +62,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 ## Testing
 
-- [ ] **Finish the QA audit's mutation spot checks.** [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md) §1 and §3–§7 have run — their findings are the items in this section (the Shared UI logic finding landed on `refactor/extract-ui-input-logic`, see CLEANUP_LOG.md), and their doc-hygiene fixes landed in TESTING.md and HODITH_SPEC.md §11. §2 (mutation spot checks) is the one section that can't run read-only: it needs source edits plus a sequential `./gradlew test` per sampled file, so it is still outstanding. Findings go here rather than into [QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md), which now just points back at this file — the outstanding-work roadmap stays in one place.
-
-  *Branch: `chore/qa-audit-mutation-checks` · Complexity: M · Priority: Medium*
-
-  **Plan** — sample is pre-selected so it can be picked up without re-deriving: `VerdictEngineTest`, `TriggerEngineTest`, `CheckInTest` (core mechanics), `StatsEngineTest`, `InsightsEngineTest` (heaviest pure-math surfaces), `NotificationEvaluatorTest` (the only orchestration tested against Fakes), `LogDetailViewModelTest` (the largest ViewModel suite), and one Room-instrumented DAO class. One mutation at a time — flipped boolean, off-by-one on a boundary, swapped operator — run that file's tests, confirm a clear failure, revert before the next.
-
-  **Known target** — `evaluateAtLeast`'s rolling-window formula (`now - windowDays * MILLIS_PER_DAY`) exists twice: `TriggerEngine.evaluateAtLeast` computes it to *count* the events and `NotificationEvaluator.evaluateTriggers` recomputes it to *fetch* them. Change one and the fetch and the count disagree silently; the pre-filter also partly masks a mutation to the counter, which is the duplicated-code-path case §2 warns about. It's a few lines to collapse into one shared helper, and it *is* the finding, so fix it on this branch rather than spinning up another.
-
-  **Concern** — `git status` must be clean before committing; every mutation is transient. And never run Gradle tasks in parallel (CLAUDE.md) — the per-file test runs are strictly sequential, which is most of this item's time cost.
-
 - [ ] Instrumented suite hygiene: two audit findings in `app/src/androidTest`, both test-only, no production risk. (1) **Copy-pasted helpers** — `WidgetConfigureTestFixtures.kt` is the shared-fixture precedent for the widget-configure tier, but `renderedView()` is redefined in three widget test classes, and `collectText()`, `findClickableAncestorOfText()` and `bindAndRenderSingleCaseWidget()` in two each, plus `grantPostNotificationsPermission()` in both notification classes. (2) **Two tests that pass even when their setup click misses** — `BigPictureScreenTest.deselectingACase_resetsStaleTagSelection_insteadOfEmptyingTheGrid` narrows tags to "solo" and *then* deselects Tea with no assertion in between, so if the first click no-ops the end state still shows "work note" and the test is green; `bulkToggle_selectAll_reselectsEveryTag` has the identical shape.
 
   *Branch: `test/instrumented-suite-hygiene` · Complexity: M · Priority: Medium*
