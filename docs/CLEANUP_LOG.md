@@ -15,6 +15,26 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## test/voice-completeness-by-reflection
+
+**Scope:** PROGRESS.md's Voice-completeness item — `VoiceTest`'s hand-written non-blank list missed 68 of 291 keys (QA audit finding) and had no cross-voice uniqueness check at all. Replaced the manual list with reflection over the `Voice` interface (properties and parameterised `fun` keys both, enum params covered exhaustively via `enumConstants`, non-enum params via a small sample registry), and added the new uniqueness check PROGRESS.md's own Tests note asked for. Required as the gate immediately before the (still-open) Voice phrasing review.
+
+**Found & fixed:**
+- Added `kotlin-reflect` as a test dependency (`gradle/libs.versions.toml`, `app/build.gradle.kts`) — not previously on the classpath.
+- Rewrote `VoiceTest.kt`'s completeness test via reflection; added `no per-voice key returns an identical string across all three voices`, which collects and reports every violation at once rather than failing at the first (found this was more useful than fail-fast partway through triaging the findings below).
+- The new uniqueness check surfaced 45 real violations on first run, exactly as PROGRESS.md's Tests note anticipated:
+  - 41 properties + 2 functions (`bigPictureFilterCount`, `widgetTodayCount`) were declared as per-voice keys but every implementation was word-for-word identical structural chrome (nav/tab labels, field labels, theme option names, check-in/trigger-builder chips). Converted to interface `get()`/default-body implementations and removed the redundant per-voice overrides — matches the existing precedent (`insightsSectionLabelHeatmap` and similar). No visible copy change.
+  - 2 genuine content gaps, fixed with the user's direction: `caseNameHint` (was "e.g. Kiddo was rude" verbatim in all three voices — Intense now "e.g. The migraine returns", Bright now "e.g. Perfect coffee!", both reusing HODITH_SPEC.md's own existing Case-name example vocabulary) and `hunchDirectionPillLabel` (Bright's three branches were a wholesale copy of Plain's; now "So much" / "Not much" / "Just wondering").
+- Ran the full instrumented suite (`connectedDebugAndroidTest`, 194 tests) to confirm the content changes didn't break anything relying on literal Voice text — initial run showed 7 failures, all in the `widget` package on `bindAppWidgetIdIfAllowed`. Traced this to my own process error, not a real gap: ran `adb shell appwidget grantbind` before the app was actually installed on the emulator, which DEV_PLAYBOOK.md §"AppWidgetHost instrumented tests" already documents as a silent no-op. Reinstalled (`installDebug installDebugAndroidTest`), re-granted, reran — 194/194 pass.
+- `ktlintFormat` (needed to clear "needless blank line" violations left by the property removals) rewrote `Voice.kt` with LF line endings, breaking from the CRLF the rest of `src/main` uses — restored CRLF byte-for-byte after formatting, confirmed via `git diff --stat` that only the intended content lines changed.
+- PROGRESS.md: removed the completed item and its "Recommended order" entry; corrected the still-open Voice-phrasing-review item's now-stale numbers (1945→1819 line count; ~292×3≈876 strings → 294 keys total, only 213 declared per-voice, ~720 strings) since this branch changed the facts that item's estimate was built on.
+
+**Deferred:** nothing deferred — both real findings (structural collapse, content gaps) were fixed on this branch rather than punted to the phrasing review, since PROGRESS.md's own ordering note says this branch exists specifically so the phrasing review starts from a fully-asserted baseline.
+
+**Docs updated:** TESTING.md (Voice row now describes both checks). PROGRESS.md (as above). HODITH_SPEC.md's Case-name example vocabulary ("Kiddo was rude" / "Migraine" / "Perfect coffee") already covers the new `caseNameHint` choices — no update needed there.
+
+---
+
 ## chore/voice-close-action-copy
 
 **Scope:** PROGRESS.md's close-action copy item — shorten `bigPictureDialogCloseAction` to
