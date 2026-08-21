@@ -10,8 +10,7 @@ Sequencing matters more than usual here — several items collide in the same fi
 
 1. Small fixes: dialog spacing, app icon.
 2. Share card sizing.
-3. **`test/voice-completeness-by-reflection` immediately before the Voice phrasing review.** The reflection rewrite is what makes the phrasing pass safe — without it, a quarter of the Voice keys have no assertion at all while hundreds of strings are being rewritten.
-4. **Voice phrasing review last.** It is a mass edit across a 1945-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
+3. **Voice phrasing review last.** It is a mass edit across a 1819-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
 
 ## Needs design / product-owner input
 
@@ -21,9 +20,9 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium*
 
-  **Plan** — ~292 keys × 3 voices ≈ 876 strings. Not hard, but big, and it needs a human ear rather than a mechanical pass. Write the rubric first (what "consistent" means per voice: person, tense, sentence length, punctuation and emoji budget, and a locked vocabulary for Case/Hunch/Verdict/Event/Trigger), then audit in slices by screen rather than reading `Voice.kt` top to bottom — the file is grouped by key, so reading it linearly compares the wrong things. Produce a findings list first; fix in a second commit.
+  **Plan** — 294 `Voice` keys total, but only 213 are declared per-voice and need independent authorship (639 strings); the other 81 are shared `get()`/default-body keys (structural chrome — nav labels, field labels, and the like) reviewed once, not per voice. ~720 strings total. Not hard, but big, and it needs a human ear rather than a mechanical pass. Write the rubric first (what "consistent" means per voice: person, tense, sentence length, punctuation and emoji budget, and a locked vocabulary for Case/Hunch/Verdict/Event/Trigger), then audit in slices by screen rather than reading `Voice.kt` top to bottom — the file is grouped by key, so reading it linearly compares the wrong things. Produce a findings list first; fix in a second commit.
 
-  **Tests** — `VoiceTest` today asserts only non-blank and the share-card pronoun rule. A copy audit is the right moment to add the mechanical invariants it can then lock in: vocabulary casing, no gamification vocabulary (streak/score/keep it up/missed — spec §4), length caps on tab and button labels, no double spaces or trailing whitespace. Instrumented tests reference `PlainVoice.x` by constant rather than by literal, so copy edits shouldn't break them — confirm that holds everywhere before starting (a grep for hardcoded UI literals in `androidTest`).
+  **Tests** — `VoiceTest` today walks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. A copy audit is the right moment to add further mechanical invariants: vocabulary casing, no gamification vocabulary (streak/score/keep it up/missed — spec §4), length caps on tab and button labels, no double spaces or trailing whitespace. Instrumented tests reference `PlainVoice.x` by constant rather than by literal, so copy edits shouldn't break them — confirm that holds everywhere before starting (a grep for hardcoded UI literals in `androidTest`).
 
   **Concern** — the audit will change hundreds of lines in one file. Anything else touching `Voice.kt` must land first.
 
@@ -94,14 +93,6 @@ Items that need a design pass or a product decision before (or instead of) strai
   **Concern** — `CaseDetailInsightsTabTest`'s class comment currently justifies the gap ("the underlying math is already covered exhaustively... on the JVM"). That reasoning is what produced the hole — correct math plus a wiring bug still ships wrong numbers — so the comment has to be corrected in the same commit, or the gap grows back.
 
   **Audit note** — the QA audit's structural review confirmed this one and found no sibling of the same shape elsewhere: the other screen suites do read rendered values, so this is an isolated gap rather than a pattern to sweep.
-
-- [ ] `VoiceTest`'s completeness check is hand-maintained and has already rotted. `every voice has a non-blank string for every key` is a hand-written list of `assertTrue(voice.someKey.isNotBlank())` lines, and the QA audit measured what it actually reaches: **223 of the `Voice` interface's 291 keys — 68 are uncovered.** Not a future risk; whole surfaces are missing today. All 25 Triggers keys, all 7 About keys, all 10 Settings import/export keys, every widget-configure key, plus both notification action labels. Replace the manual list with reflection over the `Voice` interface's properties (handling the parameterised `fun` keys separately), so every key is covered by construction.
-
-  *Branch: `test/voice-completeness-by-reflection` · Complexity: S · Priority: Medium-High — gates the Voice phrasing review*
-
-  **Rationale for adding it** — surfaced while sizing the Voice phrasing review above, then quantified by the QA audit. The Voice layer's one hard rule (CLAUDE.md: every string in all three voices, same commit) is enforced only by the compiler for *existence* and by this list for *content*. The compiler half is solid; the manual half degrades fastest exactly during a large copy pass — so this lands *before* the phrasing audit, not after.
-
-  **Tests** — beyond the reflection rewrite, add a cross-voice-uniqueness check: no key returning an identical string in all three voices, which catches the copy-paste that a compiler-satisfying "add the key to all three" pass invites. Nothing asserts that today. Expect the reflection rewrite to fail on first run against the 69 keys above — that's the point, not a defect. Add the corresponding row to TESTING.md's Voice line once both land.
 
 ## Settings
 
