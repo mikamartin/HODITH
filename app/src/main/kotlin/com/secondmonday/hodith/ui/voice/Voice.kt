@@ -28,8 +28,8 @@ interface Voice {
     val bigPictureWeekDetailEmptyState: String
     val bigPictureEventNoteEmptyState: String
     val bigPictureWeekViewDescription: String
-    val bigPictureCasesFilterLabel: String
-    val bigPictureTagsFilterLabel: String
+    val bigPictureCasesFilterLabel: String get() = "Cases"
+    val bigPictureTagsFilterLabel: String get() = "Tags"
     val bigPictureFilterCountAll: String
     val bigPictureAllCasesLabel: String
     val bigPictureAllTagsLabel: String
@@ -37,39 +37,39 @@ interface Voice {
     val bigPictureNoCasesSelectedNote: String
     val bigPictureSelectAllAction: String
     val bigPictureClearAllAction: String
-    val homeNavLabel: String
-    val bigPictureNavLabel: String
-    val settingsNavLabel: String
+    val homeNavLabel: String get() = "Home"
+    val bigPictureNavLabel: String get() = "Big Picture"
+    val settingsNavLabel: String get() = "Settings"
     val comingSoonPlaceholder: String
     val newCaseTitle: String
     val editCaseTitle: String
     val newCaseFabDescription: String
-    val backButtonDescription: String
-    val caseNameLabel: String
+    val backButtonDescription: String get() = "Back"
+    val caseNameLabel: String get() = "Name"
     val caseNameHint: String
     val caseNameRequiredError: String
     val caseNameDuplicateError: String
-    val caseDescriptionLabel: String
+    val caseDescriptionLabel: String get() = "Description (optional)"
     val caseDescriptionHint: String
-    val caseIconLabel: String
+    val caseIconLabel: String get() = "Icon"
     val caseIconRequiredError: String
     val caseIconSectionExpandDescription: String
     val caseIconSectionCollapseDescription: String
     val caseSectionInfoDescription: String
     val infoDialogDismissAction: String
-    val caseLogFlowLabel: String
-    val caseLogFlowOneTap: String
-    val caseLogFlowDetailSheet: String
+    val caseLogFlowLabel: String get() = "Logging"
+    val caseLogFlowOneTap: String get() = "One tap"
+    val caseLogFlowDetailSheet: String get() = "Detail sheet"
     val caseLogFlowInfoTitle: String
     val caseLogFlowInfoBody: String
-    val caseDurationModeLabel: String
-    val caseDurationModeNone: String
-    val caseDurationModeManual: String
-    val caseDurationModeStartStop: String
+    val caseDurationModeLabel: String get() = "Duration"
+    val caseDurationModeNone: String get() = "None"
+    val caseDurationModeManual: String get() = "Manual"
+    val caseDurationModeStartStop: String get() = "Start/stop"
     val caseDurationModeInfoTitle: String
     val caseDurationModeInfoBody: String
-    val caseIntensityToggleLabel: String
-    val caseCheckInLabel: String
+    val caseIntensityToggleLabel: String get() = "Track intensity (1-5)"
+    val caseCheckInLabel: String get() = "Check-in"
     val caseCheckInInfoTitle: String
     val caseCheckInInfoBody: String
     val caseSaveButton: String
@@ -102,7 +102,7 @@ interface Voice {
     val logSheetTimeLabel: String
     val logSheetIntensityLabel: String
     val logSheetDurationLabel: String
-    val logSheetDurationHint: String
+    val logSheetDurationHint: String get() = "Minutes"
     val logSheetNoteLabel: String
     val logSheetNoteHint: String
     val logSheetTagsLabel: String
@@ -123,16 +123,16 @@ interface Voice {
     val settingsContactUsButton: String
     val settingsAppearanceSectionLabel: String
     val settingsThemeSectionLabel: String
-    val themeOptionPlain: String
-    val themeOptionIntense: String
-    val themeOptionBright: String
+    val themeOptionPlain: String get() = "Plain"
+    val themeOptionIntense: String get() = "Intense"
+    val themeOptionBright: String get() = "Bright"
     val settingsThemeInfoTitle: String
     val settingsThemeInfoBody: String
     val settingsCheckInSectionLabel: String
-    val checkInIntervalOptionOff: String
-    val checkInIntervalOptionSeven: String
-    val checkInIntervalOptionFourteen: String
-    val checkInIntervalOptionThirty: String
+    val checkInIntervalOptionOff: String get() = "Off"
+    val checkInIntervalOptionSeven: String get() = "7d"
+    val checkInIntervalOptionFourteen: String get() = "14d"
+    val checkInIntervalOptionThirty: String get() = "30d"
     val settingsCheckInInfoTitle: String
     val settingsCheckInInfoBody: String
     val settingsDataSectionLabel: String
@@ -162,7 +162,7 @@ interface Voice {
     val aboutScreenTitle: String
     val aboutIdeaLabel: String
     val aboutIdeaBody: String
-    val aboutVersionLabel: String
+    val aboutVersionLabel: String get() = "Version"
     val aboutDeveloperModeUnlockedMessage: String
     val aboutPrivacyLabel: String
     val aboutPrivacyBody: String
@@ -179,17 +179,17 @@ interface Voice {
     val hunchCreatingTitle: String
     val hunchCreatingDirectionLabel: String
     val hunchCreatingFreqLabel: String
-    val hunchCreatingFreqSuffix: String
+    val hunchCreatingFreqSuffix: String get() = "times per"
     val hunchCreatingSaveButton: String
     val hunchCreatingDecreaseCountDescription: String
     val hunchCreatingIncreaseCountDescription: String
     val hunchHistoryHeader: String
-    val hunchExpectedPerDay: String
-    val hunchExpectedPerWeek: String
-    val hunchExpectedPerMonth: String
-    val caseDetailLogTabLabel: String
-    val caseDetailInsightsTabLabel: String
-    val caseDetailHunchTabLabel: String
+    val hunchExpectedPerDay: String get() = "Day"
+    val hunchExpectedPerWeek: String get() = "Week"
+    val hunchExpectedPerMonth: String get() = "Month"
+    val caseDetailLogTabLabel: String get() = "Log"
+    val caseDetailInsightsTabLabel: String get() = "Insights"
+    val caseDetailHunchTabLabel: String get() = "Hunch"
     val insightsNotEnoughDataMessage: String
     val insightsSectionLabelHeatmap: String get() = "Calendar heatmap"
 
@@ -296,7 +296,7 @@ interface Voice {
     fun bigPictureFilterCount(
         selected: Int,
         total: Int,
-    ): String
+    ): String = "$selected of $total"
 
     fun hunchNudgeBody(
         caseIcon: String,
@@ -389,15 +389,15 @@ interface Voice {
     val triggersDeleteCancelAction: String
     val triggersCreateTitle: String
     val triggersKindPickerLabel: String
-    val triggersAtLeastLabel: String
-    val triggersAtLeastSuffix: String
-    val triggersWindowLabel: String
-    val triggersWindowSeven: String
-    val triggersWindowThirty: String
-    val triggersWindowCustom: String
-    val triggersWindowCustomHint: String
+    val triggersAtLeastLabel: String get() = "At least"
+    val triggersAtLeastSuffix: String get() = "times"
+    val triggersWindowLabel: String get() = "Within"
+    val triggersWindowSeven: String get() = "7 days"
+    val triggersWindowThirty: String get() = "30 days"
+    val triggersWindowCustom: String get() = "Custom"
+    val triggersWindowCustomHint: String get() = "Days"
     val triggersSilentLabel: String
-    val triggersSilentSuffix: String
+    val triggersSilentSuffix: String get() = "days"
     val triggersSaveButton: String
     val triggersCancelButton: String
     val triggersDecreaseCountDescription: String
@@ -495,7 +495,7 @@ interface Voice {
      * deleted or archived since the widget was configured. */
     val widgetCaseNotFoundMessage: String
 
-    fun widgetTodayCount(count: Int): String
+    fun widgetTodayCount(count: Int): String = "Today: $count"
 }
 
 object PlainVoice : Voice {
@@ -507,8 +507,6 @@ object PlainVoice : Voice {
     override val bigPictureWeekDetailEmptyState = "No events logged this week."
     override val bigPictureEventNoteEmptyState = "No note"
     override val bigPictureWeekViewDescription = "Open week view"
-    override val bigPictureCasesFilterLabel = "Cases"
-    override val bigPictureTagsFilterLabel = "Tags"
     override val bigPictureFilterCountAll = "All"
     override val bigPictureAllCasesLabel = "All Cases"
     override val bigPictureAllTagsLabel = "All tags"
@@ -516,43 +514,27 @@ object PlainVoice : Voice {
     override val bigPictureNoCasesSelectedNote = "No Cases selected — the calendar will be empty."
     override val bigPictureSelectAllAction = "Select all"
     override val bigPictureClearAllAction = "Clear all"
-    override val homeNavLabel = "Home"
-    override val bigPictureNavLabel = "Big Picture"
-    override val settingsNavLabel = "Settings"
     override val comingSoonPlaceholder = "Coming soon."
     override val newCaseTitle = "New case"
     override val editCaseTitle = "Edit case"
     override val newCaseFabDescription = "New case"
-    override val backButtonDescription = "Back"
-    override val caseNameLabel = "Name"
     override val caseNameHint = "e.g. Kiddo was rude"
     override val caseNameRequiredError = "Name is required."
     override val caseNameDuplicateError = "A case with this name already exists."
-    override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Any more detail worth noting"
-    override val caseIconLabel = "Icon"
     override val caseIconRequiredError = "Pick an icon."
     override val caseIconSectionExpandDescription = "Show icon choices"
     override val caseIconSectionCollapseDescription = "Hide icon choices"
     override val caseSectionInfoDescription = "More info"
     override val infoDialogDismissAction = "Got it"
-    override val caseLogFlowLabel = "Logging"
-    override val caseLogFlowOneTap = "One tap"
-    override val caseLogFlowDetailSheet = "Detail sheet"
     override val caseLogFlowInfoTitle = "About logging"
     override val caseLogFlowInfoBody =
         "One tap logs an event instantly with no extra fields — pick it for cases you don't need duration or " +
             "intensity on. Detail sheet opens a short form for time, duration, intensity, and notes before saving."
-    override val caseDurationModeLabel = "Duration"
-    override val caseDurationModeNone = "None"
-    override val caseDurationModeManual = "Manual"
-    override val caseDurationModeStartStop = "Start/stop"
     override val caseDurationModeInfoTitle = "About duration"
     override val caseDurationModeInfoBody =
         "None skips duration entirely. Manual lets you type a duration when logging. Start/stop tracks an " +
             "ongoing event live, from Start until you Stop it."
-    override val caseIntensityToggleLabel = "Track intensity (1-5)"
-    override val caseCheckInLabel = "Check-in"
     override val caseCheckInInfoTitle = "About check-in"
     override val caseCheckInInfoBody =
         "When on, this case gets a check-in nudge after a stretch of silence — sooner if it has an active " +
@@ -588,7 +570,6 @@ object PlainVoice : Voice {
     override val logSheetTimeLabel = "When"
     override val logSheetIntensityLabel = "Intensity"
     override val logSheetDurationLabel = "Duration"
-    override val logSheetDurationHint = "Minutes"
     override val logSheetNoteLabel = "Note (optional)"
     override val logSheetNoteHint = "Anything worth remembering"
     override val logSheetTagsLabel = "Tags"
@@ -609,17 +590,10 @@ object PlainVoice : Voice {
     override val settingsContactUsButton = "Contact us"
     override val settingsAppearanceSectionLabel = "Appearance"
     override val settingsThemeSectionLabel = "Theme"
-    override val themeOptionPlain = "Plain"
-    override val themeOptionIntense = "Intense"
-    override val themeOptionBright = "Bright"
     override val settingsThemeInfoTitle = "About themes"
     override val settingsThemeInfoBody =
         "Each theme pairs its own colors with a distinct tone of voice used throughout the app."
     override val settingsCheckInSectionLabel = "Check-ins"
-    override val checkInIntervalOptionOff = "Off"
-    override val checkInIntervalOptionSeven = "7d"
-    override val checkInIntervalOptionFourteen = "14d"
-    override val checkInIntervalOptionThirty = "30d"
     override val settingsCheckInInfoTitle = "About check-ins"
     override val settingsCheckInInfoBody =
         "How many days of silence trigger a check-in nudge, for cases without their own Hunch. A case with " +
@@ -660,7 +634,6 @@ object PlainVoice : Voice {
         "Sometimes a thought hits you: this always happens — or this never happens anymore. " +
             "HODITH lets you check. Open a Case on what you've noticed, log it as life happens, " +
             "and see what the data actually says."
-    override val aboutVersionLabel = "Version"
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
@@ -683,14 +656,10 @@ object PlainVoice : Voice {
     override val hunchCreatingTitle = "New Hunch"
     override val hunchCreatingDirectionLabel = "How do you feel about this?"
     override val hunchCreatingFreqLabel = "About how often, in your gut?"
-    override val hunchCreatingFreqSuffix = "times per"
     override val hunchCreatingSaveButton = "Save Hunch"
     override val hunchCreatingDecreaseCountDescription = "Decrease count"
     override val hunchCreatingIncreaseCountDescription = "Increase count"
     override val hunchHistoryHeader = "Past hunches"
-    override val hunchExpectedPerDay = "Day"
-    override val hunchExpectedPerWeek = "Week"
-    override val hunchExpectedPerMonth = "Month"
     override val insightsNotEnoughDataMessage = "Not enough data yet."
 
     override val insightsHeatmapShowMoreAction = "Show more months"
@@ -733,10 +702,6 @@ object PlainVoice : Voice {
             "has been tracked, but you can switch it manually above."
     }
 
-    override val caseDetailLogTabLabel = "Log"
-    override val caseDetailInsightsTabLabel = "Insights"
-    override val caseDetailHunchTabLabel = "Hunch"
-
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
@@ -773,11 +738,6 @@ object PlainVoice : Voice {
     ) = "Still going, or forgot to stop $caseName? ($elapsed and counting.)"
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
-
-    override fun bigPictureFilterCount(
-        selected: Int,
-        total: Int,
-    ) = "$selected of $total"
 
     override fun hunchNudgeBody(
         caseIcon: String,
@@ -902,15 +862,7 @@ object PlainVoice : Voice {
     override val triggersDeleteCancelAction = "Cancel"
     override val triggersCreateTitle = "New trigger"
     override val triggersKindPickerLabel = "What should trigger it?"
-    override val triggersAtLeastLabel = "At least"
-    override val triggersAtLeastSuffix = "times"
-    override val triggersWindowLabel = "Within"
-    override val triggersWindowSeven = "7 days"
-    override val triggersWindowThirty = "30 days"
-    override val triggersWindowCustom = "Custom"
-    override val triggersWindowCustomHint = "Days"
     override val triggersSilentLabel = "No events for"
-    override val triggersSilentSuffix = "days"
     override val triggersSaveButton = "Save trigger"
     override val triggersCancelButton = "Cancel"
     override val triggersDecreaseCountDescription = "Decrease threshold"
@@ -947,8 +899,6 @@ object PlainVoice : Voice {
     override val widgetNoCasesSelectedMessage = "No Cases picked for this widget yet. Long-press it and tap Edit to choose some."
     override val widgetStopAction = "Stop"
     override val widgetCaseNotFoundMessage = "This Case is gone. Tap to open HODITH."
-
-    override fun widgetTodayCount(count: Int) = "Today: $count"
 
     override val shareOpenDescription = "Share"
     override val shareHunchExpectedLabel = "expected"
@@ -997,8 +947,6 @@ object IntenseVoice : Voice {
     override val bigPictureWeekDetailEmptyState = "Nothing was recorded this week."
     override val bigPictureEventNoteEmptyState = "No notes were left."
     override val bigPictureWeekViewDescription = "Unveil the week"
-    override val bigPictureCasesFilterLabel = "Cases"
-    override val bigPictureTagsFilterLabel = "Tags"
     override val bigPictureFilterCountAll = "Every one"
     override val bigPictureAllCasesLabel = "Every Case"
     override val bigPictureAllTagsLabel = "Every tag"
@@ -1006,43 +954,27 @@ object IntenseVoice : Voice {
     override val bigPictureNoCasesSelectedNote = "No Cases stand watch — the calendar stays blank."
     override val bigPictureSelectAllAction = "Mark every one"
     override val bigPictureClearAllAction = "Clear every mark"
-    override val homeNavLabel = "Home"
-    override val bigPictureNavLabel = "Big Picture"
-    override val settingsNavLabel = "Settings"
     override val comingSoonPlaceholder = "Not yet manifest."
     override val newCaseTitle = "Open a new case"
     override val editCaseTitle = "Revise the case"
     override val newCaseFabDescription = "Open a new case"
-    override val backButtonDescription = "Back"
-    override val caseNameLabel = "Name"
-    override val caseNameHint = "e.g. Kiddo was rude"
+    override val caseNameHint = "e.g. The migraine returns"
     override val caseNameRequiredError = "It needs a name to be watched."
     override val caseNameDuplicateError = "Another case already bears this name."
-    override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Say more, if the shadows require it"
-    override val caseIconLabel = "Icon"
     override val caseIconRequiredError = "Choose a mark for it."
     override val caseIconSectionExpandDescription = "Reveal the marks"
     override val caseIconSectionCollapseDescription = "Conceal the marks"
     override val caseSectionInfoDescription = "Unveil more"
     override val infoDialogDismissAction = "Understood"
-    override val caseLogFlowLabel = "Logging"
-    override val caseLogFlowOneTap = "One tap"
-    override val caseLogFlowDetailSheet = "Detail sheet"
     override val caseLogFlowInfoTitle = "On the manner of recording"
     override val caseLogFlowInfoBody =
         "One tap seals the record the instant you touch it — no further rite required. The detail sheet asks " +
             "more of you: the hour, its length, its severity, its notes — reserved for cases that demand such detail."
-    override val caseDurationModeLabel = "Duration"
-    override val caseDurationModeNone = "None"
-    override val caseDurationModeManual = "Manual"
-    override val caseDurationModeStartStop = "Start/stop"
     override val caseDurationModeInfoTitle = "On the length of things"
     override val caseDurationModeInfoBody =
         "None takes no account of how long a thing lingers. Manual lets you name its length yourself. " +
             "Start/stop watches it unfold in real time, from the moment it begins until you declare it done."
-    override val caseIntensityToggleLabel = "Track intensity (1-5)"
-    override val caseCheckInLabel = "Check-in"
     override val caseCheckInInfoTitle = "On the watch kept"
     override val caseCheckInInfoBody =
         "When kept, the check-in nudge stirs after this case has lain silent too long — sooner still if a " +
@@ -1079,7 +1011,6 @@ object IntenseVoice : Voice {
     override val logSheetTimeLabel = "The hour it happened"
     override val logSheetIntensityLabel = "Severity"
     override val logSheetDurationLabel = "How long it lingered"
-    override val logSheetDurationHint = "Minutes"
     override val logSheetNoteLabel = "Notes (optional)"
     override val logSheetNoteHint = "Whatever the shadows recall"
     override val logSheetTagsLabel = "Marks"
@@ -1100,17 +1031,10 @@ object IntenseVoice : Voice {
     override val settingsContactUsButton = "Send word"
     override val settingsAppearanceSectionLabel = "The face it wears"
     override val settingsThemeSectionLabel = "The chosen skin"
-    override val themeOptionPlain = "Plain"
-    override val themeOptionIntense = "Intense"
-    override val themeOptionBright = "Bright"
     override val settingsThemeInfoTitle = "On the chosen skin"
     override val settingsThemeInfoBody =
         "Each skin carries its own hues — and its own tongue. Change it, and the words themselves change shape."
     override val settingsCheckInSectionLabel = "The watch kept"
-    override val checkInIntervalOptionOff = "Off"
-    override val checkInIntervalOptionSeven = "7d"
-    override val checkInIntervalOptionFourteen = "14d"
-    override val checkInIntervalOptionThirty = "30d"
     override val settingsCheckInInfoTitle = "On the watch kept"
     override val settingsCheckInInfoBody =
         "How many days of silence rouse a check-in nudge, for any case with no Hunch watching over it. A " +
@@ -1150,7 +1074,6 @@ object IntenseVoice : Voice {
     override val aboutIdeaBody =
         "A thought lands: this always happens. This never happens anymore. You don't actually know. " +
             "Open a Case. Log the evidence. Let the Verdict speak."
-    override val aboutVersionLabel = "Version"
     override val aboutDeveloperModeUnlockedMessage = "The curtain has fallen. What lies behind is yours now."
     override val aboutPrivacyLabel = "What leaves this phone"
     override val aboutPrivacyBody =
@@ -1173,14 +1096,10 @@ object IntenseVoice : Voice {
     override val hunchCreatingTitle = "State your hunch"
     override val hunchCreatingDirectionLabel = "What do you feel, truly?"
     override val hunchCreatingFreqLabel = "How often does it haunt you, in your gut?"
-    override val hunchCreatingFreqSuffix = "times per"
     override val hunchCreatingSaveButton = "Seal the hunch"
     override val hunchCreatingDecreaseCountDescription = "Diminish the count"
     override val hunchCreatingIncreaseCountDescription = "Swell the count"
     override val hunchHistoryHeader = "The record of past claims"
-    override val hunchExpectedPerDay = "Day"
-    override val hunchExpectedPerWeek = "Week"
-    override val hunchExpectedPerMonth = "Month"
     override val insightsNotEnoughDataMessage = "The file is too thin to read yet."
 
     override val insightsHeatmapShowMoreAction = "Unseal the older files"
@@ -1223,10 +1142,6 @@ object IntenseVoice : Voice {
             "long this case has been watched, though you may set it yourself above."
     }
 
-    override val caseDetailLogTabLabel = "Log"
-    override val caseDetailInsightsTabLabel = "Insights"
-    override val caseDetailHunchTabLabel = "Hunch"
-
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
@@ -1262,11 +1177,6 @@ object IntenseVoice : Voice {
     ) = "$caseName has lingered $elapsed. Still unfolding, or simply forgotten?"
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
-
-    override fun bigPictureFilterCount(
-        selected: Int,
-        total: Int,
-    ) = "$selected of $total"
 
     override fun hunchNudgeBody(
         caseIcon: String,
@@ -1389,15 +1299,7 @@ object IntenseVoice : Voice {
     override val triggersDeleteCancelAction = "Abandon"
     override val triggersCreateTitle = "Set an alarm"
     override val triggersKindPickerLabel = "What should you be warned of?"
-    override val triggersAtLeastLabel = "At least"
-    override val triggersAtLeastSuffix = "times"
-    override val triggersWindowLabel = "Within"
-    override val triggersWindowSeven = "7 days"
-    override val triggersWindowThirty = "30 days"
-    override val triggersWindowCustom = "Custom"
-    override val triggersWindowCustomHint = "Days"
     override val triggersSilentLabel = "Silence of"
-    override val triggersSilentSuffix = "days"
     override val triggersSaveButton = "Set the alarm"
     override val triggersCancelButton = "Abandon"
     override val triggersDecreaseCountDescription = "Diminish the threshold"
@@ -1434,8 +1336,6 @@ object IntenseVoice : Voice {
     override val widgetNoCasesSelectedMessage = "Nothing stands watch here yet. Hold the widget and choose Edit to summon one."
     override val widgetStopAction = "Seal"
     override val widgetCaseNotFoundMessage = "This watch has ended. Tap to return to HODITH."
-
-    override fun widgetTodayCount(count: Int) = "Today: $count"
 
     override val shareOpenDescription = "Share the record"
     override val shareHunchExpectedLabel = "claimed"
@@ -1484,8 +1384,6 @@ object BrightVoice : Voice {
     override val bigPictureWeekDetailEmptyState = "Nothing logged this week — a blank page."
     override val bigPictureEventNoteEmptyState = "No note — mystery!"
     override val bigPictureWeekViewDescription = "Peek at the week!"
-    override val bigPictureCasesFilterLabel = "Cases"
-    override val bigPictureTagsFilterLabel = "Tags"
     override val bigPictureFilterCountAll = "All!"
     override val bigPictureAllCasesLabel = "All Cases!"
     override val bigPictureAllTagsLabel = "All tags!"
@@ -1493,43 +1391,27 @@ object BrightVoice : Voice {
     override val bigPictureNoCasesSelectedNote = "No Cases picked — nothing to show!"
     override val bigPictureSelectAllAction = "Select all!"
     override val bigPictureClearAllAction = "Clear all!"
-    override val homeNavLabel = "Home"
-    override val bigPictureNavLabel = "Big Picture"
-    override val settingsNavLabel = "Settings"
     override val comingSoonPlaceholder = "Plot twist: not built yet!"
     override val newCaseTitle = "Crack open a new case"
     override val editCaseTitle = "Tweak the case"
     override val newCaseFabDescription = "Crack open a new case"
-    override val backButtonDescription = "Back"
-    override val caseNameLabel = "Name"
-    override val caseNameHint = "e.g. Kiddo was rude"
+    override val caseNameHint = "e.g. Perfect coffee!"
     override val caseNameRequiredError = "Give it a name first!"
     override val caseNameDuplicateError = "You've already got a case with that name!"
-    override val caseDescriptionLabel = "Description (optional)"
     override val caseDescriptionHint = "Spill any extra details"
-    override val caseIconLabel = "Icon"
     override val caseIconRequiredError = "Pick a little icon for it!"
     override val caseIconSectionExpandDescription = "Show me the icons!"
     override val caseIconSectionCollapseDescription = "Tuck the icons away"
     override val caseSectionInfoDescription = "Wait, what does this mean?"
     override val infoDialogDismissAction = "Got it!"
-    override val caseLogFlowLabel = "Logging"
-    override val caseLogFlowOneTap = "One tap"
-    override val caseLogFlowDetailSheet = "Detail sheet"
     override val caseLogFlowInfoTitle = "Logging, explained"
     override val caseLogFlowInfoBody =
         "One tap logs it the second you tap — zero fuss, zero fields. Detail sheet pops up a quick form for " +
             "time, duration, intensity, and notes if you want more detail."
-    override val caseDurationModeLabel = "Duration"
-    override val caseDurationModeNone = "None"
-    override val caseDurationModeManual = "Manual"
-    override val caseDurationModeStartStop = "Start/stop"
     override val caseDurationModeInfoTitle = "Duration, explained"
     override val caseDurationModeInfoBody =
         "None means duration's not tracked. Manual lets you type in how long it took. Start/stop tracks it " +
             "live — hit Start, then Stop when it's over."
-    override val caseIntensityToggleLabel = "Track intensity (1-5)"
-    override val caseCheckInLabel = "Check-in"
     override val caseCheckInInfoTitle = "Check-in, explained"
     override val caseCheckInInfoBody =
         "Flip it on and you'll get a nudge after a quiet stretch — quicker if there's a Hunch running the " +
@@ -1565,7 +1447,6 @@ object BrightVoice : Voice {
     override val logSheetTimeLabel = "When'd it happen?"
     override val logSheetIntensityLabel = "How intense?"
     override val logSheetDurationLabel = "How long?"
-    override val logSheetDurationHint = "Minutes"
     override val logSheetNoteLabel = "Note (optional)"
     override val logSheetNoteHint = "Spill the details"
     override val logSheetTagsLabel = "Tags"
@@ -1586,17 +1467,10 @@ object BrightVoice : Voice {
     override val settingsContactUsButton = "Say hello!"
     override val settingsAppearanceSectionLabel = "Look & feel!"
     override val settingsThemeSectionLabel = "Pick your vibe"
-    override val themeOptionPlain = "Plain"
-    override val themeOptionIntense = "Intense"
-    override val themeOptionBright = "Bright"
     override val settingsThemeInfoTitle = "About themes!"
     override val settingsThemeInfoBody =
         "Every theme comes with its own colors and its own voice — switch it up and watch the whole app talk differently!"
     override val settingsCheckInSectionLabel = "Nudge me"
-    override val checkInIntervalOptionOff = "Off"
-    override val checkInIntervalOptionSeven = "7d"
-    override val checkInIntervalOptionFourteen = "14d"
-    override val checkInIntervalOptionThirty = "30d"
     override val settingsCheckInInfoTitle = "Check-ins, explained"
     override val settingsCheckInInfoBody =
         "Sets how many quiet days trigger a nudge, for cases without their own Hunch. Got a Hunch running? " +
@@ -1634,7 +1508,6 @@ object BrightVoice : Voice {
     override val aboutIdeaBody =
         "Ever catch yourself thinking 'this ALWAYS happens'? HODITH helps you find out if that's " +
             "actually true! Log a Case, track it over time, and see what the data says!"
-    override val aboutVersionLabel = "Version"
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked! Go wild."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
@@ -1656,14 +1529,10 @@ object BrightVoice : Voice {
     override val hunchCreatingTitle = "Make your guess!"
     override val hunchCreatingDirectionLabel = "How do you feel about it?"
     override val hunchCreatingFreqLabel = "How often does your gut say?"
-    override val hunchCreatingFreqSuffix = "times per"
     override val hunchCreatingSaveButton = "Save my guess!"
     override val hunchCreatingDecreaseCountDescription = "Fewer!"
     override val hunchCreatingIncreaseCountDescription = "More!"
     override val hunchHistoryHeader = "Your hunch history!"
-    override val hunchExpectedPerDay = "Day"
-    override val hunchExpectedPerWeek = "Week"
-    override val hunchExpectedPerMonth = "Month"
     override val insightsNotEnoughDataMessage = "Give it a little more time — the pattern's not ready yet!"
 
     override val insightsHeatmapShowMoreAction = "Show me more!"
@@ -1706,10 +1575,6 @@ object BrightVoice : Voice {
             "tracking, but feel free to flip it yourself up top!"
     }
 
-    override val caseDetailLogTabLabel = "Log"
-    override val caseDetailInsightsTabLabel = "Insights"
-    override val caseDetailHunchTabLabel = "Hunch"
-
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
@@ -1747,11 +1612,6 @@ object BrightVoice : Voice {
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
-    override fun bigPictureFilterCount(
-        selected: Int,
-        total: Int,
-    ) = "$selected of $total"
-
     override fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
@@ -1760,9 +1620,9 @@ object BrightVoice : Voice {
 
     override fun hunchDirectionPillLabel(direction: HunchDirection) =
         when (direction) {
-            HunchDirection.TOO_OFTEN -> "Too often"
-            HunchDirection.NOT_ENOUGH -> "Not enough"
-            HunchDirection.JUST_CURIOUS -> "Just curious"
+            HunchDirection.TOO_OFTEN -> "So much"
+            HunchDirection.NOT_ENOUGH -> "Not much"
+            HunchDirection.JUST_CURIOUS -> "Just wondering"
         }
 
     override fun hunchChipLabel(
@@ -1873,15 +1733,7 @@ object BrightVoice : Voice {
     override val triggersDeleteCancelAction = "Never mind"
     override val triggersCreateTitle = "New alert!"
     override val triggersKindPickerLabel = "What should trigger it?"
-    override val triggersAtLeastLabel = "At least"
-    override val triggersAtLeastSuffix = "times"
-    override val triggersWindowLabel = "Within"
-    override val triggersWindowSeven = "7 days"
-    override val triggersWindowThirty = "30 days"
-    override val triggersWindowCustom = "Custom"
-    override val triggersWindowCustomHint = "Days"
     override val triggersSilentLabel = "Quiet for"
-    override val triggersSilentSuffix = "days"
     override val triggersSaveButton = "Save alert!"
     override val triggersCancelButton = "Never mind"
     override val triggersDecreaseCountDescription = "Fewer!"
@@ -1918,8 +1770,6 @@ object BrightVoice : Voice {
     override val widgetNoCasesSelectedMessage = "No stars picked for this widget yet! Long-press it and tap Edit to choose some."
     override val widgetStopAction = "Stop!"
     override val widgetCaseNotFoundMessage = "This Case wandered off! Tap to open HODITH."
-
-    override fun widgetTodayCount(count: Int) = "Today: $count"
 
     override val shareOpenDescription = "Share it!"
     override val shareHunchExpectedLabel = "guessed"
