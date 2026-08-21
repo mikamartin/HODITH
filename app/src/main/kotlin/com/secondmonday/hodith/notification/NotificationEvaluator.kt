@@ -7,7 +7,7 @@ import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.domain.CheckInDecision
 import com.secondmonday.hodith.domain.Clock
-import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.atLeastWindowStart
 import com.secondmonday.hodith.domain.evaluateAtLeast
 import com.secondmonday.hodith.domain.evaluateCheckIn
 import com.secondmonday.hodith.domain.evaluateSilentFor
@@ -88,7 +88,7 @@ class NotificationEvaluator
                 val decision =
                     when (trigger.kind) {
                         TriggerKind.AT_LEAST -> {
-                            val windowStart = now - (trigger.windowDays ?: 0) * MILLIS_PER_DAY
+                            val windowStart = atLeastWindowStart(now, trigger.windowDays)
                             // eventsInWindow's range is half-open ([start, end)) — +1 so an event
                             // occurring at exactly `now` (e.g. the one that just triggered this
                             // immediate-eval hook) still counts.

@@ -15,6 +15,34 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## chore/qa-audit-mutation-checks
+
+**Scope:** PROGRESS.md's last outstanding QA-audit item — [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md) §2's mutation spot checks, the one audit section that couldn't run read-only. Fixed the item's own known target (a duplicated rolling-window formula) on this branch per its own instruction, then ran one mutation at a time against the eight pre-selected sample files, reverting each before the next. Per this pass's own direction, findings beyond the known target were fixed inline on this branch rather than deferred to a new one, and results are recorded here rather than in QA_AUDIT_BACKLOG.md — that file already defers this item's findings to PROGRESS.md/CLEANUP_LOG.md and stays untouched.
+
+**Found & fixed:**
+- **Known target, fixed:** `TriggerEngine.evaluateAtLeast` and `NotificationEvaluator.evaluateTriggers` independently recomputed the same rolling-window-start formula (`now - windowDays * MILLIS_PER_DAY`) — one to *count* events, the other to *fetch* them. Extracted a shared `atLeastWindowStart(now, windowDays)` in `TriggerEngine.kt`; both call sites now use it. Confirmed the fix actually closes the gap the audit flagged: mutating the shared helper broke both `TriggerEngineTest` and `NotificationEvaluatorTest` together (previously a mutation to either standalone copy could in principle be masked by the other's independent correctness).
+- **Mutation check results** (one mutation per file, `./gradlew test --tests` / `connectedDebugAndroidTest` per file, reverted before the next):
+
+  | File | Mutation | Result |
+  |---|---|---|
+  | `VerdictEngineTest` | `confidenceTierFor`'s Preliminary-tier `>=` → `>` | Caught |
+  | `TriggerEngineTest` | shared `atLeastWindowStart`'s `now - ...` → `now + ...` | Caught |
+  | `CheckInTest` | `evaluateCheckIn`'s `silentDays >= effectiveDays` → `>` | Caught |
+  | `StatsEngineTest` | `pickFrequencyGranularity`'s `<=` → `<` | Caught |
+  | `InsightsEngineTest` | `computeGapStats`'s `isCurrentGapLongest = currentGapDays >= longestPastGap` → `>` | **Missed** — fixed |
+  | `NotificationEvaluatorTest` | shared `atLeastWindowStart`'s `now - ...` → `now + ...` (verifies both call sites now move together) | Caught |
+  | `LogDetailViewModelTest` | `computeEndedAt`'s MANUAL-mode `it > 0` → `it >= 0` | Caught |
+  | `EventDaoTest` (instrumented) | `eventsInWindow`'s `@Query` upper bound `<` → `<=` | **Missed** — fixed |
+
+- **Miss 1 — `InsightsEngineTest`:** the two existing `isCurrentGapLongest` tests only cover "current gap clearly longer" (11 vs. 2) and "current gap clearly shorter" (3 vs. 20); neither exercises the exact tie (`currentGapDays == longestPastGap`), which is the only input the `>=`/`>` mutation actually changes. Added `computeGapStats flags the current gap as longest when it exactly ties the biggest past gap` (events with two equal 5-day gaps, current gap also 5 days) — confirmed it fails against the mutation and passes against the real `>=` implementation. Separately noted, not acted on: `isCurrentGapLongest` isn't read by any ViewModel/UI code today (`GapStats` is otherwise fully consumed by `InsightsTabState.kt`) — flagging in case it's meant to back a future "your longest gap yet" callout rather than being genuinely dead.
+- **Miss 2 — `EventDaoTest`:** `eventsInWindow_excludesEventsOutsideRange` places events well inside (150) and well outside (50, 250) a `[100, 200)` window, never exactly at either edge, so it can't distinguish `<` from `<=` at `windowEnd`. Added `eventsInWindow_includesAnEventAtExactlyWindowStart` and `eventsInWindow_excludesAnEventAtExactlyWindowEnd` (each with a single event pinned to one boundary) — confirmed the window-end test fails against the mutation and both pass against the real query. Ran the full class via `connectedDebugAndroidTest` on a connected emulator (13/13 pass) after reverting, not just the transient per-mutation runs.
+
+**Deferred:** nothing — both misses were fixed inline per this pass's own instruction rather than written up as follow-up branches.
+
+**Docs updated:** PROGRESS.md — removed the completed mutation-spot-checks item from the Testing section (last remaining piece of the QA audit sequence). No TESTING.md change: no new test classes, no counts tracked there for these files, and the two new tests sit under coverage the table already describes qualitatively (Trigger/Stats boundary values, Room DAO window queries).
+
+---
+
 ## test/voice-completeness-by-reflection
 
 **Scope:** PROGRESS.md's Voice-completeness item — `VoiceTest`'s hand-written non-blank list missed 68 of 291 keys (QA audit finding) and had no cross-voice uniqueness check at all. Replaced the manual list with reflection over the `Voice` interface (properties and parameterised `fun` keys both, enum params covered exhaustively via `enumConstants`, non-enum params via a small sample registry), and added the new uniqueness check PROGRESS.md's own Tests note asked for. Required as the gate immediately before the (still-open) Voice phrasing review.
