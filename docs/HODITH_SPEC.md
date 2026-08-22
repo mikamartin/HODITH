@@ -240,7 +240,7 @@ All three Home header phrasings mean the same thing and each one's six words' fi
 
 The social payoff of the app: turning a finished (or in-progress) investigation into something you can drop into a group chat or post as a story. *"I checked: it does NOT always rain on my day off."*
 
-- **Share card** — a rendered image, generated locally (Compose capture → bitmap → Android share sheet via FileProvider; no network involved, consistent with §16). Two formats: **story** (minimum 9:16 portrait shape, matching 1080×1920) and **square** (minimum 1:1, matching 1080×1080) — both content-driven in height, growing taller than their minimum if the selected content needs more room.
+- **Share card** — a rendered image, generated locally (Compose capture → bitmap → Android share sheet via FileProvider; no network involved, consistent with §16). Two formats, sized asymmetrically on purpose: **story** sizes purely to its selected content, since Instagram/Snapchat Stories letterbox a shorter-than-9:16 image back to shape automatically; **square** keeps a 1:1 floor (matching 1080×1080), since it shares into contexts — chat threads, feed posts — that render whatever aspect ratio they're given. Both still grow taller than their floor if the selected content needs more room.
 - **Card content**, in order, in the active theme's skin and voice:
   1. *The case* — icon + name.
   2. *The top beat* — either **Hunch vs. Reality** (expected-vs-observed rate pair plus a voice-flavoured, impersonal punchline, e.g. "Plot twist: more often than expected.") when the Case has a resolved Hunch and the user has it toggled on — story format only — or a plain **Reality** fallback (event count + days observed) otherwise. Square always gets Reality; there's no independent toggle for it, since the card always needs at least one beat.
@@ -253,7 +253,7 @@ The social payoff of the app: turning a finished (or in-progress) investigation 
   - toggle Insights sections on/off.
   Notes and tags are **never** included on share cards — they're the most personal data in the app and stay out entirely.
 - Entry point: Share action on the case detail header. Sharing the Big Picture (multiple cases at once) is deliberately excluded — see §17.
-- HODITH branding on the card is a small, unobtrusive footer ("counted with HODITH") — honest attribution, not an ad.
+- HODITH branding on the card is a small, unobtrusive footer ("counted with HODITH app") — honest attribution, not an ad. The "app" is there for discoverability: someone seeing a shared card should be able to search the phrase and find it.
 
 ## 14. Screens
 
@@ -309,10 +309,10 @@ The list, in no particular priority order:
   *Status: open · Effort: L · Touches: `HunchEntity`/`TriggerEntity` schema, both domain engines, the Hunch and Triggers UI, Voice ×3 · Lean: hold.*
 - **Big Picture sharing** — a multi-case share card. Excluded from v1: several case names on one image multiplies the privacy footguns; needs careful anonymisation UX first.
 
-  *Status: open · Effort: L · Touches: share card templates, a new multi-case preview flow, Voice ×3 · Lean: hold — sits behind the share card's sizing bug (PROGRESS.md) as well as the anonymisation UX.*
+  *Status: open · Effort: L · Touches: share card templates, a new multi-case preview flow, Voice ×3 · Lean: hold — behind the anonymisation UX.*
 - **Animated story export** — the share card as a short video/GIF for stories. Static cards first.
 
-  *Status: open · Effort: L · Touches: the share pipeline's first non-static output (encoder dependency, larger files, a longer preview flow) · Lean: hold — same sizing blocker as above, plus a new media dependency in an app that currently ships none.*
+  *Status: open · Effort: L · Touches: the share pipeline's first non-static output (encoder dependency, larger files, a longer preview flow) · Lean: hold — behind a new media dependency in an app that currently ships none.*
 - **Confirmed-quiet checkpoints** — the check-in "All quiet" answer could be stored, letting verdicts distinguish confirmed silence from unknown silence and raising confidence accordingly. Adds an entity and verdict complexity; revisit after v1 data habits are observed.
 
   *Status: open — the "All quiet" action exists, but `CaseEntity.lastCheckInAt` keeps only a single overwritten re-arm anchor, read by check-in scheduling and never by `VerdictEngine`, so no history is being accumulated today · Effort: M · Touches: a new entity, `VerdictEngine` and its confidence tiers, Voice ×3 · Lean: hold until v1 data habits are observed, as written.*

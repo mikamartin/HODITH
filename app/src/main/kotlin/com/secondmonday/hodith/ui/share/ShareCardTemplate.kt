@@ -78,10 +78,7 @@ import kotlin.math.roundToInt
 /** Matches the render-pipeline spike's fixed capture width — see PROGRESS.md's Phase 10 share-cards width decision. */
 private val SHARE_CARD_WIDTH = 360.dp
 
-/** Story's minimum shape is the mockup's 1080×1920 canvas ratio (9:16) at [SHARE_CARD_WIDTH]; content taller than this still grows the card further. */
-private val STORY_MIN_HEIGHT = SHARE_CARD_WIDTH * 1920 / 1080
-
-/** Square's minimum shape is 1:1 at [SHARE_CARD_WIDTH] — the mockup's 1080×1080 canvas ratio. */
+/** Square's 1:1 floor at [SHARE_CARD_WIDTH] — kept because chat/feed shares render whatever aspect ratio they're given, unlike Story's destination apps. */
 private val SQUARE_MIN_HEIGHT = SHARE_CARD_WIDTH
 private const val MINI_RHYTHM_CELL_SIZE = 16
 
@@ -112,7 +109,7 @@ fun ShareCardTemplate(
         modifier =
             modifier
                 .width(SHARE_CARD_WIDTH)
-                .heightIn(min = if (data.format == ShareCardFormat.STORY) STORY_MIN_HEIGHT else SQUARE_MIN_HEIGHT)
+                .then(if (data.format == ShareCardFormat.SQUARE) Modifier.heightIn(min = SQUARE_MIN_HEIGHT) else Modifier)
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(MaterialTheme.colorScheme.background)
                 .then(
@@ -122,10 +119,11 @@ fun ShareCardTemplate(
                         Modifier
                     },
                 ),
+        // SpaceBetween redistributes slack only after this Column's content-driven height is settled —
+        // the previous weight(1f) sized against remaining space beforehand, which could shrink content.
+        verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        // weight(1f) lets this section absorb any slack from heightIn's minimum, pushing the
-        // footer to the bottom instead of leaving it stranded mid-card on short content.
-        Box(modifier = Modifier.weight(1f)) {
+        Box {
             Column {
                 CaseHeaderBeat(data.caseIcon, data.caseName, skin)
                 Column(
@@ -252,30 +250,28 @@ private fun HunchVsRealityBeat(
     }
 }
 
+/** Skips [BeatKicker] — "Reality" only means something in contrast to a Hunch, and this beat shows precisely when there's just Reality alone. */
 @Composable
 private fun RealityBeat(
     beat: ShareTopBeat.Reality,
     voice: Voice,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        BeatKicker(voice.shareRealityKicker, ShareCardSkin.PLAIN)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(beat.eventCount.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    voice.shareRealityEventsLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(beat.observedDays.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    voice.shareRealityDaysObservedLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(beat.eventCount.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                voice.shareRealityEventsLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(beat.observedDays.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                voice.shareRealityDaysObservedLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

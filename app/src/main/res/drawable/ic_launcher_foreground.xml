@@ -16,12 +16,6 @@
         android:pivotY="54"
         android:scaleX="0.9"
         android:scaleY="0.9">
-        <path
-            android:pathData="M62,62L74,74"
-            android:strokeColor="#1F3A40"
-            android:strokeAlpha="0.75"
-            android:strokeWidth="9"
-            android:strokeLineCap="round" />
         <!-- Split into two paths (fill-only, then stroke-only) rather than one path combining a
              plain strokeColor with a nested aapt:attr gradient fillColor: that combination built
              and linted clean but rendered with the ring outline missing on a real device, even
@@ -42,9 +36,19 @@
         </path>
         <path
             android:pathData="M48,48m-19,0a19,19 0 1,0 38,0a19,19 0 1,0 -38,0"
-            android:strokeColor="#1F3A40"
-            android:strokeAlpha="0.7"
-            android:strokeWidth="6.5" />
+            android:strokeWidth="6.5">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="29"
+                    android:startY="29"
+                    android:endX="67"
+                    android:endY="67">
+                    <item android:offset="0" android:color="#5A7A80" />
+                    <item android:offset="1" android:color="#1E393F" />
+                </gradient>
+            </aapt:attr>
+        </path>
         <group
             android:pivotX="41"
             android:pivotY="40"
@@ -54,5 +58,24 @@
                 android:fillColor="#FFFFFF"
                 android:fillAlpha="0.7" />
         </group>
+        <!-- Handle as an explicit filled shape rather than a stroked line: flat where it meets
+             the ring (62,62), round only at the outer tip (79,79). android:strokeLineCap applies
+             to both ends of a stroked path alike, so a flat-one-end/round-other-end capsule needs
+             hand-built path data instead. Drawn last (on top of the ring) since it's meant to
+             read as attached to it; both use the same opaque gradient so the overlap can't
+             composite into a darker blend the way two translucent strokes used to. -->
+        <path android:pathData="M58.818,65.182L75.818,82.182A4.5,4.5 0 0,0 82.182,75.818L65.182,58.818Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="58.818"
+                    android:startY="58.818"
+                    android:endX="82.182"
+                    android:endY="82.182">
+                    <item android:offset="0" android:color="#5A7A80" />
+                    <item android:offset="1" android:color="#1E393F" />
+                </gradient>
+            </aapt:attr>
+        </path>
     </group>
 </vector>

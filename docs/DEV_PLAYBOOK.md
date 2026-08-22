@@ -23,6 +23,7 @@ Strip completed items — this list only contains open work.
 - [ ] CI badge + Play Store link in README
 - [ ] Test result artifacts published; badges in README
 - [ ] Stretch: auto-upload AAB to internal testing track
+- [ ] Turn the share card's footer ("counted with HODITH app", `ShareCardFooter` in `ShareCardTemplate.kt`) into an actual Play Store link once a listing exists — the "app" wording was added for search discoverability; a real link converts that into installs directly from a shared card
 
 ---
 

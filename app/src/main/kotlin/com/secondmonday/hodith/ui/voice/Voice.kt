@@ -428,7 +428,6 @@ interface Voice {
     // ---- Share cards (Phase 10, spec §13) ----
     val shareOpenDescription: String
 
-    val shareRealityKicker: String get() = "Reality"
     val shareRealityEventsLabel: String get() = "events"
     val shareRealityDaysObservedLabel: String get() = "days observed"
 
@@ -436,9 +435,9 @@ interface Voice {
     val shareHunchExpectedLabel: String
     val shareHunchObservedLabel: String
 
-    val shareCardFooter: String get() = "counted with HODITH"
+    val shareCardFooter: String get() = "counted with HODITH app"
 
-    /** Intense skin's rotated corner stamp — structural, like [shareRealityKicker]; never rendered under Plain/Bright. */
+    /** Intense skin's rotated corner stamp — structural, like [shareHunchRealityKicker]; never rendered under Plain/Bright. */
     val shareIntenseStampLabel: String get() = "Case File"
 
     /** Frequency section's share-card title, e.g. "Frequency by week" — reuses the granularity chip labels. */
