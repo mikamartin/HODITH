@@ -272,17 +272,17 @@ private fun FilterSummaryRow(
         InfoDialog(
             title = voice.bigPictureCasesFilterLabel,
             onDismiss = { showCasesDialog = false },
-        ) {
-            Column {
+            leadingAction = {
                 BulkSelectionToggle(
                     allSelected = visibleCaseIds.size == cases.size,
                     onSelectAll = { onSetVisibleCaseIds(cases.map { it.id }.toSet()) },
                     onClearAll = { onSetVisibleCaseIds(emptySet()) },
                 )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    cases.forEach { case ->
-                        CaseFilterChip(case = case, selected = case.id in visibleCaseIds, onToggle = { onToggleCase(case.id) })
-                    }
+            },
+        ) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                cases.forEach { case ->
+                    CaseFilterChip(case = case, selected = case.id in visibleCaseIds, onToggle = { onToggleCase(case.id) })
                 }
             }
         }
@@ -291,17 +291,17 @@ private fun FilterSummaryRow(
         InfoDialog(
             title = voice.bigPictureTagsFilterLabel,
             onDismiss = { showTagsDialog = false },
-        ) {
-            Column {
+            leadingAction = {
                 BulkSelectionToggle(
                     allSelected = visibleTagNames.size == allTagNames.size,
                     onSelectAll = { onSetVisibleTagNames(allTagNames.toSet()) },
                     onClearAll = { onSetVisibleTagNames(emptySet()) },
                 )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    allTagNames.forEach { tag ->
-                        TagFilterChip(tag = tag, selected = tag in visibleTagNames, onToggle = { onToggleTag(tag) })
-                    }
+            },
+        ) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                allTagNames.forEach { tag ->
+                    TagFilterChip(tag = tag, selected = tag in visibleTagNames, onToggle = { onToggleTag(tag) })
                 }
             }
         }
@@ -316,10 +316,8 @@ private fun BulkSelectionToggle(
     onClearAll: () -> Unit,
 ) {
     val voice = LocalVoice.current
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        TextButton(onClick = if (allSelected) onClearAll else onSelectAll) {
-            Text(if (allSelected) voice.bigPictureClearAllAction else voice.bigPictureSelectAllAction)
-        }
+    TextButton(onClick = if (allSelected) onClearAll else onSelectAll) {
+        Text(if (allSelected) voice.bigPictureClearAllAction else voice.bigPictureSelectAllAction)
     }
 }
 
