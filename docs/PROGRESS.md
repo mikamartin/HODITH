@@ -35,18 +35,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   **Concern** — two blast radii, both easy to miss. (1) The seven `PlainLight*` constants are consumed directly by `WidgetCommon.kt`'s `WidgetPalette`, which renders every Glance widget regardless of the user's in-app theme (DEV_PLAYBOOK §4), so changing them restyles the widgets too. (2) `HeatmapShading.kt`'s `toCellColor` lerps `surfaceVariant → primary`, so `surfaceVariant` is the base of the entire shading ramp — changing it moves every calendar-heatmap cell, rhythm grid cell, intensity cell, *and* their share-card mini-copies, in all three themes' light mode. Neither is a reason not to do it; both are reasons the review pass is wider than "the Plain theme's background".
 
-## Big Picture
-
-- [ ] Cases/Tags filter dialog (`BigPictureGrid.kt`'s `InfoDialog` + `BulkSelectionToggle`) has a visually large gap between the dialog title and the Select all/Clear all row — it's Material3 `AlertDialog`'s default title→content spacing, not a custom Spacer HODITH added. `InfoDialog` is shared across every Big Picture info dialog (month/day/week detail too, not just Cases/Tags), so a fix needs to check it doesn't regress those.
-
-  *Branch: `fix/big-picture-filter-dialog-spacing` · Complexity: S · Priority: Low*
-
-  **Plan** — the gap is that default title→content spacing *plus* `BulkSelectionToggle`'s `TextButton`, which carries Material3's 48dp minimum touch height and its own content padding, so the whitespace stacks rather than being one culprit. That points the cheapest fix at the call site rather than the shared composable: change what the Cases/Tags dialogs put at the *top* of their content — move Select all/Clear all into the dialog's button row alongside the dismiss button, or into the title slot as a trailing action — instead of restyling `InfoDialog`'s padding.
-
-  **Tests** — spacing isn't assertable and shouldn't be; this needs human visual verification. But `BigPictureScreenTest` drives dialog dismissal by text through thirteen call sites, so if the fix relocates the bulk toggle into the button row, those interactions need re-checking. Add a test that Select all/Clear all is still reachable and still functions from wherever it ends up.
-
-  **Concern** — `InfoDialog` has five call sites in `BigPictureGrid.kt` plus `SectionWithInfo.kt` (the Case Edit info icons), so a change to the shared composable regresses screens this item never mentions. Prefer the call-site fix for that reason alone.
-
 ## Share
 
 - [ ] Square format should become a fixed preset — Story stays the one fully customizable, auto-sizing format. Root cause: `shareCardState()` (`ShareCardState.kt`) applies `selectedSections` the same way to both formats, and `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` render identical toggles for both. That's a real problem now that Square keeps a 1:1 floor while Story sizes freely to content (see `fix/dialog-spacing-icon-sharecard-sizing`'s commit 3): selecting every Insights section on Square produces a tall rectangle, undermining the format's purpose — Square exists for chat/feed contexts that expect a predictable square shape.
@@ -100,18 +88,6 @@ Items that need a design pass or a product decision before (or instead of) strai
   **Tests** — `SettingsScreenTest` currently asserts the coming-soon snackbar, so that test changes rather than gets added to: assert the intent is launched (Espresso `Intents`). Note the row also appears in `SettingsScreen.kt`'s Bright plank Preview with a no-op `onClick`, which needs no change but shouldn't be mistaken for a second call site.
 
   **Concern** — In-App Review is quota-limited and no-ops silently once the quota is hit, which makes manual verification unreliable; the deep link is trivially verifiable. Another reason to prefer it.
-
-## App icon
-
-- [ ] Dark spot visible on the circle/handle at larger icon sizes — the invisible lens ring fix addressed a related issue, but this artifact remains at bigger resolutions.
-
-  *Branch: `fix/launcher-icon-handle-overlap` · Complexity: S · Priority: Low*
-
-  **Plan** — the vector gives a concrete diagnosis. In `ic_launcher_foreground.xml` the handle (`M62,62 L74,74`, `strokeWidth 9`, `strokeAlpha 0.75`) is drawn before the ring, and the ring stroke (`strokeWidth 6.5`, `strokeAlpha 0.7`) spans radius ~15.75–22.25 around centre (48,48) — i.e. roughly 59.1 to 63.7 along the 45° diagonal. The handle's first ~1.7 units start *inside* that band, so two translucent dark strokes composite into a darker patch exactly where the handle meets the ring. It only reads as a spot at large sizes because at launcher resolution it's sub-pixel. Three fixes, cheapest first: (a) start the handle outside the ring's outer edge (`M64.5,64.5`); (b) draw the handle *after* the ring at full opacity so it occludes rather than blends; (c) make both strokes fully opaque in a slightly lighter tone so overlap can't darken.
-
-  **Tests** — nothing automatable. Verification is rendering the vector at several sizes (Compose Preview or the asset preview) and a human looking at it.
-
-  **Concern** — the same glyph exists in three places and they have to stay consistent. `ic_launcher_monochrome.xml` repeats the identical geometry at full-opacity white (so it has no dark spot today, but inherits any geometry change — its comment already commits to matching), and `ic_launcher_foreground.xml` is reused directly as the splash icon via `Theme.Hodith.Splash`, which is a third size to check.
 
 ---
 
