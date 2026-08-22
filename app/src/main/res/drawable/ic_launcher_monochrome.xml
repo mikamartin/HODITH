@@ -14,13 +14,13 @@
         android:scaleX="0.9"
         android:scaleY="0.9">
         <path
-            android:pathData="M62,62L74,74"
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="9"
-            android:strokeLineCap="round" />
-        <path
             android:pathData="M48,48m-19,0a19,19 0 1,0 38,0a19,19 0 1,0 -38,0"
             android:strokeColor="#FFFFFF"
             android:strokeWidth="6.5" />
+        <!-- Handle as an explicit filled shape, matching ic_launcher_foreground.xml's geometry:
+             flat where it meets the ring (62,62), round only at the outer tip (79,79). -->
+        <path
+            android:pathData="M58.818,65.182L75.818,82.182A4.5,4.5 0 0,0 82.182,75.818L65.182,58.818Z"
+            android:fillColor="#FFFFFF" />
     </group>
 </vector>
