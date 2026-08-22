@@ -8,9 +8,8 @@ Each item carries a trailer: **Branch** (the branch to open for it), **Complexit
 
 Sequencing matters more than usual here — several items collide in the same files, and two of them are cheap now and expensive after the first release.
 
-1. Small fixes: dialog spacing, app icon.
-2. Share card sizing.
-3. **Voice phrasing review last.** It is a mass edit across a 1819-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
+1. Share card Square redesign (below) — it touches copy, so land it before Voice phrasing.
+2. **Voice phrasing review last.** It is a mass edit across a 1819-line file; run it once, after every other copy-touching item on this list has landed, or it conflicts with all of them.
 
 ## Needs design / product-owner input
 
@@ -50,15 +49,15 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 ## Share
 
-- [ ] Share card doesn't shrink for sparse content: `ShareCardTemplate.kt`'s `heightIn(min = STORY_MIN_HEIGHT/SQUARE_MIN_HEIGHT)` enforces each format's minimum aspect-ratio height regardless of how many optional sections are selected; the `weight(1f)` wrapper around the header+sections column (meant to keep the footer pinned to the bottom instead of stranding it mid-card) just relocates the resulting slack to blank space above the footer rather than removing it. With most sections toggled off, that reads as a big empty gap. Needs a layout approach that lets the card shrink toward actual content height instead of the format's fixed minimum. Not only cosmetic: both deferred share items in HODITH_SPEC §17 (Big Picture sharing, animated story export) sit behind this, since each would inherit the same fixed-minimum behaviour.
+- [ ] Square format should become a fixed preset — Story stays the one fully customizable, auto-sizing format. Root cause: `shareCardState()` (`ShareCardState.kt`) applies `selectedSections` the same way to both formats, and `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` render identical toggles for both. That's a real problem now that Square keeps a 1:1 floor while Story sizes freely to content (see `fix/dialog-spacing-icon-sharecard-sizing`'s commit 3): selecting every Insights section on Square produces a tall rectangle, undermining the format's purpose — Square exists for chat/feed contexts that expect a predictable square shape.
 
-  *Branch: `fix/share-card-sparse-content-height` · Complexity: M · Priority: Medium*
+  *Branch: `feat/square-share-card-preset` · Complexity: M · Priority: Medium*
 
-  **Plan** — prototype before writing production layout code (CLAUDE.md's "validate cheaply first"), because "shrink toward content height" may not be the right answer for Story. 9:16 *is* the story canvas; an image shorter than that gets letterboxed by the destination app anyway, so shrinking Story improves the in-app preview and changes nothing about the shared result. Three candidates, cheapest first, all testable in a Compose Preview: (a) drop the minimum entirely for both formats; (b) keep Story's ratio but distribute the slack — centre the content block vertically rather than pooling it above the footer; (c) keep the ratio and scale content up to fill when few sections are selected. Recommend evaluating (b) and (c) against (a) rather than assuming (a).
+  **Plan** — needs a product decision first: which sections (and in what fixed order) Square always shows. Once decided: show `SectionsPicker` only when `ShareCardFormat.STORY` is selected in `SharePreviewScreen.kt`, and have `shareCardState()` source Square's sections from the fixed preset, independent of `selectedSections`.
 
-  **Tests** — the harness already exists: `ShareCardTemplateTest.storyIsTallerThanSquareForIdenticalContent` measures rendered heights in an instrumented test. Extend that pattern — a minimal-sections card measurably shorter than a maximal-sections card (if shrinking wins), the footer sitting at the bottom edge in both cases, and Square still respecting its floor if the floor is kept.
+  **Tests** — `ShareCardStateTest.kt` needs coverage that Square's output is driven by the preset; `SharePreviewScreenTest.kt` needs coverage that the section picker appears only for Story. `ShareCardTemplateTest.kt`'s Square floor/no-clip coverage should keep passing as-is, since the preset's fixed content is what it already exercises.
 
-  **Concern** — whichever way it goes, the outcome is inherited by §17's Big Picture sharing and animated story export, so record the decision in the spec rather than only in the layout code. And confirm the chosen approach against the actual destination apps before committing to it — a fix that only looks better in HODITH's preview is a worse outcome than leaving it.
+  **Concern** — this is as much a product decision as an implementation task, and it touches Voice (Story-only picker copy), so land it before the Voice phrasing audit.
 
 ## Testing
 
