@@ -3,7 +3,6 @@ package com.secondmonday.hodith.notification
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
-import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -12,7 +11,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import com.secondmonday.hodith.R
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.HodithRepository
@@ -84,7 +82,7 @@ class NotificationActionReceiverTest {
             hiltRule.inject()
             context = ApplicationProvider.getApplicationContext()
             notificationManager = context.getSystemService(NotificationManager::class.java)
-            grantPostNotificationsPermission()
+            context.grantPostNotificationsPermission()
             ensureNotificationChannel(context, PlainVoice)
             originalTheme = settingsRepository.observeTheme().first()
             settingsRepository.setTheme(AppTheme.PLAIN)
@@ -189,12 +187,6 @@ class NotificationActionReceiverTest {
 
     private suspend fun waitForNotificationGone(notificationId: Int): Boolean =
         waitFor { notificationManager.activeNotifications.none { it.id == notificationId }.takeIf { it } } ?: false
-
-    private fun grantPostNotificationsPermission() {
-        val command = "pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS"
-        val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
-        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
-    }
 
     private suspend fun <T> waitFor(
         maxAttempts: Int = 30,

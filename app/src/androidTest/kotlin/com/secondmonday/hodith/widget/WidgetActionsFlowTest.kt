@@ -2,13 +2,9 @@ package com.secondmonday.hodith.widget
 
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
-import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -23,7 +19,6 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -90,7 +85,7 @@ class WidgetActionsFlowTest {
         runBlocking {
             val caseName = "Coffee ${System.currentTimeMillis()}"
             insertedCaseId = repository.insertCase(testCase(name = caseName, logFlow = LogFlow.ONE_TAP))
-            bindAndRenderSingleCaseWidget(insertedCaseId)
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
 
             val button = waitForClickableWithDescription(PlainVoice.quickLogButtonDescription(caseName))
             InstrumentationRegistry.getInstrumentation().runOnMainSync { button.performClick() }
@@ -105,7 +100,7 @@ class WidgetActionsFlowTest {
             val caseName = "Migraine ${System.currentTimeMillis()}"
             insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.START_STOP))
             val eventId = repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 0L, endedAt = null))
-            bindAndRenderSingleCaseWidget(insertedCaseId)
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
 
             val button = waitForClickableWithText(PlainVoice.widgetStopAction)
             InstrumentationRegistry.getInstrumentation().runOnMainSync { button.performClick() }
@@ -114,31 +109,12 @@ class WidgetActionsFlowTest {
             assertNotNull("Expected StopEventAction to set the ongoing event's endedAt", stopped)
         }
 
-    private fun bindAndRenderSingleCaseWidget(caseId: Long) =
-        runBlocking {
-            appWidgetId = host.allocateAppWidgetId()
-            val provider = ComponentName(context, SingleCaseWidgetReceiver::class.java)
-            val bound = AppWidgetManager.getInstance(context).bindAppWidgetIdIfAllowed(appWidgetId, provider)
-            assertTrue("bindAppWidgetIdIfAllowed failed - is bind permission granted for this package?", bound)
-
-            val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
-            updateAppWidgetState(context, glanceId) { prefs -> prefs[CaseIdKey] = caseId }
-            SingleCaseWidget().update(context, glanceId)
-        }
-
-    private fun renderedView(): View {
-        val info = AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)
-        var view: View? = null
-        InstrumentationRegistry.getInstrumentation().runOnMainSync { view = host.createView(context, appWidgetId, info) }
-        return requireNotNull(view)
-    }
-
     private suspend fun waitForClickableWithDescription(description: String): View =
-        waitFor { findClickableAncestorOfDescription(renderedView(), description) }
+        waitFor { findClickableAncestorOfDescription(renderedView(context, host, appWidgetId), description) }
             ?: throw AssertionError("No clickable ancestor of a View with contentDescription '$description' rendered")
 
     private suspend fun waitForClickableWithText(text: String): View =
-        waitFor { findClickableAncestorOfText(renderedView(), text) }
+        waitFor { findClickableAncestorOfText(renderedView(context, host, appWidgetId), text) }
             ?: throw AssertionError("No clickable ancestor of a TextView with text '$text' rendered")
 
     private suspend fun <T> waitFor(
@@ -169,23 +145,6 @@ class WidgetActionsFlowTest {
             val ancestor = if (view.hasOnClickListeners()) view else clickableAncestor
             for (i in 0 until view.childCount) {
                 findClickableAncestorOfDescription(view.getChildAt(i), description, ancestor)?.let { return it }
-            }
-        }
-        return null
-    }
-
-    // Same reasoning as findClickableAncestorOfDescription, for buttons identified by their
-    // Text child instead (the Stop button has no contentDescription of its own).
-    private fun findClickableAncestorOfText(
-        view: View,
-        text: String,
-        clickableAncestor: View? = if (view.hasOnClickListeners()) view else null,
-    ): View? {
-        if (view is TextView && view.text.toString() == text) return clickableAncestor
-        if (view is ViewGroup) {
-            val ancestor = if (view.hasOnClickListeners()) view else clickableAncestor
-            for (i in 0 until view.childCount) {
-                findClickableAncestorOfText(view.getChildAt(i), text, ancestor)?.let { return it }
             }
         }
         return null

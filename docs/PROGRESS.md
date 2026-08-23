@@ -49,16 +49,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
 ## Testing
 
-- [ ] Instrumented suite hygiene: two audit findings in `app/src/androidTest`, both test-only, no production risk. (1) **Copy-pasted helpers** — `WidgetConfigureTestFixtures.kt` is the shared-fixture precedent for the widget-configure tier, but `renderedView()` is redefined in three widget test classes, and `collectText()`, `findClickableAncestorOfText()` and `bindAndRenderSingleCaseWidget()` in two each, plus `grantPostNotificationsPermission()` in both notification classes. (2) **Two tests that pass even when their setup click misses** — `BigPictureScreenTest.deselectingACase_resetsStaleTagSelection_insteadOfEmptyingTheGrid` narrows tags to "solo" and *then* deselects Tea with no assertion in between, so if the first click no-ops the end state still shows "work note" and the test is green; `bulkToggle_selectAll_reselectsEveryTag` has the identical shape.
-
-  *Branch: `test/instrumented-suite-hygiene` · Complexity: M · Priority: Medium*
-
-  **Plan** — extend `WidgetConfigureTestFixtures.kt` (or add a sibling render-support file) with the shared widget helpers and import them from `ListWidgetConfigureFlowTest`, `SingleCaseWidgetConfigureFlowTest`, `WidgetActionsFlowTest` and `WidgetChromeNavigationTest`; move `grantPostNotificationsPermission()` into a shared notification-test helper. Separately, add the missing intermediate assertion to the two BigPicture tests, then sweep the rest of `BigPictureScreenTest`/`SettingsScreenTest`/`SharePreviewScreenTest` for the same shape — the structural review flagged those three as where multi-step sequences cluster.
-
-  **Tests** — this *is* test work; verification is the same suite still passing, so it needs a real `connectedDebugAndroidTest` run rather than read-only review.
-
-  **Concern** — the added assertions have to be able to fail. Assert the *effect* of the setup click (the chip's state flipping, a filtered row disappearing), not merely that the node it targeted still exists — the latter passes just as happily on a missed tap.
-
 - [ ] Insights instrumented coverage gap: pure-Kotlin `StatsEngineTest`/`InsightsEngineTest`/`InsightsTabStateTest` (54 tests) already assert exact computed values for every Insights metric, but the instrumented `CaseDetailInsightsTabTest` (13 tests) is almost entirely card visibility/gating (`assertExists`/`assertDoesNotExist`) — only 2 tests read actual rendered text (the trend sentence, the gap-shift note). No instrumented test reads the Duration/Intensity/Frequency cards' displayed numbers off the real UI against known seeded data, so a wiring/formatting bug between correct state and the rendered `Text` wouldn't be caught by anything today.
 
   *Branch: `test/insights-tab-rendered-values` · Complexity: M · Priority: Medium-High*

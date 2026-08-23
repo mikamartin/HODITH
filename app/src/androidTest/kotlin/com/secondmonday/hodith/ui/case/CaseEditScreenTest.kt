@@ -87,6 +87,7 @@ class CaseEditScreenTest {
         setContent(onArchive = { archived = true })
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.archiveCaseDescription).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.archiveCaseConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.archiveCaseCancelAction).performClick()
 
         assertFalse(archived)

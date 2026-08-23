@@ -202,6 +202,11 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("later").performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        // Confirm "later" was actually deselected before reading the grid.
+        composeTestRule.onNodeWithText("urgent").assertExists()
+        composeTestRule.onNodeWithText("later").assertDoesNotExist()
+
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
 
         composeTestRule.onNodeWithText("urgent note").assertExists()
@@ -217,6 +222,10 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("urgent").performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        // Confirm "urgent" was actually deselected (selection collapses to "Untagged only").
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureUntaggedOnlyLabel).assertExists()
+
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
 
         // Behavior change from the old always-expanded chips: zero tags selected now means
@@ -237,6 +246,10 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(secondCase.name).performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
+        // Confirm Tea was actually deselected before reopening the tags dialog.
+        composeTestRule.onNodeWithText(case.name).assertExists()
+        composeTestRule.onNodeWithText(secondCase.name).assertDoesNotExist()
+
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("work").assertExists()
         composeTestRule.onNodeWithText("solo").assertDoesNotExist()
@@ -254,6 +267,10 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("work").performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        // Confirm the tag selection actually narrowed to "solo" before deselecting the Case.
+        composeTestRule.onNodeWithText("solo").assertExists()
+        composeTestRule.onNodeWithText("work").assertDoesNotExist()
 
         // Deselect Tea, the only Case with "solo" events — before the tag-scoping fix, the stale
         // {"solo"} tag selection would AND against Coffee's "work"-only events to an empty grid.
@@ -374,6 +391,13 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("urgent").performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        // Confirm "urgent" was actually deselected before re-selecting everything.
+        composeTestRule.onNodeWithText("later").assertExists()
+        composeTestRule.onNodeWithText("urgent").assertDoesNotExist()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureSelectAllAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 

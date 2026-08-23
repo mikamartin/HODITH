@@ -8,7 +8,6 @@ import android.content.Intent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ListView
-import android.widget.TextView
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -18,7 +17,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -120,11 +118,11 @@ class ListWidgetConfigureFlowTest {
                 scenario.state == Lifecycle.State.DESTROYED,
             )
 
-            var view = renderedView()
+            var view = renderedView(context, host, appWidgetId)
             var renderAttempts = 0
             while (!containsListView(view) && renderAttempts < 30) {
                 Thread.sleep(200)
-                view = renderedView()
+                view = renderedView(context, host, appWidgetId)
                 renderAttempts++
             }
             assertFalse(
@@ -134,26 +132,8 @@ class ListWidgetConfigureFlowTest {
             assertTrue("Expected the selected-Cases row list (a ListView) to be present", containsListView(view))
         }
 
-    private fun renderedView(): View {
-        val info = AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)
-        var view: View? = null
-        InstrumentationRegistry.getInstrumentation().runOnMainSync { view = host.createView(context, appWidgetId, info) }
-        return requireNotNull(view)
-    }
-
     private fun containsListView(view: View): Boolean =
         view is ListView || (view is ViewGroup && (0 until view.childCount).any { containsListView(view.getChildAt(it)) })
-
-    private fun collectText(view: View): List<String> {
-        val result = mutableListOf<String>()
-
-        fun visit(v: View) {
-            if (v is TextView) result.add(v.text.toString())
-            if (v is ViewGroup) for (i in 0 until v.childCount) visit(v.getChildAt(i))
-        }
-        visit(view)
-        return result
-    }
 
     companion object {
         private const val HOST_ID = 424242
