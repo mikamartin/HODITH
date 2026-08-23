@@ -249,6 +249,7 @@ class SettingsScreenTest {
         setContent(onDeleteAllData = { deleted = true })
 
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataCancelAction).performClick()
 
         assertFalse(deleted)
@@ -295,6 +296,7 @@ class SettingsScreenTest {
         setContent(onImportConfirm = { confirmed = true })
 
         composeTestRule.onNodeWithText(PlainVoice.settingsImportButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsImportConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsImportCancelAction).performClick()
 
         assertFalse(confirmed)

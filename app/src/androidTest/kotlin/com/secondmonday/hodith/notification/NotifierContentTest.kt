@@ -2,11 +2,9 @@ package com.secondmonday.hodith.notification
 
 import android.app.NotificationManager
 import android.content.Context
-import android.os.ParcelFileDescriptor
 import androidx.core.app.NotificationManagerCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testTrigger
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -59,7 +57,7 @@ class NotifierContentTest {
         hiltRule.inject()
         context = ApplicationProvider.getApplicationContext()
         notificationManager = context.getSystemService(NotificationManager::class.java)
-        grantPostNotificationsPermission()
+        context.grantPostNotificationsPermission()
         ensureNotificationChannel(context, PlainVoice)
     }
 
@@ -142,10 +140,4 @@ class NotifierContentTest {
                     .orEmpty()
             matches(title, text, actionTitles)
         }
-
-    private fun grantPostNotificationsPermission() {
-        val command = "pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS"
-        val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
-        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
-    }
 }

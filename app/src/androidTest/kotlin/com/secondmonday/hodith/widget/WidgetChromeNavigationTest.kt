@@ -7,8 +7,6 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.view.View
-import android.view.ViewGroup
-import android.widget.TextView
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.test.core.app.ApplicationProvider
@@ -86,7 +84,7 @@ class WidgetChromeNavigationTest {
     @Test
     fun singleCaseWidget_missingCaseTap_opensMainActivity() =
         runBlocking {
-            bindAndRenderSingleCaseWidget(caseId = NONEXISTENT_CASE_ID)
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, NONEXISTENT_CASE_ID)
             assertTapOpensMainActivity(PlainVoice.widgetCaseNotFoundMessage)
         }
 
@@ -118,56 +116,18 @@ class WidgetChromeNavigationTest {
             ListWidget().update(context, glanceId)
         }
 
-    private fun bindAndRenderSingleCaseWidget(caseId: Long) =
-        runBlocking {
-            appWidgetId = host.allocateAppWidgetId()
-            val provider = ComponentName(context, SingleCaseWidgetReceiver::class.java)
-            val bound = AppWidgetManager.getInstance(context).bindAppWidgetIdIfAllowed(appWidgetId, provider)
-            assertTrue("bindAppWidgetIdIfAllowed failed - is bind permission granted for this package?", bound)
-
-            val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
-            updateAppWidgetState(context, glanceId) { prefs -> prefs[CaseIdKey] = caseId }
-            SingleCaseWidget().update(context, glanceId)
-        }
-
-    private fun renderedView(): View {
-        val info = AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)
-        var view: View? = null
-        InstrumentationRegistry.getInstrumentation().runOnMainSync { view = host.createView(context, appWidgetId, info) }
-        return requireNotNull(view)
-    }
-
     private fun waitForClickableWithText(
         text: String,
         maxAttempts: Int = 30,
     ): View {
         var attempts = 0
-        var found = findClickableAncestorOfText(renderedView(), text)
+        var found = findClickableAncestorOfText(renderedView(context, host, appWidgetId), text)
         while (found == null && attempts < maxAttempts) {
             Thread.sleep(200)
-            found = findClickableAncestorOfText(renderedView(), text)
+            found = findClickableAncestorOfText(renderedView(context, host, appWidgetId), text)
             attempts++
         }
         return found ?: throw AssertionError("No clickable ancestor of a TextView with text '$text' rendered")
-    }
-
-    // Glance renders .clickable(...) as an OnClickListener on an ancestor wrapper View, not
-    // necessarily the leaf TextView itself — same reasoning as WidgetActionsFlowTest's identically
-    // named helpers, duplicated locally since each widget flow test file keeps its own small View-
-    // traversal helpers rather than sharing one across files with differing target types.
-    private fun findClickableAncestorOfText(
-        view: View,
-        text: String,
-        clickableAncestor: View? = if (view.hasOnClickListeners()) view else null,
-    ): View? {
-        if (view is TextView && view.text.toString() == text) return clickableAncestor
-        if (view is ViewGroup) {
-            val ancestor = if (view.hasOnClickListeners()) view else clickableAncestor
-            for (i in 0 until view.childCount) {
-                findClickableAncestorOfText(view.getChildAt(i), text, ancestor)?.let { return it }
-            }
-        }
-        return null
     }
 
     companion object {

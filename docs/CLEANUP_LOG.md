@@ -15,6 +15,25 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## test/instrumented-suite-hygiene
+
+**Scope:** PROGRESS.md's instrumented-suite-hygiene item: dedupe copy-pasted `app/src/androidTest` helpers, and fix tests whose only assertion is on the *final* state after two sequential UI actions — so a silently no-op'd setup click can't be told apart from one that worked. The doc named two confirmed BigPicture tests and asked to sweep `BigPictureScreenTest`/`SettingsScreenTest`/`SharePreviewScreenTest` for the same shape; the sweep (and a broader pass across the rest of `androidTest`) found more real instances than the two named, and this pass fixed all of them rather than just the doc-minimum two.
+
+**Found & fixed:**
+- **Duplicated helpers, extracted:**
+  - `WidgetRenderTestFixtures.kt` (new, sibling to `WidgetConfigureTestFixtures.kt`): `renderedView()` (was byte-for-byte duplicated in `ListWidgetConfigureFlowTest`/`WidgetActionsFlowTest`/`WidgetChromeNavigationTest`, inlined a fourth way in `SingleCaseWidgetConfigureFlowTest`), `collectText()` (two incompatible signatures existed — a mutate-into-list variant and a list-returning variant; standardized on the list-returning one), `findClickableAncestorOfText()` (identical in `WidgetActionsFlowTest`/`WidgetChromeNavigationTest` — one copy carried a comment explicitly defending the duplication, since removed), and `bindAndRenderSingleCaseWidget()` (identical in the same two files; changed to return the allocated `appWidgetId` instead of mutating a field, since the shared version can't reach into each test's private state).
+  - `NotificationTestFixtures.kt` (new — no shared fixture file existed yet for this package): `grantPostNotificationsPermission()`, deduped out of `NotificationActionReceiverTest`/`NotifierContentTest` as a `Context` extension.
+- **Fragile-assertion tests, fixed (12):** added an assertion of the setup action's own effect before the next action runs, following the idiom already used elsewhere in these files (e.g. `BigPictureScreenTest`'s `filterLegend_showsNoCasesSelectedNote_afterDeselectingOnlyCase`, and each screen's own "confirm" dialog test asserting the dialog title before proceeding) — `BigPictureScreenTest` (`deselectingACase_resetsStaleTagSelection_insteadOfEmptyingTheGrid`, `bulkToggle_selectAll_reselectsEveryTag`, `tagFilterChip_deselecting_hidesEventsOfOtherTags`, `tagFilterChip_deselectingAllTags_showsUntaggedOnly`, `tagsDialog_onlyOffersTagsFromSelectedCases`), `SettingsScreenTest` (`deleteAllData_cancelDoesNotInvokeCallback`, `importButton_cancelDoesNotInvokeCallback`), `TriggersScreenTest` (`delete_cancelDoesNotInvokeCallback`, `create_switchToSilentFor_savesWithNullWindow`), `CaseEditScreenTest` (`archiveIcon_cancelDoesNotInvokeCallback`), `ArchivedCasesScreenTest` (`delete_cancelDoesNotInvokeCallback`), `CaseDetailScreenTest` (`stopNowInSheet_thenSave_savesWithAnEndedAt`).
+- Verified via `connectedDebugAndroidTest` on a real emulator: all 199 instrumented tests pass (individually confirmed for every touched class, then the full suite).
+
+**Deferred:**
+- `BigPictureScreenTest`'s two event-row-tap tests (`dayDetailDialog_eventRowTap_...`, `weekDetailDialog_eventRowTap_...`) — same two-action/one-assertion shape, but their second click targets text that only exists once the first dialog is open, so a missed setup click throws immediately rather than passing silently. Not an instance of the risk this pass targets.
+- `SharePreviewScreenTest` — swept per the doc's instruction, no matches; every test there performs at most one action before asserting.
+
+**Docs updated:** PROGRESS.md — struck the instrumented-suite-hygiene item from the Testing section.
+
+---
+
 ## fix/dialog-spacing-icon-sharecard-sizing
 
 **Scope:** Three PROGRESS.md items bundled into one branch per request, as three commits: Big Picture filter dialog spacing, the launcher icon's handle/ring dark-spot bug, and the share card's sparse-content sizing bug (plus real fallout that grew past the original scope).

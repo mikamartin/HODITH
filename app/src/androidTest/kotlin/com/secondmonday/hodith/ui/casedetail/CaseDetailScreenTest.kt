@@ -152,6 +152,10 @@ class CaseDetailScreenTest {
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.retroLogEntryDescription, useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetStopNowAction).performClick()
+
+        // Confirm "Stop Now" actually cleared the ongoing state before saving.
+        composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertDoesNotExist()
+
         composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
 
         assertNotNull(savedDraft?.endedAt)

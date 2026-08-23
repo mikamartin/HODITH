@@ -5,9 +5,6 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.view.View
-import android.view.ViewGroup
-import android.widget.TextView
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -17,7 +14,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -128,25 +124,7 @@ class SingleCaseWidgetConfigureFlowTest {
             assertTrue("Expected the bound Case's icon '$caseIcon' to render, but saw: $texts", texts.any { it == caseIcon })
         }
 
-    private fun collectRenderedText(): List<String> {
-        val info = AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)
-        val result = mutableListOf<String>()
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            val hostView = host.createView(context, appWidgetId, info)
-            collectText(hostView, result)
-        }
-        return result
-    }
-
-    private fun collectText(
-        view: View,
-        into: MutableList<String>,
-    ) {
-        if (view is TextView) into.add(view.text.toString())
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) collectText(view.getChildAt(i), into)
-        }
-    }
+    private fun collectRenderedText(): List<String> = collectText(renderedView(context, host, appWidgetId))
 
     companion object {
         private const val HOST_ID = 424243

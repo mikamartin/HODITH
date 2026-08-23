@@ -89,6 +89,7 @@ class ArchivedCasesScreenTest {
         setContent(onDeleteForever = { deletedId = it })
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.deleteCaseForeverDescription(row.name)).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.deleteCaseForeverConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.deleteCaseForeverCancelAction).performClick()
 
         assertNull(deletedId)

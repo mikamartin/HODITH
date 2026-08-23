@@ -101,6 +101,7 @@ class TriggersScreenTest {
         setContent(onDeleteTrigger = { deletedId = it })
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.triggerDeleteDescription(summary)).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.triggersDeleteConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.triggersDeleteCancelAction).performClick()
 
         assertNull(deletedId)
@@ -132,6 +133,11 @@ class TriggersScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.triggersEmptyCta).performClick()
         composeTestRule.onNodeWithText(PlainVoice.triggerKindLabel(TriggerKind.SILENT_FOR)).performClick()
+
+        // Confirm the form actually switched to the Silent-For layout before saving.
+        composeTestRule.onNodeWithText(PlainVoice.triggersSilentLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.triggersWindowLabel).assertDoesNotExist()
+
         composeTestRule.onNodeWithText(PlainVoice.triggersSaveButton).performClick()
 
         assertEquals(TriggerKind.SILENT_FOR, saved?.first)
