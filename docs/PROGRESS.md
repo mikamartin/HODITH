@@ -47,20 +47,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   **Concern** — this is as much a product decision as an implementation task, and it touches Voice (Story-only picker copy), so land it before the Voice phrasing audit.
 
-## Testing
-
-- [ ] Insights instrumented coverage gap: pure-Kotlin `StatsEngineTest`/`InsightsEngineTest`/`InsightsTabStateTest` (54 tests) already assert exact computed values for every Insights metric, but the instrumented `CaseDetailInsightsTabTest` (13 tests) is almost entirely card visibility/gating (`assertExists`/`assertDoesNotExist`) — only 2 tests read actual rendered text (the trend sentence, the gap-shift note). No instrumented test reads the Duration/Intensity/Frequency cards' displayed numbers off the real UI against known seeded data, so a wiring/formatting bug between correct state and the rendered `Text` wouldn't be caught by anything today.
-
-  *Branch: `test/insights-tab-rendered-values` · Complexity: M · Priority: Medium-High*
-
-  **Plan** — target the cards that format numbers, since that's where the untested gap between correct state and rendered text lives: Duration (`formatMinutesDuration`), Intensity, Frequency (`formatRate`), and the Gaps/Streaks values. Seed known data, assert the exact displayed string. Roughly six to eight new tests on top of the existing thirteen.
-
-  **Tests** — the trap to avoid is the one that makes this cheap and worthless: a test that builds its expected string by calling the same formatter the UI calls is a tautology that passes through any formatter change. At least the value-formatting assertions must hardcode the expected literal ("1h 30m", "2.5 / week") so a formatting regression actually fails. Use the `PlainVoice.x(...)` constant only where the sentence *around* the number is what's being pinned.
-
-  **Concern** — `CaseDetailInsightsTabTest`'s class comment currently justifies the gap ("the underlying math is already covered exhaustively... on the JVM"). That reasoning is what produced the hole — correct math plus a wiring bug still ships wrong numbers — so the comment has to be corrected in the same commit, or the gap grows back.
-
-  **Audit note** — the QA audit's structural review confirmed this one and found no sibling of the same shape elsewhere: the other screen suites do read rendered values, so this is an isolated gap rather than a pattern to sweep.
-
 ## Settings
 
 - [ ] **Audit the hosted privacy policy and Play data-safety form.** Both live outside this repo and likely still repeat the "nothing leaves the phone" claim that `feat/cloud-backup-toggle` just corrected in-app (About screen, README, HODITH_SPEC §16). The hosted policy is linked from `AboutScreen.kt`'s privacy section; the Play data-safety answers live in Play Console once a listing exists. Neither can be edited from this repo.

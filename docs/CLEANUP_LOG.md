@@ -15,6 +15,21 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## test/insights-tab-rendered-values
+
+**Scope:** PROGRESS.md's "Insights instrumented coverage gap" item — the pure-Kotlin engine tests already pinned exact computed values for every Insights metric, but the instrumented `CaseDetailInsightsTabTest` only checked card presence/gating, never the actual rendered numbers. Test-only change, no production code touched.
+
+**Found & fixed:**
+- Added four tests to `CaseDetailInsightsTabTest.kt` asserting hardcoded literal rendered text for the Duration, Intensity, Frequency, and Gaps & Streaks cards, seeded with known data and hand-derived expected strings (not calling the same formatter the UI calls, which would make the assertion a tautology). Corrected the class KDoc's closing sentence, which had justified the original gap in a way that itself missed the wiring-bug risk.
+- First attempt at the Frequency test asserted bare digit counts ("3", "1") and failed on-device: the calendar heatmap renders day-of-month numbers 1–31 as plain text on the same tab, so any small bare-digit assertion collides with a heatmap cell. Tried scoping via `hasAnyAncestor` first — didn't work, since the section label and the bar counts are siblings under the card's `Column`, not ancestor/descendant. Fixed by seeding bucket counts >31 (33/34 events), which can't collide with any day-of-month value; simpler than tree-scoping and needed no production `testTag` (the app has none today, deliberately — text-based assertions are the established convention throughout `androidTest`).
+- Verified all 17 tests (13 existing + 4 new) pass via `connectedDebugAndroidTest` on a real emulator, not just compile-checked.
+
+**Deferred:** nothing.
+
+**Docs updated:** PROGRESS.md (item struck as resolved).
+
+---
+
 ## test/instrumented-suite-hygiene
 
 **Scope:** PROGRESS.md's instrumented-suite-hygiene item: dedupe copy-pasted `app/src/androidTest` helpers, and fix tests whose only assertion is on the *final* state after two sequential UI actions — so a silently no-op'd setup click can't be told apart from one that worked. The doc named two confirmed BigPicture tests and asked to sweep `BigPictureScreenTest`/`SettingsScreenTest`/`SharePreviewScreenTest` for the same shape; the sweep (and a broader pass across the rest of `androidTest`) found more real instances than the two named, and this pass fixed all of them rather than just the doc-minimum two.

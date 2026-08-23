@@ -33,9 +33,10 @@ import java.time.ZoneId
  * from (`INSIGHTS_MIN_EVENTS`, `TREND_MIN_SPAN_DAYS`) — those constants are `internal` and not
  * visible from this module's `androidTest` source set, so the values are restated here rather
  * than imported, same as `CaseDetailScreenTest`'s 24h stale-event threshold. This exercises card
- * presence/absence and the two interactive toggles (granularity, "show more months") — the
- * underlying math is already covered exhaustively by `StatsEngineTest` and `InsightsEngineTest`
- * on the JVM.
+ * presence/absence, the two interactive toggles (granularity, "show more months"), and — for
+ * Duration/Intensity/Frequency/Gaps & Streaks — the exact rendered numeric text: the underlying
+ * math is covered exhaustively by `StatsEngineTest` and `InsightsEngineTest` on the JVM, but only
+ * this class catches a wiring or formatting bug between correct state and the displayed `Text`.
  */
 @UiTest
 class CaseDetailInsightsTabTest {
@@ -249,6 +250,59 @@ class CaseDetailInsightsTabTest {
         composeTestRule.onNodeWithText(monthYearLabel(earliestMonth)).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsHeatmapShowMoreAction).performScrollTo().performClick()
         composeTestRule.onNodeWithText(monthYearLabel(earliestMonth)).assertExists()
+    }
+
+    @Test
+    fun durationCard_showsAverageLongestAndTotalAsFormattedDurations() {
+        // 90min + 30min -> average (90+30)/2=60 -> "1h 0m", longest 90 -> "1h 30m", total 120 -> "2h 0m".
+        setInsightsTabContent(
+            durationMode = DurationMode.START_STOP,
+            events =
+                listOf(
+                    eventAt(2, endedAt = daysAgo(2) + 90 * 60_000L),
+                    eventAt(1, endedAt = daysAgo(1) + 30 * 60_000L),
+                ),
+        )
+
+        composeTestRule.onNodeWithText("1h 0m").assertExists()
+        composeTestRule.onNodeWithText("1h 30m").assertExists()
+        composeTestRule.onNodeWithText("2h 0m").assertExists()
+    }
+
+    @Test
+    fun intensityCard_showsAverageIntensityToOneDecimal() {
+        // Intensities 2 and 3 -> average (2+3)/2 = 2.5.
+        setInsightsTabContent(intensityEnabled = true, events = listOf(eventAt(2, intensity = 2), eventAt(1, intensity = 3)))
+
+        composeTestRule.onNodeWithText("2.5").assertExists()
+    }
+
+    @Test
+    fun frequencyCard_showsPerBucketEventCounts() {
+        // 33 events on one day, 34 on another -> those bars read "33"/"34". Deliberately >31 (the
+        // heatmap's max day-of-month) so neither literal can collide with a heatmap day cell
+        // elsewhere on the same tab; a smaller pair of counts would be ambiguous with those cells.
+        setInsightsTabContent(
+            events = List(33) { eventAt(2) } + List(34) { eventAt(1) },
+        )
+
+        composeTestRule.onNodeWithText("33").assertExists()
+        composeTestRule.onNodeWithText("34").assertExists()
+    }
+
+    @Test
+    fun gapsCard_showsExactGapAndStreakDayCounts() {
+        // Active days at daysAgo 24,23,22 (a 3-day run), 14, 4 -- "now" sits 4 days past the last one.
+        // Streak runs: [3,1,1] -> longest 3, average (3+1+1)/3 = 1.6667 -> "1.7 days".
+        // Gaps between consecutive events: 1, 1, 8, 10 (past), current = 4.
+        // Longest gap = max(past, current) = 10; average of past gaps = (1+1+8+10)/4 = 5.0; current = 4.
+        setInsightsTabContent(events = listOf(24L, 23L, 22L, 14L, 4L).map { eventAt(it) })
+
+        composeTestRule.onNodeWithText("10 days").assertExists()
+        composeTestRule.onNodeWithText("4 days").assertExists()
+        composeTestRule.onNodeWithText("5 days").assertExists()
+        composeTestRule.onNodeWithText("3 days").assertExists()
+        composeTestRule.onNodeWithText("1.7 days").assertExists()
     }
 
     // Mirrors InsightsTab.kt's private YearMonth.monthYearLabel() formatting, so the expected text matches exactly.
