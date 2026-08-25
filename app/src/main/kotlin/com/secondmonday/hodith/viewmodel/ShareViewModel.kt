@@ -84,7 +84,9 @@ class ShareViewModel
 
         /** `null` (or blank) means fall back to the Case's own name — see [ShareSelection.displayNameOverride]. */
         fun setDisplayNameOverride(name: String?) {
-            selection.update { it.copy(displayNameOverride = name?.takeIf { override -> override.isNotBlank() }) }
+            selection.update {
+                it.copy(displayNameOverride = name?.take(CASE_NAME_MAX_LENGTH)?.takeIf { override -> override.isNotBlank() })
+            }
         }
 
         fun setSectionSelected(

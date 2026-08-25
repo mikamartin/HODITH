@@ -8,6 +8,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 
+internal const val EVENT_NOTE_MAX_LENGTH = 280
+
 /**
  * Draft state for [com.secondmonday.hodith.ui.logsheet.LogDetailSheet], the log detail sheet
  * shared by new-event, retro-log, and edit-event entry points (spec §6). Kept as a plain data
@@ -114,7 +116,7 @@ internal fun LogDraft.toEventEntity(
         occurredAt = clampedOccurredAt,
         endedAt = computeEndedAt(clampedOccurredAt, durationMode, durationMinutes, endedAt, existingEndedAt, now),
         intensity = intensity,
-        note = note.trim().takeIf { it.isNotEmpty() },
+        note = note.trim().take(EVENT_NOTE_MAX_LENGTH).takeIf { it.isNotEmpty() },
         loggedAt = loggedAt,
     )
 }

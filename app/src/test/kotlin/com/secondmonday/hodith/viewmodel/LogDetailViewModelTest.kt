@@ -190,6 +190,15 @@ class LogDetailViewModelTest {
     }
 
     @Test
+    fun `toEventEntity truncates a note beyond the max length`() {
+        val draft = testDraft(note = "a".repeat(EVENT_NOTE_MAX_LENGTH + 10))
+
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.NONE, now = farFuture)
+
+        assertEquals(EVENT_NOTE_MAX_LENGTH, entity.note?.length)
+    }
+
+    @Test
     fun `toEventEntity carries caseId, existingId and loggedAt through unchanged`() {
         val draft = testDraft(occurredAt = 42L, intensity = 2)
 

@@ -127,6 +127,22 @@ class ShareViewModelTest {
         }
 
     @Test
+    fun `setDisplayNameOverride truncates a name beyond the max length`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+
+                vm.setDisplayNameOverride("a".repeat(CASE_NAME_MAX_LENGTH + 10))
+                assertEquals(CASE_NAME_MAX_LENGTH, awaitItem().selection.displayNameOverride?.length)
+
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `setSectionSelected toggles a single section without disturbing the rest`() =
         runTest {
             repository.cases.value = listOf(testCase())

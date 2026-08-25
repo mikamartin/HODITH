@@ -64,6 +64,7 @@ class TriggersViewModel
             threshold: Int,
             windowDays: Int?,
         ) {
+            if (kind == TriggerKind.AT_LEAST && (windowDays == null || windowDays <= 0)) return
             viewModelScope.launch {
                 repository.insertTrigger(
                     TriggerEntity(

@@ -61,7 +61,7 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 | Field | Notes |
 |---|---|
 | id | PK |
-| name | e.g. "Kiddo was rude" |
+| name | e.g. "Kiddo was rude"; unique case-insensitively among active Cases — an archived Case's name may be reused |
 | description | nullable String — optional longer freeform text beyond the title |
 | icon | emoji, required — the Case's visual identity everywhere |
 | createdAt | start of the observation window (see §8) |
