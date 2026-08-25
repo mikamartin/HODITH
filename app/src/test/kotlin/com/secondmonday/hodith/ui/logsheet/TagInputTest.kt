@@ -26,6 +26,13 @@ class TagInputTest {
     }
 
     @Test
+    fun `tagToAdd truncates a tag beyond the max length`() {
+        val tag = tagToAdd("a".repeat(TAG_NAME_MAX_LENGTH + 10), existingTags = emptyList())
+
+        assertEquals(TAG_NAME_MAX_LENGTH, tag?.length)
+    }
+
+    @Test
     fun `filterTagSuggestions excludes suggestions already selected regardless of casing`() {
         assertEquals(
             emptyList<String>(),

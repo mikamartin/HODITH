@@ -15,6 +15,28 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/input-length-guardrails
+
+**Scope:** PROGRESS.md's "Input validation" item — event note and tag name had no length cap, and the trigger custom-window (days) field silently accepted `0`. A deeper follow-up audit run before implementation (prompted by a request to check for gaps beyond length caps) also found a 7th text-input site the original pass missed (Share screen's display-name override, uncapped) and confirmed the trigger threshold/hunch expected-count fields have no edit path that bypasses their stepper's bound — only backup/restore can, logged separately rather than implemented here.
+
+**Found & fixed:**
+- `LogDetailViewModel.kt`: added `EVENT_NOTE_MAX_LENGTH = 280`, applied at the existing trim-to-null seam in `LogDraft.toEventEntity`.
+- `TagInput.kt`: added `TAG_NAME_MAX_LENGTH = 30`, applied inside `tagToAdd`'s existing trim/dedupe logic.
+- `ShareViewModel.kt`: `setDisplayNameOverride` now caps at the existing `CASE_NAME_MAX_LENGTH` (reused rather than duplicated — this field overrides that same name).
+- `TriggersScreen.kt`/`TriggersViewModel.kt`: `canSave` now rejects a zero-day custom window (matching the screen's existing disabled-button feedback convention — no new inline error text or Voice strings, since none exist anywhere else in this screen); `TriggersViewModel.createTrigger` also no-ops for an `AT_LEAST` trigger with a null-or-non-positive `windowDays`, since the UI-only fix doesn't protect the ViewModel if it's ever called another way — this is the actual data guardrail and the layer that's unit-testable.
+- Each cap is a constant declared next to its own call site, matching the existing `CASE_NAME_MAX_LENGTH`/`CASE_DESCRIPTION_MAX_LENGTH`/`DURATION_MINUTES_MAX_DIGITS`/`CUSTOM_WINDOW_MAX_DIGITS` precedent — not centralized, and not in `domain/` (that rule targets verdict/trigger business thresholds, not form-field caps; the codebase's own practice for this category is consistently non-domain).
+- Four regression tests added: `LogDetailViewModelTest` (note truncation), `TagInputTest` (tag truncation), `ShareViewModelTest` (display-name truncation), `TriggersViewModelTest` (zero-day window rejected, no insert). Existing tests in the same files pass unmodified — their fixture strings are all well under the new caps.
+- Verified sequentially via `ktlintCheck` → `lintDebug` → `test` → `assembleDebug`.
+
+**Deferred:**
+- Backup/restore import validation, found during the same audit: `SettingsViewModel.performImport` only checks JSON shape/schema version; `RoomHodithRepository.importBackupData` then inserts every deserialized entity as-is with no length/range/referential-integrity checks, and the insert isn't wrapped in a try/catch anywhere (no `CoroutineExceptionHandler` exists in the app), so a malformed backup — e.g. a dangling `caseId` reference — can throw an uncaught `SQLiteConstraintException`. Materially bigger and riskier than this branch's fixes; logged as its own new, High-priority PROGRESS.md item (`fix/backup-import-validation`) rather than folded in here, per direction.
+- Case-name uniqueness scoped to active cases only: confirmed as existing, deliberate behavior (per the code's own doc comment), not a bug — documented in the spec instead of changed.
+- No `androidTest` coverage added for any of these guardrails — the original PROGRESS.md item's own text already called this out as a separate, suite-wide gap (no `performTextInput` call exists anywhere in the instrumented suite today), not specific to these fields.
+
+**Docs updated:** `docs/HODITH_SPEC.md` §5 (Case table's `name` row now notes the active-cases-only uniqueness scope). `docs/PROGRESS.md` — struck the resolved "Input validation" item; added the new backup/restore validation item under a new "Data integrity" section.
+
+---
+
 ## test/insights-tab-rendered-values
 
 **Scope:** PROGRESS.md's "Insights instrumented coverage gap" item — the pure-Kotlin engine tests already pinned exact computed values for every Insights metric, but the instrumented `CaseDetailInsightsTabTest` only checked card presence/gating, never the actual rendered numbers. Test-only change, no production code touched.

@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.ui.logsheet
 
+internal const val TAG_NAME_MAX_LENGTH = 30
+
 /**
  * Pure tag-entry logic split out of [LogDetailSheet]'s `TagEditor` so it's unit-testable on the
  * JVM without Compose (same rationale as `ui.bigpicture.BigPictureFilterState`). Tag matching is
@@ -17,7 +19,7 @@ internal fun tagToAdd(
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return null
     if (existingTags.any { it.equals(trimmed, ignoreCase = true) }) return null
-    return trimmed
+    return trimmed.take(TAG_NAME_MAX_LENGTH)
 }
 
 /** Which of [suggestions] are worth showing: not already in [selectedTags], and matching [query] if one is typed. */

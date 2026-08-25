@@ -247,7 +247,7 @@ private fun TriggerCreationSheet(
             WindowPreset.THIRTY -> THIRTY_DAYS
             WindowPreset.CUSTOM -> customWindowText.toIntOrNull()
         }
-    val canSave = kind == TriggerKind.SILENT_FOR || windowDays != null
+    val canSave = kind == TriggerKind.SILENT_FOR || (windowDays != null && windowDays > 0)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

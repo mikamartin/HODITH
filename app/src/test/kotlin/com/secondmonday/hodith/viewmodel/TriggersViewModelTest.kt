@@ -124,6 +124,14 @@ class TriggersViewModelTest {
         }
 
     @Test
+    fun `createTrigger does not insert an AT_LEAST trigger with a zero-day window`() =
+        runTest {
+            viewModel().createTrigger(kind = TriggerKind.AT_LEAST, threshold = 5, windowDays = 0)
+
+            assertTrue(repository.triggers.value.isEmpty())
+        }
+
+    @Test
     fun `setEnabled updates only the enabled flag`() =
         runTest {
             repository.triggers.value = listOf(atLeastTrigger(id = 1L, enabled = true))
