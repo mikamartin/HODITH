@@ -218,7 +218,7 @@ private fun TriggerListItem(
 
 private enum class WindowPreset { SEVEN, THIRTY, CUSTOM }
 
-private val THRESHOLD_RANGE = 1..999
+internal val THRESHOLD_RANGE = 1..999
 private const val DEFAULT_AT_LEAST_THRESHOLD = 5
 private const val DEFAULT_SILENT_THRESHOLD = 14
 private const val DEFAULT_CUSTOM_WINDOW_DAYS = 14

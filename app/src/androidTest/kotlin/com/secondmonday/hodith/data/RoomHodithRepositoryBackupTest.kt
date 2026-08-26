@@ -133,6 +133,9 @@ class RoomHodithRepositoryBackupTest {
             // one Room transaction. An event referencing a case that doesn't exist in the same
             // backup violates the caseId foreign key partway through the insert sequence — the
             // pre-existing "Original" case must still be there afterward, not gone-and-not-replaced.
+            // This repository method itself does no validation — that's `validateBackup`'s job,
+            // called from `SettingsViewModel.performImport` above this layer. This test proves the
+            // transaction rollback holds on its own, as a backstop independent of that layer.
             repository.insertCase(testCase(name = "Original"))
             val invalidBackup =
                 BackupData(

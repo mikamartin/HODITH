@@ -3,8 +3,10 @@ package com.secondmonday.hodith.viewmodel
 import app.cash.turbine.test
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
+import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
+import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.data.backup.BackupSerializer
 import com.secondmonday.hodith.data.backup.FakeBackupFileWriter
 import com.secondmonday.hodith.data.demo.DemoDataSeeder
@@ -188,6 +190,34 @@ class SettingsViewModelTest {
             val result = viewModel.performImport(json)
 
             assertEquals(BackupEvent.ImportFailure(ImportFailureReason.UNSUPPORTED_VERSION), result)
+        }
+
+    @Test
+    fun `performImport rejects a semantically invalid backup without touching existing data`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.loadDemoData()
+            val casesBefore = hodithRepository.cases.value
+
+            // Well-formed JSON, but the event's caseId matches no case in the same file.
+            val invalidBackup =
+                BackupData(
+                    cases = emptyList(),
+                    tags = emptyList(),
+                    events =
+                        listOf(
+                            EventEntity(caseId = 999L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L),
+                        ),
+                    eventTags = emptyList(),
+                    hunches = emptyList(),
+                    triggers = emptyList(),
+                )
+            val json = backupSerializer.toJson(invalidBackup)
+
+            val result = viewModel.performImport(json)
+
+            assertEquals(BackupEvent.ImportFailure(ImportFailureReason.SEMANTIC_INVALID), result)
+            assertEquals(casesBefore, hodithRepository.cases.value)
         }
 
     @Test
