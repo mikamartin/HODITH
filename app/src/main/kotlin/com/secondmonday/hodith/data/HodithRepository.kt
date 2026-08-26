@@ -25,6 +25,8 @@ interface HodithRepository {
 
     suspend fun deleteCase(case: CaseEntity)
 
+    suspend fun deleteAllArchivedCases()
+
     suspend fun deleteAllData()
 
     // Event

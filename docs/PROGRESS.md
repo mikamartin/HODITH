@@ -53,16 +53,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   **Tests** — no existing test asserts empty-state horizontal position; once the cause is found, a Compose UI test asserting the text node's bounds are centered (or at minimum not flush against the left edge) for Bright/Intense would catch a regression.
 
-## Case archive
-
-- [ ] No way to clear the archive at once — `ArchivedCasesScreen.kt` only offers per-row Unarchive/Delete forever (`ArchivedCaseListItem`), no bulk action. The one existing bulk-delete primitive, `CaseDao.deleteAll()`, wipes every case app-wide (it backs Settings' "delete all data") and isn't scoped to archived-only.
-
-  *Branch: `feat/clear-archive` · Complexity: S · Priority: Low*
-
-  **Plan** — no multi-select UI needed: a single "Clear archive" button, reusing the existing per-row delete-forever confirm-dialog pattern (`ConfirmDialog` naming the count), that deletes every currently-archived case. Add a scoped DAO query to `CaseDao.kt` (e.g. `DELETE FROM cases WHERE archived = 1`), distinct from the existing unscoped `deleteAll()`, threaded through `HodithRepository` and `ArchivedCasesViewModel` as a new bulk method alongside the existing per-case `deleteForever(caseId)`.
-
-  **Tests** — a DAO-level test that the new query only removes archived cases and leaves active ones untouched; an `ArchivedCasesViewModel` test for the new bulk action; confirm cascade deletes (events/tags/hunches/triggers via `ON DELETE CASCADE`) behave the same as the existing per-case delete path.
-
 ## Share
 
 - [ ] Square format should become a fixed preset — Story stays the one fully customizable, auto-sizing format. Root cause: `shareCardState()` (`ShareCardState.kt`) applies `selectedSections` the same way to both formats, and `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` render identical toggles for both. That's a real problem now that Square keeps a 1:1 floor while Story sizes freely to content (see `fix/dialog-spacing-icon-sharecard-sizing`'s commit 3): selecting every Insights section on Square produces a tall rectangle, undermining the format's purpose — Square exists for chat/feed contexts that expect a predictable square shape.

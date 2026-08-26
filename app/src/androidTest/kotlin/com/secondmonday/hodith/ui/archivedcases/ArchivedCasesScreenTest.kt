@@ -32,6 +32,7 @@ class ArchivedCasesScreenTest {
         uiState: ArchivedCasesUiState = ArchivedCasesUiState(cases = listOf(row), isLoading = false),
         onUnarchive: (Long) -> Unit = {},
         onDeleteForever: (Long) -> Unit = {},
+        onClearArchive: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
@@ -40,6 +41,7 @@ class ArchivedCasesScreenTest {
                     onBack = {},
                     onUnarchive = onUnarchive,
                     onDeleteForever = onDeleteForever,
+                    onClearArchive = onClearArchive,
                 )
             }
         }
@@ -93,5 +95,37 @@ class ArchivedCasesScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.deleteCaseForeverCancelAction).performClick()
 
         assertNull(deletedId)
+    }
+
+    @Test
+    fun clearArchiveButton_absentWhenArchiveIsEmpty() {
+        setContent(uiState = ArchivedCasesUiState(cases = emptyList(), isLoading = false))
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.clearArchiveButtonDescription).assertDoesNotExist()
+    }
+
+    @Test
+    fun clearArchive_opensConfirmDialog_confirmInvokesCallback() {
+        var cleared = false
+        setContent(onClearArchive = { cleared = true })
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.clearArchiveButtonDescription).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.clearArchiveConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.clearArchiveConfirmBody(1)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.clearArchiveConfirmAction).performClick()
+
+        assertEquals(true, cleared)
+    }
+
+    @Test
+    fun clearArchive_cancelDoesNotInvokeCallback() {
+        var cleared = false
+        setContent(onClearArchive = { cleared = true })
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.clearArchiveButtonDescription).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.clearArchiveConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.clearArchiveConfirmCancelAction).performClick()
+
+        assertEquals(false, cleared)
     }
 }

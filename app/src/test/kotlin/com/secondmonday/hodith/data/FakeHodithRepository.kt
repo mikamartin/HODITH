@@ -81,6 +81,18 @@ class FakeHodithRepository : HodithRepository {
         triggers.update { list -> list.filterNot { it.caseId == case.id } }
     }
 
+    override suspend fun deleteAllArchivedCases() {
+        val archivedIds =
+            cases.value
+                .filter { it.archived }
+                .map { it.id }
+                .toSet()
+        cases.update { list -> list.filterNot { it.id in archivedIds } }
+        events.update { list -> list.filterNot { it.caseId in archivedIds } }
+        hunches.update { list -> list.filterNot { it.caseId in archivedIds } }
+        triggers.update { list -> list.filterNot { it.caseId in archivedIds } }
+    }
+
     override suspend fun deleteAllData() {
         cases.value = emptyList()
         events.value = emptyList()

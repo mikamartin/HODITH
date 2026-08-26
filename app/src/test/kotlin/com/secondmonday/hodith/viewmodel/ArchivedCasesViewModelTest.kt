@@ -98,4 +98,17 @@ class ArchivedCasesViewModelTest {
             assertTrue(repository.cases.value.isEmpty())
             assertTrue(repository.events.value.isEmpty())
         }
+
+    @Test
+    fun `clearArchive removes only archived cases and their events`() =
+        runTest {
+            repository.cases.value = listOf(testCase(id = 1L), testCase(id = 2L, name = "Tea", archived = false))
+            repository.events.value = listOf(testEvent(caseId = 1L), testEvent(caseId = 2L))
+            val viewModel = ArchivedCasesViewModel(repository, FakeWidgetRefresher())
+
+            viewModel.clearArchive()
+
+            assertEquals(listOf(2L), repository.cases.value.map { it.id })
+            assertEquals(listOf(2L), repository.events.value.map { it.caseId })
+        }
 }

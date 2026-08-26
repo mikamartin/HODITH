@@ -54,6 +54,8 @@ class RoomHodithRepository
 
         override suspend fun deleteCase(case: CaseEntity) = caseDao.delete(case)
 
+        override suspend fun deleteAllArchivedCases() = caseDao.deleteAllArchived()
+
         override suspend fun deleteAllData() {
             caseDao.deleteAll()
             tagDao.deleteAll()

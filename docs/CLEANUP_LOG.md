@@ -15,6 +15,25 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feat/clear-archive
+
+**Scope:** PROGRESS.md's "Case archive" item — `ArchivedCasesScreen.kt` only offered per-row Unarchive/Delete forever, no way to clear the whole archive at once. Added a scoped bulk-delete: `CaseDao.deleteAllArchived()` (`DELETE FROM cases WHERE archived = 1`, cascades via existing FK `ON DELETE CASCADE`, distinct from the existing unscoped `deleteAll()`), threaded through `HodithRepository`/`RoomHodithRepository`/`FakeHodithRepository` as `deleteAllArchivedCases()` and `ArchivedCasesViewModel.clearArchive()`, exposed in `ArchivedCasesScreen.kt` as a top-bar icon (hidden when the archive is empty) opening the existing `ConfirmDialog` naming the archived-case count — same pattern as the existing per-row delete-forever dialog.
+
+**Found & fixed:**
+- New `Voice` keys (`clearArchiveButtonDescription`, `clearArchiveConfirmTitle`, `clearArchiveConfirmBody(caseCount)`, `clearArchiveConfirmAction`, `clearArchiveConfirmCancelAction`) added to all three voices in the same commit, each its own dedicated key rather than reused across Settings' analogous "delete all data" dialog — matches how those two dialogs already have separate keys despite overlapping text per voice.
+- No material-icons-extended dependency exists in this project (only core `Icons.Filled.*`/`Icons.AutoMirrored.Filled.*` are used anywhere), so the top-bar action reuses `Icons.Filled.Delete` rather than pulling in a new icon-set dependency for a `DeleteSweep`-style icon.
+- `ktlintFormat` reflowed a multi-line chained call in `FakeHodithRepository.deleteAllArchivedCases()` that `ktlintCheck` flagged (`Expected newline before '.'`) — no other files needed reformatting.
+- `ArchivedCasesScreenTest.kt`'s new `assertDoesNotExist()` call had an unnecessary explicit `import androidx.compose.ui.test.assertDoesNotExist` that broke `compileDebugAndroidTestKotlin` (`Unresolved reference`) — it's a member function on `SemanticsNodeInteraction`, not a top-level extension, so no import is needed; every other call site in the repo already omits it. `ktlintCheck`/`lintDebug`/`test`/`assembleDebug` don't compile the `androidTest` source set, so this only surfaced once `connectedDebugAndroidTest` actually ran.
+
+**Deferred:**
+- Nothing deferred — the item's own plan scoped it to a single button/dialog, no multi-select UI.
+
+**Docs updated:** `HODITH_SPEC.md` §14 (Archived Cases screen row now lists the top-bar clear action); `TESTING.md` (Room DAOs and Compose UI — Archived Cases coverage rows); `PROGRESS.md` (struck the resolved "Case archive" item).
+
+**Verified:** `ktlintCheck` → `lintDebug` → `test` → `assembleDebug` → `connectedDebugAndroidTest`, all pass on a real emulator (API36_Repro AVD) — 207/207 instrumented tests, including the new `CaseDaoTest.deleteAllArchived_removesOnlyArchivedCasesAndCascades` and the three new `ArchivedCasesScreenTest.clearArchive*` cases. One unrelated test (`CaseDetailInsightsTabTest.belowInsightsMinEvents_showsNotEnoughDataPlaceholder_notAnEmptyChart`) failed on the first full run with an `ActivityScenario` teardown timeout (`Activity never becomes requested state [DESTROYED]`) and passed cleanly when the class was rerun in isolation — a pre-existing emulator flake, not a regression from this branch.
+
+---
+
 ## fix/backup-import-validation
 
 **Scope:** PROGRESS.md's "Data integrity" item — backup restore had no semantic validation: `SettingsViewModel.performImport` only checked JSON shape and schema version, and `RoomHodithRepository.importBackupData` inserted every deserialized entity as-is, so a malformed backup could throw an uncaught `SQLiteConstraintException`.

@@ -61,6 +61,13 @@ class ArchivedCasesViewModel
                 widgetRefresher.refreshWidgets()
             }
         }
+
+        fun clearArchive() {
+            viewModelScope.launch {
+                repository.deleteAllArchivedCases()
+                widgetRefresher.refreshWidgets()
+            }
+        }
     }
 
 /**
