@@ -148,6 +148,28 @@ class CaseDaoTest {
         }
 
     @Test
+    fun deleteAllArchived_removesOnlyArchivedCasesAndCascades() =
+        runTest {
+            val eventDao = db.eventDao()
+            val hunchDao = db.hunchDao()
+            val triggerDao = db.triggerDao()
+            val activeId = caseDao.insert(testCase(name = "Active"))
+            val archivedId = caseDao.insert(testCase(name = "Archived", archived = true))
+            eventDao.insert(testEvent(caseId = activeId))
+            eventDao.insert(testEvent(caseId = archivedId))
+            hunchDao.insert(testHunch(caseId = archivedId))
+            triggerDao.insert(testTrigger(caseId = archivedId))
+
+            caseDao.deleteAllArchived()
+
+            assertEquals(listOf("Active"), caseDao.getAll().map { it.name })
+            assertEquals(1, eventDao.observeEventsForCase(activeId).first().size)
+            assertEquals(emptyList<EventEntity>(), eventDao.observeEventsForCase(archivedId).first())
+            assertEquals(null, hunchDao.observeActiveHunch(archivedId).first())
+            assertEquals(emptyList<TriggerEntity>(), triggerDao.observeTriggersForCase(archivedId).first())
+        }
+
+    @Test
     fun getAll_returnsEveryCaseRegardlessOfArchivedStatus() =
         runTest {
             caseDao.insert(testCase(name = "Active", archived = false))

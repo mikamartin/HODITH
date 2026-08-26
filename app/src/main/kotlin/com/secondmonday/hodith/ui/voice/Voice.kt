@@ -96,6 +96,10 @@ interface Voice {
     val deleteCaseForeverConfirmTitle: String
     val deleteCaseForeverConfirmAction: String
     val deleteCaseForeverCancelAction: String
+    val clearArchiveButtonDescription: String
+    val clearArchiveConfirmTitle: String
+    val clearArchiveConfirmAction: String
+    val clearArchiveConfirmCancelAction: String
     val retroLogEntryDescription: String
     val logSheetNewEventTitle: String
     val logSheetEditEventTitle: String
@@ -272,6 +276,8 @@ interface Voice {
     fun deleteCaseForeverDescription(caseName: String): String
 
     fun deleteCaseForeverConfirmBody(eventCount: Int): String
+
+    fun clearArchiveConfirmBody(caseCount: Int): String
 
     fun eventIntensityLabel(intensity: Int): String
 
@@ -564,6 +570,10 @@ object PlainVoice : Voice {
     override val deleteCaseForeverConfirmTitle = "Delete this case forever?"
     override val deleteCaseForeverConfirmAction = "Delete forever"
     override val deleteCaseForeverCancelAction = "Cancel"
+    override val clearArchiveButtonDescription = "Clear archive"
+    override val clearArchiveConfirmTitle = "Clear the whole archive?"
+    override val clearArchiveConfirmAction = "Clear archive"
+    override val clearArchiveConfirmCancelAction = "Cancel"
     override val retroLogEntryDescription = "Log an event"
     override val logSheetNewEventTitle = "Log an event"
     override val logSheetEditEventTitle = "Edit event"
@@ -718,6 +728,9 @@ object PlainVoice : Voice {
 
     override fun deleteCaseForeverConfirmBody(eventCount: Int) =
         "This case and its $eventCount logged events will be permanently deleted. This can't be undone."
+
+    override fun clearArchiveConfirmBody(caseCount: Int) =
+        "$caseCount archived cases and their logged events will be permanently deleted. This can't be undone."
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity $intensity"
 
@@ -1006,6 +1019,10 @@ object IntenseVoice : Voice {
     override val deleteCaseForeverConfirmTitle = "Erase this case forever?"
     override val deleteCaseForeverConfirmAction = "Erase forever"
     override val deleteCaseForeverCancelAction = "Abandon"
+    override val clearArchiveButtonDescription = "Erase the archive"
+    override val clearArchiveConfirmTitle = "Erase the whole archive?"
+    override val clearArchiveConfirmAction = "Erase archive"
+    override val clearArchiveConfirmCancelAction = "Abandon"
     override val retroLogEntryDescription = "Record the evidence"
     override val logSheetNewEventTitle = "Record the evidence"
     override val logSheetEditEventTitle = "Amend the record"
@@ -1158,6 +1175,8 @@ object IntenseVoice : Voice {
     override fun deleteCaseForeverDescription(caseName: String) = "Erase $caseName forever"
 
     override fun deleteCaseForeverConfirmBody(eventCount: Int) = "This case and its $eventCount entries will be erased beyond recall."
+
+    override fun clearArchiveConfirmBody(caseCount: Int) = "$caseCount buried cases and their entries will be erased beyond recall."
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity: $intensity"
 
@@ -1443,6 +1462,10 @@ object BrightVoice : Voice {
     override val deleteCaseForeverConfirmTitle = "Delete this case for good?"
     override val deleteCaseForeverConfirmAction = "Yeet it forever"
     override val deleteCaseForeverCancelAction = "Nah, never mind"
+    override val clearArchiveButtonDescription = "Clear out the archive"
+    override val clearArchiveConfirmTitle = "Clear out the whole archive?"
+    override val clearArchiveConfirmAction = "Yeet it all"
+    override val clearArchiveConfirmCancelAction = "Nah, never mind"
     override val retroLogEntryDescription = "Log the moment"
     override val logSheetNewEventTitle = "Log the moment"
     override val logSheetEditEventTitle = "Tweak this moment"
@@ -1593,6 +1616,8 @@ object BrightVoice : Voice {
 
     override fun deleteCaseForeverConfirmBody(eventCount: Int) =
         "$eventCount logged moments go away with it. No take-backs, for real this time."
+
+    override fun clearArchiveConfirmBody(caseCount: Int) = "$caseCount shelved cases go away with it. No take-backs, for real this time."
 
     override fun eventIntensityLabel(intensity: Int) = "Feels like a $intensity!"
 

@@ -50,6 +50,7 @@ fun ArchivedCasesRoute(
         onBack = onBack,
         onUnarchive = viewModel::unarchive,
         onDeleteForever = viewModel::deleteForever,
+        onClearArchive = viewModel::clearArchive,
         modifier = modifier,
     )
 }
@@ -61,10 +62,12 @@ fun ArchivedCasesScreen(
     onBack: () -> Unit,
     onUnarchive: (Long) -> Unit,
     onDeleteForever: (Long) -> Unit,
+    onClearArchive: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
     var deleteTarget by remember { mutableStateOf<ArchivedCaseRow?>(null) }
+    var showClearArchiveConfirm by remember { mutableStateOf(false) }
 
     val target = deleteTarget
     if (target != null) {
@@ -81,6 +84,20 @@ fun ArchivedCasesScreen(
         )
     }
 
+    if (showClearArchiveConfirm) {
+        ConfirmDialog(
+            title = voice.clearArchiveConfirmTitle,
+            body = voice.clearArchiveConfirmBody(uiState.cases.size),
+            confirmLabel = voice.clearArchiveConfirmAction,
+            cancelLabel = voice.clearArchiveConfirmCancelAction,
+            onDismiss = { showClearArchiveConfirm = false },
+            onConfirm = {
+                onClearArchive()
+                showClearArchiveConfirm = false
+            },
+        )
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -89,6 +106,13 @@ fun ArchivedCasesScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)
+                    }
+                },
+                actions = {
+                    if (uiState.cases.isNotEmpty()) {
+                        IconButton(onClick = { showClearArchiveConfirm = true }) {
+                            Icon(Icons.Filled.Delete, contentDescription = voice.clearArchiveButtonDescription)
+                        }
                     }
                 },
             )

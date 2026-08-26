@@ -47,6 +47,9 @@ interface CaseDao {
     @Query("DELETE FROM cases")
     suspend fun deleteAll()
 
+    @Query("DELETE FROM cases WHERE archived = 1")
+    suspend fun deleteAllArchived()
+
     @Query("SELECT * FROM cases")
     suspend fun getAll(): List<CaseEntity>
 }
