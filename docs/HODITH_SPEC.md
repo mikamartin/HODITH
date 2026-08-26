@@ -281,7 +281,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 ## 16. Data, privacy, distribution
 
 - All data local: Room DB + DataStore prefs. No network permission in the manifest.
-- **Export/import**: full JSON (Moshi), schema-versioned (`schemaVersion: 1`), import validates before touching the DB and is all-or-nothing.
+- **Export/import**: full JSON (Moshi), schema-versioned (`schemaVersion: 1`). Import checks the file's shape and content — field rules and referential integrity across the backup — before writing anything, then restores atomically inside one transaction.
 - Android auto-backup enabled by default (`allowBackup`, unrestricted `data_extraction_rules.xml`), with a Settings toggle (default on) to opt out — documented on the About screen. One toggle governs both cloud backup and device-transfer, since both go through the same `onFullBackup` path on API 31+; enforcement lives in `HodithBackupAgent`, since the manifest flags themselves are static and can't be flipped at runtime. Opting out only stops future backups — it doesn't purge a backup already made.
 - Free, no ads, no IAP at launch.
 - Play data-safety form: no data collected.

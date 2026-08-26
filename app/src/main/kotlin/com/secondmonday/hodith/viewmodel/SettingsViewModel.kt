@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
+import android.database.SQLException
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,7 +33,7 @@ data class SettingsUiState(
     val isLoading: Boolean = true,
 )
 
-enum class ImportFailureReason { INVALID, UNSUPPORTED_VERSION, IO_ERROR }
+enum class ImportFailureReason { INVALID, UNSUPPORTED_VERSION, IO_ERROR, SEMANTIC_INVALID }
 
 sealed interface BackupEvent {
     data object ExportSuccess : BackupEvent
@@ -142,8 +143,17 @@ class SettingsViewModel
                     return BackupEvent.ImportFailure(ImportFailureReason.INVALID)
                 }
 
-            hodithRepository.importBackupData(backup)
-            return BackupEvent.ImportSuccess
+            if (!validateBackup(backup).isValid) {
+                return BackupEvent.ImportFailure(ImportFailureReason.SEMANTIC_INVALID)
+            }
+
+            return try {
+                hodithRepository.importBackupData(backup)
+                BackupEvent.ImportSuccess
+            } catch (e: SQLException) {
+                // SQLException, not a broader catch, so CancellationException still propagates.
+                BackupEvent.ImportFailure(ImportFailureReason.SEMANTIC_INVALID)
+            }
         }
 
         fun importData(uri: Uri) {

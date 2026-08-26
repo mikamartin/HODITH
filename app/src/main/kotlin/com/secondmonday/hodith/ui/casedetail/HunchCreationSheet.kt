@@ -24,7 +24,7 @@ import com.secondmonday.hodith.ui.common.NumberStepper
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.voice.Voice
 
-private val EXPECTED_COUNT_RANGE = 1..99
+internal val EXPECTED_COUNT_RANGE = 1..99
 private const val DEFAULT_EXPECTED_COUNT = 3
 
 /** New-Hunch bottom sheet (spec §7): direction, expected count/unit — same shape as [com.secondmonday.hodith.ui.logsheet.LogDetailSheet]. */

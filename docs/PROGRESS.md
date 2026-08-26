@@ -43,18 +43,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   **Tests** — no existing test covers icon-selection visuals (Compose Previews only); add or update a Preview per theme showing selected vs. unselected side by side for manual verification. The selection state itself is already exposed structurally via `.selectable(selected = ...)` / `Role.RadioButton`, so there's nothing new to unit-test beyond the visual.
 
-## Data integrity
-
-- [ ] Backup/restore import does no semantic validation, and a malformed backup can crash the app. `SettingsViewModel.performImport` only checks the JSON is Moshi-decodable and schema-version-compatible; `RoomHodithRepository.importBackupData` then wipes the DB and inserts every deserialized entity as-is — no length caps, no positivity checks on numeric fields, no referential-integrity check across the file, and the insert step itself isn't wrapped in a try/catch anywhere (no `CoroutineExceptionHandler` exists in the app), so a backup with e.g. a dangling `caseId` reference throws an uncaught `SQLiteConstraintException` inside `viewModelScope.launch`. `docs/HODITH_SPEC.md` §16's "import validates before touching the DB" claim overstates what actually happens today — it's JSON-shape validation only.
-
-  *Branch: `fix/backup-import-validation` · Complexity: M · Priority: High*
-
-  **Plan** — needs two layers: (1) semantic validation before `importBackupData` runs — reject/clamp field lengths and ranges matching the rules already enforced in-app (case name/description length, non-blank names, positive trigger `windowDays`/`threshold`, etc.), and check referential integrity across the whole backup (every `caseId`/`tagId`/`eventId` reference in events/tags/hunches/triggers resolves to a row present in the same file) before the DB is touched at all, so a bad file is rejected atomically rather than partially trusted; (2) wrap the `importBackupData` call so a constraint violation that slips through becomes a clean import-failure message rather than a crash. This is the one genuinely external-input boundary in an otherwise local-only app (spec §16) and deserves the same care as a network API boundary would elsewhere. Also correct HODITH_SPEC.md §16's "import validates" wording once real behavior is decided.
-
-  **Tests** — extend `BackupImportIntegrationTest.kt` (currently only round-trips app-exported, valid-by-construction data) with hand-built malformed fixtures: a blank case name, a negative/zero trigger `windowDays`, an out-of-range threshold, and a dangling `caseId` reference — asserting each is rejected without touching the existing DB, and that none crash.
-
-  **Concern** — this touches the app's one real trust boundary and changes failure-mode behavior (today: possible crash; after: a rejected import), so it's worth a product decision on the exact user-facing message/behavior for a rejected import, not just silently failing.
-
 ## Bugs
 
 - [ ] Empty-state note is shifted to the left edge of the screen on Bright and Intense — confirmed visually. A source read found no cause: Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPictureScreen.kt`, `CaseDetailScreen.kt`'s `LogTabContent`, `InsightsTab.kt`) all use the identical `Modifier.align(Alignment.Center)` / `contentAlignment = Alignment.Center` pattern, with no theme-conditional branching anywhere in that code.

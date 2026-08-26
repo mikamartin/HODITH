@@ -152,6 +152,7 @@ fun SettingsScreen(
                             ImportFailureReason.INVALID -> voice.settingsImportFailureInvalidMessage
                             ImportFailureReason.UNSUPPORTED_VERSION -> voice.settingsImportFailureVersionMessage
                             ImportFailureReason.IO_ERROR -> voice.settingsImportFailureIoMessage
+                            ImportFailureReason.SEMANTIC_INVALID -> voice.settingsImportFailureSemanticMessage
                         }
                 }
             snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)

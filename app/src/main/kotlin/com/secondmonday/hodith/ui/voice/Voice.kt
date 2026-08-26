@@ -156,6 +156,7 @@ interface Voice {
     val settingsImportFailureInvalidMessage: String
     val settingsImportFailureVersionMessage: String
     val settingsImportFailureIoMessage: String
+    val settingsImportFailureSemanticMessage: String
     val settingsDeveloperModeSectionLabel: String
     val settingsLoadDemoDataButton: String
     val settingsDemoDataLoadedMessage: String
@@ -624,6 +625,7 @@ object PlainVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That file isn't a valid HODITH backup."
     override val settingsImportFailureVersionMessage = "That backup was made by a version of HODITH this app can't read."
     override val settingsImportFailureIoMessage = "Couldn't read that file."
+    override val settingsImportFailureSemanticMessage = "That backup's data doesn't check out, so nothing was restored."
     override val settingsDeveloperModeSectionLabel = "Developer mode"
     override val settingsLoadDemoDataButton = "Load demo data"
     override val settingsDemoDataLoadedMessage = "Demo data loaded."
@@ -1065,6 +1067,7 @@ object IntenseVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That file holds no case files this app recognizes."
     override val settingsImportFailureVersionMessage = "That file was sealed by a version of this app no longer spoken here."
     override val settingsImportFailureIoMessage = "That file could not be read."
+    override val settingsImportFailureSemanticMessage = "That file's records don't hold together — nothing here can be trusted to restore."
     override val settingsDeveloperModeSectionLabel = "Behind the curtain"
     override val settingsLoadDemoDataButton = "Conjure phantom cases"
     override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
@@ -1499,6 +1502,7 @@ object BrightVoice : Voice {
     override val settingsImportFailureInvalidMessage = "That's not a HODITH backup file!"
     override val settingsImportFailureVersionMessage = "That backup's from a version this app can't read."
     override val settingsImportFailureIoMessage = "Couldn't read that file. Weird."
+    override val settingsImportFailureSemanticMessage = "That backup's data looks off, so nothing got restored!"
     override val settingsDeveloperModeSectionLabel = "Nerd mode!"
     override val settingsLoadDemoDataButton = "Load some pretend chaos!"
     override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"

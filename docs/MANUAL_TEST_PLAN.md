@@ -135,9 +135,10 @@ assert (no Espresso-Intents dependency; see TESTING.md).
 
 ## Data & backup
 
-The round-trip logic itself (schema-version rejection, malformed-JSON rejection, all-or-nothing
-rollback) is covered by `BackupSerializerTest`/`FakeHodithRepositoryTest`/
-`RoomHodithRepositoryBackupTest`/`SettingsViewModelTest`, and the real `ContentResolver` boundary
+The round-trip logic itself (schema-version rejection, malformed-JSON rejection, semantically
+invalid backups — bad field values, dangling references, duplicate ids — all-or-nothing rollback)
+is covered by `BackupSerializerTest`/`FakeHodithRepositoryTest`/`RoomHodithRepositoryBackupTest`/
+`SettingsViewModelTest`/`BackupValidationResultTest`, and the real `ContentResolver` boundary
 underneath the system picker (writing/reading bytes through a real `Uri`) is covered by
 `ContentResolverBackupFileWriterTest` — these steps are about what's left: the real system "save
 to"/"open" picker UI itself.

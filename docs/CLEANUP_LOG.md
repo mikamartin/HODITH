@@ -15,6 +15,27 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/backup-import-validation
+
+**Scope:** PROGRESS.md's "Data integrity" item — backup restore had no semantic validation: `SettingsViewModel.performImport` only checked JSON shape and schema version, and `RoomHodithRepository.importBackupData` inserted every deserialized entity as-is, so a malformed backup could throw an uncaught `SQLiteConstraintException`.
+
+**Found & fixed:**
+- New `viewmodel/BackupValidationResult.kt`: pure `validateBackup(BackupData)`, checking every field rule and cross-entity reference against the same constants the in-app editors already enforce — blank/over-length case name, description, tag name, event note; blank case icon; duplicate tag names; hunch `expectedCount` and trigger `threshold` ranges; the `AT_LEAST`/`SILENT_FOR` `windowDays` invariant; dangling `caseId`/`eventId`/`tagId` references; duplicate non-zero ids within any entity list (a Room PK-conflict crash class parallel to the FK/uniqueness ones, not in the original item text but the same mechanism). Whole-file, reject-only: any violation rejects the entire backup, nothing is clamped.
+- `SettingsViewModel.performImport` calls `validateBackup` before the repository is touched, returning a new `ImportFailureReason.SEMANTIC_INVALID` on failure; the repository call itself is wrapped in `catch (e: SQLException)` as a backstop, narrow enough that `CancellationException` still propagates.
+- New Voice key `settingsImportFailureSemanticMessage`, added to all three voices in the same commit.
+- `THRESHOLD_RANGE` (`TriggersScreen.kt`) and `EXPECTED_COUNT_RANGE` (`HunchCreationSheet.kt`) made `internal` so the validator can reuse them directly instead of redeclaring the numbers.
+- First draft placed the validator in `data/backup/`, importing constants from `ui.*` and `viewmodel.*` files — the checklist's Decoupling section caught this (`data` had never imported from `ui`/`viewmodel` anywhere else in the codebase). Moved the whole file to the `viewmodel` package instead, matching `CaseEditValidation`'s existing placement; `data/` is clean of `ui`/`viewmodel` imports again.
+- 21 unit tests in `BackupValidationResultTest.kt`, one per rule. `SettingsViewModelTest` gained a case: a well-formed-JSON-but-dangling-reference backup is rejected without the fake repository's data changing. `RoomHodithRepositoryBackupTest`'s existing rollback test got a comment noting it now demonstrates a backstop, since validation normally catches this one layer up.
+- Verified sequentially via `ktlintCheck` → `lintDebug` → `test` → `assembleDebug`, then `connectedDebugAndroidTest` on a real emulator — all 203 instrumented tests pass, including all four `RoomHodithRepositoryBackupTest` cases and `BackupImportIntegrationTest`.
+
+**Deferred:**
+- The three constants the validator reuses that live in `ui.casedetail`/`ui.logsheet`/`ui.triggers` files (`EXPECTED_COUNT_RANGE`, `TAG_NAME_MAX_LENGTH`, `THRESHOLD_RANGE`) are still imported into the `viewmodel` package. A cleaner end state would centralize all six length/range constants in one layer everything can depend on downward (`domain/`, per CLAUDE.md's product-constants rule) — left alone here since it means moving constants used by five existing files, a larger refactor than this item's scope.
+- No new `BackupImportIntegrationTest` case: that test exercises `RoomHodithRepository.importBackupData` directly against a real DB, one layer below where `validateBackup` runs, so a malformed-backup case there wouldn't exercise the new code path.
+
+**Docs updated:** `HODITH_SPEC.md` §16 (import behavior now matches what's built); `TESTING.md` (Export/import coverage row); `MANUAL_TEST_PLAN.md` (Data & backup section's test-class list); `PROGRESS.md` (struck the resolved "Data integrity" item).
+
+---
+
 ## fix/input-length-guardrails
 
 **Scope:** PROGRESS.md's "Input validation" item — event note and tag name had no length cap, and the trigger custom-window (days) field silently accepted `0`. A deeper follow-up audit run before implementation (prompted by a request to check for gaps beyond length caps) also found a 7th text-input site the original pass missed (Share screen's display-name override, uncapped) and confirmed the trigger threshold/hunch expected-count fields have no edit path that bypasses their stepper's bound — only backup/restore can, logged separately rather than implemented here.
