@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -570,6 +571,30 @@ private fun InsightsBrightCardsPreviewContent() {
             FrequencyCard(previewFrequencyDisplay, null, {}, LocalVoice.current)
             GapsCard(previewGapsDisplay, LocalVoice.current)
         }
+    }
+}
+
+/** Plain's white-plank cards (`surfaceContainerLow` authored white) on the tinted screen background. */
+@Composable
+private fun InsightsPlainCardsPreviewContent() {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides CardDecorationStyle.PLAIN,
+        LocalVoice provides voiceFor(AppTheme.PLAIN),
+    ) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                FrequencyCard(previewFrequencyDisplay, null, {}, LocalVoice.current)
+                GapsCard(previewGapsDisplay, LocalVoice.current)
+            }
+        }
+    }
+}
+
+@Preview(name = "Insights cards — Plain light", showBackground = true, widthDp = 380)
+@Composable
+private fun InsightsPlainCardsLightPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        InsightsPlainCardsPreviewContent()
     }
 }
 

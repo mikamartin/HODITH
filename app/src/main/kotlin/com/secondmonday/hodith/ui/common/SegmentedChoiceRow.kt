@@ -47,7 +47,19 @@ fun <T> SegmentedChoiceRow(
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
             BrightSegmentedChoiceRow(options = options, selected = selected, onSelect = onSelect, enabled = enabled)
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
+            // Plain uses tertiaryContainer for the selected segment instead of the default
+            // secondaryContainer — same reasoning as ActionRow's colors override, see its doc
+            // comment (docs/mockups/plain-theme-light-neutrals.html).
+            val colors =
+                if (LocalCardDecorationStyle.current == CardDecorationStyle.PLAIN) {
+                    SegmentedButtonDefaults.colors(
+                        activeContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        activeContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                } else {
+                    SegmentedButtonDefaults.colors()
+                }
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 options.forEachIndexed { index, (option, label) ->
                     SegmentedButton(
@@ -55,9 +67,11 @@ fun <T> SegmentedChoiceRow(
                         enabled = enabled(option),
                         onClick = { onSelect(option) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                        colors = colors,
                     ) { Text(label) }
                 }
             }
+        }
     }
 }
 

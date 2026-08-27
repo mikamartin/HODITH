@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Plain theme — sky blue, high contrast (v5)</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0;
+    padding: 32px;
+    background: #ffffff;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #111;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.intro { max-width: 780px; color: #444; font-size: 14px; line-height: 1.5; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+    margin-top: 28px;
+    align-items: start;
+  }
+  .panel-label { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: #222; }
+  .screen {
+    width: 100%;
+    max-width: 320px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    border: 1px solid #ddd;
+  }
+
+  /* Home */
+  .home { padding: 18px 14px 10px; }
+  .home-header { font-size: 17px; font-weight: 600; line-height: 1.3; margin-bottom: 14px; padding: 0 4px; }
+  .case-row {
+    display: flex; align-items: center;
+    background: #FFFFFF;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .case-icon { font-size: 20px; margin-right: 12px; width: 22px; text-align: center; }
+  .case-main { flex: 1; }
+  .case-name { font-size: 14px; font-weight: 500; }
+  .case-meta { font-size: 12px; font-weight: 400; margin-top: 2px; }
+  .case-trailing { font-size: 16px; font-weight: 400; }
+  .archived-row { font-size: 12px; font-weight: 400; padding: 10px 0 4px 4px; }
+  .fab {
+    width: 40px; height: 40px; border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 600; margin: 8px 0 4px auto;
+  }
+
+  /* Insights / Hunch card */
+  .insights { padding: 4px 16px 18px; }
+  .card { border-radius: 14px; padding: 14px; }
+  .card + .card { margin-top: 12px; }
+  .card-title { font-weight: 600; font-size: 13px; margin-bottom: 10px; }
+  .badge-line { font-size: 13px; font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
+  .meta-line { font-size: 12px; font-weight: 400; margin-bottom: 10px; line-height: 1.4; }
+  .hunch-chip {
+    display: inline-block; border-radius: 999px; padding: 4px 10px;
+    font-size: 11px; font-weight: 600; margin-bottom: 10px;
+  }
+  .weekday-row {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    font-size: 10px; font-weight: 600; text-align: center; margin-bottom: 4px;
+  }
+  .month-label { font-size: 11px; font-weight: 600; margin: 6px 0 4px; }
+  .week-row {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 2px; margin-bottom: 2px;
+  }
+  .cell {
+    aspect-ratio: 1; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 600;
+  }
+
+  /* Case Detail: topbar + tabs, shared */
+  .detail-topbar {
+    display: flex; align-items: center; padding: 16px 14px 0;
+  }
+  .tab-row {
+    display: flex; padding: 10px 14px 0; margin-bottom: 2px;
+  }
+  .tab-item {
+    flex: 1; text-align: center; font-size: 12px; font-weight: 600;
+    padding-bottom: 10px; border-bottom-width: 2px; border-bottom-style: solid;
+  }
+
+  /* Log tab */
+  .log-content { padding: 4px 14px 14px; }
+  .log-summary { font-size: 12px; font-weight: 400; padding: 8px 4px 10px; }
+  .log-plank {
+    background: #FFFFFF;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .log-time { font-size: 14px; font-weight: 500; }
+  .log-detail { font-size: 12px; font-weight: 400; margin-top: 2px; }
+
+  /* Insights stat cards (real InsightsCard: plain Card, no border, subtle fill) */
+  .stat-card { border-radius: 14px; padding: 14px; }
+  .stat-card + .stat-card { margin-top: 10px; }
+  .stat-title { font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 56px; margin-bottom: 4px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .bar-count { font-size: 9px; font-weight: 600; margin-bottom: 2px; }
+  .bar { width: 100%; border-radius: 3px 3px 0 0; }
+  .bar-label { font-size: 9px; font-weight: 400; margin-top: 3px; }
+  .rhythm-grid { display: grid; grid-template-columns: auto repeat(7, 1fr); gap: 3px; align-items: center; }
+  .rhythm-row-label { font-size: 9px; font-weight: 400; padding-right: 6px; white-space: nowrap; }
+  .rhythm-cell { aspect-ratio: 1; border-radius: 3px; }
+  .stat-line { font-size: 12px; font-weight: 400; line-height: 1.5; }
+  .tag-chip {
+    display: inline-block; border-radius: 999px; padding: 4px 10px;
+    font-size: 11px; font-weight: 500; margin: 0 6px 6px 0;
+  }
+
+  /* Big Picture */
+  .bigpic { padding: 16px 14px 18px; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .filter-chip {
+    font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px;
+    border-width: 1px; border-style: solid;
+  }
+  .bp-month { font-size: 13px; font-weight: 600; margin: 4px 0 8px; }
+  .bp-week { display: flex; align-items: stretch; gap: 3px; margin-bottom: 4px; }
+  .bp-chevron { width: 14px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 400; }
+  .bp-cells { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; flex: 1; }
+  .bp-cell {
+    border-radius: 7px; border-width: 1px; border-style: solid;
+    padding: 3px 4px; min-height: 30px; display: flex; flex-direction: column;
+  }
+  .bp-daynum { font-size: 9px; font-weight: 600; }
+  .bp-icons { font-size: 9px; margin-top: auto; line-height: 1; }
+
+  /* Settings */
+  .settings { padding: 16px 14px 18px; }
+  .plank {
+    background: #FFFFFF;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .plank-title {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .action-btn {
+    display: block; width: 100%; box-sizing: border-box;
+    text-align: center; border: none; border-radius: 999px;
+    padding: 10px 14px; font-size: 13px; font-weight: 600;
+    margin-bottom: 10px; font-family: inherit;
+    appearance: none; -webkit-appearance: none;
+    box-shadow: none; outline: none; cursor: pointer;
+  }
+  .action-btn:last-child { margin-bottom: 0; }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 10px;
+  }
+  .toggle-row:last-child { padding-bottom: 0; }
+  .toggle-label { font-size: 13px; font-weight: 500; }
+  .switch {
+    width: 34px; height: 20px; border-radius: 999px; position: relative; flex-shrink: 0;
+  }
+  .switch .thumb {
+    width: 16px; height: 16px; border-radius: 999px; background: #fff;
+    position: absolute; top: 2px; right: 2px;
+  }
+  .section-label {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 13px; font-weight: 500; margin-bottom: 2px;
+  }
+  .info-dot {
+    width: 14px; height: 14px; border-radius: 999px; border-width: 1.5px; border-style: solid;
+    display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700;
+  }
+  .segmented-row {
+    display: flex; border-radius: 999px; overflow: hidden;
+    border-width: 1px; border-style: solid; margin-top: 8px;
+  }
+  .segment {
+    flex: 1; text-align: center; padding: 8px 4px; font-size: 12px; font-weight: 600;
+    border-right-width: 1px; border-right-style: solid;
+  }
+  .segment:last-child { border-right: none; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: flex;
+    background: #FFFFFF;
+    padding: 10px 0 12px;
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500;
+  }
+  .nav-icon-wrap {
+    padding: 3px 18px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-icon { display: flex; }
+
+  .swatches {
+    margin-top: 12px; font-size: 11px; font-weight: 600;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    color: #444; line-height: 1.7;
+  }
+  .swatches span.sw {
+    display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    margin-right: 6px; vertical-align: middle; border: 1px solid rgba(0,0,0,0.15);
+  }
+  .contrast-note {
+    max-width: 320px; margin-top: 14px; font-size: 12px; font-weight: 600; color: #333;
+    background: #F5F5F5; border-radius: 8px; padding: 10px 12px; line-height: 1.6;
+  }
+  .contrast-note b { color: #111; }
+</style>
+</head>
+<body>
+
+<h1>Plain theme — sky blue, high contrast (v5)</h1>
+<p class="intro">
+  Corrected against the actual code this round, not guesswork: <code>Type.kt</code> only
+  makes the display/headline/label roles (screen headers, section titles, button text,
+  weekday/day-number labels) SemiBold (600) for Plain — body/title text (case names, counts,
+  notes, meta lines) stays at Material3's ordinary Medium/Normal weight. Last round bolded
+  almost everything uniformly, which is what actually read as gaudy — fixed now, role by
+  role. Also fixed <code>SettingsScreen.kt</code>'s real <code>AreaHeader</code>: its section
+  labels ("SUPPORT", "DATA") are colored <code>primary</code> (teal), not a neutral tone, and
+  its <code>ActionRow</code> buttons center their label text (M3's default), not left-align.
+  Big Picture's day cells are pure white #FFFFFF (two earlier attempts, #DDF0FA and #F7FBFE,
+  were both still too close to the screen background #EAF5FC to read as separate). Every
+  screen now includes the real 3-tab bottom nav (Home / Big Picture / Settings) with the
+  current screen's tab highlighted in <code>primary</code> — except Case Detail, which is a
+  pushed stack screen in the real nav graph and never shows the bottom bar.
+</p>
+
+<div class="grid">
+
+  <!-- Home -->
+  <div>
+    <div class="panel-label">Home</div>
+    <div class="screen" style="background:#FFFFFF;">
+      <div class="home" style="background:#EAF5FC;">
+        <div class="home-header" style="color:#071620;">
+          <span style="color:#3A6B76;">H</span>ow <span style="color:#3A6B76;">o</span>ften
+          <span style="color:#3A6B76;">d</span>oes <span style="color:#3A6B76;">i</span>t
+          <span style="color:#3A6B76;">t</span>ruly <span style="color:#3A6B76;">h</span>appen?
+        </div>
+        <div class="case-row">
+          <div class="case-icon">🏃</div>
+          <div class="case-main">
+            <div class="case-name" style="color:#071620;">Went for a run</div>
+            <div class="case-meta" style="color:#164156;">Today: 1 · This week: 4</div>
+          </div>
+          <div class="case-trailing" style="color:#164156;">＋</div>
+        </div>
+        <div class="case-row">
+          <div class="case-icon">☕</div>
+          <div class="case-main">
+            <div class="case-name" style="color:#071620;">Coffee before noon</div>
+            <div class="case-meta" style="color:#164156;">Today: 0 · This week: 6</div>
+          </div>
+          <div class="case-trailing" style="color:#164156;">＋</div>
+        </div>
+        <div class="archived-row" style="color:#164156;">Archived cases (2)</div>
+        <div class="fab" style="background:#3A6B76; color:#FFFFFF;">＋</div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item" style="color:#071620;">
+          <div class="nav-icon-wrap" style="background:#CCE6F5;"><span class="nav-icon" style="color:#0A2A36;"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span></div>
+          Home
+        </div>
+        <div class="nav-item" style="color:#164156;">
+          <div class="nav-icon-wrap"><span class="nav-icon" style="color:#164156;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="7" y1="3" x2="7" y2="7"/><line x1="17" y1="3" x2="17" y2="7"/></svg></span></div>
+          Big Picture
+        </div>
+        <div class="nav-item" style="color:#164156;">
+          <div class="nav-icon-wrap"><span class="nav-icon" style="color:#164156;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5" stroke-dasharray="2.2 2.6"/></svg></span></div>
+          Settings
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Big Picture -->
+  <div>
+    <div class="panel-label">Big Picture</div>
+    <div class="screen" style="background:#FFFFFF;">
+      <div class="bigpic" style="background:#EAF5FC;">
+        <div class="filter-row">
+          <div class="filter-chip" style="background:#FFFFFF; color:#164156; border-color:#9CCEE8;">Cases ▸ 2 of 3</div>
+          <div class="filter-chip" style="background:#FFFFFF; color:#164156; border-color:#9CCEE8;">Tags ▸ All</div>
+        </div>
+        <div class="weekday-row" style="color:#164156;"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+        <div class="bp-month" style="color:#3A6B76;">August 2026 ›</div>
+
+        <div class="bp-week">
+          <div class="bp-chevron" style="color:#164156;">›</div>
+          <div class="bp-cells">
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">1</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">2</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">3</div>
+              <div class="bp-icons">🏃</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">4</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">5</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">6</div>
+              <div class="bp-icons">🏃🔑</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">7</div>
+              <div class="bp-icons"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bp-week">
+          <div class="bp-chevron" style="color:#164156;">›</div>
+          <div class="bp-cells">
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">8</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">9</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">10</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">11</div>
+              <div class="bp-icons">🏃🔑</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">12</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#3A6B76; border-width:2px;">
+              <div class="bp-daynum" style="color:#3A6B76;">13</div>
+              <div class="bp-icons">🏃</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">14</div>
+              <div class="bp-icons">☕🤕</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bp-week">
+          <div class="bp-chevron" style="color:#164156;">›</div>
+          <div class="bp-cells">
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">15</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">16</div>
+              <div class="bp-icons">🏃</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">17</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">18</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">19</div>
+              <div class="bp-icons">🏃☕🔑<span style="color:#164156; font-weight:700;">+1</span></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">20</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">21</div>
+              <div class="bp-icons">🏃</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bp-week">
+          <div class="bp-chevron" style="color:#164156;">›</div>
+          <div class="bp-cells">
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">22</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">23</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">24</div>
+              <div class="bp-icons">🏃</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">25</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">26</div>
+              <div class="bp-icons">☕😤</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">27</div>
+              <div class="bp-icons">🏃</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">28</div>
+              <div class="bp-icons"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bp-week">
+          <div class="bp-chevron" style="color:#164156;">›</div>
+          <div class="bp-cells">
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">29</div>
+              <div class="bp-icons">☕</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">30</div>
+              <div class="bp-icons">🏃</div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8;">
+              <div class="bp-daynum" style="color:#071620;">31</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8; opacity:0.45;">
+              <div class="bp-daynum" style="color:#071620;">1</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8; opacity:0.45;">
+              <div class="bp-daynum" style="color:#071620;">2</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8; opacity:0.45;">
+              <div class="bp-daynum" style="color:#071620;">3</div>
+              <div class="bp-icons"></div>
+            </div>
+            <div class="bp-cell" style="background:#FFFFFF; border-color:#9CCEE8; opacity:0.45;">
+              <div class="bp-daynum" style="color:#071620;">4</div>
+              <div class="bp-icons"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item" style="color:#164156;">
+          <div class="nav-icon-wrap"><span class="nav-icon" style="color:#164156;"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span></div>
+          Home
+        </div>
+        <div class="nav-item" style="color:#071620;">
+          <div class="nav-icon-wrap" style="background:#CCE6F5;"><span class="nav-icon" style="color:#0A2A36;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="7" y1="3" x2="7" y2="7"/><line x1="17" y1="3" x2="17" y2="7"/></svg></span></div>
+          Big Picture
+        </div>
+        <div class="nav-item" style="color:#164156;">
+          <div class="nav-icon-wrap"><span class="nav-icon" style="color:#164156;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5" stroke-dasharray="2.2 2.6"/></svg></span></div>
+          Settings
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Case Detail: Log -->
+  <div>
+    <div class="panel-label">Case Detail — Log <span style="font-weight:400; color:#888;">(pushed screen)</span></div>
+    <div class="screen" style="background:#FFFFFF;">
+      <div class="detail-topbar" style="background:#FFFFFF; color:#071620;">
+        <span style="margin-right:10px; font-size:17px; font-weight:600;">‹</span>
+        <span style="font-weight:600; font-size:15px;">Went for a run</span>
+      </div>
+      <div class="tab-row" style="background:#FFFFFF;">
+        <div class="tab-item" style="color:#071620; border-color:#3A6B76;">Log</div>
+        <div class="tab-item" style="color:#164156; border-color:transparent;">Hunch</div>
+        <div class="tab-item" style="color:#164156; border-color:transparent;">Insights</div>
+      </div>
+      <div class="log-content" style="background:#EAF5FC;">
+        <div class="log-summary" style="color:#164156;">34 events logged · observed for 61 days</div>
+        <div class="log-plank">
+          <div class="log-time" style="color:#071620;">Today, 7:12 AM</div>
+          <div class="log-detail" style="color:#164156;">6.4 km, 32 min</div>
+        </div>
+        <div class="log-plank">
+          <div class="log-time" style="color:#071620;">Yesterday, 6:58 AM</div>
+        </div>
+        <div class="log-plank">
+          <div class="log-time" style="color:#071620;">Aug 24, 7:05 AM</div>
+          <div class="log-detail" style="color:#164156;">5.0 km, 28 min</div>
+        </div>
+        <div class="log-plank">
+          <div class="log-time" style="color:#071620;">Aug 22, 6:40 AM</div>
+          <div class="log-detail" style="color:#164156;">Felt slow, humid morning</div>
+        </div>
+        <div class="log-plank">
+          <div class="log-time" style="color:#071620;">Aug 20, 7:20 AM</div>
+          <div class="log-detail" style="color:#164156;">7.1 km, 38 min</div>
+        </div>
+        <div class="log-plank">
+          <div class="log-time" style="color:#071620;">Aug 19, 6:50 AM</div>
+        </div>
+      </div>
+    </div>
+    <div class="swatches">
+      Follows the Home screen's pattern now: tinted <code>background</code> #EAF5FC behind
+      white plank rows, instead of the flat zebra-striped list from last round. Time text is
+      full ink (<code>onSurface</code>); the detail line isn't explicitly colored in
+      <code>EventRow</code>'s code, so it inherits the same ink, just smaller — not muted grey.
+    </div>
+  </div>
+
+  <!-- Case Detail: Insights (full) -->
+  <div>
+    <div class="panel-label">Case Detail — Insights <span style="font-weight:400; color:#888;">(pushed screen)</span></div>
+    <div class="screen" style="background:#FFFFFF;">
+      <div class="detail-topbar" style="background:#FFFFFF; color:#071620;">
+        <span style="margin-right:10px; font-size:17px; font-weight:600;">‹</span>
+        <span style="font-weight:600; font-size:15px;">Went for a run</span>
+      </div>
+      <div class="tab-row" style="background:#FFFFFF;">
+        <div class="tab-item" style="color:#164156; border-color:transparent;">Log</div>
+        <div class="tab-item" style="color:#164156; border-color:transparent;">Hunch</div>
+        <div class="tab-item" style="color:#071620; border-color:#3A6B76;">Insights</div>
+      </div>
+      <div class="insights" style="background:#EAF5FC; padding-top:12px;">
+
+        <div class="stat-card" style="background:#FFFFFF;">
+          <div class="stat-title" style="color:#071620;">Frequency over time</div>
+          <div class="bar-chart">
+            <div class="bar-col"><div class="bar-count" style="color:#164156;">2</div><div class="bar" style="height:25%; background:#A5C5D4;"></div></div>
+            <div class="bar-col"><div class="bar-count" style="color:#164156;">4</div><div class="bar" style="height:50%; background:#7DA3B1;"></div></div>
+            <div class="bar-col"><div class="bar-count" style="color:#164156;">3</div><div class="bar" style="height:38%; background:#7DA3B1;"></div></div>
+            <div class="bar-col"><div class="bar-count" style="color:#164156;">5</div><div class="bar" style="height:62%; background:#588490;"></div></div>
+            <div class="bar-col"><div class="bar-count" style="color:#fff;">6</div><div class="bar" style="height:75%; background:#3A6B76;"></div></div>
+            <div class="bar-col"><div class="bar-count" style="color:#164156;">4</div><div class="bar" style="height:50%; background:#7DA3B1;"></div></div>
+          </div>
+          <div class="bar-chart" style="height:auto; margin-bottom:0;">
+            <div class="bar-col"><div class="bar-label" style="color:#164156;">Jul</div></div>
+            <div class="bar-col"><div class="bar-label" style="color:#164156;">Jul</div></div>
+            <div class="bar-col"><div class="bar-label" style="color:#164156;">Aug</div></div>
+            <div class="bar-col"><div class="bar-label" style="color:#164156;">Aug</div></div>
+            <div class="bar-col"><div class="bar-label" style="color:#164156;">Aug</div></div>
+            <div class="bar-col"><div class="bar-label" style="color:#164156;">Aug</div></div>
+          </div>
+        </div>
+
+        <div class="stat-card" style="background:#FFFFFF;">
+          <div class="stat-title" style="color:#071620;">Rhythm</div>
+          <div class="rhythm-grid">
+            <div></div>
+            <div style="text-align:center; font-size:9px; font-weight:600; color:#164156;">S</div>
+            <div style="text-align:center; font-size:9px; font-weight:600; color:#164156;">M</div>
+            <div style="text-align:center; font-size:9px; font-weight:600; color:#164156;">T</div>
+            <div style="text-align:center; font-size:9px; font-weight:600; color:#164156;">W</div>
+            <div style="text-align:center; font-size:9px; font-weight:600; color:#164156;">T</div>
+            <div style="text-align:center; font-size:9px; font-weight:600; color:#164156;">F</div>
+            <div style="text-align:center; font-size:9px; font-weight:600; color:#164156;">S</div>
+
+            <div class="rhythm-row-label" style="color:#164156;">Morning</div>
+            <div class="rhythm-cell" style="background:#7DA3B1;"></div>
+            <div class="rhythm-cell" style="background:#3A6B76;"></div>
+            <div class="rhythm-cell" style="background:#7DA3B1;"></div>
+            <div class="rhythm-cell" style="background:#3A6B76;"></div>
+            <div class="rhythm-cell" style="background:#588490;"></div>
+            <div class="rhythm-cell" style="background:#7DA3B1;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+
+            <div class="rhythm-row-label" style="color:#164156;">Afternoon</div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#A5C5D4;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#A5C5D4;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#A5C5D4;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+
+            <div class="rhythm-row-label" style="color:#164156;">Evening</div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#A5C5D4;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#A5C5D4;"></div>
+
+            <div class="rhythm-row-label" style="color:#164156;">Night</div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+            <div class="rhythm-cell" style="background:#CFE8F8;"></div>
+          </div>
+        </div>
+
+        <div class="stat-card" style="background:#FFFFFF;">
+          <div class="stat-title" style="color:#071620;">Gaps &amp; streaks</div>
+          <div class="stat-line" style="color:#164156;">Longest gap: 6 days</div>
+          <div class="stat-line" style="color:#164156;">Current streak: 3 days in a row</div>
+        </div>
+
+        <div class="stat-card" style="background:#FFFFFF;">
+          <div class="stat-title" style="color:#071620;">Trend</div>
+          <div class="stat-line" style="color:#164156;">12 events in the last 30 days — up from 9 the 30 days before.</div>
+        </div>
+
+        <div class="stat-card" style="background:#FFFFFF;">
+          <div class="stat-title" style="color:#071620;">Duration</div>
+          <div class="stat-line" style="color:#164156;">Average duration: 34 minutes</div>
+        </div>
+
+        <div class="stat-card" style="background:#FFFFFF;">
+          <div class="stat-title" style="color:#071620;">Intensity</div>
+          <div class="stat-line" style="color:#164156;">Average intensity: 6.2 / 10</div>
+        </div>
+
+        <div class="stat-card" style="background:#FFFFFF;">
+          <div class="stat-title" style="color:#071620;">Tags</div>
+          <span class="tag-chip" style="background:#CCE6F5; color:#0A2A36;">#morning · 62%</span>
+          <span class="tag-chip" style="background:#CCE6F5; color:#0A2A36;">#solo · 48%</span>
+          <span class="tag-chip" style="background:#CCE6F5; color:#0A2A36;">#rain · 12%</span>
+        </div>
+
+        <div class="stat-card" style="background:#FFFFFF;">
+          <div class="stat-title" style="color:#071620;">Calendar heatmap</div>
+          <div class="weekday-row" style="color:#164156;"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+          <div class="month-label" style="color:#164156;">August 2026</div>
+          <div class="week-row">
+            <div class="cell" style="background:#CFE8F8;"></div>
+            <div class="cell" style="background:#BAD7E6; color:#071620;">12</div>
+            <div class="cell" style="background:#CFE8F8;"></div>
+            <div class="cell" style="background:#BAD7E6; color:#071620;">14</div>
+            <div class="cell" style="background:#CFE8F8;"></div>
+            <div class="cell" style="background:#588490; color:#071620;">16</div>
+            <div class="cell" style="background:#CFE8F8;"></div>
+          </div>
+          <div class="week-row">
+            <div class="cell" style="background:#3A6B76; color:#fff;">17</div>
+            <div class="cell" style="background:#CFE8F8;"></div>
+            <div class="cell" style="background:#BAD7E6; color:#071620;">19</div>
+            <div class="cell" style="background:#CFE8F8;"></div>
+            <div class="cell" style="background:#BAD7E6; color:#071620;">21</div>
+            <div class="cell" style="background:#CFE8F8;"></div>
+            <div class="cell" style="background:#CFE8F8;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="swatches">
+      All 8 real cards, in real order (<code>StatsSectionCards</code> + heatmap), now on the
+      same tinted-background-plus-white-plank pattern as Home/Log instead of last round's
+      standalone card treatment — real <code>InsightsCard</code> has no explicit container
+      color (resolves to <code>surfaceContainerLow</code>, a role this palette doesn't author
+      explicitly), so authoring it as plain white here is a design decision to match the rest
+      of the app's plank language, not a literal reading of the current unset default.
+    </div>
+    <div class="swatches">
+      <span class="sw" style="background:#EAF5FC;"></span>background #EAF5FC<br />
+      <span class="sw" style="background:#CFE8F8;"></span>surfaceVariant #CFE8F8<br />
+      <span class="sw" style="background:#FFFFFF;"></span>surfaceContainerHigh #FFFFFF <span style="color:#999;">(was #DDF0FA, then #F7FBFE — both too close to background)</span><br />
+      <span class="sw" style="background:#6FB8DE;"></span>outline #6FB8DE<br />
+      <span class="sw" style="background:#9CCEE8;"></span>outlineVariant #9CCEE8<br />
+      <span class="sw" style="background:#071620;"></span>onSurface/onBackground #071620<br />
+      <span class="sw" style="background:#164156;"></span>onSurfaceVariant #164156<br />
+      <span class="sw" style="background:#12394C;"></span>secondary #12394C<br />
+      <span class="sw" style="background:#CCE6F5;"></span>secondaryContainer #CCE6F5<br />
+      <span class="sw" style="background:#0A2A36;"></span>onSecondaryContainer #0A2A36
+    </div>
+    <div class="contrast-note">
+      <b>Contrast vs white/background:</b><br />
+      onSurface: <b>18.3:1</b> · onSurfaceVariant: <b>10.9:1</b> (AAA)
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div>
+    <div class="panel-label">Settings</div>
+    <div class="screen" style="background:#FFFFFF;">
+      <div class="settings" style="background:#EAF5FC;">
+        <div class="plank">
+          <div class="plank-title" style="color:#3A6B76;">Support</div>
+          <button class="action-btn" style="background:#BAD7E6; color:#071620;">About HODITH</button>
+          <button class="action-btn" style="background:#BAD7E6; color:#071620;">Rate the App</button>
+          <button class="action-btn" style="background:#BAD7E6; color:#071620;">Contact us</button>
+        </div>
+
+        <div class="plank">
+          <div class="plank-title" style="color:#3A6B76;">Appearance</div>
+          <div class="section-label" style="color:#071620;">
+            Theme <span class="info-dot" style="color:#164156; border-color:#164156;">i</span>
+          </div>
+          <div class="segmented-row" style="border-color:#9CCEE8;">
+            <div class="segment" style="background:#BAD7E6; color:#071620; border-color:#9CCEE8;">Plain</div>
+            <div class="segment" style="color:#164156; border-color:#9CCEE8;">Intense</div>
+            <div class="segment" style="color:#164156;">Bright</div>
+          </div>
+        </div>
+
+        <div class="plank">
+          <div class="section-label" style="color:#071620;">
+            Check-ins <span class="info-dot" style="color:#164156; border-color:#164156;">i</span>
+          </div>
+          <div class="segmented-row" style="border-color:#9CCEE8;">
+            <div class="segment" style="color:#164156; border-color:#9CCEE8;">Off</div>
+            <div class="segment" style="color:#164156; border-color:#9CCEE8;">7d</div>
+            <div class="segment" style="background:#BAD7E6; color:#071620; border-color:#9CCEE8;">14d</div>
+            <div class="segment" style="color:#164156;">30d</div>
+          </div>
+        </div>
+
+        <div class="plank">
+          <div class="plank-title" style="color:#3A6B76;">Data</div>
+          <div class="toggle-row">
+            <div class="toggle-label" style="color:#071620;">Cloud backup</div>
+            <div class="switch" style="background:#3A6B76;"><div class="thumb"></div></div>
+          </div>
+          <button class="action-btn" style="background:#BAD7E6; color:#071620;">Export data</button>
+          <button class="action-btn" style="background:#BAD7E6; color:#071620;">Import data</button>
+          <button class="action-btn" style="background:#FFDAD6; color:#410002;">Delete all data</button>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item" style="color:#164156;">
+          <div class="nav-icon-wrap"><span class="nav-icon" style="color:#164156;"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span></div>
+          Home
+        </div>
+        <div class="nav-item" style="color:#164156;">
+          <div class="nav-icon-wrap"><span class="nav-icon" style="color:#164156;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="7" y1="3" x2="7" y2="7"/><line x1="17" y1="3" x2="17" y2="7"/></svg></span></div>
+          Big Picture
+        </div>
+        <div class="nav-item" style="color:#071620;">
+          <div class="nav-icon-wrap" style="background:#CCE6F5;"><span class="nav-icon" style="color:#0A2A36;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5" stroke-dasharray="2.2 2.6"/></svg></span></div>
+          Settings
+        </div>
+      </div>
+    </div>
+    <div class="swatches">
+      Corrected against <code>SettingsScreen.kt</code>: "Appearance" is a real
+      <code>SegmentedButton</code> theme picker (Plain/Intense/Bright), not the invented
+      "Theme ›" row from last round, and the unlabeled Check-ins plank (4-way interval picker)
+      was missing entirely. Real plank order is Support → Appearance → Check-ins → Data.
+      This screen's buttons/segments went #C4E4F5 (too gaudy across 5+ stacked buttons) →
+      #D9EDF8 (too close to the white plank, stopped reading as tappable) → #CCE6F5 (fixed
+      that, still used on Insights' chips and the nav indicator) → a one-off #D6DEEA grey-blue
+      (colder/washed out, but an unrelated hue nobody else uses) → #7DA3B1/#071620 (a real
+      teal-gradient tier, but too dark against the text for enough contrast) → now
+      #A5C5D4/#071620 (better, still nudged lighter again) → now #BAD7E6/#071620: interpolated
+      one step lighter along that same gradient's formula (surfaceVariant→primary, ~14% instead
+      of 28%), still colder/more muted than sky-blue #CCE6F5 but generated the same way as the
+      heatmap/rhythm tiers rather than picked arbitrarily. Still a one-screen divergence from
+      Insights/nav's <code>secondaryContainer</code>, not yet reconciled into a single value.
+      12.2:1 text contrast (up from 10.1:1). Destructive row keeps the unchanged M3 error family
+      (<code>errorContainer</code> #FFDAD6 / <code>onErrorContainer</code> #410002). Planks also
+      dropped their <code>outlineVariant</code> border — real <code>Plank</code> is an
+      <code>OutlinedCard</code> with one today, but Home/Log's white planks (this mockup's own
+      addition, not in current code) never had a border, so this makes all three match the same
+      white-plank-no-border language rather than mixing two treatments.
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

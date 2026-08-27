@@ -8,9 +8,14 @@ import com.secondmonday.hodith.data.AppTheme
 
 /**
  * One [ColorScheme] per theme × light/dark (spec §12's "full light/dark mode within each
- * theme"). Roles not set here (tertiary family, inverse*, scrim, surfaceTint, the extra
- * surfaceContainer tiers) intentionally keep Material3's baseline values — nothing in the app
- * renders them prominently today; revisit if that changes.
+ * theme"). Every surfaceContainer tier is authored in all six schemes (Lowest/Low/plain/
+ * Highest matching that scheme's own `surface`, `High` its own deliberate value) — any tier left
+ * unset falls back to `lightColorScheme`/`darkColorScheme`'s hardcoded M3 baseline default
+ * (a generic purple unrelated to this app's palette), which leaked into any plain `Card()`
+ * (Insights/Hunch) and the bottom `NavigationBar`'s default background before this was found.
+ * Roles not set here (inverse*, scrim, surfaceTint, and the tertiary family outside Plain's
+ * `tertiaryContainer`/`onTertiaryContainer`) intentionally keep Material3's baseline values —
+ * nothing in the app renders them prominently today; revisit if that changes.
  */
 fun hodithColorScheme(
     theme: AppTheme,
@@ -27,10 +32,10 @@ fun hodithColorScheme(
 // WidgetPalette — which renders the Plain theme's light palette regardless of the user's chosen
 // in-app theme — sources these same values from here instead of duplicating the hex literals.
 internal val PlainLightPrimary = Color(0xFF3A6B76)
-internal val PlainLightBackground = Color(0xFFF4F6F8)
+internal val PlainLightBackground = Color(0xFFEAF5FC)
 internal val PlainLightSurface = Color(0xFFFFFFFF)
-internal val PlainLightOnSurface = Color(0xFF1B2126)
-internal val PlainLightOnSurfaceVariant = Color(0xFF5B6670)
+internal val PlainLightOnSurface = Color(0xFF071620)
+internal val PlainLightOnSurfaceVariant = Color(0xFF164156)
 internal val PlainLightError = Color(0xFFBA1A1A)
 internal val PlainLightOnError = Color(0xFFFFFFFF)
 
@@ -40,23 +45,38 @@ private val plainLight =
         onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFC7E8ED),
         onPrimaryContainer = Color(0xFF082024),
-        secondary = Color(0xFF57646C),
+        secondary = Color(0xFF12394C),
         onSecondary = Color(0xFFFFFFFF),
-        secondaryContainer = Color(0xFFDAE4E9),
-        onSecondaryContainer = Color(0xFF141E24),
+        secondaryContainer = Color(0xFFCCE6F5),
+        onSecondaryContainer = Color(0xFF0A2A36),
+        // Settings-only accent: ActionRow buttons and the theme/check-in segmented pickers need a
+        // lighter, colder tone than secondaryContainer (which stays punchier for Insights' chips
+        // and the nav indicator pill) — see docs/mockups/plain-theme-light-neutrals.html.
+        tertiaryContainer = Color(0xFFBAD7E6),
+        onTertiaryContainer = Color(0xFF071620),
         error = PlainLightError,
         onError = PlainLightOnError,
         errorContainer = Color(0xFFFFDAD6),
         onErrorContainer = Color(0xFF410002),
         background = PlainLightBackground,
-        onBackground = Color(0xFF1B2126),
+        onBackground = Color(0xFF071620),
         surface = PlainLightSurface,
         onSurface = PlainLightOnSurface,
-        surfaceVariant = Color(0xFFDEE4E7),
+        surfaceVariant = Color(0xFFCFE8F8),
         onSurfaceVariant = PlainLightOnSurfaceVariant,
-        surfaceContainerHigh = Color(0xFFE9ECEE),
-        outline = Color(0xFFD3DAE0),
-        outlineVariant = Color(0xFFE7ECEE),
+        // Every surfaceContainer tier authored white: Insights/Hunch's plain Card() (and any
+        // other unstyled M3 component) defaults to one of these depending on the exact
+        // component, and leaving any tier unset doesn't derive a neutral from this scheme's own
+        // primary — lightColorScheme(...) fills an unset parameter with M3's stock default
+        // (a generic purple), unrelated to this app's palette. Found via screenshots showing
+        // Insights/Hunch cards rendering that stock purple instead of a white plank.
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFFFFFFF),
+        surfaceContainer = Color(0xFFFFFFFF),
+        surfaceContainerHigh = Color(0xFFFFFFFF),
+        surfaceContainerHighest = Color(0xFFFFFFFF),
+        outline = Color(0xFF6FB8DE),
+        outlineVariant = Color(0xFF9CCEE8),
     )
 
 private val plainDark =
@@ -79,7 +99,13 @@ private val plainDark =
         onSurface = Color(0xFFE7ECEF),
         surfaceVariant = Color(0xFF3A444A),
         onSurfaceVariant = Color(0xFF96A3AB),
+        // Same reasoning as plainLight: every surfaceContainer tier authored (matching surface)
+        // rather than left to leak M3's stock baseline purple into Insights/Hunch cards.
+        surfaceContainerLowest = Color(0xFF1C2226),
+        surfaceContainerLow = Color(0xFF1C2226),
+        surfaceContainer = Color(0xFF1C2226),
         surfaceContainerHigh = Color(0xFF232A2E),
+        surfaceContainerHighest = Color(0xFF232A2E),
         outline = Color(0xFF2A3237),
         outlineVariant = Color(0xFF3A444A),
     )
@@ -107,7 +133,14 @@ private val intenseLight =
         onSurface = Color(0xFF141414),
         surfaceVariant = Color(0xFFE3E3E1),
         onSurfaceVariant = Color(0xFF6B6B6B),
+        // Same reasoning as plainLight: every surfaceContainer tier authored (Lowest/Low/plain/
+        // Highest matching surface) rather than left to leak M3's stock baseline purple into
+        // Insights/Hunch cards. surfaceContainerHigh keeps its existing deliberate value.
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFFFFFFF),
+        surfaceContainer = Color(0xFFFFFFFF),
         surfaceContainerHigh = Color(0xFFEDEDEB),
+        surfaceContainerHighest = Color(0xFFFFFFFF),
         outline = Color(0xFF3D3D3D),
         outlineVariant = Color(0xFFD8D8D6),
     )
@@ -132,7 +165,11 @@ private val intenseDark =
         onSurface = Color(0xFFF2F2F0),
         surfaceVariant = Color(0xFF3A3A3E),
         onSurfaceVariant = Color(0xFF9A9A9E),
+        surfaceContainerLowest = Color(0xFF18181B),
+        surfaceContainerLow = Color(0xFF18181B),
+        surfaceContainer = Color(0xFF18181B),
         surfaceContainerHigh = Color(0xFF232326),
+        surfaceContainerHighest = Color(0xFF18181B),
         outline = Color(0xFF3A3A3E),
         outlineVariant = Color(0xFF2A2A2D),
     )
@@ -170,7 +207,11 @@ private val brightLight =
         onSurface = Color(0xFF794531),
         surfaceVariant = Color(0xFFF2E4D4),
         onSurfaceVariant = Color(0xFF8A7A68),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFFFFFFF),
+        surfaceContainer = Color(0xFFFFFFFF),
         surfaceContainerHigh = Color(0xFFFBEEE0),
+        surfaceContainerHighest = Color(0xFFFFFFFF),
         outline = Color(0xFFF2DCC4),
         outlineVariant = Color(0xFFF6E9D9),
     )
@@ -195,7 +236,11 @@ private val brightDark =
         onSurface = Color(0xFFFFD6C5),
         surfaceVariant = Color(0xFF4A372C),
         onSurfaceVariant = Color(0xFFC9AF9C),
+        surfaceContainerLowest = Color(0xFF35271F),
+        surfaceContainerLow = Color(0xFF35271F),
+        surfaceContainer = Color(0xFF35271F),
         surfaceContainerHigh = Color(0xFF403026),
+        surfaceContainerHighest = Color(0xFF35271F),
         outline = Color(0xFF4A372C),
         outlineVariant = Color(0xFF5C4736),
     )

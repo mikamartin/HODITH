@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -26,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -299,9 +301,10 @@ private fun CheckInSection(
 }
 
 /**
- * Area grouping for the Settings screen: a crisp white/thin-border card with a small-caps title.
- * Bright branches to [GlowCard] (Soft Glow mockup's `.plank`), same dispatch as
- * [com.secondmonday.hodith.ui.casedetail.InsightsTab]'s `InsightsCard`.
+ * Area grouping for the Settings screen. Bright branches to [GlowCard] (Soft Glow mockup's
+ * `.plank`, same dispatch as [com.secondmonday.hodith.ui.casedetail.InsightsTab]'s
+ * `InsightsCard`); Intense keeps the thin-border [OutlinedCard]; Plain is a borderless white
+ * plank on the tinted screen background (see docs/mockups/plain-theme-light-neutrals.html).
  */
 @Composable
 private fun Plank(
@@ -314,17 +317,28 @@ private fun Plank(
                 title?.let { AreaHeader(it) }
                 content()
             }
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+        CardDecorationStyle.PLAIN ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) { PlankContent(title, content) }
+        CardDecorationStyle.INTENSE ->
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    title?.let { AreaHeader(it) }
-                    content()
-                }
-            }
+            ) { PlankContent(title, content) }
+    }
+}
+
+@Composable
+private fun PlankContent(
+    title: String?,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        title?.let { AreaHeader(it) }
+        content()
     }
 }
 
@@ -338,6 +352,14 @@ private fun AreaHeader(title: String) {
     )
 }
 
+/**
+ * Intense uses the default [FilledTonalButton] tonal colors (`secondaryContainer`). Plain
+ * explicitly uses `tertiaryContainer` instead — `secondaryContainer` reads too heavy repeated
+ * across 5+ stacked full-width buttons and two segmented pickers on this screen, so Plain
+ * authors a second, lighter/colder tonal role just for these controls, keeping
+ * `secondaryContainer` at its punchier value for Insights' chips and the nav indicator (see
+ * docs/mockups/plain-theme-light-neutrals.html).
+ */
 @Composable
 private fun ActionRow(
     label: String,
@@ -346,20 +368,23 @@ private fun ActionRow(
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT -> BrightActionRow(label, onClick, isDestructive)
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
-            FilledTonalButton(
-                onClick = onClick,
-                modifier = Modifier.fillMaxWidth(),
-                colors =
-                    if (isDestructive) {
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
+            val colors =
+                when {
+                    isDestructive ->
                         ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         )
-                    } else {
-                        ButtonDefaults.filledTonalButtonColors()
-                    },
-            ) { Text(label) }
+                    LocalCardDecorationStyle.current == CardDecorationStyle.PLAIN ->
+                        ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                    else -> ButtonDefaults.filledTonalButtonColors()
+                }
+            FilledTonalButton(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = colors) { Text(label) }
+        }
     }
 }
 
@@ -411,6 +436,38 @@ private fun SettingsBrightPlankPreviewContent() {
                 ActionRow(voice.settingsDeleteAllDataButton, onClick = {}, isDestructive = true)
             }
         }
+    }
+}
+
+/** Exercises [Plank]'s Plain branch (borderless white card) and its `tertiaryContainer`-tinted [ActionRow]s. */
+@Composable
+private fun SettingsPlainPlankPreviewContent() {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides CardDecorationStyle.PLAIN,
+        LocalVoice provides voiceFor(AppTheme.PLAIN),
+    ) {
+        val voice = LocalVoice.current
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Plank(voice.settingsSupportSectionLabel) {
+                    ActionRow(voice.aboutScreenTitle, onClick = {})
+                    ActionRow(voice.settingsRateAppButton, onClick = {})
+                    ActionRow(voice.settingsContactUsButton, onClick = {})
+                }
+                Plank(voice.settingsDataSectionLabel) {
+                    ActionRow(voice.settingsExportButton, onClick = {})
+                    ActionRow(voice.settingsDeleteAllDataButton, onClick = {}, isDestructive = true)
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Settings planks — Plain light", showBackground = true, widthDp = 360)
+@Composable
+private fun SettingsPlainPlankLightPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        SettingsPlainPlankPreviewContent()
     }
 }
 

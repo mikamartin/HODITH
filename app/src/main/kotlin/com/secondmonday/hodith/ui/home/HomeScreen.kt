@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,6 +25,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -201,8 +204,10 @@ fun HomeScreen(
 
 /**
  * Dispatches to the active theme's row treatment (mirrors `BigPictureGrid.kt`'s `DayCell`
- * dispatch pattern) — Plain and Intense share [PlainHomeCaseListItem] since neither has a
- * structural difference here today, only [CardDecorationStyle.BRIGHT] gets [BrightHomeCaseListItem].
+ * dispatch pattern): [CardDecorationStyle.BRIGHT] gets [BrightHomeCaseListItem], [PLAIN][
+ * CardDecorationStyle.PLAIN] wraps the shared [HomeCaseRowBody] in a white plank card on the
+ * screen's tinted background (see docs/mockups/plain-theme-light-neutrals.html), and
+ * [INTENSE][CardDecorationStyle.INTENSE] renders [HomeCaseRowBody] flat, unchanged.
  */
 @Composable
 private fun HomeCaseListItem(
@@ -218,13 +223,34 @@ private fun HomeCaseListItem(
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
             BrightHomeCaseListItem(row, voice, isEvenRow, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
-            PlainHomeCaseListItem(row, voice, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+        CardDecorationStyle.PLAIN ->
+            PlainPlankHomeCaseListItem(row, voice, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+        CardDecorationStyle.INTENSE ->
+            HomeCaseRowBody(row, voice, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+    }
+}
+
+/** Plain: the same row content as a white [Card] plank, margined off the tinted screen background. */
+@Composable
+private fun PlainPlankHomeCaseListItem(
+    row: HomeCaseRow,
+    voice: Voice,
+    onClick: () -> Unit,
+    onQuickLogTap: () -> Unit,
+    onEditEndTime: () -> Unit,
+    onDismissStalePrompt: (EventEntity) -> Unit,
+    nowMillis: () -> Long,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        HomeCaseRowBody(row, voice, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
     }
 }
 
 @Composable
-private fun PlainHomeCaseListItem(
+private fun HomeCaseRowBody(
     row: HomeCaseRow,
     voice: Voice,
     onClick: () -> Unit,
@@ -394,6 +420,39 @@ private fun HomeBrightRowsPreviewContent() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun HomePlainRowsPreviewContent() {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides CardDecorationStyle.PLAIN,
+        LocalVoice provides voiceFor(AppTheme.PLAIN),
+    ) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column {
+                previewRows.forEachIndexed { index, row ->
+                    HomeCaseListItem(
+                        row = row,
+                        voice = LocalVoice.current,
+                        isEvenRow = index % 2 == 0,
+                        onClick = {},
+                        onQuickLogTap = {},
+                        onEditEndTime = {},
+                        onDismissStalePrompt = {},
+                        nowMillis = { 0L },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Home rows — Plain light", showBackground = true, widthDp = 380)
+@Composable
+private fun HomePlainRowsLightPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        HomePlainRowsPreviewContent()
     }
 }
 

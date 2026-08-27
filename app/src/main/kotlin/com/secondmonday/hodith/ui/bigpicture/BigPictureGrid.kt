@@ -410,13 +410,20 @@ private fun WeekRow(
     onWeekTap: () -> Unit,
 ) {
     val voice = LocalVoice.current
-    Row(
-        modifier =
+    // Plain only: no week-row border. Intense/Bright keep the existing outlineVariant border —
+    // each theme's colors stay independent of Plain's changes.
+    val weekRowModifier =
+        if (LocalBigPictureCellStyle.current == BigPictureCellStyle.PLAIN) {
+            Modifier.fillMaxWidth().padding(vertical = 2.dp)
+        } else {
             Modifier
                 .fillMaxWidth()
                 .padding(vertical = 2.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)),
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+        }
+    Row(
+        modifier = weekRowModifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
