@@ -143,6 +143,16 @@ fun CaseEditScreen(
 
     Scaffold(
         modifier = modifier,
+        // Plain only: a form/editor screen, not a browsing one, so it stays white (surface) like
+        // LogDetailSheet's ModalBottomSheet (whose M3 default containerColor is surface, not
+        // background) instead of the tinted background every Scaffold defaults to. Intense and
+        // Bright keep that default — each theme's colors stay independent of Plain's changes.
+        containerColor =
+            if (LocalCardDecorationStyle.current == CardDecorationStyle.PLAIN) {
+                MaterialTheme.colorScheme.surface
+            } else {
+                MaterialTheme.colorScheme.background
+            },
         topBar = {
             TopAppBar(
                 title = { Text(if (uiState.isEditing) voice.editCaseTitle else voice.newCaseTitle) },

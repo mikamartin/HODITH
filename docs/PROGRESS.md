@@ -25,16 +25,6 @@ Items that need a design pass or a product decision before (or instead of) strai
 
   **Concern** — the audit will change hundreds of lines in one file. Anything else touching `Voice.kt` must land first.
 
-- [ ] Plain theme's light background/surface colors (`PlainLightBackground` #F4F6F8, `PlainLightSurfaceVariant` #DEE4E7, `PlainLightOnSurfaceVariant` #5B6670 in `Color.kt`) read as slightly blue-grey/murky rather than neutral. Revisit the palette.
-
-  *Branch: `fix/plain-light-palette-neutrality` · Complexity: S to change, M to verify · Priority: Medium*
-
-  **Plan** — decide the target first (true neutral grey vs. warm grey), keeping `primary` #3A6B76 as the only chroma in the scheme. Then note that the three named colors aren't the whole problem: `surfaceVariant` #DEE4E7, `surfaceContainerHigh` #E9ECEE, `outline` #D3DAE0 and `outlineVariant` #E7ECEE are all in the same blue-grey family and are *not* among the named/shared constants, so a fix that only touches the three named ones leaves the rest mismatched. Treat the light scheme as one change.
-
-  **Tests** — there's no automated coverage of colour values and shouldn't be. Contrast is the one mechanically checkable property: add a JVM test asserting WCAG AA contrast for `onSurface`/`onSurfaceVariant` against `surface`/`background`, which is worth having independently of this item. Visual verification is the human's (Compose Previews per theme, plus the widget and a heatmap-bearing screen).
-
-  **Concern** — two blast radii, both easy to miss. (1) The seven `PlainLight*` constants are consumed directly by `WidgetCommon.kt`'s `WidgetPalette`, which renders every Glance widget regardless of the user's in-app theme (DEV_PLAYBOOK §4), so changing them restyles the widgets too. (2) `HeatmapShading.kt`'s `toCellColor` lerps `surfaceVariant → primary`, so `surfaceVariant` is the base of the entire shading ramp — changing it moves every calendar-heatmap cell, rhythm grid cell, intensity cell, *and* their share-card mini-copies, in all three themes' light mode. Neither is a reason not to do it; both are reasons the review pass is wider than "the Plain theme's background".
-
 - [ ] Case icon picker's selected-state indicator is low-contrast, especially in Plain and Bright. Selection is shown only by a background-color swap, with no border, ring, or checkmark: Plain's `IconChoice` (`ui/case/CaseEditScreen.kt`) uses `primaryContainer` (#C7E8ED light) vs. `surfaceVariant` (#DEE4E7 light) — close in lightness — and Bright's `BrightIconChoice` uses `IconHalo`'s selected fill, a 16% tint wash of `primary` over `surface` (near-white on near-white).
 
   *Branch: `fix/case-icon-selection-contrast` · Complexity: S · Priority: Medium*
@@ -52,6 +42,14 @@ Items that need a design pass or a product decision before (or instead of) strai
   **Plan** — needs a repro-and-diagnose pass before a fix: capture screenshots on device/emulator for Bright and Intense across all three locations, and check what's outside the three composables already read — parent `Scaffold`/`Surface`/`Card` wrapping, `LocalLayoutDirection`, or a theme-specific decoration (`CardDecorationStyle`/`GlowDecoration.kt`) that might apply an offset the static read wouldn't show. Confirm whether it reproduces in all three locations or just Big Picture before assuming it's the shared pattern.
 
   **Tests** — no existing test asserts empty-state horizontal position; once the cause is found, a Compose UI test asserting the text node's bounds are centered (or at minimum not flush against the left edge) for Bright/Intense would catch a regression.
+
+- [ ] Bright theme's light-mode `onSurfaceVariant` (`Color.kt`'s `brightLight`, #8A7A68) fails WCAG AA contrast (4.5:1) against both `surface` (~4.15:1) and `background` (~3.91:1). Found while writing `HodithThemeTest`'s new WCAG contrast test (scoped to Plain only for that reason — see its doc comment); not fixed here since it's a pre-existing gap unrelated to the Plain-theme branch that found it.
+
+  *Branch: `fix/bright-light-onsurfacevariant-contrast` · Complexity: S · Priority: Medium*
+
+  **Plan** — darken `onSurfaceVariant` (and check `secondary`/`onSecondaryContainer`, which look similarly light) until it clears 4.5:1 against both `surface` and `background`, keeping Bright's warm cast. Then widen `HodithThemeTest`'s new contrast test from Plain-only back to all 6 theme×mode combinations, closing the gap this item is tracking.
+
+  **Tests** — `HodithThemeTest`'s contrast test already exists and is ready to widen once this lands; no new test scaffolding needed.
 
 ## Share
 

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -62,6 +63,8 @@ import com.secondmonday.hodith.ui.common.StaleOngoingBanner
 import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
+import com.secondmonday.hodith.ui.theme.CardDecorationStyle
+import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
@@ -528,6 +531,10 @@ private fun HunchHistoryRow(
     }
 }
 
+/**
+ * Plain wraps [EventRowContent] in a white plank card on the tinted screen background (see
+ * docs/mockups/plain-theme-light-neutrals.html); Intense and Bright keep today's flat row.
+ */
 @Composable
 private fun EventRow(
     eventWithTags: EventWithTags,
@@ -536,12 +543,43 @@ private fun EventRow(
     durationMode: DurationMode,
     onClick: () -> Unit,
 ) {
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.PLAIN ->
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable(onClick = onClick),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                EventRowContent(
+                    eventWithTags,
+                    now,
+                    voice,
+                    durationMode,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
+        CardDecorationStyle.INTENSE, CardDecorationStyle.BRIGHT ->
+            EventRowContent(
+                eventWithTags,
+                now,
+                voice,
+                durationMode,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+    }
+}
+
+@Composable
+private fun EventRowContent(
+    eventWithTags: EventWithTags,
+    now: Long,
+    voice: Voice,
+    durationMode: DurationMode,
+    modifier: Modifier = Modifier,
+) {
     val event = eventWithTags.event
     val isOngoing = durationMode == DurationMode.START_STOP && event.endedAt == null
 
-    Column(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
-    ) {
+    Column(modifier = modifier) {
         Text(text = formatEventTime(event.occurredAt, now), style = MaterialTheme.typography.bodyLarge)
         val details = eventDetailSummary(event, eventWithTags.tags, voice, isOngoing = isOngoing)
         if (details != null) {

@@ -5,7 +5,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
@@ -84,7 +86,17 @@ fun HodithNavHost(
                     currentRoute == ABOUT_ROUTE
             if (!onDetailScreen) {
                 val decorationStyle = LocalCardDecorationStyle.current
-                NavigationBar {
+                // Plain only: explicit surface rather than NavigationBar's default containerColor
+                // (NavigationBarDefaults.containerColor -> surfaceContainer, a role Plain didn't
+                // author until this branch). Intense and Bright keep the M3 default — each
+                // theme's colors stay independent of Plain's changes.
+                val navBarContainerColor =
+                    if (decorationStyle == CardDecorationStyle.PLAIN) {
+                        MaterialTheme.colorScheme.surface
+                    } else {
+                        NavigationBarDefaults.containerColor
+                    }
+                NavigationBar(containerColor = navBarContainerColor) {
                     HodithDestination.entries.forEach { destination ->
                         val selected = currentRoute == destination.route
                         NavigationBarItem(
