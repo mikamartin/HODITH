@@ -20,7 +20,7 @@ Each item carries:
 
 ## Story A — Start/Stop, duration & ongoing events
 
-A round of user testing surfaced a cluster of Start/Stop and duration issues. They share `ui/common/OngoingIndicator.kt`, `ui/logsheet/LogDetailSheet.kt`, and `domain/CalendarGrid.kt`, and A5 has a real domain dependency on A1 — so sequence matters. Work them in the order below.
+A round of user testing surfaced a cluster of Start/Stop and duration issues. They share `ui/common/OngoingIndicator.kt`, `ui/logsheet/LogDetailSheet.kt`, and `domain/CalendarGrid.kt` — so sequence matters. Work them in the order below.
 
 Shared-file map (why the order is what it is):
 
@@ -29,25 +29,9 @@ Shared-file map (why the order is what it is):
 - `CalendarGrid.kt` day iteration — A5, A6
 - formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — A6, time-format satellite
 
-### A1 · Ongoing event keeps the "current gap" growing
+### A1 · Ongoing event keeps the "current gap" growing — done (`fix/ongoing-current-gap`)
 
-*Branch: `fix/ongoing-current-gap` · Complexity: S · Priority: High · Area: Duration*
-
-On the Insights tab, current gap (days since the last event) climbs even while an event is actively running — the app reads a Case as silent during something that is happening right now.
-
-**Acceptance criteria**
-
-- [ ] `computeGapStats` accepts an "event active now" flag.
-- [ ] `currentGapDays` is `0` whenever an event is running on the Case.
-- [ ] The active stretch is excluded from `longestGapDays`.
-- [ ] The flag is threaded through `insightsTabState` from real ongoing-event state.
-- [ ] `InsightsEngineTest` covers current-gap and longest-gap with an active event.
-
-**Plan** — `computeGapStats` (`domain/InsightsEngine.kt`) takes an "event active now" flag; `currentGapDays = 0` while one is active, and that stretch is excluded from `longestGapDays`. Thread the flag through `insightsTabState` (`viewmodel/InsightsTabState.kt`).
-
-**Tests** — `InsightsEngineTest` — add active-event cases for current and longest gap.
-
-**Concern** — none. Isolated, visibly wrong today, no dependency on the rest of Story A to build — do it first. Its ongoing-flag plumbing is also what A5 needs.
+`computeGapStats` takes an `eventActiveNow` flag (derived via `ongoingEventIn` in `insightsTabState`): current gap reads 0 while an event runs on the Case, and that active stretch is left out of the longest gap. Demo seed data now carries ongoing events (Migraine, one; Noisy neighbours, two). The `eventActiveNow` plumbing is what A5 builds on.
 
 ### A2 · Multiple running events on one Case
 
@@ -121,7 +105,7 @@ The Manual-mode duration field (`ui/logsheet/LogDetailSheet.kt`) is a single "Mi
 
 *Branch: `feat/active-span-insights` · Complexity: M · Priority: Medium · Area: Duration*
 
-🎨 **Design decision** — the "active span" rule is a design artifact, write it before coding; heatmap shading by active-event count is a product decision. Depends on A1.
+🎨 **Design decision** — the "active span" rule is a design artifact, write it before coding; heatmap shading by active-event count is a product decision. Builds on A1 (done).
 
 The calendar heatmap shades only the start day; streaks credit only start days.
 
@@ -138,7 +122,7 @@ The calendar heatmap shades only the start day; streaks credit only start days.
 
 **Tests** — `InsightsEngineTest`, `StatsEngineTest`, `InsightsTabStateTest`; ripples into `computeStreakShift` / gap-burst assertions and the share card (`ShareCardTemplateTest` floor/no-clip may shift).
 
-**Concern** — the active-span rule is a real design artifact — write it before coding. Depends on A1's ongoing-flag plumbing.
+**Concern** — the active-span rule is a real design artifact — write it before coding. Builds on A1's `eventActiveNow` plumbing (done).
 
 ### A6 · Duration/ongoing not encoded on the Big Picture grid or the frequency chart
 
