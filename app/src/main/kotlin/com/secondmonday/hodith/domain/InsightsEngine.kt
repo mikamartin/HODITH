@@ -41,22 +41,31 @@ internal const val SHIFT_MIN_ABSOLUTE_DAYS = 1.0
  * Current gap vs. the longest gap ever observed across the Case's full history — the "current gap
  * annotated" rule (spec §10's gaps & streaks card): "how long since the last event" compared
  * against "the longest stretch since it started".
+ *
+ * When [eventActiveNow] is set (the Case has an event running right now — spec §6), there is no
+ * silence to measure: [GapStats.currentGapDays] is `0`, that still-running stretch is left out of
+ * [GapStats.longestGapDays], and it can't be flagged as [GapStats.isCurrentGapLongest]. The
+ * completed event-to-event gaps ([GapStats.pastGaps], [GapStats.averageGapDays], [GapStats.isBursty])
+ * are unaffected — the gap that ended when the running event started is real history.
  */
 internal fun computeGapStats(
     events: List<EventEntity>,
     now: Long,
     zone: ZoneId = ZoneId.systemDefault(),
+    eventActiveNow: Boolean = false,
 ): GapStats {
     val sorted = events.sortedBy { it.occurredAt }
 
     val pastGaps = sorted.zipWithNext { a, b -> daysBetween(a.occurredAt, b.occurredAt, zone) }
-    val currentGapDays = sorted.lastOrNull()?.let { daysBetween(it.occurredAt, now, zone) } ?: 0L
+    val timeSinceLastEvent = sorted.lastOrNull()?.let { daysBetween(it.occurredAt, now, zone) } ?: 0L
+    val currentGapDays = if (eventActiveNow) 0L else timeSinceLastEvent
     val longestPastGap = pastGaps.maxOrNull() ?: 0L
 
     return GapStats(
+        // With currentGapDays pinned to 0 while an event runs, maxOf leaves the active stretch out.
         currentGapDays = currentGapDays,
         longestGapDays = maxOf(longestPastGap, currentGapDays),
-        isCurrentGapLongest = currentGapDays >= longestPastGap,
+        isCurrentGapLongest = !eventActiveNow && currentGapDays >= longestPastGap,
         averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
         isBursty = pastGaps.size >= GAP_BURST_MIN_GAP_COUNT && coefficientOfVariation(pastGaps) > GAP_BURST_MIN_COEFFICIENT_OF_VARIATION,
         pastGaps = pastGaps,
