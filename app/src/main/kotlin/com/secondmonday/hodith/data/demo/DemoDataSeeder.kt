@@ -34,6 +34,13 @@ private const val RECENT_SURGE_PER_DAY = 3
 // Gaps & streaks card's "longest stretch since it started" note instead of the plain one.
 private const val QUIET_SPELL_DAYS = 60L
 
+// A couple of START_STOP demo Cases end with an event still running (endedAt == null) so the
+// ongoing indicator, the Insights "current gap reads 0 while an event is active" rule (spec §10),
+// and the multiple-running-events path all have live data on a fresh "Load demo data". Ages are
+// measured back from now; the second is past STALE_ONGOING_THRESHOLD_MILLIS (24h) so the "still
+// going, or forgot to stop it?" prompt also has a Case to fire on.
+private val ONGOING_EVENT_AGES_MILLIS = listOf(2L * MILLIS_PER_HOUR, 26L * MILLIS_PER_HOUR)
+
 private enum class SeedDensity { SPARSE, BURSTY, DENSE }
 
 private data class CaseSeed(
@@ -46,12 +53,16 @@ private data class CaseSeed(
     val tags: List<String>,
     val recentSurge: Boolean = false,
     val quietSpell: Boolean = false,
+    // Extra events left open (endedAt == null) at the end of the span. START_STOP Cases only —
+    // a null endedAt on a NONE/MANUAL Case would be a data bug, not an ongoing state.
+    val ongoingEventCount: Int = 0,
 )
 
 // Deliberately varied on every axis Big Picture and Case Detail's Insights tab need to exercise:
 // duration mode, intensity, event density (dense/bursty/sparse) spread across several months, a
-// recent logging surge, and a quiet spell long enough to set a new "longest stretch since it
-// started" record. Notes and tags are populated on only some events (not all, not none) so Case
+// recent logging surge, a quiet spell long enough to set a new "longest stretch since it started"
+// record, and events still running now (one Case with a single ongoing event, one with several).
+// Notes and tags are populated on only some events (not all, not none) so Case
 // Detail's empty states and the log sheet's tag autocomplete both have real data to exercise.
 private val CASE_SEEDS =
     listOf(
@@ -73,6 +84,7 @@ private val CASE_SEEDS =
             density = SeedDensity.BURSTY,
             notes = listOf("Started after screen time", "Woke up with it", "Triggered by wine", "Light sensitivity bad"),
             tags = listOf("aura", "light-sensitive", "medicated", "no-relief"),
+            ongoingEventCount = 1,
         ),
         CaseSeed(
             name = "Lost my keys",
@@ -110,6 +122,18 @@ private val CASE_SEEDS =
             density = SeedDensity.SPARSE,
             notes = listOf("Dry air, probably", "Right after a sneeze", "Out of nowhere"),
             tags = listOf("dry-weather", "minor", "prolonged"),
+        ),
+        CaseSeed(
+            name = "Noisy neighbours",
+            icon = "🔊",
+            durationMode = DurationMode.START_STOP,
+            intensityEnabled = true,
+            density = SeedDensity.BURSTY,
+            notes = listOf("Party upstairs again", "Drilling at 8am", "Bass through the wall", "Shouting in the hallway"),
+            tags = listOf("upstairs", "outside", "late-night", "weekday"),
+            // One recent, one left running from yesterday — a Case with more than one event going
+            // at once, and old enough on the second to trip the stale-ongoing prompt.
+            ongoingEventCount = 2,
         ),
     )
 
@@ -151,20 +175,36 @@ class DemoDataSeeder
                 val occurrences = occurrencesFor(caseSeed.density, spanStart, occurrenceSpanEnd, random)
                 val withSurge = if (caseSeed.recentSurge) occurrences + recentSurgeOccurrences(now, random) else occurrences
                 withSurge.sorted().forEach { occurredAt ->
-                    val eventId =
-                        repository.insertEvent(
-                            EventEntity(
-                                caseId = caseId,
-                                occurredAt = occurredAt,
-                                endedAt = endedAtFor(caseSeed.durationMode, occurredAt, now, random),
-                                intensity = intensityFor(caseSeed.intensityEnabled, random),
-                                note = noteFor(caseSeed.notes, random),
-                                loggedAt = occurredAt,
-                            ),
-                        )
-                    tagsFor(caseSeed.tags, random).forEach { tagName -> repository.addTagToEvent(eventId, tagName) }
+                    insertSeedEvent(caseId, occurredAt, endedAtFor(caseSeed.durationMode, occurredAt, now, random), caseSeed, random)
+                }
+
+                repeat(caseSeed.ongoingEventCount) { ongoingIndex ->
+                    val startedAt = now - ONGOING_EVENT_AGES_MILLIS[ongoingIndex.coerceAtMost(ONGOING_EVENT_AGES_MILLIS.lastIndex)]
+                    insertSeedEvent(caseId, startedAt, endedAt = null, caseSeed = caseSeed, random = random)
                 }
             }
+        }
+
+        /** One synthetic event with this Case's intensity/note/tag mix, [endedAt] `null` for an ongoing one. */
+        private suspend fun insertSeedEvent(
+            caseId: Long,
+            occurredAt: Long,
+            endedAt: Long?,
+            caseSeed: CaseSeed,
+            random: Random,
+        ) {
+            val eventId =
+                repository.insertEvent(
+                    EventEntity(
+                        caseId = caseId,
+                        occurredAt = occurredAt,
+                        endedAt = endedAt,
+                        intensity = intensityFor(caseSeed.intensityEnabled, random),
+                        note = noteFor(caseSeed.notes, random),
+                        loggedAt = occurredAt,
+                    ),
+                )
+            tagsFor(caseSeed.tags, random).forEach { tagName -> repository.addTagToEvent(eventId, tagName) }
         }
     }
 
