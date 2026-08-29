@@ -42,6 +42,12 @@ interface HodithRepository {
 
     suspend fun getMostRecentEventForCase(caseId: Long): EventEntity?
 
+    /** Latest moment any event on the Case ended (`endedAt`, or the start for a point/still-open event); null with no events. */
+    suspend fun getLatestEventEndForCase(caseId: Long): Long?
+
+    /** An event on the Case with no `endedAt`, if any. Only meaningful for a `START_STOP` Case (spec §6). */
+    suspend fun getOngoingEvent(caseId: Long): EventEntity?
+
     suspend fun insertEvent(event: EventEntity): Long
 
     suspend fun updateEvent(event: EventEntity)

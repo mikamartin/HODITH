@@ -34,7 +34,16 @@ class FakeHodithRepositoryTest {
         id: Long = 0L,
         caseId: Long = 1L,
         occurredAt: Long = 0L,
-    ) = EventEntity(id = id, caseId = caseId, occurredAt = occurredAt, endedAt = null, intensity = null, note = null, loggedAt = occurredAt)
+        endedAt: Long? = null,
+    ) = EventEntity(
+        id = id,
+        caseId = caseId,
+        occurredAt = occurredAt,
+        endedAt = endedAt,
+        intensity = null,
+        note = null,
+        loggedAt = occurredAt,
+    )
 
     private fun testHunch(caseId: Long) =
         HunchEntity(
@@ -160,6 +169,33 @@ class FakeHodithRepositoryTest {
             val mostRecent = repository.getMostRecentEventForCase(caseId)
 
             assertEquals(300L, mostRecent?.occurredAt)
+        }
+
+    @Test
+    fun `getLatestEventEndForCase takes the latest endedAt, falling back to occurredAt`() =
+        runTest {
+            val caseId = 1L
+            repository.events.value =
+                listOf(
+                    testEvent(id = 1L, caseId = caseId, occurredAt = 100L, endedAt = 900L),
+                    testEvent(id = 2L, caseId = caseId, occurredAt = 300L, endedAt = null),
+                    testEvent(id = 3L, caseId = 2L, occurredAt = 5_000L),
+                )
+
+            assertEquals(900L, repository.getLatestEventEndForCase(caseId))
+        }
+
+    @Test
+    fun `getOngoingEvent returns an event with no endedAt scoped to the case`() =
+        runTest {
+            val caseId = 1L
+            repository.events.value =
+                listOf(
+                    testEvent(id = 1L, caseId = caseId, occurredAt = 100L, endedAt = 200L),
+                    testEvent(id = 2L, caseId = caseId, occurredAt = 300L, endedAt = null),
+                )
+
+            assertEquals(2L, repository.getOngoingEvent(caseId)?.id)
         }
 
     @Test

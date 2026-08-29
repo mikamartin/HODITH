@@ -43,16 +43,20 @@ private fun testCase(
     archived = false,
 )
 
-private fun eventAtDay(epochDay: Long) =
-    EventEntity(
-        id = 0,
-        caseId = 1,
-        occurredAt = millisAtDay(epochDay),
-        endedAt = null,
-        intensity = null,
-        note = null,
-        loggedAt = millisAtDay(epochDay),
-    )
+private fun eventAtDay(epochDay: Long) = durationEvent(epochDay, null)
+
+private fun durationEvent(
+    startDay: Long,
+    endDay: Long?,
+) = EventEntity(
+    id = 0,
+    caseId = 1,
+    occurredAt = millisAtDay(startDay),
+    endedAt = endDay?.let { millisAtDay(it) },
+    intensity = null,
+    note = null,
+    loggedAt = millisAtDay(startDay),
+)
 
 private fun List<EventEntity>.withoutTags(): List<EventWithTags> = map { EventWithTags(it, emptyList()) }
 
@@ -250,6 +254,18 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
 
         assertEquals(15L, state.stats.gaps.currentGapDays)
+    }
+
+    @Test
+    fun `gaps display reads the current gap from a finished duration event's end`() {
+        // A duration event ran days 1..14 and was stopped; "now" is day 14. No silence yet — where
+        // the old start-anchored math reported 13 days.
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val events = listOf(eventAtDay(0), durationEvent(startDay = 1, endDay = 14))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(14)) as InsightsTabState.Ready
+
+        assertEquals(0L, state.stats.gaps.currentGapDays)
     }
 
     @Test

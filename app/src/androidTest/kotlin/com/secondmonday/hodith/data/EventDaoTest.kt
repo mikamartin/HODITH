@@ -128,6 +128,29 @@ class EventDaoTest {
         }
 
     @Test
+    fun getLatestEventEndForCase_takesEndedAtOverALaterStart() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 900L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L, endedAt = 400L))
+
+            assertEquals(900L, eventDao.getLatestEventEndForCase(caseId))
+        }
+
+    @Test
+    fun getLatestEventEndForCase_fallsBackToStartForAPointOrOpenEvent() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 500L, endedAt = null))
+
+            assertEquals(500L, eventDao.getLatestEventEndForCase(caseId))
+        }
+
+    @Test
+    fun getLatestEventEndForCase_returnsNullWithNoEvents() =
+        runTest {
+            assertNull(eventDao.getLatestEventEndForCase(caseId))
+        }
+
+    @Test
     fun getOngoingEvent_returnsEventWithNullEndedAt() =
         runTest {
             eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 200L))
