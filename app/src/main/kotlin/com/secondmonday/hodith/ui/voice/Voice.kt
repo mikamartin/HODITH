@@ -119,6 +119,9 @@ interface Voice {
     val logSheetEndLabel: String
     val logSheetOngoingLabel: String
     val logSheetStopNowAction: String
+
+    /** Clears an edited event's end time, putting it back into the ongoing state (spec §6). */
+    val logSheetBackToOngoingAction: String
     val staleOngoingEditEndTimeAction: String
     val staleOngoingStillGoingAction: String
     val quickLogUndoAction: String
@@ -604,6 +607,7 @@ object PlainVoice : Voice {
     override val logSheetEndLabel = "Ended"
     override val logSheetOngoingLabel = "Ongoing"
     override val logSheetStopNowAction = "Stop now"
+    override val logSheetBackToOngoingAction = "Back to ongoing"
     override val staleOngoingEditEndTimeAction = "Edit end time"
     override val staleOngoingStillGoingAction = "Still going"
     override val quickLogUndoAction = "Undo"
@@ -1060,6 +1064,7 @@ object IntenseVoice : Voice {
     override val logSheetEndLabel = "The hour it ended"
     override val logSheetOngoingLabel = "Still unfolding"
     override val logSheetStopNowAction = "Seal it now"
+    override val logSheetBackToOngoingAction = "Unseal it — still unfolding"
     override val staleOngoingEditEndTimeAction = "Mark when it ended"
     override val staleOngoingStillGoingAction = "Still unfolding"
     override val quickLogUndoAction = "Reverse it"
@@ -1510,6 +1515,7 @@ object BrightVoice : Voice {
     override val logSheetEndLabel = "Wrapped up at"
     override val logSheetOngoingLabel = "Still going!"
     override val logSheetStopNowAction = "Stop the clock!"
+    override val logSheetBackToOngoingAction = "Actually, still going!"
     override val staleOngoingEditEndTimeAction = "Fix the end time"
     override val staleOngoingStillGoingAction = "Yep, still going!"
     override val quickLogUndoAction = "Oops, undo!"

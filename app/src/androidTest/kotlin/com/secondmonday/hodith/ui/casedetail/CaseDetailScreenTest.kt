@@ -26,6 +26,7 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
+import com.secondmonday.hodith.viewmodel.formatEventTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -162,6 +163,25 @@ class CaseDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
 
         assertNotNull(savedDraft?.endedAt)
+    }
+
+    @Test
+    fun editingStoppedEvent_backToOngoing_thenSave_savesWithNullEndedAt() {
+        var savedDraft: LogDraft? = null
+        val stopped = testEvent(id = 7L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = stopped, tags = emptyList())),
+            onSaveEvent = { draft, _, _ -> savedDraft = draft },
+            nowMillis = { 10_000L },
+        )
+
+        composeTestRule.onNodeWithText(formatEventTime(stopped.occurredAt, 10_000L)).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetBackToOngoingAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+
+        assertNotNull(savedDraft)
+        assertNull(savedDraft?.endedAt)
     }
 
     @Test

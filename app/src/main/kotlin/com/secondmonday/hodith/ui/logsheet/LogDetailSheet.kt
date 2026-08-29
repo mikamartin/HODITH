@@ -131,6 +131,7 @@ fun LogDetailSheet(
                     zone = zone,
                     voice = voice,
                     onStopNowClick = { draft = draft.copy(endedAt = now) },
+                    onBackToOngoingClick = { draft = draft.copy(endedAt = null) },
                     onDateClick = { showEndDatePicker = true },
                     onTimeClick = { showEndTimePicker = true },
                 )
@@ -313,6 +314,9 @@ private fun TimeSection(
  * separate "Start" screen, just this section left alone. "Stop now" and the date/time buttons
  * both funnel into the same [onDateClick]/[onTimeClick]-editable value the sheet already has
  * pickers for via [draft.endedAt][com.secondmonday.hodith.viewmodel.LogDraft.endedAt].
+ * "Back to ongoing" ([onBackToOngoingClick]) is the reverse of "Stop now" — clears the end
+ * time so a too-hastily-stopped event (or one that stopped and restarted as the same
+ * occurrence) returns to running.
  */
 @Composable
 private fun EndTimeSection(
@@ -320,6 +324,7 @@ private fun EndTimeSection(
     zone: ZoneId,
     voice: Voice,
     onStopNowClick: () -> Unit,
+    onBackToOngoingClick: () -> Unit,
     onDateClick: () -> Unit,
     onTimeClick: () -> Unit,
 ) {
@@ -336,6 +341,11 @@ private fun EndTimeSection(
             } else {
                 OutlinedButton(onClick = onDateClick) { Text(formatEventDate(endedAt, zone)) }
                 OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(endedAt, zone)) }
+            }
+        }
+        if (endedAt != null) {
+            TextButton(onClick = onBackToOngoingClick, modifier = Modifier.padding(top = 4.dp)) {
+                Text(voice.logSheetBackToOngoingAction)
             }
         }
     }

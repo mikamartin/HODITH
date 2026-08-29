@@ -193,15 +193,22 @@ internal fun planSaveEvent(
     now: Long,
 ): SaveEventPlan {
     val loggedAt = existingEvent?.loggedAt ?: now
+    val base =
+        draft.toEventEntity(
+            caseId = caseId,
+            existingId = existingEvent?.id ?: 0L,
+            loggedAt = loggedAt,
+            durationMode = durationMode,
+            now = now,
+        )
+    // Reopening a stopped event (its end time cleared back to ongoing) rebases the stale-nudge
+    // clock to now: the user just deliberately touched it, so the 24h "forgot to stop it?"
+    // prompt shouldn't fire on the very next render just because the start is old (spec §6).
+    val reopened = existingEvent?.endedAt != null && base.endedAt == null
     val entity =
-        draft
-            .toEventEntity(
-                caseId = caseId,
-                existingId = existingEvent?.id ?: 0L,
-                loggedAt = loggedAt,
-                durationMode = durationMode,
-                now = now,
-            ).copy(staleNudgeDismissedAt = existingEvent?.staleNudgeDismissedAt)
+        base.copy(
+            staleNudgeDismissedAt = if (reopened) now else existingEvent?.staleNudgeDismissedAt,
+        )
     return SaveEventPlan(
         entity = entity,
         isUpdate = existingEvent != null,
