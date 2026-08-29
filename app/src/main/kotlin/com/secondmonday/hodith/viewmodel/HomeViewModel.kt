@@ -39,8 +39,13 @@ data class HomeCaseRow(
     val logFlow: LogFlow,
     val durationMode: DurationMode,
     val intensityEnabled: Boolean,
-    /** Non-null only for a `START_STOP` case with an open event (spec §6). */
+    /**
+     * The earliest-started open event for a `START_STOP` case, or null. Drives the single
+     * elapsed-time display; past one running event the row shows [runningCount] instead.
+     */
     val ongoingEvent: EventEntity? = null,
+    /** How many events are currently running on this Case (0 unless `START_STOP`). */
+    val runningCount: Int = 0,
 )
 
 data class HomeUiState(
@@ -200,6 +205,7 @@ internal fun homeCaseRows(
             .toInstant()
             .toEpochMilli()
     return casesWithEvents.map { (case, events) ->
+        val openEvents = ongoingEventsIn(case, events)
         HomeCaseRow(
             caseId = case.id,
             icon = case.icon,
@@ -209,7 +215,8 @@ internal fun homeCaseRows(
             logFlow = case.logFlow,
             durationMode = case.durationMode,
             intensityEnabled = case.intensityEnabled,
-            ongoingEvent = ongoingEventIn(case, events),
+            ongoingEvent = openEvents.firstOrNull(),
+            runningCount = openEvents.size,
         )
     }
 }

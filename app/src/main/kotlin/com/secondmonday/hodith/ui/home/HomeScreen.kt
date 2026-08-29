@@ -44,6 +44,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.NotificationsDeniedBanner
+import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.StaleOngoingBanner
 import com.secondmonday.hodith.ui.common.StopIconButton
@@ -275,26 +276,31 @@ private fun HomeCaseRowBody(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = row.name, style = MaterialTheme.typography.titleMedium)
-                if (ongoing != null) {
-                    OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
-                } else {
-                    Text(
-                        text = voice.homeCaseCounts(row.todayCount, row.weekCount),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                when {
+                    row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
+                    ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
+                    else ->
+                        Text(
+                            text = voice.homeCaseCounts(row.todayCount, row.weekCount),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                 }
             }
-            if (ongoing != null) {
-                StopIconButton(caseName = row.name, voice = voice, onClick = onQuickLogTap)
-            } else {
-                val description =
-                    if (row.durationMode == DurationMode.START_STOP) {
-                        voice.startActionDescription(row.name)
-                    } else {
-                        voice.quickLogButtonDescription(row.name)
+            when {
+                // Past one running event there's no single Stop target — the row tap opens Case
+                // Detail, where each event has its own Stop button.
+                row.runningCount >= 2 -> Unit
+                ongoing != null -> StopIconButton(caseName = row.name, voice = voice, onClick = onQuickLogTap)
+                else -> {
+                    val description =
+                        if (row.durationMode == DurationMode.START_STOP) {
+                            voice.startActionDescription(row.name)
+                        } else {
+                            voice.quickLogButtonDescription(row.name)
+                        }
+                    IconButton(onClick = onQuickLogTap) {
+                        Icon(Icons.Filled.AddCircle, contentDescription = description)
                     }
-                IconButton(onClick = onQuickLogTap) {
-                    Icon(Icons.Filled.AddCircle, contentDescription = description)
                 }
             }
         }
@@ -339,26 +345,29 @@ private fun BrightHomeCaseListItem(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = row.name, style = nameStyle)
-                    if (ongoing != null) {
-                        OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
-                    } else {
-                        Text(
-                            text = voice.homeCaseCounts(row.todayCount, row.weekCount),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                    when {
+                        row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
+                        ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
+                        else ->
+                            Text(
+                                text = voice.homeCaseCounts(row.todayCount, row.weekCount),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                     }
                 }
-                if (ongoing != null) {
-                    StopIconButton(caseName = row.name, voice = voice, onClick = onQuickLogTap)
-                } else {
-                    val description =
-                        if (row.durationMode == DurationMode.START_STOP) {
-                            voice.startActionDescription(row.name)
-                        } else {
-                            voice.quickLogButtonDescription(row.name)
+                when {
+                    row.runningCount >= 2 -> Unit
+                    ongoing != null -> StopIconButton(caseName = row.name, voice = voice, onClick = onQuickLogTap)
+                    else -> {
+                        val description =
+                            if (row.durationMode == DurationMode.START_STOP) {
+                                voice.startActionDescription(row.name)
+                            } else {
+                                voice.quickLogButtonDescription(row.name)
+                            }
+                        IconButton(onClick = onQuickLogTap) {
+                            Icon(Icons.Filled.AddCircle, contentDescription = description)
                         }
-                    IconButton(onClick = onQuickLogTap) {
-                        Icon(Icons.Filled.AddCircle, contentDescription = description)
                     }
                 }
             }
@@ -397,6 +406,19 @@ private val previewRows =
             logFlow = LogFlow.ONE_TAP,
             durationMode = DurationMode.NONE,
             intensityEnabled = false,
+        ),
+        HomeCaseRow(
+            caseId = 3,
+            icon = "🔊",
+            name = "Noisy neighbours",
+            todayCount = 2,
+            weekCount = 5,
+            logFlow = LogFlow.ONE_TAP,
+            durationMode = DurationMode.START_STOP,
+            intensityEnabled = false,
+            ongoingEvent =
+                EventEntity(caseId = 3, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L),
+            runningCount = 2,
         ),
     )
 

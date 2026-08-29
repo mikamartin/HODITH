@@ -13,19 +13,31 @@ import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 internal const val STALE_ONGOING_THRESHOLD_MILLIS = MILLIS_PER_DAY
 
 /**
- * The Case's open-ended event, if any (spec §6: "one ongoing event per Case"). Only
- * `START_STOP` cases can be ongoing — `NONE`/`MANUAL` events always carry a real `endedAt` (or
- * no duration at all), so a null `endedAt` there would be a data bug, not an ongoing state, and
- * this deliberately doesn't surface it as one. Shared by Home's and Case Detail's mapping so
- * that rule lives in exactly one place.
+ * Every open-ended event on the Case, earliest-started first. Only `START_STOP` cases can be
+ * ongoing — `NONE`/`MANUAL` events always carry a real `endedAt` (or no duration at all), so a
+ * null `endedAt` there would be a data bug, not an ongoing state, and this deliberately doesn't
+ * surface it as one. Spec §6's "one ongoing event per Case" is about the Start affordance
+ * (Start becomes Stop, so a second one can't be started from that button) — retro-logging and a
+ * fast stop/restart both legitimately leave more than one event open at once. Shared by Home's
+ * and Case Detail's mapping so that rule lives in exactly one place.
+ */
+internal fun ongoingEventsIn(
+    case: CaseEntity,
+    events: List<EventEntity>,
+): List<EventEntity> {
+    if (case.durationMode != DurationMode.START_STOP) return emptyList()
+    return events.filter { it.endedAt == null }.sortedBy { it.occurredAt }
+}
+
+/**
+ * The Case's earliest-started open event, if any — the one whose elapsed time the summary
+ * surfaces show when exactly one is running. Deterministic where [List.find] over Room's
+ * unordered relation was not.
  */
 internal fun ongoingEventIn(
     case: CaseEntity,
     events: List<EventEntity>,
-): EventEntity? {
-    if (case.durationMode != DurationMode.START_STOP) return null
-    return events.find { it.endedAt == null }
-}
+): EventEntity? = ongoingEventsIn(case, events).firstOrNull()
 
 /**
  * Whether [event] should show the 24h-stale prompt at [now]. Re-arms after another

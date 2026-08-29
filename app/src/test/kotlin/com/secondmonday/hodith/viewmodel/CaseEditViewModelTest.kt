@@ -3,6 +3,7 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
@@ -58,22 +59,37 @@ class CaseEditViewModelTest {
             SavedStateHandle(mapOf("caseId" to caseId)),
         )
 
-    private fun existingCase(id: Long = 1L) =
-        CaseEntity(
-            id = id,
-            name = "Coffee",
-            description = "Track cups",
-            icon = "☕️",
-            createdAt = 0L,
-            logFlow = LogFlow.DETAIL_SHEET,
-            durationMode = DurationMode.NONE,
-            intensityEnabled = false,
-            hunchNudgeDismissed = false,
-            checkInsEnabled = true,
-            lastCheckInAt = null,
-            sortOrder = 0,
-            archived = false,
-        )
+    private fun existingCase(
+        id: Long = 1L,
+        durationMode: DurationMode = DurationMode.NONE,
+    ) = CaseEntity(
+        id = id,
+        name = "Coffee",
+        description = "Track cups",
+        icon = "☕️",
+        createdAt = 0L,
+        logFlow = LogFlow.DETAIL_SHEET,
+        durationMode = durationMode,
+        intensityEnabled = false,
+        hunchNudgeDismissed = false,
+        checkInsEnabled = true,
+        lastCheckInAt = null,
+        sortOrder = 0,
+        archived = false,
+    )
+
+    private fun runningEvent(
+        id: Long,
+        caseId: Long = 1L,
+    ) = EventEntity(
+        id = id,
+        caseId = caseId,
+        occurredAt = 0L,
+        endedAt = null,
+        intensity = null,
+        note = null,
+        loggedAt = 0L,
+    )
 
     @Test
     fun `a new case starts with a blank, non-editing state`() =
@@ -237,6 +253,80 @@ class CaseEditViewModelTest {
             vm.onDescriptionChange("a".repeat(CASE_DESCRIPTION_MAX_LENGTH + 10))
 
             assertEquals(CASE_DESCRIPTION_MAX_LENGTH, vm.uiState.value.description.length)
+        }
+
+    @Test
+    fun `leaving START_STOP while events run holds the change behind a confirm`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(runningEvent(id = 10L), runningEvent(id = 11L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.NONE)
+
+            assertTrue(vm.uiState.value.showLeaveStartStopConfirm)
+            assertEquals(2, vm.uiState.value.runningEventCount)
+            assertEquals(DurationMode.START_STOP, vm.uiState.value.durationMode)
+        }
+
+    @Test
+    fun `confirming the leave-START_STOP dialog applies the mode and save stops the running events`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(runningEvent(id = 10L), runningEvent(id = 11L))
+            val vm = editViewModel(caseId = 1L)
+            vm.onDurationModeChange(DurationMode.NONE)
+
+            vm.confirmLeaveStartStop()
+            vm.save()
+
+            assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
+            assertEquals(
+                DurationMode.NONE,
+                repository.cases.value
+                    .single()
+                    .durationMode,
+            )
+            assertTrue(repository.events.value.all { it.endedAt == clock.nowMillis() })
+        }
+
+    @Test
+    fun `dismissing the leave-START_STOP dialog keeps the case in START_STOP`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(runningEvent(id = 10L))
+            val vm = editViewModel(caseId = 1L)
+            vm.onDurationModeChange(DurationMode.MANUAL)
+
+            vm.dismissLeaveStartStop()
+
+            assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
+            assertEquals(DurationMode.START_STOP, vm.uiState.value.durationMode)
+        }
+
+    @Test
+    fun `leaving START_STOP with nothing running switches with no dialog`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.START_STOP))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.MANUAL)
+
+            assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
+            assertEquals(DurationMode.MANUAL, vm.uiState.value.durationMode)
+        }
+
+    @Test
+    fun `changing mode on a non-START_STOP case never triggers the guard`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.MANUAL))
+            repository.events.value = listOf(runningEvent(id = 10L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.NONE)
+
+            assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
+            assertEquals(DurationMode.NONE, vm.uiState.value.durationMode)
         }
 
     @Test

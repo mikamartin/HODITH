@@ -154,7 +154,12 @@ private fun CaseRow(
     now: Long,
 ) {
     val ongoing = row.ongoingEvent
+    val multipleRunning = row.runningCount >= 2
     val context = LocalContext.current
+    val caseDetailIntent =
+        Intent(context, MainActivity::class.java)
+            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            .putExtra(EXTRA_CASE_ID, row.caseId)
     Row(
         modifier =
             GlanceModifier
@@ -169,14 +174,7 @@ private fun CaseRow(
             modifier =
                 GlanceModifier
                     .defaultWeight()
-                    .clickable(
-                        actionStartActivity(
-                            intent =
-                                Intent(context, MainActivity::class.java)
-                                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                    .putExtra(EXTRA_CASE_ID, row.caseId),
-                        ),
-                    ),
+                    .clickable(actionStartActivity(intent = caseDetailIntent)),
         ) {
             Text(
                 text = row.name,
@@ -189,8 +187,10 @@ private fun CaseRow(
                     ),
             )
             Text(
+                // The "N running" pill on the right already carries the count; the subtitle stays
+                // on the neutral today-count so the row doesn't say the same thing twice.
                 text =
-                    if (ongoing != null) {
+                    if (ongoing != null && !multipleRunning) {
                         PlainVoice.ongoingIndicator(formatElapsedDuration(ongoing.occurredAt, now))
                     } else {
                         PlainVoice.widgetTodayCount(row.todayCount)
@@ -199,7 +199,30 @@ private fun CaseRow(
             )
         }
         Spacer(modifier = GlanceModifier.width(8.dp))
-        if (ongoing != null) {
+        if (multipleRunning) {
+            // No single Stop target past one running event — the pill opens Case Detail, where
+            // each event has its own Stop button.
+            Box(
+                modifier =
+                    GlanceModifier
+                        .height(MinTapTarget)
+                        .background(WidgetPalette.accent)
+                        .cornerRadius(8.dp)
+                        .clickable(actionStartActivity(intent = caseDetailIntent)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = PlainVoice.widgetRunningCount(row.runningCount),
+                    style =
+                        TextStyle(
+                            color = ColorProvider(WidgetPalette.onAccent),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    modifier = GlanceModifier.padding(horizontal = 14.dp),
+                )
+            }
+        } else if (ongoing != null) {
             Box(
                 modifier =
                     GlanceModifier

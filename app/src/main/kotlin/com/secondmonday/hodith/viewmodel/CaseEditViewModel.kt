@@ -40,6 +40,9 @@ data class CaseEditUiState(
     val isSaved: Boolean = false,
     val canArchive: Boolean = false,
     val isArchived: Boolean = false,
+    /** Events currently running on this Case — gates the leave-`START_STOP` confirm (spec §6). */
+    val runningEventCount: Int = 0,
+    val showLeaveStartStopConfirm: Boolean = false,
 )
 
 @HiltViewModel
@@ -55,6 +58,8 @@ class CaseEditViewModel
     ) : ViewModel() {
         private val caseId: Long? = savedStateHandle.get<Long>("caseId")?.takeIf { it != NO_CASE_ID }
         private var existingCase: CaseEntity? = null
+        private var pendingDurationMode: DurationMode? = null
+        private var stopRunningOnSave = false
 
         private val _uiState = MutableStateFlow(CaseEditUiState(isEditing = caseId != null))
         val uiState: StateFlow<CaseEditUiState> = _uiState.asStateFlow()
@@ -68,6 +73,12 @@ class CaseEditViewModel
                     val case = repository.getCase(id)
                     existingCase = case
                     _uiState.value = case?.toUiState() ?: CaseEditUiState(isEditing = true, isLoading = false)
+                }
+                viewModelScope.launch {
+                    repository.observeEventsWithTagsForCase(id).collect { events ->
+                        val running = events.count { it.event.endedAt == null }
+                        _uiState.update { it.copy(runningEventCount = running) }
+                    }
                 }
             }
         }
@@ -83,10 +94,36 @@ class CaseEditViewModel
 
         fun onLogFlowChange(logFlow: LogFlow) = _uiState.update { it.copy(logFlow = logFlow) }
 
-        fun onDurationModeChange(durationMode: DurationMode) =
+        fun onDurationModeChange(durationMode: DurationMode) {
+            val state = _uiState.value
+            val leavingStartStop = state.durationMode == DurationMode.START_STOP && durationMode != DurationMode.START_STOP
+            if (leavingStartStop && state.runningEventCount > 0) {
+                pendingDurationMode = durationMode
+                _uiState.update { it.copy(showLeaveStartStopConfirm = true) }
+                return
+            }
+            applyDurationMode(durationMode)
+        }
+
+        /** Proceed with a mode change that was held back by [showLeaveStartStopConfirm]. */
+        fun confirmLeaveStartStop() {
+            val next = pendingDurationMode ?: return
+            stopRunningOnSave = true
+            _uiState.update { it.copy(showLeaveStartStopConfirm = false) }
+            applyDurationMode(next)
+        }
+
+        fun dismissLeaveStartStop() {
+            pendingDurationMode = null
+            _uiState.update { it.copy(showLeaveStartStopConfirm = false) }
+        }
+
+        private fun applyDurationMode(durationMode: DurationMode) {
+            pendingDurationMode = null
             _uiState.update {
                 it.copy(durationMode = durationMode, logFlow = coerceLogFlow(it.logFlow, durationMode, it.intensityEnabled))
             }
+        }
 
         fun onIntensityToggle(enabled: Boolean) =
             _uiState.update {
@@ -131,6 +168,14 @@ class CaseEditViewModel
                             checkInsEnabled = state.checkInsEnabled,
                         ),
                     )
+                    if (stopRunningOnSave && state.durationMode != DurationMode.START_STOP) {
+                        val stoppedAt = clock.nowMillis()
+                        repository
+                            .observeEventsWithTagsForCase(current.id)
+                            .first()
+                            .filter { it.event.endedAt == null }
+                            .forEach { repository.updateEvent(it.event.copy(endedAt = stoppedAt)) }
+                    }
                 } else {
                     repository.insertCase(
                         CaseEntity(

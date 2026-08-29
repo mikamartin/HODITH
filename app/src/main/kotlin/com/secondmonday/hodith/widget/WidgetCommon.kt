@@ -10,6 +10,7 @@ import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.ui.theme.PlainLightBackground
 import com.secondmonday.hodith.ui.theme.PlainLightError
 import com.secondmonday.hodith.ui.theme.PlainLightOnError
+import com.secondmonday.hodith.ui.theme.PlainLightOnPrimary
 import com.secondmonday.hodith.ui.theme.PlainLightOnSurface
 import com.secondmonday.hodith.ui.theme.PlainLightOnSurfaceVariant
 import com.secondmonday.hodith.ui.theme.PlainLightPrimary
@@ -28,6 +29,7 @@ internal object WidgetPalette {
     val onSurface = PlainLightOnSurface
     val onSurfaceMuted = PlainLightOnSurfaceVariant
     val accent = PlainLightPrimary
+    val onAccent = PlainLightOnPrimary
     val stopBackground = PlainLightError
     val onStopBackground = PlainLightOnError
 }

@@ -165,6 +165,26 @@ class HomeScreenTest {
     }
 
     @Test
+    fun multipleRunningRow_showsCount_andNoTrailingButton() {
+        val multiRow =
+            oneTapRow.copy(
+                caseId = 2L,
+                name = "Busy Case",
+                durationMode = DurationMode.START_STOP,
+                ongoingEvent = ongoingEvent,
+                runningCount = 3,
+            )
+        setHomeScreenContent(
+            uiState = HomeUiState(cases = listOf(multiRow), isLoading = false),
+            nowMillis = { 10_000L },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.ongoingCountIndicator(3)).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(multiRow.name)).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.quickLogButtonDescription(multiRow.name)).assertDoesNotExist()
+    }
+
+    @Test
     fun nonOngoingStartStopRow_usesStartContentDescription() {
         val startStopRow = oneTapRow.copy(durationMode = DurationMode.START_STOP)
         setHomeScreenContent(uiState = HomeUiState(cases = listOf(startStopRow), isLoading = false))

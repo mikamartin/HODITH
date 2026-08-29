@@ -30,6 +30,24 @@ fun OngoingElapsedText(
     )
 }
 
+/**
+ * Shown in place of [OngoingElapsedText] once more than one event is running on the Case (spec
+ * §6): a single elapsed time can't stand for several, so the summary surfaces switch to a count
+ * and per-event Stop moves to the Case log rows.
+ */
+@Composable
+fun OngoingCountText(
+    count: Int,
+    voice: Voice,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = voice.ongoingCountIndicator(count),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = modifier,
+    )
+}
+
 /** Stop is always an immediate one-tap action (spec §6) — no sheet, regardless of `logFlow`. */
 @Composable
 fun StopIconButton(
@@ -55,6 +73,24 @@ fun StaleOngoingBanner(
 ) {
     ActionBanner(message = voice.staleOngoingPromptMessage(caseName, elapsed), modifier = modifier) {
         TextButton(onClick = onEditEndTime) { Text(voice.staleOngoingEditEndTimeAction) }
+        TextButton(onClick = onStillGoing) { Text(voice.staleOngoingStillGoingAction) }
+    }
+}
+
+/**
+ * The 24h prompt when several of a Case's running events are all stale (spec §6). One banner
+ * rather than one per event — each event is still individually stoppable and editable from the
+ * log rows just below. "Still going" re-arms every stale event at once.
+ */
+@Composable
+fun ConsolidatedStaleOngoingBanner(
+    caseName: String,
+    count: Int,
+    voice: Voice,
+    onStillGoing: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ActionBanner(message = voice.staleOngoingMultiPromptMessage(caseName, count), modifier = modifier) {
         TextButton(onClick = onStillGoing) { Text(voice.staleOngoingStillGoingAction) }
     }
 }

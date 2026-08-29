@@ -58,6 +58,8 @@ import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.VerdictResult
 import com.secondmonday.hodith.domain.observationSpanDays
+import com.secondmonday.hodith.ui.common.ConsolidatedStaleOngoingBanner
+import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.StaleOngoingBanner
 import com.secondmonday.hodith.ui.common.StopIconButton
@@ -83,7 +85,7 @@ import com.secondmonday.hodith.viewmodel.hunchTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.isStaleOngoing
 import com.secondmonday.hodith.viewmodel.monthsAgo
-import com.secondmonday.hodith.viewmodel.ongoingEventIn
+import com.secondmonday.hodith.viewmodel.ongoingEventsIn
 
 private const val LOG_TAB = 0
 private const val INSIGHTS_TAB = 1
@@ -146,7 +148,8 @@ fun CaseDetailScreen(
     val voice = LocalVoice.current
     val case = uiState.case
     val now by rememberTickingNow(clockNow = nowMillis)
-    val ongoing = case?.let { ongoingEventIn(it, uiState.events.map { eventWithTags -> eventWithTags.event }) }
+    val ongoingEvents =
+        case?.let { ongoingEventsIn(it, uiState.events.map { eventWithTags -> eventWithTags.event }) }.orEmpty()
     var editRequest by remember { mutableStateOf<EditRequest?>(null) }
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
     var showHunchCreationSheet by remember { mutableStateOf(false) }
@@ -205,7 +208,7 @@ fun CaseDetailScreen(
                 LOG_TAB ->
                     LogTabContent(
                         case = case,
-                        ongoing = ongoing,
+                        ongoingEvents = ongoingEvents,
                         uiState = uiState,
                         now = now,
                         voice = voice,
@@ -285,7 +288,7 @@ fun CaseDetailScreen(
 @Composable
 private fun LogTabContent(
     case: CaseEntity?,
-    ongoing: EventEntity?,
+    ongoingEvents: List<EventEntity>,
     uiState: CaseDetailUiState,
     now: Long,
     voice: Voice,
@@ -306,30 +309,49 @@ private fun LogTabContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (case != null && ongoing != null) {
+        if (case != null && ongoingEvents.isNotEmpty()) {
+            val single = ongoingEvents.singleOrNull()
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice, modifier = Modifier.weight(1f))
-                StopIconButton(caseName = case.name, voice = voice, onClick = { onStopEvent(ongoing) })
+                if (single != null) {
+                    OngoingElapsedText(startedAt = single.occurredAt, now = now, voice = voice, modifier = Modifier.weight(1f))
+                    StopIconButton(caseName = case.name, voice = voice, onClick = { onStopEvent(single) })
+                } else {
+                    // Past one running event a single elapsed time can't stand for all of them, and
+                    // there's no one Stop target — each event has its own Stop button on its log row.
+                    OngoingCountText(count = ongoingEvents.size, voice = voice, modifier = Modifier.weight(1f))
+                }
             }
-            if (isStaleOngoing(ongoing, now)) {
-                StaleOngoingBanner(
-                    caseName = case.name,
-                    elapsed = formatElapsedDuration(ongoing.occurredAt, now),
-                    voice = voice,
-                    onEditEndTime = {
-                        val originalTags =
-                            uiState.events
-                                .find { it.event.id == ongoing.id }
-                                ?.tags
-                                .orEmpty()
-                        onEventClick(EventWithTags(ongoing, originalTags))
-                    },
-                    onStillGoing = { onDismissStalePrompt(ongoing) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                )
+            val staleEvents = ongoingEvents.filter { isStaleOngoing(it, now) }
+            when {
+                staleEvents.size == 1 -> {
+                    val stale = staleEvents.single()
+                    StaleOngoingBanner(
+                        caseName = case.name,
+                        elapsed = formatElapsedDuration(stale.occurredAt, now),
+                        voice = voice,
+                        onEditEndTime = {
+                            val originalTags =
+                                uiState.events
+                                    .find { it.event.id == stale.id }
+                                    ?.tags
+                                    .orEmpty()
+                            onEventClick(EventWithTags(stale, originalTags))
+                        },
+                        onStillGoing = { onDismissStalePrompt(stale) },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+                staleEvents.size >= 2 ->
+                    ConsolidatedStaleOngoingBanner(
+                        caseName = case.name,
+                        count = staleEvents.size,
+                        voice = voice,
+                        onStillGoing = { staleEvents.forEach(onDismissStalePrompt) },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
             }
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -343,10 +365,15 @@ private fun LogTabContent(
                         items(uiState.events, key = { it.event.id }) { eventWithTags ->
                             EventRow(
                                 eventWithTags = eventWithTags,
+                                caseName = case?.name.orEmpty(),
                                 now = now,
                                 voice = voice,
                                 durationMode = case?.durationMode ?: DurationMode.NONE,
+                                // The header carries the Stop control when exactly one event runs;
+                                // past that it moves inline so each event is stoppable on its own.
+                                showInlineStop = ongoingEvents.size >= 2,
                                 onClick = { onEventClick(eventWithTags) },
+                                onStopEvent = onStopEvent,
                             )
                         }
                     }
@@ -538,10 +565,13 @@ private fun HunchHistoryRow(
 @Composable
 private fun EventRow(
     eventWithTags: EventWithTags,
+    caseName: String,
     now: Long,
     voice: Voice,
     durationMode: DurationMode,
+    showInlineStop: Boolean,
     onClick: () -> Unit,
+    onStopEvent: (EventEntity) -> Unit,
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.PLAIN ->
@@ -551,19 +581,29 @@ private fun EventRow(
             ) {
                 EventRowContent(
                     eventWithTags,
+                    caseName,
                     now,
                     voice,
                     durationMode,
+                    showInlineStop,
+                    onStopEvent,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
         CardDecorationStyle.INTENSE, CardDecorationStyle.BRIGHT ->
             EventRowContent(
                 eventWithTags,
+                caseName,
                 now,
                 voice,
                 durationMode,
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+                showInlineStop,
+                onStopEvent,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onClick)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
             )
     }
 }
@@ -571,19 +611,27 @@ private fun EventRow(
 @Composable
 private fun EventRowContent(
     eventWithTags: EventWithTags,
+    caseName: String,
     now: Long,
     voice: Voice,
     durationMode: DurationMode,
+    showInlineStop: Boolean,
+    onStopEvent: (EventEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val event = eventWithTags.event
     val isOngoing = durationMode == DurationMode.START_STOP && event.endedAt == null
 
-    Column(modifier = modifier) {
-        Text(text = formatEventTime(event.occurredAt, now), style = MaterialTheme.typography.bodyLarge)
-        val details = eventDetailSummary(event, eventWithTags.tags, voice, isOngoing = isOngoing)
-        if (details != null) {
-            Text(text = details, style = MaterialTheme.typography.bodySmall)
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = formatEventTime(event.occurredAt, now), style = MaterialTheme.typography.bodyLarge)
+            val details = eventDetailSummary(event, eventWithTags.tags, voice, isOngoing = isOngoing)
+            if (details != null) {
+                Text(text = details, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        if (isOngoing && showInlineStop) {
+            StopIconButton(caseName = caseName, voice = voice, onClick = { onStopEvent(event) })
         }
     }
 }

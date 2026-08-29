@@ -79,6 +79,12 @@ interface Voice {
     val archiveCaseConfirmBody: String
     val archiveCaseConfirmAction: String
     val archiveCaseCancelAction: String
+
+    /** Confirm shown when a Case leaves `START_STOP` mode while events are still running (spec §6). */
+    val leaveStartStopConfirmTitle: String
+    val leaveStartStopConfirmAction: String
+    val leaveStartStopCancelAction: String
+
     val archivedCasesTitle: String
     val archivedCasesEmptyState: String
     val eventListEmptyState: String
@@ -119,6 +125,9 @@ interface Voice {
     val logSheetEndLabel: String
     val logSheetOngoingLabel: String
     val logSheetStopNowAction: String
+
+    /** Clears an edited event's end time, putting it back into the ongoing state (spec §6). */
+    val logSheetBackToOngoingAction: String
     val staleOngoingEditEndTimeAction: String
     val staleOngoingStillGoingAction: String
     val quickLogUndoAction: String
@@ -293,10 +302,22 @@ interface Voice {
 
     fun ongoingIndicator(elapsed: String): String
 
+    /** Summary shown in place of a single elapsed time once more than one event is running (spec §6). */
+    fun ongoingCountIndicator(count: Int): String
+
     fun staleOngoingPromptMessage(
         caseName: String,
         elapsed: String,
     ): String
+
+    /** One consolidated banner when several of a Case's running events are all past the 24h mark. */
+    fun staleOngoingMultiPromptMessage(
+        caseName: String,
+        count: Int,
+    ): String
+
+    /** Body of the [leaveStartStopConfirmTitle] dialog — names how many events will be stopped. */
+    fun leaveStartStopConfirmBody(runningCount: Int): String
 
     fun bigPictureWeekDetailTitle(date: String): String
 
@@ -502,6 +523,9 @@ interface Voice {
     val widgetCaseNotFoundMessage: String
 
     fun widgetTodayCount(count: Int): String = "Today: $count"
+
+    /** Widget line-2 text / trailing pill once more than one event is running on the Case (spec §6). */
+    fun widgetRunningCount(count: Int): String = "$count running"
 }
 
 object PlainVoice : Voice {
@@ -554,6 +578,9 @@ object PlainVoice : Voice {
             "from Archived Cases."
     override val archiveCaseConfirmAction = "Archive"
     override val archiveCaseCancelAction = "Cancel"
+    override val leaveStartStopConfirmTitle = "Stop the running events?"
+    override val leaveStartStopConfirmAction = "Stop and switch"
+    override val leaveStartStopCancelAction = "Keep Start/Stop"
     override val archivedCasesTitle = "Archived cases"
     override val archivedCasesEmptyState = "No archived cases."
     override val eventListEmptyState = "No events logged yet."
@@ -592,6 +619,7 @@ object PlainVoice : Voice {
     override val logSheetEndLabel = "Ended"
     override val logSheetOngoingLabel = "Ongoing"
     override val logSheetStopNowAction = "Stop now"
+    override val logSheetBackToOngoingAction = "Back to ongoing"
     override val staleOngoingEditEndTimeAction = "Edit end time"
     override val staleOngoingStillGoingAction = "Still going"
     override val quickLogUndoAction = "Undo"
@@ -746,10 +774,20 @@ object PlainVoice : Voice {
 
     override fun ongoingIndicator(elapsed: String) = "Ongoing · $elapsed"
 
+    override fun ongoingCountIndicator(count: Int) = "$count running"
+
     override fun staleOngoingPromptMessage(
         caseName: String,
         elapsed: String,
     ) = "Still going, or forgot to stop $caseName? ($elapsed and counting.)"
+
+    override fun staleOngoingMultiPromptMessage(
+        caseName: String,
+        count: Int,
+    ) = "$count events on $caseName have been running over a day. Still going, or forgot to stop them?"
+
+    override fun leaveStartStopConfirmBody(runningCount: Int) =
+        "This case has $runningCount running events. Switching off Start/Stop will stop them at the current time."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
@@ -1003,6 +1041,9 @@ object IntenseVoice : Voice {
             "or erased forever if you so choose."
     override val archiveCaseConfirmAction = "Bury it"
     override val archiveCaseCancelAction = "Abandon"
+    override val leaveStartStopConfirmTitle = "Seal what still runs?"
+    override val leaveStartStopConfirmAction = "Seal them and switch"
+    override val leaveStartStopCancelAction = "Leave Start/Stop be"
     override val archivedCasesTitle = "The buried cases"
     override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
@@ -1041,6 +1082,7 @@ object IntenseVoice : Voice {
     override val logSheetEndLabel = "The hour it ended"
     override val logSheetOngoingLabel = "Still unfolding"
     override val logSheetStopNowAction = "Seal it now"
+    override val logSheetBackToOngoingAction = "Unseal it — still unfolding"
     override val staleOngoingEditEndTimeAction = "Mark when it ended"
     override val staleOngoingStillGoingAction = "Still unfolding"
     override val quickLogUndoAction = "Reverse it"
@@ -1192,10 +1234,20 @@ object IntenseVoice : Voice {
 
     override fun ongoingIndicator(elapsed: String) = "Still unfolding — $elapsed"
 
+    override fun ongoingCountIndicator(count: Int) = "$count still unfolding"
+
     override fun staleOngoingPromptMessage(
         caseName: String,
         elapsed: String,
     ) = "$caseName has lingered $elapsed. Still unfolding, or simply forgotten?"
+
+    override fun staleOngoingMultiPromptMessage(
+        caseName: String,
+        count: Int,
+    ) = "$count threads of $caseName have lingered past a day. Still unfolding, or simply forgotten?"
+
+    override fun leaveStartStopConfirmBody(runningCount: Int) =
+        "$runningCount events still run. Abandoning Start/Stop seals them at this moment."
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
@@ -1446,6 +1498,9 @@ object BrightVoice : Voice {
             "or to yeet it forever instead."
     override val archiveCaseConfirmAction = "Shelve it"
     override val archiveCaseCancelAction = "Nah, keep it out"
+    override val leaveStartStopConfirmTitle = "Stop what's still running?"
+    override val leaveStartStopConfirmAction = "Stop 'em and switch"
+    override val leaveStartStopCancelAction = "Nope, keep Start/Stop!"
     override val archivedCasesTitle = "The archive"
     override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
     override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
@@ -1484,6 +1539,7 @@ object BrightVoice : Voice {
     override val logSheetEndLabel = "Wrapped up at"
     override val logSheetOngoingLabel = "Still going!"
     override val logSheetStopNowAction = "Stop the clock!"
+    override val logSheetBackToOngoingAction = "Actually, still going!"
     override val staleOngoingEditEndTimeAction = "Fix the end time"
     override val staleOngoingStillGoingAction = "Yep, still going!"
     override val quickLogUndoAction = "Oops, undo!"
@@ -1633,10 +1689,20 @@ object BrightVoice : Voice {
 
     override fun ongoingIndicator(elapsed: String) = "Still going · $elapsed"
 
+    override fun ongoingCountIndicator(count: Int) = "$count still going!"
+
     override fun staleOngoingPromptMessage(
         caseName: String,
         elapsed: String,
     ) = "$caseName's been going $elapsed — still happening, or did you just forget?"
+
+    override fun staleOngoingMultiPromptMessage(
+        caseName: String,
+        count: Int,
+    ) = "$count of $caseName's events have been running over a day — still happening, or did you forget them?"
+
+    override fun leaveStartStopConfirmBody(runningCount: Int) =
+        "You've got $runningCount events still running! Switching off Start/Stop stops them right now."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
