@@ -131,7 +131,12 @@ private fun SingleCaseContent(
     now: Long,
 ) {
     val ongoing = row.ongoingEvent
+    val multipleRunning = row.runningCount >= 2
     val context = LocalContext.current
+    val caseDetailIntent =
+        Intent(context, MainActivity::class.java)
+            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            .putExtra(EXTRA_CASE_ID, row.caseId)
     Column(
         modifier = GlanceModifier.fillMaxSize().padding(8.dp),
         horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
@@ -141,21 +146,15 @@ private fun SingleCaseContent(
                 GlanceModifier
                     .defaultWeight()
                     .fillMaxWidth()
-                    .clickable(
-                        actionStartActivity(
-                            intent =
-                                Intent(context, MainActivity::class.java)
-                                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                    .putExtra(EXTRA_CASE_ID, row.caseId),
-                        ),
-                    ),
+                    .clickable(actionStartActivity(intent = caseDetailIntent)),
             horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
             verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
             Text(text = row.icon, style = TextStyle(fontSize = 24.sp))
             Text(
+                // The full-width "N running" pill below already carries the count.
                 text =
-                    if (ongoing != null) {
+                    if (ongoing != null && !multipleRunning) {
                         formatElapsedDuration(ongoing.occurredAt, now)
                     } else {
                         PlainVoice.widgetTodayCount(row.todayCount)
@@ -165,7 +164,28 @@ private fun SingleCaseContent(
             )
         }
         Spacer(modifier = GlanceModifier.height(6.dp))
-        if (ongoing != null) {
+        if (multipleRunning) {
+            Box(
+                modifier =
+                    GlanceModifier
+                        .fillMaxWidth()
+                        .height(MinTapTarget)
+                        .background(WidgetPalette.accent)
+                        .cornerRadius(8.dp)
+                        .clickable(actionStartActivity(intent = caseDetailIntent)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = PlainVoice.widgetRunningCount(row.runningCount),
+                    style =
+                        TextStyle(
+                            color = ColorProvider(WidgetPalette.onAccent),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                )
+            }
+        } else if (ongoing != null) {
             Box(
                 modifier =
                     GlanceModifier

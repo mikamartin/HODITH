@@ -32,6 +32,7 @@ fun hodithColorScheme(
 // WidgetPalette — which renders the Plain theme's light palette regardless of the user's chosen
 // in-app theme — sources these same values from here instead of duplicating the hex literals.
 internal val PlainLightPrimary = Color(0xFF3A6B76)
+internal val PlainLightOnPrimary = Color(0xFFFFFFFF)
 internal val PlainLightBackground = Color(0xFFEAF5FC)
 internal val PlainLightSurface = Color(0xFFFFFFFF)
 internal val PlainLightOnSurface = Color(0xFF071620)
@@ -42,7 +43,7 @@ internal val PlainLightOnError = Color(0xFFFFFFFF)
 private val plainLight =
     lightColorScheme(
         primary = PlainLightPrimary,
-        onPrimary = Color(0xFFFFFFFF),
+        onPrimary = PlainLightOnPrimary,
         primaryContainer = Color(0xFFC7E8ED),
         onPrimaryContainer = Color(0xFF082024),
         secondary = Color(0xFF12394C),

@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.widget
 
+import android.app.Activity
+import android.app.Instrumentation
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.Context
@@ -8,6 +10,7 @@ import android.view.ViewGroup
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.secondmonday.hodith.MainActivity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
@@ -18,7 +21,9 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -108,6 +113,36 @@ class WidgetActionsFlowTest {
             val stopped = waitFor { repository.getEvent(eventId)?.takeIf { it.endedAt != null } }
             assertNotNull("Expected StopEventAction to set the ongoing event's endedAt", stopped)
         }
+
+    @Test
+    fun multipleRunning_showsCountPill_notStopButton_andOpensCaseDetail() {
+        runBlocking {
+            val caseName = "Noisy neighbours ${System.currentTimeMillis()}"
+            insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.START_STOP))
+            repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 0L, endedAt = null))
+            repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 1_000L, endedAt = null))
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
+
+            val pill = waitForClickableWithText(PlainVoice.widgetRunningCount(2))
+            assertNull(
+                "Expected no Stop button while more than one event runs",
+                findClickableAncestorOfText(renderedView(context, host, appWidgetId), PlainVoice.widgetStopAction),
+            )
+
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val monitor = Instrumentation.ActivityMonitor(MainActivity::class.java.name, null, false)
+            instrumentation.addMonitor(monitor)
+            try {
+                instrumentation.runOnMainSync { pill.performClick() }
+                val activity: Activity? = monitor.waitForActivityWithTimeout(5_000)
+                assertNotNull("Expected the running-count pill to open MainActivity", activity)
+                assertEquals(insertedCaseId, activity?.intent?.getLongExtra(EXTRA_CASE_ID, -1L))
+                activity?.finish()
+            } finally {
+                instrumentation.removeMonitor(monitor)
+            }
+        }
+    }
 
     private suspend fun waitForClickableWithDescription(description: String): View =
         waitFor { findClickableAncestorOfDescription(renderedView(context, host, appWidgetId), description) }

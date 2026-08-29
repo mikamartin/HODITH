@@ -511,6 +511,9 @@ interface Voice {
     val widgetCaseNotFoundMessage: String
 
     fun widgetTodayCount(count: Int): String = "Today: $count"
+
+    /** Widget line-2 text / trailing pill once more than one event is running on the Case (spec §6). */
+    fun widgetRunningCount(count: Int): String = "$count running"
 }
 
 object PlainVoice : Voice {
