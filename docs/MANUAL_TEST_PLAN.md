@@ -34,9 +34,14 @@ which test.
    the event appears in-app. Only the row tap itself needs a human (same `ListView` limitation as item
    3) — the trampoline sheet it opens is covered end-to-end by `WidgetLogTrampolineActivityTest`.
 6. **List widget ongoing/elapsed/Stop.** Start an event on a `START_STOP` Case — the widget row shows
-   ticking elapsed time and a Stop button; tapping Stop ends the event without opening the app. Only
-   the ticking-elapsed *display* and the row tap need a human (same `ListView` limitation) — the Stop
-   action itself is covered via the Single-case widget in `WidgetActionsFlowTest.stopTap_endsTheOngoingEventForAStartStopCase`.
+   ticking elapsed time and a Stop button; tapping Stop ends the event without opening the app. Run a
+   second event at once (retro-log a still-open one from Case Detail, or use the seeded "Noisy
+   neighbours" demo Case) — the row swaps to an "N running" pill that opens Case Detail, and swaps
+   back to Stop once one event remains. Only the ticking-elapsed *display*, the pill/row rendering,
+   and the row tap need a human (same `ListView` limitation) — the Stop action and the pill's
+   render/tap/deep-link are covered on the Single-case widget by
+   `WidgetActionsFlowTest.stopTap_endsTheOngoingEventForAStartStopCase` and
+   `WidgetActionsFlowTest.multipleRunning_showsCountPill_notStopButton_andOpensCaseDetail`.
 7. **List widget configure flow, per-instance selection.** Add two List widgets to the home
    screen and pick a different set of Cases for each — each shows only its own picks, not the
    other's. Long-press a placed List widget and choose Edit to reopen its picker and change its

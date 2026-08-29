@@ -24,8 +24,8 @@ A round of user testing surfaced a cluster of Start/Stop and duration issues. Th
 
 Shared-file map (why the order is what it is):
 
-- `OngoingIndicator.kt` — A2, A3
-- `LogDetailSheet.kt` — A2, A3, A4
+- `OngoingIndicator.kt` — A3
+- `LogDetailSheet.kt` — A3, A4
 - `CalendarGrid.kt` day iteration — A5, A6
 - formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — A6, time-format satellite
 
@@ -33,30 +33,9 @@ Shared-file map (why the order is what it is):
 
 `computeGapStats` takes an `eventActiveNow` flag (derived via `ongoingEventIn` in `insightsTabState`): current gap reads 0 while an event runs on the Case, and that active stretch is left out of the longest gap. Demo seed data now carries ongoing events (Migraine, one; Noisy neighbours, two). The `eventActiveNow` plumbing is what A5 builds on.
 
-### A2 · Multiple running events on one Case
+### A2 · Multiple running events on one Case — done (`feat/multiple-ongoing-events`)
 
-*Branch: `feat/multiple-ongoing-events` · Complexity: M · Priority: High · Area: Duration*
-
-🎨 **Design decision** — the reopen ("back to ongoing") affordance, the >1 widget pill, and the mode-change guard flow all need a UX call.
-
-In-app you can already run several events at once and stop each from its row in the Case log, but the widget's single Stop button only ever acts on the first, and Home / the Case-detail log header silently show just the first. Related gaps: no way to move a stopped event back to running (wanted when something stops and restarts so fast it's the same occurrence), and switching a Case out of Start/Stop mode while events run strands them with no way to finish them.
-
-**Acceptance criteria**
-
-- [ ] `OngoingEvent` exposes `ongoingEventsIn` (list) alongside `ongoingEventIn`.
-- [ ] Home row and Case-detail log header show "N running" past one event; the elapsed-time display still shows a single time at exactly one.
-- [ ] Each `EventRow` in the Case log has its own Stop button (reusing `CaseDetailViewModel.stopEvent`).
-- [ ] Widget shows an "N running" pill deep-linking to Case Detail at >1 running; unchanged at exactly one.
-- [ ] A stopped event can be moved back to running from `LogDetailSheet` (`draft.endedAt = null`).
-- [ ] Leaving `START_STOP` mode with events running prompts "stop the running events first".
-- [ ] HODITH_SPEC §6 clarified: summary indicators show a count; "one ongoing event per Case" describes the Start affordance, not a hard limit.
-- [ ] Tests: `OngoingEventTest`, `CaseDetailScreenTest`, `HomeViewModel` mapping, `LogDetailViewModelTest` reopen round-trip, both widget tests, a multi-ongoing `computeDurationStats` case.
-
-**Plan** — add `ongoingEventsIn` (list) alongside `ongoingEventIn` (`viewmodel/OngoingEvent.kt`); Home row and Case-detail header (`ui/casedetail/CaseDetailScreen.kt:309`) show "N running" past one, keeping the single-event elapsed display at one. Per-event Stop button on each `EventRow` in the Case log (reuse `CaseDetailViewModel.stopEvent`, which already takes a specific event). Widget: at >1 running, swap the Stop button for an "N running" pill that deep-links to Case Detail (`MainActivity` + `EXTRA_CASE_ID`, already wired); unchanged at exactly one. Reopen: a "back to ongoing" toggle in `LogDetailSheet` `EndTimeSection` setting `draft.endedAt = null` (`computeEndedAt` already persists null). Mode-change guard: `CaseEditViewModel` confirms "stop the running events first" when leaving `START_STOP`.
-
-**Tests** — `OngoingEventTest` (`ongoingEventsIn`), `CaseDetailScreenTest`, `HomeViewModel` mapping tests, `LogDetailViewModelTest` (reopen round-trip), both widget tests. `computeDurationStats` already ignores `endedAt == null` — add a multi-ongoing case, no code change.
-
-**Concern** — needs a small HODITH_SPEC §6 clarification: the summary indicators show a count; "one ongoing event per Case" describes the Start affordance, not a hard limit. Decide whether reopening a long-since-ended event rebases `staleNudgeDismissedAt` (else the stale banner fires on the next render). Separately, the "what happens when a Case toggles duration/intensity off" question is documentation only — `statsSections` already retains the underlying data and just hides the Insights card, restoring it on re-enable; confirm and state that in §10.
+`ongoingEventsIn` (list, earliest-first) sits alongside `ongoingEventIn` (now the earliest open event, deterministically). Home rows and the Case-detail log header read "N running" past one event and drop the summary Stop; each running event carries its own Stop button on its log row (`showInlineStop`, reusing `CaseDetailViewModel.stopEvent`). Both widgets swap the red Stop button for an accent "N running" pill that opens Case Detail. `LogDetailSheet`'s End section gained a "Back to ongoing" button (`draft.endedAt = null`); `planSaveEvent` rebases `staleNudgeDismissedAt` on reopen so an old start doesn't fire the stale prompt immediately. `CaseEditViewModel` holds a leave-`START_STOP` mode change behind a confirm when events run and stops them all on save. Several concurrently-stale running events collapse to one consolidated header banner. Spec §6 reworded and §10 gained the duration/intensity-toggle-off clarification.
 
 ### A3 · Stop control is a checkmark; the running state is easy to miss
 
