@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.notification
 
 import com.secondmonday.hodith.data.CaseEntity
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TriggerEntity
@@ -96,8 +97,7 @@ class NotificationEvaluator
                             evaluateAtLeast(trigger, events, now)
                         }
                         TriggerKind.SILENT_FOR -> {
-                            val mostRecentEventAt = repo.getMostRecentEventForCase(case.id)?.occurredAt
-                            evaluateSilentFor(trigger, mostRecentEventAt, case.createdAt, now)
+                            evaluateSilentFor(trigger, silenceAnchorFor(repo, case, now), case.createdAt, now)
                         }
                     }
                 if (decision.newArmed != trigger.armed || decision.newLastFiredAt != trigger.lastFiredAt) {
@@ -130,8 +130,23 @@ class NotificationEvaluator
             if (!case.checkInsEnabled) return null
             val hunch = repo.getActiveHunch(case.id)
             val settingsDefaultDays = settingsRepository.getCheckInDefaultInterval().days
-            val mostRecentEventAt = repo.getMostRecentEventForCase(case.id)?.occurredAt
-            val decision = evaluateCheckIn(case, hunch, settingsDefaultDays, mostRecentEventAt, clock.nowMillis())
+            val now = clock.nowMillis()
+            val decision = evaluateCheckIn(case, hunch, settingsDefaultDays, silenceAnchorFor(repo, case, now), now)
             return decision.takeIf { it.due }
+        }
+
+        /**
+         * The moment the silence clock counts from for `SILENT_FOR` and check-ins: the latest point
+         * any event on the Case ended (spec §10 — a duration event's quiet stretch starts when it
+         * *ended*, not when it began), or [now] while a `START_STOP` Case has an event still running,
+         * so an active stretch never reads as silence. Null (⇒ count from Case creation) with no events.
+         */
+        private suspend fun silenceAnchorFor(
+            repo: HodithRepository,
+            case: CaseEntity,
+            now: Long,
+        ): Long? {
+            if (case.durationMode == DurationMode.START_STOP && repo.getOngoingEvent(case.id) != null) return now
+            return repo.getLatestEventEndForCase(case.id)
         }
     }

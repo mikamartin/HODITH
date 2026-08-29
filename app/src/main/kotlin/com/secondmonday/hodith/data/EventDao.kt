@@ -48,6 +48,10 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC LIMIT 1")
     suspend fun getMostRecentEventForCase(caseId: Long): EventEntity?
 
+    /** Latest moment any event on the Case ended — its `endedAt`, or its start for a point/still-open event. Null when the Case has no events. */
+    @Query("SELECT MAX(IFNULL(endedAt, occurredAt)) FROM events WHERE caseId = :caseId")
+    suspend fun getLatestEventEndForCase(caseId: Long): Long?
+
     @Query("SELECT * FROM events")
     suspend fun getAll(): List<EventEntity>
 }

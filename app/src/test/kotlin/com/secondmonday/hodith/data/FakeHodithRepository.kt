@@ -125,6 +125,12 @@ class FakeHodithRepository : HodithRepository {
     override suspend fun getMostRecentEventForCase(caseId: Long): EventEntity? =
         events.value.filter { it.caseId == caseId }.maxByOrNull { it.occurredAt }
 
+    override suspend fun getLatestEventEndForCase(caseId: Long): Long? =
+        events.value.filter { it.caseId == caseId }.maxOfOrNull { it.endedAt ?: it.occurredAt }
+
+    override suspend fun getOngoingEvent(caseId: Long): EventEntity? =
+        events.value.firstOrNull { it.caseId == caseId && it.endedAt == null }
+
     override suspend fun insertEvent(event: EventEntity): Long {
         val id = if (event.id != 0L) event.id else nextEventId++
         events.update { it + event.copy(id = id) }

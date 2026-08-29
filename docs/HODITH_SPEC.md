@@ -186,7 +186,7 @@ On the case detail Insights tab, in this order:
 
 - **Frequency over time** — counts per day/week/month (granularity auto-picked from data density, user-overridable)
 - **Rhythm heatmap** — day-of-week × time-of-day grid, cell shade = count, shaded on a finer 20-tier scale than the calendar heatmap or intensity stats for more visible contrast between nearby counts
-- **Gaps & streaks** — longest gap, current gap (reads 0 while *any* event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days with at least one event); "tends to come in bursts" flag when gap variance is high
+- **Gaps & streaks** — longest gap, current gap (silence since the last event *ended* — its start for a point event; reads 0 while *any* event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days with at least one event); "tends to come in bursts" flag when gap variance is high. `SILENT_FOR` triggers and check-ins count silence from the same point.
 - **Trend arrow** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise hidden); when shown, also notes a noticeable shift in average gap or streak length between the earlier and more recent half of the Case's history, if present
 - **Duration stats** (if durationMode ≠ NONE) — average, longest, total time; still-running events are excluded until they stop
 - **Intensity stats** (if enabled) — average, distribution mini-bars
@@ -202,14 +202,14 @@ The duration and intensity cards are gated purely on the Case's current `duratio
 
 - Evaluated (a) immediately on every event insert/edit/delete, and (b) by a WorkManager periodic job (~every 6 h) so `SILENT_FOR` triggers can fire without any logging happening.
 - `AT_LEAST`: fires when the rolling-window count reaches threshold; re-arms when it drops below. Requires a `windowDays` — the kind has no meaning without one, so the create sheet always supplies it.
-- `SILENT_FOR`: fires when the gap since the last event reaches n days; re-arms on the next event. A Case with no events yet counts from its creation instead, so a never-logged Case still fires.
+- `SILENT_FOR`: fires when the gap since the last event *ended* reaches n days (a duration event's silence starts when it stops; a still-running event counts as no silence at all); re-arms on the next event. A Case with no events yet counts from its creation instead, so a never-logged Case still fires.
 - Notification content is voice-flavoured and factual: icon + count + case name + "tap to see". Information, not advice.
 
 ### Check-ins (app-initiated, about the data)
 
 Silence in a Case is ambiguous: did the event stop happening, or did the user stop logging? A check-in resolves that — it's data hygiene, not a nag, and the copy makes the distinction: it asks whether anything went unlogged, never implies the user should "keep it up".
 
-- A check-in fires when a Case has had **zero events for its effective interval** — counting from the latest of: last event, last check-in, or case creation. This automatically covers the created-but-never-logged Case ("You opened 🐕 *Dog barking* 14 days ago — nothing logged yet. All quiet, or forgot it exists?").
+- A check-in fires when a Case has had **zero events for its effective interval** — counting from the latest of: last event's end (its start if it's a point event; now if one is still running), last check-in, or case creation. This automatically covers the created-but-never-logged Case ("You opened 🐕 *Dog barking* 14 days ago — nothing logged yet. All quiet, or forgot it exists?").
 - **Timing:**
   - Case with a Hunch — derived from the expected rate: expected gap = period ÷ expectedCount, check-in after **2 × expected gap**, clamped to 3–30 days. If you said "3× a week" and a week passes silently, that's exactly when a heads-up is useful.
   - Case without a Hunch — the **app-level default** from Settings (`off / 7 / 14 / 30 days`).

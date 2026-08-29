@@ -74,6 +74,10 @@ class RoomHodithRepository
 
         override suspend fun getMostRecentEventForCase(caseId: Long): EventEntity? = eventDao.getMostRecentEventForCase(caseId)
 
+        override suspend fun getLatestEventEndForCase(caseId: Long): Long? = eventDao.getLatestEventEndForCase(caseId)
+
+        override suspend fun getOngoingEvent(caseId: Long): EventEntity? = eventDao.getOngoingEvent(caseId)
+
         override suspend fun insertEvent(event: EventEntity): Long =
             eventDao.insert(event).also { evaluateNotificationsForCase(event.caseId) }
 

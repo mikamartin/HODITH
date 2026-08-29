@@ -29,9 +29,11 @@ Shared-file map (why the order is what it is):
 - `CalendarGrid.kt` day iteration — A5, A6
 - formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — A6, time-format satellite
 
-### A1 · Ongoing event keeps the "current gap" growing — done (`fix/ongoing-current-gap`)
+### A1 · Ongoing event keeps the "current gap" growing — done (`fix/ongoing-current-gap`, reopened as `fix/duration-gap-from-end`)
 
-`computeGapStats` takes an `eventActiveNow` flag (derived via `ongoingEventIn` in `insightsTabState`): current gap reads 0 while an event runs on the Case, and that active stretch is left out of the longest gap. Demo seed data now carries ongoing events (Migraine, one; Noisy neighbours, two). The `eventActiveNow` plumbing is what A5 builds on.
+First pass handled the *running* case: `computeGapStats` takes an `eventActiveNow` flag (via `ongoingEventIn` in `insightsTabState`) so current gap reads 0 and the active stretch stays out of the longest gap while an event runs. Demo seed data carries ongoing events (Migraine, one; Noisy neighbours, two). That `eventActiveNow` plumbing is what A5 builds on.
+
+Reopened because a *finished* duration event still misreported: once it stopped, `computeGapStats` fell back to `daysBetween(lastEvent.occurredAt, now)` — start-anchored — so a six-day event wrapped up today read as a six-day current gap. Now a gap is measured from when an event *ended*: current gap counts from `max(endedAt ?: occurredAt)`, past gaps run end-to-start (floored at 0 for overlaps), and point events (`endedAt == null`) are unchanged. `SILENT_FOR` triggers and check-ins shared the root cause — both anchored on `getMostRecentEventForCase(...).occurredAt` — and now count from the same `EventDao.getLatestEventEndForCase`, with a still-running event on a `START_STOP` Case pinning the silence clock to zero. Spec §10/§11 reworded to match.
 
 ### A2 · Multiple running events on one Case — done (`feat/multiple-ongoing-events`)
 
@@ -84,7 +86,7 @@ The Manual-mode duration field (`ui/logsheet/LogDetailSheet.kt`) is a single "Mi
 
 *Branch: `feat/active-span-insights` · Complexity: M · Priority: Medium · Area: Duration*
 
-🎨 **Design decision** — the "active span" rule is a design artifact, write it before coding; heatmap shading by active-event count is a product decision. Builds on A1 (done).
+🎨 **Design decision** — the "active span" rule is a design artifact, write it before coding; heatmap shading by active-event count is a product decision. Builds on A1's `eventActiveNow` plumbing (done).
 
 The calendar heatmap shades only the start day; streaks credit only start days.
 
@@ -148,6 +150,27 @@ An event that began late Monday and ran into Tuesday morning shows as one "late 
 **Tests** — Preview only.
 
 **Concern** — optional; the value only really lands once the span-fill work makes Rhythm the odd chart out. Could fold into that design pass instead of tracking separately.
+
+### A8 · Home's today / this-week counts treat duration events as points at their start
+
+*Branch: `feat/home-counts-duration-span` · Complexity: S · Priority: Medium · Area: Duration*
+
+🎨 **Design decision** — whether a duration event counts toward Home's tallies on its start day, its end day, or every day it was active; the rule must match A5's active-span rule so Home and the calendar heatmap agree.
+
+`homeCaseRows` (`viewmodel/HomeViewModel.kt`) counts `events.count { it.occurredAt >= startOfToday }` / `>= startOfWeek` — pure start day. An event started six days ago and wrapped up today shows "Today 0 / This week 0" on its Home row, the same day it was finished and logged.
+
+**Acceptance criteria**
+
+- [ ] A decided day-attribution rule for duration events on Home, written down alongside A5's active-span rule.
+- [ ] `homeCaseRows` today / this-week counts apply it; a running event's span runs to now.
+- [ ] `HomeViewModelMappingTest` covers a span crossing the today boundary and the week boundary.
+- [ ] No schema change.
+
+**Plan** — pick the rule (recommendation: an event counts on any day it was active, matching A5), then change the two `count {}` predicates in `homeCaseRows` to test span overlap rather than `occurredAt` alone.
+
+**Tests** — `HomeViewModelMappingTest`.
+
+**Concern** — not in Story A's shared-file chain (`HomeViewModel.kt` only), but the rule must match A5's or Home and the heatmap disagree. Sequence after A5's rule is written.
 
 ### Satellite · 12h/24h time format
 
@@ -328,6 +351,47 @@ Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPic
 - [ ] Play data-safety answers reconciled with the same copy (once a listing exists).
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
+
+### S7 · Log tab can't sort by when an event ended
+
+*Branch: `feat/log-sort-by-end` · Complexity: S · Priority: Low · Area: Duration*
+
+The case detail Log tab is hardcoded `ORDER BY occurredAt DESC` (`data/EventDao.kt`) — sorted by start. For a Case that tracks duration there's no way to view events by when they *ended*: ongoing events first, then most-recently-ended.
+
+**Acceptance criteria**
+
+- [ ] A start / end sort toggle on the Log tab, shown only when the Case tracks duration.
+- [ ] "By end" orders ongoing events first (no `endedAt`), then by `endedAt` descending.
+- [ ] Sort choice is UI state only — no persistence, no schema change.
+- [ ] Any new control label goes through Voice ×3.
+- [ ] Tests: the ordering logic covered where the Log list is assembled (`CaseDetailViewModel` mapping or a pure sort helper).
+
+**Plan** — add an end-ordered `EventDao` query (or sort in the VM) and a toggle in `CaseDetailScreen.kt`'s Log tab gated on `durationMode != NONE`. Ongoing events sort to the top.
+
+**Tests** — a pure sort-comparator test; `CaseDetailViewModel` mapping if the sort lands there.
+
+**Concern** — standalone; overlaps A3/A4 only as more duration polish, no file conflict.
+
+### S8 · Editing an event is a bottom sheet with no close affordance; editing a Case is a full screen with a back arrow
+
+*Branch: `fix/log-sheet-dismiss-affordance` · Complexity: S · Priority: Low · Area: Bug*
+
+🎨 **Design decision** — promote event-edit to a full screen to match `CaseEditScreen`, or keep the sheet and give it an explicit close/Cancel control.
+
+`LogDetailSheet` (`ui/logsheet/LogDetailSheet.kt`) is a `ModalBottomSheet` used for both quick-logging a new event and editing an existing one; it dismisses only by swipe-down, scrim tap, or system back. `SheetHeader` shows the title and (when editing) a delete icon — no back arrow, no Cancel button. `CaseEditScreen.kt` is a full destination with a `TopAppBar` back arrow, so the two edit flows don't match. The sheet is reachable from Home, Case Detail's Log tab, and the widget trampoline (`WidgetLogTrampolineActivity`).
+
+**Acceptance criteria**
+
+- [ ] Either: event-edit becomes a screen with a `TopAppBar` matching `CaseEditScreen` (new-event quick-log may stay a sheet); or the sheet gains a visible close/Cancel affordance in `SheetHeader`.
+- [ ] Whichever way, the three entry points (Home, Log tab, widget trampoline) still reach it and still save/dismiss correctly.
+- [ ] Any new control label goes through Voice ×3.
+- [ ] Tests: the affected `CaseDetailScreenTest` / `HomeScreenTest` / `WidgetLogTrampolineActivityTest` flows updated for the new affordance.
+
+**Plan** — decide the direction first (a sheet is fine for a 5-second new-event log; an edit with time/end-time/intensity/duration/note/tags/delete is closer to `CaseEditScreen`'s weight). Sheet-with-Cancel is the smaller change; screen-for-edit is the more consistent one.
+
+**Tests** — `CaseDetailScreenTest`, `HomeScreenTest`, `WidgetLogTrampolineActivityTest`.
+
+**Concern** — standalone. Shares `LogDetailSheet.kt` with A3/A4 — sequence after them, or fold the affordance into whichever lands last.
 
 ## Blocked
 

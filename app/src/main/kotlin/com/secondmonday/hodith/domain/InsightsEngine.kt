@@ -39,14 +39,21 @@ internal const val SHIFT_MIN_ABSOLUTE_DAYS = 1.0
 
 /**
  * Current gap vs. the longest gap ever observed across the Case's full history — the "current gap
- * annotated" rule (spec §10's gaps & streaks card): "how long since the last event" compared
+ * annotated" rule (spec §10's gaps & streaks card): "how long since the last event ended" compared
  * against "the longest stretch since it started".
+ *
+ * A gap is silence, so it is measured from when an event *ended*: for a duration event the quiet
+ * stretch starts at [EventEntity.endedAt], not [EventEntity.occurredAt], so an event that ran for
+ * days and stopped today leaves a current gap of `0`, not "days since it began". Point events (no
+ * `endedAt`) end where they start, so their behaviour is unchanged. Overlapping durations are
+ * handled by measuring each gap from the furthest end reached so far, not the previous event's
+ * end — a short event nested inside a longer one doesn't split one silence into two.
  *
  * When [eventActiveNow] is set (the Case has an event running right now — spec §6), there is no
  * silence to measure: [GapStats.currentGapDays] is `0`, that still-running stretch is left out of
  * [GapStats.longestGapDays], and it can't be flagged as [GapStats.isCurrentGapLongest]. The
- * completed event-to-event gaps ([GapStats.pastGaps], [GapStats.averageGapDays], [GapStats.isBursty])
- * are unaffected — the gap that ended when the running event started is real history.
+ * past gaps ([GapStats.pastGaps], [GapStats.averageGapDays], [GapStats.isBursty]) are unaffected
+ * by the flag — the gap that ended when the running event started is real history.
  */
 internal fun computeGapStats(
     events: List<EventEntity>,
@@ -56,8 +63,20 @@ internal fun computeGapStats(
 ): GapStats {
     val sorted = events.sortedBy { it.occurredAt }
 
-    val pastGaps = sorted.zipWithNext { a, b -> daysBetween(a.occurredAt, b.occurredAt, zone) }
-    val timeSinceLastEvent = sorted.lastOrNull()?.let { daysBetween(it.occurredAt, now, zone) } ?: 0L
+    // Each past gap is the silence *before* an event: its start minus the furthest point any
+    // earlier event reached (its endedAt, or its own start). Tracking the running furthest-reach
+    // rather than just the previous event's end is what makes overlapping durations behave — a
+    // short event nested inside a longer one (two overlapping family sick days, say) mustn't
+    // invent a gap the longer event was still filling. A start that predates the reach floors to 0.
+    val pastGaps = mutableListOf<Long>()
+    var reachedSoFar = Long.MIN_VALUE
+    for ((index, event) in sorted.withIndex()) {
+        if (index > 0) {
+            pastGaps += daysBetween(reachedSoFar, event.occurredAt, zone).coerceAtLeast(0L)
+        }
+        reachedSoFar = maxOf(reachedSoFar, event.endedAt ?: event.occurredAt)
+    }
+    val timeSinceLastEvent = if (sorted.isEmpty()) 0L else daysBetween(reachedSoFar, now, zone).coerceAtLeast(0L)
     val currentGapDays = if (eventActiveNow) 0L else timeSinceLastEvent
     val longestPastGap = pastGaps.maxOrNull() ?: 0L
 

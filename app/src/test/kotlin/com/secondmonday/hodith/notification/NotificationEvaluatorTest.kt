@@ -49,13 +49,14 @@ class NotificationEvaluatorTest {
         checkInsEnabled: Boolean = false,
         lastCheckInAt: Long? = null,
         archived: Boolean = false,
+        durationMode: DurationMode = DurationMode.NONE,
     ) = CaseEntity(
         id = id,
         name = "Coffee",
         icon = "☕️",
         createdAt = createdAt,
         logFlow = LogFlow.DETAIL_SHEET,
-        durationMode = DurationMode.NONE,
+        durationMode = durationMode,
         intensityEnabled = false,
         hunchNudgeDismissed = false,
         checkInsEnabled = checkInsEnabled,
@@ -88,7 +89,16 @@ class NotificationEvaluatorTest {
         id: Long = 0L,
         caseId: Long = 1L,
         occurredAt: Long,
-    ) = EventEntity(id = id, caseId = caseId, occurredAt = occurredAt, endedAt = null, intensity = null, note = null, loggedAt = occurredAt)
+        endedAt: Long? = null,
+    ) = EventEntity(
+        id = id,
+        caseId = caseId,
+        occurredAt = occurredAt,
+        endedAt = endedAt,
+        intensity = null,
+        note = null,
+        loggedAt = occurredAt,
+    )
 
     @Test
     fun `evaluateCase fires an AT_LEAST trigger once its window count reaches threshold`() =
@@ -142,6 +152,33 @@ class NotificationEvaluatorTest {
         }
 
     @Test
+    fun `evaluateCase counts SILENT_FOR silence from when a duration event ended, not when it started`() =
+        runTest {
+            // Event ran days 2..20 and stopped; now is day 30, so 10 quiet days — under the 14-day threshold.
+            // Measured from the day-2 start it would be 28 days and would fire.
+            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.MANUAL))
+            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.firedTriggers.isEmpty())
+        }
+
+    @Test
+    fun `evaluateCase does not fire SILENT_FOR while an event is still running on the Case`() =
+        runTest {
+            // Started day 2, never stopped; now is day 30. A running event is not silence.
+            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
+            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = null))
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.firedTriggers.isEmpty())
+        }
+
+    @Test
     fun `evaluateCase does nothing for an unknown case`() =
         runTest {
             evaluator.evaluateCase(404L)
@@ -179,6 +216,19 @@ class NotificationEvaluatorTest {
                     .single()
                     .lastCheckInAt,
             )
+        }
+
+    @Test
+    fun `evaluateCase counts check-in silence from when a duration event ended`() =
+        runTest {
+            // Event ran days 1..28 and stopped; now is day 30, so only 2 quiet days — under the 7-day interval.
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
+            repository.cases.value = listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.MANUAL))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(1), endedAt = millisAtDay(28)))
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.dueCheckIns.isEmpty())
         }
 
     @Test

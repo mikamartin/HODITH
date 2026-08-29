@@ -16,16 +16,20 @@ private fun millisAtDay(epochDay: Long): Long =
         .toInstant()
         .toEpochMilli()
 
-private fun eventAtDay(epochDay: Long) =
-    EventEntity(
-        id = 0,
-        caseId = 1,
-        occurredAt = millisAtDay(epochDay),
-        endedAt = null,
-        intensity = null,
-        note = null,
-        loggedAt = millisAtDay(epochDay),
-    )
+private fun eventAtDay(epochDay: Long) = durationEvent(epochDay, null)
+
+private fun durationEvent(
+    startDay: Long,
+    endDay: Long?,
+) = EventEntity(
+    id = 0,
+    caseId = 1,
+    occurredAt = millisAtDay(startDay),
+    endedAt = endDay?.let { millisAtDay(it) },
+    intensity = null,
+    note = null,
+    loggedAt = millisAtDay(startDay),
+)
 
 class InsightsEngineTest {
     // ---- computeGapStats ----
@@ -140,6 +144,63 @@ class InsightsEngineTest {
         val result = computeGapStats(events, now = millisAtDay(12))
 
         assertEquals(7L, result.currentGapDays)
+    }
+
+    @Test
+    fun `computeGapStats measures the current gap from a finished duration event's end, not its start`() {
+        // One event ran days 0..6 and stopped; "now" is day 6 — no silence yet, despite a day-6 start-to-now span.
+        val events = listOf(eventAtDay(0), durationEvent(startDay = 1, endDay = 6))
+
+        val result = computeGapStats(events, now = millisAtDay(6))
+
+        assertEquals(0L, result.currentGapDays)
+    }
+
+    @Test
+    fun `computeGapStats measures a past gap from an event's end to the next event's start`() {
+        // Event A ran days 0..5; event B started day 8. The gap between them is 3 days, not 8.
+        val events = listOf(durationEvent(startDay = 0, endDay = 5), eventAtDay(8))
+
+        val result = computeGapStats(events, now = millisAtDay(10))
+
+        assertEquals(listOf(3L), result.pastGaps)
+    }
+
+    @Test
+    fun `computeGapStats floors an overlapping span's past gap at zero`() {
+        // Event A ran days 0..10; event B started day 4, while A was still going.
+        val events = listOf(durationEvent(startDay = 0, endDay = 10), eventAtDay(4))
+
+        val result = computeGapStats(events, now = millisAtDay(12))
+
+        assertEquals(listOf(0L), result.pastGaps)
+    }
+
+    @Test
+    fun `computeGapStats takes the current gap from the latest end even when another event started later`() {
+        // A: days 0..10. B: started day 4, ended day 6. Latest end is day 10, so the gap runs from there.
+        val events = listOf(durationEvent(startDay = 0, endDay = 10), durationEvent(startDay = 4, endDay = 6))
+
+        val result = computeGapStats(events, now = millisAtDay(13))
+
+        assertEquals(3L, result.currentGapDays)
+    }
+
+    @Test
+    fun `computeGapStats measures a past gap from the furthest end reached, not the previous event's`() {
+        // A ran days 0..20; B was a shorter overlapping run (days 5..6) inside it; C started day 25.
+        // The silence before C is 5 days (25 minus A's end), not 19 (25 minus B's end) — A was still
+        // running when B stopped, so there was no real gap between B and C.
+        val events =
+            listOf(
+                durationEvent(startDay = 0, endDay = 20),
+                durationEvent(startDay = 5, endDay = 6),
+                durationEvent(startDay = 25, endDay = 26),
+            )
+
+        val result = computeGapStats(events, now = millisAtDay(30))
+
+        assertEquals(listOf(0L, 5L), result.pastGaps)
     }
 
     @Test
