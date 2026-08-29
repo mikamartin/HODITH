@@ -79,6 +79,12 @@ interface Voice {
     val archiveCaseConfirmBody: String
     val archiveCaseConfirmAction: String
     val archiveCaseCancelAction: String
+
+    /** Confirm shown when a Case leaves `START_STOP` mode while events are still running (spec §6). */
+    val leaveStartStopConfirmTitle: String
+    val leaveStartStopConfirmAction: String
+    val leaveStartStopCancelAction: String
+
     val archivedCasesTitle: String
     val archivedCasesEmptyState: String
     val eventListEmptyState: String
@@ -309,6 +315,9 @@ interface Voice {
         caseName: String,
         count: Int,
     ): String
+
+    /** Body of the [leaveStartStopConfirmTitle] dialog — names how many events will be stopped. */
+    fun leaveStartStopConfirmBody(runningCount: Int): String
 
     fun bigPictureWeekDetailTitle(date: String): String
 
@@ -569,6 +578,9 @@ object PlainVoice : Voice {
             "from Archived Cases."
     override val archiveCaseConfirmAction = "Archive"
     override val archiveCaseCancelAction = "Cancel"
+    override val leaveStartStopConfirmTitle = "Stop the running events?"
+    override val leaveStartStopConfirmAction = "Stop and switch"
+    override val leaveStartStopCancelAction = "Keep Start/Stop"
     override val archivedCasesTitle = "Archived cases"
     override val archivedCasesEmptyState = "No archived cases."
     override val eventListEmptyState = "No events logged yet."
@@ -773,6 +785,9 @@ object PlainVoice : Voice {
         caseName: String,
         count: Int,
     ) = "$count events on $caseName have been running over a day. Still going, or forgot to stop them?"
+
+    override fun leaveStartStopConfirmBody(runningCount: Int) =
+        "This case has $runningCount running events. Switching off Start/Stop will stop them at the current time."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
@@ -1026,6 +1041,9 @@ object IntenseVoice : Voice {
             "or erased forever if you so choose."
     override val archiveCaseConfirmAction = "Bury it"
     override val archiveCaseCancelAction = "Abandon"
+    override val leaveStartStopConfirmTitle = "Seal what still runs?"
+    override val leaveStartStopConfirmAction = "Seal them and switch"
+    override val leaveStartStopCancelAction = "Leave Start/Stop be"
     override val archivedCasesTitle = "The buried cases"
     override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
@@ -1227,6 +1245,9 @@ object IntenseVoice : Voice {
         caseName: String,
         count: Int,
     ) = "$count threads of $caseName have lingered past a day. Still unfolding, or simply forgotten?"
+
+    override fun leaveStartStopConfirmBody(runningCount: Int) =
+        "$runningCount events still run. Abandoning Start/Stop seals them at this moment."
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
@@ -1477,6 +1498,9 @@ object BrightVoice : Voice {
             "or to yeet it forever instead."
     override val archiveCaseConfirmAction = "Shelve it"
     override val archiveCaseCancelAction = "Nah, keep it out"
+    override val leaveStartStopConfirmTitle = "Stop what's still running?"
+    override val leaveStartStopConfirmAction = "Stop 'em and switch"
+    override val leaveStartStopCancelAction = "Nope, keep Start/Stop!"
     override val archivedCasesTitle = "The archive"
     override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
     override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
@@ -1676,6 +1700,9 @@ object BrightVoice : Voice {
         caseName: String,
         count: Int,
     ) = "$count of $caseName's events have been running over a day — still happening, or did you forget them?"
+
+    override fun leaveStartStopConfirmBody(runningCount: Int) =
+        "You've got $runningCount events still running! Switching off Start/Stop stops them right now."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 

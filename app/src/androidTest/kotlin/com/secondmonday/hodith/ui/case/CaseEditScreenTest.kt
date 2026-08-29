@@ -17,6 +17,7 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -35,6 +36,9 @@ class CaseEditScreenTest {
     private fun setContent(
         uiState: CaseEditUiState = CaseEditUiState(isEditing = true, isLoading = false, canArchive = true),
         onArchive: () -> Unit = {},
+        onDurationModeChange: (DurationMode) -> Unit = {},
+        onConfirmLeaveStartStop: () -> Unit = {},
+        onDismissLeaveStartStop: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
@@ -44,7 +48,9 @@ class CaseEditScreenTest {
                     onDescriptionChange = {},
                     onIconSelect = {},
                     onLogFlowChange = {},
-                    onDurationModeChange = {},
+                    onDurationModeChange = onDurationModeChange,
+                    onConfirmLeaveStartStop = onConfirmLeaveStartStop,
+                    onDismissLeaveStartStop = onDismissLeaveStartStop,
                     onIntensityToggle = {},
                     onCheckInToggle = {},
                     onSave = {},
@@ -152,5 +158,46 @@ class CaseEditScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.caseLogFlowInfoTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun leaveStartStopConfirm_whenFlagged_showsDialogNamingTheRunningCount() {
+        setContent(
+            uiState =
+                CaseEditUiState(
+                    isEditing = true,
+                    isLoading = false,
+                    durationMode = DurationMode.START_STOP,
+                    runningEventCount = 2,
+                    showLeaveStartStopConfirm = true,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmBody(2)).assertExists()
+    }
+
+    @Test
+    fun leaveStartStopConfirm_confirmAndCancel_invokeTheirCallbacks() {
+        var confirmed = false
+        var dismissed = false
+        setContent(
+            uiState =
+                CaseEditUiState(
+                    isEditing = true,
+                    isLoading = false,
+                    durationMode = DurationMode.START_STOP,
+                    runningEventCount = 1,
+                    showLeaveStartStopConfirm = true,
+                ),
+            onConfirmLeaveStartStop = { confirmed = true },
+            onDismissLeaveStartStop = { dismissed = true },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopCancelAction).performClick()
+        assertTrue(dismissed)
+
+        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmAction).performClick()
+        assertTrue(confirmed)
     }
 }
