@@ -133,6 +133,34 @@ class HomeViewModelMappingTest {
         assertNull(rows.single().ongoingEvent)
     }
 
+    @Test
+    fun `runningCount is zero when nothing is running`() {
+        val closed = testEvent(occurredAt = 0L).copy(endedAt = 1_000L)
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(closed), durationMode = DurationMode.START_STOP)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(0, rows.single().runningCount)
+    }
+
+    @Test
+    fun `runningCount and ongoingEvent reflect several concurrent open events`() {
+        val first = testEvent(occurredAt = 100L).copy(id = 1L, endedAt = null)
+        val second = testEvent(occurredAt = 500L).copy(id = 2L, endedAt = null)
+        val third = testEvent(occurredAt = 900L).copy(id = 3L, endedAt = null)
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(third, first, second), durationMode = DurationMode.START_STOP)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        val row = rows.single()
+        assertEquals(3, row.runningCount)
+        assertEquals(first, row.ongoingEvent)
+    }
+
     private fun caseWithEvents(
         caseId: Long = 1L,
         icon: String = "🐛",

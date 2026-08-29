@@ -1,8 +1,11 @@
 package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -209,6 +212,62 @@ class CaseDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).performClick()
 
         assertEquals(ongoing, dismissed)
+    }
+
+    @Test
+    fun multipleOngoingEvents_headerShowsCount_andHasNoHeaderStop() {
+        setCaseDetailScreenContent(
+            events =
+                listOf(
+                    EventWithTags(event = testEvent(id = 5L, caseId = 1L, occurredAt = 0L), tags = emptyList()),
+                    EventWithTags(event = testEvent(id = 6L, caseId = 1L, occurredAt = 1_000L), tags = emptyList()),
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.ongoingCountIndicator(2)).assertExists()
+        // Per-event Stop moves onto the rows; the header no longer carries one.
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name))
+            .assertCountEquals(2)
+    }
+
+    @Test
+    fun multipleOngoingEvents_rowStopButton_stopsThatEvent() {
+        val first = testEvent(id = 5L, caseId = 1L, occurredAt = 0L)
+        val second = testEvent(id = 6L, caseId = 1L, occurredAt = 1_000L)
+        var stopped: EventEntity? = null
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(first, emptyList()), EventWithTags(second, emptyList())),
+            onStopEvent = { stopped = it },
+        )
+
+        // Rows render in list order, so the first Stop button belongs to `first`.
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name))
+            .onFirst()
+            .performClick()
+
+        assertEquals(first, stopped)
+    }
+
+    @Test
+    fun multipleStaleOngoingEvents_showConsolidatedBanner_thatDismissesAll() {
+        val dismissed = mutableListOf<EventEntity>()
+        setCaseDetailScreenContent(
+            events =
+                listOf(
+                    EventWithTags(testEvent(id = 5L, caseId = 1L, occurredAt = 0L), emptyList()),
+                    EventWithTags(testEvent(id = 6L, caseId = 1L, occurredAt = 10L), emptyList()),
+                ),
+            onDismissStalePrompt = { dismissed += it },
+            // Well past the 24h stale threshold so both events, not just the first, are stale.
+            nowMillis = { 3L * 24 * 60 * 60_000L },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.staleOngoingMultiPromptMessage(startStopCase.name, 2)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).performClick()
+
+        assertEquals(2, dismissed.size)
     }
 
     private fun eventsAt(

@@ -258,6 +258,23 @@ class StatsEngineTest {
         assertEquals(40L, result.totalMinutes)
     }
 
+    @Test
+    fun `computeDurationStats ignores several concurrent still-running events`() {
+        val start = millisAtDay(0)
+        val events =
+            listOf(
+                eventAt(start, endedAt = start + 15 * 60_000L),
+                eventAt(start), // running, excluded
+                eventAt(start + 60_000L), // running, excluded
+            )
+
+        val result = computeDurationStats(events)!!
+
+        assertEquals(15.0, result.averageMinutes, 0.0001)
+        assertEquals(15L, result.longestMinutes)
+        assertEquals(15L, result.totalMinutes)
+    }
+
     // ---- computeIntensityStats ----
 
     @Test

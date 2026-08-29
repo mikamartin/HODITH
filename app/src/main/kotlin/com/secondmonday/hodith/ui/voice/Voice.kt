@@ -293,9 +293,18 @@ interface Voice {
 
     fun ongoingIndicator(elapsed: String): String
 
+    /** Summary shown in place of a single elapsed time once more than one event is running (spec §6). */
+    fun ongoingCountIndicator(count: Int): String
+
     fun staleOngoingPromptMessage(
         caseName: String,
         elapsed: String,
+    ): String
+
+    /** One consolidated banner when several of a Case's running events are all past the 24h mark. */
+    fun staleOngoingMultiPromptMessage(
+        caseName: String,
+        count: Int,
     ): String
 
     fun bigPictureWeekDetailTitle(date: String): String
@@ -746,10 +755,17 @@ object PlainVoice : Voice {
 
     override fun ongoingIndicator(elapsed: String) = "Ongoing · $elapsed"
 
+    override fun ongoingCountIndicator(count: Int) = "$count running"
+
     override fun staleOngoingPromptMessage(
         caseName: String,
         elapsed: String,
     ) = "Still going, or forgot to stop $caseName? ($elapsed and counting.)"
+
+    override fun staleOngoingMultiPromptMessage(
+        caseName: String,
+        count: Int,
+    ) = "$count events on $caseName have been running over a day. Still going, or forgot to stop them?"
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
@@ -1192,10 +1208,17 @@ object IntenseVoice : Voice {
 
     override fun ongoingIndicator(elapsed: String) = "Still unfolding — $elapsed"
 
+    override fun ongoingCountIndicator(count: Int) = "$count still unfolding"
+
     override fun staleOngoingPromptMessage(
         caseName: String,
         elapsed: String,
     ) = "$caseName has lingered $elapsed. Still unfolding, or simply forgotten?"
+
+    override fun staleOngoingMultiPromptMessage(
+        caseName: String,
+        count: Int,
+    ) = "$count threads of $caseName have lingered past a day. Still unfolding, or simply forgotten?"
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
@@ -1633,10 +1656,17 @@ object BrightVoice : Voice {
 
     override fun ongoingIndicator(elapsed: String) = "Still going · $elapsed"
 
+    override fun ongoingCountIndicator(count: Int) = "$count still going!"
+
     override fun staleOngoingPromptMessage(
         caseName: String,
         elapsed: String,
     ) = "$caseName's been going $elapsed — still happening, or did you just forget?"
+
+    override fun staleOngoingMultiPromptMessage(
+        caseName: String,
+        count: Int,
+    ) = "$count of $caseName's events have been running over a day — still happening, or did you forget them?"
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 

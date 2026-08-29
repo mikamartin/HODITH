@@ -49,6 +49,44 @@ class OngoingEventTest {
         assertNull(ongoingEventIn(case, listOf(event)))
     }
 
+    @Test
+    fun `ongoingEventIn returns the earliest-started open event when several are running`() {
+        val case = testCase(durationMode = DurationMode.START_STOP)
+        val later = testEvent(id = 2L, occurredAt = 500L, endedAt = null)
+        val earlier = testEvent(id = 1L, occurredAt = 100L, endedAt = null)
+
+        assertEquals(earlier, ongoingEventIn(case, listOf(later, earlier)))
+    }
+
+    // --- ongoingEventsIn ---
+
+    @Test
+    fun `ongoingEventsIn returns every open event, earliest first`() {
+        val case = testCase(durationMode = DurationMode.START_STOP)
+        val third = testEvent(id = 3L, occurredAt = 900L, endedAt = null)
+        val first = testEvent(id = 1L, occurredAt = 100L, endedAt = null)
+        val second = testEvent(id = 2L, occurredAt = 400L, endedAt = null)
+        val closed = testEvent(id = 4L, occurredAt = 200L, endedAt = 300L)
+
+        assertEquals(listOf(first, second, third), ongoingEventsIn(case, listOf(third, closed, first, second)))
+    }
+
+    @Test
+    fun `ongoingEventsIn is empty for a START_STOP case with no open events`() {
+        val case = testCase(durationMode = DurationMode.START_STOP)
+        val closed = testEvent(occurredAt = 100L, endedAt = 200L)
+
+        assertTrue(ongoingEventsIn(case, listOf(closed)).isEmpty())
+    }
+
+    @Test
+    fun `ongoingEventsIn is empty for a NONE mode case even with null endedAt events`() {
+        val case = testCase(durationMode = DurationMode.NONE)
+        val event = testEvent(occurredAt = 0L, endedAt = null)
+
+        assertTrue(ongoingEventsIn(case, listOf(event)).isEmpty())
+    }
+
     // --- formatElapsedDuration ---
 
     @Test
@@ -120,9 +158,11 @@ class OngoingEventTest {
     )
 
     private fun testEvent(
+        id: Long = 0L,
         occurredAt: Long = 0L,
         endedAt: Long? = null,
     ) = EventEntity(
+        id = id,
         caseId = 1L,
         occurredAt = occurredAt,
         endedAt = endedAt,
