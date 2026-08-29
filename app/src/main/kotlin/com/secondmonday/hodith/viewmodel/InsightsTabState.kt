@@ -141,7 +141,7 @@ internal fun insightsTabState(
 
     val countsByDay = events.groupingBy { Instant.ofEpochMilli(it.occurredAt).atZone(zone).toLocalDate() }.eachCount()
     val maxDailyCount = countsByDay.values.maxOrNull() ?: 0
-    val gapStats = computeGapStats(events, now, zone)
+    val gapStats = computeGapStats(events, now, zone, eventActiveNow = ongoingEventIn(case, events) != null)
 
     return InsightsTabState.Ready(
         heatmapMonths = heatmapMonths(case, countsByDay, maxDailyCount, now, zone),

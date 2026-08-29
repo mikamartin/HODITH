@@ -163,8 +163,30 @@ class CaseDetailInsightsTabTest {
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsGapsLongestLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsCurrentLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsStreakLongestLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsStreakAverageLabel).assertExists()
+    }
+
+    @Test
+    fun gapsCard_currentGapReadsZero_whileAnEventIsRunning() {
+        // Past gaps 3, 2 days; the newest event (25 days ago) is still open, so the Case is running
+        // right now. Current gap is 0, and the 25-day active stretch is kept out of the longest gap
+        // -- without the fix it would be max(3, 25) = 25.
+        setInsightsTabContent(
+            durationMode = DurationMode.START_STOP,
+            events =
+                listOf(
+                    eventAt(30, endedAt = daysAgo(30) + 60 * 60_000L),
+                    eventAt(27, endedAt = daysAgo(27) + 60 * 60_000L),
+                    eventAt(25, endedAt = null),
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsCurrentLabel).assertExists()
+        composeTestRule.onNodeWithText("0 days").assertExists()
+        // Longest gap is the 3-day past gap, not the 25-day still-running stretch.
+        composeTestRule.onNodeWithText("3 days").assertExists()
     }
 
     @Test

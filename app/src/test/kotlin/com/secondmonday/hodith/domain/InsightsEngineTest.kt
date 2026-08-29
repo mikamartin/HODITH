@@ -90,6 +90,59 @@ class InsightsEngineTest {
     }
 
     @Test
+    fun `computeGapStats reports a zero current gap while an event is running`() {
+        val events = listOf(eventAtDay(0), eventAtDay(5))
+
+        val result = computeGapStats(events, now = millisAtDay(12), eventActiveNow = true)
+
+        assertEquals(0L, result.currentGapDays)
+    }
+
+    @Test
+    fun `computeGapStats keeps the active stretch out of the longest gap`() {
+        // Past gaps: 2, 2 days. Without the flag, 30 days to "now" would be the longest.
+        val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(4))
+
+        val result = computeGapStats(events, now = millisAtDay(30), eventActiveNow = true)
+
+        assertEquals(0L, result.currentGapDays)
+        assertEquals(2L, result.longestGapDays)
+        assertTrue(!result.isCurrentGapLongest)
+    }
+
+    @Test
+    fun `computeGapStats still surfaces a bigger past gap as the longest while an event runs`() {
+        val events = listOf(eventAtDay(0), eventAtDay(20), eventAtDay(22))
+
+        val result = computeGapStats(events, now = millisAtDay(40), eventActiveNow = true)
+
+        assertEquals(0L, result.currentGapDays)
+        assertEquals(20L, result.longestGapDays)
+        assertTrue(!result.isCurrentGapLongest)
+    }
+
+    @Test
+    fun `computeGapStats leaves past gaps and average untouched by the active-now flag`() {
+        val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(6), eventAtDay(12))
+
+        val active = computeGapStats(events, now = millisAtDay(20), eventActiveNow = true)
+        val idle = computeGapStats(events, now = millisAtDay(20), eventActiveNow = false)
+
+        assertEquals(idle.pastGaps, active.pastGaps)
+        assertEquals(idle.averageGapDays, active.averageGapDays, 0.0001)
+        assertEquals(idle.isBursty, active.isBursty)
+    }
+
+    @Test
+    fun `computeGapStats treats no event as running by default`() {
+        val events = listOf(eventAtDay(0), eventAtDay(5))
+
+        val result = computeGapStats(events, now = millisAtDay(12))
+
+        assertEquals(7L, result.currentGapDays)
+    }
+
+    @Test
     fun `computeGapStats does not flag bursty with fewer than 3 past gaps even if uneven`() {
         // Only 2 past gaps (1, 20) — below GAP_BURST_MIN_GAP_COUNT regardless of variance.
         val events = listOf(eventAtDay(0), eventAtDay(1), eventAtDay(21))

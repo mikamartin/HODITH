@@ -5,6 +5,9 @@ package com.secondmonday.hodith.domain
  * longest gap ever seen across the Case's full history. [averageGapDays] and [isBursty] serve the
  * same card; [pastGaps] (each consecutive event-to-event gap, in days) backs the Trend card's
  * gap-shift note ([computeGapShift]).
+ *
+ * While an event is running on the Case, [currentGapDays] is `0` and the active stretch is kept
+ * out of [longestGapDays] / [isCurrentGapLongest] — see [computeGapStats]'s `eventActiveNow`.
  */
 data class GapStats(
     val currentGapDays: Long,

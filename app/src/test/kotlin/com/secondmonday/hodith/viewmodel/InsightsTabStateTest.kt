@@ -25,21 +25,23 @@ private fun millisAtDay(epochDay: Long): Long =
         .toInstant()
         .toEpochMilli()
 
-private fun testCase(createdAt: Long) =
-    CaseEntity(
-        id = 1L,
-        name = "Test Case",
-        icon = "🐛",
-        createdAt = createdAt,
-        logFlow = LogFlow.ONE_TAP,
-        durationMode = DurationMode.NONE,
-        intensityEnabled = false,
-        hunchNudgeDismissed = false,
-        checkInsEnabled = true,
-        lastCheckInAt = null,
-        sortOrder = 0,
-        archived = false,
-    )
+private fun testCase(
+    createdAt: Long,
+    durationMode: DurationMode = DurationMode.NONE,
+) = CaseEntity(
+    id = 1L,
+    name = "Test Case",
+    icon = "🐛",
+    createdAt = createdAt,
+    logFlow = LogFlow.ONE_TAP,
+    durationMode = durationMode,
+    intensityEnabled = false,
+    hunchNudgeDismissed = false,
+    checkInsEnabled = true,
+    lastCheckInAt = null,
+    sortOrder = 0,
+    archived = false,
+)
 
 private fun eventAtDay(epochDay: Long) =
     EventEntity(
@@ -223,5 +225,41 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
         assertEquals(null, state.stats.trend)
+    }
+
+    // ---- stats.gaps while an event is running (A1) ----
+
+    @Test
+    fun `gaps display reports a zero current gap while a START_STOP event is running`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        // The day-5 event is still open (endedAt == null), so the Case is running right now.
+        val events = listOf(eventAtDay(0), eventAtDay(5))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        assertEquals(0L, state.stats.gaps.currentGapDays)
+    }
+
+    @Test
+    fun `gaps display keeps the current gap growing for a NONE-mode case with a null-ended event`() {
+        // Same events, but a NONE-mode Case can't be "running" — a null endedAt there is just a
+        // one-tap event, so the current gap still counts from the last one.
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val events = listOf(eventAtDay(0), eventAtDay(5))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        assertEquals(15L, state.stats.gaps.currentGapDays)
+    }
+
+    @Test
+    fun `gaps display keeps the active stretch out of the longest gap`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        // Past gaps: 2, 2 days. The 36-day active stretch to "now" must not become the longest.
+        val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(4))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(40)) as InsightsTabState.Ready
+
+        assertEquals(2L, state.stats.gaps.longestGapDays)
     }
 }

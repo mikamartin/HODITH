@@ -186,7 +186,7 @@ On the case detail Insights tab, in this order:
 
 - **Frequency over time** — counts per day/week/month (granularity auto-picked from data density, user-overridable)
 - **Rhythm heatmap** — day-of-week × time-of-day grid, cell shade = count, shaded on a finer 20-tier scale than the calendar heatmap or intensity stats for more visible contrast between nearby counts
-- **Gaps & streaks** — longest gap, current gap, average gap; longest streak, average streak (a streak is a run of consecutive calendar days with at least one event); "tends to come in bursts" flag when gap variance is high
+- **Gaps & streaks** — longest gap, current gap (reads 0 while an event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days with at least one event); "tends to come in bursts" flag when gap variance is high
 - **Trend arrow** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise hidden); when shown, also notes a noticeable shift in average gap or streak length between the earlier and more recent half of the Case's history, if present
 - **Duration stats** (if durationMode ≠ NONE) — average, longest, total time
 - **Intensity stats** (if enabled) — average, distribution mini-bars

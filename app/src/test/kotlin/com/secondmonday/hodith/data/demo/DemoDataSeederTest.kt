@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.data.demo
 
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
@@ -20,12 +21,12 @@ class DemoDataSeederTest {
     private val seeder = DemoDataSeeder(repository, clock)
 
     @Test
-    fun `seed inserts six cases with distinct names and events within the seed span`() =
+    fun `seed inserts seven cases with distinct names and events within the seed span`() =
         runTest {
             seeder.seed()
 
             val cases = repository.cases.value
-            assertEquals(6, cases.size)
+            assertEquals(7, cases.size)
             assertEquals(cases.size, cases.map { it.name }.toSet().size)
 
             val spanStart = NOW_MILLIS - SEED_SPAN_DAYS * MILLIS_PER_DAY
@@ -41,7 +42,7 @@ class DemoDataSeederTest {
             seeder.seed()
             seeder.seed()
 
-            assertEquals(12, repository.cases.value.size)
+            assertEquals(14, repository.cases.value.size)
         }
 
     @Test
@@ -68,6 +69,54 @@ class DemoDataSeederTest {
             val currentGapDays = (NOW_MILLIS - lastEventAt) / MILLIS_PER_DAY
             // SPARSE's own maxGapDays is 45 — a gap safely past that can only be the quiet spell, not luck.
             assertTrue(currentGapDays > 45)
+        }
+
+    @Test
+    fun `seed leaves one Migraine event running now`() =
+        runTest {
+            seeder.seed()
+
+            val migraine = repository.cases.value.single { it.name == "Migraine" }
+            val running = repository.events.value.filter { it.caseId == migraine.id && it.endedAt == null }
+            assertEquals(1, running.size)
+        }
+
+    @Test
+    fun `seed leaves Noisy neighbours with more than one event running at once`() =
+        runTest {
+            seeder.seed()
+
+            val neighbours = repository.cases.value.single { it.name == "Noisy neighbours" }
+            val running = repository.events.value.filter { it.caseId == neighbours.id && it.endedAt == null }
+            assertEquals(2, running.size)
+        }
+
+    @Test
+    fun `seed closes every Workout event since that case has no ongoing seed`() =
+        runTest {
+            seeder.seed()
+
+            // Workout is START_STOP with ongoingEventCount 0, so nothing on it should be left open
+            // — a guard that regular START_STOP events still get a real endedAt.
+            val workout = repository.cases.value.single { it.name == "Workout" }
+            assertTrue(repository.events.value.none { it.caseId == workout.id && it.endedAt == null })
+        }
+
+    @Test
+    fun `seed leaves one running event old enough to read as stale`() =
+        runTest {
+            seeder.seed()
+
+            val startStopCaseIds =
+                repository.cases.value
+                    .filter { it.durationMode == DurationMode.START_STOP }
+                    .map { it.id }
+                    .toSet()
+            val stale =
+                repository.events.value.any {
+                    it.caseId in startStopCaseIds && it.endedAt == null && NOW_MILLIS - it.occurredAt >= MILLIS_PER_DAY
+                }
+            assertTrue(stale)
         }
 
     @Test
