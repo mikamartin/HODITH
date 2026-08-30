@@ -3,7 +3,9 @@ package com.secondmonday.hodith.ui.casedetail
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -327,6 +329,23 @@ class CaseDetailInsightsTabTest {
         composeTestRule.onNodeWithText("5 days").assertExists()
         composeTestRule.onNodeWithText("3 days").assertExists()
         composeTestRule.onNodeWithText("1.7 days").assertExists()
+    }
+
+    @Test
+    fun gapsCard_infoIcon_opensAndDismissesDefinitions() {
+        // Frequency and Gaps & streaks are the only two cards with an info icon, in that order,
+        // so the Gaps one is the last node carrying the shared info-icon description.
+        setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelGaps).performScrollTo()
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onLast()
+            .performClick()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsInfoTitle).assertExists()
+
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsInfoTitle).assertDoesNotExist()
     }
 
     // Mirrors InsightsTab.kt's private YearMonth.monthYearLabel() formatting, so the expected text matches exactly.

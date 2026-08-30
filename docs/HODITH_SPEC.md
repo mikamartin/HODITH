@@ -161,6 +161,16 @@ Pure Kotlin, no Android dependencies. Inputs: hunch, event list, `now`.
 
 The part of the app that makes occurrences *visible at a glance*. All custom Compose, all honouring the "early days" rule — below minimum data they show a friendly placeholder, never an empty chart pretending to mean something.
 
+### Active span
+
+For day-counting visuals an event covers every calendar day from its start to its end, inclusive, in the device time zone:
+
+- **finished** event — `occurredAt … endedAt`
+- **still-running** event (`START_STOP`, no `endedAt`) — `occurredAt … now`
+- **point** event (no `endedAt`, not `START_STOP`) — its single day
+
+A span that crosses midnight covers each calendar day it touches — an event from 23:30 Monday to 00:30 Tuesday marks both Monday and Tuesday. This rule governs the per-case calendar heatmap and the streak count (§10). Frequency over time, Rhythm, Trend, the verdict engine (§8), and "observed for N days" stay anchored to `occurredAt` starts.
+
 ### The Big Picture — flagship view
 
 A scrollable multi-month calendar grid (day columns × week rows, like a standard month calendar). Every active Case's icon appears in the cell for each day it has an event. Scrolling swipes through time — oldest at the top, most recent at the bottom, opening on the current month; there is no pinch/continuous zoom, since a calendar grid's natural unit is already a day/week/month, not an arbitrary time window. Tapping the month label opens a quick-jump picker to reach a distant month instantly instead.
@@ -178,7 +188,7 @@ A scrollable multi-month calendar grid (day columns × week rows, like a standar
 
 ### Per-case: calendar heatmap
 
-A year-in-pixels month grid — each day a cell, shaded by event count that day. Cozier, good for "what did this month look like". Rendered last on the Insights tab, after the §10 stat cards below. Shows the three most recent months by default, most-recent-first, with an option to reveal the Case's full history.
+A year-in-pixels month grid — each day a cell, shaded by how many events were active that day (the active-span rule above: a multi-day event shades every day it covers, a running event through today). Cozier, good for "what did this month look like". Rendered last on the Insights tab, after the §10 stat cards below. Shows the three most recent months by default, most-recent-first, with an option to reveal the Case's full history.
 
 ## 10. Stats (descriptive)
 
@@ -186,9 +196,9 @@ On the case detail Insights tab, in this order:
 
 - **Frequency over time** — counts per day/week/month (granularity auto-picked from data density, user-overridable)
 - **Rhythm heatmap** — day-of-week × time-of-day grid, cell shade = count, shaded on a finer 20-tier scale than the calendar heatmap or intensity stats for more visible contrast between nearby counts
-- **Gaps & streaks** — longest gap, current gap (silence since the last event *ended* — its start for a point event; reads 0 while *any* event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days with at least one event); "tends to come in bursts" flag when gap variance is high. `SILENT_FOR` triggers and check-ins count silence from the same point.
+- **Gaps & streaks** — longest gap, current gap (silence since the last event *ended* — its start for a point event; reads 0 while *any* event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days each covered by at least one event's active span, §9); "tends to come in bursts" flag when gap variance is high. `SILENT_FOR` triggers and check-ins count silence from the same point.
 - **Trend arrow** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise hidden); when shown, also notes a noticeable shift in average gap or streak length between the earlier and more recent half of the Case's history, if present
-- **Duration stats** (if durationMode ≠ NONE) — average, longest, total time; still-running events are excluded until they stop
+- **Event duration** (if durationMode ≠ NONE) — average, longest, total time; still-running events are excluded until they stop
 - **Intensity stats** (if enabled) — average, distribution mini-bars
 - **Tag breakdown** — counts per tag, shown against the Case's total event count so an individual tag's count reads in proportion rather than in isolation
 

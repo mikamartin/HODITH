@@ -401,18 +401,27 @@ private fun GapsCard(
     voice: Voice,
 ) {
     InsightsCard {
-        Text(voice.insightsSectionLabelGaps, style = MaterialTheme.typography.titleSmall)
-        StatRow(voice.insightsGapsLongestLabel, formatDays(display.longestGapDays.toDouble()))
-        StatRow(voice.insightsGapsCurrentLabel, formatDays(display.currentGapDays.toDouble()))
-        StatRow(voice.insightsGapsAverageLabel, formatDays(display.averageGapDays))
-        StatRow(voice.insightsStreakLongestLabel, formatDays(display.longestStreakDays.toDouble()))
-        StatRow(voice.insightsStreakAverageLabel, formatDays(display.averageStreakDays))
-        if (display.isBursty) {
-            Text(
-                text = voice.insightsBurstFlagLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
+        SectionWithInfo(
+            label = voice.insightsSectionLabelGaps,
+            infoTitle = voice.insightsGapsInfoTitle,
+            infoBody = voice.insightsGapsInfoBody,
+            infoDescription = voice.caseSectionInfoDescription,
+            labelStyle = MaterialTheme.typography.titleSmall,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatRow(voice.insightsGapsLongestLabel, formatDays(display.longestGapDays.toDouble()))
+                StatRow(voice.insightsGapsCurrentLabel, formatDays(display.currentGapDays.toDouble()))
+                StatRow(voice.insightsGapsAverageLabel, formatDays(display.averageGapDays))
+                StatRow(voice.insightsStreakLongestLabel, formatDays(display.longestStreakDays.toDouble()))
+                StatRow(voice.insightsStreakAverageLabel, formatDays(display.averageStreakDays))
+                if (display.isBursty) {
+                    Text(
+                        text = voice.insightsBurstFlagLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         }
     }
 }

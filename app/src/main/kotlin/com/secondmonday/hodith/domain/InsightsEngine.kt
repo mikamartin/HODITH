@@ -100,8 +100,9 @@ private fun coefficientOfVariation(gaps: List<Long>): Double {
 }
 
 /**
- * Spec §10 gaps & streaks card: a streak is a run of consecutive calendar days that each have at
- * least one event. [activeDates] need not be sorted or distinct.
+ * Spec §10 gaps & streaks card: a streak is a run of consecutive calendar days each covered by at
+ * least one event's active span (spec §9). [activeDates] is that set of covered days from the
+ * caller and need not be sorted or distinct.
  */
 internal fun computeStreakStats(activeDates: List<LocalDate>): StreakStats {
     val runs = consecutiveRunLengths(activeDates)
