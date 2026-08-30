@@ -225,7 +225,7 @@ interface Voice {
     val insightsSectionLabelRhythm: String get() = "Rhythm"
     val insightsSectionLabelGaps: String get() = "Gaps & streaks"
     val insightsSectionLabelTrend: String get() = "Trend"
-    val insightsSectionLabelDuration: String get() = "Duration"
+    val insightsSectionLabelDuration: String get() = "Event duration"
     val insightsSectionLabelIntensity: String get() = "Intensity"
     val insightsSectionLabelTags: String get() = "Tags"
 
@@ -246,6 +246,10 @@ interface Voice {
 
     /** Spec §10's "tends to come in bursts" flag, shown as a badge on the Gaps & streaks card. */
     val insightsBurstFlagLabel: String
+
+    /** Gaps & streaks' info icon: one short line per gap/streak metric, plus the active-span caveat that lets a streak outrun the event count (spec §9). */
+    val insightsGapsInfoTitle: String
+    val insightsGapsInfoBody: String
 
     /** Spec §10 trend arrow: last 30 days vs. the 30 before — purely descriptive, no judgement either way. */
     fun insightsTrendSentence(
@@ -745,6 +749,16 @@ object PlainVoice : Voice {
             "has been tracked, but you can switch it manually above."
     }
 
+    override val insightsGapsInfoTitle = "About gaps & streaks"
+    override val insightsGapsInfoBody =
+        "Longest gap: the longest stretch with no event active.\n" +
+            "Current gap: time since the last event ended, or 0 while one is running.\n" +
+            "Average gap: the typical stretch between events.\n" +
+            "Longest streak: the most days in a row with at least one event active.\n" +
+            "Average streak: the typical length of those runs.\n\n" +
+            "A duration event counts on every day it was active, so a single long event can carry a streak on its own. " +
+            "\"Tends to come in bursts\" shows when the gaps vary a lot."
+
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
@@ -1206,6 +1220,16 @@ object IntenseVoice : Voice {
             "long this case has been watched, though you may set it yourself above."
     }
 
+    override val insightsGapsInfoTitle = "On silences and spells"
+    override val insightsGapsInfoBody =
+        "Longest gap: the longest silence with nothing stirring.\n" +
+            "Current gap: how long since the last event ended, or nothing while one still runs.\n" +
+            "Average gap: the usual quiet between events.\n" +
+            "Longest streak: the most consecutive days something was active.\n" +
+            "Average streak: how long those spells tend to last.\n\n" +
+            "An event with duration marks every day it was active, so one long event can hold a streak alone. " +
+            "\"It comes in waves, not a rhythm\" appears when the gaps are wildly uneven."
+
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
@@ -1658,6 +1682,16 @@ object BrightVoice : Voice {
         return "Just the last 12 $unit — we pick days/weeks/months automatically depending on how long you've been " +
             "tracking, but feel free to flip it yourself up top!"
     }
+
+    override val insightsGapsInfoTitle = "Gaps & streaks, explained!"
+    override val insightsGapsInfoBody =
+        "Longest gap: the biggest quiet stretch with nothing going on.\n" +
+            "Current gap: time since the last event wrapped up, or 0 while something's still running.\n" +
+            "Average gap: the usual space between events.\n" +
+            "Longest streak: the most days in a row with at least one event active.\n" +
+            "Average streak: how long those runs usually go.\n\n" +
+            "Heads up: a duration event counts on every day it was active, so one long event can fill a whole streak by itself! " +
+            "\"Comes in bursts!\" pops up when the gaps are all over the place."
 
     override fun homeCaseCounts(
         todayCount: Int,

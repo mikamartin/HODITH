@@ -158,6 +158,130 @@ class InsightsTabStateTest {
         assertTrue(currentMonth.weeks.last().any { it != null })
     }
 
+    // ---- active span: heatmap + streak cover every day an event was active (§9) ----
+
+    private fun InsightsTabState.Ready.shadedDates(): Set<LocalDate> =
+        heatmapMonths
+            .flatMap { it.weeks.flatten() }
+            .filterNotNull()
+            .filter { it.level != HeatmapLevel.EMPTY }
+            .map { it.date }
+            .toSet()
+
+    private fun InsightsTabState.Ready.heatmapLevelOn(epochDay: Long): HeatmapLevel =
+        heatmapMonths
+            .flatMap { it.weeks.flatten() }
+            .filterNotNull()
+            .single { it.date == LocalDate.ofEpochDay(epochDay) }
+            .level
+
+    @Test
+    fun `heatmap shades every day a finished multi-day event covered, not just its start`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val events = listOf(eventAtDay(0), durationEvent(startDay = 2, endDay = 6))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertTrue(state.shadedDates().containsAll((2L..6L).map { LocalDate.ofEpochDay(it) }))
+    }
+
+    @Test
+    fun `heatmap shades a still-running event through today`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val events = listOf(eventAtDay(0), durationEvent(startDay = 3, endDay = null))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(9)) as InsightsTabState.Ready
+
+        assertTrue(state.shadedDates().containsAll((3L..9L).map { LocalDate.ofEpochDay(it) }))
+    }
+
+    @Test
+    fun `streak counts every day a multi-day event covered as one consecutive run`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        // A lone point event (run of 1) plus a 4-day span (days 10..13).
+        val events = listOf(eventAtDay(0), durationEvent(startDay = 10, endDay = 13))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        assertEquals(4, state.stats.gaps.longestStreakDays)
+    }
+
+    @Test
+    fun `an event that crosses midnight marks both calendar days`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val crossMidnight =
+            EventEntity(
+                id = 0,
+                caseId = 1,
+                occurredAt = millisAtDay(5) + 23 * 3_600_000L,
+                endedAt = millisAtDay(6) + 1 * 3_600_000L,
+                intensity = null,
+                note = null,
+                loggedAt = millisAtDay(5),
+            )
+        val events = listOf(eventAtDay(0), crossMidnight)
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertEquals(2, state.stats.gaps.longestStreakDays)
+        assertTrue(state.shadedDates().containsAll(listOf(LocalDate.ofEpochDay(5), LocalDate.ofEpochDay(6))))
+    }
+
+    @Test
+    fun `a NONE-mode null-ended event stays a single point in the heatmap and streak`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val events = listOf(eventAtDay(0), eventAtDay(5))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        assertEquals(1, state.stats.gaps.longestStreakDays)
+        assertEquals(setOf(LocalDate.ofEpochDay(0), LocalDate.ofEpochDay(5)), state.shadedDates())
+    }
+
+    @Test
+    fun `overlapping duration events merge into one streak and stack on the shared days`() {
+        // The reported case: a 5-day event (days 0..4) and a 12-day event (days 1..12) overlap,
+        // so their union is a single 13-day run and days 1..4 carry both events.
+        val case = testCase(createdAt = millisAtDay(0))
+        val events = listOf(durationEvent(startDay = 0, endDay = 4), durationEvent(startDay = 1, endDay = 12))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        assertEquals(13, state.stats.gaps.longestStreakDays)
+        // A day both events cover shades darker than a day only one covers.
+        assertTrue(state.heatmapLevelOn(2).ordinal > state.heatmapLevelOn(0).ordinal)
+    }
+
+    @Test
+    fun `a still-running event extends the streak through today`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        // A finished same-day event on day 0 (a run of 1), then an event started day 5 and never
+        // stopped; "now" is day 12, so days 5..12 are all active -> an 8-day run.
+        val events = listOf(durationEvent(startDay = 0, endDay = 0), durationEvent(startDay = 5, endDay = null))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(12)) as InsightsTabState.Ready
+
+        assertEquals(8, state.stats.gaps.longestStreakDays)
+    }
+
+    @Test
+    fun `frequency-over-time stays anchored to event starts even while the heatmap spans`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        // A 4-day event (days 15..18) plus a point event on day 19; "now" is day 20.
+        val events = listOf(durationEvent(startDay = 15, endDay = 18), eventAtDay(19))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        // The heatmap spread the duration event across its four days...
+        assertTrue(state.shadedDates().containsAll((15L..18L).map { LocalDate.ofEpochDay(it) }))
+        // ...but frequency still counts each event once, at its start.
+        assertEquals(
+            2,
+            state.stats.frequency.bars
+                .sumOf { it.count },
+        )
+    }
+
     // ---- stats.totalEventCount / stats.tags ----
 
     @Test

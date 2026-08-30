@@ -23,6 +23,7 @@ import com.secondmonday.hodith.domain.computeStreakShift
 import com.secondmonday.hodith.domain.computeStreakStats
 import com.secondmonday.hodith.domain.computeTagBreakdown
 import com.secondmonday.hodith.domain.computeTrendStats
+import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.domain.pickFrequencyGranularity
@@ -139,7 +140,18 @@ internal fun insightsTabState(
     val events = eventsWithTags.map { it.event }
     if (events.size < INSIGHTS_MIN_EVENTS) return InsightsTabState.NotEnoughData
 
-    val countsByDay = events.groupingBy { Instant.ofEpochMilli(it.occurredAt).atZone(zone).toLocalDate() }.eachCount()
+    // Spec §9 active span: each event counts on every calendar day it was active, not just its start
+    // day. A finished event runs occurredAt..endedAt; a still-running START_STOP event runs to now
+    // (matching ongoingEventsIn's rule that only START_STOP can be ongoing); a point event stays on
+    // its single day. Feeds both the heatmap shading and the streak count.
+    val runsToNowWhenOpen = case.durationMode == DurationMode.START_STOP
+    val countsByDay =
+        events
+            .flatMap { event ->
+                val end = event.endedAt ?: if (runsToNowWhenOpen) now else event.occurredAt
+                datesCovered(event.occurredAt, end, zone)
+            }.groupingBy { it }
+            .eachCount()
     val maxDailyCount = countsByDay.values.maxOrNull() ?: 0
     val gapStats = computeGapStats(events, now, zone, eventActiveNow = ongoingEventIn(case, events) != null)
 
@@ -242,8 +254,9 @@ private fun statsSections(
 
 /**
  * Stacks a month grid per month from the Case's earliest activity (creation or first retro-logged
- * event, whichever is earlier) through the current month, each day shaded relative to this Case's
- * own busiest day — reuses [weeksInGrid]'s Monday-start padding so the layout matches Big Picture.
+ * event, whichever is earlier) through the current month, each day shaded by how many events were
+ * active that day (spec §9 active span) relative to this Case's own busiest day — reuses
+ * [weeksInGrid]'s Monday-start padding so the layout matches Big Picture.
  */
 private fun heatmapMonths(
     case: CaseEntity,

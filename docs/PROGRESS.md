@@ -20,12 +20,12 @@ Each item carries:
 
 ## Story A — Start/Stop, duration & ongoing events
 
-A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A4 are done; the rest still share files, so sequence matters:
+A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A5 are done; the rest still share files, so sequence matters:
 
-- `CalendarGrid.kt` day iteration — A5, A6
+- `CalendarGrid.kt` day iteration — A6 (reuses A5's `datesCovered`)
 - formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — A6, time-format satellite
 
-### A1–A4 · done — Start/Stop & duration polish
+### A1–A5 · done — Start/Stop & duration polish
 
 Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds on" / "sequence after" pointers below.
 
@@ -33,29 +33,7 @@ Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds 
 - **A2** — multiple running events per Case (`feat/multiple-ongoing-events`): `ongoingEventsIn` list beside `ongoingEventIn`, per-event Stop, "N running" summaries, "Back to ongoing" in the sheet, leave-`START_STOP` confirm in `CaseEditViewModel`. Spec §6/§10.
 - **A3** — one running-event treatment on every surface (`fix/ongoing-affordance`): "Ongoing" pill + elapsed/count, hand-drawn `StopSquare` glyph, count-only Case-detail log header, `+` log button stays put everywhere. Spec §6/§15.
 - **A4** — minutes/hours/days unit selector in the Manual duration field (`feat/duration-unit-selector`): `LogDraft.durationAmount`/`durationUnit`, `computeEndedAt` scales by unit, storage stays millis. Spec §6.
-
-### A5 · Duration events are drawn as a single point at their start in per-case views
-
-*Branch: `feat/active-span-insights` · Complexity: M · Priority: Medium · Area: Duration*
-
-🎨 **Design decision** — the "active span" rule is a design artifact, write it before coding; heatmap shading by active-event count is a product decision. Builds on A1's `eventActiveNow` plumbing (done).
-
-The calendar heatmap shades only the start day; streaks credit only start days.
-
-**Acceptance criteria**
-
-- [ ] A written "active span" rule: finished → `occurredAt..endedAt`; ongoing → `occurredAt..now`; a midnight-crossing span covers every calendar day it touches.
-- [ ] `activeDates` / `countsByDay` in `insightsTabState` expand to every covered day.
-- [ ] Streak runs and calendar-heatmap day marking consume the expanded days.
-- [ ] Day iteration stays in `domain/CalendarGrid.kt` (shared with Big Picture).
-- [ ] Heatmap colour shades by count of duration events active on a day, not raw start count.
-- [ ] Tests: `InsightsEngineTest`, `StatsEngineTest`, `InsightsTabStateTest`; `computeStreakShift` / gap-burst assertions and `ShareCardTemplateTest` floor/no-clip updated if they shift.
-
-**Plan** — define an "active span" rule once, written down: finished event → `occurredAt..endedAt`; ongoing → `occurredAt..now`; a span crossing midnight covers every calendar day it touches. Expand `activeDates` / `countsByDay` in `insightsTabState` to every covered day, feeding streak runs and calendar-heatmap day marking; keep the day iteration in `domain/CalendarGrid.kt` (shared with Big Picture). Heatmap colour shades by the count of duration events active on a day (product decision), not raw start count.
-
-**Tests** — `InsightsEngineTest`, `StatsEngineTest`, `InsightsTabStateTest`; ripples into `computeStreakShift` / gap-burst assertions and the share card (`ShareCardTemplateTest` floor/no-clip may shift).
-
-**Concern** — the active-span rule is a real design artifact — write it before coding. Builds on A1's `eventActiveNow` plumbing (done).
+- **A5** — the per-case calendar heatmap and streak count credit every day an event was active, not just its start (`feat/active-span-insights`): the "active span" rule written to spec §9, `domain/CalendarGrid.kt` `datesCovered` helper (A6 reuses it), `insightsTabState`'s `countsByDay` expanded across covered days. Frequency / Rhythm / Trend / verdict stay start-anchored. Also: a gaps & streaks info icon defining each metric, and the Insights "Duration" card renamed "Event duration". Spec §9/§10.
 
 ### A6 · Duration/ongoing not encoded on the Big Picture grid or the frequency chart
 
@@ -73,14 +51,14 @@ Every visualization currently treats an event as a zero-width point at `occurred
 - [ ] `DayDetailDialog` / `WeekDetailDialog` show "ongoing since …" / "lasted N days" instead of a misleading clock time on a spanned day.
 - [ ] `computeFrequencyStats` (`domain/StatsEngine.kt`) distributes an event across every bucket it covers.
 - [ ] `computeTrendStats` and the verdict engine stay on `occurredAt` starts; the difference is noted in the Rhythm/Insights caveat.
-- [ ] HODITH_SPEC §9 line 174, the `CalendarEvent` doc comment, and `BigPictureGrid`'s KDoc all updated together.
+- [ ] HODITH_SPEC §9's "intensity and duration are not encoded on the grid" line, the `CalendarEvent` doc comment, and `BigPictureGrid`'s KDoc all updated together.
 - [ ] Tests: `BigPictureViewModelTest`, `BigPictureGrid` UI tests, `StatsEngineTest`.
 
 **Plan** — `CalendarEvent` (`viewmodel/BigPictureViewModel.kt`) gains `endedAt`; `BigPictureGrid` grouping expands an event across its span and renders spanned days in the faded/connected style. `DayDetailDialog` / `WeekDetailDialog` show "ongoing since …" / "lasted N days" instead of a clock time that misleads on a spanned day. Frequency-over-time (`domain/StatsEngine.kt` `computeFrequencyStats`) distributes an event across the buckets it covers. Depends on the active-span rule from A5.
 
 **Tests** — `BigPictureViewModelTest`, `BigPictureGrid` UI tests, `StatsEngineTest`.
 
-**Concern** — reverses a decision documented in three places: HODITH_SPEC §9 line 174, the `CalendarEvent` doc comment, and `BigPictureGrid`'s KDoc ("intensity and duration are not encoded — a day cell shows icon-only, cross-case co-occurrence"). All three change together. **Open sub-decision:** does distributing an event across frequency buckets redefine that chart as "active time" rather than "starts", and do `computeTrendStats` and the verdict engine follow? Recommendation: no — keep trend and verdict on `occurredAt` starts, and note the difference in the Rhythm/Insights caveat.
+**Concern** — reverses a decision documented in three places: HODITH_SPEC §9's "intensity and duration are not encoded on the grid" line, the `CalendarEvent` doc comment, and `BigPictureGrid`'s KDoc ("intensity and duration are not encoded — a day cell shows icon-only, cross-case co-occurrence"). All three change together. **Open sub-decision:** does distributing an event across frequency buckets redefine that chart as "active time" rather than "starts", and do `computeTrendStats` and the verdict engine follow? Recommendation: no — keep trend and verdict on `occurredAt` starts, and note the difference in the Rhythm/Insights caveat.
 
 ### A7 · Rhythm grid plots duration events by start time with no caveat
 
@@ -123,6 +101,20 @@ An event that began late Monday and ran into Tuesday morning shows as one "late 
 **Tests** — `HomeViewModelMappingTest`.
 
 **Concern** — not in Story A's shared-file chain (`HomeViewModel.kt` only), but the rule must match A5's or Home and the heatmap disagree. Sequence after A5's rule is written.
+
+### A9 · Verdict engine's handling of duration events is unreviewed
+
+*Branch: `feat/verdict-duration-review` · Complexity: S · Priority: Low · Area: Big Picture*
+
+🔍 **Investigation** — read-through first; a fix only if the read finds a real distortion. 🎨 **Design decision** — the ruling belongs in spec §8. No file-chain dependency on A5–A8.
+
+The verdict engine and its observation-window / observed-rate math count each event once at `occurredAt` and never look at `endedAt`. Whether a multi-day event should still count as one occurrence (likely yes), whether a still-running event counts before it stops, and whether the observation window's end should track a running event, have not been decided or tested.
+
+**Acceptance criteria**
+
+- [ ] Verdict engine, observation window, and observed-rate code read through for duration/ongoing handling.
+- [ ] A written ruling added to HODITH_SPEC §8 (even if the ruling is "unchanged — starts only, one occurrence each").
+- [ ] Code changed only if the read finds a genuine distortion; otherwise a test locking the current behaviour.
 
 ### Satellite · 12h/24h time format
 
