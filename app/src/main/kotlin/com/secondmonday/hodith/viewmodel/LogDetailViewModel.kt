@@ -3,12 +3,41 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 
 internal const val EVENT_NOTE_MAX_LENGTH = 280
+
+/**
+ * Unit the Manual-mode duration amount is typed in (spec §6). Storage is always millis — this
+ * is only how the integer in [LogDraft.durationAmount] is scaled, so a multi-day event doesn't
+ * mean typing thousands of minutes. Integer amounts only (the field caps digits, matching
+ * [com.secondmonday.hodith.ui.common.filterDigitInput]).
+ */
+enum class DurationUnit(
+    val millis: Long,
+) {
+    MINUTES(MILLIS_PER_MINUTE),
+    HOURS(MILLIS_PER_HOUR),
+    DAYS(MILLIS_PER_DAY),
+}
+
+/**
+ * The largest unit that renders [durationMillis] as a whole number, so an event stored as an
+ * exact N hours or N days loads back onto that unit rather than a big minute count; anything
+ * that doesn't divide cleanly (and any non-positive value) falls back to minutes.
+ */
+internal fun durationUnitFor(durationMillis: Long): DurationUnit =
+    when {
+        durationMillis <= 0L -> DurationUnit.MINUTES
+        durationMillis % MILLIS_PER_DAY == 0L -> DurationUnit.DAYS
+        durationMillis % MILLIS_PER_HOUR == 0L -> DurationUnit.HOURS
+        else -> DurationUnit.MINUTES
+    }
 
 /**
  * Draft state for [com.secondmonday.hodith.ui.logsheet.LogDetailSheet], the log detail sheet
@@ -21,7 +50,10 @@ internal const val EVENT_NOTE_MAX_LENGTH = 280
 data class LogDraft(
     val occurredAt: Long,
     val intensity: Int?,
-    val durationMinutes: String,
+    /** MANUAL mode's typed duration amount, expressed in [durationUnit]s. Digits only; blank means no duration. */
+    val durationAmount: String,
+    /** Unit [durationAmount] is entered in (MANUAL mode only). */
+    val durationUnit: DurationUnit,
     val note: String,
     val tags: List<String>,
     /** `START_STOP` mode's editable end time (spec §6) — null means still ongoing. */
@@ -45,22 +77,22 @@ internal fun draftFrom(
         return LogDraft(
             occurredAt = now,
             intensity = null,
-            durationMinutes = "",
+            durationAmount = "",
+            durationUnit = DurationUnit.MINUTES,
             note = "",
             tags = emptyList(),
             endedAt = null,
             existingEndedAt = null,
         )
     }
-    val durationMinutes =
-        event.endedAt
-            ?.let { (it - event.occurredAt) / MILLIS_PER_MINUTE }
-            ?.toString()
-            .orEmpty()
+    val durationMillis = event.endedAt?.let { it - event.occurredAt }
+    val durationUnit = durationMillis?.let(::durationUnitFor) ?: DurationUnit.MINUTES
+    val durationAmount = durationMillis?.let { (it / durationUnit.millis).toString() }.orEmpty()
     return LogDraft(
         occurredAt = event.occurredAt,
         intensity = event.intensity,
-        durationMinutes = durationMinutes,
+        durationAmount = durationAmount,
+        durationUnit = durationUnit,
         note = event.note.orEmpty(),
         tags = tags.map { it.name },
         endedAt = event.endedAt,
@@ -69,25 +101,26 @@ internal fun draftFrom(
 }
 
 /**
- * Parses the duration/end-time field into an `endedAt`. MANUAL derives it from the typed
- * minutes; START_STOP reads the sheet's own editable end time ([endedAt] — null means still
- * ongoing), clamped to `[occurredAt, now]` since a real end *timestamp* can't precede its own
- * start or land in the future (unlike MANUAL's minutes, which may deliberately project past
- * `now` — see [LogDraft.toEventEntity]). NONE has no duration control at all in the sheet, so
- * [existingEndedAt] is passed through unchanged rather than nulled out, preserving a duration
- * logged while the case was still in a different `durationMode`.
+ * Parses the duration/end-time field into an `endedAt`. MANUAL scales the typed amount by its
+ * unit ([durationUnit]) and adds it to the start; START_STOP reads the sheet's own editable end
+ * time ([endedAt] — null means still ongoing), clamped to `[occurredAt, now]` since a real end
+ * *timestamp* can't precede its own start or land in the future (unlike MANUAL's amount, which
+ * may deliberately project past `now` — see [LogDraft.toEventEntity]). NONE has no duration
+ * control at all in the sheet, so [existingEndedAt] is passed through unchanged rather than
+ * nulled out, preserving a duration logged while the case was still in a different `durationMode`.
  */
 internal fun computeEndedAt(
     occurredAt: Long,
     durationMode: DurationMode,
-    durationMinutesInput: String,
+    durationAmountInput: String,
+    durationUnit: DurationUnit,
     endedAt: Long?,
     existingEndedAt: Long?,
     now: Long,
 ): Long? =
     when (durationMode) {
         DurationMode.MANUAL ->
-            durationMinutesInput.toIntOrNull()?.takeIf { it > 0 }?.let { occurredAt + it * MILLIS_PER_MINUTE }
+            durationAmountInput.toIntOrNull()?.takeIf { it > 0 }?.let { occurredAt + it * durationUnit.millis }
         DurationMode.START_STOP -> endedAt?.coerceIn(occurredAt, now)
         DurationMode.NONE -> existingEndedAt
     }
@@ -114,7 +147,7 @@ internal fun LogDraft.toEventEntity(
         id = existingId,
         caseId = caseId,
         occurredAt = clampedOccurredAt,
-        endedAt = computeEndedAt(clampedOccurredAt, durationMode, durationMinutes, endedAt, existingEndedAt, now),
+        endedAt = computeEndedAt(clampedOccurredAt, durationMode, durationAmount, durationUnit, endedAt, existingEndedAt, now),
         intensity = intensity,
         note = note.trim().take(EVENT_NOTE_MAX_LENGTH).takeIf { it.isNotEmpty() },
         loggedAt = loggedAt,

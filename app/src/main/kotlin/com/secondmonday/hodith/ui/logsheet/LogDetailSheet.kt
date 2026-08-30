@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.logsheet
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,25 +42,34 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerState
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.filterDigitInput
+import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
+import com.secondmonday.hodith.ui.voice.voiceFor
+import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.applyPickedDate
 import com.secondmonday.hodith.viewmodel.applyPickedTime
@@ -71,7 +81,8 @@ import java.time.ZoneOffset
 
 private val INTENSITY_RANGE = 1..5
 private val INTENSITY_CHOICE_SIZE = 48.dp
-private const val DURATION_MINUTES_MAX_DIGITS = 5
+private const val DURATION_AMOUNT_MAX_DIGITS = 5
+private val DURATION_UNITS = listOf(DurationUnit.MINUTES, DurationUnit.HOURS, DurationUnit.DAYS)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -146,13 +157,12 @@ fun LogDetailSheet(
             }
 
             if (durationMode == DurationMode.MANUAL) {
-                OutlinedTextField(
-                    value = draft.durationMinutes,
-                    onValueChange = { draft = draft.copy(durationMinutes = filterDigitInput(it, maxDigits = DURATION_MINUTES_MAX_DIGITS)) },
-                    label = { Text(voice.logSheetDurationLabel) },
-                    placeholder = { Text(voice.logSheetDurationHint) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
+                DurationSection(
+                    amount = draft.durationAmount,
+                    unit = draft.durationUnit,
+                    onAmountChange = { draft = draft.copy(durationAmount = filterDigitInput(it, maxDigits = DURATION_AMOUNT_MAX_DIGITS)) },
+                    onUnitChange = { draft = draft.copy(durationUnit = it) },
+                    voice = voice,
                 )
             }
 
@@ -393,6 +403,85 @@ private fun IntensityChoice(
     }
 }
 
+/**
+ * MANUAL-mode duration: an integer [amount] field with a compact minutes/hours/days unit
+ * selector inside the field's trailing slot (spec §6), so logging a multi-day event doesn't
+ * mean typing thousands of minutes. Storage stays millis — the unit only scales what's typed.
+ */
+@Composable
+private fun DurationSection(
+    amount: String,
+    unit: DurationUnit,
+    onAmountChange: (String) -> Unit,
+    onUnitChange: (DurationUnit) -> Unit,
+    voice: Voice,
+) {
+    OutlinedTextField(
+        value = amount,
+        onValueChange = onAmountChange,
+        label = { Text(voice.logSheetDurationLabel) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        trailingIcon = { DurationUnitSelector(selected = unit, onSelect = onUnitChange, voice = voice) },
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun DurationUnitSelector(
+    selected: DurationUnit,
+    onSelect: (DurationUnit) -> Unit,
+    voice: Voice,
+) {
+    Row(
+        modifier =
+            Modifier
+                .padding(end = 8.dp)
+                .clip(CircleShape)
+                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                .selectableGroup(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DURATION_UNITS.forEach { unit ->
+            val isSelected = unit == selected
+            Box(
+                modifier =
+                    Modifier
+                        // Keeps the visual segment compact while the touch target stays a full 48 dp
+                        // (same order M3's own IconButton uses).
+                        .minimumInteractiveComponentSize()
+                        .selectable(selected = isSelected, onClick = { onSelect(unit) }, role = Role.RadioButton)
+                        .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    // Small-caps treatment — matches Settings' AreaHeader (uppercase + labelSmall's
+                    // built-in tracking); the Voice strings stay natural-case for the copy audit.
+                    text = durationUnitLabel(unit, voice).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color =
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
+        }
+    }
+}
+
+private fun durationUnitLabel(
+    unit: DurationUnit,
+    voice: Voice,
+): String =
+    when (unit) {
+        DurationUnit.MINUTES -> voice.logSheetDurationUnitMinutes
+        DurationUnit.HOURS -> voice.logSheetDurationUnitHours
+        DurationUnit.DAYS -> voice.logSheetDurationUnitDays
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LogDetailDatePickerDialog(
@@ -551,5 +640,64 @@ private fun TagEditor(
                 Icon(Icons.Filled.Add, contentDescription = voice.logSheetAddTagHint)
             }
         }
+    }
+}
+
+@Composable
+private fun DurationSectionPreviewContent() {
+    var draft by remember {
+        mutableStateOf(
+            LogDraft(
+                occurredAt = 0L,
+                intensity = null,
+                durationAmount = "90",
+                durationUnit = DurationUnit.HOURS,
+                note = "",
+                tags = emptyList(),
+                endedAt = null,
+                existingEndedAt = null,
+            ),
+        )
+    }
+    Column(modifier = Modifier.padding(16.dp)) {
+        DurationSection(
+            amount = draft.durationAmount,
+            unit = draft.durationUnit,
+            onAmountChange = { draft = draft.copy(durationAmount = it) },
+            onUnitChange = { draft = draft.copy(durationUnit = it) },
+            voice = LocalVoice.current,
+        )
+    }
+}
+
+@Preview(name = "DurationSection — Plain light", showBackground = true, widthDp = 380)
+@Composable
+private fun DurationSectionPlainLightPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        CompositionLocalProvider(LocalVoice provides voiceFor(AppTheme.PLAIN)) { DurationSectionPreviewContent() }
+    }
+}
+
+@Preview(name = "DurationSection — Plain dark", showBackground = true, widthDp = 380)
+@Composable
+private fun DurationSectionPlainDarkPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = true) {
+        CompositionLocalProvider(LocalVoice provides voiceFor(AppTheme.PLAIN)) { DurationSectionPreviewContent() }
+    }
+}
+
+@Preview(name = "DurationSection — Intense", showBackground = true, widthDp = 380)
+@Composable
+private fun DurationSectionIntensePreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) {
+        CompositionLocalProvider(LocalVoice provides voiceFor(AppTheme.INTENSE)) { DurationSectionPreviewContent() }
+    }
+}
+
+@Preview(name = "DurationSection — Bright", showBackground = true, widthDp = 380)
+@Composable
+private fun DurationSectionBrightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        CompositionLocalProvider(LocalVoice provides voiceFor(AppTheme.BRIGHT)) { DurationSectionPreviewContent() }
     }
 }

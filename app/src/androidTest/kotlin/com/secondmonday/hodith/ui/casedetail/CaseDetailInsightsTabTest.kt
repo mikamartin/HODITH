@@ -19,6 +19,7 @@ import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
+import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
 import org.junit.Rule
 import org.junit.Test
@@ -69,7 +70,8 @@ class CaseDetailInsightsTabTest {
                         LogDraft(
                             occurredAt = now,
                             intensity = null,
-                            durationMinutes = "",
+                            durationAmount = "",
+                            durationUnit = DurationUnit.MINUTES,
                             note = "",
                             tags = emptyList(),
                             endedAt = null,
