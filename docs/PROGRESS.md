@@ -20,48 +20,19 @@ Each item carries:
 
 ## Story A — Start/Stop, duration & ongoing events
 
-A round of user testing surfaced a cluster of Start/Stop and duration issues. They share `ui/common/OngoingIndicator.kt`, `ui/logsheet/LogDetailSheet.kt`, and `domain/CalendarGrid.kt` — so sequence matters. Work them in the order below.
+A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A4 are done; the rest still share files, so sequence matters:
 
-Shared-file map (why the order is what it is):
-
-- `LogDetailSheet.kt` — A4 (A3 done)
 - `CalendarGrid.kt` day iteration — A5, A6
 - formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — A6, time-format satellite
 
-### A1 · Ongoing event keeps the "current gap" growing — done (`fix/ongoing-current-gap`, reopened as `fix/duration-gap-from-end`)
+### A1–A4 · done — Start/Stop & duration polish
 
-First pass handled the *running* case: `computeGapStats` takes an `eventActiveNow` flag (via `ongoingEventIn` in `insightsTabState`) so current gap reads 0 and the active stretch stays out of the longest gap while an event runs. Demo seed data carries ongoing events (Migraine, one; Noisy neighbours, two). That `eventActiveNow` plumbing is what A5 builds on.
+Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds on" / "sequence after" pointers below.
 
-Reopened because a *finished* duration event still misreported: once it stopped, `computeGapStats` fell back to `daysBetween(lastEvent.occurredAt, now)` — start-anchored — so a six-day event wrapped up today read as a six-day current gap. Now a gap is measured from when an event *ended*: current gap counts from `max(endedAt ?: occurredAt)`, past gaps run end-to-start (floored at 0 for overlaps), and point events (`endedAt == null`) are unchanged. `SILENT_FOR` triggers and check-ins shared the root cause — both anchored on `getMostRecentEventForCase(...).occurredAt` — and now count from the same `EventDao.getLatestEventEndForCase`, with a still-running event on a `START_STOP` Case pinning the silence clock to zero. Spec §10/§11 reworded to match.
-
-### A2 · Multiple running events on one Case — done (`feat/multiple-ongoing-events`)
-
-`ongoingEventsIn` (list, earliest-first) sits alongside `ongoingEventIn` (now the earliest open event, deterministically). Home rows and the Case-detail log header read "N running" past one event and drop the summary Stop; each running event carries its own Stop button on its log row (`showInlineStop`, reusing `CaseDetailViewModel.stopEvent`). Both widgets swap the red Stop button for an accent "N running" pill that opens Case Detail. `LogDetailSheet`'s End section gained a "Back to ongoing" button (`draft.endedAt = null`); `planSaveEvent` rebases `staleNudgeDismissedAt` on reopen so an old start doesn't fire the stale prompt immediately. `CaseEditViewModel` holds a leave-`START_STOP` mode change behind a confirm when events run and stops them all on save. Several concurrently-stale running events collapse to one consolidated header banner. Spec §6 reworded and §10 gained the duration/intensity-toggle-off clarification.
-
-### A3 · Stop control is a checkmark; the running state is easy to miss — done (`fix/ongoing-affordance`)
-
-One treatment for a running event on every surface. An **"Ongoing" pill** (`OngoingPill`, `primaryContainer` chip, Voice `ongoingPillLabel` ×3) marks it, followed by elapsed time (one event) or `ongoingCountIndicator` (several). `StopIconButton` swaps `Icons.Filled.Done` for a hand-drawn `drawRoundRect` square (`StopSquare`, mirroring `InfoIcon` — no `material-icons-extended`), `contentDescription` unchanged. The Case-detail log header always reads as a count (`OngoingCountText`, "1 running" included) with no Stop; every open event's row shows its own live elapsed (`OngoingElapsedText`) and its own Stop — `showInlineStop` gate dropped. Home rows and both widgets show the pill + summary and keep the `+` log button in every state (`HomeViewModel.onQuickLogTap` no longer stops; `WidgetCaseSubtitle` shared by both widgets; `WidgetPalette.accentContainer` added, `StopEventAction`/`widgetStopAction`/`widgetRunningCount`/`ongoingIndicator` removed). `LogDetailSheet` `EndTimeSection` drops the past-tense "Ended" header while `endedAt == null` (no new Voice key). Previews per voice added to `OngoingIndicator.kt`. Grew past the original S scope to unify Home + widgets; spec §6 and §15 reworded (the one-vs-many split, the header/summary Stop, and "the Start affordance becomes the Stop action" all reversed).
-
-### A4 · Manual duration entry is locked to minutes
-
-*Branch: `feat/duration-unit-selector` · Complexity: S · Priority: Medium · Area: Duration*
-
-The Manual-mode duration field (`ui/logsheet/LogDetailSheet.kt`) is a single "Minutes" number field, so a multi-day event means typing thousands of minutes.
-
-**Acceptance criteria**
-
-- [ ] A minutes/hours/days selector sits beside the Manual-mode duration field.
-- [ ] Storage stays millis; integer units only (matches `filterDigitInput`).
-- [ ] On edit-load, the unit that renders the stored duration cleanly is chosen, else minutes.
-- [ ] `LogDetailViewModelTest` covers round-trip per unit and the non-clean-multiple fallback.
-- [ ] Voice key in all three voices for any new label.
-- [ ] No schema change.
-
-**Plan** — add a minutes/hours/days selector beside the field; storage stays millis. Integer units only (matches `filterDigitInput`); on edit-load pick the unit that renders the stored duration cleanly, else fall back to minutes. Touches `LogDetailSheet.kt`, `viewmodel/LogDetailViewModel.kt` (`LogDraft`, `draftFrom`, `computeEndedAt`), Voice ×3.
-
-**Tests** — `LogDetailViewModelTest` — round-trip per unit, non-clean-multiple fallback.
-
-**Concern** — none; no schema impact. Sequence after A3 to avoid three-way conflicts in `LogDetailSheet.kt`.
+- **A1** — gaps, `SILENT_FOR` triggers and check-in silence now count from when an event *ended*, not its start (`fix/ongoing-current-gap`, reopened as `fix/duration-gap-from-end`). `computeGapStats` also takes the `eventActiveNow` flag A5 builds on. Spec §10/§11.
+- **A2** — multiple running events per Case (`feat/multiple-ongoing-events`): `ongoingEventsIn` list beside `ongoingEventIn`, per-event Stop, "N running" summaries, "Back to ongoing" in the sheet, leave-`START_STOP` confirm in `CaseEditViewModel`. Spec §6/§10.
+- **A3** — one running-event treatment on every surface (`fix/ongoing-affordance`): "Ongoing" pill + elapsed/count, hand-drawn `StopSquare` glyph, count-only Case-detail log header, `+` log button stays put everywhere. Spec §6/§15.
+- **A4** — minutes/hours/days unit selector in the Manual duration field (`feat/duration-unit-selector`): `LogDraft.durationAmount`/`durationUnit`, `computeEndedAt` scales by unit, storage stays millis. Spec §6.
 
 ### A5 · Duration events are drawn as a single point at their start in per-case views
 

@@ -112,7 +112,14 @@ interface Voice {
     val logSheetTimeLabel: String
     val logSheetIntensityLabel: String
     val logSheetDurationLabel: String
-    val logSheetDurationHint: String get() = "Minutes"
+
+    /**
+     * Unit labels for the Manual-mode duration selector (spec §6). Structural chrome — a compact
+     * three-segment control inside the field — so these are shared defaults, not authored per voice.
+     */
+    val logSheetDurationUnitMinutes: String get() = "Min"
+    val logSheetDurationUnitHours: String get() = "Hr"
+    val logSheetDurationUnitDays: String get() = "Day"
     val logSheetNoteLabel: String
     val logSheetNoteHint: String
     val logSheetTagsLabel: String

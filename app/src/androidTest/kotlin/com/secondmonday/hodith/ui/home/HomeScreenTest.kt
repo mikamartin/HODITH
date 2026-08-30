@@ -14,6 +14,7 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.HomeLogSheetState
 import com.secondmonday.hodith.viewmodel.HomeUiState
@@ -258,7 +259,8 @@ class HomeScreenTest {
                     LogDraft(
                         occurredAt = 0L,
                         intensity = null,
-                        durationMinutes = "",
+                        durationAmount = "",
+                        durationUnit = DurationUnit.MINUTES,
                         note = "",
                         tags = emptyList(),
                         endedAt = null,

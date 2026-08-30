@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A4 — Manual duration unit selector prototype</title>
+<style>
+  /* Plain theme, light — from ui/theme/Color.kt */
+  :root {
+    --primary: #3A6B76;
+    --on-primary: #FFFFFF;
+    --primary-container: #C7E8ED;
+    --on-primary-container: #082024;
+    --tertiary-container: #BAD7E6;
+    --on-tertiary-container: #071620;
+    --background: #EAF5FC;
+    --surface: #FFFFFF;
+    --on-surface: #071620;
+    --on-surface-variant: #164156;
+    --surface-variant: #CFE8F8;
+    --outline: #6FB8DE;
+    --outline-variant: #9CCEE8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Roboto, "Segoe UI", system-ui, sans-serif;
+    background: #d9e2e8;
+    color: var(--on-surface);
+    padding: 32px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .intro { color: #40565f; font-size: 13px; margin-bottom: 28px; max-width: 900px; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+
+  .col { width: 340px; }
+  .col > .caption { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .col > .sub { font-size: 12px; color: #40565f; margin-bottom: 10px; min-height: 30px; }
+
+  /* bottom sheet */
+  .sheet {
+    background: var(--surface);
+    border-radius: 28px 28px 0 0;
+    padding: 8px 16px 24px;
+    box-shadow: 0 -1px 3px rgba(0,0,0,.12), 0 6px 24px rgba(0,0,0,.18);
+  }
+  .grabber { width: 32px; height: 4px; border-radius: 2px; background: #c2ccd1; margin: 4px auto 16px; }
+  .sheet-title { font-size: 22px; font-weight: 400; margin-bottom: 20px; }
+  .section { margin-bottom: 20px; }
+  .label { font-size: 12px; font-weight: 500; letter-spacing: .04em; color: var(--on-surface); margin-bottom: 8px; }
+
+  .btn-outline {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--outline); border-radius: 20px;
+    padding: 8px 16px; font-size: 14px; color: var(--primary);
+    background: transparent; margin-right: 8px;
+  }
+  .field {
+    border: 1px solid var(--outline); border-radius: 4px;
+    padding: 8px 14px; font-size: 16px; color: var(--on-surface);
+    display: flex; align-items: center; min-height: 52px;
+  }
+  .field.labelled { position: relative; margin-top: 6px; }
+  .field.labelled > .flabel {
+    position: absolute; top: -8px; left: 10px; background: var(--surface);
+    padding: 0 4px; font-size: 12px; color: var(--primary);
+  }
+  .field .placeholder { color: #7d929b; }
+
+  .intensity { display: flex; gap: 8px; }
+  .dot {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--surface-variant);
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .dot.on { background: var(--primary-container); color: var(--on-primary-container); }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--outline); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--primary); }
+
+  .save {
+    width: 100%; border: 0; border-radius: 20px; background: var(--primary);
+    color: var(--on-primary); font-size: 15px; font-weight: 500; padding: 12px; margin-top: 4px;
+  }
+
+  /* segmented control — mirrors SingleChoiceSegmentedButtonRow, Plain uses tertiaryContainer for the selected segment */
+  .seg { display: flex; width: 100%; }
+  .seg > button {
+    flex: 1; border: 1px solid var(--outline); background: transparent;
+    padding: 9px 4px; font-size: 13px; color: var(--on-surface); cursor: default;
+  }
+  .seg > button:not(:first-child) { border-left: 0; }
+  .seg > button:first-child { border-radius: 20px 0 0 20px; }
+  .seg > button:last-child { border-radius: 0 20px 20px 0; }
+  .seg > button.on { background: var(--tertiary-container); color: var(--on-tertiary-container); font-weight: 500; }
+
+  .seg.compact > button { padding: 7px 4px; font-size: 12px; }
+
+  /* variant B: field + compact seg on one row */
+  .dur-row { display: flex; gap: 10px; align-items: stretch; }
+  .dur-row .field { flex: 1; margin-top: 6px; }
+  .dur-row .seg { width: 168px; align-self: flex-end; height: 52px; }
+  .dur-row .seg > button { border-radius: 0; }
+  .dur-row .seg > button:first-child { border-radius: 20px 0 0 20px; }
+  .dur-row .seg > button:last-child { border-radius: 0 20px 20px 0; }
+
+  /* variant C: unit as trailing pill inside the field */
+  .field.with-trailing { justify-content: space-between; }
+  .trailing-unit {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--surface-variant); color: var(--on-surface-variant);
+    border-radius: 12px; padding: 4px 10px; font-size: 13px;
+  }
+  .trailing-unit::after { content: "▾"; font-size: 10px; }
+
+  /* variant D: compact segmented control inside the field */
+  .field.inline-seg { justify-content: space-between; gap: 10px; padding-right: 6px; margin-top: 6px; }
+  .field.inline-seg .amount { flex: 1; }
+  .seg.seg-inline { width: 150px; height: 34px; }
+  .seg.seg-inline > button {
+    font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 0 4px; border-color: var(--surface-variant);
+  }
+  .seg.seg-inline > button:first-child { border-radius: 16px 0 0 16px; }
+  .seg.seg-inline > button:last-child { border-radius: 0 16px 16px 0; }
+</style>
+</head>
+<body>
+<h1>A4 — Manual-mode duration: minutes / hours / days selector</h1>
+<p class="intro">
+  Faithful recreation of the log detail sheet (Plain theme, light, Serious voice) with the
+  Manual-mode <strong>Duration</strong> section shown four ways. Amount field shows "90" with
+  <strong>Hours</strong> selected in every variant. Everything else in the sheet is identical.
+</p>
+
+<div class="row">
+
+  <!-- Variant A -->
+  <div class="col">
+    <div class="caption">A · Segmented row below the field</div>
+    <div class="sub">Reuses the app's <code>SegmentedChoiceRow</code> — the same control as the DurationMode picker itself, the theme picker, check-in interval. Full width, always three even segments.</div>
+    <div class="sheet">
+      <div class="grabber"></div>
+      <div class="sheet-title">Log an event</div>
+
+      <div class="section">
+        <div class="label">WHEN</div>
+        <span class="btn-outline">Aug 29, 2026</span><span class="btn-outline">2:15 PM</span>
+      </div>
+
+      <div class="section">
+        <div class="label">INTENSITY</div>
+        <div class="intensity"><span class="dot">1</span><span class="dot">2</span><span class="dot on">3</span><span class="dot">4</span><span class="dot">5</span></div>
+      </div>
+
+      <div class="section">
+        <div class="field labelled"><span class="flabel">Duration</span>90</div>
+        <div class="seg" style="margin-top:8px">
+          <button>Minutes</button><button class="on">Hours</button><button>Days</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="field labelled"><span class="flabel">Note (optional)</span><span class="placeholder">Anything worth remembering</span></div>
+      </div>
+
+      <div class="section">
+        <div class="label">TAGS</div>
+        <div class="chips"><span class="chip">work</span><span class="chip">+ Add a tag</span></div>
+      </div>
+
+      <button class="save">Save</button>
+    </div>
+  </div>
+
+  <!-- Variant B -->
+  <div class="col">
+    <div class="caption">B · Compact toggle beside the field</div>
+    <div class="sub">Amount and unit share one row — closest to the ticket's "sits beside" wording. Tighter; the field loses width and the segment labels have to shrink.</div>
+    <div class="sheet">
+      <div class="grabber"></div>
+      <div class="sheet-title">Log an event</div>
+
+      <div class="section">
+        <div class="label">WHEN</div>
+        <span class="btn-outline">Aug 29, 2026</span><span class="btn-outline">2:15 PM</span>
+      </div>
+
+      <div class="section">
+        <div class="label">INTENSITY</div>
+        <div class="intensity"><span class="dot">1</span><span class="dot">2</span><span class="dot on">3</span><span class="dot">4</span><span class="dot">5</span></div>
+      </div>
+
+      <div class="section">
+        <div class="dur-row">
+          <div class="field labelled"><span class="flabel">Duration</span>90</div>
+          <div class="seg compact"><button>Min</button><button class="on">Hr</button><button>Day</button></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="field labelled"><span class="flabel">Note (optional)</span><span class="placeholder">Anything worth remembering</span></div>
+      </div>
+
+      <div class="section">
+        <div class="label">TAGS</div>
+        <div class="chips"><span class="chip">work</span><span class="chip">+ Add a tag</span></div>
+      </div>
+
+      <button class="save">Save</button>
+    </div>
+  </div>
+
+  <!-- Variant C -->
+  <div class="col">
+    <div class="caption">C · Unit as a trailing control in the field</div>
+    <div class="sub">One field, unit picked from a trailing pill (opens a small menu). Most compact, but introduces a menu affordance the sheet doesn't use anywhere else.</div>
+    <div class="sheet">
+      <div class="grabber"></div>
+      <div class="sheet-title">Log an event</div>
+
+      <div class="section">
+        <div class="label">WHEN</div>
+        <span class="btn-outline">Aug 29, 2026</span><span class="btn-outline">2:15 PM</span>
+      </div>
+
+      <div class="section">
+        <div class="label">INTENSITY</div>
+        <div class="intensity"><span class="dot">1</span><span class="dot">2</span><span class="dot on">3</span><span class="dot">4</span><span class="dot">5</span></div>
+      </div>
+
+      <div class="section">
+        <div class="field labelled with-trailing"><span class="flabel">Duration</span><span>90</span><span class="trailing-unit">Hours</span></div>
+      </div>
+
+      <div class="section">
+        <div class="field labelled"><span class="flabel">Note (optional)</span><span class="placeholder">Anything worth remembering</span></div>
+      </div>
+
+      <div class="section">
+        <div class="label">TAGS</div>
+        <div class="chips"><span class="chip">work</span><span class="chip">+ Add a tag</span></div>
+      </div>
+
+      <button class="save">Save</button>
+    </div>
+  </div>
+
+  <!-- Variant D -->
+  <div class="col">
+    <div class="caption">D · Compact segmented control inside the field</div>
+    <div class="sub">Variant B's toggle placed inside the Duration container as a trailing element — one bordered box holds the amount and the Min / Hr / Day segments. Compact, single control; busy field and small tap targets.</div>
+    <div class="sheet">
+      <div class="grabber"></div>
+      <div class="sheet-title">Log an event</div>
+
+      <div class="section">
+        <div class="label">WHEN</div>
+        <span class="btn-outline">Aug 29, 2026</span><span class="btn-outline">2:15 PM</span>
+      </div>
+
+      <div class="section">
+        <div class="label">INTENSITY</div>
+        <div class="intensity"><span class="dot">1</span><span class="dot">2</span><span class="dot on">3</span><span class="dot">4</span><span class="dot">5</span></div>
+      </div>
+
+      <div class="section">
+        <div class="field labelled inline-seg">
+          <span class="flabel">Duration</span>
+          <span class="amount">90</span>
+          <div class="seg seg-inline"><button>Min</button><button class="on">Hr</button><button>Day</button></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="field labelled"><span class="flabel">Note (optional)</span><span class="placeholder">Anything worth remembering</span></div>
+      </div>
+
+      <div class="section">
+        <div class="label">TAGS</div>
+        <div class="chips"><span class="chip">work</span><span class="chip">+ Add a tag</span></div>
+      </div>
+
+      <button class="save">Save</button>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
