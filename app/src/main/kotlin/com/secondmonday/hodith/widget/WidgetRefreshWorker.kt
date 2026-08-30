@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
  * without this periodic nudge they go stale until the next tap/log/pin change.
  *
  * Also the delivery mechanism for [enqueueRefresh], the one-off request that
- * [QuickLogAction]/[StopEventAction]/[com.secondmonday.hodith.viewmodel.WidgetLogSheetViewModel]/
+ * [QuickLogAction]/[com.secondmonday.hodith.viewmodel.WidgetLogSheetViewModel]/
  * both widgets' configure activities use instead of calling [refreshAllWidgets] inline: a widget
  * instance can't reliably push its own next update from within the same click/configure
  * transaction that's still resolving for that same widget id (observed as the List widget's own

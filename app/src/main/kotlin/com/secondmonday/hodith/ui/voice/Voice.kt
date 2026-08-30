@@ -300,9 +300,10 @@ interface Voice {
 
     fun stopActionDescription(caseName: String): String
 
-    fun ongoingIndicator(elapsed: String): String
+    /** The "Ongoing" chip that marks a running event on every surface (spec §6). */
+    val ongoingPillLabel: String
 
-    /** Summary shown in place of a single elapsed time once more than one event is running (spec §6). */
+    /** Trailing summary after [ongoingPillLabel] once more than one event is running (spec §6). */
     fun ongoingCountIndicator(count: Int): String
 
     fun staleOngoingPromptMessage(
@@ -516,16 +517,12 @@ interface Voice {
      * of in-app theme (DEV_PLAYBOOK.md §4) — but all three still get an entry per the Voice layer
      * rule. */
     val widgetNoCasesSelectedMessage: String
-    val widgetStopAction: String
 
     /** [com.secondmonday.hodith.widget.SingleCaseWidget] — shown when its bound Case has been
      * deleted or archived since the widget was configured. */
     val widgetCaseNotFoundMessage: String
 
     fun widgetTodayCount(count: Int): String = "Today: $count"
-
-    /** Widget line-2 text / trailing pill once more than one event is running on the Case (spec §6). */
-    fun widgetRunningCount(count: Int): String = "$count running"
 }
 
 object PlainVoice : Voice {
@@ -772,7 +769,7 @@ object PlainVoice : Voice {
 
     override fun stopActionDescription(caseName: String) = "Stop $caseName"
 
-    override fun ongoingIndicator(elapsed: String) = "Ongoing · $elapsed"
+    override val ongoingPillLabel = "Ongoing"
 
     override fun ongoingCountIndicator(count: Int) = "$count running"
 
@@ -949,7 +946,6 @@ object PlainVoice : Voice {
     override val singleCaseWidgetConfigureConfirmAction = "Add to widget"
 
     override val widgetNoCasesSelectedMessage = "No Cases picked for this widget yet. Long-press it and tap Edit to choose some."
-    override val widgetStopAction = "Stop"
     override val widgetCaseNotFoundMessage = "This Case is gone. Tap to open HODITH."
 
     override val shareOpenDescription = "Share"
@@ -1232,7 +1228,7 @@ object IntenseVoice : Voice {
 
     override fun stopActionDescription(caseName: String) = "Seal $caseName"
 
-    override fun ongoingIndicator(elapsed: String) = "Still unfolding — $elapsed"
+    override val ongoingPillLabel = "Still unfolding"
 
     override fun ongoingCountIndicator(count: Int) = "$count still unfolding"
 
@@ -1407,7 +1403,6 @@ object IntenseVoice : Voice {
     override val singleCaseWidgetConfigureConfirmAction = "Bind to widget"
 
     override val widgetNoCasesSelectedMessage = "Nothing stands watch here yet. Hold the widget and choose Edit to summon one."
-    override val widgetStopAction = "Seal"
     override val widgetCaseNotFoundMessage = "This watch has ended. Tap to return to HODITH."
 
     override val shareOpenDescription = "Share the record"
@@ -1687,7 +1682,7 @@ object BrightVoice : Voice {
 
     override fun stopActionDescription(caseName: String) = "Stop $caseName!"
 
-    override fun ongoingIndicator(elapsed: String) = "Still going · $elapsed"
+    override val ongoingPillLabel = "Still going"
 
     override fun ongoingCountIndicator(count: Int) = "$count still going!"
 
@@ -1862,7 +1857,6 @@ object BrightVoice : Voice {
     override val singleCaseWidgetConfigureConfirmAction = "Add to widget!"
 
     override val widgetNoCasesSelectedMessage = "No stars picked for this widget yet! Long-press it and tap Edit to choose some."
-    override val widgetStopAction = "Stop!"
     override val widgetCaseNotFoundMessage = "This Case wandered off! Tap to open HODITH."
 
     override val shareOpenDescription = "Share it!"

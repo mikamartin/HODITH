@@ -227,8 +227,10 @@ internal fun monthsAgo(
  * there's nothing beyond the time to show. [isOngoing] should only ever be true for a
  * `START_STOP` case's still-open event (spec §6) — the caller is responsible for that gate,
  * since a plain `endedAt == null` alone is ambiguous with `NONE`/`MANUAL` events that simply
- * have no duration. A finished duration event (any mode with a real `endedAt`) shows how long
- * it lasted, via the same [formatElapsedDuration] the ongoing indicator uses.
+ * have no duration. An ongoing event's running state is drawn separately (the "Ongoing" pill
+ * + live elapsed), so this only contributes its intensity/note/tags. A finished duration event
+ * (any mode with a real `endedAt`) shows how long it lasted, via the same [formatElapsedDuration]
+ * the ongoing indicator uses.
  */
 internal fun eventDetailSummary(
     event: EventEntity,
@@ -237,9 +239,7 @@ internal fun eventDetailSummary(
     isOngoing: Boolean = false,
 ): String? {
     val parts = mutableListOf<String>()
-    if (isOngoing) {
-        parts += voice.logSheetOngoingLabel
-    } else {
+    if (!isOngoing) {
         event.endedAt?.let { parts += voice.eventDurationLabel(formatElapsedDuration(event.occurredAt, it)) }
     }
     event.intensity?.let { parts += voice.eventIntensityLabel(it) }

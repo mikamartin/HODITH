@@ -8,12 +8,12 @@ import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.updateAll
 import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.ui.theme.PlainLightBackground
-import com.secondmonday.hodith.ui.theme.PlainLightError
-import com.secondmonday.hodith.ui.theme.PlainLightOnError
 import com.secondmonday.hodith.ui.theme.PlainLightOnPrimary
+import com.secondmonday.hodith.ui.theme.PlainLightOnPrimaryContainer
 import com.secondmonday.hodith.ui.theme.PlainLightOnSurface
 import com.secondmonday.hodith.ui.theme.PlainLightOnSurfaceVariant
 import com.secondmonday.hodith.ui.theme.PlainLightPrimary
+import com.secondmonday.hodith.ui.theme.PlainLightPrimaryContainer
 import com.secondmonday.hodith.ui.theme.PlainLightSurface
 import dagger.hilt.android.EntryPointAccessors
 
@@ -30,8 +30,8 @@ internal object WidgetPalette {
     val onSurfaceMuted = PlainLightOnSurfaceVariant
     val accent = PlainLightPrimary
     val onAccent = PlainLightOnPrimary
-    val stopBackground = PlainLightError
-    val onStopBackground = PlainLightOnError
+    val accentContainer = PlainLightPrimaryContainer
+    val onAccentContainer = PlainLightOnPrimaryContainer
 }
 
 /** Minimum tappable target on any axis (Android accessibility guidance) — the widgets' compact
@@ -42,7 +42,6 @@ internal val MinTapTarget = 48.dp
 internal val WidgetCornerRadius = 16.dp
 
 internal val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
-internal val EventIdParam = ActionParameters.Key<Long>("com.secondmonday.hodith.widget.EXTRA_EVENT_ID")
 
 /** Refreshes every Glance widget type — a log/stop on one widget keeps the other in sync if the
  * same Case happens to be shown in both. Called from [WidgetRefreshWorker.doWork] only: an
@@ -63,21 +62,6 @@ class QuickLogAction : ActionCallback {
         val caseId = parameters[CaseIdParam] ?: return
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
         entryPoint.repository().insertEvent(quickLogEvent(caseId = caseId, now = entryPoint.clock().nowMillis()))
-        WidgetRefreshWorker.enqueueRefresh(context)
-    }
-}
-
-class StopEventAction : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
-        val eventId = parameters[EventIdParam] ?: return
-        val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-        val repository = entryPoint.repository()
-        val event = repository.getEvent(eventId) ?: return
-        repository.updateEvent(event.copy(endedAt = entryPoint.clock().nowMillis()))
         WidgetRefreshWorker.enqueueRefresh(context)
     }
 }

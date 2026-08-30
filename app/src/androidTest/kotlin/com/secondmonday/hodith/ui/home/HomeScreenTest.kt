@@ -148,7 +148,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun ongoingRow_showsStopButtonInsteadOfQuickLog_andInvokesOnQuickLogTap() {
+    fun ongoingRow_showsOngoingPill_andKeepsTheStartButton() {
         val ongoingRow =
             oneTapRow.copy(caseId = 2L, name = "Ongoing Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
         var quickLogTapped: HomeCaseRow? = null
@@ -158,14 +158,17 @@ class HomeScreenTest {
             nowMillis = { 10_000L },
         )
 
-        composeTestRule.onNodeWithContentDescription(PlainVoice.quickLogButtonDescription(ongoingRow.name)).assertDoesNotExist()
-        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(ongoingRow.name)).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.ongoingPillLabel).assertExists()
+        // No inline Stop on Home (spec §6) — Stop lives on the Case's own log rows.
+        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(ongoingRow.name)).assertDoesNotExist()
+        // The log button stays put — on a running START_STOP Case it starts a second event.
+        composeTestRule.onNodeWithContentDescription(PlainVoice.startActionDescription(ongoingRow.name)).performClick()
 
         assertEquals(ongoingRow, quickLogTapped)
     }
 
     @Test
-    fun multipleRunningRow_showsCount_andNoTrailingButton() {
+    fun multipleRunningRow_showsCount_andKeepsTheStartButton() {
         val multiRow =
             oneTapRow.copy(
                 caseId = 2L,
@@ -179,9 +182,9 @@ class HomeScreenTest {
             nowMillis = { 10_000L },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.ongoingCountIndicator(3)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.ongoingCountIndicator(3), substring = true).assertExists()
         composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(multiRow.name)).assertDoesNotExist()
-        composeTestRule.onNodeWithContentDescription(PlainVoice.quickLogButtonDescription(multiRow.name)).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.startActionDescription(multiRow.name)).assertExists()
     }
 
     @Test

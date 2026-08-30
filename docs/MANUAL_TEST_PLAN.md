@@ -22,10 +22,10 @@ which test.
 2. **List widget empty state color.** With no Case picked for this widget instance, it shows its
    "no Cases selected" message in the intended muted color (not stark black-and-white). (Tapping the
    message to open the app is covered by `WidgetChromeNavigationTest.listWidget_emptyStateTap_opensMainActivity`.)
-3. **List widget case row tap.** Tapping a case row's icon/name/count area (not the `+`/Stop button)
-   opens the app directly on that Case's detail screen. The `+`/Stop button itself still only logs or
-   stops — it doesn't also navigate. (Inside the row `ListView` — can't be driven from an instrumented
-   test; see the note above.)
+3. **List widget case row tap.** Tapping a case row's icon/name/count area (not the `+` button)
+   opens the app directly on that Case's detail screen. The `+` button itself still only logs — it
+   doesn't also navigate. (Inside the row `ListView` — can't be driven from an instrumented test; see
+   the note above.)
 4. **List widget one-tap log** on a `ONE_TAP` case via its `+` button — event appears in-app. (Same
    `ListView` limitation as item 3; the underlying `QuickLogAction` callback itself is covered via the
    Single-case widget in `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase`, which wires
@@ -33,15 +33,15 @@ which test.
 5. **List widget `DETAIL_SHEET` tap** on its `+` button — sheet opens via the trampoline, saves, and
    the event appears in-app. Only the row tap itself needs a human (same `ListView` limitation as item
    3) — the trampoline sheet it opens is covered end-to-end by `WidgetLogTrampolineActivityTest`.
-6. **List widget ongoing/elapsed/Stop.** Start an event on a `START_STOP` Case — the widget row shows
-   ticking elapsed time and a Stop button; tapping Stop ends the event without opening the app. Run a
-   second event at once (retro-log a still-open one from Case Detail, or use the seeded "Noisy
-   neighbours" demo Case) — the row swaps to an "N running" pill that opens Case Detail, and swaps
-   back to Stop once one event remains. Only the ticking-elapsed *display*, the pill/row rendering,
-   and the row tap need a human (same `ListView` limitation) — the Stop action and the pill's
-   render/tap/deep-link are covered on the Single-case widget by
-   `WidgetActionsFlowTest.stopTap_endsTheOngoingEventForAStartStopCase` and
-   `WidgetActionsFlowTest.multipleRunning_showsCountPill_notStopButton_andOpensCaseDetail`.
+6. **List widget ongoing/elapsed.** Start an event on a `START_STOP` Case — the widget row shows the
+   "Ongoing" pill + ticking elapsed time, and keeps its `+` button (tapping it starts a second
+   concurrent event, it never becomes a Stop). Run a second event at once (retro-log a still-open one
+   from Case Detail, or use the seeded "Noisy neighbours" demo Case) — the row shows the pill + a
+   count. Stop is only in Case Detail, reached by tapping the row. Only the ticking-elapsed *display*,
+   the pill/row rendering, and the row tap need a human (same `ListView` limitation) — the log button
+   starting a second event and the row deep-link are covered on the Single-case widget by
+   `WidgetActionsFlowTest.logTap_startsASecondEventForARunningStartStopCase` and
+   `WidgetActionsFlowTest.runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail`.
 7. **List widget configure flow, per-instance selection.** Add two List widgets to the home
    screen and pick a different set of Cases for each — each shows only its own picks, not the
    other's. Long-press a placed List widget and choose Edit to reopen its picker and change its
@@ -52,13 +52,13 @@ which test.
    no widget is placed. (Picking a Case and confirming is covered by
    `SingleCaseWidgetConfigureFlowTest.singleCaseWidget_showsBoundCase_afterRealConfigureFlow`.)
 9. **Single-case widget: tap the icon/count area to open Case details.** Tapping elsewhere on the
-   widget (not the dedicated `+`/log button) opens that Case's detail screen. (The `+`/log button
+   widget (not the dedicated `+` log button) opens that Case's detail screen. (The `+`/log button
    itself — logging directly for `ONE_TAP`, via the trampoline sheet for `DETAIL_SHEET` — is covered
    by `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase` for the `ONE_TAP` case; the
    `DETAIL_SHEET` case's button tap doesn't have widget-click coverage yet, though the trampoline sheet
    it opens does, via `WidgetLogTrampolineActivityTest`.)
 10. **Add two widgets for the same Case** (e.g. a Single-case widget and the same Case selected on
-    a List widget) — logging or stopping from either one refreshes both.
+    a List widget) — logging from either one refreshes both.
 11. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
     afterward, not a reset or stale value.
 
