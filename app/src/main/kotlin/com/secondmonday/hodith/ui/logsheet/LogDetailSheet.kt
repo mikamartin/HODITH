@@ -329,7 +329,11 @@ private fun EndTimeSection(
     onTimeClick: () -> Unit,
 ) {
     Column {
-        Text(voice.logSheetEndLabel, style = MaterialTheme.typography.labelLarge)
+        // Past-tense "Ended" only makes sense once there's an end time; while the event is still
+        // ongoing the "Ongoing" label + "Stop now" below carry the state on their own (A3).
+        if (endedAt != null) {
+            Text(voice.logSheetEndLabel, style = MaterialTheme.typography.labelLarge)
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,

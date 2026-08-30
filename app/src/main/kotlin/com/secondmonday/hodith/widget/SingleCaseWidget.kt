@@ -44,7 +44,6 @@ import com.secondmonday.hodith.MainActivity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
-import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.homeCaseRows
 import dagger.hilt.android.EntryPointAccessors
 
@@ -130,8 +129,6 @@ private fun SingleCaseContent(
     row: HomeCaseRow,
     now: Long,
 ) {
-    val ongoing = row.ongoingEvent
-    val multipleRunning = row.runningCount >= 2
     val context = LocalContext.current
     val caseDetailIntent =
         Intent(context, MainActivity::class.java)
@@ -151,93 +148,42 @@ private fun SingleCaseContent(
             verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
             Text(text = row.icon, style = TextStyle(fontSize = 24.sp))
-            Text(
-                // The full-width "N running" pill below already carries the count.
-                text =
-                    if (ongoing != null && !multipleRunning) {
-                        formatElapsedDuration(ongoing.occurredAt, now)
-                    } else {
-                        PlainVoice.widgetTodayCount(row.todayCount)
-                    },
-                style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 11.sp, textAlign = TextAlign.Center),
-                maxLines = 1,
-            )
+            WidgetCaseSubtitle(row = row, now = now)
         }
         Spacer(modifier = GlanceModifier.height(6.dp))
-        if (multipleRunning) {
-            Box(
-                modifier =
-                    GlanceModifier
-                        .fillMaxWidth()
-                        .height(MinTapTarget)
-                        .background(WidgetPalette.accent)
-                        .cornerRadius(8.dp)
-                        .clickable(actionStartActivity(intent = caseDetailIntent)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = PlainVoice.widgetRunningCount(row.runningCount),
-                    style =
-                        TextStyle(
-                            color = ColorProvider(WidgetPalette.onAccent),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                )
+        // The log button stays put whether or not an event runs (spec §6) — on a running
+        // `START_STOP` Case it starts a second one. Stop lives in Case Detail, opened by tapping
+        // above.
+        val tapAction =
+            when (row.logFlow) {
+                LogFlow.ONE_TAP -> actionRunCallback<QuickLogAction>(actionParametersOf(CaseIdParam to row.caseId))
+                LogFlow.DETAIL_SHEET ->
+                    actionStartActivity(
+                        intent =
+                            Intent(context, WidgetLogTrampolineActivity::class.java)
+                                .putExtra(EXTRA_CASE_ID, row.caseId),
+                    )
             }
-        } else if (ongoing != null) {
-            Box(
-                modifier =
-                    GlanceModifier
-                        .fillMaxWidth()
-                        .height(MinTapTarget)
-                        .background(WidgetPalette.stopBackground)
-                        .cornerRadius(8.dp)
-                        .clickable(actionRunCallback<StopEventAction>(actionParametersOf(EventIdParam to ongoing.id))),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = PlainVoice.widgetStopAction,
-                    style =
-                        TextStyle(
-                            color = ColorProvider(WidgetPalette.onStopBackground),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                )
-            }
-        } else {
-            val tapAction =
-                when (row.logFlow) {
-                    LogFlow.ONE_TAP -> actionRunCallback<QuickLogAction>(actionParametersOf(CaseIdParam to row.caseId))
-                    LogFlow.DETAIL_SHEET ->
-                        actionStartActivity(
-                            intent =
-                                Intent(context, WidgetLogTrampolineActivity::class.java)
-                                    .putExtra(EXTRA_CASE_ID, row.caseId),
-                        )
-                }
-            Box(
-                modifier =
-                    GlanceModifier
-                        .fillMaxWidth()
-                        .height(MinTapTarget)
-                        .background(WidgetPalette.surface)
-                        .cornerRadius(8.dp)
-                        .clickable(tapAction)
-                        .semantics { contentDescription = PlainVoice.quickLogButtonDescription(row.name) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "+",
-                    style =
-                        TextStyle(
-                            color = ColorProvider(WidgetPalette.accent),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                )
-            }
+        Box(
+            modifier =
+                GlanceModifier
+                    .fillMaxWidth()
+                    .height(MinTapTarget)
+                    .background(WidgetPalette.surface)
+                    .cornerRadius(8.dp)
+                    .clickable(tapAction)
+                    .semantics { contentDescription = PlainVoice.quickLogButtonDescription(row.name) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "+",
+                style =
+                    TextStyle(
+                        color = ColorProvider(WidgetPalette.accent),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+            )
         }
     }
 }

@@ -24,8 +24,7 @@ A round of user testing surfaced a cluster of Start/Stop and duration issues. Th
 
 Shared-file map (why the order is what it is):
 
-- `OngoingIndicator.kt` — A3
-- `LogDetailSheet.kt` — A3, A4
+- `LogDetailSheet.kt` — A4 (A3 done)
 - `CalendarGrid.kt` day iteration — A5, A6
 - formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — A6, time-format satellite
 
@@ -39,27 +38,9 @@ Reopened because a *finished* duration event still misreported: once it stopped,
 
 `ongoingEventsIn` (list, earliest-first) sits alongside `ongoingEventIn` (now the earliest open event, deterministically). Home rows and the Case-detail log header read "N running" past one event and drop the summary Stop; each running event carries its own Stop button on its log row (`showInlineStop`, reusing `CaseDetailViewModel.stopEvent`). Both widgets swap the red Stop button for an accent "N running" pill that opens Case Detail. `LogDetailSheet`'s End section gained a "Back to ongoing" button (`draft.endedAt = null`); `planSaveEvent` rebases `staleNudgeDismissedAt` on reopen so an old start doesn't fire the stale prompt immediately. `CaseEditViewModel` holds a leave-`START_STOP` mode change behind a confirm when events run and stops them all on save. Several concurrently-stale running events collapse to one consolidated header banner. Spec §6 reworded and §10 gained the duration/intensity-toggle-off clarification.
 
-### A3 · Stop control is a checkmark; the running state is easy to miss
+### A3 · Stop control is a checkmark; the running state is easy to miss — done (`fix/ongoing-affordance`)
 
-*Branch: `fix/ongoing-affordance` · Complexity: S · Priority: High (glyph) / Medium (rest) · Area: Duration*
-
-🎨 **Design decision** — the replacement glyph shape and the colour cue for the running marker.
-
-`StopIconButton` (`ui/common/OngoingIndicator.kt`) uses `Icons.Filled.Done` — a ✓ that reads as "confirm/complete" rather than "stop" — and the running marker is plain grey text with no colour cue. The event-edit sheet's End section also shows the past-tense header "Ended" directly above the value "Ongoing".
-
-**Acceptance criteria**
-
-- [ ] The Stop control uses a stop-shaped glyph, not `Icons.Filled.Done`, drawn without adding `material-icons-extended`.
-- [ ] The elapsed-time marker carries a coloured dot/pill.
-- [ ] `LogDetailSheet` `EndTimeSection` shows a present-tense header when `endedAt == null` — new Voice key in all three voices.
-- [ ] The Stop control stays findable by `contentDescription`; any new dot is out of the a11y tree or the affected UI tests are updated.
-- [ ] A Preview per voice.
-
-**Plan** — replace the checkmark with a stop-shaped glyph (draw a ~12dp rounded `Box`; don't pull in `material-icons-extended` for one icon). Add a coloured dot/pill to the elapsed-time marker. Present-tense header in `LogDetailSheet` `EndTimeSection` when `endedAt == null` — new Voice key ×3.
-
-**Tests** — existing UI tests find the Stop control by `contentDescription`, so the glyph swap is safe; keep any new dot out of the a11y tree or update `CaseDetailScreenTest` / `HomeScreenTest`. Add a Preview per voice.
-
-**Concern** — shares `OngoingIndicator.kt` with A2 and `LogDetailSheet.kt` with A4; sequence after A2.
+One treatment for a running event on every surface. An **"Ongoing" pill** (`OngoingPill`, `primaryContainer` chip, Voice `ongoingPillLabel` ×3) marks it, followed by elapsed time (one event) or `ongoingCountIndicator` (several). `StopIconButton` swaps `Icons.Filled.Done` for a hand-drawn `drawRoundRect` square (`StopSquare`, mirroring `InfoIcon` — no `material-icons-extended`), `contentDescription` unchanged. The Case-detail log header always reads as a count (`OngoingCountText`, "1 running" included) with no Stop; every open event's row shows its own live elapsed (`OngoingElapsedText`) and its own Stop — `showInlineStop` gate dropped. Home rows and both widgets show the pill + summary and keep the `+` log button in every state (`HomeViewModel.onQuickLogTap` no longer stops; `WidgetCaseSubtitle` shared by both widgets; `WidgetPalette.accentContainer` added, `StopEventAction`/`widgetStopAction`/`widgetRunningCount`/`ongoingIndicator` removed). `LogDetailSheet` `EndTimeSection` drops the past-tense "Ended" header while `endedAt == null` (no new Voice key). Previews per voice added to `OngoingIndicator.kt`. Grew past the original S scope to unify Home + widgets; spec §6 and §15 reworded (the one-vs-many split, the header/summary Stop, and "the Start affordance becomes the Stop action" all reversed).
 
 ### A4 · Manual duration entry is locked to minutes
 

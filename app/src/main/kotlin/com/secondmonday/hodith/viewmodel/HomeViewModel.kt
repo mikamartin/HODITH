@@ -113,23 +113,16 @@ class HomeViewModel
         val quickLogUndo: Flow<QuickLogUndo> = _quickLogUndo.receiveAsFlow()
 
         /**
-         * Routes a row's quick-log tap. An already-ongoing `START_STOP` case always stops
-         * immediately, regardless of `logFlow` — by the time you're stopping, whatever detail
-         * was worth capturing was already captured at Start (or can be added via edit
-         * afterward), so there's no reason to force a sheet open just to stop (spec §6).
-         * Otherwise routes per the Case's `logFlow` as before.
+         * Routes a row's log-button tap per the Case's `logFlow`. The button stays a log/start
+         * affordance even while an event runs on a `START_STOP` Case (spec §6) — tapping it then
+         * starts a second concurrent event; stopping happens on the Case's own log rows, reached
+         * by tapping the row.
          */
         fun onQuickLogTap(row: HomeCaseRow) {
-            val ongoing = row.ongoingEvent
-            when {
-                ongoing != null -> stopEvent(ongoing)
-                row.logFlow == LogFlow.ONE_TAP -> quickLogOneTap(row)
-                row.logFlow == LogFlow.DETAIL_SHEET -> openLogSheet(row)
+            when (row.logFlow) {
+                LogFlow.ONE_TAP -> quickLogOneTap(row)
+                LogFlow.DETAIL_SHEET -> openLogSheet(row)
             }
-        }
-
-        fun stopEvent(event: EventEntity) {
-            viewModelScope.launch { repository.updateEvent(event.copy(endedAt = clock.nowMillis())) }
         }
 
         fun dismissStalePrompt(event: EventEntity) {

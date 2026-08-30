@@ -120,19 +120,18 @@ class CaseDetailFormattingTest {
     }
 
     @Test
-    fun `eventDetailSummary shows the ongoing label first when isOngoing is true`() {
-        assertEquals(
-            PlainVoice.logSheetOngoingLabel,
+    fun `eventDetailSummary is null for an ongoing event with nothing else set - the pill carries the state`() {
+        assertNull(
             eventDetailSummary(testEvent(intensity = null, note = null), tags = emptyList(), PlainVoice, isOngoing = true),
         )
     }
 
     @Test
-    fun `eventDetailSummary puts the ongoing label before intensity, note and tags`() {
+    fun `eventDetailSummary omits any running label for an ongoing event - just intensity, note and tags`() {
         val tags = listOf(TagEntity(id = 1, name = "dinner"))
 
         assertEquals(
-            "${PlainVoice.logSheetOngoingLabel} · ${PlainVoice.eventIntensityLabel(3)} · Quick one · #dinner",
+            "${PlainVoice.eventIntensityLabel(3)} · Quick one · #dinner",
             eventDetailSummary(testEvent(intensity = 3, note = "Quick one"), tags = tags, PlainVoice, isOngoing = true),
         )
     }
@@ -163,13 +162,14 @@ class CaseDetailFormattingTest {
     }
 
     @Test
-    fun `eventDetailSummary shows the ongoing label instead of a duration even if isOngoing is true with a stale endedAt`() {
+    fun `eventDetailSummary shows no duration for an ongoing event even with a stale endedAt`() {
         // isOngoing is caller-asserted (spec: only true for a START_STOP case's open event, which
-        // by construction never has an endedAt) — this pins that ongoing always wins the branch.
-        val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 999L)
+        // by construction never has an endedAt) — this pins that a stray endedAt never leaks a
+        // "lasted N" line onto a still-running event.
+        val event = testEvent(intensity = 3, note = null, occurredAt = 0L, endedAt = 999L)
 
         assertEquals(
-            PlainVoice.logSheetOngoingLabel,
+            PlainVoice.eventIntensityLabel(3),
             eventDetailSummary(event, tags = emptyList(), PlainVoice, isOngoing = true),
         )
     }

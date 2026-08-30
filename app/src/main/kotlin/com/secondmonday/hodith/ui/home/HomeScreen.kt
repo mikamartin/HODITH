@@ -47,7 +47,6 @@ import com.secondmonday.hodith.ui.common.NotificationsDeniedBanner
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.StaleOngoingBanner
-import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.acronymHighlighted
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
@@ -250,6 +249,28 @@ private fun PlainPlankHomeCaseListItem(
     }
 }
 
+/**
+ * A Case row's trailing log button. It stays put whether or not an event runs (spec §6) — on a
+ * `START_STOP` Case with something open it starts a second concurrent event; Stop lives on the
+ * Case's own log rows, reached by tapping the row.
+ */
+@Composable
+private fun HomeCaseLogButton(
+    row: HomeCaseRow,
+    voice: Voice,
+    onClick: () -> Unit,
+) {
+    val description =
+        if (row.durationMode == DurationMode.START_STOP) {
+            voice.startActionDescription(row.name)
+        } else {
+            voice.quickLogButtonDescription(row.name)
+        }
+    IconButton(onClick = onClick) {
+        Icon(Icons.Filled.AddCircle, contentDescription = description)
+    }
+}
+
 @Composable
 private fun HomeCaseRowBody(
     row: HomeCaseRow,
@@ -286,23 +307,7 @@ private fun HomeCaseRowBody(
                         )
                 }
             }
-            when {
-                // Past one running event there's no single Stop target — the row tap opens Case
-                // Detail, where each event has its own Stop button.
-                row.runningCount >= 2 -> Unit
-                ongoing != null -> StopIconButton(caseName = row.name, voice = voice, onClick = onQuickLogTap)
-                else -> {
-                    val description =
-                        if (row.durationMode == DurationMode.START_STOP) {
-                            voice.startActionDescription(row.name)
-                        } else {
-                            voice.quickLogButtonDescription(row.name)
-                        }
-                    IconButton(onClick = onQuickLogTap) {
-                        Icon(Icons.Filled.AddCircle, contentDescription = description)
-                    }
-                }
-            }
+            HomeCaseLogButton(row = row, voice = voice, onClick = onQuickLogTap)
         }
         if (ongoing != null && isStaleOngoing(ongoing, now)) {
             StaleOngoingBanner(
@@ -355,21 +360,7 @@ private fun BrightHomeCaseListItem(
                             )
                     }
                 }
-                when {
-                    row.runningCount >= 2 -> Unit
-                    ongoing != null -> StopIconButton(caseName = row.name, voice = voice, onClick = onQuickLogTap)
-                    else -> {
-                        val description =
-                            if (row.durationMode == DurationMode.START_STOP) {
-                                voice.startActionDescription(row.name)
-                            } else {
-                                voice.quickLogButtonDescription(row.name)
-                            }
-                        IconButton(onClick = onQuickLogTap) {
-                            Icon(Icons.Filled.AddCircle, contentDescription = description)
-                        }
-                    }
-                }
+                HomeCaseLogButton(row = row, voice = voice, onClick = onQuickLogTap)
             }
         }
         if (ongoing != null && isStaleOngoing(ongoing, now)) {

@@ -23,7 +23,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -100,22 +99,31 @@ class WidgetActionsFlowTest {
         }
 
     @Test
-    fun stopTap_endsTheOngoingEventForAStartStopCase() =
+    fun logTap_startsASecondEventForARunningStartStopCase() =
         runBlocking {
             val caseName = "Migraine ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.START_STOP))
-            val eventId = repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 0L, endedAt = null))
+            insertedCaseId =
+                repository.insertCase(
+                    testCase(name = caseName, durationMode = DurationMode.START_STOP, logFlow = LogFlow.ONE_TAP),
+                )
+            repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 0L, endedAt = null))
             appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
 
-            val button = waitForClickableWithText(PlainVoice.widgetStopAction)
+            // The log button stays put while an event runs (spec §6) — no Stop on the widget.
+            val button = waitForClickableWithDescription(PlainVoice.quickLogButtonDescription(caseName))
             InstrumentationRegistry.getInstrumentation().runOnMainSync { button.performClick() }
 
-            val stopped = waitFor { repository.getEvent(eventId)?.takeIf { it.endedAt != null } }
-            assertNotNull("Expected StopEventAction to set the ongoing event's endedAt", stopped)
+            val bothRunning =
+                waitFor {
+                    repository
+                        .eventsInWindow(insertedCaseId, 0L, Long.MAX_VALUE)
+                        .takeIf { it.size == 2 && it.all { e -> e.endedAt == null } }
+                }
+            assertNotNull("Expected the log button to start a second concurrent event", bothRunning)
         }
 
     @Test
-    fun multipleRunning_showsCountPill_notStopButton_andOpensCaseDetail() {
+    fun runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail() {
         runBlocking {
             val caseName = "Noisy neighbours ${System.currentTimeMillis()}"
             insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.START_STOP))
@@ -123,19 +131,16 @@ class WidgetActionsFlowTest {
             repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 1_000L, endedAt = null))
             appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
 
-            val pill = waitForClickableWithText(PlainVoice.widgetRunningCount(2))
-            assertNull(
-                "Expected no Stop button while more than one event runs",
-                findClickableAncestorOfText(renderedView(context, host, appWidgetId), PlainVoice.widgetStopAction),
-            )
+            // The "Ongoing" pill renders inside the tappable Case area (the icon/subtitle column).
+            val caseArea = waitForClickableWithText(PlainVoice.ongoingPillLabel)
 
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             val monitor = Instrumentation.ActivityMonitor(MainActivity::class.java.name, null, false)
             instrumentation.addMonitor(monitor)
             try {
-                instrumentation.runOnMainSync { pill.performClick() }
+                instrumentation.runOnMainSync { caseArea.performClick() }
                 val activity: Activity? = monitor.waitForActivityWithTimeout(5_000)
-                assertNotNull("Expected the running-count pill to open MainActivity", activity)
+                assertNotNull("Expected tapping the Case area to open MainActivity", activity)
                 assertEquals(insertedCaseId, activity?.intent?.getLongExtra(EXTRA_CASE_ID, -1L))
                 activity?.finish()
             } finally {

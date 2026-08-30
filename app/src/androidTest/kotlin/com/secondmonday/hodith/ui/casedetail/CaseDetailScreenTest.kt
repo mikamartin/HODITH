@@ -185,7 +185,7 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun ongoingEvent_showsStopButtonInHeader_andInvokesOnStopEvent() {
+    fun ongoingEvent_showsStopButtonOnItsRow_andInvokesOnStopEvent() {
         val ongoing = ongoingEvent()
         var stopped: EventEntity? = null
         setCaseDetailScreenContent(
@@ -193,18 +193,19 @@ class CaseDetailScreenTest {
             onStopEvent = { stopped = it },
         )
 
+        // Stop lives on the open event's own log row now (spec §6), not in the header.
         composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name)).performClick()
 
         assertEquals(ongoing, stopped)
     }
 
     @Test
-    fun eventList_showsOngoingLabelForTheOpenEvent() {
+    fun openEvent_showsOngoingPillInTheHeaderAndOnItsRow() {
         setCaseDetailScreenContent(events = listOf(EventWithTags(event = ongoingEvent(), tags = emptyList())))
 
-        // Exact-match lookup: the header's OngoingElapsedText renders "Ongoing · <elapsed>",
-        // distinct from the event row's bare "Ongoing" label, so this uniquely targets the row.
-        composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
+        // One "Ongoing" pill in the header summary, one on the open event's row.
+        composeTestRule.onAllNodesWithText(PlainVoice.ongoingPillLabel).assertCountEquals(2)
+        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name)).assertExists()
     }
 
     @Test
@@ -244,7 +245,7 @@ class CaseDetailScreenTest {
                 ),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.ongoingCountIndicator(2)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.ongoingCountIndicator(2), substring = true).assertExists()
         // Per-event Stop moves onto the rows; the header no longer carries one.
         composeTestRule
             .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name))

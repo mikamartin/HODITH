@@ -27,12 +27,14 @@ fun hodithColorScheme(
         AppTheme.BRIGHT -> if (darkTheme) brightDark else brightLight
     }
 
-// Named rather than inlined below, specifically for these seven roles: Glance widget theming
-// can't consume a Compose Material3 ColorScheme (DEV_PLAYBOOK.md §4), so WidgetCommon.kt's
-// WidgetPalette — which renders the Plain theme's light palette regardless of the user's chosen
-// in-app theme — sources these same values from here instead of duplicating the hex literals.
+// Named rather than inlined below because Glance widget theming can't consume a Compose Material3
+// ColorScheme (DEV_PLAYBOOK.md §4), so WidgetCommon.kt's WidgetPalette — which renders the Plain
+// theme's light palette regardless of the user's chosen in-app theme — sources these values from
+// here instead of duplicating the hex literals.
 internal val PlainLightPrimary = Color(0xFF3A6B76)
 internal val PlainLightOnPrimary = Color(0xFFFFFFFF)
+internal val PlainLightPrimaryContainer = Color(0xFFC7E8ED)
+internal val PlainLightOnPrimaryContainer = Color(0xFF082024)
 internal val PlainLightBackground = Color(0xFFEAF5FC)
 internal val PlainLightSurface = Color(0xFFFFFFFF)
 internal val PlainLightOnSurface = Color(0xFF071620)
@@ -44,8 +46,8 @@ private val plainLight =
     lightColorScheme(
         primary = PlainLightPrimary,
         onPrimary = PlainLightOnPrimary,
-        primaryContainer = Color(0xFFC7E8ED),
-        onPrimaryContainer = Color(0xFF082024),
+        primaryContainer = PlainLightPrimaryContainer,
+        onPrimaryContainer = PlainLightOnPrimaryContainer,
         secondary = Color(0xFF12394C),
         onSecondary = Color(0xFFFFFFFF),
         secondaryContainer = Color(0xFFCCE6F5),

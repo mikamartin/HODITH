@@ -115,7 +115,7 @@ class HomeViewModelTest {
         }
 
     @Test
-    fun `onQuickLogTap on an ongoing START_STOP case stops it instead of logging again`() =
+    fun `onQuickLogTap on an ongoing START_STOP case starts a second concurrent event`() =
         runTest {
             repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
             repository.events.value = listOf(testEvent(endedAt = null))
@@ -126,16 +126,13 @@ class HomeViewModelTest {
                 assertNotNull(row.ongoingEvent)
                 clock.advanceBy(60_000L)
                 viewModel.onQuickLogTap(row)
-                val stopped = awaitItem()
-                assertNull(stopped.cases.single().ongoingEvent)
+                val afterStart = awaitItem()
+                assertEquals(2, afterStart.cases.single().runningCount)
                 cancelAndIgnoreRemainingEvents()
             }
-            assertEquals(
-                clock.nowMillis(),
-                repository.events.value
-                    .single()
-                    .endedAt,
-            )
+            // Both events still open — the first was not stopped.
+            assertTrue(repository.events.value.all { it.endedAt == null })
+            assertEquals(2, repository.events.value.size)
         }
 
     @Test

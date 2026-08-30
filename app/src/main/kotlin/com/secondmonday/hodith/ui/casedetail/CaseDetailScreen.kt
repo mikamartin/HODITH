@@ -310,20 +310,14 @@ private fun LogTabContent(
             )
         }
         if (case != null && ongoingEvents.isNotEmpty()) {
-            val single = ongoingEvents.singleOrNull()
-            Row(
+            // The header always reads as a count (spec §6) — even for one event — so it looks the
+            // same regardless of how many run. Each open event's own elapsed time and its own Stop
+            // button live on its log row below.
+            OngoingCountText(
+                count = ongoingEvents.size,
+                voice = voice,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (single != null) {
-                    OngoingElapsedText(startedAt = single.occurredAt, now = now, voice = voice, modifier = Modifier.weight(1f))
-                    StopIconButton(caseName = case.name, voice = voice, onClick = { onStopEvent(single) })
-                } else {
-                    // Past one running event a single elapsed time can't stand for all of them, and
-                    // there's no one Stop target — each event has its own Stop button on its log row.
-                    OngoingCountText(count = ongoingEvents.size, voice = voice, modifier = Modifier.weight(1f))
-                }
-            }
+            )
             val staleEvents = ongoingEvents.filter { isStaleOngoing(it, now) }
             when {
                 staleEvents.size == 1 -> {
@@ -369,9 +363,6 @@ private fun LogTabContent(
                                 now = now,
                                 voice = voice,
                                 durationMode = case?.durationMode ?: DurationMode.NONE,
-                                // The header carries the Stop control when exactly one event runs;
-                                // past that it moves inline so each event is stoppable on its own.
-                                showInlineStop = ongoingEvents.size >= 2,
                                 onClick = { onEventClick(eventWithTags) },
                                 onStopEvent = onStopEvent,
                             )
@@ -569,7 +560,6 @@ private fun EventRow(
     now: Long,
     voice: Voice,
     durationMode: DurationMode,
-    showInlineStop: Boolean,
     onClick: () -> Unit,
     onStopEvent: (EventEntity) -> Unit,
 ) {
@@ -585,7 +575,6 @@ private fun EventRow(
                     now,
                     voice,
                     durationMode,
-                    showInlineStop,
                     onStopEvent,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
@@ -597,7 +586,6 @@ private fun EventRow(
                 now,
                 voice,
                 durationMode,
-                showInlineStop,
                 onStopEvent,
                 modifier =
                     Modifier
@@ -615,7 +603,6 @@ private fun EventRowContent(
     now: Long,
     voice: Voice,
     durationMode: DurationMode,
-    showInlineStop: Boolean,
     onStopEvent: (EventEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -625,12 +612,17 @@ private fun EventRowContent(
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = formatEventTime(event.occurredAt, now), style = MaterialTheme.typography.bodyLarge)
+            // A running event carries its own live elapsed time and Stop, so each of a Case's
+            // open events is legible and stoppable on its own (spec §6).
+            if (isOngoing) {
+                OngoingElapsedText(startedAt = event.occurredAt, now = now, voice = voice)
+            }
             val details = eventDetailSummary(event, eventWithTags.tags, voice, isOngoing = isOngoing)
             if (details != null) {
                 Text(text = details, style = MaterialTheme.typography.bodySmall)
             }
         }
-        if (isOngoing && showInlineStop) {
+        if (isOngoing) {
             StopIconButton(caseName = caseName, voice = voice, onClick = { onStopEvent(event) })
         }
     }

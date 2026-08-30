@@ -153,8 +153,6 @@ private fun CaseRow(
     row: HomeCaseRow,
     now: Long,
 ) {
-    val ongoing = row.ongoingEvent
-    val multipleRunning = row.runningCount >= 2
     val context = LocalContext.current
     val caseDetailIntent =
         Intent(context, MainActivity::class.java)
@@ -186,92 +184,88 @@ private fun CaseRow(
                         fontWeight = FontWeight.Medium,
                     ),
             )
-            Text(
-                // The "N running" pill on the right already carries the count; the subtitle stays
-                // on the neutral today-count so the row doesn't say the same thing twice.
-                text =
-                    if (ongoing != null && !multipleRunning) {
-                        PlainVoice.ongoingIndicator(formatElapsedDuration(ongoing.occurredAt, now))
-                    } else {
-                        PlainVoice.widgetTodayCount(row.todayCount)
-                    },
-                style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 12.sp),
-            )
+            WidgetCaseSubtitle(row = row, now = now)
         }
         Spacer(modifier = GlanceModifier.width(8.dp))
-        if (multipleRunning) {
-            // No single Stop target past one running event — the pill opens Case Detail, where
-            // each event has its own Stop button.
-            Box(
-                modifier =
-                    GlanceModifier
-                        .height(MinTapTarget)
-                        .background(WidgetPalette.accent)
-                        .cornerRadius(8.dp)
-                        .clickable(actionStartActivity(intent = caseDetailIntent)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = PlainVoice.widgetRunningCount(row.runningCount),
-                    style =
-                        TextStyle(
-                            color = ColorProvider(WidgetPalette.onAccent),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    modifier = GlanceModifier.padding(horizontal = 14.dp),
-                )
+        // The log button stays put whether or not an event runs (spec §6) — on a running
+        // `START_STOP` Case it starts a second one. Stop lives in Case Detail, opened by tapping
+        // the row.
+        val tapAction =
+            when (row.logFlow) {
+                LogFlow.ONE_TAP -> actionRunCallback<QuickLogAction>(actionParametersOf(CaseIdParam to row.caseId))
+                LogFlow.DETAIL_SHEET ->
+                    actionStartActivity(
+                        intent =
+                            Intent(context, WidgetLogTrampolineActivity::class.java)
+                                .putExtra(EXTRA_CASE_ID, row.caseId),
+                    )
             }
-        } else if (ongoing != null) {
-            Box(
-                modifier =
-                    GlanceModifier
-                        .height(MinTapTarget)
-                        .background(WidgetPalette.stopBackground)
-                        .cornerRadius(8.dp)
-                        .clickable(actionRunCallback<StopEventAction>(actionParametersOf(EventIdParam to ongoing.id))),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = PlainVoice.widgetStopAction,
-                    style =
-                        TextStyle(
-                            color = ColorProvider(WidgetPalette.onStopBackground),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    modifier = GlanceModifier.padding(horizontal = 14.dp),
-                )
-            }
-        } else {
-            val tapAction =
-                when (row.logFlow) {
-                    LogFlow.ONE_TAP -> actionRunCallback<QuickLogAction>(actionParametersOf(CaseIdParam to row.caseId))
-                    LogFlow.DETAIL_SHEET ->
-                        actionStartActivity(
-                            intent =
-                                Intent(context, WidgetLogTrampolineActivity::class.java)
-                                    .putExtra(EXTRA_CASE_ID, row.caseId),
-                        )
-                }
-            Box(
-                modifier =
-                    GlanceModifier
-                        .size(MinTapTarget)
-                        .clickable(tapAction)
-                        .semantics { contentDescription = PlainVoice.quickLogButtonDescription(row.name) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "+",
-                    style =
-                        TextStyle(
-                            color = ColorProvider(WidgetPalette.accent),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                )
-            }
+        Box(
+            modifier =
+                GlanceModifier
+                    .size(MinTapTarget)
+                    .clickable(tapAction)
+                    .semantics { contentDescription = PlainVoice.quickLogButtonDescription(row.name) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "+",
+                style =
+                    TextStyle(
+                        color = ColorProvider(WidgetPalette.accent),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+            )
         }
+    }
+}
+
+/**
+ * A widget Case row's line-2: the "Ongoing" pill + live elapsed (one running event) or a count
+ * (several), matching the in-app treatment (spec §6); the neutral today-count when nothing runs.
+ * Shared by [ListWidget] and [SingleCaseWidget]. Widgets always render [PlainVoice] (DEV_PLAYBOOK.md §4).
+ */
+@Composable
+internal fun WidgetCaseSubtitle(
+    row: HomeCaseRow,
+    now: Long,
+) {
+    val ongoing = row.ongoingEvent
+    if (ongoing == null) {
+        Text(
+            text = PlainVoice.widgetTodayCount(row.todayCount),
+            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 12.sp),
+        )
+        return
+    }
+    Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
+        Box(
+            modifier =
+                GlanceModifier
+                    .background(WidgetPalette.accentContainer)
+                    .cornerRadius(6.dp)
+                    .padding(horizontal = 6.dp, vertical = 1.dp),
+        ) {
+            Text(
+                text = PlainVoice.ongoingPillLabel,
+                style =
+                    TextStyle(
+                        color = ColorProvider(WidgetPalette.onAccentContainer),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+            )
+        }
+        Spacer(modifier = GlanceModifier.width(6.dp))
+        Text(
+            text =
+                if (row.runningCount >= 2) {
+                    PlainVoice.ongoingCountIndicator(row.runningCount)
+                } else {
+                    formatElapsedDuration(ongoing.occurredAt, now)
+                },
+            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 12.sp),
+        )
     }
 }
