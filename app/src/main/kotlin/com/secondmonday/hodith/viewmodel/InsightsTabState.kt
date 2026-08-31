@@ -27,6 +27,7 @@ import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.domain.pickFrequencyGranularity
+import com.secondmonday.hodith.domain.spansMultipleDays
 import com.secondmonday.hodith.domain.weeksInGrid
 import java.time.DayOfWeek
 import java.time.Instant
@@ -49,12 +50,14 @@ sealed interface InsightsTabState {
 }
 
 /**
- * Spec §10's seven stat sections. [trend], [duration], and [intensity] are absent when not
- * applicable. [totalEventCount] gives the tag breakdown a denominator, so an individual tag's
- * count reads against the Case's whole history rather than floating on its own.
+ * Spec §10's seven stat sections. [frequency], [trend], [duration], and [intensity] are absent
+ * when not applicable — [frequency] specifically when the Case has a multi-day event (spec §9),
+ * since a per-day/week/month count can't say "how often" without double-counting a long event.
+ * [totalEventCount] gives the tag breakdown a denominator, so an individual tag's count reads
+ * against the Case's whole history rather than floating on its own.
  */
 data class StatsSections(
-    val frequency: FrequencyDisplay,
+    val frequency: FrequencyDisplay?,
     val rhythm: RhythmDisplay,
     val gaps: GapsDisplay,
     val trend: TrendDisplay?,
@@ -83,9 +86,14 @@ data class RhythmCellDisplay(
     val level: HeatmapLevel,
 )
 
-/** Always all 28 day-of-week x time-of-day cells, in [DayOfWeek]/[TimeOfDay] enum order. */
+/**
+ * Always all 28 day-of-week x time-of-day cells, in [DayOfWeek]/[TimeOfDay] enum order.
+ * [plottedByStart] is true when the Case has a multi-day event: the grid plots each event's
+ * start (it always has), and the card says so by titling itself "Start times" (spec §9).
+ */
 data class RhythmDisplay(
     val cells: List<RhythmCellDisplay>,
+    val plottedByStart: Boolean,
 )
 
 data class GapsDisplay(
@@ -145,19 +153,35 @@ internal fun insightsTabState(
     // (matching ongoingEventsIn's rule that only START_STOP can be ongoing); a point event stays on
     // its single day. Feeds both the heatmap shading and the streak count.
     val runsToNowWhenOpen = case.durationMode == DurationMode.START_STOP
+
+    fun spanEnd(event: EventEntity) = event.endedAt ?: if (runsToNowWhenOpen) now else event.occurredAt
     val countsByDay =
         events
-            .flatMap { event ->
-                val end = event.endedAt ?: if (runsToNowWhenOpen) now else event.occurredAt
-                datesCovered(event.occurredAt, end, zone)
-            }.groupingBy { it }
+            .flatMap { event -> datesCovered(event.occurredAt, spanEnd(event), zone) }
+            .groupingBy { it }
             .eachCount()
     val maxDailyCount = countsByDay.values.maxOrNull() ?: 0
     val gapStats = computeGapStats(events, now, zone, eventActiveNow = ongoingEventIn(case, events) != null)
 
+    // Any event whose active span crosses a calendar-day boundary makes "how often" ambiguous:
+    // frequency-over-time is hidden and the rhythm grid is relabelled to "Start times" (spec §9).
+    // A same-day duration event doesn't trip this.
+    val hasMultiDayEvent = events.any { spansMultipleDays(it.occurredAt, spanEnd(it), zone) }
+
     return InsightsTabState.Ready(
         heatmapMonths = heatmapMonths(case, countsByDay, maxDailyCount, now, zone),
-        stats = statsSections(case, eventsWithTags, events, gapStats, countsByDay.keys.toList(), now, zone, frequencyGranularityOverride),
+        stats =
+            statsSections(
+                case,
+                eventsWithTags,
+                events,
+                gapStats,
+                countsByDay.keys.toList(),
+                hasMultiDayEvent,
+                now,
+                zone,
+                frequencyGranularityOverride,
+            ),
     )
 }
 
@@ -168,29 +192,34 @@ private fun statsSections(
     events: List<EventEntity>,
     gapStats: GapStats,
     activeDates: List<LocalDate>,
+    hasMultiDayEvent: Boolean,
     now: Long,
     zone: ZoneId,
     frequencyGranularityOverride: FrequencyGranularity?,
 ): StatsSections {
     val spanDays = observationSpanDays(events, case.createdAt, now, zone)
 
-    val frequencyStats =
-        computeFrequencyStats(
-            events,
-            now,
-            spanDays,
-            granularity = frequencyGranularityOverride ?: pickFrequencyGranularity(spanDays),
-            zone = zone,
-        )
-    val maxBucketCount = frequencyStats.buckets.maxOf { it.count }.coerceAtLeast(1)
     val frequency =
-        FrequencyDisplay(
-            granularity = frequencyStats.granularity,
-            bars =
-                frequencyStats.buckets.map { bucket ->
-                    FrequencyBar(bucket.periodStart, bucket.count, bucket.count.toFloat() / maxBucketCount)
-                },
-        )
+        if (hasMultiDayEvent) {
+            null
+        } else {
+            val frequencyStats =
+                computeFrequencyStats(
+                    events,
+                    now,
+                    spanDays,
+                    granularity = frequencyGranularityOverride ?: pickFrequencyGranularity(spanDays),
+                    zone = zone,
+                )
+            val maxBucketCount = frequencyStats.buckets.maxOf { it.count }.coerceAtLeast(1)
+            FrequencyDisplay(
+                granularity = frequencyStats.granularity,
+                bars =
+                    frequencyStats.buckets.map { bucket ->
+                        FrequencyBar(bucket.periodStart, bucket.count, bucket.count.toFloat() / maxBucketCount)
+                    },
+            )
+        }
 
     val rhythmStats = computeRhythmStats(events, zone)
     val rhythm =
@@ -200,6 +229,7 @@ private fun statsSections(
                     val level = heatmapLevelFor(cell.count, rhythmStats.maxCount, tierCount = RHYTHM_TIER_COUNT)
                     RhythmCellDisplay(cell.dayOfWeek, cell.timeOfDay, level)
                 },
+            plottedByStart = hasMultiDayEvent,
         )
 
     val streakStats = computeStreakStats(activeDates)

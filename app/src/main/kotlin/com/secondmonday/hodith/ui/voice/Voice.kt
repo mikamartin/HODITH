@@ -223,6 +223,9 @@ interface Voice {
     /** Spec §10 stat section labels — structural, identical across all three voices like [insightsSectionLabelHeatmap]. */
     val insightsSectionLabelFrequency: String get() = "Frequency over time"
     val insightsSectionLabelRhythm: String get() = "Rhythm"
+
+    /** Replaces [insightsSectionLabelRhythm] when the Case has a multi-day event — the grid then plots event starts, not spans (spec §9). */
+    val insightsSectionLabelRhythmStarts: String get() = "Start times"
     val insightsSectionLabelGaps: String get() = "Gaps & streaks"
     val insightsSectionLabelTrend: String get() = "Trend"
     val insightsSectionLabelDuration: String get() = "Event duration"
@@ -332,6 +335,15 @@ interface Voice {
     fun leaveStartStopConfirmBody(runningCount: Int): String
 
     fun bigPictureWeekDetailTitle(date: String): String
+
+    /** Day/week detail row for a still-running event, in place of a clock time. [since] is a time if it started today, otherwise a date. */
+    fun bigPictureEventOngoingSince(since: String): String
+
+    /** Day/week detail row for a finished multi-day event, in place of a clock time. */
+    fun bigPictureEventSpanRange(
+        start: String,
+        end: String,
+    ): String
 
     fun bigPictureFilterCount(
         selected: Int,
@@ -809,6 +821,13 @@ object PlainVoice : Voice {
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
+    override fun bigPictureEventOngoingSince(since: String) = "Ongoing since $since"
+
+    override fun bigPictureEventSpanRange(
+        start: String,
+        end: String,
+    ) = "Lasted $start – $end"
+
     override fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
@@ -1278,6 +1297,13 @@ object IntenseVoice : Voice {
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
+    override fun bigPictureEventOngoingSince(since: String) = "Unfolding since $since"
+
+    override fun bigPictureEventSpanRange(
+        start: String,
+        end: String,
+    ) = "Ran $start to $end"
+
     override fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
@@ -1741,6 +1767,13 @@ object BrightVoice : Voice {
         "You've got $runningCount events still running! Switching off Start/Stop stops them right now."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
+
+    override fun bigPictureEventOngoingSince(since: String) = "Still going since $since"
+
+    override fun bigPictureEventSpanRange(
+        start: String,
+        end: String,
+    ) = "Went on $start–$end"
 
     override fun hunchNudgeBody(
         caseIcon: String,

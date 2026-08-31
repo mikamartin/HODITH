@@ -145,4 +145,48 @@ class CalendarGridTest {
             covered,
         )
     }
+
+    @Test
+    fun `spansMultipleDays is false for a span within one calendar day`() {
+        val day = LocalDate.of(2026, 2, 3)
+
+        assertEquals(false, spansMultipleDays(utcMillis(day, 8), utcMillis(day, 23), ZoneOffset.UTC))
+    }
+
+    @Test
+    fun `spansMultipleDays is true once a span crosses midnight`() {
+        assertTrue(
+            spansMultipleDays(
+                utcMillis(LocalDate.of(2026, 2, 1), 23) + 30 * 60_000L,
+                utcMillis(LocalDate.of(2026, 2, 2), 0) + 30 * 60_000L,
+                ZoneOffset.UTC,
+            ),
+        )
+    }
+
+    @Test
+    fun `spansMultipleDays floors an end before the start, so it is false`() {
+        assertEquals(
+            false,
+            spansMultipleDays(
+                utcMillis(LocalDate.of(2026, 2, 10), 12),
+                utcMillis(LocalDate.of(2026, 2, 8), 12),
+                ZoneOffset.UTC,
+            ),
+        )
+    }
+
+    @Test
+    fun `spansMultipleDays resolves the end in the supplied zone`() {
+        val newYork = ZoneId.of("America/New_York")
+        // 02:00 UTC Feb 2 is still Feb 1 in New York.
+        assertEquals(
+            false,
+            spansMultipleDays(
+                utcMillis(LocalDate.of(2026, 2, 1), 18),
+                utcMillis(LocalDate.of(2026, 2, 2), 2),
+                newYork,
+            ),
+        )
+    }
 }

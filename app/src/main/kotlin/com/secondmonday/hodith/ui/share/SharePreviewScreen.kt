@@ -47,6 +47,7 @@ import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.HunchTabState
+import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareInsightsSection
 import com.secondmonday.hodith.viewmodel.ShareUiState
@@ -197,7 +198,13 @@ fun SharePreviewScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            SectionsPicker(case, selection.selectedSections, voice, onSectionToggle)
+            SectionsPicker(
+                case = case,
+                frequencyAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.frequency != null,
+                selectedSections = selection.selectedSections,
+                voice = voice,
+                onSectionToggle = onSectionToggle,
+            )
 
             Button(onClick = onShareClick, modifier = Modifier.fillMaxWidth()) {
                 Text(voice.shareOpenDescription)
@@ -209,13 +216,14 @@ fun SharePreviewScreen(
 @Composable
 private fun SectionsPicker(
     case: CaseEntity,
+    frequencyAvailable: Boolean,
     selectedSections: Set<ShareInsightsSection>,
     voice: Voice,
     onSectionToggle: (ShareInsightsSection, Boolean) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(voice.shareSectionsPickerLabel, style = MaterialTheme.typography.labelLarge)
-        availableSections(case).forEach { section ->
+        availableSections(case, frequencyAvailable).forEach { section ->
             ToggleRow(
                 label = sectionLabel(section, voice),
                 checked = section in selectedSections,
@@ -226,10 +234,17 @@ private fun SectionsPicker(
     }
 }
 
-/** Duration/Intensity are only offered when the Case tracks them — same conditional as the real Insights tab. */
-private fun availableSections(case: CaseEntity): List<ShareInsightsSection> =
+/**
+ * Frequency is offered only when the Insights tab itself shows it (hidden for a Case with a
+ * multi-day event, spec §9); Duration/Intensity only when the Case tracks them — same
+ * conditionals as the real Insights tab.
+ */
+private fun availableSections(
+    case: CaseEntity,
+    frequencyAvailable: Boolean,
+): List<ShareInsightsSection> =
     buildList {
-        add(ShareInsightsSection.FREQUENCY)
+        if (frequencyAvailable) add(ShareInsightsSection.FREQUENCY)
         add(ShareInsightsSection.RHYTHM)
         add(ShareInsightsSection.GAPS)
         add(ShareInsightsSection.TREND)

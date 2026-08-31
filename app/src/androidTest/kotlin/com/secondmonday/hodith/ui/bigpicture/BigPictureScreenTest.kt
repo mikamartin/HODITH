@@ -175,6 +175,52 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText("late night").assertExists()
     }
 
+    private fun millisAt(
+        date: LocalDate,
+        hour: Int,
+    ) = date
+        .atTime(hour, 0)
+        .atZone(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
+
+    @Test
+    fun dayDetailDialog_spannedDay_showsSpanRangeInsteadOfClockTime() {
+        // A finished 3-day event: Mon 20th 09:00 -> Wed 22nd 17:00. The 21st is a carried day.
+        val span =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart, 9),
+                endedAt = millisAt(weekStart.plusDays(2), 17),
+                note = "rough stretch",
+            )
+        setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
+
+        composeTestRule.onNodeWithText(weekStart.plusDays(1).dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20", "Jul 22")).assertExists()
+        composeTestRule.onNodeWithText("9:00 AM").assertDoesNotExist()
+    }
+
+    @Test
+    fun dayDetailDialog_carriedDayOfOngoingEvent_showsOngoingSince() {
+        val ongoing =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart.plusDays(1), 8),
+                isOngoing = true,
+                note = "forgot to stop",
+            )
+        setContent(uiStateWith(cases = listOf(case), events = listOf(ongoing)))
+
+        // today is the 23rd; the 22nd is a carried day of the still-running event.
+        composeTestRule.onNodeWithText(today.minusDays(1).dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21")).assertExists()
+    }
+
     @Test
     fun dayDetailDialog_eventRowTap_opensCaseDetailAndDismissesDialog() {
         var openedCaseId: Long? = null

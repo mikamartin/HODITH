@@ -250,6 +250,19 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
+    fun frequencyCard_hiddenAndRhythmRelabelled_whenAnEventSpansMultipleDays() {
+        // A 3-day event (10 -> 7 days ago) makes a per-bucket count ambiguous (spec §9).
+        setInsightsTabContent(
+            durationMode = DurationMode.START_STOP,
+            events = listOf(eventAt(10, endedAt = daysAgo(7)), eventAt(1)),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythmStarts).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertDoesNotExist()
+    }
+
+    @Test
     fun frequencyGranularityToggle_day_switchesBucketLabelFormat() {
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
