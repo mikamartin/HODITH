@@ -20,15 +20,14 @@ Each item carries:
 
 ## Story A — Start/Stop, duration & ongoing events
 
-A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A6 are done; the rest form one dependency chain — work it top to bottom:
+A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A7 are done; the rest form one dependency chain — work it top to bottom:
 
-- **A7** finalizes the active-span / duration-display rule (`durationMode` governs whether duration shows at all) — touches `InsightsTabState.kt`, `BigPictureGrid.kt` / `BigPictureViewModel.kt`, `CaseDetailViewModel.kt`.
 - **A8** (`CaseEditViewModel.kt` only) defines what switching a Case's duration mode on or off does to its existing events — depends on A7's rule.
-- **A9** (`HomeViewModel.kt` only) propagates A7's rule to Home's counts.
+- **A9** (`HomeViewModel.kt` only) propagates A7's rule to Home's counts via the shared `DurationMode.tracksDuration` extension.
 - **A10** is an independent read-through — no file-chain dependency.
 - The **Satellite** shares the `BigPictureGrid.kt` / `InsightsTab.kt` formatter sites (A6 has landed there).
 
-### A1–A6 · done — Start/Stop & duration polish
+### A1–A7 · done — Start/Stop & duration polish
 
 Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds on" / "sequence after" pointers below.
 
@@ -38,34 +37,7 @@ Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds 
 - **A4** — minutes/hours/days unit selector in the Manual duration field (`feat/duration-unit-selector`): `LogDraft.durationAmount`/`durationUnit`, `computeEndedAt` scales by unit, storage stays millis. Spec §6.
 - **A5** — the per-case calendar heatmap and streak count credit every day an event was active, not just its start (`feat/active-span-insights`): the "active span" rule written to spec §9, `domain/CalendarGrid.kt` `datesCovered` helper (A6 reuses it), `insightsTabState`'s `countsByDay` expanded across covered days. Frequency / Rhythm / Trend / verdict stay start-anchored. Also: a gaps & streaks info icon defining each metric, and the Insights "Duration" card renamed "Event duration". Spec §9/§10.
 - **A6** — duration on the Big Picture grid and the duration-aware Insights split (`feat/big-picture-duration-spans`): `CalendarEvent` gains `endedAt`/`isOngoing`; a multi-day event's icon spans every day it covered with a `primary` ring on the start day and a trail to today for a running one (`domain/CalendarGrid.kt` `spansMultipleDays` helper); the day/week detail dialogs show "ongoing since …" / "lasted …" in place of a misleading clock time on a spanned day. The frequency chart is **hidden** and the rhythm card **retitled "Start times"** for any Case with a multi-day event — `computeFrequencyStats` / trend / verdict are untouched and stay start-anchored. **Also closes the original rhythm-caveat item** (rhythm plotting starts with no caveat): the retitle is the caveat. Spec §9/§10.
-
-### A7 · Duration surfaces read raw `endedAt`, ignoring the Case's current `durationMode`
-
-*Branch: `feat/duration-display-follows-mode` · Complexity: S · Priority: Medium · Area: Duration*
-
-🎨 **Design decision** — the rule belongs in spec §9's active-span section: `durationMode == NONE` ⇒ every event is a point at `occurredAt` on every surface, stored `endedAt` untouched.
-
-`durationMode` currently gates only the log sheet's Duration/End sections, the `ongoingEventsIn` derivation, and the Insights "Event duration" card. Three surfaces key off a raw non-null `endedAt` instead:
-
-- `eventDetailSummary` (`viewmodel/CaseDetailViewModel.kt`) appends "Lasted X" for any `event.endedAt != null` — a Case switched to `NONE` still shows durations on every event row, and a zero-duration event (`endedAt == occurredAt`) reads "Lasted 0m".
-- Big Picture `coveredDates` (`ui/bigpicture/BigPictureGrid.kt`) spans `occurredAt … endedAt` whenever `endedAt != null`; `CalendarEvent` (`viewmodel/BigPictureViewModel.kt`) carries only a `START_STOP` gate on `isOngoing`. A `NONE` Case keeps its historical multi-day spans.
-- Insights `spanEnd` (`viewmodel/InsightsTabState.kt`) feeds `datesCovered` from `endedAt` regardless of mode, so heatmap shading, the streak count, and the `hasMultiDayEvent` frequency-hide / rhythm-relabel all still treat old durations as spans.
-
-**Acceptance criteria**
-
-- [ ] Spec updated: §9 active-span rule gated on `durationMode != NONE` (a `NONE` Case renders every event as a point on every day-counting surface, whatever `endedAt` is stored); §10's "gated purely on the Case's current `durationMode`" line generalised from the Insights card to the event-row line and Big Picture spans too; §6's "any mode with a real `endedAt` shows how long it lasted" reworded to "any mode that still tracks duration", plus the zero-duration-is-a-point rule; §9's Big Picture paragraph clarified that a `NONE` Case shows no spans at all.
-- [ ] `eventDetailSummary` shows the duration line only when `case.durationMode != NONE` **and** `endedAt > occurredAt`.
-- [ ] `CalendarEvent` carries the Case's duration state (a `tracksDuration` bool or the mode); `coveredDates` returns the single start day when the Case doesn't track duration.
-- [ ] `InsightsTabState`'s `spanEnd` / `hasMultiDayEvent` collapse to the start day when `durationMode == NONE`.
-- [ ] Stored `endedAt` is never mutated by this item — restored in full if the mode is turned back on.
-- [ ] No schema change.
-- [ ] Tests: `CaseDetailViewModelTest` (NONE hides the line, zero-duration hides it), `InsightsTabStateTest` and `BigPictureViewModelTest` (NONE Case with historical `endedAt` → no spans, frequency card stays visible).
-
-**Plan** — thread a derived `tracksDuration = durationMode != NONE` into the three sites and gate the span/label logic on it; add the `endedAt > occurredAt` guard to `eventDetailSummary`.
-
-**Tests** — `CaseDetailViewModelTest`, `InsightsTabStateTest`, `BigPictureViewModelTest`.
-
-**Concern** — shares the active-span rule with A5 and A9; all three must describe the same rule in spec §9. A9's Home predicate must also carry this item's `durationMode != NONE` gate.
+- **A7** — every duration-display surface now follows the Case's current `durationMode` (`feat/duration-display-follows-mode`): a shared `DurationMode.tracksDuration` extension (`durationMode != NONE`); each surface collapses a non-tracking Case's stored `endedAt` to a point at its entry boundary — `bigPictureUiState` nulls `CalendarEvent.endedAt`, `insightsTabState` collapses the event list once (so `spanEnd` / `hasMultiDayEvent` / `computeGapStats` all follow), `eventDetailSummary` gains a `tracksDuration` param plus an `endedAt > occurredAt` guard (zero-length events are points). Stored `endedAt` untouched; no schema change. Spec §6/§9/§10.
 
 ### A8 · Switching a Case into Start/stop makes every past open-ended event ongoing
 
@@ -103,7 +75,7 @@ Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds 
 
 - [ ] A decided day-attribution rule for duration events on Home, written into spec §9/§14 alongside A7's active-span rule.
 - [ ] `homeCaseRows` today / this-week counts apply it; a running event's span runs to now.
-- [ ] The span predicate carries A7's `durationMode != NONE` gate — a `NONE` Case's events count as points on Home too.
+- [ ] The span predicate calls the shared `DurationMode.tracksDuration` extension (added in A7, `data/DurationMode.kt`) — not a re-inlined `!= NONE` check — so a `NONE` Case's events count as points on Home too.
 - [ ] `HomeViewModelMappingTest` covers a span crossing the today boundary and the week boundary.
 - [ ] No schema change.
 

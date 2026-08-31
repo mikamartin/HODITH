@@ -174,6 +174,34 @@ class CaseDetailFormattingTest {
         )
     }
 
+    @Test
+    fun `eventDetailSummary hides the duration line when the Case no longer tracks duration`() {
+        // A real endedAt, but durationMode is now NONE — the event is a point (spec §9).
+        val event = testEvent(intensity = 3, note = null, occurredAt = 0L, endedAt = 45 * 60_000L)
+
+        assertEquals(
+            PlainVoice.eventIntensityLabel(3),
+            eventDetailSummary(event, tags = emptyList(), PlainVoice, tracksDuration = false),
+        )
+    }
+
+    @Test
+    fun `eventDetailSummary hides the duration line for a zero-length event`() {
+        val event = testEvent(intensity = 3, note = null, occurredAt = 10 * 60_000L, endedAt = 10 * 60_000L)
+
+        assertEquals(PlainVoice.eventIntensityLabel(3), eventDetailSummary(event, tags = emptyList(), PlainVoice))
+    }
+
+    @Test
+    fun `eventDetailSummary keeps the duration line for a nonzero span when the Case tracks duration`() {
+        val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 45 * 60_000L)
+
+        assertEquals(
+            PlainVoice.eventDurationLabel("45m"),
+            eventDetailSummary(event, tags = emptyList(), PlainVoice, tracksDuration = true),
+        )
+    }
+
     // ---- formatRate ----
 
     @Test

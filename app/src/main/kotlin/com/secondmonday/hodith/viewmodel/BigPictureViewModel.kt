@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseWithEventsAndTags
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
+import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,7 +30,9 @@ data class CalendarCase(
  * encoded only for an event whose active span covers more than one calendar day: its icon then
  * appears on every covered day and the start day's icon is ringed. [endedAt] is null for a point
  * event and for a still-running one — [isOngoing] tells those apart, and a running event's span
- * runs to today.
+ * runs to today. [endedAt] is also null when the Case's `durationMode` no longer tracks duration
+ * (spec §9: every event is then a point); this is a render projection, never persisted, and the
+ * stored value stays intact.
  */
 data class CalendarEvent(
     val id: Long,
@@ -96,7 +99,10 @@ internal fun bigPictureUiState(
                         id = it.event.id,
                         caseId = case.id,
                         occurredAt = it.event.occurredAt,
-                        endedAt = it.event.endedAt,
+                        // Spec §9: a Case that no longer tracks duration renders every event as a
+                        // point — drop the stored endedAt here so coveredDates collapses to the
+                        // start day. START_STOP always tracks, so isOngoing is unaffected.
+                        endedAt = if (case.durationMode.tracksDuration) it.event.endedAt else null,
                         isOngoing = case.durationMode == DurationMode.START_STOP && it.event.endedAt == null,
                         note = it.event.note,
                         tags = it.tags.map { tag -> tag.name },

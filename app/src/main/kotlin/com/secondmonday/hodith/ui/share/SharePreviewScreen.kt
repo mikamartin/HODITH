@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -248,7 +248,7 @@ private fun availableSections(
         add(ShareInsightsSection.RHYTHM)
         add(ShareInsightsSection.GAPS)
         add(ShareInsightsSection.TREND)
-        if (case.durationMode != DurationMode.NONE) add(ShareInsightsSection.DURATION)
+        if (case.durationMode.tracksDuration) add(ShareInsightsSection.DURATION)
         if (case.intensityEnabled) add(ShareInsightsSection.INTENSITY)
     }
 

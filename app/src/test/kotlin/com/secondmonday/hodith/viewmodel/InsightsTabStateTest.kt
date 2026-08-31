@@ -177,7 +177,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `heatmap shades every day a finished multi-day event covered, not just its start`() {
-        val case = testCase(createdAt = millisAtDay(0))
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         val events = listOf(eventAtDay(0), durationEvent(startDay = 2, endDay = 6))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
@@ -197,7 +197,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `streak counts every day a multi-day event covered as one consecutive run`() {
-        val case = testCase(createdAt = millisAtDay(0))
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         // A lone point event (run of 1) plus a 4-day span (days 10..13).
         val events = listOf(eventAtDay(0), durationEvent(startDay = 10, endDay = 13))
 
@@ -208,7 +208,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `an event that crosses midnight marks both calendar days`() {
-        val case = testCase(createdAt = millisAtDay(0))
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         val crossMidnight =
             EventEntity(
                 id = 0,
@@ -242,7 +242,7 @@ class InsightsTabStateTest {
     fun `overlapping duration events merge into one streak and stack on the shared days`() {
         // The reported case: a 5-day event (days 0..4) and a 12-day event (days 1..12) overlap,
         // so their union is a single 13-day run and days 1..4 carry both events.
-        val case = testCase(createdAt = millisAtDay(0))
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         val events = listOf(durationEvent(startDay = 0, endDay = 4), durationEvent(startDay = 1, endDay = 12))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
@@ -266,7 +266,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `frequency-over-time is hidden and rhythm relabelled once the Case has a multi-day event`() {
-        val case = testCase(createdAt = millisAtDay(0))
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         // A 4-day event (days 15..18) plus a point event on day 19; "now" is day 20.
         val events = listOf(durationEvent(startDay = 15, endDay = 18), eventAtDay(19))
 
@@ -282,7 +282,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `frequency-over-time is shown and start-anchored when every event fits within a day`() {
-        val case = testCase(createdAt = millisAtDay(0))
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         // A same-day duration event (day 15) plus four point events; "now" is day 20.
         val events =
             listOf(durationEvent(startDay = 15, endDay = 15)) + (16L..19L).map { eventAtDay(it) }
@@ -308,6 +308,47 @@ class InsightsTabStateTest {
 
         assertEquals(null, state.stats.frequency)
         assertTrue(state.stats.rhythm.plottedByStart)
+    }
+
+    @Test
+    fun `a NONE Case renders a stored multi-day endedAt as a point in the heatmap and streak`() {
+        // The Case was switched to NONE but an old event still carries a 5-day endedAt (§9): it
+        // must collapse to its start day, not span.
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val events = listOf(eventAtDay(0), durationEvent(startDay = 2, endDay = 6))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertEquals(setOf(LocalDate.ofEpochDay(0), LocalDate.ofEpochDay(2)), state.shadedDates())
+        assertEquals(1, state.stats.gaps.longestStreakDays)
+    }
+
+    @Test
+    fun `a NONE Case with a stored multi-day endedAt keeps the frequency card visible`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val events = listOf(durationEvent(startDay = 15, endDay = 18), eventAtDay(19))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        assertEquals(
+            2,
+            state.stats.frequency
+                ?.bars
+                ?.sumOf { it.count },
+        )
+        assertEquals(false, state.stats.rhythm.plottedByStart)
+    }
+
+    @Test
+    fun `a NONE Case reads the current gap from occurredAt, not a stored endedAt`() {
+        // A duration event ran days 1..14 but the Case is now NONE; "now" is day 20. The silence
+        // counts from day 1, where the START_STOP version (below) would report 0 at day 14.
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val events = listOf(eventAtDay(0), durationEvent(startDay = 1, endDay = 14))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        assertEquals(19L, state.stats.gaps.currentGapDays)
     }
 
     // ---- stats.totalEventCount / stats.tags ----

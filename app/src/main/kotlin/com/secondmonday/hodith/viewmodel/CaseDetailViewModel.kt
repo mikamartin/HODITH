@@ -229,18 +229,23 @@ internal fun monthsAgo(
  * since a plain `endedAt == null` alone is ambiguous with `NONE`/`MANUAL` events that simply
  * have no duration. An ongoing event's running state is drawn separately (the "Ongoing" pill
  * + live elapsed), so this only contributes its intensity/note/tags. A finished duration event
- * (any mode with a real `endedAt`) shows how long it lasted, via the same [formatElapsedDuration]
- * the ongoing indicator uses.
+ * shows how long it lasted (via the same [formatElapsedDuration] the ongoing indicator uses)
+ * only when [tracksDuration] — the Case's `durationMode != NONE` — and the span is non-zero;
+ * a Case switched to `NONE`, or a zero-length event (`endedAt == occurredAt`), is a point
+ * with no duration line. Stored `endedAt` is never read past this gate, so it survives intact.
  */
 internal fun eventDetailSummary(
     event: EventEntity,
     tags: List<TagEntity>,
     voice: Voice,
     isOngoing: Boolean = false,
+    tracksDuration: Boolean = true,
 ): String? {
     val parts = mutableListOf<String>()
-    if (!isOngoing) {
-        event.endedAt?.let { parts += voice.eventDurationLabel(formatElapsedDuration(event.occurredAt, it)) }
+    if (!isOngoing && tracksDuration) {
+        event.endedAt
+            ?.takeIf { it > event.occurredAt }
+            ?.let { parts += voice.eventDurationLabel(formatElapsedDuration(event.occurredAt, it)) }
     }
     event.intensity?.let { parts += voice.eventIntensityLabel(it) }
     event.note?.takeIf { it.isNotBlank() }?.let { parts += it }
