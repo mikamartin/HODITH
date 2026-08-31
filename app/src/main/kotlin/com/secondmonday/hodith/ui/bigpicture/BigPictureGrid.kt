@@ -82,6 +82,12 @@ import java.util.Locale
  * as a separate tap target from the day cells since a click handler spanning the whole row would
  * never fire for taps landing on a day cell (the innermost clickable wins).
  *
+ * Intensity is not encoded. Duration is, but only for an event whose active span (spec §9) covers
+ * more than one calendar day: its icon then appears on every covered day and the start day's icon
+ * is ringed in `primary`. A still-running event's span runs to today. A same-day duration event
+ * reads exactly like a moment event. The day/week detail dialogs show "ongoing since …" /
+ * "lasted …" for those events in place of a clock time that would mislead on a carried day.
+ *
  * Scroll range is [earliestMonth]..[currentMonth] inclusive, opening at the bottom (current
  * month). Replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired
  * after on-device testing showed it didn't read clearly (see PROGRESS.md for the build history).
@@ -89,6 +95,47 @@ import java.util.Locale
 private const val MAX_ICONS_PER_CELL = 3
 private val WEEK_CHEVRON_TOUCH_TARGET = 48.dp
 private val CHIP_SHAPE = RoundedCornerShape(16.dp)
+
+/** Stroke for the ring that marks the icon on the day a multi-day event started (spec §9). */
+private val SPAN_START_RING_WIDTH = 1.5.dp
+private val SPAN_DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM d", Locale.US)
+
+/**
+ * One event as it lands on a given day cell. [isSpanStart]/[isSpanCarried] are both false for a
+ * single-day event (a moment, or a duration event that opened and closed within one calendar
+ * day) — it renders exactly as before. For a multi-day span they mark day 1 vs. the rest.
+ */
+private data class DayEvent(
+    val event: CalendarEvent,
+    val isSpanStart: Boolean,
+    val isSpanCarried: Boolean,
+)
+
+/** One case icon in a day cell. [ringed] when a multi-day span for that case starts on this day. */
+private data class DayCellIcon(
+    val case: CalendarCase,
+    val ringed: Boolean,
+)
+
+/**
+ * The local dates [event] covers on the grid: its single day unless a finished event runs past
+ * midnight (`occurredAt … endedAt`) or a still-running one does (`occurredAt … today`).
+ */
+private fun coveredDates(
+    event: CalendarEvent,
+    today: LocalDate,
+    zone: ZoneId,
+): List<LocalDate> {
+    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(zone).toLocalDate()
+    val endDate =
+        when {
+            event.isOngoing -> today
+            event.endedAt != null -> Instant.ofEpochMilli(event.endedAt).atZone(zone).toLocalDate()
+            else -> startDate
+        }
+    if (!endDate.isAfter(startDate)) return listOf(startDate)
+    return generateSequence(startDate) { it.plusDays(1) }.takeWhile { !it.isAfter(endDate) }.toList()
+}
 
 @Composable
 fun BigPictureGrid(
@@ -125,8 +172,23 @@ fun BigPictureGrid(
     }
 
     val eventsByDay =
-        remember(events, zoneId) {
-            events.groupBy { Instant.ofEpochMilli(it.occurredAt).atZone(zoneId).toLocalDate() }
+        remember(events, zoneId, today) {
+            buildMap<LocalDate, MutableList<DayEvent>> {
+                events.forEach { event ->
+                    val dates = coveredDates(event, today, zoneId)
+                    val multiDay = dates.size > 1
+                    dates.forEachIndexed { index, date ->
+                        getOrPut(date) { mutableListOf() }
+                            .add(
+                                DayEvent(
+                                    event = event,
+                                    isSpanStart = multiDay && index == 0,
+                                    isSpanCarried = multiDay && index > 0,
+                                ),
+                            )
+                    }
+                }
+            }
         }
     val caseById = remember(cases) { cases.associateBy { it.id } }
     val months =
@@ -203,7 +265,8 @@ fun BigPictureGrid(
     selectedDay?.let { day ->
         DayDetailDialog(
             day = day,
-            events = eventsByDay[day].orEmpty().filter(isEventVisible),
+            dayEvents = eventsByDay[day].orEmpty().filter { isEventVisible(it.event) },
+            today = today,
             caseById = caseById,
             zoneId = zoneId,
             onOpenCase = onOpenCase,
@@ -403,7 +466,7 @@ private fun WeekRow(
     week: List<LocalDate>,
     month: YearMonth,
     today: LocalDate,
-    eventsByDay: Map<LocalDate, List<CalendarEvent>>,
+    eventsByDay: Map<LocalDate, List<DayEvent>>,
     caseById: Map<Long, CalendarCase>,
     isEventVisible: (CalendarEvent) -> Boolean,
     onDayTap: (LocalDate) -> Unit,
@@ -450,9 +513,13 @@ private fun WeekRow(
                     icons =
                         eventsByDay[day]
                             .orEmpty()
-                            .filter(isEventVisible)
-                            .mapNotNull { caseById[it.caseId] }
-                            .distinctBy { it.id },
+                            .filter { isEventVisible(it.event) }
+                            .groupBy { it.event.caseId }
+                            .mapNotNull { (caseId, dayEvents) ->
+                                caseById[caseId]?.let { case ->
+                                    DayCellIcon(case, ringed = dayEvents.any { it.isSpanStart })
+                                }
+                            }.sortedByDescending { it.ringed },
                     onClick = { onDayTap(day) },
                     modifier = Modifier.weight(1f),
                 )
@@ -466,7 +533,8 @@ private val EVENT_TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.
 @Composable
 private fun DayDetailDialog(
     day: LocalDate,
-    events: List<CalendarEvent>,
+    dayEvents: List<DayEvent>,
+    today: LocalDate,
     caseById: Map<Long, CalendarCase>,
     zoneId: ZoneId,
     onOpenCase: (Long) -> Unit,
@@ -477,12 +545,12 @@ private fun DayDetailDialog(
         title = day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)),
         onDismiss = onDismiss,
     ) {
-        if (events.isEmpty()) {
+        if (dayEvents.isEmpty()) {
             Text(voice.bigPictureDayDetailEmptyState)
         } else {
             Column {
-                events.forEach { event ->
-                    EventDetailRow(event, caseById[event.caseId], zoneId, onOpenCase, onDismiss, voice)
+                dayEvents.forEach { dayEvent ->
+                    EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, zoneId, onOpenCase, onDismiss, voice)
                 }
             }
         }
@@ -493,7 +561,7 @@ private fun DayDetailDialog(
 private fun WeekDetailDialog(
     week: List<LocalDate>,
     today: LocalDate,
-    eventsByDay: Map<LocalDate, List<CalendarEvent>>,
+    eventsByDay: Map<LocalDate, List<DayEvent>>,
     caseById: Map<Long, CalendarCase>,
     isEventVisible: (CalendarEvent) -> Boolean,
     zoneId: ZoneId,
@@ -511,19 +579,19 @@ private fun WeekDetailDialog(
     ) {
         Column {
             validDays.forEach { day ->
-                val dayEvents = eventsByDay[day].orEmpty().filter(isEventVisible)
+                val dayEvents = eventsByDay[day].orEmpty().filter { isEventVisible(it.event) }
                 if (dayEvents.isNotEmpty()) {
                     Text(
                         text = day.format(DateTimeFormatter.ofPattern("EEE d", Locale.US)),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(top = 6.dp),
                     )
-                    dayEvents.forEach { event ->
-                        EventDetailRow(event, caseById[event.caseId], zoneId, onOpenCase, onDismiss, voice)
+                    dayEvents.forEach { dayEvent ->
+                        EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, zoneId, onOpenCase, onDismiss, voice)
                     }
                 }
             }
-            if (validDays.all { eventsByDay[it].orEmpty().none(isEventVisible) }) {
+            if (validDays.all { day -> eventsByDay[day].orEmpty().none { isEventVisible(it.event) } }) {
                 Text(voice.bigPictureWeekDetailEmptyState)
             }
         }
@@ -532,13 +600,39 @@ private fun WeekDetailDialog(
 
 @Composable
 private fun EventDetailRow(
-    event: CalendarEvent,
+    dayEvent: DayEvent,
     case: CalendarCase?,
+    today: LocalDate,
     zoneId: ZoneId,
     onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
     voice: Voice,
 ) {
+    val event = dayEvent.event
+    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(zoneId).toLocalDate()
+    val startTime =
+        Instant
+            .ofEpochMilli(event.occurredAt)
+            .atZone(zoneId)
+            .toLocalTime()
+            .format(EVENT_TIME_FORMATTER)
+    val timeLabel =
+        when {
+            event.isOngoing ->
+                voice.bigPictureEventOngoingSince(
+                    if (startDate == today) startTime else startDate.format(SPAN_DATE_FORMATTER),
+                )
+            dayEvent.isSpanStart || dayEvent.isSpanCarried ->
+                voice.bigPictureEventSpanRange(
+                    startDate.format(SPAN_DATE_FORMATTER),
+                    Instant
+                        .ofEpochMilli(event.endedAt!!)
+                        .atZone(zoneId)
+                        .toLocalDate()
+                        .format(SPAN_DATE_FORMATTER),
+                )
+            else -> startTime
+        }
     Column(
         modifier =
             Modifier
@@ -554,12 +648,7 @@ private fun EventDetailRow(
                 style = MaterialTheme.typography.titleSmall,
             )
             Text(
-                text =
-                    Instant
-                        .ofEpochMilli(event.occurredAt)
-                        .atZone(zoneId)
-                        .toLocalTime()
-                        .format(EVENT_TIME_FORMATTER),
+                text = timeLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -886,7 +975,7 @@ private fun WeekdayHeader(modifier: Modifier = Modifier) {
 private fun DayCell(
     day: LocalDate,
     isToday: Boolean,
-    icons: List<CalendarCase>,
+    icons: List<DayCellIcon>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -901,7 +990,7 @@ private fun DayCell(
 private fun PlainDayCell(
     day: LocalDate,
     isToday: Boolean,
-    icons: List<CalendarCase>,
+    icons: List<DayCellIcon>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -927,9 +1016,19 @@ private fun PlainDayCell(
             color = if (isToday) todayBorder else dayNumberColor,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            icons.take(MAX_ICONS_PER_CELL).forEach { case ->
+            icons.take(MAX_ICONS_PER_CELL).forEach { (case, ringed) ->
                 Box(
-                    modifier = Modifier.size(16.dp).clip(CircleShape),
+                    modifier =
+                        Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .then(
+                                if (ringed) {
+                                    Modifier.border(SPAN_START_RING_WIDTH, MaterialTheme.colorScheme.primary, CircleShape)
+                                } else {
+                                    Modifier
+                                },
+                            ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(case.icon, style = MaterialTheme.typography.labelSmall)
@@ -951,7 +1050,7 @@ private fun PlainDayCell(
 private fun IntenseDayCell(
     day: LocalDate,
     isToday: Boolean,
-    icons: List<CalendarCase>,
+    icons: List<DayCellIcon>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -982,13 +1081,16 @@ private fun IntenseDayCell(
             modifier = Modifier.padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            icons.take(MAX_ICONS_PER_CELL).forEach { case ->
+            icons.take(MAX_ICONS_PER_CELL).forEach { (case, ringed) ->
                 Box(
                     modifier =
                         Modifier
                             .size(14.dp)
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            .border(
+                                if (ringed) SPAN_START_RING_WIDTH else 1.dp,
+                                if (ringed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                            ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(case.icon, style = MaterialTheme.typography.labelSmall)
@@ -1017,7 +1119,7 @@ private fun IntenseDayCell(
 private fun BrightDayCell(
     day: LocalDate,
     isToday: Boolean,
-    icons: List<CalendarCase>,
+    icons: List<DayCellIcon>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1050,7 +1152,7 @@ private fun BrightDayCell(
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Row {
-                    icons.take(MAX_ICONS_PER_CELL).forEachIndexed { index, case ->
+                    icons.take(MAX_ICONS_PER_CELL).forEachIndexed { index, (case, ringed) ->
                         Box(
                             modifier =
                                 Modifier
@@ -1060,10 +1162,20 @@ private fun BrightDayCell(
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.surface)
                                     .then(
-                                        if (isToday) {
-                                            Modifier
-                                        } else {
-                                            Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                        when {
+                                            ringed ->
+                                                Modifier.border(
+                                                    SPAN_START_RING_WIDTH,
+                                                    MaterialTheme.colorScheme.primary,
+                                                    CircleShape,
+                                                )
+                                            isToday -> Modifier
+                                            else ->
+                                                Modifier.border(
+                                                    1.dp,
+                                                    MaterialTheme.colorScheme.outlineVariant,
+                                                    CircleShape,
+                                                )
                                         },
                                     ),
                             contentAlignment = Alignment.Center,
@@ -1114,6 +1226,7 @@ private fun previewSeedData(): PreviewSeedData {
     val currentMonth = YearMonth.now()
     val earliestMonth = currentMonth.minusMonths(3)
     val zoneId = ZoneId.systemDefault()
+    val today = LocalDate.now()
     val notes =
         listOf(
             "Right after the walk, felt great",
@@ -1156,7 +1269,39 @@ private fun previewSeedData(): PreviewSeedData {
                     note = notes[(caseId - 1).toInt()],
                     tags = if (caseId == 1L) listOf("weekend", "late night") else emptyList(),
                 )
-            }
+            } +
+            // A 4-day finished 🤕 and a still-running 🏋️ (runs to LocalDate.now()) — the spanned treatment.
+            listOf(
+                CalendarEvent(
+                    id = nextEventId++,
+                    caseId = 2L,
+                    occurredAt =
+                        today
+                            .minusDays(9)
+                            .atStartOfDay(zoneId)
+                            .toInstant()
+                            .toEpochMilli(),
+                    endedAt =
+                        today
+                            .minusDays(5)
+                            .atStartOfDay(zoneId)
+                            .toInstant()
+                            .toEpochMilli(),
+                    note = "Rough patch",
+                ),
+                CalendarEvent(
+                    id = nextEventId++,
+                    caseId = 5L,
+                    occurredAt =
+                        today
+                            .minusDays(2)
+                            .atStartOfDay(zoneId)
+                            .toInstant()
+                            .toEpochMilli(),
+                    isOngoing = true,
+                    note = "Forgot to stop it",
+                ),
+            )
     return PreviewSeedData(cases, events, earliestMonth, currentMonth)
 }
 

@@ -39,3 +39,19 @@ internal fun datesCovered(
     val endDate = Instant.ofEpochMilli(maxOf(startMillis, endMillis)).atZone(zone).toLocalDate()
     return generateSequence(startDate) { it.plusDays(1) }.takeWhile { !it.isAfter(endDate) }.toList()
 }
+
+/**
+ * Whether the active span [[startMillis], [endMillis]] touches more than one calendar day in
+ * [zone] — i.e. [datesCovered] would return more than one date. Drives the Big Picture's spanned
+ * treatment and the Insights tab's frequency-hide / rhythm-relabel: a same-day duration event
+ * reads exactly like a moment event everywhere.
+ */
+internal fun spansMultipleDays(
+    startMillis: Long,
+    endMillis: Long,
+    zone: ZoneId,
+): Boolean {
+    val startDate = Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
+    val endDate = Instant.ofEpochMilli(maxOf(startMillis, endMillis)).atZone(zone).toLocalDate()
+    return endDate.isAfter(startDate)
+}

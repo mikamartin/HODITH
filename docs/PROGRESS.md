@@ -20,12 +20,11 @@ Each item carries:
 
 ## Story A — Start/Stop, duration & ongoing events
 
-A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A5 are done; the rest still share files, so sequence matters:
+A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A6 are done; the rest still share files, so sequence matters:
 
-- `CalendarGrid.kt` day iteration — A6 (reuses A5's `datesCovered`)
-- formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — A6, time-format satellite
+- formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — time-format satellite
 
-### A1–A5 · done — Start/Stop & duration polish
+### A1–A6 · done — Start/Stop & duration polish
 
 Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds on" / "sequence after" pointers below.
 
@@ -34,52 +33,7 @@ Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds 
 - **A3** — one running-event treatment on every surface (`fix/ongoing-affordance`): "Ongoing" pill + elapsed/count, hand-drawn `StopSquare` glyph, count-only Case-detail log header, `+` log button stays put everywhere. Spec §6/§15.
 - **A4** — minutes/hours/days unit selector in the Manual duration field (`feat/duration-unit-selector`): `LogDraft.durationAmount`/`durationUnit`, `computeEndedAt` scales by unit, storage stays millis. Spec §6.
 - **A5** — the per-case calendar heatmap and streak count credit every day an event was active, not just its start (`feat/active-span-insights`): the "active span" rule written to spec §9, `domain/CalendarGrid.kt` `datesCovered` helper (A6 reuses it), `insightsTabState`'s `countsByDay` expanded across covered days. Frequency / Rhythm / Trend / verdict stay start-anchored. Also: a gaps & streaks info icon defining each metric, and the Insights "Duration" card renamed "Event duration". Spec §9/§10.
-
-### A6 · Duration/ongoing not encoded on the Big Picture grid or the frequency chart
-
-*Branch: `feat/big-picture-duration-spans` · Complexity: L · Priority: Medium · Area: Big Picture*
-
-🎨 **Design decision** — needs a design + spec pass; open sub-decision on whether frequency buckets become "active time". Depends on A5.
-
-Every visualization currently treats an event as a zero-width point at `occurredAt`: a multi-day or still-running event shows its icon on the start day only, and a long event counts once in the frequency chart. The product decision is to span-fill the grid with a *distinct* visual (a faded/connected icon, not the normal "it happened" icon) and trail a running event to today, so duration reads without masquerading as repeat occurrences.
-
-**Acceptance criteria**
-
-- [ ] `CalendarEvent` (`viewmodel/BigPictureViewModel.kt`) gains `endedAt`.
-- [ ] `BigPictureGrid` renders spanned days in a distinct faded/connected style — not the normal "it happened" icon.
-- [ ] A running event trails to today.
-- [ ] `DayDetailDialog` / `WeekDetailDialog` show "ongoing since …" / "lasted N days" instead of a misleading clock time on a spanned day.
-- [ ] `computeFrequencyStats` (`domain/StatsEngine.kt`) distributes an event across every bucket it covers.
-- [ ] `computeTrendStats` and the verdict engine stay on `occurredAt` starts; the difference is noted in the Rhythm/Insights caveat.
-- [ ] HODITH_SPEC §9's "intensity and duration are not encoded on the grid" line, the `CalendarEvent` doc comment, and `BigPictureGrid`'s KDoc all updated together.
-- [ ] Tests: `BigPictureViewModelTest`, `BigPictureGrid` UI tests, `StatsEngineTest`.
-
-**Plan** — `CalendarEvent` (`viewmodel/BigPictureViewModel.kt`) gains `endedAt`; `BigPictureGrid` grouping expands an event across its span and renders spanned days in the faded/connected style. `DayDetailDialog` / `WeekDetailDialog` show "ongoing since …" / "lasted N days" instead of a clock time that misleads on a spanned day. Frequency-over-time (`domain/StatsEngine.kt` `computeFrequencyStats`) distributes an event across the buckets it covers. Depends on the active-span rule from A5.
-
-**Tests** — `BigPictureViewModelTest`, `BigPictureGrid` UI tests, `StatsEngineTest`.
-
-**Concern** — reverses a decision documented in three places: HODITH_SPEC §9's "intensity and duration are not encoded on the grid" line, the `CalendarEvent` doc comment, and `BigPictureGrid`'s KDoc ("intensity and duration are not encoded — a day cell shows icon-only, cross-case co-occurrence"). All three change together. **Open sub-decision:** does distributing an event across frequency buckets redefine that chart as "active time" rather than "starts", and do `computeTrendStats` and the verdict engine follow? Recommendation: no — keep trend and verdict on `occurredAt` starts, and note the difference in the Rhythm/Insights caveat.
-
-### A7 · Rhythm grid plots duration events by start time with no caveat
-
-*Branch: `feat/rhythm-start-caption` · Complexity: S · Priority: Low · Area: Big Picture*
-
-🎨 **Design decision** — optional; whether to ship it standalone or fold the caption into A6's design pass.
-
-An event that began late Monday and ran into Tuesday morning shows as one "late Monday night" mark, so the grid can read as "only happens at night".
-
-**Acceptance criteria**
-
-- [ ] One caption line under `RhythmCard` (`ui/casedetail/InsightsTab.kt`), shown only when the Case tracks duration.
-- [ ] Copy: "Plotted by when each occurrence started." — one Voice key in all three voices.
-- [ ] No behaviour change.
-- [ ] Preview coverage only.
-
-**Plan** — one caption line under `RhythmCard` (`ui/casedetail/InsightsTab.kt`), shown only when the Case tracks duration: "Plotted by when each occurrence started." One Voice key ×3. No behaviour change — Rhythm needs a single point per event, so start-only is correct here; it just needs saying.
-
-**Tests** — Preview only.
-
-**Concern** — optional; the value only really lands once the span-fill work makes Rhythm the odd chart out. Could fold into that design pass instead of tracking separately.
+- **A6** — duration on the Big Picture grid and the duration-aware Insights split (`feat/big-picture-duration-spans`): `CalendarEvent` gains `endedAt`/`isOngoing`; a multi-day event's icon spans every day it covered with a `primary` ring on the start day and a trail to today for a running one (`domain/CalendarGrid.kt` `spansMultipleDays` helper); the day/week detail dialogs show "ongoing since …" / "lasted …" in place of a misleading clock time on a spanned day. The frequency chart is **hidden** and the rhythm card **retitled "Start times"** for any Case with a multi-day event — `computeFrequencyStats` / trend / verdict are untouched and stay start-anchored. **Also closes the old A7** (rhythm plots starts with no caveat): the retitle is the caveat. Spec §9/§10.
 
 ### A8 · Home's today / this-week counts treat duration events as points at their start
 
@@ -120,9 +74,9 @@ The verdict engine and its observation-window / observed-rate math count each ev
 
 *Branch: `feat/time-format-setting` · Complexity: M · Priority: Medium · Area: Settings*
 
-Not part of Story A, but its formatter consolidation touches `BigPictureGrid.kt` / `InsightsTab.kt` — the same sites as A6. Land it in a clear window **before A6**, or well after. Also adds a Voice key (see Story B).
+Not part of Story A. Its formatter consolidation touches `BigPictureGrid.kt` / `InsightsTab.kt`; A6 has landed there, so this just needs a fresh rebase on `main`. Also adds a Voice key (see Story B).
 
-All times render 12-hour US regardless of the device setting. Formatting is hardcoded `h:mm a` `Locale.US` in `viewmodel/CaseDetailViewModel.kt`'s top-level formatters, with duplicate `ofPattern` copies in `ui/bigpicture/BigPictureGrid.kt`, `ui/casedetail/InsightsTab.kt`, and `ui/share/ShareCardTemplate.kt`.
+All times render 12-hour US regardless of the device setting. Formatting is hardcoded `h:mm a` `Locale.US` in `viewmodel/CaseDetailViewModel.kt`'s top-level formatters, with duplicate `ofPattern` copies in `ui/bigpicture/BigPictureGrid.kt` (now `EVENT_TIME_FORMATTER` plus a `MMM d` `SPAN_DATE_FORMATTER` from A6), `ui/casedetail/InsightsTab.kt`, and `ui/share/ShareCardTemplate.kt`.
 
 **Acceptance criteria**
 
@@ -137,7 +91,7 @@ All times render 12-hour US regardless of the device setting. Formatting is hard
 
 **Tests** — parametrize `CaseDetailFormattingTest` by format (it currently asserts literal `h:mm a` output); check `HomeViewModelMappingTest` and `LogDetailViewModelTest` for time-string assertions.
 
-**Concern** — the formatter consolidation collides with A6 (`BigPictureGrid` / `InsightsTab`); give it a clear window. The consolidation is worthwhile cleanup regardless of the toggle.
+**Concern** — the consolidation is worthwhile cleanup regardless of the toggle. A6 added `SPAN_DATE_FORMATTER` alongside `EVENT_TIME_FORMATTER` in `BigPictureGrid.kt` — fold both into the shared util.
 
 ## Story B — copy & Voice
 
@@ -170,7 +124,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after A3, A4, A7, the time-format satellite, and B1 (every other copy-touching item).
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after A6, the time-format satellite, and B1 (every other copy-touching item; A6 added `bigPictureEventOngoingSince`, `bigPictureEventSpanRange`, and `insightsSectionLabelRhythmStarts`).
 
 **Acceptance criteria**
 

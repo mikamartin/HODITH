@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.CaseWithEventsAndTags
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
+import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
@@ -125,6 +126,52 @@ class BigPictureViewModelTest {
         val state = bigPictureUiState(casesWithEvents, nowMillis, zoneId)
 
         assertEquals(YearMonth.from(Instant.ofEpochMilli(marchCreatedAt).atZone(zoneId)), state.earliestMonth)
+    }
+
+    @Test
+    fun `bigPictureUiState carries endedAt and marks only a START_STOP open event as ongoing`() {
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
+        val startMillis = Instant.parse("2026-05-18T09:00:00Z").toEpochMilli()
+        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
+
+        fun event(
+            caseId: Long,
+            endedAt: Long?,
+        ) = EventEntity(
+            caseId = caseId,
+            occurredAt = startMillis,
+            endedAt = endedAt,
+            intensity = null,
+            note = null,
+            loggedAt = startMillis,
+        )
+
+        val casesWithEvents =
+            listOf(
+                CaseWithEventsAndTags(
+                    case = testCase(id = 1L).copy(durationMode = DurationMode.START_STOP),
+                    events =
+                        listOf(
+                            EventWithTags(event(1L, endedAt = null), emptyList()),
+                            EventWithTags(event(1L, endedAt = endMillis), emptyList()),
+                        ),
+                ),
+                CaseWithEventsAndTags(
+                    case = testCase(id = 2L).copy(durationMode = DurationMode.MANUAL),
+                    events = listOf(EventWithTags(event(2L, endedAt = null), emptyList())),
+                ),
+            )
+
+        val events = bigPictureUiState(casesWithEvents, nowMillis, zoneId).events
+
+        val open = events.single { it.caseId == 1L && it.endedAt == null }
+        val finished = events.single { it.caseId == 1L && it.endedAt != null }
+        val manual = events.single { it.caseId == 2L }
+        assertTrue(open.isOngoing)
+        assertEquals(endMillis, finished.endedAt)
+        assertEquals(false, finished.isOngoing)
+        // Only START_STOP can be ongoing — a MANUAL event with a null endedAt is a data quirk, not a running event.
+        assertEquals(false, manual.isOngoing)
     }
 
     @Test

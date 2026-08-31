@@ -3,6 +3,7 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseWithEventsAndTags
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,11 +24,19 @@ data class CalendarCase(
     val name: String,
 )
 
-/** One event as plotted on the Big Picture grid — icon-only per day, no intensity/duration encoding (spec §9). */
+/**
+ * One event as plotted on the Big Picture grid (spec §9). Intensity is not encoded. Duration is
+ * encoded only for an event whose active span covers more than one calendar day: its icon then
+ * appears on every covered day and the start day's icon is ringed. [endedAt] is null for a point
+ * event and for a still-running one — [isOngoing] tells those apart, and a running event's span
+ * runs to today.
+ */
 data class CalendarEvent(
     val id: Long,
     val caseId: Long,
     val occurredAt: Long,
+    val endedAt: Long? = null,
+    val isOngoing: Boolean = false,
     val note: String? = null,
     val tags: List<String> = emptyList(),
 )
@@ -87,6 +96,8 @@ internal fun bigPictureUiState(
                         id = it.event.id,
                         caseId = case.id,
                         occurredAt = it.event.occurredAt,
+                        endedAt = it.event.endedAt,
+                        isOngoing = case.durationMode == DurationMode.START_STOP && it.event.endedAt == null,
                         note = it.event.note,
                         tags = it.tags.map { tag -> tag.name },
                     )

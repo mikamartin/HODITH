@@ -123,7 +123,7 @@ internal fun InsightsTabContent(
     }
 }
 
-/** Spec §10's seven stat sections, in spec order. [StatsSections.trend]/[duration]/[intensity] omit their card entirely when absent. */
+/** Spec §10's seven stat sections, in spec order. [StatsSections.frequency]/[trend]/[duration]/[intensity] omit their card entirely when absent. */
 @Composable
 private fun StatsSectionCards(
     stats: StatsSections,
@@ -131,7 +131,7 @@ private fun StatsSectionCards(
     onFrequencyGranularityChange: (FrequencyGranularity?) -> Unit,
     voice: Voice,
 ) {
-    FrequencyCard(stats.frequency, frequencyGranularityOverride, onFrequencyGranularityChange, voice)
+    stats.frequency?.let { FrequencyCard(it, frequencyGranularityOverride, onFrequencyGranularityChange, voice) }
     RhythmCard(stats.rhythm, voice)
     GapsCard(stats.gaps, voice)
     stats.trend?.let { TrendCard(it, voice) }
@@ -355,7 +355,10 @@ private fun RhythmCard(
     val locale = LocalLocale.current.platformLocale
 
     InsightsCard {
-        Text(voice.insightsSectionLabelRhythm, style = MaterialTheme.typography.titleSmall)
+        Text(
+            if (display.plottedByStart) voice.insightsSectionLabelRhythmStarts else voice.insightsSectionLabelRhythm,
+            style = MaterialTheme.typography.titleSmall,
+        )
         Row(modifier = Modifier.fillMaxWidth()) {
             Spacer(modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp))
             DayOfWeek.entries.forEach { day ->

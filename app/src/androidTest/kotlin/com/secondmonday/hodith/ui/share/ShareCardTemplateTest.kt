@@ -78,6 +78,7 @@ class ShareCardTemplateTest {
                         DayOfWeek.entries.flatMap { day ->
                             TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.L2) }
                         },
+                    plottedByStart = false,
                 ),
             gaps = null,
             trend = TrendDisplay(TrendDirection.UP, 8, 5, gapShiftDirection = null, streakShiftDirection = null),

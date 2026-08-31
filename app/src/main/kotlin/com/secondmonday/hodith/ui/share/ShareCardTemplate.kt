@@ -403,7 +403,10 @@ private fun MiniRhythmSection(
     val locale = LocalLocale.current.platformLocale
 
     MiniInsightsCard {
-        MiniSectionTitle(voice.insightsSectionLabelRhythm, skin)
+        MiniSectionTitle(
+            if (display.plottedByStart) voice.insightsSectionLabelRhythmStarts else voice.insightsSectionLabelRhythm,
+            skin,
+        )
         Row {
             Spacer(modifier = Modifier.width(MINI_RHYTHM_LABEL_WIDTH.dp))
             DayOfWeek.entries.forEach { day ->
@@ -594,6 +597,7 @@ private fun previewData(format: ShareCardFormat): ShareCardData =
                     DayOfWeek.entries.flatMap { day ->
                         TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.entries.random()) }
                     },
+                plottedByStart = false,
             ),
         gaps = null,
         trend = TrendDisplay(TrendDirection.UP, 8, 5, gapShiftDirection = null, streakShiftDirection = null),

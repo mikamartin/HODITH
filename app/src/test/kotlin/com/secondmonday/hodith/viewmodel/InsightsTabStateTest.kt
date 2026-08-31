@@ -265,21 +265,49 @@ class InsightsTabStateTest {
     }
 
     @Test
-    fun `frequency-over-time stays anchored to event starts even while the heatmap spans`() {
+    fun `frequency-over-time is hidden and rhythm relabelled once the Case has a multi-day event`() {
         val case = testCase(createdAt = millisAtDay(0))
         // A 4-day event (days 15..18) plus a point event on day 19; "now" is day 20.
         val events = listOf(durationEvent(startDay = 15, endDay = 18), eventAtDay(19))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
 
-        // The heatmap spread the duration event across its four days...
+        // The heatmap still spreads the duration event across its four days...
         assertTrue(state.shadedDates().containsAll((15L..18L).map { LocalDate.ofEpochDay(it) }))
-        // ...but frequency still counts each event once, at its start.
+        // ...but a per-bucket count can't say "how often" for a span, so the card is dropped
+        // and the rhythm grid announces that it plots starts.
+        assertEquals(null, state.stats.frequency)
+        assertTrue(state.stats.rhythm.plottedByStart)
+    }
+
+    @Test
+    fun `frequency-over-time is shown and start-anchored when every event fits within a day`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        // A same-day duration event (day 15) plus four point events; "now" is day 20.
+        val events =
+            listOf(durationEvent(startDay = 15, endDay = 15)) + (16L..19L).map { eventAtDay(it) }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
         assertEquals(
-            2,
-            state.stats.frequency.bars
-                .sumOf { it.count },
+            5,
+            state.stats.frequency
+                ?.bars
+                ?.sumOf { it.count },
         )
+        assertEquals(false, state.stats.rhythm.plottedByStart)
+    }
+
+    @Test
+    fun `a still-running event that began before today makes the Case multi-day`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        // Started day 5, never stopped; "now" is day 12 -> its active span is days 5..12.
+        val events = listOf(eventAtDay(0), durationEvent(startDay = 5, endDay = null))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(12)) as InsightsTabState.Ready
+
+        assertEquals(null, state.stats.frequency)
+        assertTrue(state.stats.rhythm.plottedByStart)
     }
 
     // ---- stats.totalEventCount / stats.tags ----
