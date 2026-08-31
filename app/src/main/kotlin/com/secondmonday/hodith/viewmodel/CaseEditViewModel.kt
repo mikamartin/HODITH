@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.SettingsRepository
@@ -40,9 +41,13 @@ data class CaseEditUiState(
     val isSaved: Boolean = false,
     val canArchive: Boolean = false,
     val isArchived: Boolean = false,
-    /** Events currently running on this Case — gates the leave-`START_STOP` confirm (spec §6). */
+    /**
+     * Events on this Case with no end time — running events under `START_STOP`, open-ended one-tap /
+     * quick logs otherwise. Gates both duration-mode confirms (spec §6).
+     */
     val runningEventCount: Int = 0,
     val showLeaveStartStopConfirm: Boolean = false,
+    val showEnterStartStopConfirm: Boolean = false,
 )
 
 @HiltViewModel
@@ -60,6 +65,7 @@ class CaseEditViewModel
         private var existingCase: CaseEntity? = null
         private var pendingDurationMode: DurationMode? = null
         private var stopRunningOnSave = false
+        private var convertOpenEndedOnSave = false
 
         private val _uiState = MutableStateFlow(CaseEditUiState(isEditing = caseId != null))
         val uiState: StateFlow<CaseEditUiState> = _uiState.asStateFlow()
@@ -102,6 +108,14 @@ class CaseEditViewModel
                 _uiState.update { it.copy(showLeaveStartStopConfirm = true) }
                 return
             }
+            // Entering START_STOP reinterprets every open-ended event as a live ongoing span
+            // (spec §6) — hold the switch until the user confirms collapsing them to instant events.
+            val enteringStartStop = state.durationMode != DurationMode.START_STOP && durationMode == DurationMode.START_STOP
+            if (enteringStartStop && state.runningEventCount > 0) {
+                pendingDurationMode = durationMode
+                _uiState.update { it.copy(showEnterStartStopConfirm = true) }
+                return
+            }
             applyDurationMode(durationMode)
         }
 
@@ -118,11 +132,40 @@ class CaseEditViewModel
             _uiState.update { it.copy(showLeaveStartStopConfirm = false) }
         }
 
+        /** Proceed with a switch into `START_STOP` that was held back by [showEnterStartStopConfirm]. */
+        fun confirmEnterStartStop() {
+            val next = pendingDurationMode ?: return
+            convertOpenEndedOnSave = true
+            _uiState.update { it.copy(showEnterStartStopConfirm = false) }
+            applyDurationMode(next)
+        }
+
+        fun dismissEnterStartStop() {
+            pendingDurationMode = null
+            _uiState.update { it.copy(showEnterStartStopConfirm = false) }
+        }
+
         private fun applyDurationMode(durationMode: DurationMode) {
             pendingDurationMode = null
             _uiState.update {
                 it.copy(durationMode = durationMode, logFlow = coerceLogFlow(it.logFlow, durationMode, it.intensityEnabled))
             }
+        }
+
+        /**
+         * Stamp `endedAt` on every currently open-ended event of [caseId] — used by both duration-mode
+         * transitions (spec §6): [endedAt] returns `now` when leaving `START_STOP`, the event's own
+         * `occurredAt` when entering it.
+         */
+        private suspend fun stampOpenEndedEvents(
+            caseId: Long,
+            endedAt: (EventEntity) -> Long,
+        ) {
+            repository
+                .observeEventsWithTagsForCase(caseId)
+                .first()
+                .filter { it.event.endedAt == null }
+                .forEach { repository.updateEvent(it.event.copy(endedAt = endedAt(it.event))) }
         }
 
         fun onIntensityToggle(enabled: Boolean) =
@@ -168,13 +211,15 @@ class CaseEditViewModel
                             checkInsEnabled = state.checkInsEnabled,
                         ),
                     )
+                    // Leaving START_STOP: stop every still-running event at the moment of the switch.
                     if (stopRunningOnSave && state.durationMode != DurationMode.START_STOP) {
                         val stoppedAt = clock.nowMillis()
-                        repository
-                            .observeEventsWithTagsForCase(current.id)
-                            .first()
-                            .filter { it.event.endedAt == null }
-                            .forEach { repository.updateEvent(it.event.copy(endedAt = stoppedAt)) }
+                        stampOpenEndedEvents(current.id) { stoppedAt }
+                    }
+                    // Entering START_STOP: collapse open-ended events to instant events at their own
+                    // start (not "now"), so a point logged days ago doesn't become a live ongoing span.
+                    if (convertOpenEndedOnSave && state.durationMode == DurationMode.START_STOP) {
+                        stampOpenEndedEvents(current.id) { it.occurredAt }
                     }
                 } else {
                     repository.insertCase(

@@ -81,11 +81,27 @@ class CaseEditViewModelTest {
     private fun runningEvent(
         id: Long,
         caseId: Long = 1L,
+        occurredAt: Long = 0L,
     ) = EventEntity(
         id = id,
         caseId = caseId,
-        occurredAt = 0L,
+        occurredAt = occurredAt,
         endedAt = null,
+        intensity = null,
+        note = null,
+        loggedAt = 0L,
+    )
+
+    private fun finishedEvent(
+        id: Long,
+        caseId: Long = 1L,
+        occurredAt: Long = 0L,
+        endedAt: Long = 500_000L,
+    ) = EventEntity(
+        id = id,
+        caseId = caseId,
+        occurredAt = occurredAt,
+        endedAt = endedAt,
         intensity = null,
         note = null,
         loggedAt = 0L,
@@ -327,6 +343,180 @@ class CaseEditViewModelTest {
 
             assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
             assertEquals(DurationMode.NONE, vm.uiState.value.durationMode)
+        }
+
+    @Test
+    fun `entering START_STOP with open-ended events holds the change behind a confirm`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
+            repository.events.value = listOf(runningEvent(id = 10L), runningEvent(id = 11L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.START_STOP)
+
+            assertTrue(vm.uiState.value.showEnterStartStopConfirm)
+            assertEquals(2, vm.uiState.value.runningEventCount)
+            assertEquals(DurationMode.NONE, vm.uiState.value.durationMode)
+            assertTrue(repository.events.value.all { it.endedAt == null })
+        }
+
+    @Test
+    fun `confirming the enter-START_STOP dialog converts open-ended events to instant on save`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
+            repository.events.value =
+                listOf(runningEvent(id = 10L, occurredAt = 111L), runningEvent(id = 11L, occurredAt = 222L))
+            val vm = editViewModel(caseId = 1L)
+            vm.onDurationModeChange(DurationMode.START_STOP)
+
+            vm.confirmEnterStartStop()
+            vm.save()
+
+            assertFalse(vm.uiState.value.showEnterStartStopConfirm)
+            assertEquals(
+                DurationMode.START_STOP,
+                repository.cases.value
+                    .single()
+                    .durationMode,
+            )
+            assertTrue(repository.events.value.all { it.endedAt == it.occurredAt })
+            assertTrue(repository.events.value.none { it.endedAt == clock.nowMillis() })
+        }
+
+    @Test
+    fun `dismissing the enter-START_STOP dialog keeps the current mode and touches no events`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
+            repository.events.value = listOf(runningEvent(id = 10L))
+            val vm = editViewModel(caseId = 1L)
+            vm.onDurationModeChange(DurationMode.START_STOP)
+
+            vm.dismissEnterStartStop()
+            vm.save()
+
+            assertFalse(vm.uiState.value.showEnterStartStopConfirm)
+            assertEquals(DurationMode.NONE, vm.uiState.value.durationMode)
+            assertTrue(repository.events.value.all { it.endedAt == null })
+        }
+
+    @Test
+    fun `entering START_STOP from MANUAL also converts duration-less events`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.MANUAL))
+            repository.events.value = listOf(runningEvent(id = 10L, occurredAt = 333L))
+            val vm = editViewModel(caseId = 1L)
+            vm.onDurationModeChange(DurationMode.START_STOP)
+
+            vm.confirmEnterStartStop()
+            vm.save()
+
+            assertEquals(
+                333L,
+                repository.events.value
+                    .single()
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `entering START_STOP leaves already-finished events untouched`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.MANUAL))
+            repository.events.value =
+                listOf(runningEvent(id = 10L, occurredAt = 333L), finishedEvent(id = 11L, endedAt = 500_000L))
+            val vm = editViewModel(caseId = 1L)
+            vm.onDurationModeChange(DurationMode.START_STOP)
+
+            vm.confirmEnterStartStop()
+            vm.save()
+
+            assertEquals(
+                333L,
+                repository.events.value
+                    .single { it.id == 10L }
+                    .endedAt,
+            )
+            assertEquals(
+                500_000L,
+                repository.events.value
+                    .single { it.id == 11L }
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `entering START_STOP with no open-ended events switches with no dialog`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.MANUAL))
+            repository.events.value = listOf(finishedEvent(id = 11L, endedAt = 500_000L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.START_STOP)
+            vm.save()
+
+            assertFalse(vm.uiState.value.showEnterStartStopConfirm)
+            assertEquals(DurationMode.START_STOP, vm.uiState.value.durationMode)
+            assertEquals(
+                500_000L,
+                repository.events.value
+                    .single()
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `entering START_STOP with no events at all switches with no dialog`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.START_STOP)
+
+            assertFalse(vm.uiState.value.showEnterStartStopConfirm)
+            assertEquals(DurationMode.START_STOP, vm.uiState.value.durationMode)
+        }
+
+    @Test
+    fun `round-trip NONE to START_STOP to NONE leaves a point event a point`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
+            repository.events.value = listOf(runningEvent(id = 10L, occurredAt = 444L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.START_STOP)
+            vm.confirmEnterStartStop()
+            vm.save()
+            assertEquals(
+                444L,
+                repository.events.value
+                    .single()
+                    .endedAt,
+            )
+
+            vm.onDurationModeChange(DurationMode.NONE)
+            vm.save()
+
+            assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
+            assertEquals(
+                444L,
+                repository.events.value
+                    .single()
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `dismissing then re-entering START_STOP prompts again`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
+            repository.events.value = listOf(runningEvent(id = 10L))
+            val vm = editViewModel(caseId = 1L)
+            vm.onDurationModeChange(DurationMode.START_STOP)
+            vm.dismissEnterStartStop()
+
+            vm.onDurationModeChange(DurationMode.START_STOP)
+
+            assertTrue(vm.uiState.value.showEnterStartStopConfirm)
         }
 
     @Test

@@ -101,6 +101,8 @@ fun CaseEditRoute(
         onDurationModeChange = viewModel::onDurationModeChange,
         onConfirmLeaveStartStop = viewModel::confirmLeaveStartStop,
         onDismissLeaveStartStop = viewModel::dismissLeaveStartStop,
+        onConfirmEnterStartStop = viewModel::confirmEnterStartStop,
+        onDismissEnterStartStop = viewModel::dismissEnterStartStop,
         onIntensityToggle = viewModel::onIntensityToggle,
         onCheckInToggle = viewModel::onCheckInToggle,
         onSave = viewModel::save,
@@ -121,6 +123,8 @@ fun CaseEditScreen(
     onDurationModeChange: (DurationMode) -> Unit,
     onConfirmLeaveStartStop: () -> Unit,
     onDismissLeaveStartStop: () -> Unit,
+    onConfirmEnterStartStop: () -> Unit,
+    onDismissEnterStartStop: () -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
     onCheckInToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
@@ -153,6 +157,17 @@ fun CaseEditScreen(
             cancelLabel = voice.leaveStartStopCancelAction,
             onDismiss = onDismissLeaveStartStop,
             onConfirm = onConfirmLeaveStartStop,
+        )
+    }
+
+    if (uiState.showEnterStartStopConfirm) {
+        ConfirmDialog(
+            title = voice.enterStartStopConfirmTitle,
+            body = voice.enterStartStopConfirmBody(uiState.runningEventCount),
+            confirmLabel = voice.enterStartStopConfirmAction,
+            cancelLabel = voice.enterStartStopCancelAction,
+            onDismiss = onDismissEnterStartStop,
+            onConfirm = onConfirmEnterStartStop,
         )
     }
 
@@ -448,6 +463,8 @@ private fun CaseEditScreenBrightLightPreview() {
                 onDurationModeChange = {},
                 onConfirmLeaveStartStop = {},
                 onDismissLeaveStartStop = {},
+                onConfirmEnterStartStop = {},
+                onDismissEnterStartStop = {},
                 onIntensityToggle = {},
                 onCheckInToggle = {},
                 onSave = {},
@@ -475,6 +492,8 @@ private fun CaseEditScreenBrightDarkPreview() {
                 onDurationModeChange = {},
                 onConfirmLeaveStartStop = {},
                 onDismissLeaveStartStop = {},
+                onConfirmEnterStartStop = {},
+                onDismissEnterStartStop = {},
                 onIntensityToggle = {},
                 onCheckInToggle = {},
                 onSave = {},
