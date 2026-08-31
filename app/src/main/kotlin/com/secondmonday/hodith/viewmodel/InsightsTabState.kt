@@ -4,6 +4,7 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.GapStats
 import com.secondmonday.hodith.domain.HeatmapLevel
@@ -145,16 +146,23 @@ internal fun insightsTabState(
     zone: ZoneId = ZoneId.systemDefault(),
     frequencyGranularityOverride: FrequencyGranularity? = null,
 ): InsightsTabState {
-    val events = eventsWithTags.map { it.event }
-    if (events.size < INSIGHTS_MIN_EVENTS) return InsightsTabState.NotEnoughData
-
     // Spec §9 active span: each event counts on every calendar day it was active, not just its start
     // day. A finished event runs occurredAt..endedAt; a still-running START_STOP event runs to now
     // (matching ongoingEventsIn's rule that only START_STOP can be ongoing); a point event stays on
-    // its single day. Feeds both the heatmap shading and the streak count.
+    // its single day. A Case that no longer tracks duration (durationMode NONE) renders every event
+    // as a point whatever endedAt is stored — collapse it here so spanEnd / hasMultiDayEvent /
+    // computeGapStats all see point events with no further branching. The stored value is untouched
+    // (eventsWithTags still carries it) and the Event duration card is separately gated off below.
+    val events =
+        eventsWithTags
+            .map { it.event }
+            .let { list -> if (case.durationMode.tracksDuration) list else list.map { it.copy(endedAt = null) } }
+    if (events.size < INSIGHTS_MIN_EVENTS) return InsightsTabState.NotEnoughData
+
     val runsToNowWhenOpen = case.durationMode == DurationMode.START_STOP
 
     fun spanEnd(event: EventEntity) = event.endedAt ?: if (runsToNowWhenOpen) now else event.occurredAt
+
     val countsByDay =
         events
             .flatMap { event -> datesCovered(event.occurredAt, spanEnd(event), zone) }
@@ -255,7 +263,7 @@ private fun statsSections(
         }
 
     val duration =
-        if (case.durationMode != DurationMode.NONE) {
+        if (case.durationMode.tracksDuration) {
             computeDurationStats(events)?.let { DurationDisplay(it.averageMinutes, it.longestMinutes, it.totalMinutes) }
         } else {
             null

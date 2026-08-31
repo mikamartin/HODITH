@@ -20,11 +20,14 @@ Each item carries:
 
 ## Story A — Start/Stop, duration & ongoing events
 
-A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A6 are done; the rest still share files, so sequence matters:
+A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A7 are done; the rest form one dependency chain — work it top to bottom:
 
-- formatter sites (`BigPictureGrid.kt`, `InsightsTab.kt`) — time-format satellite
+- **A8** (`CaseEditViewModel.kt` only) defines what switching a Case's duration mode on or off does to its existing events — depends on A7's rule.
+- **A9** (`HomeViewModel.kt` only) propagates A7's rule to Home's counts via the shared `DurationMode.tracksDuration` extension.
+- **A10** is an independent read-through — no file-chain dependency.
+- The **Satellite** shares the `BigPictureGrid.kt` / `InsightsTab.kt` formatter sites (A6 has landed there).
 
-### A1–A6 · done — Start/Stop & duration polish
+### A1–A7 · done — Start/Stop & duration polish
 
 Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds on" / "sequence after" pointers below.
 
@@ -33,34 +36,60 @@ Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds 
 - **A3** — one running-event treatment on every surface (`fix/ongoing-affordance`): "Ongoing" pill + elapsed/count, hand-drawn `StopSquare` glyph, count-only Case-detail log header, `+` log button stays put everywhere. Spec §6/§15.
 - **A4** — minutes/hours/days unit selector in the Manual duration field (`feat/duration-unit-selector`): `LogDraft.durationAmount`/`durationUnit`, `computeEndedAt` scales by unit, storage stays millis. Spec §6.
 - **A5** — the per-case calendar heatmap and streak count credit every day an event was active, not just its start (`feat/active-span-insights`): the "active span" rule written to spec §9, `domain/CalendarGrid.kt` `datesCovered` helper (A6 reuses it), `insightsTabState`'s `countsByDay` expanded across covered days. Frequency / Rhythm / Trend / verdict stay start-anchored. Also: a gaps & streaks info icon defining each metric, and the Insights "Duration" card renamed "Event duration". Spec §9/§10.
-- **A6** — duration on the Big Picture grid and the duration-aware Insights split (`feat/big-picture-duration-spans`): `CalendarEvent` gains `endedAt`/`isOngoing`; a multi-day event's icon spans every day it covered with a `primary` ring on the start day and a trail to today for a running one (`domain/CalendarGrid.kt` `spansMultipleDays` helper); the day/week detail dialogs show "ongoing since …" / "lasted …" in place of a misleading clock time on a spanned day. The frequency chart is **hidden** and the rhythm card **retitled "Start times"** for any Case with a multi-day event — `computeFrequencyStats` / trend / verdict are untouched and stay start-anchored. **Also closes the old A7** (rhythm plots starts with no caveat): the retitle is the caveat. Spec §9/§10.
+- **A6** — duration on the Big Picture grid and the duration-aware Insights split (`feat/big-picture-duration-spans`): `CalendarEvent` gains `endedAt`/`isOngoing`; a multi-day event's icon spans every day it covered with a `primary` ring on the start day and a trail to today for a running one (`domain/CalendarGrid.kt` `spansMultipleDays` helper); the day/week detail dialogs show "ongoing since …" / "lasted …" in place of a misleading clock time on a spanned day. The frequency chart is **hidden** and the rhythm card **retitled "Start times"** for any Case with a multi-day event — `computeFrequencyStats` / trend / verdict are untouched and stay start-anchored. **Also closes the original rhythm-caveat item** (rhythm plotting starts with no caveat): the retitle is the caveat. Spec §9/§10.
+- **A7** — every duration-display surface now follows the Case's current `durationMode` (`feat/duration-display-follows-mode`): a shared `DurationMode.tracksDuration` extension (`durationMode != NONE`); each surface collapses a non-tracking Case's stored `endedAt` to a point at its entry boundary — `bigPictureUiState` nulls `CalendarEvent.endedAt`, `insightsTabState` collapses the event list once (so `spanEnd` / `hasMultiDayEvent` / `computeGapStats` all follow), `eventDetailSummary` gains a `tracksDuration` param plus an `endedAt > occurredAt` guard (zero-length events are points). Stored `endedAt` untouched; no schema change. Spec §6/§9/§10.
 
-### A8 · Home's today / this-week counts treat duration events as points at their start
+### A8 · Switching a Case into Start/stop makes every past open-ended event ongoing
+
+*Branch: `feat/duration-switch-in-conversion` · Complexity: S · Priority: High · Area: Duration*
+
+🎨 **Design decision** — decided: on switch-in, convert existing end-less events to instant events (`endedAt = occurredAt`) after a warning dialog. Spec §6 gets the full transition contract.
+
+`CaseEditViewModel.onDurationModeChange` only intercepts *leaving* `START_STOP`. Entering it falls through `applyDurationMode` with no event changes, so every pre-existing `endedAt == null` event (all one-tap / quick-logged events) is immediately reinterpreted as a live ongoing span by `ongoingEventsIn` — cascading to "N running" on Home and Case Detail, per-row Stop buttons and live elapsed, stale "forgot to stop it?" prompts, Big Picture trails-to-today, inflated heatmap/streak, and a "never silent" check-in anchor. Switching back out then stamps `endedAt = now` on all of them (`CaseEditViewModel.kt`), turning a point logged days ago into a multi-day span.
+
+**Acceptance criteria**
+
+- [ ] Switching a Case into `START_STOP` with events that have `endedAt == null`: a confirm dialog explains they'll be kept as instant events; on confirm each gets `endedAt = occurredAt`; on cancel the mode doesn't change.
+- [ ] `MANUAL` is left alone deliberately (its end-less events aren't surfaced as ongoing) — documented in the transition contract, not converted.
+- [ ] The existing leave-`START_STOP` confirm copy reworded to say running events are stopped *now* and why (`Voice.kt` `leaveStartStopConfirm*`).
+- [ ] Both dialogs' copy through Voice ×3.
+- [ ] Spec §6 gains a duration-mode transition contract — a table of what each `NONE` / `MANUAL` / `START_STOP` change does to existing events, what is preserved (`endedAt` history), and what the user is warned about; §14's edit-Case row note mentions the confirm dialog can fire in either direction.
+- [ ] No schema change.
+- [ ] Tests: `CaseEditViewModelTest` — switch-in converts end-less events only on confirm; round-trip (NONE → START_STOP → NONE) leaves a point event a point.
+
+**Plan** — add a `showEnterStartStopConfirm` path to `onDurationModeChange` mirroring the leave path (reuse the live `runningEventCount`); on confirm, stamp `endedAt = occurredAt` on each end-less event in `save()`. New Voice keys for both dialogs.
+
+**Tests** — `CaseEditViewModelTest`.
+
+**Concern** — data testers already round-tripped keeps its bogus spans; no migration attempts to detect them (undetectable) — fixed via event edit. Sequence after A7 so the display rule (including the zero-duration guard) is settled first.
+
+### A9 · Home's today / this-week counts treat duration events as points at their start
 
 *Branch: `feat/home-counts-duration-span` · Complexity: S · Priority: Medium · Area: Duration*
 
-🎨 **Design decision** — whether a duration event counts toward Home's tallies on its start day, its end day, or every day it was active; the rule must match A5's active-span rule so Home and the calendar heatmap agree.
+🎨 **Design decision** — whether a duration event counts toward Home's tallies on its start day, its end day, or every day it was active; the rule must match A7's finalized active-span rule so Home and the calendar heatmap agree.
 
 `homeCaseRows` (`viewmodel/HomeViewModel.kt`) counts `events.count { it.occurredAt >= startOfToday }` / `>= startOfWeek` — pure start day. An event started six days ago and wrapped up today shows "Today 0 / This week 0" on its Home row, the same day it was finished and logged.
 
 **Acceptance criteria**
 
-- [ ] A decided day-attribution rule for duration events on Home, written down alongside A5's active-span rule.
+- [ ] A decided day-attribution rule for duration events on Home, written into spec §9/§14 alongside A7's active-span rule.
 - [ ] `homeCaseRows` today / this-week counts apply it; a running event's span runs to now.
+- [ ] The span predicate calls the shared `DurationMode.tracksDuration` extension (added in A7, `data/DurationMode.kt`) — not a re-inlined `!= NONE` check — so a `NONE` Case's events count as points on Home too.
 - [ ] `HomeViewModelMappingTest` covers a span crossing the today boundary and the week boundary.
 - [ ] No schema change.
 
-**Plan** — pick the rule (recommendation: an event counts on any day it was active, matching A5), then change the two `count {}` predicates in `homeCaseRows` to test span overlap rather than `occurredAt` alone.
+**Plan** — pick the rule (recommendation: an event counts on any day it was active, matching A5/A7), then change the two `count {}` predicates in `homeCaseRows` to test span overlap rather than `occurredAt` alone.
 
 **Tests** — `HomeViewModelMappingTest`.
 
-**Concern** — not in Story A's shared-file chain (`HomeViewModel.kt` only), but the rule must match A5's or Home and the heatmap disagree. Sequence after A5's rule is written.
+**Concern** — not in Story A's shared-file chain (`HomeViewModel.kt` only), but the rule must match A7's or Home and the heatmap disagree. Sequence after A7.
 
-### A9 · Verdict engine's handling of duration events is unreviewed
+### A10 · Verdict engine's handling of duration events is unreviewed
 
 *Branch: `feat/verdict-duration-review` · Complexity: S · Priority: Low · Area: Big Picture*
 
-🔍 **Investigation** — read-through first; a fix only if the read finds a real distortion. 🎨 **Design decision** — the ruling belongs in spec §8. No file-chain dependency on A5–A8.
+🔍 **Investigation** — read-through first; a fix only if the read finds a real distortion. 🎨 **Design decision** — the ruling belongs in spec §8. No file-chain dependency on the rest of Story A.
 
 The verdict engine and its observation-window / observed-rate math count each event once at `occurredAt` and never look at `endedAt`. Whether a multi-day event should still count as one occurrence (likely yes), whether a still-running event counts before it stops, and whether the observation window's end should track a running event, have not been decided or tested.
 
@@ -124,7 +153,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after A6, the time-format satellite, and B1 (every other copy-touching item; A6 added `bigPictureEventOngoingSince`, `bigPictureEventSpanRange`, and `insightsSectionLabelRhythmStarts`).
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item: A6 (added `bigPictureEventOngoingSince`, `bigPictureEventSpanRange`, `insightsSectionLabelRhythmStarts`), A8 (new duration-mode-change confirm dialogs), the time-format satellite, S9 (check-in copy reword), and B1.
 
 **Acceptance criteria**
 
@@ -142,7 +171,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies. Pick any when resources are thin. Two soft batching opportunities, not dependencies: S3's affordance-language call overlaps A3 conceptually; S4 + S5 are both Bright-theme visual bugs and could share one on-device QA session.
+No cross-dependencies. Pick any when resources are thin. Two soft batching opportunities, not dependencies: S3's affordance-language call overlaps A3 conceptually; S2, S4 and S5 all need an on-device pass (S2's widget repro, S4/S5's Bright-theme visual bugs) and could share one QA session.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -163,44 +192,46 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Concern** — standalone, no dependencies.
 
-### S2 · Widget "+" renders red
+### S2 · Widget visuals have drifted from the in-app Plain theme
 
-*Branch: `fix/widget-plus-colour` · Complexity: S to fix, M to diagnose · Priority: Medium · Area: Bug*
+*Branch: `fix/widget-plain-fidelity` · Complexity: M · Priority: Medium · Area: Bug*
 
-🔍 **Investigation** — a source read found no cause; needs an on-device repro pass. 🎨 **Design decision** — if the real ask is a "you haven't logged in a while" nudge, that hits spec §4/§7 and needs a ruling (steer: don't add it).
+🎨 **Design decision** — what "matches Plain" means for a Glance surface (type ramp, spacing, corner radii, elevation), given Glance can't consume the M3 `ColorScheme` / `Typography` directly. 🔍 **Investigation** — the reported red "+" glyph has no cause in a source read; needs an on-device repro pass within this work.
 
-The "+" glyph colour is unconditionally `WidgetPalette.accent` (= `PlainLightPrimary` `#3A6B76`, a teal) in `widget/ListWidget.kt` and `widget/SingleCaseWidget.kt`, with no time-since-last-log logic, no threshold, and no red in the widget palette's git history for the "+". The only red widget element is the Stop button (`PlainLightError #BA1A1A`), which replaces the "+" entirely and only shows for a Case with a running event.
+Both widgets hand-roll every `TextStyle` / `GlanceModifier` with values pinned in `widget/WidgetCommon.kt` — colours are sourced from `Color.kt`'s extracted Plain-light vals, but type sizes, weights, spacing, `WidgetCornerRadius = 16.dp` and `MinTapTarget = 48.dp` are local literals, so the result reads as an approximation of Plain rather than Plain. Spec §15 / DEV_PLAYBOOK §4 already commit the widget to the Plain light palette — this is a fidelity pass, not a theming change. Separately, testers report the "+" glyph rendering red; it is unconditionally `WidgetPalette.accent` (`PlainLightPrimary` `#3A6B76`, a teal) in `widget/ListWidget.kt` / `widget/SingleCaseWidget.kt`, with no red in its history — the only red widget element is the Stop button (`PlainLightError #BA1A1A`) that replaces the "+" for a Case with a running event.
 
 **Acceptance criteria**
 
-- [ ] Root cause identified on-device: rebuild, remove/re-add the widget, photograph; capture device / launcher / system theme; note List vs single-case; rule out the red Stop pill being misread; check for a stale older build still installed.
-- [ ] The "+" resolves to `WidgetPalette.accent` regardless of last-event age.
-- [ ] A Robolectric/Glance check locking that, once the cause is known.
+- [ ] A short written spec of the widget's Plain type ramp + spacing + shape tokens, derived from `ui/theme/Type.kt` / `Shape.kt` and the Plain Home surfaces, added to DEV_PLAYBOOK §4; HODITH_SPEC §15 gains one sentence that the widget targets Plain's type ramp and spacing, not only its palette.
+- [ ] `WidgetCommon.kt` grows the missing tokens so `ListWidget.kt` / `SingleCaseWidget.kt` stop carrying inline literals.
+- [ ] Row layout, header, and empty state visually reconciled against Home's Plain rendering.
+- [ ] Red "+" root cause identified on-device: rebuild, remove/re-add the widget, photograph; capture device / launcher / system theme; note List vs single-case; rule out the red Stop pill being misread; check for a stale older build. The "+" resolves to `accent` regardless of last-event age.
+- [ ] Tests: existing `ListWidgetTest` / `SingleCaseWidgetTest` still pass; assertions added for any newly-centralised token and, once the cause is known, a Glance check that the "+" resolves to `accent`.
 
-**Plan** — rebuild, remove and re-add the widget (Glance caches host views aggressively) and photograph the current "+". If still red: capture device / launcher / system theme (some launchers tint widget content), note List vs single-case widget, and rule out the red Stop pill being misread. Check whether an older build with different palette logic is still installed.
+**Plan** — pull the Plain type/spacing/shape values into named `WidgetCommon.kt` tokens mirroring `Type.kt`, replace the inline literals in both widgets, eyeball against Home; run the red-"+" repro in the same on-device session.
 
-**Tests** — nothing asserts widget glyph colour today; once the cause is known, a Robolectric/Glance check that the "+" resolves to `accent` regardless of last-event age would lock it.
+**Tests** — `ListWidgetTest`, `SingleCaseWidgetTest`.
 
-**Concern** — if the underlying ask is a "you haven't logged in a while" nudge rather than a rendering bug, that conflicts with spec §4 (no gamification) and §7 (HODITH doesn't nudge logging) — needs a spec ruling first, and the steer is not to add it.
+**Concern** — if the underlying "+" ask is a "you haven't logged in a while" nudge, that hits spec §4 (no gamification) / §7 (HODITH doesn't nudge logging) — needs a spec ruling first; steer is not to add it. Glance's constraints make the fidelity work convergence-by-hand, not a shared-token import.
 
-### S3 · Case icon picker's selected-state indicator is low-contrast
+### S3 · Selected-state indicator is low-contrast in the icon picker and the intensity selector
 
 *Branch: `fix/case-icon-selection-contrast` · Complexity: S · Priority: Medium · Area: Bug*
 
-🎨 **Design decision** — needs an affordance decision (checkmark overlay / stroked ring / scale-elevation change), not just a colour retune.
+🎨 **Design decision** — needs an affordance decision (checkmark overlay / stroked ring / scale-elevation change), not just a colour retune. Spec §3 principle 6 ("colour is never the only distinguisher") is the governing rule; no spec edit.
 
-Selection is shown only by a background-color swap, with no border, ring, or checkmark: Plain's `IconChoice` (`ui/case/CaseEditScreen.kt`) uses `primaryContainer` (#C7E8ED light) vs. `surfaceVariant` (#DEE4E7 light) — close in lightness — and Bright's `BrightIconChoice` uses `IconHalo`'s selected fill, a 16% tint wash of `primary` over `surface` (near-white on near-white).
+Selection is shown only by a background-color swap, with no border, ring, or checkmark. Three places share the pattern: Plain's `IconChoice` (`ui/case/CaseEditScreen.kt`) uses `primaryContainer` (#C7E8ED light) vs. `surfaceVariant` (#CFE8F8 light) — near-identical lightness; the event-log `IntensityChoice` (`ui/logsheet/LogDetailSheet.kt`) uses the exact same `primaryContainer`-vs-`surfaceVariant` fill-only swap; and Bright's `BrightIconChoice` uses `IconHalo`'s selected fill, a 16% tint wash of `primary` over `surface` (near-white on near-white).
 
 **Acceptance criteria**
 
 - [ ] Selection shown by an element that doesn't depend on background contrast alone.
-- [ ] Applied in both `IconChoice` (Plain/Intense, `CaseEditScreen.kt`) and `BrightIconChoice` — adapted to each visual language (flat fill vs. glow halo).
-- [ ] A Preview per theme showing selected vs. unselected side by side.
-- [ ] `.selectable(selected = …)` / `Role.RadioButton` structure unchanged.
+- [ ] Applied in `IconChoice` (Plain/Intense, `CaseEditScreen.kt`), `IntensityChoice` (`LogDetailSheet.kt`), and `BrightIconChoice` — adapted to each visual language (flat fill vs. glow halo) and each control's size.
+- [ ] A Preview per theme showing selected vs. unselected side by side, for both the icon picker and the intensity row.
+- [ ] `.selectable(selected = …)` / `Role.RadioButton` structure unchanged in all three.
 
-**Plan** — needs a design decision on the affordance, not just a color retune, since a lightness-only swap will keep being fragile across themes (including future ones): add a distinguishing element that doesn't depend on background contrast alone — a checkmark overlay, a stroked ring, or a scale/elevation change. Once decided, apply it in both `IconChoice` (Plain/Intense branch, `CaseEditScreen.kt`) and `BrightIconChoice` — the two use different visual languages (flat fill vs. glow halo), so the same primitive won't drop into both identically.
+**Plan** — needs a design decision on the affordance, not just a color retune, since a lightness-only swap will keep being fragile across themes (including future ones): add a distinguishing element that doesn't depend on background contrast alone — a checkmark overlay, a stroked ring, or a scale/elevation change. Once decided, apply it in `IconChoice` / `IntensityChoice` (Plain/Intense flat fill) and `BrightIconChoice` (glow halo) — the same primitive won't drop into both visual languages identically.
 
-**Tests** — no existing test covers icon-selection visuals (Compose Previews only); add or update a Preview per theme showing selected vs. unselected side by side for manual verification. The selection state itself is already exposed structurally via `.selectable(selected = ...)` / `Role.RadioButton`, so there's nothing new to unit-test beyond the visual.
+**Tests** — no existing test covers selection visuals (Compose Previews only); add or update a Preview per theme for the icon picker and the intensity row showing selected vs. unselected side by side. The selection state itself is already exposed structurally via `.selectable(selected = ...)` / `Role.RadioButton`, so there's nothing new to unit-test beyond the visual.
 
 ### S4 · Empty-state note is shifted to the left edge on Bright and Intense
 
@@ -290,6 +321,25 @@ The case detail Log tab is hardcoded `ORDER BY occurredAt DESC` (`data/EventDao.
 **Tests** — `CaseDetailScreenTest`, `HomeScreenTest`, `WidgetLogTrampolineActivityTest`.
 
 **Concern** — standalone. Shares `LogDetailSheet.kt` with A3/A4 — sequence after them, or fold the affordance into whichever lands last.
+
+### S9 · Check-in notification copy is a bare reproach in the Serious voice
+
+*Branch: `fix/check-in-notification-copy` · Complexity: S · Priority: Medium · Area: Voice*
+
+Spec §11 requires check-in copy to "ask whether anything went unlogged, never imply the user should keep it up". The Serious `checkInDueNotificationBody` (`ui/voice/Voice.kt`) is just `"Nothing logged in $silentDays days."` — a flat statement with no question, which reads as a scold. Goth (`"$silentDays days of silence. Has it stopped, or have you?"`) and Quirky (`"Nothing logged in $silentDays days — all quiet, or did you forget?"`) both already pose the question.
+
+**Acceptance criteria**
+
+- [ ] `checkInDueNotificationBody` in all three voices asks the "did something go unlogged?" question per §11; Serious brought in line with Goth/Quirky.
+- [ ] `checkInDueNotificationTitle` / `checkInsSummaryNotificationTitle` reviewed for the same tone in all three voices.
+- [ ] Copy only — no new keys, no behaviour change, no spec edit (§11 already requires this framing). Re-fire cadence is explicitly out of scope.
+- [ ] `VoiceTest`'s existing non-blank / no-gamification checks still pass.
+
+**Plan** — reword the three `checkInDueNotificationBody` overrides (and check the two title keys) in `Voice.kt`. Pure string edits.
+
+**Tests** — `VoiceTest` (existing).
+
+**Concern** — changes existing Voice strings, so land before B2's audit (mirrors the Satellite item's note).
 
 ## Blocked
 

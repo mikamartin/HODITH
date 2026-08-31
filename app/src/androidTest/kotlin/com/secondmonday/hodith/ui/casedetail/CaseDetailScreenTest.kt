@@ -211,6 +211,29 @@ class CaseDetailScreenTest {
     }
 
     @Test
+    fun finishedEventRow_showsDurationLabel_whenTheCaseTracksDuration() {
+        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 45 * 60_000L)
+        setCaseDetailScreenContent(
+            case = startStopCase.copy(durationMode = DurationMode.MANUAL),
+            events = listOf(EventWithTags(event = finished, tags = emptyList())),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel("45m"), substring = true).assertExists()
+    }
+
+    @Test
+    fun finishedEventRow_hidesDurationLabel_whenTheCaseNoLongerTracksDuration() {
+        // Same stored endedAt, but durationMode is NONE now: the row is a point (spec §9).
+        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 45 * 60_000L)
+        setCaseDetailScreenContent(
+            case = startStopCase.copy(durationMode = DurationMode.NONE),
+            events = listOf(EventWithTags(event = finished, tags = emptyList())),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel("45m"), substring = true).assertDoesNotExist()
+    }
+
+    @Test
     fun staleOngoingBanner_editEndTime_opensSheetInEditModeForThatEvent() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = ongoingEvent(), tags = emptyList())),

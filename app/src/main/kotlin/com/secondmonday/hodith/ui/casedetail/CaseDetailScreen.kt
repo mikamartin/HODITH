@@ -54,6 +54,7 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.VerdictResult
@@ -617,7 +618,14 @@ private fun EventRowContent(
             if (isOngoing) {
                 OngoingElapsedText(startedAt = event.occurredAt, now = now, voice = voice)
             }
-            val details = eventDetailSummary(event, eventWithTags.tags, voice, isOngoing = isOngoing)
+            val details =
+                eventDetailSummary(
+                    event,
+                    eventWithTags.tags,
+                    voice,
+                    isOngoing = isOngoing,
+                    tracksDuration = durationMode.tracksDuration,
+                )
             if (details != null) {
                 Text(text = details, style = MaterialTheme.typography.bodySmall)
             }

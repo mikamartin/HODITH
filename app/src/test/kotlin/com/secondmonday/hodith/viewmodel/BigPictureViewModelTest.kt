@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -181,6 +182,48 @@ class BigPictureViewModelTest {
         assertEquals(state.currentMonth, state.earliestMonth)
         assertTrue(state.cases.isEmpty())
         assertTrue(state.events.isEmpty())
+    }
+
+    @Test
+    fun `bigPictureUiState drops a stored endedAt for a Case that no longer tracks duration`() {
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
+        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
+        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
+        val event =
+            EventEntity(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, intensity = null, note = null, loggedAt = startMillis)
+        val casesWithEvents =
+            listOf(
+                CaseWithEventsAndTags(
+                    case = testCase(id = 1L).copy(durationMode = DurationMode.NONE),
+                    events = listOf(EventWithTags(event, emptyList())),
+                ),
+            )
+
+        val mapped = bigPictureUiState(casesWithEvents, nowMillis, zoneId).events.single()
+
+        assertNull(mapped.endedAt)
+        assertEquals(false, mapped.isOngoing)
+    }
+
+    @Test
+    fun `bigPictureUiState keeps a stored endedAt for a MANUAL Case`() {
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
+        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
+        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
+        val event =
+            EventEntity(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, intensity = null, note = null, loggedAt = startMillis)
+        val casesWithEvents =
+            listOf(
+                CaseWithEventsAndTags(
+                    case = testCase(id = 1L).copy(durationMode = DurationMode.MANUAL),
+                    events = listOf(EventWithTags(event, emptyList())),
+                ),
+            )
+
+        val mapped = bigPictureUiState(casesWithEvents, nowMillis, zoneId).events.single()
+
+        assertEquals(endMillis, mapped.endedAt)
+        assertEquals(false, mapped.isOngoing)
     }
 
     private fun withNoEvents(case: CaseEntity) = CaseWithEventsAndTags(case = case, events = emptyList())

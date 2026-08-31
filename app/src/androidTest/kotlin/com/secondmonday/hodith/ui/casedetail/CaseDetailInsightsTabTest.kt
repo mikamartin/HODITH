@@ -263,6 +263,20 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
+    fun frequencyCard_staysVisible_forANoneCaseWithAStoredMultiDayEndedAt() {
+        // Same 3-day endedAt, but the Case no longer tracks duration (spec §9): every event is a
+        // point, so "how often" is answerable again and the frequency card stays.
+        setInsightsTabContent(
+            durationMode = DurationMode.NONE,
+            events = listOf(eventAt(10, endedAt = daysAgo(7)), eventAt(1)),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythmStarts).assertDoesNotExist()
+    }
+
+    @Test
     fun frequencyGranularityToggle_day_switchesBucketLabelFormat() {
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
