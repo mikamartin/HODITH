@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.tracksDuration
@@ -159,9 +158,7 @@ internal fun insightsTabState(
             .let { list -> if (case.durationMode.tracksDuration) list else list.map { it.copy(endedAt = null) } }
     if (events.size < INSIGHTS_MIN_EVENTS) return InsightsTabState.NotEnoughData
 
-    val runsToNowWhenOpen = case.durationMode == DurationMode.START_STOP
-
-    fun spanEnd(event: EventEntity) = event.endedAt ?: if (runsToNowWhenOpen) now else event.occurredAt
+    fun spanEnd(event: EventEntity) = activeSpanEnd(event, case.durationMode, now)
 
     val countsByDay =
         events

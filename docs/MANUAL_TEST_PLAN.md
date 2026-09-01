@@ -42,24 +42,32 @@ which test.
    starting a second event and the row deep-link are covered on the Single-case widget by
    `WidgetActionsFlowTest.logTap_startsASecondEventForARunningStartStopCase` and
    `WidgetActionsFlowTest.runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail`.
-7. **List widget configure flow, per-instance selection.** Add two List widgets to the home
+7. **List widget today/this-week count for a duration event (spec §9/§14 active span).** On a
+   duration-tracking Case (`MANUAL` or `START_STOP`), log an event that started before today and
+   ended earlier today, and start one that's still running. The row's count reads "Today: 2" — a
+   duration event counts on every day its span was active, not only its start day, so a run stopped
+   and logged today shows the same day. Only the List widget row needs a human (same `ListView`
+   limitation); the Single-case widget renders the identical count and is covered by
+   `WidgetActionsFlowTest.singleCaseWidget_todayCount_creditsADurationEventStillActiveToday`, and the
+   count math itself by `HomeViewModelMappingTest`.
+8. **List widget configure flow, per-instance selection.** Add two List widgets to the home
    screen and pick a different set of Cases for each — each shows only its own picks, not the
    other's. Long-press a placed List widget and choose Edit to reopen its picker and change its
    selection. (Picking Cases via the real configure Activity and confirming is covered by
    `ListWidgetConfigureFlowTest` for a single instance; this item is about a *second* independent
    instance and the Edit re-entry path, neither of which has coverage yet.)
-8. **Single-case widget configure flow: Cancel.** Add the Single-case widget and cancel its picker —
+9. **Single-case widget configure flow: Cancel.** Add the Single-case widget and cancel its picker —
    no widget is placed. (Picking a Case and confirming is covered by
    `SingleCaseWidgetConfigureFlowTest.singleCaseWidget_showsBoundCase_afterRealConfigureFlow`.)
-9. **Single-case widget: tap the icon/count area to open Case details.** Tapping elsewhere on the
-   widget (not the dedicated `+` log button) opens that Case's detail screen. (The `+`/log button
-   itself — logging directly for `ONE_TAP`, via the trampoline sheet for `DETAIL_SHEET` — is covered
-   by `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase` for the `ONE_TAP` case; the
-   `DETAIL_SHEET` case's button tap doesn't have widget-click coverage yet, though the trampoline sheet
-   it opens does, via `WidgetLogTrampolineActivityTest`.)
-10. **Add two widgets for the same Case** (e.g. a Single-case widget and the same Case selected on
+10. **Single-case widget: tap the icon/count area to open Case details.** Tapping elsewhere on the
+    widget (not the dedicated `+` log button) opens that Case's detail screen. (The `+`/log button
+    itself — logging directly for `ONE_TAP`, via the trampoline sheet for `DETAIL_SHEET` — is covered
+    by `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase` for the `ONE_TAP` case; the
+    `DETAIL_SHEET` case's button tap doesn't have widget-click coverage yet, though the trampoline sheet
+    it opens does, via `WidgetLogTrampolineActivityTest`.)
+11. **Add two widgets for the same Case** (e.g. a Single-case widget and the same Case selected on
     a List widget) — logging from either one refreshes both.
-11. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
+12. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
     afterward, not a reset or stale value.
 
 ## Notifications & permissions

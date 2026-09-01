@@ -62,6 +62,140 @@ class HomeViewModelMappingTest {
         assertEquals(0, rows.single().weekCount)
     }
 
+    // --- Active-span day attribution (spec §9/§14): an event counts toward a window if its span
+    // reaches into it, counted once. A NONE Case's events collapse to a point at occurredAt. ---
+
+    @Test
+    fun `running START_STOP event started before this week counts for today and this week`() {
+        val running = testEvent(now.minusDays(5).toInstant().toEpochMilli()).copy(endedAt = null)
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(running), durationMode = DurationMode.START_STOP)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(1, rows.single().todayCount)
+        assertEquals(1, rows.single().weekCount)
+    }
+
+    @Test
+    fun `running START_STOP event started earlier today counts for today`() {
+        val running = testEvent(startOfToday.plusHours(2).toInstant().toEpochMilli()).copy(endedAt = null)
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(running), durationMode = DurationMode.START_STOP)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(1, rows.single().todayCount)
+        assertEquals(1, rows.single().weekCount)
+    }
+
+    @Test
+    fun `duration event that started earlier but ended today counts for today and this week`() {
+        val event =
+            testEvent(now.minusDays(6).toInstant().toEpochMilli())
+                .copy(endedAt = startOfToday.plusHours(9).toInstant().toEpochMilli())
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.MANUAL)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(1, rows.single().todayCount)
+        assertEquals(1, rows.single().weekCount)
+    }
+
+    @Test
+    fun `duration event that ended earlier this week counts for this week but not today`() {
+        val event =
+            testEvent(now.minusDays(9).toInstant().toEpochMilli())
+                .copy(endedAt = startOfWeek.plusDays(1).toInstant().toEpochMilli())
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.MANUAL)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(0, rows.single().todayCount)
+        assertEquals(1, rows.single().weekCount)
+    }
+
+    @Test
+    fun `NONE case collapses a stored endedAt to a point so a pre-week event does not count`() {
+        val event =
+            testEvent(now.minusDays(9).toInstant().toEpochMilli())
+                .copy(endedAt = now.toInstant().toEpochMilli())
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.NONE)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(0, rows.single().todayCount)
+        assertEquals(0, rows.single().weekCount)
+    }
+
+    @Test
+    fun `MANUAL event with no endedAt stays a point and does not count from before the window`() {
+        val event = testEvent(now.minusDays(9).toInstant().toEpochMilli()).copy(endedAt = null)
+        val rows =
+            homeCaseRows(
+                listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.MANUAL)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(0, rows.single().todayCount)
+        assertEquals(0, rows.single().weekCount)
+    }
+
+    @Test
+    fun `a multi-day running span counts once alongside point events on the same day`() {
+        val running = testEvent(now.minusDays(3).toInstant().toEpochMilli()).copy(id = 1L, endedAt = null)
+        val pointA =
+            testEvent(startOfToday.plusHours(1).toInstant().toEpochMilli())
+                .copy(id = 2L, endedAt = startOfToday.plusHours(2).toInstant().toEpochMilli())
+        val pointB =
+            testEvent(startOfToday.plusHours(3).toInstant().toEpochMilli())
+                .copy(id = 3L, endedAt = startOfToday.plusHours(4).toInstant().toEpochMilli())
+        val rows =
+            homeCaseRows(
+                listOf(
+                    caseWithEvents(
+                        events = listOf(running, pointA, pointB),
+                        durationMode = DurationMode.START_STOP,
+                    ),
+                ),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(3, rows.single().todayCount)
+    }
+
+    @Test
+    fun `maps several cases with independent counts in input order`() {
+        val caseAEvent = testEvent(startOfToday.plusHours(1).toInstant().toEpochMilli())
+        val caseBEvents =
+            listOf(
+                testEvent(startOfToday.plusHours(2).toInstant().toEpochMilli()),
+                testEvent(startOfWeek.plusHours(1).toInstant().toEpochMilli()),
+            )
+        val rows =
+            homeCaseRows(
+                listOf(
+                    caseWithEvents(caseId = 1L, name = "A", events = listOf(caseAEvent)),
+                    caseWithEvents(caseId = 2L, name = "B", events = caseBEvents),
+                ),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(listOf(1L, 2L), rows.map { it.caseId })
+        assertEquals(1, rows[0].todayCount)
+        assertEquals(1, rows[0].weekCount)
+        assertEquals(1, rows[1].todayCount)
+        assertEquals(2, rows[1].weekCount)
+    }
+
     @Test
     fun `maps case identity fields through`() {
         val rows =

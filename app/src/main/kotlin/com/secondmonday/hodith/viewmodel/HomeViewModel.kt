@@ -199,12 +199,15 @@ internal fun homeCaseRows(
             .toEpochMilli()
     return casesWithEvents.map { (case, events) ->
         val openEvents = ongoingEventsIn(case, events)
+        // Spec §9 active span: an event counts toward a window if its span reaches into it,
+        // counted once whatever its length — so Home agrees with the calendar heatmap.
+        // activeSpanEnd handles the NONE-collapses-to-a-point and running-runs-to-now cases.
         HomeCaseRow(
             caseId = case.id,
             icon = case.icon,
             name = case.name,
-            todayCount = events.count { it.occurredAt >= startOfToday },
-            weekCount = events.count { it.occurredAt >= startOfWeek },
+            todayCount = events.count { activeSpanEnd(it, case.durationMode, nowMillis) >= startOfToday },
+            weekCount = events.count { activeSpanEnd(it, case.durationMode, nowMillis) >= startOfWeek },
             logFlow = case.logFlow,
             durationMode = case.durationMode,
             intensityEnabled = case.intensityEnabled,
