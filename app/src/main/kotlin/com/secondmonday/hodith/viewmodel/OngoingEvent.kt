@@ -3,6 +3,7 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 
@@ -38,6 +39,28 @@ internal fun ongoingEventIn(
     case: CaseEntity,
     events: List<EventEntity>,
 ): EventEntity? = ongoingEventsIn(case, events).firstOrNull()
+
+/**
+ * The instant [event]'s active span (spec §9) ends, given the Case's current [durationMode]:
+ * its stored `endedAt`; or [now] for a still-running `START_STOP` event; or its own `occurredAt`
+ * for a point event and for every event on a Case that no longer tracks duration — whatever
+ * `endedAt` is stored, the span collapses to a point there and the stored value is left untouched.
+ *
+ * Compare the result against a window start to ask "was this event active anywhere in that
+ * window", or feed it to [com.secondmonday.hodith.domain.datesCovered] /
+ * [com.secondmonday.hodith.domain.spansMultipleDays]. Shared by Home's row counts and the
+ * Insights tab so both read the span the same way.
+ */
+internal fun activeSpanEnd(
+    event: EventEntity,
+    durationMode: DurationMode,
+    now: Long,
+): Long =
+    if (!durationMode.tracksDuration) {
+        event.occurredAt
+    } else {
+        event.endedAt ?: if (durationMode == DurationMode.START_STOP) now else event.occurredAt
+    }
 
 /**
  * Whether [event] should show the 24h-stale prompt at [now]. Re-arms after another

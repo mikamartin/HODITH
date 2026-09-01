@@ -20,13 +20,12 @@ Each item carries:
 
 ## Story A — Start/Stop, duration & ongoing events
 
-A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A8 are done; the rest are independent:
+A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A9 are done; the rest are independent:
 
-- **A9** (`HomeViewModel.kt` only) propagates A7's rule to Home's counts via the shared `DurationMode.tracksDuration` extension.
 - **A10** is an independent read-through — no file-chain dependency.
 - The **Satellite** shares the `BigPictureGrid.kt` / `InsightsTab.kt` formatter sites (A6 has landed there).
 
-### A1–A8 · done — Start/Stop & duration polish
+### A1–A9 · done — Start/Stop & duration polish
 
 Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds on" / "sequence after" pointers below.
 
@@ -38,28 +37,7 @@ Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds 
 - **A6** — duration on the Big Picture grid and the duration-aware Insights split (`feat/big-picture-duration-spans`): `CalendarEvent` gains `endedAt`/`isOngoing`; a multi-day event's icon spans every day it covered with a `primary` ring on the start day and a trail to today for a running one (`domain/CalendarGrid.kt` `spansMultipleDays` helper); the day/week detail dialogs show "ongoing since …" / "lasted …" in place of a misleading clock time on a spanned day. The frequency chart is **hidden** and the rhythm card **retitled "Start times"** for any Case with a multi-day event — `computeFrequencyStats` / trend / verdict are untouched and stay start-anchored. **Also closes the original rhythm-caveat item** (rhythm plotting starts with no caveat): the retitle is the caveat. Spec §9/§10.
 - **A7** — every duration-display surface now follows the Case's current `durationMode` (`feat/duration-display-follows-mode`): a shared `DurationMode.tracksDuration` extension (`durationMode != NONE`); each surface collapses a non-tracking Case's stored `endedAt` to a point at its entry boundary — `bigPictureUiState` nulls `CalendarEvent.endedAt`, `insightsTabState` collapses the event list once (so `spanEnd` / `hasMultiDayEvent` / `computeGapStats` all follow), `eventDetailSummary` gains a `tracksDuration` param plus an `endedAt > occurredAt` guard (zero-length events are points). Stored `endedAt` untouched; no schema change. Spec §6/§9/§10.
 - **A8** — switching a Case into `START_STOP` no longer reinterprets its open-ended events as live spans (`feat/duration-switch-in-conversion`): `onDurationModeChange` gains an enter-`START_STOP` path mirroring the leave path — a confirm dialog (`enterStartStopConfirm*` Voice ×3) when open-ended events exist, and on confirm `save()` stamps `endedAt = occurredAt` on each (an instant event, not `now`, so an old point stays a point on a round-trip). `MANUAL`'s duration-less events convert too; already-finished events are untouched. The leave-`START_STOP` body copy reworded to say why events stop *now*. Spec §6 gains the full duration-mode transition contract table; §14 notes the dialog fires in either direction. No schema change.
-
-### A9 · Home's today / this-week counts treat duration events as points at their start
-
-*Branch: `feat/home-counts-duration-span` · Complexity: S · Priority: Medium · Area: Duration*
-
-🎨 **Design decision** — whether a duration event counts toward Home's tallies on its start day, its end day, or every day it was active; the rule must match A7's finalized active-span rule so Home and the calendar heatmap agree.
-
-`homeCaseRows` (`viewmodel/HomeViewModel.kt`) counts `events.count { it.occurredAt >= startOfToday }` / `>= startOfWeek` — pure start day. An event started six days ago and wrapped up today shows "Today 0 / This week 0" on its Home row, the same day it was finished and logged.
-
-**Acceptance criteria**
-
-- [ ] A decided day-attribution rule for duration events on Home, written into spec §9/§14 alongside A7's active-span rule.
-- [ ] `homeCaseRows` today / this-week counts apply it; a running event's span runs to now.
-- [ ] The span predicate calls the shared `DurationMode.tracksDuration` extension (added in A7, `data/DurationMode.kt`) — not a re-inlined `!= NONE` check — so a `NONE` Case's events count as points on Home too.
-- [ ] `HomeViewModelMappingTest` covers a span crossing the today boundary and the week boundary.
-- [ ] No schema change.
-
-**Plan** — pick the rule (recommendation: an event counts on any day it was active, matching A5/A7), then change the two `count {}` predicates in `homeCaseRows` to test span overlap rather than `occurredAt` alone.
-
-**Tests** — `HomeViewModelMappingTest`.
-
-**Concern** — not in Story A's shared-file chain (`HomeViewModel.kt` only), but the rule must match A7's or Home and the heatmap disagree. Sequence after A7.
+- **A9** — Home's today / this-week counts follow the active span (`feat/home-counts-duration-span`): `homeCaseRows` (`viewmodel/HomeViewModel.kt`) tests span reach instead of `occurredAt` alone, so a run stopped and logged today shows on its Home row that day — counted once, not per active day. Span-end resolution extracted as `activeSpanEnd` (`viewmodel/OngoingEvent.kt`, on `DurationMode.tracksDuration`), now shared with `insightsTabState`. Both widgets inherit it through `homeCaseRows`; the Single-case widget's count gained instrumented coverage, the List widget's a manual-test item. Spec §9/§14. No schema change.
 
 ### A10 · Verdict engine's handling of duration events is unreviewed
 

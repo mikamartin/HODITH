@@ -16,6 +16,8 @@ import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
+import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -31,13 +33,19 @@ import org.junit.runner.RunWith
 import javax.inject.Inject
 
 /**
- * Real end-to-end regression test for [QuickLogAction]/[StopEventAction] — clicks the actual
- * rendered widget View (via a real [AppWidgetHost]), same pattern as [ListWidgetConfigureFlowTest].
- * These two `ActionCallback`s have no unit coverage: they need a real `Context` with a live Hilt
+ * Real end-to-end tests that drive the actual rendered Single-case widget View via a real
+ * [AppWidgetHost] (same pattern as [ListWidgetConfigureFlowTest]): the [QuickLogAction]/
+ * [StopEventAction] click-throughs, and a handful of render assertions ([HomeCaseRow]-derived
+ * content that only a real Glance render produces — the "Ongoing" pill, the running-count
+ * subtitle, the active-span today count).
+ *
+ * The two `ActionCallback`s have no unit coverage: they need a real `Context` with a live Hilt
  * component ([dagger.hilt.android.EntryPointAccessors]) and a real `WorkManager`
  * ([WidgetRefreshWorker.enqueueRefresh]), neither of which exists on the JVM, and per
  * `docs/CLEANUP_LOG.md` this repo doesn't use Robolectric or a mocking library — so an instrumented
  * click-through, not an extracted seam, is the fitting way to cover this one-line-pass-through glue.
+ * The render assertions ride the same real-host setup because Glance's output can't be inspected
+ * any other way.
  *
  * Drives the Single-case widget rather than the List widget, even though both wire up the exact
  * same callbacks: the List widget's rows live inside a `LazyColumn`, which Glance renders as a
@@ -155,6 +163,35 @@ class WidgetActionsFlowTest {
             }
         }
     }
+
+    @Test
+    fun singleCaseWidget_todayCount_creditsADurationEventStillActiveToday() =
+        runBlocking {
+            val caseName = "Deep clean ${System.currentTimeMillis()}"
+            insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.MANUAL))
+            // Real wall-clock: the widget reads the injected (real) clock, so the event must be
+            // anchored to actual "now" for its span to land in today. Started two days ago, ended a
+            // minute ago — a pure-occurredAt count would read "Today: 0" the same day the event was
+            // finished and logged (spec §9/§14 active span). The one-minute margin keeps it robust
+            // except within a minute of local midnight; the count math itself is JVM-covered by
+            // HomeViewModelMappingTest, this just proves the widget renders it.
+            val now = System.currentTimeMillis()
+            repository.insertEvent(
+                testEvent(
+                    caseId = insertedCaseId,
+                    occurredAt = now - 2 * MILLIS_PER_DAY,
+                    endedAt = now - MILLIS_PER_MINUTE,
+                ),
+            )
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
+
+            val rendered =
+                waitFor {
+                    collectText(renderedView(context, host, appWidgetId))
+                        .takeIf { texts -> texts.any { it == PlainVoice.widgetTodayCount(1) } }
+                }
+            assertNotNull("Expected the widget's today count to credit a duration event active today", rendered)
+        }
 
     private suspend fun waitForClickableWithDescription(description: String): View =
         waitFor { findClickableAncestorOfDescription(renderedView(context, host, appWidgetId), description) }
