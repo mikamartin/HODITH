@@ -181,6 +181,25 @@ class InsightsEngineTest {
     }
 
     @Test
+    fun `computeGapStats floors a reversed endedAt to the event's own start`() {
+        // A bad stored endedAt (day 3) that predates its occurredAt (day 10) — from an old
+        // round-trip (spec §6). The reach is the day-10 start, so the gap to now (day 15) is 5,
+        // not the 12 an unfloored day-3 end would give.
+        val result = computeGapStats(listOf(durationEvent(startDay = 10, endDay = 3)), now = millisAtDay(15))
+
+        assertEquals(5L, result.currentGapDays)
+    }
+
+    @Test
+    fun `computeGapStats does not let a reversed endedAt shrink a following past gap`() {
+        val events = listOf(durationEvent(startDay = 10, endDay = 3), eventAtDay(12))
+
+        val result = computeGapStats(events, now = millisAtDay(20))
+
+        assertEquals(listOf(2L), result.pastGaps)
+    }
+
+    @Test
     fun `computeGapStats does not flag bursty with fewer than 3 past gaps even if uneven`() {
         // Only 2 past gaps (1, 20) — below GAP_BURST_MIN_GAP_COUNT regardless of variance.
         val events = listOf(eventAtDay(0), eventAtDay(1), eventAtDay(21))

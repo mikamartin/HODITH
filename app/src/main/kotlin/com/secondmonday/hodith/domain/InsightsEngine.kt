@@ -68,13 +68,15 @@ internal fun computeGapStats(
     // rather than just the previous event's end is what makes overlapping durations behave — a
     // short event nested inside a longer one (two overlapping family sick days, say) mustn't
     // invent a gap the longer event was still filling. A start that predates the reach floors to 0.
+    // A stored endedAt earlier than its own occurredAt (a bad value from an old round-trip, spec §6)
+    // is floored to the start, matching how datesCovered / spansMultipleDays treat a reversed span.
     val pastGaps = mutableListOf<Long>()
     var reachedSoFar = Long.MIN_VALUE
     for ((index, event) in sorted.withIndex()) {
         if (index > 0) {
             pastGaps += daysBetween(reachedSoFar, event.occurredAt, zone).coerceAtLeast(0L)
         }
-        reachedSoFar = maxOf(reachedSoFar, event.endedAt ?: event.occurredAt)
+        reachedSoFar = maxOf(reachedSoFar, event.occurredAt, event.endedAt ?: event.occurredAt)
     }
     val timeSinceLastEvent = if (sorted.isEmpty()) 0L else daysBetween(reachedSoFar, now, zone).coerceAtLeast(0L)
     val currentGapDays = if (eventActiveNow) 0L else timeSinceLastEvent
