@@ -248,6 +248,9 @@ interface Voice {
 
     fun insightsFrequencyInfoBody(granularity: FrequencyGranularity): String
 
+    /** Frequency chart's x-axis label for a weekly bucket, wrapping the already-formatted [date] (e.g. "Jul 9"). */
+    fun insightsFrequencyWeekAxisLabel(date: String): String
+
     /** Gaps & streaks stat-row labels — structural, identical across all three voices. */
     val insightsGapsLongestLabel: String get() = "Longest gap"
     val insightsGapsCurrentLabel: String get() = "Current gap"
@@ -776,6 +779,8 @@ object PlainVoice : Voice {
             "has been tracked, but you can switch it manually above."
     }
 
+    override fun insightsFrequencyWeekAxisLabel(date: String) = "Week of $date"
+
     override val insightsGapsInfoTitle = "About gaps & streaks"
     override val insightsGapsInfoBody =
         "Longest gap: the longest stretch with no event active.\n" +
@@ -1262,6 +1267,8 @@ object IntenseVoice : Voice {
             "long this case has been watched, though you may set it yourself above."
     }
 
+    override fun insightsFrequencyWeekAxisLabel(date: String) = "The week of $date"
+
     override val insightsGapsInfoTitle = "On silences and spells"
     override val insightsGapsInfoBody =
         "Longest gap: the longest silence with nothing stirring.\n" +
@@ -1738,6 +1745,8 @@ object BrightVoice : Voice {
         return "Just the last 12 $unit — we pick days/weeks/months automatically depending on how long you've been " +
             "tracking, but feel free to flip it yourself up top!"
     }
+
+    override fun insightsFrequencyWeekAxisLabel(date: String) = "Week of $date"
 
     override val insightsGapsInfoTitle = "Gaps & streaks, explained!"
     override val insightsGapsInfoBody =

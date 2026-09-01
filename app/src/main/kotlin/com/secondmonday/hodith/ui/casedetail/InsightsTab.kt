@@ -247,6 +247,9 @@ private fun FrequencyCard(
     voice: Voice,
 ) {
     val locale = LocalLocale.current.platformLocale
+    val axisLabel = { periodStart: LocalDate ->
+        formatFrequencyPeriodLabel(periodStart, display.granularity, locale, voice::insightsFrequencyWeekAxisLabel)
+    }
 
     InsightsCard {
         SectionWithInfo(
@@ -298,12 +301,12 @@ private fun FrequencyCard(
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
-                    text = formatFrequencyPeriodLabel(display.bars.first().periodStart, display.granularity, locale),
+                    text = axisLabel(display.bars.first().periodStart),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = formatFrequencyPeriodLabel(display.bars.last().periodStart, display.granularity, locale),
+                    text = axisLabel(display.bars.last().periodStart),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

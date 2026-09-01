@@ -95,15 +95,17 @@ internal fun formatWeekdayDayDate(date: LocalDate): String = date.format(WEEKDAY
 
 /**
  * Frequency-chart axis label. Follows the platform [locale], unlike the fixed-US formatters above,
- * because the chart's Day/Week/Month scale is chrome rather than an event's own recorded time.
+ * because the chart's Day/Week/Month scale is chrome rather than an event's own recorded time. The
+ * weekly bucket's wrapper text comes from [weekOf] (a `Voice` key) so it isn't an inline UI string.
  */
 internal fun formatFrequencyPeriodLabel(
     periodStart: LocalDate,
     granularity: FrequencyGranularity,
     locale: Locale,
+    weekOf: (date: String) -> String,
 ): String =
     when (granularity) {
         FrequencyGranularity.DAY -> periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale))
-        FrequencyGranularity.WEEK -> "Week of ${periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale))}"
+        FrequencyGranularity.WEEK -> weekOf(periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale)))
         FrequencyGranularity.MONTH -> "${periodStart.month.getDisplayName(TextStyle.SHORT, locale)} ${periodStart.year}"
     }

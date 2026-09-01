@@ -282,8 +282,9 @@ class CaseDetailInsightsTabTest {
 
         composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyGranularityWeek).performScrollTo().performClick()
 
-        // Both the first and last bucket's period labels switch format, hence two matches.
-        composeTestRule.onAllNodesWithText("Week of", substring = true).assertCountEquals(2)
+        // Both the first and last bucket's period labels switch to the weekly wrapper, hence two matches.
+        val weekWrapper = PlainVoice.insightsFrequencyWeekAxisLabel("").trim()
+        composeTestRule.onAllNodesWithText(weekWrapper, substring = true).assertCountEquals(2)
     }
 
     @Test

@@ -53,11 +53,12 @@ class EventTimeFormatTest {
     }
 
     @Test
-    fun `formatFrequencyPeriodLabel varies by granularity`() {
+    fun `formatFrequencyPeriodLabel varies by granularity and routes the weekly wrapper through the given label fn`() {
         val start = LocalDate.of(2026, 7, 9)
+        val weekOf = { date: String -> "wk:$date" }
 
-        assertEquals("Jul 9", formatFrequencyPeriodLabel(start, FrequencyGranularity.DAY, Locale.US))
-        assertEquals("Week of Jul 9", formatFrequencyPeriodLabel(start, FrequencyGranularity.WEEK, Locale.US))
-        assertEquals("Jul 2026", formatFrequencyPeriodLabel(start, FrequencyGranularity.MONTH, Locale.US))
+        assertEquals("Jul 9", formatFrequencyPeriodLabel(start, FrequencyGranularity.DAY, Locale.US, weekOf))
+        assertEquals("wk:Jul 9", formatFrequencyPeriodLabel(start, FrequencyGranularity.WEEK, Locale.US, weekOf))
+        assertEquals("Jul 2026", formatFrequencyPeriodLabel(start, FrequencyGranularity.MONTH, Locale.US, weekOf))
     }
 }

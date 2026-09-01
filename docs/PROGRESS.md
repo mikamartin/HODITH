@@ -88,7 +88,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item: A6 (added `bigPictureEventOngoingSince`, `bigPictureEventSpanRange`, `insightsSectionLabelRhythmStarts`), A8 (new duration-mode-change confirm dialogs), the time-format satellite (`settingsTimeFormatSectionLabel`, landed), S9 (check-in copy reword), and B1.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item: A6 (added `bigPictureEventOngoingSince`, `bigPictureEventSpanRange`, `insightsSectionLabelRhythmStarts`), A8 (new duration-mode-change confirm dialogs), the time-format satellite (`settingsTimeFormatSectionLabel` + `insightsFrequencyWeekAxisLabel`, landed), S9 (check-in copy reword), and B1.
 
 **Acceptance criteria**
 
