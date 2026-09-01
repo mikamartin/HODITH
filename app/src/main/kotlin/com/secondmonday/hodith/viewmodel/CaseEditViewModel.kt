@@ -101,17 +101,29 @@ class CaseEditViewModel
         fun onLogFlowChange(logFlow: LogFlow) = _uiState.update { it.copy(logFlow = logFlow) }
 
         fun onDurationModeChange(durationMode: DurationMode) {
-            val state = _uiState.value
-            val leavingStartStop = state.durationMode == DurationMode.START_STOP && durationMode != DurationMode.START_STOP
-            if (leavingStartStop && state.runningEventCount > 0) {
+            // A fresh mode decision supersedes any stamp a held-then-abandoned earlier toggle armed —
+            // otherwise NONE→START_STOP→NONE (both confirmed) before a single save() would leave both
+            // flags set and stamp `endedAt = now` on a days-old point. The transitions below are keyed
+            // off the Case's *persisted* mode, not the unsaved in-memory one, so an intermediate
+            // never-saved START_STOP can't be "left".
+            stopRunningOnSave = false
+            convertOpenEndedOnSave = false
+            pendingDurationMode = null
+
+            val persistedMode = existingCase?.durationMode
+            val runningCount = _uiState.value.runningEventCount
+
+            val leavingStartStop = persistedMode == DurationMode.START_STOP && durationMode != DurationMode.START_STOP
+            if (leavingStartStop && runningCount > 0) {
                 pendingDurationMode = durationMode
                 _uiState.update { it.copy(showLeaveStartStopConfirm = true) }
                 return
             }
             // Entering START_STOP reinterprets every open-ended event as a live ongoing span
             // (spec §6) — hold the switch until the user confirms collapsing them to instant events.
-            val enteringStartStop = state.durationMode != DurationMode.START_STOP && durationMode == DurationMode.START_STOP
-            if (enteringStartStop && state.runningEventCount > 0) {
+            val enteringStartStop =
+                persistedMode != null && persistedMode != DurationMode.START_STOP && durationMode == DurationMode.START_STOP
+            if (enteringStartStop && runningCount > 0) {
                 pendingDurationMode = durationMode
                 _uiState.update { it.copy(showEnterStartStopConfirm = true) }
                 return

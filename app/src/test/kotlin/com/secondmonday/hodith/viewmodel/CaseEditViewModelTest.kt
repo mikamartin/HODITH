@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -463,7 +464,66 @@ class CaseEditViewModelTest {
 
             assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
             assertEquals(
+                DurationMode.NONE,
+                repository.cases.value
+                    .single()
+                    .durationMode,
+            )
+            assertEquals(
                 444L,
+                repository.events.value
+                    .single()
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `toggling NONE to START_STOP and back before any save leaves an open-ended point untouched`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
+            repository.events.value = listOf(runningEvent(id = 10L, occurredAt = 444L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.START_STOP)
+            vm.confirmEnterStartStop()
+            vm.onDurationModeChange(DurationMode.NONE)
+
+            // Returning to the persisted mode is a no-op — no leave dialog, no held stamp survives.
+            assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
+            vm.save()
+
+            assertEquals(
+                DurationMode.NONE,
+                repository.cases.value
+                    .single()
+                    .durationMode,
+            )
+            assertNull(
+                repository.events.value
+                    .single()
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `toggling MANUAL to START_STOP and back before any save leaves an open-ended event open`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.MANUAL))
+            repository.events.value = listOf(runningEvent(id = 10L, occurredAt = 444L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.START_STOP)
+            vm.confirmEnterStartStop()
+            vm.onDurationModeChange(DurationMode.MANUAL)
+            vm.save()
+
+            assertEquals(
+                DurationMode.MANUAL,
+                repository.cases.value
+                    .single()
+                    .durationMode,
+            )
+            assertNull(
                 repository.events.value
                     .single()
                     .endedAt,
