@@ -4,6 +4,8 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
+import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -12,15 +14,6 @@ import java.time.ZoneId
 import java.util.TimeZone
 
 private const val DELTA = 0.0001
-
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
 
 // hunch.createdAt isn't read by the engine (spec §8 keys the window off the Case's own
 // createdAt, passed separately) — no test needs to vary it, so it's hardcoded rather than
@@ -39,8 +32,7 @@ private fun hunch(
     resolvedAt = null,
 )
 
-private fun event(occurredAt: Long) =
-    EventEntity(id = 0, caseId = 1, occurredAt = occurredAt, endedAt = null, intensity = null, note = null, loggedAt = occurredAt)
+private fun event(occurredAt: Long) = testEvent(occurredAt = occurredAt)
 
 private fun eventsAt(
     count: Int,

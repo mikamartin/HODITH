@@ -3,32 +3,21 @@ package com.secondmonday.hodith.notification
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testEvent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
 import javax.inject.Provider
-
-private val ZONE = ZoneId.systemDefault()
-
-/** Calendar-day timestamp, same helper as [com.secondmonday.hodith.domain.TriggerEngineTest] — avoids DST/zone-offset flakiness near epoch that raw millis multiplication risks. */
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
 
 class NotificationEvaluatorTest {
     private val repository = FakeHodithRepository()
@@ -90,15 +79,7 @@ class NotificationEvaluatorTest {
         caseId: Long = 1L,
         occurredAt: Long,
         endedAt: Long? = null,
-    ) = EventEntity(
-        id = id,
-        caseId = caseId,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = null,
-        note = null,
-        loggedAt = occurredAt,
-    )
+    ) = testEvent(id = id, caseId = caseId, occurredAt = occurredAt, endedAt = endedAt)
 
     @Test
     fun `evaluateCase fires an AT_LEAST trigger once its window count reaches threshold`() =

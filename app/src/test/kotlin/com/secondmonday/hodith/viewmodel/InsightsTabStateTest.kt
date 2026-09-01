@@ -1,64 +1,25 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
-import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
+import com.secondmonday.hodith.testsupport.TEST_ZONE
+import com.secondmonday.hodith.testsupport.durationEvent
+import com.secondmonday.hodith.testsupport.eventAtDay
+import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testCase
+import com.secondmonday.hodith.testsupport.withoutTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
 
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
-
-private fun testCase(
-    createdAt: Long,
-    durationMode: DurationMode = DurationMode.NONE,
-) = CaseEntity(
-    id = 1L,
-    name = "Test Case",
-    icon = "🐛",
-    createdAt = createdAt,
-    logFlow = LogFlow.ONE_TAP,
-    durationMode = durationMode,
-    intensityEnabled = false,
-    hunchNudgeDismissed = false,
-    checkInsEnabled = true,
-    lastCheckInAt = null,
-    sortOrder = 0,
-    archived = false,
-)
-
-private fun eventAtDay(epochDay: Long) = durationEvent(epochDay, null)
-
-private fun durationEvent(
-    startDay: Long,
-    endDay: Long?,
-) = EventEntity(
-    id = 0,
-    caseId = 1,
-    occurredAt = millisAtDay(startDay),
-    endedAt = endDay?.let { millisAtDay(it) },
-    intensity = null,
-    note = null,
-    loggedAt = millisAtDay(startDay),
-)
-
-private fun List<EventEntity>.withoutTags(): List<EventWithTags> = map { EventWithTags(it, emptyList()) }
+private val ZONE = TEST_ZONE
 
 class InsightsTabStateTest {
     @Test
@@ -96,7 +57,7 @@ class InsightsTabStateTest {
                 .toEpochMilli()
         val events = listOf(EventEntity(0, 1, createdAt, null, null, null, createdAt), EventEntity(0, 1, now, null, null, null, now))
 
-        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
+        val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         assertEquals(
             listOf(YearMonth.of(2026, 1), YearMonth.of(2026, 2), YearMonth.of(2026, 3)),
@@ -121,7 +82,7 @@ class InsightsTabStateTest {
                 .toEpochMilli()
         val events = listOf(eventAtDay(eventDate.toEpochDay()), EventEntity(0, 1, now, null, null, null, now))
 
-        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
+        val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         val shadedDay =
             state.heatmapMonths
@@ -151,7 +112,7 @@ class InsightsTabStateTest {
                 .toEpochMilli()
         val events = listOf(EventEntity(0, 1, createdAt, null, null, null, createdAt), EventEntity(0, 1, now, null, null, null, now))
 
-        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
+        val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         val currentMonth = state.heatmapMonths.single { it.month == YearMonth.of(2026, 3) }
         assertTrue(currentMonth.weeks.size <= 2)

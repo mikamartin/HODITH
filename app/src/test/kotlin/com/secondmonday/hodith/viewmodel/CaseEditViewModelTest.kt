@@ -1,14 +1,15 @@
 package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
-import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
+import com.secondmonday.hodith.testsupport.Fixtures
+import com.secondmonday.hodith.testsupport.finishedEvent
+import com.secondmonday.hodith.testsupport.runningEvent
 import com.secondmonday.hodith.widget.FakeWidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,49 +63,13 @@ class CaseEditViewModelTest {
     private fun existingCase(
         id: Long = 1L,
         durationMode: DurationMode = DurationMode.NONE,
-    ) = CaseEntity(
+    ) = Fixtures.case(
         id = id,
         name = "Coffee",
         description = "Track cups",
         icon = "☕️",
-        createdAt = 0L,
         logFlow = LogFlow.DETAIL_SHEET,
         durationMode = durationMode,
-        intensityEnabled = false,
-        hunchNudgeDismissed = false,
-        checkInsEnabled = true,
-        lastCheckInAt = null,
-        sortOrder = 0,
-        archived = false,
-    )
-
-    private fun runningEvent(
-        id: Long,
-        caseId: Long = 1L,
-        occurredAt: Long = 0L,
-    ) = EventEntity(
-        id = id,
-        caseId = caseId,
-        occurredAt = occurredAt,
-        endedAt = null,
-        intensity = null,
-        note = null,
-        loggedAt = 0L,
-    )
-
-    private fun finishedEvent(
-        id: Long,
-        caseId: Long = 1L,
-        occurredAt: Long = 0L,
-        endedAt: Long = 500_000L,
-    ) = EventEntity(
-        id = id,
-        caseId = caseId,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = null,
-        note = null,
-        loggedAt = 0L,
     )
 
     @Test

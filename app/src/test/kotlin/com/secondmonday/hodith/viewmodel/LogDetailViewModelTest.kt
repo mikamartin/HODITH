@@ -1,10 +1,10 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
+import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -597,20 +597,6 @@ class LogDetailViewModelTest {
         assertTrue(formatted.contains("3:30"))
         assertTrue(formatted.contains("PM"))
     }
-
-    private fun testEvent(
-        occurredAt: Long = 0L,
-        endedAt: Long? = null,
-        intensity: Int? = null,
-        note: String? = null,
-    ) = EventEntity(
-        caseId = 1L,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = intensity,
-        note = note,
-        loggedAt = occurredAt,
-    )
 
     private fun testDraft(
         occurredAt: Long = 0L,

@@ -1,8 +1,8 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.testsupport.testCase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -12,20 +12,7 @@ class CaseEditValidationTest {
     private fun otherCase(
         id: Long,
         name: String,
-    ) = CaseEntity(
-        id = id,
-        name = name,
-        icon = "🤕",
-        createdAt = 0,
-        logFlow = LogFlow.DETAIL_SHEET,
-        durationMode = DurationMode.NONE,
-        intensityEnabled = false,
-        hunchNudgeDismissed = false,
-        checkInsEnabled = true,
-        lastCheckInAt = null,
-        sortOrder = 0,
-        archived = false,
-    )
+    ) = testCase(id = id, name = name, icon = "🤕", logFlow = LogFlow.DETAIL_SHEET)
 
     @Test
     fun `blank name and missing icon are both invalid`() {
@@ -146,18 +133,12 @@ class CaseEditValidationTest {
     @Test
     fun `loading an existing case self-corrects a stale invalid one-tap logFlow`() {
         val case =
-            CaseEntity(
+            testCase(
                 name = "Migraine",
                 icon = "🤕",
-                createdAt = 0,
                 logFlow = LogFlow.ONE_TAP,
                 durationMode = DurationMode.START_STOP,
                 intensityEnabled = true,
-                hunchNudgeDismissed = false,
-                checkInsEnabled = true,
-                lastCheckInAt = null,
-                sortOrder = 0,
-                archived = false,
             )
 
         assertEquals(LogFlow.DETAIL_SHEET, case.toUiState().logFlow)
@@ -166,18 +147,12 @@ class CaseEditValidationTest {
     @Test
     fun `loading an existing case leaves a valid one-tap logFlow alone`() {
         val case =
-            CaseEntity(
+            testCase(
                 name = "Lost my keys",
                 icon = "🔑",
-                createdAt = 0,
                 logFlow = LogFlow.ONE_TAP,
                 durationMode = DurationMode.NONE,
                 intensityEnabled = false,
-                hunchNudgeDismissed = false,
-                checkInsEnabled = true,
-                lastCheckInAt = null,
-                sortOrder = 0,
-                archived = false,
             )
 
         assertEquals(LogFlow.ONE_TAP, case.toUiState().logFlow)

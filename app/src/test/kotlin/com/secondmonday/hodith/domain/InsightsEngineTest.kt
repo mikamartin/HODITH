@@ -1,35 +1,12 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.testsupport.durationEvent
+import com.secondmonday.hodith.testsupport.eventAtDay
+import com.secondmonday.hodith.testsupport.millisAtDay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
-import java.time.ZoneId
-
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
-
-private fun eventAtDay(epochDay: Long) = durationEvent(epochDay, null)
-
-private fun durationEvent(
-    startDay: Long,
-    endDay: Long?,
-) = EventEntity(
-    id = 0,
-    caseId = 1,
-    occurredAt = millisAtDay(startDay),
-    endedAt = endDay?.let { millisAtDay(it) },
-    intensity = null,
-    note = null,
-    loggedAt = millisAtDay(startDay),
-)
 
 class InsightsEngineTest {
     // ---- computeGapStats ----

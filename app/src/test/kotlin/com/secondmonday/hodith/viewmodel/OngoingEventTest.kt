@@ -1,12 +1,11 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
-import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
+import com.secondmonday.hodith.testsupport.testCase
+import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -138,36 +137,4 @@ class OngoingEventTest {
 
         assertTrue(isStaleOngoing(event, now = 2 * MILLIS_PER_DAY))
     }
-
-    private fun testCase(
-        durationMode: DurationMode,
-        logFlow: LogFlow = LogFlow.ONE_TAP,
-    ) = CaseEntity(
-        id = 1L,
-        name = "Test Case",
-        icon = "🐛",
-        createdAt = 0L,
-        logFlow = logFlow,
-        durationMode = durationMode,
-        intensityEnabled = false,
-        hunchNudgeDismissed = false,
-        checkInsEnabled = true,
-        lastCheckInAt = null,
-        sortOrder = 0,
-        archived = false,
-    )
-
-    private fun testEvent(
-        id: Long = 0L,
-        occurredAt: Long = 0L,
-        endedAt: Long? = null,
-    ) = EventEntity(
-        id = id,
-        caseId = 1L,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = null,
-        note = null,
-        loggedAt = occurredAt,
-    )
 }

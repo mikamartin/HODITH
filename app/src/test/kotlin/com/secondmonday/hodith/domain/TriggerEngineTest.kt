@@ -1,24 +1,14 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
-
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
 
 private fun trigger(
     kind: TriggerKind = TriggerKind.AT_LEAST,
@@ -38,8 +28,7 @@ private fun trigger(
     lastFiredAt = lastFiredAt,
 )
 
-private fun event(occurredAt: Long) =
-    EventEntity(id = 0, caseId = 1, occurredAt = occurredAt, endedAt = null, intensity = null, note = null, loggedAt = occurredAt)
+private fun event(occurredAt: Long) = testEvent(occurredAt = occurredAt)
 
 class TriggerEngineTest {
     // ---- evaluateTrigger: the shared armed/fired state machine ----

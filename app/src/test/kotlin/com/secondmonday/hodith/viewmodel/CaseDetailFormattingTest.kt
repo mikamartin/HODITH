@@ -1,8 +1,8 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.testsupport.testEvent
 import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import org.junit.Assert.assertEquals
@@ -242,18 +242,4 @@ class CaseDetailFormattingTest {
 
         assertEquals(0L, monthsAgo(past, now, utc))
     }
-
-    private fun testEvent(
-        intensity: Int?,
-        note: String?,
-        occurredAt: Long = 0L,
-        endedAt: Long? = null,
-    ) = EventEntity(
-        caseId = 1L,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = intensity,
-        note = note,
-        loggedAt = 0L,
-    )
 }
