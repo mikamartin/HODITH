@@ -193,12 +193,14 @@ class CaseDetailFormattingTest {
     }
 
     @Test
-    fun `eventDetailSummary keeps the duration line for a nonzero span when the Case tracks duration`() {
-        val event = testEvent(intensity = null, note = null, occurredAt = 0L, endedAt = 45 * 60_000L)
+    fun `eventDetailSummary hides the duration line when the event is both ongoing and non-tracking`() {
+        // The two suppressors compose: isOngoing (a stray endedAt on a reopened event) and
+        // tracksDuration = false (Case now NONE) each independently drop the "lasted N" line.
+        val event = testEvent(intensity = 3, note = null, occurredAt = 0L, endedAt = 45 * 60_000L)
 
         assertEquals(
-            PlainVoice.eventDurationLabel("45m"),
-            eventDetailSummary(event, tags = emptyList(), PlainVoice, tracksDuration = true),
+            PlainVoice.eventIntensityLabel(3),
+            eventDetailSummary(event, tags = emptyList(), PlainVoice, isOngoing = true, tracksDuration = false),
         )
     }
 

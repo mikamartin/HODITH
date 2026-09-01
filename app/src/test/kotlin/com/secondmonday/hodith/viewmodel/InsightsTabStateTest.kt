@@ -10,6 +10,7 @@ import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.durationEvent
 import com.secondmonday.hodith.testsupport.eventAtDay
+import com.secondmonday.hodith.testsupport.finishedPoint
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testCase
 import com.secondmonday.hodith.testsupport.withoutTags
@@ -149,11 +150,16 @@ class InsightsTabStateTest {
     @Test
     fun `heatmap shades a still-running event through today`() {
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
-        val events = listOf(eventAtDay(0), durationEvent(startDay = 3, endDay = null))
+        // finishedPoint(0), not eventAtDay(0): a bare null-ended event would itself read as ongoing
+        // on a START_STOP Case and also span to now, masking whether the day-3 event drives this.
+        val events = listOf(finishedPoint(0), durationEvent(startDay = 3, endDay = null))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(9)) as InsightsTabState.Ready
 
-        assertTrue(state.shadedDates().containsAll((3L..9L).map { LocalDate.ofEpochDay(it) }))
+        assertEquals(
+            (listOf(0L) + (3L..9L)).map { LocalDate.ofEpochDay(it) }.toSet(),
+            state.shadedDates(),
+        )
     }
 
     @Test
@@ -262,8 +268,9 @@ class InsightsTabStateTest {
     @Test
     fun `a still-running event that began before today makes the Case multi-day`() {
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
-        // Started day 5, never stopped; "now" is day 12 -> its active span is days 5..12.
-        val events = listOf(eventAtDay(0), durationEvent(startDay = 5, endDay = null))
+        // Started day 5, never stopped; "now" is day 12 -> its active span is days 5..12. The other
+        // event is a finished point (finishedPoint, not eventAtDay) so it can't be the running one.
+        val events = listOf(finishedPoint(0), durationEvent(startDay = 5, endDay = null))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(12)) as InsightsTabState.Ready
 
@@ -413,9 +420,11 @@ class InsightsTabStateTest {
     @Test
     fun `gaps display reads the current gap from a finished duration event's end`() {
         // A duration event ran days 1..14 and was stopped; "now" is day 14. No silence yet — where
-        // the old start-anchored math reported 13 days.
+        // the old start-anchored math reported 13 days. Both events are finished, so nothing is
+        // "running" (finishedPoint, not eventAtDay) — this exercises the end-anchored reach itself,
+        // not the eventActiveNow short-circuit that a bare null-ended filler would trip.
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
-        val events = listOf(eventAtDay(0), durationEvent(startDay = 1, endDay = 14))
+        val events = listOf(finishedPoint(0), durationEvent(startDay = 1, endDay = 14))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(14)) as InsightsTabState.Ready
 

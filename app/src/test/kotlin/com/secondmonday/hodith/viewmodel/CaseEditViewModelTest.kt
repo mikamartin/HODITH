@@ -315,7 +315,9 @@ class CaseEditViewModelTest {
     fun `entering START_STOP with open-ended events holds the change behind a confirm`() =
         runTest {
             repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
-            repository.events.value = listOf(runningEvent(id = 10L), runningEvent(id = 11L))
+            val seeded =
+                listOf(runningEvent(id = 10L), runningEvent(id = 11L), finishedEvent(id = 12L, endedAt = 777L))
+            repository.events.value = seeded
             val vm = editViewModel(caseId = 1L)
 
             vm.onDurationModeChange(DurationMode.START_STOP)
@@ -323,7 +325,11 @@ class CaseEditViewModelTest {
             assertTrue(vm.uiState.value.showEnterStartStopConfirm)
             assertEquals(2, vm.uiState.value.runningEventCount)
             assertEquals(DurationMode.NONE, vm.uiState.value.durationMode)
-            assertTrue(repository.events.value.all { it.endedAt == null })
+            // Held, not applied: every event's endedAt is exactly as seeded until save() runs.
+            assertEquals(
+                seeded.associate { it.id to it.endedAt },
+                repository.events.value.associate { it.id to it.endedAt },
+            )
         }
 
     @Test
@@ -353,7 +359,8 @@ class CaseEditViewModelTest {
     fun `dismissing the enter-START_STOP dialog keeps the current mode and touches no events`() =
         runTest {
             repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
-            repository.events.value = listOf(runningEvent(id = 10L))
+            val seeded = listOf(runningEvent(id = 10L, occurredAt = 111L), finishedEvent(id = 12L, endedAt = 777L))
+            repository.events.value = seeded
             val vm = editViewModel(caseId = 1L)
             vm.onDurationModeChange(DurationMode.START_STOP)
 
@@ -362,7 +369,10 @@ class CaseEditViewModelTest {
 
             assertFalse(vm.uiState.value.showEnterStartStopConfirm)
             assertEquals(DurationMode.NONE, vm.uiState.value.durationMode)
-            assertTrue(repository.events.value.all { it.endedAt == null })
+            assertEquals(
+                seeded.associate { it.id to it.endedAt },
+                repository.events.value.associate { it.id to it.endedAt },
+            )
         }
 
     @Test
