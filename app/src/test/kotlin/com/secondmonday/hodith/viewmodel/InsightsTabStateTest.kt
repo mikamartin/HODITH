@@ -13,8 +13,11 @@ import com.secondmonday.hodith.testsupport.eventAtDay
 import com.secondmonday.hodith.testsupport.finishedPoint
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testCase
+import com.secondmonday.hodith.testsupport.testEvent
 import com.secondmonday.hodith.testsupport.withoutTags
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -390,6 +393,44 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
         assertEquals(null, state.stats.trend)
+    }
+
+    @Test
+    fun `trend still counts a multi-day event once, unaffected by its span (spec section 9)`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val pointEvents = listOf(eventAtDay(0), eventAtDay(20), eventAtDay(70), eventAtDay(80))
+        val asPoint = insightsTabState(case, (pointEvents + eventAtDay(85)).withoutTags(), now = millisAtDay(90))
+        val asSpan = insightsTabState(case, (pointEvents + durationEvent(85, 95)).withoutTags(), now = millisAtDay(90))
+
+        val point = (asPoint as InsightsTabState.Ready).stats.trend
+        val span = (asSpan as InsightsTabState.Ready).stats.trend
+        // The span hides the frequency card (tested elsewhere) but must not inflate the trend counts.
+        assertNull(asSpan.stats.frequency)
+        assertNotNull(point)
+        assertEquals(point?.recentCount, span?.recentCount)
+        assertEquals(point?.priorCount, span?.priorCount)
+    }
+
+    // ---- stats.duration card gate (spec section 10) ----
+
+    @Test
+    fun `duration card is present for a MANUAL Case with finished durations`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val events = listOf(testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L), eventAtDay(3))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertEquals(30L, state.stats.duration?.longestMinutes)
+    }
+
+    @Test
+    fun `duration card is absent for a NONE Case even when events carry a stored endedAt`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val events = listOf(testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L), eventAtDay(3))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertNull(state.stats.duration)
     }
 
     // ---- stats.gaps while an event is running (A1) ----

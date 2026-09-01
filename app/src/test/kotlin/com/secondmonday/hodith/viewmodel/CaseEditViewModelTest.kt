@@ -312,6 +312,98 @@ class CaseEditViewModelTest {
         }
 
     @Test
+    fun `MANUAL to NONE switches with no dialog and keeps every stored endedAt (spec section 6)`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.MANUAL))
+            repository.events.value = listOf(runningEvent(id = 10L), finishedEvent(id = 11L, endedAt = 888L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.NONE)
+            vm.save()
+
+            assertFalse(vm.uiState.value.showLeaveStartStopConfirm)
+            assertFalse(vm.uiState.value.showEnterStartStopConfirm)
+            assertEquals(
+                DurationMode.NONE,
+                repository.cases.value
+                    .single()
+                    .durationMode,
+            )
+            assertNull(
+                repository.events.value
+                    .single { it.id == 10L }
+                    .endedAt,
+            )
+            assertEquals(
+                888L,
+                repository.events.value
+                    .single { it.id == 11L }
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `NONE to MANUAL switches with no dialog and touches no events (spec section 6)`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
+            repository.events.value = listOf(runningEvent(id = 10L), finishedEvent(id = 11L, endedAt = 888L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.onDurationModeChange(DurationMode.MANUAL)
+            vm.save()
+
+            assertFalse(vm.uiState.value.showEnterStartStopConfirm)
+            assertEquals(
+                DurationMode.MANUAL,
+                repository.cases.value
+                    .single()
+                    .durationMode,
+            )
+            assertNull(
+                repository.events.value
+                    .single { it.id == 10L }
+                    .endedAt,
+            )
+            assertEquals(
+                888L,
+                repository.events.value
+                    .single { it.id == 11L }
+                    .endedAt,
+            )
+        }
+
+    @Test
+    fun `confirming leave-START_STOP toward MANUAL stops running events at now and leaves finished ones`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(runningEvent(id = 10L), finishedEvent(id = 11L, endedAt = 888L))
+            val vm = editViewModel(caseId = 1L)
+            vm.onDurationModeChange(DurationMode.MANUAL)
+
+            vm.confirmLeaveStartStop()
+            vm.save()
+
+            assertEquals(
+                DurationMode.MANUAL,
+                repository.cases.value
+                    .single()
+                    .durationMode,
+            )
+            assertEquals(
+                clock.nowMillis(),
+                repository.events.value
+                    .single { it.id == 10L }
+                    .endedAt,
+            )
+            assertEquals(
+                888L,
+                repository.events.value
+                    .single { it.id == 11L }
+                    .endedAt,
+            )
+        }
+
+    @Test
     fun `entering START_STOP with open-ended events holds the change behind a confirm`() =
         runTest {
             repository.cases.value = listOf(existingCase(durationMode = DurationMode.NONE))
