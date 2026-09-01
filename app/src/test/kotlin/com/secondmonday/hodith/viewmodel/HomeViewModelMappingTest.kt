@@ -122,7 +122,7 @@ class HomeViewModelMappingTest {
     }
 
     @Test
-    fun `ongoingEvent ignores a null endedAt event on a non-START_STOP case`() {
+    fun `ongoingEvent and runningCount ignore a null endedAt event on a non-START_STOP case`() {
         val event = testEvent(occurredAt = 0L).copy(endedAt = null)
         val rows =
             homeCaseRows(
@@ -131,6 +131,7 @@ class HomeViewModelMappingTest {
             )
 
         assertNull(rows.single().ongoingEvent)
+        assertEquals(0, rows.single().runningCount)
     }
 
     @Test

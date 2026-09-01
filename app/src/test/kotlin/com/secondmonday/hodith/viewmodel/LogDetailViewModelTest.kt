@@ -81,6 +81,31 @@ class LogDetailViewModelTest {
     }
 
     @Test
+    fun `draftFrom leaves the amount blank for a zero-length event`() {
+        val event = testEvent(occurredAt = 10_000L, endedAt = 10_000L)
+
+        val draft = draftFrom(event, now = 99_999L)
+
+        assertEquals("", draft.durationAmount)
+        assertEquals(DurationUnit.MINUTES, draft.durationUnit)
+    }
+
+    @Test
+    fun `draftFrom leaves the amount blank for a reversed stored endedAt`() {
+        val event = testEvent(occurredAt = 60_000L, endedAt = 0L)
+
+        val draft = draftFrom(event, now = 99_999L)
+
+        assertEquals("", draft.durationAmount)
+    }
+
+    @Test
+    fun `durationUnitFor is minutes for a zero or negative span`() {
+        assertEquals(DurationUnit.MINUTES, durationUnitFor(0L))
+        assertEquals(DurationUnit.MINUTES, durationUnitFor(-MILLIS_PER_HOUR))
+    }
+
+    @Test
     fun `draftFrom carries over intensity and note`() {
         val event = testEvent(intensity = 3, note = "Ouch")
 

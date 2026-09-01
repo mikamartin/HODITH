@@ -181,6 +181,26 @@ class HomeViewModelTest {
         }
 
     @Test
+    fun `saveLogSheetEvent on a running START_STOP case starts a second concurrent event`() =
+        runTest {
+            repository.cases.value =
+                listOf(testCase(logFlow = LogFlow.DETAIL_SHEET, durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(testEvent(endedAt = null))
+            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            viewModel.uiState.test {
+                val row = awaitLoadedItem { it.isLoading }.cases.single()
+                viewModel.onQuickLogTap(row)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.saveLogSheetEvent(viewModel.logSheet.value!!.draft)
+
+            // The first event was not stopped — the sheet save opens a second concurrent one (spec §6).
+            assertEquals(2, repository.events.value.size)
+            assertTrue(repository.events.value.all { it.endedAt == null })
+        }
+
+    @Test
     fun `dismissStalePrompt records the dismissal time`() =
         runTest {
             val viewModel = HomeViewModel(repository, settingsRepository, clock)

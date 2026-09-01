@@ -160,6 +160,38 @@ class NotificationEvaluatorTest {
         }
 
     @Test
+    fun `evaluateCase does not fire SILENT_FOR with several events running on the Case at once`() =
+        runTest {
+            // Two concurrent open events (retro-log / fast restart, spec §6). The Case is running,
+            // so the silence anchor pins to now regardless of how many events are open.
+            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
+            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.events.value =
+                listOf(
+                    event(id = 1L, occurredAt = millisAtDay(2), endedAt = null),
+                    event(id = 2L, occurredAt = millisAtDay(5), endedAt = null),
+                )
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.firedTriggers.isEmpty())
+        }
+
+    @Test
+    fun `evaluateCase does not fire a check-in while an event is still running on the Case`() =
+        runTest {
+            // Spec §11: a still-running event counts as no silence for check-ins too, not just SILENT_FOR.
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
+            repository.cases.value =
+                listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = null))
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.dueCheckIns.isEmpty())
+        }
+
+    @Test
     fun `evaluateCase counts SILENT_FOR silence from occurredAt for a Case that no longer tracks duration`() =
         runTest {
             // Same event as the MANUAL test above (ran days 2..20) but the Case is now NONE, so spec
