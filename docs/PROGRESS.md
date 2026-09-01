@@ -23,7 +23,7 @@ Each item carries:
 A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A9 are done; the rest are independent:
 
 - **A10** is an independent read-through — no file-chain dependency.
-- The **Satellite** shares the `BigPictureGrid.kt` / `InsightsTab.kt` formatter sites (A6 has landed there).
+- The **Satellite** (12h/24h time format) is done — kept below only for B2's copy-dependency pointer.
 
 ### A1–A9 · done — Start/Stop & duration polish
 
@@ -53,28 +53,9 @@ The verdict engine and its observation-window / observed-rate math count each ev
 - [ ] A written ruling added to HODITH_SPEC §8 (even if the ruling is "unchanged — starts only, one occurrence each").
 - [ ] Code changed only if the read finds a genuine distortion; otherwise a test locking the current behaviour.
 
-### Satellite · 12h/24h time format
+### Satellite · 12h/24h time format — done
 
-*Branch: `feat/time-format-setting` · Complexity: M · Priority: Medium · Area: Settings*
-
-Not part of Story A. Its formatter consolidation touches `BigPictureGrid.kt` / `InsightsTab.kt`; A6 has landed there, so this just needs a fresh rebase on `main`. Also adds a Voice key (see Story B).
-
-All times render 12-hour US regardless of the device setting. Formatting is hardcoded `h:mm a` `Locale.US` in `viewmodel/CaseDetailViewModel.kt`'s top-level formatters, with duplicate `ofPattern` copies in `ui/bigpicture/BigPictureGrid.kt` (now `EVENT_TIME_FORMATTER` plus a `MMM d` `SPAN_DATE_FORMATTER` from A6), `ui/casedetail/InsightsTab.kt`, and `ui/share/ShareCardTemplate.kt`.
-
-**Acceptance criteria**
-
-- [ ] DataStore key + Settings row, defaulting to `DateFormat.is24HourFormat`.
-- [ ] The four `ofPattern` formatter sites consolidated into one shared util.
-- [ ] Compose reads it via a CompositionLocal (mirroring `LocalVoice`); VM-side `formatEventTime` via injected `SettingsRepository`.
-- [ ] All times respect the setting; default follows the device.
-- [ ] Voice key in all three voices for the row label.
-- [ ] Tests: `CaseDetailFormattingTest` parametrized by format; `HomeViewModelMappingTest` and `LogDetailViewModelTest` time-string assertions checked.
-
-**Plan** — DataStore key + Settings row (`data/DataStoreSettingsRepository.kt`, `ui/settings/SettingsScreen.kt`, `viewmodel/SettingsViewModel.kt`), defaulting to `DateFormat.is24HourFormat`. Consolidate the four formatter sites into one shared util, threaded via a CompositionLocal (mirror `LocalVoice`) for Compose and injected `SettingsRepository` for VM-side `formatEventTime`. Voice ×3 for the row label.
-
-**Tests** — parametrize `CaseDetailFormattingTest` by format (it currently asserts literal `h:mm a` output); check `HomeViewModelMappingTest` and `LogDetailViewModelTest` for time-string assertions.
-
-**Concern** — the consolidation is worthwhile cleanup regardless of the toggle. A6 added `SPAN_DATE_FORMATTER` alongside `EVENT_TIME_FORMATTER` in `BigPictureGrid.kt` — fold both into the shared util.
+Shipped on `feat/time-format-setting`; per-branch detail in CLEANUP_LOG.md. A two-value `TimeFormat` DataStore preference seeded from `DateFormat.is24HourFormat` until the user picks, an Appearance Settings row, and the four `ofPattern` formatter sites folded into `viewmodel/EventTimeFormat.kt` and threaded through a `LocalTimeFormat` CompositionLocal (no ViewModel formats clock times, so the injected-`SettingsRepository` path was moot). Added `settingsTimeFormatSectionLabel` (Voice ×3) — a B2 dependency. `ShareCardTemplate.kt` had no time formatting to consolidate.
 
 ## Story B — copy & Voice
 
@@ -107,7 +88,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item: A6 (added `bigPictureEventOngoingSince`, `bigPictureEventSpanRange`, `insightsSectionLabelRhythmStarts`), A8 (new duration-mode-change confirm dialogs), the time-format satellite, S9 (check-in copy reword), and B1.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item: A6 (added `bigPictureEventOngoingSince`, `bigPictureEventSpanRange`, `insightsSectionLabelRhythmStarts`), A8 (new duration-mode-change confirm dialogs), the time-format satellite (`settingsTimeFormatSectionLabel`, landed), S9 (check-in copy reword), and B1.
 
 **Acceptance criteria**
 

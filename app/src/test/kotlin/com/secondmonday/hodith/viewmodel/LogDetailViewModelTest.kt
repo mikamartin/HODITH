@@ -617,10 +617,19 @@ class LogDetailViewModelTest {
     fun `formatEventTimeOfDay renders only the time`() {
         val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
 
-        val formatted = formatEventTimeOfDay(instant.toEpochMilli(), utc)
+        val formatted = formatEventTimeOfDay(instant.toEpochMilli(), use24Hour = false, zone = utc)
 
         assertTrue(formatted.contains("3:30"))
         assertTrue(formatted.contains("PM"))
+    }
+
+    @Test
+    fun `formatEventTimeOfDay renders 24-hour time when use24Hour is set`() {
+        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
+
+        val formatted = formatEventTimeOfDay(instant.toEpochMilli(), use24Hour = true, zone = utc)
+
+        assertEquals("15:30", formatted)
     }
 
     private fun testDraft(

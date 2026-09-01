@@ -1,10 +1,13 @@
 package com.secondmonday.hodith.data
 
+import android.content.Context
+import android.text.format.DateFormat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -12,6 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private val THEME_KEY = stringPreferencesKey("theme")
+private val TIME_FORMAT_KEY = stringPreferencesKey("time_format")
 private val CHECK_IN_DEFAULT_INTERVAL_KEY = stringPreferencesKey("check_in_default_interval")
 private val NOTIFICATION_PERMISSION_REQUESTED_KEY = booleanPreferencesKey("notification_permission_requested")
 private val DEVELOPER_MODE_UNLOCKED_KEY = booleanPreferencesKey("developer_mode_unlocked")
@@ -22,6 +26,7 @@ class DataStoreSettingsRepository
     @Inject
     constructor(
         private val dataStore: DataStore<Preferences>,
+        @ApplicationContext private val context: Context,
     ) : SettingsRepository {
         override fun observeTheme(): Flow<AppTheme> =
             dataStore.data.map { preferences ->
@@ -33,6 +38,20 @@ class DataStoreSettingsRepository
         override suspend fun setTheme(theme: AppTheme) {
             dataStore.edit { preferences -> preferences[THEME_KEY] = theme.name }
         }
+
+        override fun observeTimeFormat(): Flow<TimeFormat> =
+            dataStore.data.map { preferences ->
+                preferences[TIME_FORMAT_KEY]?.let { name ->
+                    runCatching { TimeFormat.valueOf(name) }.getOrNull()
+                } ?: deviceTimeFormat()
+            }
+
+        override suspend fun setTimeFormat(format: TimeFormat) {
+            dataStore.edit { preferences -> preferences[TIME_FORMAT_KEY] = format.name }
+        }
+
+        private fun deviceTimeFormat(): TimeFormat =
+            if (DateFormat.is24HourFormat(context)) TimeFormat.TWENTY_FOUR_HOUR else TimeFormat.TWELVE_HOUR
 
         override fun observeCheckInDefaultInterval(): Flow<CheckInDefaultInterval> =
             dataStore.data.map { preferences ->

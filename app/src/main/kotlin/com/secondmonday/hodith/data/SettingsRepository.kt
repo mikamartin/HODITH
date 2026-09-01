@@ -7,6 +7,11 @@ interface SettingsRepository {
 
     suspend fun setTheme(theme: AppTheme)
 
+    /** Spec §14: 12h/24h clock display. No stored value means "follow the device" — see [TimeFormat]. */
+    fun observeTimeFormat(): Flow<TimeFormat>
+
+    suspend fun setTimeFormat(format: TimeFormat)
+
     fun observeCheckInDefaultInterval(): Flow<CheckInDefaultInterval>
 
     suspend fun getCheckInDefaultInterval(): CheckInDefaultInterval

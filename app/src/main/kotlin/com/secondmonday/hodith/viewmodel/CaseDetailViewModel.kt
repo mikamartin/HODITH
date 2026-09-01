@@ -21,8 +21,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import javax.inject.Inject
@@ -135,42 +133,6 @@ class CaseDetailViewModel
             viewModelScope.launch { repository.updateCase(case.copy(hunchNudgeDismissed = true)) }
         }
     }
-
-private val EVENT_TIME_WITH_YEAR_FORMATTER = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a, EEE", Locale.US)
-private val EVENT_TIME_NO_YEAR_FORMATTER = DateTimeFormatter.ofPattern("MMM d, h:mm a, EEE", Locale.US)
-private val EVENT_DATE_ONLY_FORMATTER = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)
-private val EVENT_TIME_ONLY_FORMATTER = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.US)
-
-/**
- * Pure formatting for the event list row, split out from the Case Detail screen so it's
- * unit-testable on the JVM without Compose, same pattern as [homeCaseRows]. Always includes the
- * weekday; the year is shown only when [occurredAt] falls in a different calendar year than
- * [now] — most logged events are recent, so a same-year date reads better without the year's
- * visual noise, while older records still need it to stay unambiguous. [zone] defaults to the
- * device zone but is overridable so tests don't depend on the machine running them.
- */
-internal fun formatEventTime(
-    occurredAt: Long,
-    now: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
-): String {
-    val eventZoned = Instant.ofEpochMilli(occurredAt).atZone(zone)
-    val nowZoned = Instant.ofEpochMilli(now).atZone(zone)
-    val formatter = if (eventZoned.year == nowZoned.year) EVENT_TIME_NO_YEAR_FORMATTER else EVENT_TIME_WITH_YEAR_FORMATTER
-    return eventZoned.format(formatter)
-}
-
-/** Date-only counterpart of [formatEventTime], for the log sheet's separate date/time buttons. */
-internal fun formatEventDate(
-    occurredAt: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
-): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(EVENT_DATE_ONLY_FORMATTER)
-
-/** Time-only counterpart of [formatEventTime], for the log sheet's separate date/time buttons. */
-internal fun formatEventTimeOfDay(
-    occurredAt: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
-): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(EVENT_TIME_ONLY_FORMATTER)
 
 /**
  * Renders a verdict rate as "2.6×/week" — shared by the hunch chip, verdict headline, and

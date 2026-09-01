@@ -68,6 +68,7 @@ import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
@@ -612,7 +613,10 @@ private fun EventRowContent(
 
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = formatEventTime(event.occurredAt, now), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour),
+                style = MaterialTheme.typography.bodyLarge,
+            )
             // A running event carries its own live elapsed time and Stop, so each of a Case's
             // open events is legible and stoppable on its own (spec §6).
             if (isOngoing) {

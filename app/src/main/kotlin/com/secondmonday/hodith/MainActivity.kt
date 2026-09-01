@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             HodithApp(
                 themeFlow = settingsRepository.observeTheme(),
+                timeFormatFlow = settingsRepository.observeTimeFormat(),
                 notificationPermissionRequests = notificationPermissionRequestSignal.events,
                 deepLinkCaseId = deepLinkCaseId,
             )

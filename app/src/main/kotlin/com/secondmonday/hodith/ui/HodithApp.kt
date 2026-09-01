@@ -9,12 +9,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.ui.common.NotificationPermissionRequestEffect
 import com.secondmonday.hodith.ui.nav.HodithNavHost
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.theme.bigPictureCellStyle
 import com.secondmonday.hodith.ui.theme.cardDecorationStyle
 import com.secondmonday.hodith.ui.theme.shareCardSkin
@@ -30,10 +32,12 @@ import kotlinx.coroutines.flow.Flow
 @Composable
 fun HodithApp(
     themeFlow: Flow<AppTheme>,
+    timeFormatFlow: Flow<TimeFormat>,
     notificationPermissionRequests: Flow<Unit>,
     deepLinkCaseId: Long? = null,
 ) {
     val theme by themeFlow.collectAsStateWithLifecycle(initialValue = AppTheme.PLAIN)
+    val timeFormat by timeFormatFlow.collectAsStateWithLifecycle(initialValue = TimeFormat.TWELVE_HOUR)
 
     NotificationPermissionRequestEffect(events = notificationPermissionRequests)
 
@@ -42,6 +46,7 @@ fun HodithApp(
         LocalBigPictureCellStyle provides bigPictureCellStyle(theme),
         LocalCardDecorationStyle provides cardDecorationStyle(theme),
         LocalShareCardSkin provides shareCardSkin(theme),
+        LocalTimeFormat provides timeFormat,
     ) {
         HodithTheme(theme = theme) {
             Surface(modifier = Modifier.fillMaxSize()) {

@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -40,6 +41,7 @@ class SettingsScreenTest {
         demoDataLoaded: MutableSharedFlow<Unit> = MutableSharedFlow(extraBufferCapacity = 1),
         backupEvents: MutableSharedFlow<BackupEvent> = MutableSharedFlow(extraBufferCapacity = 1),
         onThemeSelect: (AppTheme) -> Unit = {},
+        onTimeFormatSelect: (TimeFormat) -> Unit = {},
         onCheckInDefaultIntervalSelect: (CheckInDefaultInterval) -> Unit = {},
         onCloudBackupToggle: (Boolean) -> Unit = {},
         onLoadDemoData: () -> Unit = {},
@@ -56,6 +58,7 @@ class SettingsScreenTest {
                     demoDataLoaded = demoDataLoaded,
                     backupEvents = backupEvents,
                     onThemeSelect = onThemeSelect,
+                    onTimeFormatSelect = onTimeFormatSelect,
                     onCheckInDefaultIntervalSelect = onCheckInDefaultIntervalSelect,
                     onCloudBackupToggle = onCloudBackupToggle,
                     onLoadDemoData = onLoadDemoData,
@@ -138,6 +141,28 @@ class SettingsScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsThemeInfoTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun timeFormatSection_showsBothOptions() {
+        setContent()
+
+        composeTestRule.onNodeWithText(PlainVoice.timeFormatOption12Hour).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.timeFormatOption24Hour).assertExists()
+    }
+
+    @Smoke
+    @Test
+    fun timeFormatOption_tapInvokesCallbackWithThatFormat() {
+        var selected: TimeFormat? = null
+        setContent(
+            uiState = SettingsUiState(timeFormat = TimeFormat.TWELVE_HOUR, isLoading = false),
+            onTimeFormatSelect = { selected = it },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.timeFormatOption24Hour).performClick()
+
+        assertEquals(TimeFormat.TWENTY_FOUR_HOUR, selected)
     }
 
     @Test
@@ -236,7 +261,9 @@ class SettingsScreenTest {
         var deleted = false
         setContent(onDeleteAllData = { deleted = true })
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataButton).performClick()
+        // Scroll first: delete-all is the last row of the last plank, below the fold on typical
+        // window sizes — same reason as loadDemoData_tapInvokesCallback.
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataButton).performScrollTo().performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmAction).performClick()
 
@@ -248,7 +275,7 @@ class SettingsScreenTest {
         var deleted = false
         setContent(onDeleteAllData = { deleted = true })
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataButton).performScrollTo().performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataCancelAction).performClick()
 

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 /** Hand-rolled in-memory test double for [SettingsRepository], same style as [FakeHodithRepository]. */
 class FakeSettingsRepository : SettingsRepository {
     val theme = MutableStateFlow(AppTheme.PLAIN)
+    val timeFormat = MutableStateFlow(TimeFormat.TWELVE_HOUR)
     val checkInDefaultInterval = MutableStateFlow(CheckInDefaultInterval.SEVEN)
     val notificationPermissionRequested = MutableStateFlow(false)
     val developerModeUnlocked = MutableStateFlow(false)
@@ -15,6 +16,12 @@ class FakeSettingsRepository : SettingsRepository {
 
     override suspend fun setTheme(theme: AppTheme) {
         this.theme.value = theme
+    }
+
+    override fun observeTimeFormat(): Flow<TimeFormat> = timeFormat
+
+    override suspend fun setTimeFormat(format: TimeFormat) {
+        this.timeFormat.value = format
     }
 
     override fun observeCheckInDefaultInterval(): Flow<CheckInDefaultInterval> = checkInDefaultInterval

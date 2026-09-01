@@ -50,6 +50,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
@@ -96,6 +97,7 @@ fun SettingsRoute(
         demoDataLoaded = viewModel.demoDataLoaded,
         backupEvents = viewModel.backupEvents,
         onThemeSelect = viewModel::onThemeSelect,
+        onTimeFormatSelect = viewModel::onTimeFormatSelect,
         onCheckInDefaultIntervalSelect = viewModel::onCheckInDefaultIntervalSelect,
         onCloudBackupToggle = viewModel::onCloudBackupToggle,
         onLoadDemoData = viewModel::loadDemoData,
@@ -116,6 +118,7 @@ fun SettingsScreen(
     demoDataLoaded: Flow<Unit>,
     backupEvents: Flow<BackupEvent>,
     onThemeSelect: (AppTheme) -> Unit,
+    onTimeFormatSelect: (TimeFormat) -> Unit,
     onCheckInDefaultIntervalSelect: (CheckInDefaultInterval) -> Unit,
     onCloudBackupToggle: (Boolean) -> Unit,
     onLoadDemoData: () -> Unit,
@@ -211,6 +214,7 @@ fun SettingsScreen(
 
             Plank(voice.settingsAppearanceSectionLabel) {
                 ThemeSection(theme = uiState.theme, voice = voice, onThemeSelect = onThemeSelect)
+                TimeFormatSection(timeFormat = uiState.timeFormat, voice = voice, onTimeFormatSelect = onTimeFormatSelect)
             }
 
             // No outer AreaHeader here: CheckInSection already carries its own label + info icon
@@ -272,6 +276,28 @@ private fun ThemeSection(
         infoDescription = voice.caseSectionInfoDescription,
     ) {
         SegmentedChoiceRow(options = options, selected = theme, onSelect = onThemeSelect)
+    }
+}
+
+/**
+ * 12h/24h clock display (spec §14). No info icon — "12-hour" / "24-hour" needs no explaining, and
+ * keeping it iconless leaves the Settings info-icon order (Theme, Check-ins, cloud backup) intact.
+ */
+@Composable
+private fun TimeFormatSection(
+    timeFormat: TimeFormat,
+    voice: Voice,
+    onTimeFormatSelect: (TimeFormat) -> Unit,
+) {
+    val options =
+        listOf(
+            TimeFormat.TWELVE_HOUR to voice.timeFormatOption12Hour,
+            TimeFormat.TWENTY_FOUR_HOUR to voice.timeFormatOption24Hour,
+        )
+
+    Column {
+        Text(voice.settingsTimeFormatSectionLabel, style = MaterialTheme.typography.labelLarge)
+        SegmentedChoiceRow(options = options, selected = timeFormat, onSelect = onTimeFormatSelect)
     }
 }
 

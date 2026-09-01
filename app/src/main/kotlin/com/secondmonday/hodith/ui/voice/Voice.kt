@@ -153,6 +153,9 @@ interface Voice {
     val themeOptionBright: String get() = "Bright"
     val settingsThemeInfoTitle: String
     val settingsThemeInfoBody: String
+    val settingsTimeFormatSectionLabel: String
+    val timeFormatOption12Hour: String get() = "12-hour"
+    val timeFormatOption24Hour: String get() = "24-hour"
     val settingsCheckInSectionLabel: String
     val checkInIntervalOptionOff: String get() = "Off"
     val checkInIntervalOptionSeven: String get() = "7d"
@@ -662,6 +665,7 @@ object PlainVoice : Voice {
     override val settingsThemeInfoTitle = "About themes"
     override val settingsThemeInfoBody =
         "Each theme pairs its own colors with a distinct tone of voice used throughout the app."
+    override val settingsTimeFormatSectionLabel = "Time format"
     override val settingsCheckInSectionLabel = "Check-ins"
     override val settingsCheckInInfoTitle = "About check-ins"
     override val settingsCheckInInfoBody =
@@ -1148,6 +1152,7 @@ object IntenseVoice : Voice {
     override val settingsThemeInfoTitle = "On the chosen skin"
     override val settingsThemeInfoBody =
         "Each skin carries its own hues — and its own tongue. Change it, and the words themselves change shape."
+    override val settingsTimeFormatSectionLabel = "The reckoning of hours"
     override val settingsCheckInSectionLabel = "The watch kept"
     override val settingsCheckInInfoTitle = "On the watch kept"
     override val settingsCheckInInfoBody =
@@ -1627,6 +1632,7 @@ object BrightVoice : Voice {
     override val settingsThemeInfoTitle = "About themes!"
     override val settingsThemeInfoBody =
         "Every theme comes with its own colors and its own voice — switch it up and watch the whole app talk differently!"
+    override val settingsTimeFormatSectionLabel = "Clock style!"
     override val settingsCheckInSectionLabel = "Nudge me"
     override val settingsCheckInInfoTitle = "Check-ins, explained"
     override val settingsCheckInInfoBody =

@@ -66,6 +66,7 @@ import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.filterDigitInput
 import com.secondmonday.hodith.ui.theme.HodithTheme
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
@@ -306,6 +307,7 @@ private fun TimeSection(
     onDateClick: () -> Unit,
     onTimeClick: () -> Unit,
 ) {
+    val use24Hour = LocalTimeFormat.current.is24Hour
     Column {
         Text(label, style = MaterialTheme.typography.labelLarge)
         Row(
@@ -313,7 +315,7 @@ private fun TimeSection(
             modifier = Modifier.padding(top = 8.dp),
         ) {
             OutlinedButton(onClick = onDateClick) { Text(formatEventDate(occurredAt, zone)) }
-            OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(occurredAt, zone)) }
+            OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(occurredAt, use24Hour, zone)) }
         }
     }
 }
@@ -354,7 +356,9 @@ private fun EndTimeSection(
                 OutlinedButton(onClick = onStopNowClick) { Text(voice.logSheetStopNowAction) }
             } else {
                 OutlinedButton(onClick = onDateClick) { Text(formatEventDate(endedAt, zone)) }
-                OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(endedAt, zone)) }
+                OutlinedButton(onClick = onTimeClick) {
+                    Text(formatEventTimeOfDay(endedAt, LocalTimeFormat.current.is24Hour, zone))
+                }
             }
         }
         if (endedAt != null) {
@@ -550,7 +554,12 @@ private fun LogDetailTimePickerDialog(
     onConfirm: (hour: Int, minute: Int) -> Unit,
 ) {
     val current = Instant.ofEpochMilli(occurredAt).atZone(zone)
-    val timePickerState: TimePickerState = rememberTimePickerState(initialHour = current.hour, initialMinute = current.minute)
+    val timePickerState: TimePickerState =
+        rememberTimePickerState(
+            initialHour = current.hour,
+            initialMinute = current.minute,
+            is24Hour = LocalTimeFormat.current.is24Hour,
+        )
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {

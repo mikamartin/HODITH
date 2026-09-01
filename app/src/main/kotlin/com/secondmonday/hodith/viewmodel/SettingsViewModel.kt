@@ -8,6 +8,7 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.backup.BACKUP_SCHEMA_VERSION
 import com.secondmonday.hodith.data.backup.BackupFileWriter
 import com.secondmonday.hodith.data.backup.BackupSerializer
@@ -27,6 +28,7 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val theme: AppTheme = AppTheme.PLAIN,
+    val timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
     val checkInDefaultInterval: CheckInDefaultInterval = CheckInDefaultInterval.SEVEN,
     val developerModeUnlocked: Boolean = false,
     val cloudBackupEnabled: Boolean = true,
@@ -62,12 +64,14 @@ class SettingsViewModel
         val uiState: StateFlow<SettingsUiState> =
             combine(
                 settingsRepository.observeTheme(),
+                settingsRepository.observeTimeFormat(),
                 settingsRepository.observeCheckInDefaultInterval(),
                 settingsRepository.observeDeveloperModeUnlocked(),
                 settingsRepository.observeCloudBackupEnabled(),
-            ) { theme, checkInDefaultInterval, developerModeUnlocked, cloudBackupEnabled ->
+            ) { theme, timeFormat, checkInDefaultInterval, developerModeUnlocked, cloudBackupEnabled ->
                 SettingsUiState(
                     theme = theme,
+                    timeFormat = timeFormat,
                     checkInDefaultInterval = checkInDefaultInterval,
                     developerModeUnlocked = developerModeUnlocked,
                     cloudBackupEnabled = cloudBackupEnabled,
@@ -84,6 +88,10 @@ class SettingsViewModel
 
         fun onThemeSelect(theme: AppTheme) {
             viewModelScope.launch { settingsRepository.setTheme(theme) }
+        }
+
+        fun onTimeFormatSelect(format: TimeFormat) {
+            viewModelScope.launch { settingsRepository.setTimeFormat(format) }
         }
 
         fun onCheckInDefaultIntervalSelect(interval: CheckInDefaultInterval) {

@@ -18,10 +18,12 @@ import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
@@ -73,12 +75,13 @@ class CaseDetailScreenTest {
         onStopEvent: (EventEntity) -> Unit = {},
         onDismissStalePrompt: (EventEntity) -> Unit = {},
         nowMillis: () -> Long = { 10_000L },
+        timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
         onAddHunch: (HunchDirection, Int, ExpectedPer) -> Unit = { _, _, _ -> },
         onResolveHunch: (HunchEntity) -> Unit = {},
         onDismissHunchNudge: () -> Unit = {},
     ) {
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalTimeFormat provides timeFormat) {
                 CaseDetailScreen(
                     uiState =
                         CaseDetailUiState(
@@ -168,6 +171,22 @@ class CaseDetailScreenTest {
     }
 
     @Test
+    fun eventRow_rendersInTwentyFourHourTime_whenLocalTimeFormatIsTwentyFourHour() {
+        // 15:30 UTC — but the row formats in the device zone, so assert on what the shared
+        // formatter produces for that zone rather than a fixed "15:30".
+        val event = testEvent(id = 9L, caseId = 1L, occurredAt = 15L * 60 * 60_000L)
+        setCaseDetailScreenContent(
+            case = testCase(id = 1L, name = "Focus", durationMode = DurationMode.NONE),
+            events = listOf(EventWithTags(event = event, tags = emptyList())),
+            nowMillis = { event.occurredAt },
+            timeFormat = TimeFormat.TWENTY_FOUR_HOUR,
+        )
+
+        val expected = formatEventTime(event.occurredAt, event.occurredAt, use24Hour = true)
+        composeTestRule.onNodeWithText(expected).assertExists()
+    }
+
+    @Test
     fun editingStoppedEvent_backToOngoing_thenSave_savesWithNullEndedAt() {
         var savedDraft: LogDraft? = null
         val stopped = testEvent(id = 7L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
@@ -177,7 +196,7 @@ class CaseDetailScreenTest {
             nowMillis = { 10_000L },
         )
 
-        composeTestRule.onNodeWithText(formatEventTime(stopped.occurredAt, 10_000L)).performClick()
+        composeTestRule.onNodeWithText(formatEventTime(stopped.occurredAt, 10_000L, use24Hour = false)).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetBackToOngoingAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()

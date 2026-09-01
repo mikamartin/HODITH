@@ -55,19 +55,21 @@ import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
+import com.secondmonday.hodith.viewmodel.formatClockTime
+import com.secondmonday.hodith.viewmodel.formatMediumDate
+import com.secondmonday.hodith.viewmodel.formatSpanDate
+import com.secondmonday.hodith.viewmodel.formatWeekdayDayDate
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 
 /**
  * The Big Picture flagship view (spec §9) — a scrollable multi-month calendar grid, every active
@@ -98,7 +100,6 @@ private val CHIP_SHAPE = RoundedCornerShape(16.dp)
 
 /** Stroke for the ring that marks the icon on the day a multi-day event started (spec §9). */
 private val SPAN_START_RING_WIDTH = 1.5.dp
-private val SPAN_DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM d", Locale.US)
 
 /**
  * One event as it lands on a given day cell. [isSpanStart]/[isSpanCarried] are both false for a
@@ -528,8 +529,6 @@ private fun WeekRow(
     }
 }
 
-private val EVENT_TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
-
 @Composable
 private fun DayDetailDialog(
     day: LocalDate,
@@ -542,7 +541,7 @@ private fun DayDetailDialog(
 ) {
     val voice = LocalVoice.current
     InfoDialog(
-        title = day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)),
+        title = formatMediumDate(day),
         onDismiss = onDismiss,
     ) {
         if (dayEvents.isEmpty()) {
@@ -571,10 +570,7 @@ private fun WeekDetailDialog(
     val voice = LocalVoice.current
     val validDays = week.filter { isPastOrToday(it, today) }
     InfoDialog(
-        title =
-            voice.bigPictureWeekDetailTitle(
-                week.first().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)),
-            ),
+        title = voice.bigPictureWeekDetailTitle(formatMediumDate(week.first())),
         onDismiss = onDismiss,
     ) {
         Column {
@@ -582,7 +578,7 @@ private fun WeekDetailDialog(
                 val dayEvents = eventsByDay[day].orEmpty().filter { isEventVisible(it.event) }
                 if (dayEvents.isNotEmpty()) {
                     Text(
-                        text = day.format(DateTimeFormatter.ofPattern("EEE d", Locale.US)),
+                        text = formatWeekdayDayDate(day),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(top = 6.dp),
                     )
@@ -609,27 +605,25 @@ private fun EventDetailRow(
     voice: Voice,
 ) {
     val event = dayEvent.event
+    val use24Hour = LocalTimeFormat.current.is24Hour
     val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(zoneId).toLocalDate()
     val startTime =
-        Instant
-            .ofEpochMilli(event.occurredAt)
-            .atZone(zoneId)
-            .toLocalTime()
-            .format(EVENT_TIME_FORMATTER)
+        formatClockTime(
+            Instant.ofEpochMilli(event.occurredAt).atZone(zoneId).toLocalTime(),
+            use24Hour,
+        )
     val timeLabel =
         when {
             event.isOngoing ->
                 voice.bigPictureEventOngoingSince(
-                    if (startDate == today) startTime else startDate.format(SPAN_DATE_FORMATTER),
+                    if (startDate == today) startTime else formatSpanDate(startDate),
                 )
             dayEvent.isSpanStart || dayEvent.isSpanCarried ->
                 voice.bigPictureEventSpanRange(
-                    startDate.format(SPAN_DATE_FORMATTER),
-                    Instant
-                        .ofEpochMilli(event.endedAt!!)
-                        .atZone(zoneId)
-                        .toLocalDate()
-                        .format(SPAN_DATE_FORMATTER),
+                    formatSpanDate(startDate),
+                    formatSpanDate(
+                        Instant.ofEpochMilli(event.endedAt!!).atZone(zoneId).toLocalDate(),
+                    ),
                 )
             else -> startTime
         }
