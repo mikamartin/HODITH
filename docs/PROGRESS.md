@@ -317,6 +317,23 @@ Spec §11 requires check-in copy to "ask whether anything went unlogged, never i
 
 **Concern** — changes existing Voice strings, so land before B2's audit (mirrors the Satellite item's note).
 
+### S10 · Duration edge cases left for later by the A1–A8 test-coverage audit
+
+*Branch: `test/duration-edge-coverage` · Complexity: S · Priority: Low · Area: Duration*
+
+The A1–A8 coverage audit (`feat/duration-switch-in-conversion`, see CLEANUP_LOG.md) closed the material gaps but deliberately deferred two low-likelihood ones:
+
+- **DST-boundary arithmetic.** `computeEndedAt`'s day-scaling (`occurredAt + n * DurationUnit.DAYS.millis`) and `computeGapStats`' `daysBetween` gap counting have DST coverage only via `datesCovered` (`CalendarGridTest`), not directly. A "6 days" MANUAL duration spanning a spring-forward lands an hour off wall-clock — arguably by design (storage is millis) but undocumented by a test.
+- **Week detail dialog spanned rows.** `BigPictureScreenTest` asserts the "ongoing since …" / "lasted …" row copy for the *day* detail dialog only; §9 says the week-chevron dialog does the same, and its tests use a point event.
+
+**Acceptance criteria**
+
+- [ ] A `computeEndedAt` / `daysBetween` test that pins the intended DST behaviour (whichever way — lock it, don't necessarily change it).
+- [ ] `BigPictureScreenTest` exercises a spanned/ongoing event in the *week* detail dialog, asserting the same row copy as the day dialog.
+- [ ] No production change unless a test surfaces a real distortion.
+
+**Concern** — standalone; pure test additions.
+
 ## Blocked
 
 ### BL1 · Rate the App is still a placeholder row
