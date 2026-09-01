@@ -186,6 +186,21 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
+    fun `getLatestEventEndForCase falls back to a still-open event's start when it is the latest`() =
+        runTest {
+            // Mirrors EventDaoTest: an impl that dropped still-open rows entirely (max of endedAt
+            // only) would wrongly return 200L here instead of the open event's 500L start.
+            val caseId = 1L
+            repository.events.value =
+                listOf(
+                    testEvent(id = 1L, caseId = caseId, occurredAt = 100L, endedAt = 200L),
+                    testEvent(id = 2L, caseId = caseId, occurredAt = 500L, endedAt = null),
+                )
+
+            assertEquals(500L, repository.getLatestEventEndForCase(caseId))
+        }
+
+    @Test
     fun `getOngoingEvent returns an event with no endedAt scoped to the case`() =
         runTest {
             val caseId = 1L

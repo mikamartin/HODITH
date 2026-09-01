@@ -1,35 +1,12 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.testsupport.durationEvent
+import com.secondmonday.hodith.testsupport.eventAtDay
+import com.secondmonday.hodith.testsupport.millisAtDay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
-import java.time.ZoneId
-
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
-
-private fun eventAtDay(epochDay: Long) = durationEvent(epochDay, null)
-
-private fun durationEvent(
-    startDay: Long,
-    endDay: Long?,
-) = EventEntity(
-    id = 0,
-    caseId = 1,
-    occurredAt = millisAtDay(startDay),
-    endedAt = endDay?.let { millisAtDay(it) },
-    intensity = null,
-    note = null,
-    loggedAt = millisAtDay(startDay),
-)
 
 class InsightsEngineTest {
     // ---- computeGapStats ----
@@ -201,6 +178,25 @@ class InsightsEngineTest {
         val result = computeGapStats(events, now = millisAtDay(30))
 
         assertEquals(listOf(0L, 5L), result.pastGaps)
+    }
+
+    @Test
+    fun `computeGapStats floors a reversed endedAt to the event's own start`() {
+        // A bad stored endedAt (day 3) that predates its occurredAt (day 10) — from an old
+        // round-trip (spec §6). The reach is the day-10 start, so the gap to now (day 15) is 5,
+        // not the 12 an unfloored day-3 end would give.
+        val result = computeGapStats(listOf(durationEvent(startDay = 10, endDay = 3)), now = millisAtDay(15))
+
+        assertEquals(5L, result.currentGapDays)
+    }
+
+    @Test
+    fun `computeGapStats does not let a reversed endedAt shrink a following past gap`() {
+        val events = listOf(durationEvent(startDay = 10, endDay = 3), eventAtDay(12))
+
+        val result = computeGapStats(events, now = millisAtDay(20))
+
+        assertEquals(listOf(2L), result.pastGaps)
     }
 
     @Test

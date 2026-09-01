@@ -1,10 +1,10 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CaseWithEvents
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.testsupport.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -122,7 +122,7 @@ class HomeViewModelMappingTest {
     }
 
     @Test
-    fun `ongoingEvent ignores a null endedAt event on a non-START_STOP case`() {
+    fun `ongoingEvent and runningCount ignore a null endedAt event on a non-START_STOP case`() {
         val event = testEvent(occurredAt = 0L).copy(endedAt = null)
         val rows =
             homeCaseRows(
@@ -131,6 +131,7 @@ class HomeViewModelMappingTest {
             )
 
         assertNull(rows.single().ongoingEvent)
+        assertEquals(0, rows.single().runningCount)
     }
 
     @Test
@@ -171,30 +172,16 @@ class HomeViewModelMappingTest {
         intensityEnabled: Boolean = false,
     ) = CaseWithEvents(
         case =
-            CaseEntity(
+            Fixtures.case(
                 id = caseId,
                 name = name,
                 icon = icon,
-                createdAt = 0L,
                 logFlow = logFlow,
                 durationMode = durationMode,
                 intensityEnabled = intensityEnabled,
-                hunchNudgeDismissed = false,
-                checkInsEnabled = true,
-                lastCheckInAt = null,
-                sortOrder = 0,
-                archived = false,
             ),
         events = events,
     )
 
-    private fun testEvent(occurredAt: Long) =
-        EventEntity(
-            caseId = 1L,
-            occurredAt = occurredAt,
-            endedAt = null,
-            intensity = null,
-            note = null,
-            loggedAt = occurredAt,
-        )
+    private fun testEvent(occurredAt: Long) = Fixtures.event(occurredAt = occurredAt)
 }

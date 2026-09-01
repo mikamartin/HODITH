@@ -4,13 +4,12 @@ import app.cash.turbine.test
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CaseWithEventsAndTags
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.FakeHodithRepository
-import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.testsupport.Fixtures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -49,33 +48,13 @@ class BigPictureViewModelTest {
         icon: String = "☕️",
         createdAt: Long = 0L,
         archived: Boolean = false,
-    ) = CaseEntity(
-        id = id,
-        name = name,
-        icon = icon,
-        createdAt = createdAt,
-        logFlow = LogFlow.ONE_TAP,
-        durationMode = DurationMode.NONE,
-        intensityEnabled = false,
-        hunchNudgeDismissed = false,
-        checkInsEnabled = true,
-        lastCheckInAt = null,
-        sortOrder = 0,
-        archived = archived,
-    )
+    ) = Fixtures.case(id = id, name = name, icon = icon, createdAt = createdAt, archived = archived)
 
     private fun testEvent(
         caseId: Long = 1L,
         occurredAt: Long = clock.nowMillis(),
         note: String? = null,
-    ) = EventEntity(
-        caseId = caseId,
-        occurredAt = occurredAt,
-        endedAt = occurredAt,
-        intensity = null,
-        note = note,
-        loggedAt = occurredAt,
-    )
+    ) = Fixtures.event(caseId = caseId, occurredAt = occurredAt, endedAt = occurredAt, note = note)
 
     @Test
     fun `uiState reflects seeded active cases and events, excluding archived`() =
@@ -138,12 +117,10 @@ class BigPictureViewModelTest {
         fun event(
             caseId: Long,
             endedAt: Long?,
-        ) = EventEntity(
+        ) = Fixtures.event(
             caseId = caseId,
             occurredAt = startMillis,
             endedAt = endedAt,
-            intensity = null,
-            note = null,
             loggedAt = startMillis,
         )
 
@@ -190,7 +167,7 @@ class BigPictureViewModelTest {
         val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
         val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
         val event =
-            EventEntity(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, intensity = null, note = null, loggedAt = startMillis)
+            Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, loggedAt = startMillis)
         val casesWithEvents =
             listOf(
                 CaseWithEventsAndTags(
@@ -211,7 +188,7 @@ class BigPictureViewModelTest {
         val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
         val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
         val event =
-            EventEntity(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, intensity = null, note = null, loggedAt = startMillis)
+            Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, loggedAt = startMillis)
         val casesWithEvents =
             listOf(
                 CaseWithEventsAndTags(

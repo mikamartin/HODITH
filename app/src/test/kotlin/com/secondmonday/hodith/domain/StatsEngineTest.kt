@@ -3,48 +3,22 @@ package com.secondmonday.hodith.domain
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.testsupport.TEST_ZONE
+import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneId
 
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
-
-private fun millisAt(
-    epochDay: Long,
-    hour: Int,
-): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atTime(LocalTime.of(hour, 0))
-        .atZone(ZONE)
-        .toInstant()
-        .toEpochMilli()
+private val ZONE = TEST_ZONE
 
 private fun eventAt(
     occurredAt: Long,
     endedAt: Long? = null,
     intensity: Int? = null,
-): EventEntity =
-    EventEntity(
-        id = 0,
-        caseId = 1,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = intensity,
-        note = null,
-        loggedAt = occurredAt,
-    )
+): EventEntity = testEvent(occurredAt = occurredAt, endedAt = endedAt, intensity = intensity)
 
 private fun eventAtDay(epochDay: Long) = eventAt(millisAtDay(epochDay))
 

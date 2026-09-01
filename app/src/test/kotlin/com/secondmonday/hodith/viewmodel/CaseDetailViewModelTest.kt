@@ -2,9 +2,7 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
@@ -13,6 +11,7 @@ import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.testsupport.Fixtures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -45,32 +44,12 @@ class CaseDetailViewModelTest {
     private fun viewModel() = CaseDetailViewModel(repository, clock, SavedStateHandle(mapOf("caseId" to caseId)))
 
     private fun testCase(durationMode: DurationMode = DurationMode.NONE) =
-        CaseEntity(
-            id = caseId,
-            name = "Coffee",
-            icon = "☕️",
-            createdAt = 0L,
-            logFlow = LogFlow.DETAIL_SHEET,
-            durationMode = durationMode,
-            intensityEnabled = false,
-            hunchNudgeDismissed = false,
-            checkInsEnabled = true,
-            lastCheckInAt = null,
-            sortOrder = 0,
-            archived = false,
-        )
+        Fixtures.case(id = caseId, name = "Coffee", icon = "☕️", logFlow = LogFlow.DETAIL_SHEET, durationMode = durationMode)
 
     private fun testEvent(
         occurredAt: Long = clock.nowMillis(),
         endedAt: Long? = clock.nowMillis(),
-    ) = EventEntity(
-        caseId = caseId,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = null,
-        note = null,
-        loggedAt = occurredAt,
-    )
+    ) = Fixtures.event(caseId = caseId, occurredAt = occurredAt, endedAt = endedAt)
 
     @Test
     fun `uiState reflects the case, its events and tag suggestions`() =

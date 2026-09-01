@@ -6,22 +6,12 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.testsupport.millisAtDay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
-
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
 
 private fun hunch(
     expectedCount: Int,

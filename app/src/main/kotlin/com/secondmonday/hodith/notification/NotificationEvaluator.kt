@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.CheckInDecision
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.atLeastWindowStart
@@ -139,7 +140,11 @@ class NotificationEvaluator
          * The moment the silence clock counts from for `SILENT_FOR` and check-ins: the latest point
          * any event on the Case ended (spec §10 — a duration event's quiet stretch starts when it
          * *ended*, not when it began), or [now] while a `START_STOP` Case has an event still running,
-         * so an active stretch never reads as silence. Null (⇒ count from Case creation) with no events.
+         * so an active stretch never reads as silence. A Case that no longer tracks duration
+         * (`durationMode == NONE`, spec §9) reads every event as a point: silence counts from the
+         * latest `occurredAt`, ignoring any stored `endedAt`, so the trigger/check-in clock agrees
+         * with the heatmap, gaps card and Big Picture, all of which collapse a non-tracking Case's
+         * spans. Null (⇒ count from Case creation) with no events.
          */
         private suspend fun silenceAnchorFor(
             repo: HodithRepository,
@@ -147,6 +152,7 @@ class NotificationEvaluator
             now: Long,
         ): Long? {
             if (case.durationMode == DurationMode.START_STOP && repo.getOngoingEvent(case.id) != null) return now
+            if (!case.durationMode.tracksDuration) return repo.getMostRecentEventForCase(case.id)?.occurredAt
             return repo.getLatestEventEndForCase(case.id)
         }
     }

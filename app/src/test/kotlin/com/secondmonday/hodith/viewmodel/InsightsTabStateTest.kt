@@ -1,64 +1,29 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
-import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
+import com.secondmonday.hodith.testsupport.TEST_ZONE
+import com.secondmonday.hodith.testsupport.durationEvent
+import com.secondmonday.hodith.testsupport.eventAtDay
+import com.secondmonday.hodith.testsupport.finishedPoint
+import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testCase
+import com.secondmonday.hodith.testsupport.testEvent
+import com.secondmonday.hodith.testsupport.withoutTags
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
 
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
-
-private fun testCase(
-    createdAt: Long,
-    durationMode: DurationMode = DurationMode.NONE,
-) = CaseEntity(
-    id = 1L,
-    name = "Test Case",
-    icon = "🐛",
-    createdAt = createdAt,
-    logFlow = LogFlow.ONE_TAP,
-    durationMode = durationMode,
-    intensityEnabled = false,
-    hunchNudgeDismissed = false,
-    checkInsEnabled = true,
-    lastCheckInAt = null,
-    sortOrder = 0,
-    archived = false,
-)
-
-private fun eventAtDay(epochDay: Long) = durationEvent(epochDay, null)
-
-private fun durationEvent(
-    startDay: Long,
-    endDay: Long?,
-) = EventEntity(
-    id = 0,
-    caseId = 1,
-    occurredAt = millisAtDay(startDay),
-    endedAt = endDay?.let { millisAtDay(it) },
-    intensity = null,
-    note = null,
-    loggedAt = millisAtDay(startDay),
-)
-
-private fun List<EventEntity>.withoutTags(): List<EventWithTags> = map { EventWithTags(it, emptyList()) }
+private val ZONE = TEST_ZONE
 
 class InsightsTabStateTest {
     @Test
@@ -96,7 +61,7 @@ class InsightsTabStateTest {
                 .toEpochMilli()
         val events = listOf(EventEntity(0, 1, createdAt, null, null, null, createdAt), EventEntity(0, 1, now, null, null, null, now))
 
-        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
+        val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         assertEquals(
             listOf(YearMonth.of(2026, 1), YearMonth.of(2026, 2), YearMonth.of(2026, 3)),
@@ -121,7 +86,7 @@ class InsightsTabStateTest {
                 .toEpochMilli()
         val events = listOf(eventAtDay(eventDate.toEpochDay()), EventEntity(0, 1, now, null, null, null, now))
 
-        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
+        val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         val shadedDay =
             state.heatmapMonths
@@ -151,7 +116,7 @@ class InsightsTabStateTest {
                 .toEpochMilli()
         val events = listOf(EventEntity(0, 1, createdAt, null, null, null, createdAt), EventEntity(0, 1, now, null, null, null, now))
 
-        val state = insightsTabState(testCase(createdAt), events.withoutTags(), now) as InsightsTabState.Ready
+        val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         val currentMonth = state.heatmapMonths.single { it.month == YearMonth.of(2026, 3) }
         assertTrue(currentMonth.weeks.size <= 2)
@@ -188,11 +153,16 @@ class InsightsTabStateTest {
     @Test
     fun `heatmap shades a still-running event through today`() {
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
-        val events = listOf(eventAtDay(0), durationEvent(startDay = 3, endDay = null))
+        // finishedPoint(0), not eventAtDay(0): a bare null-ended event would itself read as ongoing
+        // on a START_STOP Case and also span to now, masking whether the day-3 event drives this.
+        val events = listOf(finishedPoint(0), durationEvent(startDay = 3, endDay = null))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(9)) as InsightsTabState.Ready
 
-        assertTrue(state.shadedDates().containsAll((3L..9L).map { LocalDate.ofEpochDay(it) }))
+        assertEquals(
+            (listOf(0L) + (3L..9L)).map { LocalDate.ofEpochDay(it) }.toSet(),
+            state.shadedDates(),
+        )
     }
 
     @Test
@@ -301,8 +271,9 @@ class InsightsTabStateTest {
     @Test
     fun `a still-running event that began before today makes the Case multi-day`() {
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
-        // Started day 5, never stopped; "now" is day 12 -> its active span is days 5..12.
-        val events = listOf(eventAtDay(0), durationEvent(startDay = 5, endDay = null))
+        // Started day 5, never stopped; "now" is day 12 -> its active span is days 5..12. The other
+        // event is a finished point (finishedPoint, not eventAtDay) so it can't be the running one.
+        val events = listOf(finishedPoint(0), durationEvent(startDay = 5, endDay = null))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(12)) as InsightsTabState.Ready
 
@@ -424,6 +395,44 @@ class InsightsTabStateTest {
         assertEquals(null, state.stats.trend)
     }
 
+    @Test
+    fun `trend still counts a multi-day event once, unaffected by its span (spec section 9)`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val pointEvents = listOf(eventAtDay(0), eventAtDay(20), eventAtDay(70), eventAtDay(80))
+        val asPoint = insightsTabState(case, (pointEvents + eventAtDay(85)).withoutTags(), now = millisAtDay(90))
+        val asSpan = insightsTabState(case, (pointEvents + durationEvent(85, 95)).withoutTags(), now = millisAtDay(90))
+
+        val point = (asPoint as InsightsTabState.Ready).stats.trend
+        val span = (asSpan as InsightsTabState.Ready).stats.trend
+        // The span hides the frequency card (tested elsewhere) but must not inflate the trend counts.
+        assertNull(asSpan.stats.frequency)
+        assertNotNull(point)
+        assertEquals(point?.recentCount, span?.recentCount)
+        assertEquals(point?.priorCount, span?.priorCount)
+    }
+
+    // ---- stats.duration card gate (spec section 10) ----
+
+    @Test
+    fun `duration card is present for a MANUAL Case with finished durations`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val events = listOf(testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L), eventAtDay(3))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertEquals(30L, state.stats.duration?.longestMinutes)
+    }
+
+    @Test
+    fun `duration card is absent for a NONE Case even when events carry a stored endedAt`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val events = listOf(testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L), eventAtDay(3))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertNull(state.stats.duration)
+    }
+
     // ---- stats.gaps while an event is running (A1) ----
 
     @Test
@@ -452,9 +461,11 @@ class InsightsTabStateTest {
     @Test
     fun `gaps display reads the current gap from a finished duration event's end`() {
         // A duration event ran days 1..14 and was stopped; "now" is day 14. No silence yet — where
-        // the old start-anchored math reported 13 days.
+        // the old start-anchored math reported 13 days. Both events are finished, so nothing is
+        // "running" (finishedPoint, not eventAtDay) — this exercises the end-anchored reach itself,
+        // not the eventActiveNow short-circuit that a bare null-ended filler would trip.
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
-        val events = listOf(eventAtDay(0), durationEvent(startDay = 1, endDay = 14))
+        val events = listOf(finishedPoint(0), durationEvent(startDay = 1, endDay = 14))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(14)) as InsightsTabState.Ready
 

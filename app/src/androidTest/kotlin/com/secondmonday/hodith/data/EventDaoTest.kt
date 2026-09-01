@@ -145,6 +145,17 @@ class EventDaoTest {
         }
 
     @Test
+    fun getLatestEventEndForCase_takesAnOpenEventStartOverAnEarlierClosedEventEnd() =
+        runTest {
+            // A still-open event started after an earlier one closed — its start is the latest point
+            // reached, so an impl that only maxed non-null endedAt values would wrongly return 200.
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 200L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 500L, endedAt = null))
+
+            assertEquals(500L, eventDao.getLatestEventEndForCase(caseId))
+        }
+
+    @Test
     fun getLatestEventEndForCase_returnsNullWithNoEvents() =
         runTest {
             assertNull(eventDao.getLatestEventEndForCase(caseId))

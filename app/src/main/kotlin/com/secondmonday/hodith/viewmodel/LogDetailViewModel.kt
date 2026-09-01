@@ -85,7 +85,9 @@ internal fun draftFrom(
             existingEndedAt = null,
         )
     }
-    val durationMillis = event.endedAt?.let { it - event.occurredAt }
+    // A non-positive stored span (a zero-length point event, or bad data from an old round-trip)
+    // has no duration to edit — leave the amount blank rather than showing "0" or a negative.
+    val durationMillis = event.endedAt?.let { it - event.occurredAt }?.takeIf { it > 0L }
     val durationUnit = durationMillis?.let(::durationUnitFor) ?: DurationUnit.MINUTES
     val durationAmount = durationMillis?.let { (it / durationUnit.millis).toString() }.orEmpty()
     return LogDraft(

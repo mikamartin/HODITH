@@ -23,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -133,6 +134,12 @@ class WidgetActionsFlowTest {
 
             // The "Ongoing" pill renders inside the tappable Case area (the icon/subtitle column).
             val caseArea = waitForClickableWithText(PlainVoice.ongoingPillLabel)
+
+            // With two events open, the subtitle's trailing text is a count, not one elapsed time.
+            assertTrue(
+                "Expected the running-count indicator in the widget subtitle",
+                collectText(renderedView(context, host, appWidgetId)).any { it.contains(PlainVoice.ongoingCountIndicator(2)) },
+            )
 
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             val monitor = Instrumentation.ActivityMonitor(MainActivity::class.java.name, null, false)

@@ -1,10 +1,10 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
+import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -78,6 +78,31 @@ class LogDetailViewModelTest {
 
         assertEquals("150", draft.durationAmount)
         assertEquals(DurationUnit.MINUTES, draft.durationUnit)
+    }
+
+    @Test
+    fun `draftFrom leaves the amount blank for a zero-length event`() {
+        val event = testEvent(occurredAt = 10_000L, endedAt = 10_000L)
+
+        val draft = draftFrom(event, now = 99_999L)
+
+        assertEquals("", draft.durationAmount)
+        assertEquals(DurationUnit.MINUTES, draft.durationUnit)
+    }
+
+    @Test
+    fun `draftFrom leaves the amount blank for a reversed stored endedAt`() {
+        val event = testEvent(occurredAt = 60_000L, endedAt = 0L)
+
+        val draft = draftFrom(event, now = 99_999L)
+
+        assertEquals("", draft.durationAmount)
+    }
+
+    @Test
+    fun `durationUnitFor is minutes for a zero or negative span`() {
+        assertEquals(DurationUnit.MINUTES, durationUnitFor(0L))
+        assertEquals(DurationUnit.MINUTES, durationUnitFor(-MILLIS_PER_HOUR))
     }
 
     @Test
@@ -597,20 +622,6 @@ class LogDetailViewModelTest {
         assertTrue(formatted.contains("3:30"))
         assertTrue(formatted.contains("PM"))
     }
-
-    private fun testEvent(
-        occurredAt: Long = 0L,
-        endedAt: Long? = null,
-        intensity: Int? = null,
-        note: String? = null,
-    ) = EventEntity(
-        caseId = 1L,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = intensity,
-        note = note,
-        loggedAt = occurredAt,
-    )
 
     private fun testDraft(
         occurredAt: Long = 0L,

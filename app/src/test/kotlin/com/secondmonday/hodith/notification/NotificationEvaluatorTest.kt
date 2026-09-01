@@ -3,32 +3,21 @@ package com.secondmonday.hodith.notification
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testEvent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
 import javax.inject.Provider
-
-private val ZONE = ZoneId.systemDefault()
-
-/** Calendar-day timestamp, same helper as [com.secondmonday.hodith.domain.TriggerEngineTest] — avoids DST/zone-offset flakiness near epoch that raw millis multiplication risks. */
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
 
 class NotificationEvaluatorTest {
     private val repository = FakeHodithRepository()
@@ -90,15 +79,7 @@ class NotificationEvaluatorTest {
         caseId: Long = 1L,
         occurredAt: Long,
         endedAt: Long? = null,
-    ) = EventEntity(
-        id = id,
-        caseId = caseId,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = null,
-        note = null,
-        loggedAt = occurredAt,
-    )
+    ) = testEvent(id = id, caseId = caseId, occurredAt = occurredAt, endedAt = endedAt)
 
     @Test
     fun `evaluateCase fires an AT_LEAST trigger once its window count reaches threshold`() =
@@ -179,6 +160,53 @@ class NotificationEvaluatorTest {
         }
 
     @Test
+    fun `evaluateCase does not fire SILENT_FOR with several events running on the Case at once`() =
+        runTest {
+            // Two concurrent open events (retro-log / fast restart, spec §6). The Case is running,
+            // so the silence anchor pins to now regardless of how many events are open.
+            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
+            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.events.value =
+                listOf(
+                    event(id = 1L, occurredAt = millisAtDay(2), endedAt = null),
+                    event(id = 2L, occurredAt = millisAtDay(5), endedAt = null),
+                )
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.firedTriggers.isEmpty())
+        }
+
+    @Test
+    fun `evaluateCase does not fire a check-in while an event is still running on the Case`() =
+        runTest {
+            // Spec §11: a still-running event counts as no silence for check-ins too, not just SILENT_FOR.
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
+            repository.cases.value =
+                listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = null))
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.dueCheckIns.isEmpty())
+        }
+
+    @Test
+    fun `evaluateCase counts SILENT_FOR silence from occurredAt for a Case that no longer tracks duration`() =
+        runTest {
+            // Same event as the MANUAL test above (ran days 2..20) but the Case is now NONE, so spec
+            // §9/§10 read it as a point: silence counts from the day-2 start = 28 quiet days, which
+            // clears the 14-day threshold and fires. Reading the stored day-20 endedAt would give 10.
+            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.NONE))
+            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
+
+            evaluator.evaluateCase(1L)
+
+            assertEquals(1, notifier.firedTriggers.size)
+        }
+
+    @Test
     fun `evaluateCase does nothing for an unknown case`() =
         runTest {
             evaluator.evaluateCase(404L)
@@ -229,6 +257,20 @@ class NotificationEvaluatorTest {
             evaluator.evaluateCase(1L)
 
             assertTrue(notifier.dueCheckIns.isEmpty())
+        }
+
+    @Test
+    fun `evaluateCase counts check-in silence from occurredAt for a Case that no longer tracks duration`() =
+        runTest {
+            // Event ran days 1..28, Case now NONE — silence counts from the day-1 start = 29 quiet
+            // days, past the 7-day interval, so the check-in is due. The day-28 endedAt would give 2.
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
+            repository.cases.value = listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.NONE))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(1), endedAt = millisAtDay(28)))
+
+            evaluator.evaluateCase(1L)
+
+            assertEquals(1, notifier.dueCheckIns.size)
         }
 
     @Test

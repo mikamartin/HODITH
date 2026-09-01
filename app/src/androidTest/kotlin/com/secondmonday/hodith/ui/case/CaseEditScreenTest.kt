@@ -39,6 +39,8 @@ class CaseEditScreenTest {
         onDurationModeChange: (DurationMode) -> Unit = {},
         onConfirmLeaveStartStop: () -> Unit = {},
         onDismissLeaveStartStop: () -> Unit = {},
+        onConfirmEnterStartStop: () -> Unit = {},
+        onDismissEnterStartStop: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
@@ -51,6 +53,8 @@ class CaseEditScreenTest {
                     onDurationModeChange = onDurationModeChange,
                     onConfirmLeaveStartStop = onConfirmLeaveStartStop,
                     onDismissLeaveStartStop = onDismissLeaveStartStop,
+                    onConfirmEnterStartStop = onConfirmEnterStartStop,
+                    onDismissEnterStartStop = onDismissEnterStartStop,
                     onIntensityToggle = {},
                     onCheckInToggle = {},
                     onSave = {},
@@ -199,5 +203,62 @@ class CaseEditScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmAction).performClick()
         assertTrue(confirmed)
+    }
+
+    @Test
+    fun enterStartStopConfirm_whenFlagged_showsDialogNamingTheOpenEndedCount() {
+        setContent(
+            uiState =
+                CaseEditUiState(
+                    isEditing = true,
+                    isLoading = false,
+                    durationMode = DurationMode.MANUAL,
+                    runningEventCount = 3,
+                    showEnterStartStopConfirm = true,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmBody(3)).assertExists()
+    }
+
+    @Test
+    fun enterStartStopConfirm_confirmAndCancel_invokeTheirCallbacks() {
+        var confirmed = false
+        var dismissed = false
+        setContent(
+            uiState =
+                CaseEditUiState(
+                    isEditing = true,
+                    isLoading = false,
+                    durationMode = DurationMode.MANUAL,
+                    runningEventCount = 1,
+                    showEnterStartStopConfirm = true,
+                ),
+            onConfirmEnterStartStop = { confirmed = true },
+            onDismissEnterStartStop = { dismissed = true },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.enterStartStopCancelAction).performClick()
+        assertTrue(dismissed)
+
+        composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmAction).performClick()
+        assertTrue(confirmed)
+    }
+
+    @Test
+    fun startStopConfirms_neitherShown_whenFlagsClear() {
+        setContent(
+            uiState =
+                CaseEditUiState(
+                    isEditing = true,
+                    isLoading = false,
+                    durationMode = DurationMode.START_STOP,
+                    runningEventCount = 2,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmTitle).assertDoesNotExist()
     }
 }

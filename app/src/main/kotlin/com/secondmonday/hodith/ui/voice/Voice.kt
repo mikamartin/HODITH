@@ -85,6 +85,11 @@ interface Voice {
     val leaveStartStopConfirmAction: String
     val leaveStartStopCancelAction: String
 
+    /** Confirm shown when a Case enters `START_STOP` mode while it has open-ended events (spec §6). */
+    val enterStartStopConfirmTitle: String
+    val enterStartStopConfirmAction: String
+    val enterStartStopCancelAction: String
+
     val archivedCasesTitle: String
     val archivedCasesEmptyState: String
     val eventListEmptyState: String
@@ -333,6 +338,9 @@ interface Voice {
 
     /** Body of the [leaveStartStopConfirmTitle] dialog — names how many events will be stopped. */
     fun leaveStartStopConfirmBody(runningCount: Int): String
+
+    /** Body of the [enterStartStopConfirmTitle] dialog — names how many open-ended events become instant events. */
+    fun enterStartStopConfirmBody(openEndedCount: Int): String
 
     fun bigPictureWeekDetailTitle(date: String): String
 
@@ -601,6 +609,9 @@ object PlainVoice : Voice {
     override val leaveStartStopConfirmTitle = "Stop the running events?"
     override val leaveStartStopConfirmAction = "Stop and switch"
     override val leaveStartStopCancelAction = "Keep Start/Stop"
+    override val enterStartStopConfirmTitle = "Keep existing events as instant?"
+    override val enterStartStopConfirmAction = "Switch and keep them"
+    override val enterStartStopCancelAction = "Keep current mode"
     override val archivedCasesTitle = "Archived cases"
     override val archivedCasesEmptyState = "No archived cases."
     override val eventListEmptyState = "No events logged yet."
@@ -817,7 +828,11 @@ object PlainVoice : Voice {
     ) = "$count events on $caseName have been running over a day. Still going, or forgot to stop them?"
 
     override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "This case has $runningCount running events. Switching off Start/Stop will stop them at the current time."
+        "Only Start/Stop tracks a running event, so switching away stops all $runningCount of them now, at the current time."
+
+    override fun enterStartStopConfirmBody(openEndedCount: Int) =
+        "This case has $openEndedCount events with no end time. Under Start/Stop they would look like they are still running, " +
+            "so they will be kept as instant one-time events instead."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
@@ -1080,6 +1095,9 @@ object IntenseVoice : Voice {
     override val leaveStartStopConfirmTitle = "Seal what still runs?"
     override val leaveStartStopConfirmAction = "Seal them and switch"
     override val leaveStartStopCancelAction = "Leave Start/Stop be"
+    override val enterStartStopConfirmTitle = "Fix them in place?"
+    override val enterStartStopConfirmAction = "Fix them and switch"
+    override val enterStartStopCancelAction = "Leave the mode as it lies"
     override val archivedCasesTitle = "The buried cases"
     override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
@@ -1293,7 +1311,10 @@ object IntenseVoice : Voice {
     ) = "$count threads of $caseName have lingered past a day. Still unfolding, or simply forgotten?"
 
     override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "$runningCount events still run. Abandoning Start/Stop seals them at this moment."
+        "Only Start/Stop keeps a thread open, so leaving it seals all $runningCount that still run — here, now, at this very moment."
+
+    override fun enterStartStopConfirmBody(openEndedCount: Int) =
+        "$openEndedCount events end nowhere. Start/Stop would read them as still breathing, so each is fixed to the single moment it happened instead."
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
@@ -1553,6 +1574,9 @@ object BrightVoice : Voice {
     override val leaveStartStopConfirmTitle = "Stop what's still running?"
     override val leaveStartStopConfirmAction = "Stop 'em and switch"
     override val leaveStartStopCancelAction = "Nope, keep Start/Stop!"
+    override val enterStartStopConfirmTitle = "Keep the old ones as one-offs?"
+    override val enterStartStopConfirmAction = "Yep, switch and keep 'em"
+    override val enterStartStopCancelAction = "Nope, keep this mode!"
     override val archivedCasesTitle = "The archive"
     override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
     override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
@@ -1764,7 +1788,10 @@ object BrightVoice : Voice {
     ) = "$count of $caseName's events have been running over a day — still happening, or did you forget them?"
 
     override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "You've got $runningCount events still running! Switching off Start/Stop stops them right now."
+        "Start/Stop is the only mode that tracks a live event, so switching away stops all $runningCount running ones right now."
+
+    override fun enterStartStopConfirmBody(openEndedCount: Int) =
+        "You've got $openEndedCount events with no end time. Start/Stop would treat them as still running, so they'll be kept as instant one-offs instead."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 

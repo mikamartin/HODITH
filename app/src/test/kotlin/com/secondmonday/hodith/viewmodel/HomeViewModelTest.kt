@@ -1,15 +1,14 @@
 package com.secondmonday.hodith.viewmodel
 
 import app.cash.turbine.test
-import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.testsupport.Fixtures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -45,33 +44,13 @@ class HomeViewModelTest {
         name: String = "Coffee",
         logFlow: LogFlow = LogFlow.ONE_TAP,
         durationMode: DurationMode = DurationMode.NONE,
-    ) = CaseEntity(
-        id = id,
-        name = name,
-        icon = "☕️",
-        createdAt = 0L,
-        logFlow = logFlow,
-        durationMode = durationMode,
-        intensityEnabled = false,
-        hunchNudgeDismissed = false,
-        checkInsEnabled = true,
-        lastCheckInAt = null,
-        sortOrder = 0,
-        archived = false,
-    )
+    ) = Fixtures.case(id = id, name = name, icon = "☕️", logFlow = logFlow, durationMode = durationMode)
 
     private fun testEvent(
         caseId: Long = 1L,
         occurredAt: Long = clock.nowMillis(),
         endedAt: Long? = clock.nowMillis(),
-    ) = EventEntity(
-        caseId = caseId,
-        occurredAt = occurredAt,
-        endedAt = endedAt,
-        intensity = null,
-        note = null,
-        loggedAt = occurredAt,
-    )
+    ) = Fixtures.event(caseId = caseId, occurredAt = occurredAt, endedAt = endedAt)
 
     @Test
     fun `uiState reflects seeded active case and archived count`() =
@@ -199,6 +178,26 @@ class HomeViewModelTest {
                     .note,
             )
             assertEquals(listOf("focus"), repository.tags.value.map { it.name })
+        }
+
+    @Test
+    fun `saveLogSheetEvent on a running START_STOP case starts a second concurrent event`() =
+        runTest {
+            repository.cases.value =
+                listOf(testCase(logFlow = LogFlow.DETAIL_SHEET, durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(testEvent(endedAt = null))
+            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            viewModel.uiState.test {
+                val row = awaitLoadedItem { it.isLoading }.cases.single()
+                viewModel.onQuickLogTap(row)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.saveLogSheetEvent(viewModel.logSheet.value!!.draft)
+
+            // The first event was not stopped — the sheet save opens a second concurrent one (spec §6).
+            assertEquals(2, repository.events.value.size)
+            assertTrue(repository.events.value.all { it.endedAt == null })
         }
 
     @Test
