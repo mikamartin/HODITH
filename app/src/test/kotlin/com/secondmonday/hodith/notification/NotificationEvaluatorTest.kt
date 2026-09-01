@@ -160,6 +160,21 @@ class NotificationEvaluatorTest {
         }
 
     @Test
+    fun `evaluateCase counts SILENT_FOR silence from occurredAt for a Case that no longer tracks duration`() =
+        runTest {
+            // Same event as the MANUAL test above (ran days 2..20) but the Case is now NONE, so spec
+            // §9/§10 read it as a point: silence counts from the day-2 start = 28 quiet days, which
+            // clears the 14-day threshold and fires. Reading the stored day-20 endedAt would give 10.
+            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.NONE))
+            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
+
+            evaluator.evaluateCase(1L)
+
+            assertEquals(1, notifier.firedTriggers.size)
+        }
+
+    @Test
     fun `evaluateCase does nothing for an unknown case`() =
         runTest {
             evaluator.evaluateCase(404L)
@@ -210,6 +225,20 @@ class NotificationEvaluatorTest {
             evaluator.evaluateCase(1L)
 
             assertTrue(notifier.dueCheckIns.isEmpty())
+        }
+
+    @Test
+    fun `evaluateCase counts check-in silence from occurredAt for a Case that no longer tracks duration`() =
+        runTest {
+            // Event ran days 1..28, Case now NONE — silence counts from the day-1 start = 29 quiet
+            // days, past the 7-day interval, so the check-in is due. The day-28 endedAt would give 2.
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
+            repository.cases.value = listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.NONE))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(1), endedAt = millisAtDay(28)))
+
+            evaluator.evaluateCase(1L)
+
+            assertEquals(1, notifier.dueCheckIns.size)
         }
 
     @Test
