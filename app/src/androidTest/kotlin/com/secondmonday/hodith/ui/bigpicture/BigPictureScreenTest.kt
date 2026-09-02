@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.bigpicture
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
@@ -358,6 +359,45 @@ class BigPictureScreenTest {
 
         assert(openedCaseId == case.id) { "expected onOpenCase to be called with ${case.id}, was $openedCaseId" }
         composeTestRule.onNodeWithText(PlainVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertDoesNotExist()
+    }
+
+    @Test
+    fun weekDetailDialog_spannedDay_showsSpanRangeInsteadOfClockTime() {
+        // A finished 3-day event: Mon 20th 09:00 -> Wed 22nd 17:00, entirely inside today's week.
+        val span =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart, 9),
+                endedAt = millisAt(weekStart.plusDays(2), 17),
+                note = "rough stretch",
+            )
+        setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
+
+        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+
+        // The week dialog lists the event once per covered day (20th, 21st, 22nd); every row reads
+        // the span range in place of a clock time, matching the day dialog.
+        composeTestRule.onAllNodesWithText(PlainVoice.bigPictureEventSpanRange("Jul 20", "Jul 22")).assertCountEquals(3)
+        composeTestRule.onNodeWithText("9:00 AM").assertDoesNotExist()
+    }
+
+    @Test
+    fun weekDetailDialog_carriedDayOfOngoingEvent_showsOngoingSince() {
+        val ongoing =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart.plusDays(1), 8),
+                isOngoing = true,
+                note = "forgot to stop",
+            )
+        setContent(uiStateWith(cases = listOf(case), events = listOf(ongoing)))
+
+        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+
+        // Covered days 21st, 22nd, 23rd (today) all fall in this week; each row reads "ongoing since".
+        composeTestRule.onAllNodesWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21")).assertCountEquals(3)
     }
 
     @Test

@@ -10,6 +10,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
@@ -288,6 +290,32 @@ class LogDetailViewModelTest {
             computeEndedAt(1_000L, DurationMode.MANUAL, "99999", DurationUnit.DAYS, endedAt = null, existingEndedAt = null, now = farFuture)
 
         assertEquals(1_000L + 99_999 * MILLIS_PER_DAY, endedAt)
+    }
+
+    @Test
+    fun `computeEndedAt MANUAL days scaling is fixed 24h chunks, so the wall clock shifts across a DST spring-forward`() {
+        val newYork = ZoneId.of("America/New_York")
+        // Noon on 2026-03-07, two days before the 2026-03-08 spring-forward (a 23-hour local day).
+        val occurredAt =
+            LocalDate
+                .of(2026, 3, 7)
+                .atTime(12, 0)
+                .atZone(newYork)
+                .toInstant()
+                .toEpochMilli()
+
+        val endedAt =
+            computeEndedAt(occurredAt, DurationMode.MANUAL, "6", DurationUnit.DAYS, endedAt = null, existingEndedAt = null, now = farFuture)
+
+        // The stored span is exactly six fixed 24-hour chunks of millis — no calendar-aware scaling.
+        assertEquals(occurredAt + 6 * MILLIS_PER_DAY, endedAt)
+        // The spring-forward skipped an hour of wall time inside that window, so six 24h chunks
+        // land the wall clock at 13:00, not noon, on the 13th. By design (storage is millis) —
+        // this test pins the distortion rather than changing it.
+        assertEquals(
+            LocalDateTime.of(2026, 3, 13, 13, 0),
+            Instant.ofEpochMilli(endedAt!!).atZone(newYork).toLocalDateTime(),
+        )
     }
 
     // --- LogDraft#toEventEntity ---
