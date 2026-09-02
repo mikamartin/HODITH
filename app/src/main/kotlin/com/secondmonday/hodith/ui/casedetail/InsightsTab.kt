@@ -72,11 +72,11 @@ import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
 import com.secondmonday.hodith.viewmodel.TrendDisplay
+import com.secondmonday.hodith.viewmodel.formatFrequencyPeriodLabel
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -247,6 +247,9 @@ private fun FrequencyCard(
     voice: Voice,
 ) {
     val locale = LocalLocale.current.platformLocale
+    val axisLabel = { periodStart: LocalDate ->
+        formatFrequencyPeriodLabel(periodStart, display.granularity, locale, voice::insightsFrequencyWeekAxisLabel)
+    }
 
     InsightsCard {
         SectionWithInfo(
@@ -298,12 +301,12 @@ private fun FrequencyCard(
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
-                    text = formatFrequencyPeriodLabel(display.bars.first().periodStart, display.granularity, locale),
+                    text = axisLabel(display.bars.first().periodStart),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = formatFrequencyPeriodLabel(display.bars.last().periodStart, display.granularity, locale),
+                    text = axisLabel(display.bars.last().periodStart),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -326,17 +329,6 @@ private fun frequencyBarBrush(decorationStyle: CardDecorationStyle): Brush {
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> Brush.verticalGradient(listOf(primary, primary))
     }
 }
-
-private fun formatFrequencyPeriodLabel(
-    periodStart: LocalDate,
-    granularity: FrequencyGranularity,
-    locale: Locale,
-): String =
-    when (granularity) {
-        FrequencyGranularity.DAY -> periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale))
-        FrequencyGranularity.WEEK -> "Week of ${periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale))}"
-        FrequencyGranularity.MONTH -> "${periodStart.month.getDisplayName(TextStyle.SHORT, locale)} ${periodStart.year}"
-    }
 
 /** Spec §10 rhythm heatmap: day-of-week columns x time-of-day rows, shaded like the calendar heatmap. */
 @Composable

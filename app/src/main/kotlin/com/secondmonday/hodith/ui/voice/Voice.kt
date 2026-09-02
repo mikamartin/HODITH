@@ -153,6 +153,9 @@ interface Voice {
     val themeOptionBright: String get() = "Bright"
     val settingsThemeInfoTitle: String
     val settingsThemeInfoBody: String
+    val settingsTimeFormatSectionLabel: String
+    val timeFormatOption12Hour: String get() = "12-hour"
+    val timeFormatOption24Hour: String get() = "24-hour"
     val settingsCheckInSectionLabel: String
     val checkInIntervalOptionOff: String get() = "Off"
     val checkInIntervalOptionSeven: String get() = "7d"
@@ -244,6 +247,9 @@ interface Voice {
     val insightsFrequencyInfoTitle: String
 
     fun insightsFrequencyInfoBody(granularity: FrequencyGranularity): String
+
+    /** Frequency chart's x-axis label for a weekly bucket, wrapping the already-formatted [date] (e.g. "Jul 9"). */
+    fun insightsFrequencyWeekAxisLabel(date: String): String
 
     /** Gaps & streaks stat-row labels — structural, identical across all three voices. */
     val insightsGapsLongestLabel: String get() = "Longest gap"
@@ -662,6 +668,7 @@ object PlainVoice : Voice {
     override val settingsThemeInfoTitle = "About themes"
     override val settingsThemeInfoBody =
         "Each theme pairs its own colors with a distinct tone of voice used throughout the app."
+    override val settingsTimeFormatSectionLabel = "Time format"
     override val settingsCheckInSectionLabel = "Check-ins"
     override val settingsCheckInInfoTitle = "About check-ins"
     override val settingsCheckInInfoBody =
@@ -771,6 +778,8 @@ object PlainVoice : Voice {
         return "Showing the most recent 12 $unit. The granularity is picked automatically based on how long this case " +
             "has been tracked, but you can switch it manually above."
     }
+
+    override fun insightsFrequencyWeekAxisLabel(date: String) = "Week of $date"
 
     override val insightsGapsInfoTitle = "About gaps & streaks"
     override val insightsGapsInfoBody =
@@ -1148,6 +1157,7 @@ object IntenseVoice : Voice {
     override val settingsThemeInfoTitle = "On the chosen skin"
     override val settingsThemeInfoBody =
         "Each skin carries its own hues — and its own tongue. Change it, and the words themselves change shape."
+    override val settingsTimeFormatSectionLabel = "The reckoning of hours"
     override val settingsCheckInSectionLabel = "The watch kept"
     override val settingsCheckInInfoTitle = "On the watch kept"
     override val settingsCheckInInfoBody =
@@ -1256,6 +1266,8 @@ object IntenseVoice : Voice {
         return "Twelve $unit, no further back — the record does not dwell on distant history. Its grain is chosen by how " +
             "long this case has been watched, though you may set it yourself above."
     }
+
+    override fun insightsFrequencyWeekAxisLabel(date: String) = "The week of $date"
 
     override val insightsGapsInfoTitle = "On silences and spells"
     override val insightsGapsInfoBody =
@@ -1627,6 +1639,7 @@ object BrightVoice : Voice {
     override val settingsThemeInfoTitle = "About themes!"
     override val settingsThemeInfoBody =
         "Every theme comes with its own colors and its own voice — switch it up and watch the whole app talk differently!"
+    override val settingsTimeFormatSectionLabel = "Clock style!"
     override val settingsCheckInSectionLabel = "Nudge me"
     override val settingsCheckInInfoTitle = "Check-ins, explained"
     override val settingsCheckInInfoBody =
@@ -1732,6 +1745,8 @@ object BrightVoice : Voice {
         return "Just the last 12 $unit — we pick days/weeks/months automatically depending on how long you've been " +
             "tracking, but feel free to flip it yourself up top!"
     }
+
+    override fun insightsFrequencyWeekAxisLabel(date: String) = "Week of $date"
 
     override val insightsGapsInfoTitle = "Gaps & streaks, explained!"
     override val insightsGapsInfoBody =

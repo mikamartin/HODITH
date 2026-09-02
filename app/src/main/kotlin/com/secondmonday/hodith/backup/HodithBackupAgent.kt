@@ -22,7 +22,11 @@ import kotlinx.coroutines.runBlocking
  */
 class HodithBackupAgent : BackupAgent() {
     override fun onFullBackup(data: FullBackupDataOutput) {
-        val settingsRepository = DataStoreSettingsRepository(DataStoreModule.provideSettingsDataStore(applicationContext))
+        val settingsRepository =
+            DataStoreSettingsRepository(
+                DataStoreModule.provideSettingsDataStore(applicationContext),
+                applicationContext,
+            )
         val backupEnabled = runBlocking { settingsRepository.observeCloudBackupEnabled().first() }
         if (backupEnabled) {
             super.onFullBackup(data)

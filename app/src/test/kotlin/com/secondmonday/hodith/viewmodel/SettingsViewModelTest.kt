@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.data.backup.BackupSerializer
 import com.secondmonday.hodith.data.backup.FakeBackupFileWriter
@@ -65,6 +66,29 @@ class SettingsViewModelTest {
             viewModel.onThemeSelect(AppTheme.BRIGHT)
 
             assertEquals(AppTheme.BRIGHT, settingsRepository.theme.value)
+        }
+
+    @Test
+    fun `uiState reflects the persisted time format`() =
+        runTest {
+            settingsRepository.timeFormat.value = TimeFormat.TWENTY_FOUR_HOUR
+            val viewModel = viewModel()
+
+            viewModel.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(TimeFormat.TWENTY_FOUR_HOUR, state.timeFormat)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `onTimeFormatSelect persists the new format`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onTimeFormatSelect(TimeFormat.TWENTY_FOUR_HOUR)
+
+            assertEquals(TimeFormat.TWENTY_FOUR_HOUR, settingsRepository.timeFormat.value)
         }
 
     @Test
