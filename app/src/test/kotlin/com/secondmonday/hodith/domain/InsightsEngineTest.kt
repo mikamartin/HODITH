@@ -3,10 +3,12 @@ package com.secondmonday.hodith.domain
 import com.secondmonday.hodith.testsupport.durationEvent
 import com.secondmonday.hodith.testsupport.eventAtDay
 import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.ZoneId
 
 class InsightsEngineTest {
     // ---- computeGapStats ----
@@ -227,6 +229,29 @@ class InsightsEngineTest {
         val result = computeGapStats(events, now = millisAtDay(22))
 
         assertTrue(!result.isBursty)
+    }
+
+    @Test
+    fun `computeGapStats counts a past gap that straddles a DST spring-forward in calendar days`() {
+        val newYork = ZoneId.of("America/New_York")
+        val noonMillis: (LocalDate) -> Long = {
+            it
+                .atTime(12, 0)
+                .atZone(newYork)
+                .toInstant()
+                .toEpochMilli()
+        }
+        // Two events a week apart around the 2026-03-08 spring-forward (a 23-hour local day).
+        val events =
+            listOf(
+                testEvent(occurredAt = noonMillis(LocalDate.of(2026, 3, 6))),
+                testEvent(occurredAt = noonMillis(LocalDate.of(2026, 3, 13))),
+            )
+
+        val result = computeGapStats(events, now = noonMillis(LocalDate.of(2026, 3, 13)), zone = newYork)
+
+        // Seven calendar days — the missing spring-forward hour must not shave it to 6.
+        assertEquals(listOf(7L), result.pastGaps)
     }
 
     // ---- computeStreakStats ----
