@@ -256,13 +256,14 @@ class SettingsScreenTest {
         }
     }
 
+    // The Data plank's Export / Import / Delete-all rows sit near the bottom of the scrolling
+    // Column; on shorter test windows (CI's emulator) they're below the fold, so each of these
+    // scrolls the row into view first — same reason as loadDemoData_tapInvokesCallback.
     @Test
     fun deleteAllData_opensConfirmDialog_confirmInvokesCallback() {
         var deleted = false
         setContent(onDeleteAllData = { deleted = true })
 
-        // Scroll first: delete-all is the last row of the last plank, below the fold on typical
-        // window sizes — same reason as loadDemoData_tapInvokesCallback.
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataButton).performScrollTo().performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmAction).performClick()
@@ -299,7 +300,7 @@ class SettingsScreenTest {
         var exported = false
         setContent(onExportClick = { exported = true })
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsExportButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportButton).performScrollTo().performClick()
 
         assertEquals(true, exported)
     }
@@ -310,7 +311,7 @@ class SettingsScreenTest {
         var confirmed = false
         setContent(onImportConfirm = { confirmed = true })
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsImportButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsImportButton).performScrollTo().performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsImportConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsImportConfirmAction).performClick()
 
@@ -322,7 +323,7 @@ class SettingsScreenTest {
         var confirmed = false
         setContent(onImportConfirm = { confirmed = true })
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsImportButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsImportButton).performScrollTo().performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsImportConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsImportCancelAction).performClick()
 
