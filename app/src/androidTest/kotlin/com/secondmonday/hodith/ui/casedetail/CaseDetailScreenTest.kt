@@ -2,6 +2,7 @@ package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -253,6 +254,66 @@ class CaseDetailScreenTest {
     }
 
     @Test
+    fun logSortToggle_hidden_whenTheCaseDoesNotTrackDuration() {
+        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+        setCaseDetailScreenContent(
+            case = startStopCase.copy(durationMode = DurationMode.NONE),
+            events = listOf(EventWithTags(event = finished, tags = emptyList())),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun logSortToggle_hidden_whenTheLogIsEmpty() {
+        setCaseDetailScreenContent(case = startStopCase, events = emptyList())
+
+        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun logSortToggle_shown_whenTheCaseTracksDurationAndHasEvents() {
+        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+        setCaseDetailScreenContent(
+            case = startStopCase.copy(durationMode = DurationMode.MANUAL),
+            events = listOf(EventWithTags(event = finished, tags = emptyList())),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSortByStartLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).assertExists()
+    }
+
+    @Test
+    fun logSortToggle_byEnded_floatsARunningEventAboveAMoreRecentlyStartedFinishedOne() {
+        val running = testEvent(id = 5L, caseId = 1L, occurredAt = 1_000L, note = "still going")
+        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 2_000L, endedAt = 3_000L, note = "all done")
+        setCaseDetailScreenContent(
+            case = startStopCase,
+            events =
+                listOf(
+                    EventWithTags(event = running, tags = emptyList()),
+                    EventWithTags(event = finished, tags = emptyList()),
+                ),
+            nowMillis = { 10_000L },
+        )
+
+        // Default "Started": the later-started finished event sits above the running one.
+        assertTrue(
+            composeTestRule.onNodeWithText("all done", substring = true).getUnclippedBoundsInRoot().top <
+                composeTestRule.onNodeWithText("still going", substring = true).getUnclippedBoundsInRoot().top,
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).performClick()
+
+        // "Ended": the running event floats to the top.
+        assertTrue(
+            composeTestRule.onNodeWithText("still going", substring = true).getUnclippedBoundsInRoot().top <
+                composeTestRule.onNodeWithText("all done", substring = true).getUnclippedBoundsInRoot().top,
+        )
+    }
+
+    @Test
     fun staleOngoingBanner_editEndTime_opensSheetInEditModeForThatEvent() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = ongoingEvent(), tags = emptyList())),
@@ -298,7 +359,8 @@ class CaseDetailScreenTest {
 
     @Test
     fun multipleOngoingEvents_rowStopButton_stopsThatEvent() {
-        val first = testEvent(id = 5L, caseId = 1L, occurredAt = 0L)
+        // Rows are newest-start first, so `first` gets the later `occurredAt`.
+        val first = testEvent(id = 5L, caseId = 1L, occurredAt = 2_000L)
         val second = testEvent(id = 6L, caseId = 1L, occurredAt = 1_000L)
         var stopped: EventEntity? = null
         setCaseDetailScreenContent(
@@ -306,7 +368,7 @@ class CaseDetailScreenTest {
             onStopEvent = { stopped = it },
         )
 
-        // Rows render in list order, so the first Stop button belongs to `first`.
+        // The first Stop button belongs to the top row, `first`.
         composeTestRule
             .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name))
             .onFirst()

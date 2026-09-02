@@ -35,18 +35,32 @@ import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 
-/** Shared shape for a single-choice segmented row (Case Edit's logFlow/durationMode/check-in, Settings' theme picker). */
+/**
+ * Shared shape for a single-choice segmented row (Case Edit's logFlow/durationMode/check-in,
+ * Settings' theme picker, Insights' frequency granularity). Defaults to a full-width row with a
+ * gap above it, for stacking under a section label; the Log tab passes [modifier] `= Modifier`
+ * and [stretchToFill] `= false` to sit inline beside its "Sort" label instead.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> SegmentedChoiceRow(
     options: List<Pair<T, String>>,
     selected: T,
     onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    stretchToFill: Boolean = true,
     enabled: (T) -> Boolean = { true },
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
-            BrightSegmentedChoiceRow(options = options, selected = selected, onSelect = onSelect, enabled = enabled)
+            BrightSegmentedChoiceRow(
+                options = options,
+                selected = selected,
+                onSelect = onSelect,
+                modifier = modifier,
+                stretchToFill = stretchToFill,
+                enabled = enabled,
+            )
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
             // Plain uses tertiaryContainer for the selected segment instead of the default
             // secondaryContainer — same reasoning as ActionRow's colors override, see its doc
@@ -60,7 +74,7 @@ fun <T> SegmentedChoiceRow(
                 } else {
                     SegmentedButtonDefaults.colors()
                 }
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            SingleChoiceSegmentedButtonRow(modifier = modifier) {
                 options.forEachIndexed { index, (option, label) ->
                     SegmentedButton(
                         selected = selected == option,
@@ -90,13 +104,13 @@ private fun <T> BrightSegmentedChoiceRow(
     options: List<Pair<T, String>>,
     selected: T,
     onSelect: (T) -> Unit,
+    modifier: Modifier,
+    stretchToFill: Boolean,
     enabled: (T) -> Boolean,
 ) {
     Row(
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
+            modifier
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                 .padding(4.dp)
@@ -109,7 +123,7 @@ private fun <T> BrightSegmentedChoiceRow(
             Box(
                 modifier =
                     Modifier
-                        .weight(1f)
+                        .then(if (stretchToFill) Modifier.weight(1f) else Modifier)
                         .clip(CircleShape)
                         .then(
                             if (isSelected) {
@@ -118,7 +132,7 @@ private fun <T> BrightSegmentedChoiceRow(
                                 Modifier
                             },
                         ).selectable(selected = isSelected, enabled = isEnabled, onClick = { onSelect(option) }, role = Role.RadioButton)
-                        .padding(vertical = 7.dp),
+                        .padding(horizontal = if (stretchToFill) 0.dp else 16.dp, vertical = 7.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

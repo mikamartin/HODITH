@@ -219,6 +219,16 @@ interface Voice {
     val caseDetailLogTabLabel: String get() = "Log"
     val caseDetailInsightsTabLabel: String get() = "Insights"
     val caseDetailHunchTabLabel: String get() = "Hunch"
+
+    /**
+     * Log tab's start/end sort toggle — structural, identical across all three voices like
+     * [insightsFrequencyGranularityDay]. Shown only when the Case tracks duration (spec §6):
+     * "Started" orders by when each event began, "Ended" floats still-running events to the top
+     * then orders the rest by when they finished.
+     */
+    val logSortLabel: String get() = "Sort"
+    val logSortByStartLabel: String get() = "Started"
+    val logSortByEndLabel: String get() = "Ended"
     val insightsNotEnoughDataMessage: String
     val insightsSectionLabelHeatmap: String get() = "Calendar heatmap"
 

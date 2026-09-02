@@ -62,6 +62,7 @@ import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.ConsolidatedStaleOngoingBanner
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
+import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.StaleOngoingBanner
 import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.rememberTickingNow
@@ -76,6 +77,7 @@ import com.secondmonday.hodith.viewmodel.CaseDetailViewModel
 import com.secondmonday.hodith.viewmodel.HunchHistoryEntry
 import com.secondmonday.hodith.viewmodel.HunchTabState
 import com.secondmonday.hodith.viewmodel.LogDraft
+import com.secondmonday.hodith.viewmodel.LogSortOrder
 import com.secondmonday.hodith.viewmodel.draftFrom
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
@@ -88,6 +90,7 @@ import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.isStaleOngoing
 import com.secondmonday.hodith.viewmodel.monthsAgo
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
+import com.secondmonday.hodith.viewmodel.sortEventsForLog
 
 private const val LOG_TAB = 0
 private const val INSIGHTS_TAB = 1
@@ -156,6 +159,7 @@ fun CaseDetailScreen(
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
     var showHunchCreationSheet by remember { mutableStateOf(false) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
+    var logSortOrder by remember { mutableStateOf(LogSortOrder.BY_START) }
 
     Scaffold(
         modifier = modifier,
@@ -214,6 +218,8 @@ fun CaseDetailScreen(
                         uiState = uiState,
                         now = now,
                         voice = voice,
+                        sortOrder = logSortOrder,
+                        onSortOrderChange = { logSortOrder = it },
                         onStopEvent = onStopEvent,
                         onDismissStalePrompt = onDismissStalePrompt,
                         onEventClick = { eventWithTags ->
@@ -294,6 +300,8 @@ private fun LogTabContent(
     uiState: CaseDetailUiState,
     now: Long,
     voice: Voice,
+    sortOrder: LogSortOrder,
+    onSortOrderChange: (LogSortOrder) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
     onDismissStalePrompt: (EventEntity) -> Unit,
     onEventClick: (EventWithTags) -> Unit,
@@ -310,6 +318,28 @@ private fun LogTabContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        // Start/end sort is only meaningful when the Case tracks duration (spec §6) — a `NONE`
+        // Case's `endedAt` is never shown, so "Ended" would order by an invisible field.
+        if (case != null && case.durationMode.tracksDuration && uiState.events.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(voice.logSortLabel, style = MaterialTheme.typography.labelLarge)
+                SegmentedChoiceRow(
+                    options =
+                        listOf(
+                            LogSortOrder.BY_START to voice.logSortByStartLabel,
+                            LogSortOrder.BY_END to voice.logSortByEndLabel,
+                        ),
+                    selected = sortOrder,
+                    onSelect = onSortOrderChange,
+                    modifier = Modifier,
+                    stretchToFill = false,
+                )
+            }
         }
         if (case != null && ongoingEvents.isNotEmpty()) {
             // The header always reads as a count (spec §6) — even for one event — so it looks the
@@ -350,6 +380,8 @@ private fun LogTabContent(
                     )
             }
         }
+        val sortedEvents =
+            case?.let { sortEventsForLog(uiState.events, sortOrder, it.durationMode) } ?: uiState.events
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
                 uiState.isLoading -> Unit
@@ -358,7 +390,7 @@ private fun LogTabContent(
                 }
                 else -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(uiState.events, key = { it.event.id }) { eventWithTags ->
+                        items(sortedEvents, key = { it.event.id }) { eventWithTags ->
                             EventRow(
                                 eventWithTags = eventWithTags,
                                 caseName = case?.name.orEmpty(),
