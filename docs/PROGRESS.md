@@ -6,10 +6,11 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 Items are grouped by how they connect, not by feature area:
 
-- **Story A — Start/Stop, duration & ongoing events** — one dependency chain; work it top to bottom.
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Blocked** — gated on something external; not startable now.
+
+The old **Story A** (Start/Stop, duration & ongoing events) is done bar one read-through, **A10**, which has no dependencies and now sits under Standalone.
 
 Each item carries:
 
@@ -17,45 +18,6 @@ Each item carries:
 - zero or more **tags** — 🎨 *Design decision* (needs a design or product-owner call before implementation) · 🌐 *External action* (work outside this repo) · 🔍 *Investigation* (needs a repro/diagnose pass before the fix is knowable).
 - **Acceptance criteria** — the checklist that says "done".
 - **Plan / Tests / Concern** — detail, unchanged from prior tracking.
-
-## Story A — Start/Stop, duration & ongoing events
-
-A round of user testing surfaced a cluster of Start/Stop and duration issues. A1–A9 are done; the rest are independent:
-
-- **A10** is an independent read-through — no file-chain dependency.
-- The **Satellite** (12h/24h time format) is done — kept below only for B2's copy-dependency pointer.
-
-### A1–A9 · done — Start/Stop & duration polish
-
-Shipped; per-branch detail is in CLEANUP_LOG.md. Left here only for the "builds on" / "sequence after" pointers below.
-
-- **A1** — gaps, `SILENT_FOR` triggers and check-in silence now count from when an event *ended*, not its start (`fix/ongoing-current-gap`, reopened as `fix/duration-gap-from-end`). `computeGapStats` also takes the `eventActiveNow` flag A5 builds on. Spec §10/§11.
-- **A2** — multiple running events per Case (`feat/multiple-ongoing-events`): `ongoingEventsIn` list beside `ongoingEventIn`, per-event Stop, "N running" summaries, "Back to ongoing" in the sheet, leave-`START_STOP` confirm in `CaseEditViewModel`. Spec §6/§10.
-- **A3** — one running-event treatment on every surface (`fix/ongoing-affordance`): "Ongoing" pill + elapsed/count, hand-drawn `StopSquare` glyph, count-only Case-detail log header, `+` log button stays put everywhere. Spec §6/§15.
-- **A4** — minutes/hours/days unit selector in the Manual duration field (`feat/duration-unit-selector`): `LogDraft.durationAmount`/`durationUnit`, `computeEndedAt` scales by unit, storage stays millis. Spec §6.
-- **A5** — the per-case calendar heatmap and streak count credit every day an event was active, not just its start (`feat/active-span-insights`): the "active span" rule written to spec §9, `domain/CalendarGrid.kt` `datesCovered` helper (A6 reuses it), `insightsTabState`'s `countsByDay` expanded across covered days. Frequency / Rhythm / Trend / verdict stay start-anchored. Also: a gaps & streaks info icon defining each metric, and the Insights "Duration" card renamed "Event duration". Spec §9/§10.
-- **A6** — duration on the Big Picture grid and the duration-aware Insights split (`feat/big-picture-duration-spans`): `CalendarEvent` gains `endedAt`/`isOngoing`; a multi-day event's icon spans every day it covered with a `primary` ring on the start day and a trail to today for a running one (`domain/CalendarGrid.kt` `spansMultipleDays` helper); the day/week detail dialogs show "ongoing since …" / "lasted …" in place of a misleading clock time on a spanned day. The frequency chart is **hidden** and the rhythm card **retitled "Start times"** for any Case with a multi-day event — `computeFrequencyStats` / trend / verdict are untouched and stay start-anchored. **Also closes the original rhythm-caveat item** (rhythm plotting starts with no caveat): the retitle is the caveat. Spec §9/§10.
-- **A7** — every duration-display surface now follows the Case's current `durationMode` (`feat/duration-display-follows-mode`): a shared `DurationMode.tracksDuration` extension (`durationMode != NONE`); each surface collapses a non-tracking Case's stored `endedAt` to a point at its entry boundary — `bigPictureUiState` nulls `CalendarEvent.endedAt`, `insightsTabState` collapses the event list once (so `spanEnd` / `hasMultiDayEvent` / `computeGapStats` all follow), `eventDetailSummary` gains a `tracksDuration` param plus an `endedAt > occurredAt` guard (zero-length events are points). Stored `endedAt` untouched; no schema change. Spec §6/§9/§10.
-- **A8** — switching a Case into `START_STOP` no longer reinterprets its open-ended events as live spans (`feat/duration-switch-in-conversion`): `onDurationModeChange` gains an enter-`START_STOP` path mirroring the leave path — a confirm dialog (`enterStartStopConfirm*` Voice ×3) when open-ended events exist, and on confirm `save()` stamps `endedAt = occurredAt` on each (an instant event, not `now`, so an old point stays a point on a round-trip). `MANUAL`'s duration-less events convert too; already-finished events are untouched. The leave-`START_STOP` body copy reworded to say why events stop *now*. Spec §6 gains the full duration-mode transition contract table; §14 notes the dialog fires in either direction. No schema change.
-- **A9** — Home's today / this-week counts follow the active span (`feat/home-counts-duration-span`): `homeCaseRows` (`viewmodel/HomeViewModel.kt`) tests span reach instead of `occurredAt` alone, so a run stopped and logged today shows on its Home row that day — counted once, not per active day. Span-end resolution extracted as `activeSpanEnd` (`viewmodel/OngoingEvent.kt`, on `DurationMode.tracksDuration`), now shared with `insightsTabState`. Both widgets inherit it through `homeCaseRows`; the Single-case widget's count gained instrumented coverage, the List widget's a manual-test item. Spec §9/§14. No schema change.
-
-### A10 · Verdict engine's handling of duration events is unreviewed
-
-*Branch: `feat/verdict-duration-review` · Complexity: S · Priority: Low · Area: Big Picture*
-
-🔍 **Investigation** — read-through first; a fix only if the read finds a real distortion. 🎨 **Design decision** — the ruling belongs in spec §8. No file-chain dependency on the rest of Story A.
-
-The verdict engine and its observation-window / observed-rate math count each event once at `occurredAt` and never look at `endedAt`. Whether a multi-day event should still count as one occurrence (likely yes), whether a still-running event counts before it stops, and whether the observation window's end should track a running event, have not been decided or tested.
-
-**Acceptance criteria**
-
-- [ ] Verdict engine, observation window, and observed-rate code read through for duration/ongoing handling.
-- [ ] A written ruling added to HODITH_SPEC §8 (even if the ruling is "unchanged — starts only, one occurrence each").
-- [ ] Code changed only if the read finds a genuine distortion; otherwise a test locking the current behaviour.
-
-### Satellite · 12h/24h time format — done
-
-Shipped on `feat/time-format-setting`; per-branch detail in CLEANUP_LOG.md. A two-value `TimeFormat` DataStore preference seeded from `DateFormat.is24HourFormat` until the user picks, an Appearance Settings row, and the four `ofPattern` formatter sites folded into `viewmodel/EventTimeFormat.kt` and threaded through a `LocalTimeFormat` CompositionLocal (no ViewModel formats clock times, so the injected-`SettingsRepository` path was moot). Added `settingsTimeFormatSectionLabel` (Voice ×3) — a B2 dependency. `ShareCardTemplate.kt` had no time formatting to consolidate.
 
 ## Story B — copy & Voice
 
@@ -88,7 +50,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item: A6 (added `bigPictureEventOngoingSince`, `bigPictureEventSpanRange`, `insightsSectionLabelRhythmStarts`), A8 (new duration-mode-change confirm dialogs), the time-format satellite (`settingsTimeFormatSectionLabel` + `insightsFrequencyWeekAxisLabel`, landed), S9 (check-in copy reword), and B1.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. The only copy-touching items still open ahead of it are S9 (check-in copy reword) and B1 (Story-only picker copy).
 
 **Acceptance criteria**
 
@@ -106,7 +68,26 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies. Pick any when resources are thin. Two soft batching opportunities, not dependencies: S3's affordance-language call overlaps A3 conceptually; S2, S4 and S5 all need an on-device pass (S2's widget repro, S4/S5's Bright-theme visual bugs) and could share one QA session.
+No cross-dependencies. Pick any when resources are thin. One real ordering constraint and three soft batching opportunities:
+
+- **S9 → B2** *(ordering)* — S9 rewrites `checkInDueNotificationBody`, so it has to land before B2's Voice audit. Noted in both items.
+- **On-device QA batch — S2 · S4 · S5, with S3** — S2 needs the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
+- **Case Detail Log-tab cluster — S4 · S8** — both touch `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (S4 fixes the empty-state alignment, S8 reworks the edit sheet opened from the tab). S7 already landed its sort row here, so expect a small rebase; doing S4 and S8 back-to-back saves a second one.
+- **Fully isolated — S1** (icon vector + Previews), **S6** (external content), and **A10** (the old Story A read-through). Any order, any time.
+
+### A10 · Verdict engine's handling of duration events is unreviewed
+
+*Branch: `feat/verdict-duration-review` · Complexity: S · Priority: Low · Area: Big Picture*
+
+🔍 **Investigation** — read-through first; a fix only if the read finds a real distortion. 🎨 **Design decision** — the ruling belongs in spec §8. No dependency on other outstanding work.
+
+The verdict engine and its observation-window / observed-rate math count each event once at `occurredAt` and never look at `endedAt`. Whether a multi-day event should still count as one occurrence (likely yes), whether a still-running event counts before it stops, and whether the observation window's end should track a running event, have not been decided or tested.
+
+**Acceptance criteria**
+
+- [ ] Verdict engine, observation window, and observed-rate code read through for duration/ongoing handling.
+- [ ] A written ruling added to HODITH_SPEC §8 (even if the ruling is "unchanged — starts only, one occurrence each").
+- [ ] Code changed only if the read finds a genuine distortion; otherwise a test locking the current behaviour.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -216,26 +197,6 @@ Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPic
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S7 · Log tab can't sort by when an event ended
-
-*Branch: `feat/log-sort-by-end` · Complexity: S · Priority: Low · Area: Duration*
-
-The case detail Log tab is hardcoded `ORDER BY occurredAt DESC` (`data/EventDao.kt`) — sorted by start. For a Case that tracks duration there's no way to view events by when they *ended*: ongoing events first, then most-recently-ended.
-
-**Acceptance criteria**
-
-- [ ] A start / end sort toggle on the Log tab, shown only when the Case tracks duration.
-- [ ] "By end" orders ongoing events first (no `endedAt`), then by `endedAt` descending.
-- [ ] Sort choice is UI state only — no persistence, no schema change.
-- [ ] Any new control label goes through Voice ×3.
-- [ ] Tests: the ordering logic covered where the Log list is assembled (`CaseDetailViewModel` mapping or a pure sort helper).
-
-**Plan** — add an end-ordered `EventDao` query (or sort in the VM) and a toggle in `CaseDetailScreen.kt`'s Log tab gated on `durationMode != NONE`. Ongoing events sort to the top.
-
-**Tests** — a pure sort-comparator test; `CaseDetailViewModel` mapping if the sort lands there.
-
-**Concern** — standalone; overlaps A3/A4 only as more duration polish, no file conflict.
-
 ### S8 · Editing an event is a bottom sheet with no close affordance; editing a Case is a full screen with a back arrow
 
 *Branch: `fix/log-sheet-dismiss-affordance` · Complexity: S · Priority: Low · Area: Bug*
@@ -255,7 +216,7 @@ The case detail Log tab is hardcoded `ORDER BY occurredAt DESC` (`data/EventDao.
 
 **Tests** — `CaseDetailScreenTest`, `HomeScreenTest`, `WidgetLogTrampolineActivityTest`.
 
-**Concern** — standalone. Shares `LogDetailSheet.kt` with A3/A4 — sequence after them, or fold the affordance into whichever lands last.
+**Concern** — standalone. Part of the Case Detail Log-tab cluster (with S4) — no dependency, but see the Standalone intro's batching note.
 
 ### S9 · Check-in notification copy is a bare reproach in the Serious voice
 
@@ -274,7 +235,7 @@ Spec §11 requires check-in copy to "ask whether anything went unlogged, never i
 
 **Tests** — `VoiceTest` (existing).
 
-**Concern** — changes existing Voice strings, so land before B2's audit (mirrors the Satellite item's note).
+**Concern** — changes existing Voice strings, so land before B2's audit.
 
 ## Blocked
 
