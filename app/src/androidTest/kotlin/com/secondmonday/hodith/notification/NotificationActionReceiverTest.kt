@@ -168,7 +168,7 @@ class NotificationActionReceiverTest {
         }
 
     @Test
-    fun actionAllQuiet_collapsesTheGroupSummary_whenOneCheckInRemains() =
+    fun actionAllQuiet_withOneCheckInRemaining_leavesTheSurvivingCheckInShowing() =
         runBlocking {
             val a = repository.getCase(trackCase(testCase(name = "Coffee ${System.currentTimeMillis()}", lastCheckInAt = 0L)))!!
             val b = repository.getCase(trackCase(testCase(name = "Migraine ${System.currentTimeMillis()}", lastCheckInAt = 0L)))!!
@@ -179,20 +179,21 @@ class NotificationActionReceiverTest {
                 waitFor { activeGroupSummary() },
             )
 
-            // Real check-in id so the receiver cancels a's actual notification, not a decoy.
+            // Real check-in id so the receiver cancels a's actual notification, not a decoy; the
+            // receiver's refreshGroupSummary() then runs against a genuine (now single-child) group.
             context.sendBroadcast(allQuietIntent(a.id, checkInNotificationId(a.id)))
 
             assertTrue(
                 "Expected a's check-in gone after All quiet",
                 waitForNotificationGone(checkInNotificationId(a.id)),
             )
-            assertTrue(
-                "Expected the receiver's refreshGroupSummary() to drop the now-redundant summary",
-                waitFor { (activeGroupSummary() == null).takeIf { it } } ?: false,
-            )
+            // b's check-in must not be collateral of the group bookkeeping.
             assertNotNull(
                 "Expected b's check-in to still be showing",
-                notificationManager.activeNotifications.firstOrNull { it.id == checkInNotificationId(b.id) },
+                waitFor {
+                    notificationManager.activeNotifications
+                        .firstOrNull { it.id == checkInNotificationId(b.id) }
+                },
             )
         }
 

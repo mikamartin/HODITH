@@ -42,9 +42,9 @@ interface Notifier {
     )
 
     /**
-     * Recompute the group summary from HODITH's currently-posted notifications. Called after every
-     * post/cancel so the summary tracks the batch; also the hook [NotificationActionReceiver] uses
-     * after an action tap, since those cancel a child without going through [notifyCheckInDue].
+     * Recompute the group summary from HODITH's currently-posted notifications. [notifyCheckInDue] /
+     * [cancelCheckIn] already keep it in step; this is the hook [NotificationActionReceiver] uses
+     * after a Log / All quiet tap, which cancels a child without going through either.
      */
     fun refreshGroupSummary(voice: Voice)
 }
@@ -92,53 +92,78 @@ class SystemNotifier
             caseId: Long,
             voice: Voice,
         ) {
-            NotificationManagerCompat.from(context).cancel(checkInNotificationId(caseId))
-            refreshGroupSummary(voice)
+            val id = checkInNotificationId(caseId)
+            NotificationManagerCompat.from(context).cancel(id)
+            syncGroupSummary(voice, removedId = id)
         }
 
+        override fun refreshGroupSummary(voice: Voice) = syncGroupSummary(voice)
+
         /**
-         * Post the group summary when 2+ HODITH notifications are showing, cancel it otherwise. The
+         * Keep the group summary in step with HODITH's posted trigger/check-in notifications. The
          * summary is the only member that alerts for the batch ([NotificationCompat.GROUP_ALERT_SUMMARY]
          * on the children) and it alerts once, so a check-in re-posted on each ~6h pass updates the
          * stack silently. Its lines are the children's own titles — already voiced, no extra key.
+         *
+         * [addedId] / [removedId] adjust for a `notify`/`cancel` that may not have reached
+         * [android.app.NotificationManager.getActiveNotifications] yet — the batch check-in pass
+         * fires several in a row, so a plain read would race itself.
+         *
+         * A one-child (or empty) group gets no summary: cancelling a `setGroupSummary(true)`
+         * notification cascades to the group's remaining children, so tearing it down while one
+         * check-in is left would take that check-in with it. Android suppresses a lone-child summary
+         * anyway (it shows the child standalone); the explicit cancel only runs at zero children,
+         * where nothing can cascade.
          */
-        override fun refreshGroupSummary(voice: Voice) {
-            val childTitles = activeGroupChildTitles()
-            if (childTitles.size < 2) {
-                NotificationManagerCompat.from(context).cancel(GROUP_SUMMARY_NOTIFICATION_ID)
-                return
+        private fun syncGroupSummary(
+            voice: Voice,
+            addedId: Int? = null,
+            removedId: Int? = null,
+        ) {
+            val children =
+                buildMap {
+                    putAll(activeGroupChildren())
+                    removedId?.let { remove(it) }
+                    addedId?.let { putIfAbsent(it, "") }
+                }
+            when {
+                children.isEmpty() -> NotificationManagerCompat.from(context).cancel(GROUP_SUMMARY_NOTIFICATION_ID)
+                children.size == 1 -> Unit
+                else -> {
+                    val lines = children.values.filter { it.isNotEmpty() }.take(GROUP_SUMMARY_MAX_LINES)
+                    val inbox = NotificationCompat.InboxStyle()
+                    lines.forEach(inbox::addLine)
+                    notify(
+                        GROUP_SUMMARY_NOTIFICATION_ID,
+                        NotificationCompat
+                            .Builder(context, ALERTS_CHANNEL_ID)
+                            .setSmallIcon(R.drawable.ic_notification)
+                            .setContentTitle(voice.notificationsGroupSummaryTitle(children.size))
+                            .setContentIntent(openAppPendingIntent(GROUP_SUMMARY_NOTIFICATION_ID, caseId = null))
+                            .setStyle(inbox)
+                            .setGroup(NOTIFICATION_GROUP_KEY)
+                            .setGroupSummary(true)
+                            .setAutoCancel(true)
+                            .setOnlyAlertOnce(true)
+                            .build(),
+                    )
+                }
             }
-            val inbox = NotificationCompat.InboxStyle()
-            childTitles.take(GROUP_SUMMARY_MAX_LINES).forEach(inbox::addLine)
-            notify(
-                GROUP_SUMMARY_NOTIFICATION_ID,
-                NotificationCompat
-                    .Builder(context, ALERTS_CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_notification)
-                    .setContentTitle(voice.notificationsGroupSummaryTitle(childTitles.size))
-                    .setContentIntent(openAppPendingIntent(GROUP_SUMMARY_NOTIFICATION_ID, caseId = null))
-                    .setStyle(inbox)
-                    .setGroup(NOTIFICATION_GROUP_KEY)
-                    .setGroupSummary(true)
-                    .setAutoCancel(true)
-                    .setOnlyAlertOnce(true)
-                    .build(),
-            )
         }
 
-        /** Titles of HODITH's posted trigger/check-in notifications — the summary excluded. */
-        private fun activeGroupChildTitles(): List<String> =
-            context
-                .getSystemService(NotificationManager::class.java)
-                .activeNotifications
-                .filter {
-                    NotificationCompat.getGroup(it.notification) == NOTIFICATION_GROUP_KEY &&
-                        it.id != GROUP_SUMMARY_NOTIFICATION_ID
-                }.mapNotNull {
-                    it.notification.extras
-                        .getCharSequence(NotificationCompat.EXTRA_TITLE)
-                        ?.toString()
+        /** id → title for HODITH's posted trigger/check-in notifications, the summary excluded. */
+        private fun activeGroupChildren(): Map<Int, String> {
+            val manager = context.getSystemService(NotificationManager::class.java)
+            val ours =
+                manager.activeNotifications.filter { sbn ->
+                    NotificationCompat.getGroup(sbn.notification) == NOTIFICATION_GROUP_KEY &&
+                        sbn.id != GROUP_SUMMARY_NOTIFICATION_ID
                 }
+            return ours.associate { sbn ->
+                val title = sbn.notification.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)
+                sbn.id to title?.toString().orEmpty()
+            }
+        }
 
         /** A broadcast targeting [NotificationActionReceiver] for one of [notifyCheckInDue]'s action buttons. */
         private fun action(
@@ -188,7 +213,7 @@ class SystemNotifier
             if (text != null) builder.setContentText(text)
             actions.forEach { builder.addAction(it) }
             notify(notificationId, builder.build())
-            refreshGroupSummary(voice)
+            syncGroupSummary(voice, addedId = notificationId)
         }
 
         /** Post [notification] under [id], or silently no-op when POST_NOTIFICATIONS isn't granted. */

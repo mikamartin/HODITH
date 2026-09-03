@@ -150,7 +150,7 @@ class NotifierContentTest {
         }
 
     @Test
-    fun cancelCheckIn_droppingToOneChild_removesTheSummary() =
+    fun cancelCheckIn_droppingToOneChild_keepsTheSurvivingCheckIn() =
         runBlocking {
             val a = testCase(id = 506L, name = "Coffee ${System.currentTimeMillis()}")
             val b = testCase(id = 507L, name = "Migraine ${System.currentTimeMillis()}")
@@ -160,13 +160,45 @@ class NotifierContentTest {
 
             notifier.cancelCheckIn(a.id, PlainVoice)
 
+            // a's check-in goes; b's must not be collateral (cancelling a group summary cascades to
+            // its children, so `refreshGroupSummary` deliberately leaves the summary in place here).
             assertTrue(
-                "a's check-in and the now-redundant summary should both be gone",
+                "a's check-in should be withdrawn",
                 waitUntilGone {
-                    findNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(a.name) } == null &&
-                        findNotification { title, _, _ -> title == PlainVoice.notificationsGroupSummaryTitle(2) } == null
+                    findNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(a.name) } == null
                 },
             )
+            assertNotNull(
+                "b's check-in must survive dropping to one child",
+                findNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(b.name) },
+            )
+        }
+
+    @Test
+    fun cancelCheckIn_forEveryChild_removesTheSummary() =
+        runBlocking {
+            val a = testCase(id = 508L, name = "Coffee ${System.currentTimeMillis()}")
+            val b = testCase(id = 509L, name = "Migraine ${System.currentTimeMillis()}")
+            notifier.notifyCheckInDue(a, 7L, PlainVoice)
+            notifier.notifyCheckInDue(b, 9L, PlainVoice)
+            assertNotNull(waitForNotification { title, _, _ -> title == PlainVoice.notificationsGroupSummaryTitle(2) })
+
+            notifier.cancelCheckIn(a.id, PlainVoice)
+            notifier.cancelCheckIn(b.id, PlainVoice)
+
+            assertTrue(
+                "no children left ⇒ both check-ins and the summary are gone",
+                waitUntilGone {
+                    findNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(a.name) } == null &&
+                        findNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(b.name) } == null &&
+                        activeGroupSummary() == null
+                },
+            )
+        }
+
+    private fun activeGroupSummary() =
+        notificationManager.activeNotifications.firstOrNull {
+            it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
         }
 
     private suspend fun waitForNotification(
