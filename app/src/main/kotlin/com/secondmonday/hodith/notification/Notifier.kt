@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.notification
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -102,20 +103,15 @@ class SystemNotifier
          * stack silently. Its lines are the children's own titles — already voiced, no extra key.
          */
         override fun refreshGroupSummary(voice: Voice) {
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                return
-            }
             val childTitles = activeGroupChildTitles()
-            val manager = NotificationManagerCompat.from(context)
             if (childTitles.size < 2) {
-                manager.cancel(GROUP_SUMMARY_NOTIFICATION_ID)
+                NotificationManagerCompat.from(context).cancel(GROUP_SUMMARY_NOTIFICATION_ID)
                 return
             }
             val inbox = NotificationCompat.InboxStyle()
             childTitles.take(GROUP_SUMMARY_MAX_LINES).forEach(inbox::addLine)
-            val summary =
+            notify(
+                GROUP_SUMMARY_NOTIFICATION_ID,
                 NotificationCompat
                     .Builder(context, ALERTS_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_notification)
@@ -126,8 +122,8 @@ class SystemNotifier
                     .setGroupSummary(true)
                     .setAutoCancel(true)
                     .setOnlyAlertOnce(true)
-                    .build()
-            manager.notify(GROUP_SUMMARY_NOTIFICATION_ID, summary)
+                    .build(),
+            )
         }
 
         /** Titles of HODITH's posted trigger/check-in notifications — the summary excluded. */
@@ -177,11 +173,6 @@ class SystemNotifier
             voice: Voice,
             actions: List<NotificationCompat.Action> = emptyList(),
         ) {
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                return
-            }
             val builder =
                 NotificationCompat
                     .Builder(context, ALERTS_CHANNEL_ID)
@@ -196,8 +187,21 @@ class SystemNotifier
                     .setOnlyAlertOnce(true)
             if (text != null) builder.setContentText(text)
             actions.forEach { builder.addAction(it) }
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            notify(notificationId, builder.build())
             refreshGroupSummary(voice)
+        }
+
+        /** Post [notification] under [id], or silently no-op when POST_NOTIFICATIONS isn't granted. */
+        private fun notify(
+            id: Int,
+            notification: Notification,
+        ) {
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+            NotificationManagerCompat.from(context).notify(id, notification)
         }
 
         private fun openAppPendingIntent(
