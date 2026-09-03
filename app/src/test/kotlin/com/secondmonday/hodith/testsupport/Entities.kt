@@ -58,7 +58,6 @@ object Fixtures {
         intensity: Int? = null,
         note: String? = null,
         loggedAt: Long = occurredAt,
-        staleNudgeDismissedAt: Long? = null,
     ) = EventEntity(
         id = id,
         caseId = caseId,
@@ -67,7 +66,6 @@ object Fixtures {
         intensity = intensity,
         note = note,
         loggedAt = loggedAt,
-        staleNudgeDismissedAt = staleNudgeDismissedAt,
     )
 }
 
@@ -111,8 +109,7 @@ fun testEvent(
     intensity: Int? = null,
     note: String? = null,
     loggedAt: Long = occurredAt,
-    staleNudgeDismissedAt: Long? = null,
-) = Fixtures.event(id, caseId, occurredAt, endedAt, intensity, note, loggedAt, staleNudgeDismissedAt)
+) = Fixtures.event(id, caseId, occurredAt, endedAt, intensity, note, loggedAt)
 
 /** A still-running `START_STOP` event: [occurredAt] set, `endedAt` null. */
 fun runningEvent(
