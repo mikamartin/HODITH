@@ -5,8 +5,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -21,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
@@ -85,10 +86,15 @@ private val INTENSITY_CHOICE_SIZE = 48.dp
 private const val DURATION_AMOUNT_MAX_DIGITS = 5
 private val DURATION_UNITS = listOf(DurationUnit.MINUTES, DurationUnit.HOURS, DurationUnit.DAYS)
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+/**
+ * The bottom-sheet container for logging a *new* event — quick-log from Home, retro-log from
+ * the Case Detail FAB, and the widget trampoline (spec §6, "≤5 seconds to complete"). Editing
+ * an existing event is [LogDetailScreen] instead, a full screen matching `CaseEditScreen` so
+ * the two edit flows read the same way. Both wrap the shared [LogDetailForm].
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogDetailSheet(
-    isEditing: Boolean,
     durationMode: DurationMode,
     intensityEnabled: Boolean,
     initialDraft: LogDraft,
@@ -97,7 +103,53 @@ fun LogDetailSheet(
     onSave: (LogDraft) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    onDelete: (() -> Unit)? = null,
+) {
+    val voice = LocalVoice.current
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        modifier = modifier,
+    ) {
+        LogDetailForm(
+            isEditing = false,
+            durationMode = durationMode,
+            intensityEnabled = intensityEnabled,
+            initialDraft = initialDraft,
+            tagSuggestions = tagSuggestions,
+            now = now,
+            onSave = onSave,
+            // The sheet's drag handle provides the top gap; keep the wider bottom inset it had.
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        ) {
+            Text(voice.logSheetNewEventTitle, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
+/**
+ * The event form itself — every field from spec §6 (time, end time / duration per
+ * `durationMode`, intensity, note, tags) plus the primary save button and the date/time picker
+ * dialogs — with no container chrome of its own. [LogDetailSheet] wraps it in a
+ * `ModalBottomSheet` (new events); [LogDetailScreen] wraps it in a `Scaffold` + `TopAppBar`
+ * (editing an existing event). All transient edit state (the working [LogDraft], the tag input,
+ * which picker is open) lives here so both wrappers stay thin; the wrapper supplies the
+ * [header] slot (a sheet title, or nothing when a `TopAppBar` already carries it) and reacts to
+ * [onSave].
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun LogDetailForm(
+    isEditing: Boolean,
+    durationMode: DurationMode,
+    intensityEnabled: Boolean,
+    initialDraft: LogDraft,
+    tagSuggestions: List<TagEntity>,
+    now: Long,
+    onSave: (LogDraft) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(16.dp),
+    header: @Composable ColumnScope.() -> Unit = {},
 ) {
     val voice = LocalVoice.current
     val zone = ZoneId.systemDefault()
@@ -107,93 +159,81 @@ fun LogDetailSheet(
     var showTimePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        modifier = modifier,
+    Column(
+        modifier =
+            modifier
+                .padding(contentPadding)
+                .verticalScroll(rememberScrollState())
+                .imePadding(),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 24.dp)
-                    .verticalScroll(rememberScrollState())
-                    .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            SheetHeader(
-                title = if (isEditing) voice.logSheetEditEventTitle else voice.logSheetNewEventTitle,
-                onDeleteClick = onDelete?.let { { showDeleteConfirm = true } },
-                deleteDescription = voice.deleteEventConfirmAction,
-            )
+        header()
 
-            TimeSection(
-                occurredAt = draft.occurredAt,
+        TimeSection(
+            occurredAt = draft.occurredAt,
+            zone = zone,
+            label = voice.logSheetTimeLabel,
+            onDateClick = { showDatePicker = true },
+            onTimeClick = { showTimePicker = true },
+        )
+
+        if (durationMode == DurationMode.START_STOP) {
+            EndTimeSection(
+                endedAt = draft.endedAt,
                 zone = zone,
-                label = voice.logSheetTimeLabel,
-                onDateClick = { showDatePicker = true },
-                onTimeClick = { showTimePicker = true },
+                voice = voice,
+                onStopNowClick = { draft = draft.copy(endedAt = now) },
+                onBackToOngoingClick = { draft = draft.copy(endedAt = null) },
+                onDateClick = { showEndDatePicker = true },
+                onTimeClick = { showEndTimePicker = true },
             )
+        }
 
-            if (durationMode == DurationMode.START_STOP) {
-                EndTimeSection(
-                    endedAt = draft.endedAt,
-                    zone = zone,
-                    voice = voice,
-                    onStopNowClick = { draft = draft.copy(endedAt = now) },
-                    onBackToOngoingClick = { draft = draft.copy(endedAt = null) },
-                    onDateClick = { showEndDatePicker = true },
-                    onTimeClick = { showEndTimePicker = true },
-                )
-            }
-
-            if (intensityEnabled) {
-                IntensitySection(
-                    label = voice.logSheetIntensityLabel,
-                    selected = draft.intensity,
-                    onSelect = { value -> draft = draft.copy(intensity = if (draft.intensity == value) null else value) },
-                )
-            }
-
-            if (durationMode == DurationMode.MANUAL) {
-                DurationSection(
-                    amount = draft.durationAmount,
-                    unit = draft.durationUnit,
-                    onAmountChange = { draft = draft.copy(durationAmount = filterDigitInput(it, maxDigits = DURATION_AMOUNT_MAX_DIGITS)) },
-                    onUnitChange = { draft = draft.copy(durationUnit = it) },
-                    voice = voice,
-                )
-            }
-
-            OutlinedTextField(
-                value = draft.note,
-                onValueChange = { draft = draft.copy(note = it) },
-                label = { Text(voice.logSheetNoteLabel) },
-                placeholder = { Text(voice.logSheetNoteHint) },
-                minLines = 2,
-                modifier = Modifier.fillMaxWidth(),
+        if (intensityEnabled) {
+            IntensitySection(
+                label = voice.logSheetIntensityLabel,
+                selected = draft.intensity,
+                onSelect = { value -> draft = draft.copy(intensity = if (draft.intensity == value) null else value) },
             )
+        }
 
-            TagsSection(
-                label = voice.logSheetTagsLabel,
-                selectedTags = draft.tags,
-                suggestions = tagSuggestions.map { it.name },
-                tagInput = tagInput,
-                onTagInputChange = { tagInput = it },
-                onAddTag = { name ->
-                    tagToAdd(name, draft.tags)?.let { tag -> draft = draft.copy(tags = draft.tags + tag) }
-                    tagInput = ""
-                },
-                onRemoveTag = { name -> draft = draft.copy(tags = draft.tags - name) },
+        if (durationMode == DurationMode.MANUAL) {
+            DurationSection(
+                amount = draft.durationAmount,
+                unit = draft.durationUnit,
+                onAmountChange = { draft = draft.copy(durationAmount = filterDigitInput(it, maxDigits = DURATION_AMOUNT_MAX_DIGITS)) },
+                onUnitChange = { draft = draft.copy(durationUnit = it) },
                 voice = voice,
             )
+        }
 
-            val isStarting = durationMode == DurationMode.START_STOP && !isEditing && draft.endedAt == null
-            Button(onClick = { onSave(draft) }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (isStarting) voice.logSheetStartButton else voice.logSheetSaveButton)
-            }
+        OutlinedTextField(
+            value = draft.note,
+            onValueChange = { draft = draft.copy(note = it) },
+            label = { Text(voice.logSheetNoteLabel) },
+            placeholder = { Text(voice.logSheetNoteHint) },
+            minLines = 2,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        TagsSection(
+            label = voice.logSheetTagsLabel,
+            selectedTags = draft.tags,
+            suggestions = tagSuggestions.map { it.name },
+            tagInput = tagInput,
+            onTagInputChange = { tagInput = it },
+            onAddTag = { name ->
+                tagToAdd(name, draft.tags)?.let { tag -> draft = draft.copy(tags = draft.tags + tag) }
+                tagInput = ""
+            },
+            onRemoveTag = { name -> draft = draft.copy(tags = draft.tags - name) },
+            voice = voice,
+        )
+
+        val isStarting = durationMode == DurationMode.START_STOP && !isEditing && draft.endedAt == null
+        Button(onClick = { onSave(draft) }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (isStarting) voice.logSheetStartButton else voice.logSheetSaveButton)
         }
     }
 
@@ -222,20 +262,23 @@ fun LogDetailSheet(
             onValueChange = { draft = draft.copy(endedAt = it) },
         )
     }
+}
 
-    if (showDeleteConfirm && onDelete != null) {
-        ConfirmDialog(
-            title = voice.deleteEventConfirmTitle,
-            body = voice.deleteEventConfirmBody,
-            confirmLabel = voice.deleteEventConfirmAction,
-            cancelLabel = voice.deleteEventCancelAction,
-            onDismiss = { showDeleteConfirm = false },
-            onConfirm = {
-                showDeleteConfirm = false
-                onDelete()
-            },
-        )
-    }
+/** Shared delete-event confirm — the wrapper owns the show/hide state and the affordance that triggers it. */
+@Composable
+fun DeleteEventConfirmDialog(
+    voice: Voice,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    ConfirmDialog(
+        title = voice.deleteEventConfirmTitle,
+        body = voice.deleteEventConfirmBody,
+        confirmLabel = voice.deleteEventConfirmAction,
+        cancelLabel = voice.deleteEventCancelAction,
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+    )
 }
 
 /**
@@ -280,22 +323,6 @@ private fun DateTimePickers(
                 onDismissTimePicker()
             },
         )
-    }
-}
-
-@Composable
-private fun SheetHeader(
-    title: String,
-    onDeleteClick: (() -> Unit)?,
-    deleteDescription: String,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(text = title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-        if (onDeleteClick != null) {
-            IconButton(onClick = onDeleteClick) {
-                Icon(Icons.Filled.Delete, contentDescription = deleteDescription)
-            }
-        }
     }
 }
 

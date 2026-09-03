@@ -53,7 +53,6 @@ import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
-import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -78,7 +77,6 @@ import com.secondmonday.hodith.viewmodel.HunchHistoryEntry
 import com.secondmonday.hodith.viewmodel.HunchTabState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.LogSortOrder
-import com.secondmonday.hodith.viewmodel.draftFrom
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.formatEventTime
@@ -100,6 +98,7 @@ private const val HUNCH_TAB = 2
 fun CaseDetailRoute(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
+    onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenTriggers: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -110,11 +109,11 @@ fun CaseDetailRoute(
         uiState = uiState,
         onBack = onBack,
         onEditCase = onEditCase,
+        onEditEvent = onEditEvent,
         onOpenTriggers = onOpenTriggers,
         onOpenShare = onOpenShare,
-        onDeleteEvent = viewModel::deleteEvent,
         newEventDraft = viewModel::newEventDraft,
-        onSaveEvent = viewModel::saveEvent,
+        onSaveEvent = viewModel::saveNewEvent,
         onStopEvent = viewModel::stopEvent,
         onDismissStalePrompt = viewModel::dismissStalePrompt,
         nowMillis = viewModel::nowMillis,
@@ -125,23 +124,17 @@ fun CaseDetailRoute(
     )
 }
 
-private data class EditRequest(
-    val event: EventEntity?,
-    val originalTags: List<TagEntity>,
-    val now: Long,
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaseDetailScreen(
     uiState: CaseDetailUiState,
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
+    onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenTriggers: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
-    onDeleteEvent: (EventEntity) -> Unit,
     newEventDraft: () -> LogDraft,
-    onSaveEvent: (LogDraft, EventEntity?, List<TagEntity>) -> Unit,
+    onSaveEvent: (LogDraft) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
     onDismissStalePrompt: (EventEntity) -> Unit,
     nowMillis: () -> Long,
@@ -155,7 +148,9 @@ fun CaseDetailScreen(
     val now by rememberTickingNow(clockNow = nowMillis)
     val ongoingEvents =
         case?.let { ongoingEventsIn(it, uiState.events.map { eventWithTags -> eventWithTags.event }) }.orEmpty()
-    var editRequest by remember { mutableStateOf<EditRequest?>(null) }
+    // Non-null while the new-event log sheet is open, holding the `now` captured when it opened.
+    // Editing an existing event is a separate destination (onEditEvent), not this sheet.
+    var newEventSheetNow by remember { mutableStateOf<Long?>(null) }
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
     var showHunchCreationSheet by remember { mutableStateOf(false) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
@@ -189,7 +184,7 @@ fun CaseDetailScreen(
         floatingActionButton = {
             if (selectedTab == LOG_TAB) {
                 FloatingActionButton(
-                    onClick = { editRequest = EditRequest(event = null, originalTags = emptyList(), now = now) },
+                    onClick = { newEventSheetNow = now },
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = voice.retroLogEntryDescription)
                 }
@@ -222,9 +217,7 @@ fun CaseDetailScreen(
                         onSortOrderChange = { logSortOrder = it },
                         onStopEvent = onStopEvent,
                         onDismissStalePrompt = onDismissStalePrompt,
-                        onEventClick = { eventWithTags ->
-                            editRequest = EditRequest(event = eventWithTags.event, originalTags = eventWithTags.tags, now = now)
-                        },
+                        onEditEvent = { event -> case?.let { onEditEvent(it.id, event.id) } },
                     )
                 INSIGHTS_TAB ->
                     if (case != null) {
@@ -257,27 +250,19 @@ fun CaseDetailScreen(
         }
     }
 
-    val request = editRequest
-    if (case != null && request != null) {
+    val sheetNow = newEventSheetNow
+    if (case != null && sheetNow != null) {
         LogDetailSheet(
-            isEditing = request.event != null,
             durationMode = case.durationMode,
             intensityEnabled = case.intensityEnabled,
-            initialDraft = request.event?.let { draftFrom(it, now = 0L, tags = request.originalTags) } ?: newEventDraft(),
+            initialDraft = newEventDraft(),
             tagSuggestions = uiState.tagSuggestions,
-            now = request.now,
+            now = sheetNow,
             onSave = { draft ->
-                onSaveEvent(draft, request.event, request.originalTags)
-                editRequest = null
+                onSaveEvent(draft)
+                newEventSheetNow = null
             },
-            onDismiss = { editRequest = null },
-            onDelete =
-                request.event?.let { event ->
-                    {
-                        onDeleteEvent(event)
-                        editRequest = null
-                    }
-                },
+            onDismiss = { newEventSheetNow = null },
         )
     }
 
@@ -304,7 +289,7 @@ private fun LogTabContent(
     onSortOrderChange: (LogSortOrder) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
     onDismissStalePrompt: (EventEntity) -> Unit,
-    onEventClick: (EventWithTags) -> Unit,
+    onEditEvent: (EventEntity) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         if (case != null && uiState.events.isNotEmpty()) {
@@ -358,14 +343,7 @@ private fun LogTabContent(
                         caseName = case.name,
                         elapsed = formatElapsedDuration(stale.occurredAt, now),
                         voice = voice,
-                        onEditEndTime = {
-                            val originalTags =
-                                uiState.events
-                                    .find { it.event.id == stale.id }
-                                    ?.tags
-                                    .orEmpty()
-                            onEventClick(EventWithTags(stale, originalTags))
-                        },
+                        onEditEndTime = { onEditEvent(stale) },
                         onStillGoing = { onDismissStalePrompt(stale) },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                     )
@@ -397,7 +375,7 @@ private fun LogTabContent(
                                 now = now,
                                 voice = voice,
                                 durationMode = case?.durationMode ?: DurationMode.NONE,
-                                onClick = { onEventClick(eventWithTags) },
+                                onClick = { onEditEvent(eventWithTags.event) },
                                 onStopEvent = onStopEvent,
                             )
                         }

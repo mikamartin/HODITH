@@ -18,7 +18,6 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
@@ -72,7 +71,8 @@ class CaseDetailScreenTest {
         onEditCase: (Long) -> Unit = {},
         onOpenTriggers: (Long) -> Unit = {},
         onOpenShare: (Long) -> Unit = {},
-        onSaveEvent: (LogDraft, EventEntity?, List<TagEntity>) -> Unit = { _, _, _ -> },
+        onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
+        onSaveEvent: (LogDraft) -> Unit = {},
         onStopEvent: (EventEntity) -> Unit = {},
         onDismissStalePrompt: (EventEntity) -> Unit = {},
         nowMillis: () -> Long = { 10_000L },
@@ -94,9 +94,9 @@ class CaseDetailScreenTest {
                         ),
                     onBack = {},
                     onEditCase = onEditCase,
+                    onEditEvent = onEditEvent,
                     onOpenTriggers = onOpenTriggers,
                     onOpenShare = onOpenShare,
-                    onDeleteEvent = {},
                     newEventDraft = {
                         LogDraft(
                             occurredAt = nowMillis(),
@@ -145,7 +145,7 @@ class CaseDetailScreenTest {
     @Test
     fun retroLogFab_forStartStopCaseWithNoOngoingEvent_showsOngoingByDefaultAndStartsOnSave() {
         var savedDraft: LogDraft? = null
-        setCaseDetailScreenContent(onSaveEvent = { draft, _, _ -> savedDraft = draft })
+        setCaseDetailScreenContent(onSaveEvent = { draft -> savedDraft = draft })
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.retroLogEntryDescription, useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
@@ -158,7 +158,7 @@ class CaseDetailScreenTest {
     @Test
     fun stopNowInSheet_thenSave_savesWithAnEndedAt() {
         var savedDraft: LogDraft? = null
-        setCaseDetailScreenContent(onSaveEvent = { draft, _, _ -> savedDraft = draft })
+        setCaseDetailScreenContent(onSaveEvent = { draft -> savedDraft = draft })
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.retroLogEntryDescription, useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetStopNowAction).performClick()
@@ -188,22 +188,18 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun editingStoppedEvent_backToOngoing_thenSave_savesWithNullEndedAt() {
-        var savedDraft: LogDraft? = null
-        val stopped = testEvent(id = 7L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+    fun eventRow_click_invokesOnEditEventForThatEvent() {
+        val event = testEvent(id = 7L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+        var edited: Pair<Long, Long>? = null
         setCaseDetailScreenContent(
-            events = listOf(EventWithTags(event = stopped, tags = emptyList())),
-            onSaveEvent = { draft, _, _ -> savedDraft = draft },
+            events = listOf(EventWithTags(event = event, tags = emptyList())),
+            onEditEvent = { caseId, eventId -> edited = caseId to eventId },
             nowMillis = { 10_000L },
         )
 
-        composeTestRule.onNodeWithText(formatEventTime(stopped.occurredAt, 10_000L, use24Hour = false)).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.logSheetBackToOngoingAction).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(formatEventTime(event.occurredAt, 10_000L, use24Hour = false)).performClick()
 
-        assertNotNull(savedDraft)
-        assertNull(savedDraft?.endedAt)
+        assertEquals(startStopCase.id to event.id, edited)
     }
 
     @Test
@@ -314,15 +310,18 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun staleOngoingBanner_editEndTime_opensSheetInEditModeForThatEvent() {
+    fun staleOngoingBanner_editEndTime_invokesOnEditEventForThatEvent() {
+        val ongoing = ongoingEvent()
+        var edited: Pair<Long, Long>? = null
         setCaseDetailScreenContent(
-            events = listOf(EventWithTags(event = ongoingEvent(), tags = emptyList())),
+            events = listOf(EventWithTags(event = ongoing, tags = emptyList())),
+            onEditEvent = { caseId, eventId -> edited = caseId to eventId },
             nowMillis = { staleNow },
         )
 
         composeTestRule.onNodeWithText(PlainVoice.staleOngoingEditEndTimeAction).performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.logSheetEditEventTitle).assertExists()
+        assertEquals(startStopCase.id to ongoing.id, edited)
     }
 
     @Test

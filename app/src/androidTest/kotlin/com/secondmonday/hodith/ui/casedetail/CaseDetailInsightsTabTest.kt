@@ -65,9 +65,9 @@ class CaseDetailInsightsTabTest {
                     uiState = CaseDetailUiState(case = case, events = events, isLoading = false),
                     onBack = {},
                     onEditCase = {},
+                    onEditEvent = { _, _ -> },
                     onOpenTriggers = {},
                     onOpenShare = {},
-                    onDeleteEvent = {},
                     newEventDraft = {
                         LogDraft(
                             occurredAt = now,
@@ -80,7 +80,7 @@ class CaseDetailInsightsTabTest {
                             existingEndedAt = null,
                         )
                     },
-                    onSaveEvent = { _, _, _ -> },
+                    onSaveEvent = {},
                     onStopEvent = {},
                     onDismissStalePrompt = {},
                     nowMillis = { now },
