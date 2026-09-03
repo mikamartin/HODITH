@@ -485,40 +485,25 @@ class LogDetailViewModelTest {
     }
 
     @Test
-    fun `planSaveEvent preserves the existing event's staleNudgeDismissedAt`() {
-        val existing = testEvent(occurredAt = 500L, endedAt = null).copy(id = 42L, staleNudgeDismissedAt = 900L)
-        val draft = testDraft(occurredAt = 500L)
-
-        val plan =
-            planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), DurationMode.START_STOP, now = 1_000L)
-
-        assertEquals(900L, plan.entity.staleNudgeDismissedAt)
-    }
-
-    @Test
-    fun `planSaveEvent reopening a stopped event clears endedAt and rebases the stale-nudge clock to now`() {
-        val existing =
-            testEvent(occurredAt = 500L, endedAt = 800L).copy(id = 42L, staleNudgeDismissedAt = 100L)
+    fun `planSaveEvent reopening a stopped event clears endedAt`() {
+        val existing = testEvent(occurredAt = 500L, endedAt = 800L).copy(id = 42L)
         val draft = testDraft(occurredAt = 500L, endedAt = null, existingEndedAt = 800L)
 
         val plan =
             planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), DurationMode.START_STOP, now = 9_000L)
 
         assertNull(plan.entity.endedAt)
-        assertEquals(9_000L, plan.entity.staleNudgeDismissedAt)
     }
 
     @Test
-    fun `planSaveEvent editing a still-stopped event leaves the stale-nudge clock untouched`() {
-        val existing =
-            testEvent(occurredAt = 500L, endedAt = 800L).copy(id = 42L, staleNudgeDismissedAt = 100L)
+    fun `planSaveEvent editing a stopped event keeps the new endedAt`() {
+        val existing = testEvent(occurredAt = 500L, endedAt = 800L).copy(id = 42L)
         val draft = testDraft(occurredAt = 500L, endedAt = 850L, existingEndedAt = 800L)
 
         val plan =
             planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), DurationMode.START_STOP, now = 9_000L)
 
         assertEquals(850L, plan.entity.endedAt)
-        assertEquals(100L, plan.entity.staleNudgeDismissedAt)
     }
 
     @Test

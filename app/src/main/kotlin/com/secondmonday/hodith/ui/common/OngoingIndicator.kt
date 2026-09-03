@@ -11,7 +11,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -139,40 +138,6 @@ fun StopIconButton(
             contentDescription = voice.stopActionDescription(caseName),
             modifier = Modifier.size(24.dp),
         )
-    }
-}
-
-/** The 24h "still going, or forgot to stop it?" gentle prompt (spec §6). */
-@Composable
-fun StaleOngoingBanner(
-    caseName: String,
-    elapsed: String,
-    voice: Voice,
-    onEditEndTime: () -> Unit,
-    onStillGoing: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ActionBanner(message = voice.staleOngoingPromptMessage(caseName, elapsed), modifier = modifier) {
-        TextButton(onClick = onEditEndTime) { Text(voice.staleOngoingEditEndTimeAction) }
-        TextButton(onClick = onStillGoing) { Text(voice.staleOngoingStillGoingAction) }
-    }
-}
-
-/**
- * The 24h prompt when several of a Case's running events are all stale (spec §6). One banner
- * rather than one per event — each event is still individually stoppable and editable from the
- * log rows just below. "Still going" re-arms every stale event at once.
- */
-@Composable
-fun ConsolidatedStaleOngoingBanner(
-    caseName: String,
-    count: Int,
-    voice: Voice,
-    onStillGoing: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ActionBanner(message = voice.staleOngoingMultiPromptMessage(caseName, count), modifier = modifier) {
-        TextButton(onClick = onStillGoing) { Text(voice.staleOngoingStillGoingAction) }
     }
 }
 

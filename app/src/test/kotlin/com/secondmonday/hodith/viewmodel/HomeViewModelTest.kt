@@ -201,24 +201,6 @@ class HomeViewModelTest {
         }
 
     @Test
-    fun `dismissStalePrompt records the dismissal time`() =
-        runTest {
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
-            repository.insertEvent(testEvent(endedAt = null))
-            val event = repository.events.value.single()
-
-            clock.advanceBy(60_000L)
-            viewModel.dismissStalePrompt(event)
-
-            assertEquals(
-                clock.nowMillis(),
-                repository.events.value
-                    .single()
-                    .staleNudgeDismissedAt,
-            )
-        }
-
-    @Test
     fun `undoQuickLog deletes the just-inserted event`() =
         runTest {
             val viewModel = HomeViewModel(repository, settingsRepository, clock)

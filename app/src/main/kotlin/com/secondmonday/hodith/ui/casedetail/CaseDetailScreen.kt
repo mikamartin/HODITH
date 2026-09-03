@@ -58,11 +58,9 @@ import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.VerdictResult
 import com.secondmonday.hodith.domain.observationSpanDays
-import com.secondmonday.hodith.ui.common.ConsolidatedStaleOngoingBanner
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
-import com.secondmonday.hodith.ui.common.StaleOngoingBanner
 import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
@@ -78,14 +76,12 @@ import com.secondmonday.hodith.viewmodel.HunchTabState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.LogSortOrder
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
-import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatExpectedFrequency
 import com.secondmonday.hodith.viewmodel.formatRate
 import com.secondmonday.hodith.viewmodel.hunchProgressFraction
 import com.secondmonday.hodith.viewmodel.hunchTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
-import com.secondmonday.hodith.viewmodel.isStaleOngoing
 import com.secondmonday.hodith.viewmodel.monthsAgo
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
 import com.secondmonday.hodith.viewmodel.sortEventsForLog
@@ -115,7 +111,6 @@ fun CaseDetailRoute(
         newEventDraft = viewModel::newEventDraft,
         onSaveEvent = viewModel::saveNewEvent,
         onStopEvent = viewModel::stopEvent,
-        onDismissStalePrompt = viewModel::dismissStalePrompt,
         nowMillis = viewModel::nowMillis,
         onAddHunch = viewModel::addHunch,
         onResolveHunch = viewModel::resolveHunch,
@@ -136,7 +131,6 @@ fun CaseDetailScreen(
     newEventDraft: () -> LogDraft,
     onSaveEvent: (LogDraft) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
-    onDismissStalePrompt: (EventEntity) -> Unit,
     nowMillis: () -> Long,
     onAddHunch: (HunchDirection, Int, ExpectedPer) -> Unit,
     onResolveHunch: (HunchEntity) -> Unit,
@@ -216,7 +210,6 @@ fun CaseDetailScreen(
                         sortOrder = logSortOrder,
                         onSortOrderChange = { logSortOrder = it },
                         onStopEvent = onStopEvent,
-                        onDismissStalePrompt = onDismissStalePrompt,
                         onEditEvent = { event -> case?.let { onEditEvent(it.id, event.id) } },
                     )
                 INSIGHTS_TAB ->
@@ -288,7 +281,6 @@ private fun LogTabContent(
     sortOrder: LogSortOrder,
     onSortOrderChange: (LogSortOrder) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
-    onDismissStalePrompt: (EventEntity) -> Unit,
     onEditEvent: (EventEntity) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -335,28 +327,6 @@ private fun LogTabContent(
                 voice = voice,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            val staleEvents = ongoingEvents.filter { isStaleOngoing(it, now) }
-            when {
-                staleEvents.size == 1 -> {
-                    val stale = staleEvents.single()
-                    StaleOngoingBanner(
-                        caseName = case.name,
-                        elapsed = formatElapsedDuration(stale.occurredAt, now),
-                        voice = voice,
-                        onEditEndTime = { onEditEvent(stale) },
-                        onStillGoing = { onDismissStalePrompt(stale) },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-                staleEvents.size >= 2 ->
-                    ConsolidatedStaleOngoingBanner(
-                        caseName = case.name,
-                        count = staleEvents.size,
-                        voice = voice,
-                        onStillGoing = { staleEvents.forEach(onDismissStalePrompt) },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-            }
         }
         val sortedEvents =
             case?.let { sortEventsForLog(uiState.events, sortOrder, it.durationMode) } ?: uiState.events

@@ -49,9 +49,6 @@ class CaseDetailScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    // Just over the 24h stale-ongoing threshold.
-    private val staleNow = 24 * 60 * 60_000L + 1
-
     private val startStopCase =
         testCase(
             id = 1L,
@@ -74,7 +71,6 @@ class CaseDetailScreenTest {
         onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
         onSaveEvent: (LogDraft) -> Unit = {},
         onStopEvent: (EventEntity) -> Unit = {},
-        onDismissStalePrompt: (EventEntity) -> Unit = {},
         nowMillis: () -> Long = { 10_000L },
         timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
         onAddHunch: (HunchDirection, Int, ExpectedPer) -> Unit = { _, _, _ -> },
@@ -111,7 +107,6 @@ class CaseDetailScreenTest {
                     },
                     onSaveEvent = onSaveEvent,
                     onStopEvent = onStopEvent,
-                    onDismissStalePrompt = onDismissStalePrompt,
                     nowMillis = nowMillis,
                     onAddHunch = onAddHunch,
                     onResolveHunch = onResolveHunch,
@@ -310,36 +305,6 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun staleOngoingBanner_editEndTime_invokesOnEditEventForThatEvent() {
-        val ongoing = ongoingEvent()
-        var edited: Pair<Long, Long>? = null
-        setCaseDetailScreenContent(
-            events = listOf(EventWithTags(event = ongoing, tags = emptyList())),
-            onEditEvent = { caseId, eventId -> edited = caseId to eventId },
-            nowMillis = { staleNow },
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.staleOngoingEditEndTimeAction).performClick()
-
-        assertEquals(startStopCase.id to ongoing.id, edited)
-    }
-
-    @Test
-    fun staleOngoingBanner_stillGoing_invokesOnDismissStalePrompt() {
-        val ongoing = ongoingEvent()
-        var dismissed: EventEntity? = null
-        setCaseDetailScreenContent(
-            events = listOf(EventWithTags(event = ongoing, tags = emptyList())),
-            onDismissStalePrompt = { dismissed = it },
-            nowMillis = { staleNow },
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).performClick()
-
-        assertEquals(ongoing, dismissed)
-    }
-
-    @Test
     fun multipleOngoingEvents_headerShowsCount_andHasNoHeaderStop() {
         setCaseDetailScreenContent(
             events =
@@ -374,26 +339,6 @@ class CaseDetailScreenTest {
             .performClick()
 
         assertEquals(first, stopped)
-    }
-
-    @Test
-    fun multipleStaleOngoingEvents_showConsolidatedBanner_thatDismissesAll() {
-        val dismissed = mutableListOf<EventEntity>()
-        setCaseDetailScreenContent(
-            events =
-                listOf(
-                    EventWithTags(testEvent(id = 5L, caseId = 1L, occurredAt = 0L), emptyList()),
-                    EventWithTags(testEvent(id = 6L, caseId = 1L, occurredAt = 10L), emptyList()),
-                ),
-            onDismissStalePrompt = { dismissed += it },
-            // Well past the 24h stale threshold so both events, not just the first, are stale.
-            nowMillis = { 3L * 24 * 60 * 60_000L },
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.staleOngoingMultiPromptMessage(startStopCase.name, 2)).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).performClick()
-
-        assertEquals(2, dismissed.size)
     }
 
     private fun eventsAt(

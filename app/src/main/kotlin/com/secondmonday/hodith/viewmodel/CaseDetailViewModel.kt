@@ -73,10 +73,6 @@ class CaseDetailViewModel
             viewModelScope.launch { repository.updateEvent(event.copy(endedAt = clock.nowMillis())) }
         }
 
-        fun dismissStalePrompt(event: EventEntity) {
-            viewModelScope.launch { repository.updateEvent(event.copy(staleNudgeDismissedAt = clock.nowMillis())) }
-        }
-
         fun newEventDraft(): LogDraft = draftFrom(event = null, now = clock.nowMillis())
 
         fun nowMillis(): Long = clock.nowMillis()

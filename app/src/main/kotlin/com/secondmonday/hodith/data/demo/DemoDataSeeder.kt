@@ -37,8 +37,7 @@ private const val QUIET_SPELL_DAYS = 60L
 // A couple of START_STOP demo Cases end with an event still running (endedAt == null) so the
 // ongoing indicator, the Insights "current gap reads 0 while an event is active" rule (spec §10),
 // and the multiple-running-events path all have live data on a fresh "Load demo data". Ages are
-// measured back from now; the second is past STALE_ONGOING_THRESHOLD_MILLIS (24h) so the "still
-// going, or forgot to stop it?" prompt also has a Case to fire on.
+// measured back from now; the second is past a day so the elapsed indicator shows its "Xd Yh" form.
 private val ONGOING_EVENT_AGES_MILLIS = listOf(2L * MILLIS_PER_HOUR, 26L * MILLIS_PER_HOUR)
 
 private enum class SeedDensity { SPARSE, BURSTY, DENSE }
