@@ -80,7 +80,8 @@ against the shared on-device database, which stays flaky at the instrumented lay
 `NotifierContentTest`'s doc comment) but is already covered against a fake repository per
 `TESTING.md`. What's left below is specifically what those tests can't reach: a notification's tap
 target (`PendingIntent` doesn't expose its wrapped `Intent` through any public API, so this can only
-be checked by actually tapping) and the real permission dialog/banner round trip.
+be checked by actually tapping), a one-time check that the OS honours the grouping/alert flags the
+instrumented tests only assert are set, and the real permission dialog/banner round trip.
 
 1. **Trigger fires a notification: tap target.** Create an `AT_LEAST` Trigger, then log enough
    events to reach its threshold (or create a `SILENT_FOR` Trigger and wait past its interval, or
@@ -91,23 +92,22 @@ be checked by actually tapping) and the real permission dialog/banner round trip
    past its effective interval (Hunch-derived, or the Settings default). Tapping the notification
    body (not an action) opens directly on that Case. (Title/body/Log/All quiet actions are covered
    by `NotifierContentTest.notifyCheckInDue_postsANotificationWithLogAndAllQuietActions`.)
-3. **Ignored check-in re-posts silently.** Leave a due check-in notification untouched (tap neither
-   action) through another periodic evaluation pass (~6h, or trigger the WorkManager job manually) —
-   its "N days quiet" text updates but it makes no new sound / heads-up (`setOnlyAlertOnce`), and it
-   still hasn't re-armed (it's not gone).
-4. **Notification grouping across Cases.** Get 2+ Cases due for a check-in in the same evaluation
-   pass (advance device time past several Cases' intervals at once) — the shade bundles them under
-   one HODITH stack with a group summary ("N cases need a look…"), only the summary makes a sound,
-   and expanding shows a row per Case each with its own Log / All quiet. Then answer **All quiet**
-   on one: that row disappears and, once one Case is left, the summary collapses away too. A fired
-   Trigger in the same window joins the same stack.
-5. **POST_NOTIFICATIONS permission flow.**
+3. **Check-in grouping: summary tap target and OS-flag sanity.** Get 2+ Cases due for a check-in in
+   the same evaluation pass (advance device time past several Cases' intervals at once). The shade
+   bundles them into one HODITH stack under a group summary ("N cases need a look…"); tapping the
+   summary opens the app on Home. One-time sanity that the OS honours flags the instrumented tests
+   only assert are *set*: the batch makes one sound, not one per Case (`GROUP_ALERT_SUMMARY`), and
+   leaving a check-in unanswered through the next ~6h pass re-posts it with an updated day count but
+   no fresh sound or heads-up (`setOnlyAlertOnce`). The group structure, per-case Log / All quiet,
+   the sibling surviving an All quiet, silent-repeat, and withdrawal of a no-longer-due check-in are
+   covered by `NotifierContentTest` / `NotificationActionReceiverTest` / `NotificationEvaluatorTest`.
+4. **POST_NOTIFICATIONS permission flow.**
    - First Trigger created, or first Case check-in enabled → the system permission dialog appears
      (once — creating a second Trigger or enabling check-ins on another Case doesn't ask again).
    - **Deny:** no notifications post; Home shows the "notifications are off" banner; tapping its
      action opens system notification settings; re-enabling there and returning to Home clears the
      banner without restarting the app.
-   - **Grant:** no banner; notifications post as in items 1–4.
+   - **Grant:** no banner; notifications post as in items 1–3.
 
 ## Share cards
 
