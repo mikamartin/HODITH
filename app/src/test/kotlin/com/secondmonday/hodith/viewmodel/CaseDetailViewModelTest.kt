@@ -14,7 +14,6 @@ import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.testsupport.Fixtures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -69,17 +68,6 @@ class CaseDetailViewModelTest {
         }
 
     @Test
-    fun `deleteEvent removes the event`() =
-        runTest {
-            repository.cases.value = listOf(testCase())
-            repository.insertEvent(testEvent())
-
-            viewModel().deleteEvent(repository.events.value.single())
-
-            assertTrue(repository.events.value.isEmpty())
-        }
-
-    @Test
     fun `stopEvent sets endedAt to now`() =
         runTest {
             repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
@@ -116,7 +104,7 @@ class CaseDetailViewModelTest {
         }
 
     @Test
-    fun `saveEvent inserts a new event when there is no existing event`() =
+    fun `saveNewEvent inserts an event with its tags`() =
         runTest {
             repository.cases.value = listOf(testCase())
             val vm = viewModel()
@@ -124,7 +112,7 @@ class CaseDetailViewModelTest {
                 awaitLoadedItem { it.isLoading }
                 val draft = vm.newEventDraft().copy(note = "first time", tags = listOf("focus"))
 
-                vm.saveEvent(draft, existingEvent = null, originalTags = emptyList())
+                vm.saveNewEvent(draft)
                 awaitItem()
                 cancelAndIgnoreRemainingEvents()
             }
@@ -137,35 +125,6 @@ class CaseDetailViewModelTest {
                     .note,
             )
             assertEquals(listOf("focus"), repository.tags.value.map { it.name })
-        }
-
-    @Test
-    fun `saveEvent updates an existing event and diffs tags`() =
-        runTest {
-            repository.cases.value = listOf(testCase())
-            val eventId = repository.insertEvent(testEvent(occurredAt = 500L, endedAt = null))
-            repository.addTagToEvent(eventId, "old")
-            val existingEvent = repository.events.value.single()
-            val originalTags = repository.observeTagsForEvent(eventId).first()
-            val vm = viewModel()
-
-            vm.uiState.test {
-                awaitLoadedItem { it.isLoading }
-                val draft = vm.newEventDraft().copy(occurredAt = 500L, note = "updated", tags = listOf("new"))
-
-                vm.saveEvent(draft, existingEvent = existingEvent, originalTags = originalTags)
-                awaitItem()
-                cancelAndIgnoreRemainingEvents()
-            }
-
-            assertEquals(1, repository.events.value.size)
-            assertEquals(
-                "updated",
-                repository.events.value
-                    .single()
-                    .note,
-            )
-            assertEquals(listOf("new"), repository.observeTagsForEvent(eventId).first().map { it.name })
         }
 
     @Test

@@ -68,10 +68,6 @@ class CaseDetailViewModel
                 initialValue = CaseDetailUiState(),
             )
 
-        fun deleteEvent(event: EventEntity) {
-            viewModelScope.launch { repository.deleteEvent(event) }
-        }
-
         /** Always immediate, regardless of `logFlow` — see [HomeViewModel.onQuickLogTap]. */
         fun stopEvent(event: EventEntity) {
             viewModelScope.launch { repository.updateEvent(event.copy(endedAt = clock.nowMillis())) }
@@ -85,23 +81,24 @@ class CaseDetailViewModel
 
         fun nowMillis(): Long = clock.nowMillis()
 
-        fun saveEvent(
-            draft: LogDraft,
-            existingEvent: EventEntity?,
-            originalTags: List<TagEntity>,
-        ) {
+        /**
+         * Quick-log / retro-log a *new* event from the Log tab's sheet. Editing an existing event
+         * is [com.secondmonday.hodith.viewmodel.LogDetailScreenViewModel]'s job, on its own screen.
+         */
+        fun saveNewEvent(draft: LogDraft) {
             val durationMode = uiState.value.case?.durationMode ?: return
-            val plan = planSaveEvent(caseId, draft, existingEvent, originalTags, durationMode, clock.nowMillis())
+            val plan =
+                planSaveEvent(
+                    caseId = caseId,
+                    draft = draft,
+                    existingEvent = null,
+                    originalTags = emptyList(),
+                    durationMode = durationMode,
+                    now = clock.nowMillis(),
+                )
             viewModelScope.launch {
-                val eventId =
-                    if (plan.isUpdate) {
-                        repository.updateEvent(plan.entity)
-                        plan.entity.id
-                    } else {
-                        repository.insertEvent(plan.entity)
-                    }
+                val eventId = repository.insertEvent(plan.entity)
                 plan.tagDiff.toAdd.forEach { repository.addTagToEvent(eventId, it) }
-                plan.tagDiff.toRemove.forEach { repository.removeTagFromEvent(eventId, it.id) }
             }
         }
 

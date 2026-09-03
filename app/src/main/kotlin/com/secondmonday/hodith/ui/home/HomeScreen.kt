@@ -190,7 +190,6 @@ fun HomeScreen(
 
     if (logSheet != null) {
         LogDetailSheet(
-            isEditing = false,
             durationMode = logSheet.durationMode,
             intensityEnabled = logSheet.intensityEnabled,
             initialDraft = logSheet.draft,

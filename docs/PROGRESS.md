@@ -72,7 +72,7 @@ No cross-dependencies. Pick any when resources are thin. One real ordering const
 
 - **S9 → B2** *(ordering)* — S9 rewrites `checkInDueNotificationBody`, so it has to land before B2's Voice audit. Noted in both items.
 - **On-device QA batch — S2 · S4 · S5, with S3** — S2 needs the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
-- **Case Detail Log-tab cluster — S4 · S8** — both touch `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (S4 fixes the empty-state alignment, S8 reworks the edit sheet opened from the tab). S7 already landed its sort row here, so expect a small rebase; doing S4 and S8 back-to-back saves a second one.
+- **Case Detail Log-tab — S4** — touches `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (empty-state alignment). S7 (sort row) and S8 (event-edit screen) already landed here, so expect a small rebase.
 - **Fully isolated — S1** (icon vector + Previews), **S6** (external content), and **A10** (the old Story A read-through). Any order, any time.
 
 ### A10 · Verdict engine's handling of duration events is unreviewed
@@ -196,27 +196,6 @@ Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPic
 - [ ] Play data-safety answers reconciled with the same copy (once a listing exists).
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
-
-### S8 · Editing an event is a bottom sheet with no close affordance; editing a Case is a full screen with a back arrow
-
-*Branch: `fix/log-sheet-dismiss-affordance` · Complexity: S · Priority: Low · Area: Bug*
-
-🎨 **Design decision** — promote event-edit to a full screen to match `CaseEditScreen`, or keep the sheet and give it an explicit close/Cancel control.
-
-`LogDetailSheet` (`ui/logsheet/LogDetailSheet.kt`) is a `ModalBottomSheet` used for both quick-logging a new event and editing an existing one; it dismisses only by swipe-down, scrim tap, or system back. `SheetHeader` shows the title and (when editing) a delete icon — no back arrow, no Cancel button. `CaseEditScreen.kt` is a full destination with a `TopAppBar` back arrow, so the two edit flows don't match. The sheet is reachable from Home, Case Detail's Log tab, and the widget trampoline (`WidgetLogTrampolineActivity`).
-
-**Acceptance criteria**
-
-- [ ] Either: event-edit becomes a screen with a `TopAppBar` matching `CaseEditScreen` (new-event quick-log may stay a sheet); or the sheet gains a visible close/Cancel affordance in `SheetHeader`.
-- [ ] Whichever way, the three entry points (Home, Log tab, widget trampoline) still reach it and still save/dismiss correctly.
-- [ ] Any new control label goes through Voice ×3.
-- [ ] Tests: the affected `CaseDetailScreenTest` / `HomeScreenTest` / `WidgetLogTrampolineActivityTest` flows updated for the new affordance.
-
-**Plan** — decide the direction first (a sheet is fine for a 5-second new-event log; an edit with time/end-time/intensity/duration/note/tags/delete is closer to `CaseEditScreen`'s weight). Sheet-with-Cancel is the smaller change; screen-for-edit is the more consistent one.
-
-**Tests** — `CaseDetailScreenTest`, `HomeScreenTest`, `WidgetLogTrampolineActivityTest`.
-
-**Concern** — standalone. Part of the Case Detail Log-tab cluster (with S4) — no dependency, but see the Standalone intro's batching note.
 
 ### S9 · Check-in notification copy is a bare reproach in the Serious voice
 

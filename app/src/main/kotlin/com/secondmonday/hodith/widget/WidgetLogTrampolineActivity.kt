@@ -58,7 +58,6 @@ class WidgetLogTrampolineActivity : ComponentActivity() {
                 HodithTheme(theme = theme) {
                     uiState?.let { state ->
                         LogDetailSheet(
-                            isEditing = false,
                             durationMode = state.durationMode,
                             intensityEnabled = state.intensityEnabled,
                             initialDraft = state.draft,
