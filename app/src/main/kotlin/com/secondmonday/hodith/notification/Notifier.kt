@@ -230,4 +230,5 @@ private const val GROUP_SUMMARY_MAX_LINES = 6
 
 private fun triggerNotificationId(triggerId: Long): Int = (triggerId % NOTIFICATION_ID_MODULUS).toInt()
 
-private fun checkInNotificationId(caseId: Long): Int = CHECK_IN_NOTIFICATION_ID_BASE + (caseId % NOTIFICATION_ID_MODULUS).toInt()
+/** `internal` so `NotificationActionReceiverTest` can pass a Case's real check-in id as `EXTRA_NOTIFICATION_ID`. */
+internal fun checkInNotificationId(caseId: Long): Int = CHECK_IN_NOTIFICATION_ID_BASE + (caseId % NOTIFICATION_ID_MODULUS).toInt()
