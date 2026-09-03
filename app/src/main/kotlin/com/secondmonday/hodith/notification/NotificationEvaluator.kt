@@ -56,24 +56,24 @@ class NotificationEvaluator
         }
 
         /**
-         * Spec §11 anti-spam: a single due check-in posts its own notification (with Log/All quiet
-         * actions), but 2+ in the same pass collapse into one summary instead of alerting once per
-         * Case. Only reachable from the periodic job — the immediate per-event hook only ever
-         * touches the one Case an event mutation just affected.
+         * Spec §11 anti-spam: every due Case posts its own check-in notification (with Log/All
+         * quiet actions), and they collapse in the shade under one Android notification group whose
+         * summary is the only member that alerts. A Case that has stopped being due has its
+         * notification withdrawn here, so the stack doesn't keep a stale entry. Only reachable from
+         * the periodic job — the immediate per-event hook only touches the one Case a mutation affected.
          */
         private suspend fun evaluateCheckIns(
             repo: HodithRepository,
             voice: Voice,
         ) {
+            val activeCases = repo.getActiveCases()
             val due =
-                repo.getActiveCases().mapNotNull { case ->
+                activeCases.mapNotNull { case ->
                     dueCheckInDecision(repo, case)?.let { case to it.silentDays }
                 }
-            when (due.size) {
-                0 -> Unit
-                1 -> due.single().let { (case, silentDays) -> notifier.notifyCheckInDue(case, silentDays, voice) }
-                else -> notifier.notifyCheckInsSummary(due.map { it.first }, voice)
-            }
+            val dueIds = due.mapTo(mutableSetOf()) { it.first.id }
+            due.forEach { (case, silentDays) -> notifier.notifyCheckInDue(case, silentDays, voice) }
+            activeCases.forEach { if (it.id !in dueIds) notifier.cancelCheckIn(it.id, voice) }
         }
 
         private suspend fun currentVoice(): Voice = voiceFor(settingsRepository.observeTheme().first())
@@ -115,7 +115,11 @@ class NotificationEvaluator
             case: CaseEntity,
             voice: Voice,
         ) {
-            val decision = dueCheckInDecision(repo, case) ?: return
+            val decision = dueCheckInDecision(repo, case)
+            if (decision == null) {
+                notifier.cancelCheckIn(case.id, voice)
+                return
+            }
             notifier.notifyCheckInDue(case, decision.silentDays, voice)
         }
 

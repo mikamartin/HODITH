@@ -482,8 +482,8 @@ interface Voice {
     val notificationLogAction: String
     val notificationAllQuietAction: String
 
-    /** Anti-spam notification collapsing 2+ same-cycle due check-ins into one. */
-    fun checkInsSummaryNotificationTitle(count: Int): String
+    /** Title of the Android group summary that bundles HODITH's trigger and check-in notifications (spec §11). */
+    fun notificationsGroupSummaryTitle(count: Int): String
 
     val notificationsDeniedBannerMessage: String
     val notificationsDeniedBannerAction: String
@@ -973,12 +973,13 @@ object PlainVoice : Voice {
 
     override fun checkInDueNotificationTitle(caseName: String) = "$caseName check-in"
 
-    override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days."
+    override fun checkInDueNotificationBody(silentDays: Long) =
+        "Nothing logged in $silentDays days. Has it stopped, or just gone unrecorded?"
 
     override val notificationLogAction = "Log"
     override val notificationAllQuietAction = "All quiet"
 
-    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases are quiet — tap to review"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases need a look — tap to review"
 
     override val notificationsDeniedBannerMessage =
         "Notifications are off, so triggers and check-ins won't alert you — check back here instead."
@@ -1449,7 +1450,7 @@ object IntenseVoice : Voice {
     override val notificationLogAction = "Log it"
     override val notificationAllQuietAction = "All is still"
 
-    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases have fallen silent — see which"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases stir — see which"
 
     override val notificationsDeniedBannerMessage =
         "Notifications are silenced. Alarms and the watch kept will not reach you — only what you find here."
@@ -1917,7 +1918,7 @@ object BrightVoice : Voice {
     override val notificationLogAction = "Log it!"
     override val notificationAllQuietAction = "All quiet!"
 
-    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases are quiet — tap to check in!"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases want your eyes 👀"
 
     override val notificationsDeniedBannerMessage =
         "Notifications are off, so trigger and check-in nudges can't reach you — swing by here instead!"

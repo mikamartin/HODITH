@@ -1,7 +1,9 @@
 package com.secondmonday.hodith.notification
 
+import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -12,7 +14,9 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -21,18 +25,18 @@ import javax.inject.Inject
 
 /**
  * Drives the real [SystemNotifier] (via the [Notifier] binding) against the real
- * [android.app.NotificationManager] — proves a Trigger fired / check-in due / check-ins summary
- * notification actually posts with the right [PlainVoice] title/body/actions, without going
- * through [NotificationEvaluator]'s data-dependent Trigger/check-in selection first.
+ * [android.app.NotificationManager] — proves a Trigger fired / check-in due notification actually
+ * posts with the right [PlainVoice] title/body/actions, and that 2+ notifications bundle under one
+ * alert-once group summary, without going through [NotificationEvaluator] first.
  *
  * Deliberately doesn't route through [NotificationEvaluator.evaluateAll]/`evaluateCase`: those run
  * against the real, shared on-device repository, which may hold Cases/Triggers left over from
  * other instrumented tests or manual QA sessions — anything that counts "how many are due" would
- * be flaky here. [NotificationEvaluator]'s own selection logic (single due check-in vs. 2+
- * collapsing into a summary) is already covered against a fake repository per `TESTING.md`; this
- * layer's job is only to prove the real [Notifier] posts real, correctly-worded notifications.
- * Doesn't verify the posted notification's tap target: `PendingIntent` doesn't expose its wrapped
- * `Intent` through any public API, so that part of the manual check remains manual.
+ * be flaky here. [NotificationEvaluator]'s own selection logic (posting per due Case, withdrawing
+ * the rest) is covered against a fake repository per `TESTING.md`; this layer's job is to prove
+ * the real [Notifier] posts real, correctly-worded, correctly-grouped notifications. Doesn't
+ * verify the posted notification's tap target: `PendingIntent` doesn't expose its wrapped `Intent`
+ * through any public API, so that part of the manual check remains manual.
  *
  * Instrumented tests run inside [dagger.hilt.android.testing.HiltTestApplication], not the real
  * [com.secondmonday.hodith.HodithApplication] — so the `hodith_alerts` channel that
@@ -100,19 +104,69 @@ class NotifierContentTest {
         }
 
     @Test
-    fun notifyCheckInsSummary_postsOneCollapsedNotification() =
+    fun notifyCheckInDue_setsOnlyAlertOnceSoRepeatedPostsDoNotReAlert() =
         runBlocking {
-            val cases =
-                listOf(
-                    testCase(id = 503L, name = "Coffee ${System.currentTimeMillis()}"),
-                    testCase(id = 504L, name = "Migraine ${System.currentTimeMillis()}"),
-                )
+            val case = testCase(id = 505L, name = "Dishes ${System.currentTimeMillis()}")
 
-            notifier.notifyCheckInsSummary(cases, PlainVoice)
+            notifier.notifyCheckInDue(case, silentDays = 8L, voice = PlainVoice)
 
-            val expectedTitle = PlainVoice.checkInsSummaryNotificationTitle(cases.size)
+            val expectedTitle = PlainVoice.checkInDueNotificationTitle(case.name)
             val posted = waitForNotification { title, _, _ -> title == expectedTitle }
-            assertNotNull("Expected a check-ins summary notification titled '$expectedTitle'", posted)
+            assertNotNull("Expected a check-in-due notification titled '$expectedTitle'", posted)
+            assertTrue(
+                "Check-in notifications must set FLAG_ONLY_ALERT_ONCE so the ~6h re-post updates silently",
+                posted!!.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0,
+            )
+        }
+
+    @Test
+    fun twoDueCheckIns_shareTheGroup_andGetAnAlertOnceSummary() =
+        runBlocking {
+            val a = testCase(id = 503L, name = "Coffee ${System.currentTimeMillis()}")
+            val b = testCase(id = 504L, name = "Migraine ${System.currentTimeMillis()}")
+
+            notifier.notifyCheckInDue(a, 7L, PlainVoice)
+            notifier.notifyCheckInDue(b, 9L, PlainVoice)
+
+            val childA = waitForNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(a.name) }
+            assertNotNull("Expected a's check-in notification", childA)
+            assertEquals(NOTIFICATION_GROUP_KEY, NotificationCompat.getGroup(childA!!.notification))
+            assertEquals(
+                "children route their alert through the summary",
+                NotificationCompat.GROUP_ALERT_SUMMARY,
+                NotificationCompat.getGroupAlertBehavior(childA.notification),
+            )
+
+            val summary = waitForNotification { title, _, _ -> title == PlainVoice.notificationsGroupSummaryTitle(2) }
+            assertNotNull("Expected a group summary once 2 check-ins show", summary)
+            assertTrue(
+                "the summary must be the group summary",
+                summary!!.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0,
+            )
+            assertTrue(
+                "the summary alerts once so silent re-posts don't re-nag",
+                summary.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0,
+            )
+        }
+
+    @Test
+    fun cancelCheckIn_droppingToOneChild_removesTheSummary() =
+        runBlocking {
+            val a = testCase(id = 506L, name = "Coffee ${System.currentTimeMillis()}")
+            val b = testCase(id = 507L, name = "Migraine ${System.currentTimeMillis()}")
+            notifier.notifyCheckInDue(a, 7L, PlainVoice)
+            notifier.notifyCheckInDue(b, 9L, PlainVoice)
+            assertNotNull(waitForNotification { title, _, _ -> title == PlainVoice.notificationsGroupSummaryTitle(2) })
+
+            notifier.cancelCheckIn(a.id, PlainVoice)
+
+            assertTrue(
+                "a's check-in and the now-redundant summary should both be gone",
+                waitUntilGone {
+                    findNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(a.name) } == null &&
+                        findNotification { title, _, _ -> title == PlainVoice.notificationsGroupSummaryTitle(2) } == null
+                },
+            )
         }
 
     private suspend fun waitForNotification(
@@ -127,6 +181,18 @@ class NotifierContentTest {
             attempts++
         }
         return found
+    }
+
+    private fun waitUntilGone(
+        maxAttempts: Int = 30,
+        condition: () -> Boolean,
+    ): Boolean {
+        var attempts = 0
+        while (!condition() && attempts < maxAttempts) {
+            Thread.sleep(200)
+            attempts++
+        }
+        return condition()
     }
 
     private fun findNotification(matches: (title: String?, text: String?, actionTitles: List<String>) -> Boolean) =

@@ -6,12 +6,14 @@ import android.content.Intent
 import androidx.core.app.NotificationManagerCompat
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.quickLogEvent
+import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.widget.EXTRA_CASE_ID
 import com.secondmonday.hodith.widget.WidgetEntryPoint
 import com.secondmonday.hodith.widget.WidgetLogTrampolineActivity
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 const val ACTION_LOG = "com.secondmonday.hodith.notification.ACTION_LOG"
@@ -48,6 +50,11 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 if (notificationId != -1) {
                     NotificationManagerCompat.from(appContext).cancel(notificationId)
                 }
+                // ACTION_ALL_QUIET updates the Case, which doesn't run NotificationEvaluator; even
+                // for ACTION_LOG the evaluator's own refresh may not have landed yet. Recompute the
+                // group summary here so a now-single check-in stack drops its summary.
+                val voice = voiceFor(entryPoint.settingsRepository().observeTheme().first())
+                entryPoint.notifier().refreshGroupSummary(voice)
             } finally {
                 pendingResult.finish()
             }

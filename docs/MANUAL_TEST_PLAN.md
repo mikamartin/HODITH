@@ -91,16 +91,16 @@ be checked by actually tapping) and the real permission dialog/banner round trip
    past its effective interval (Hunch-derived, or the Settings default). Tapping the notification
    body (not an action) opens directly on that Case. (Title/body/Log/All quiet actions are covered
    by `NotifierContentTest.notifyCheckInDue_postsANotificationWithLogAndAllQuietActions`.)
-3. **Ignored check-in re-fires.** Leave a due check-in notification untouched (tap neither action)
-   through another periodic evaluation pass (~6h, or trigger the WorkManager job manually) — it
-   fires again rather than staying silently resolved.
-4. **Check-in summary collapsing: real due-count selection and tap target.** Get 2+ Cases due for a
-   check-in in the same evaluation pass (e.g. advance device time past several Cases' intervals at
-   once) — one summary notification appears instead of one per Case, and tapping it opens Home.
-   (The summary notification's own title and that it's a single collapsed post are covered by
-   `NotifierContentTest.notifyCheckInsSummary_postsOneCollapsedNotification`; this item is about
-   `NotificationEvaluator` actually selecting "2+ due" from real data and the tap target, neither of
-   which that test exercises.)
+3. **Ignored check-in re-posts silently.** Leave a due check-in notification untouched (tap neither
+   action) through another periodic evaluation pass (~6h, or trigger the WorkManager job manually) —
+   its "N days quiet" text updates but it makes no new sound / heads-up (`setOnlyAlertOnce`), and it
+   still hasn't re-armed (it's not gone).
+4. **Notification grouping across Cases.** Get 2+ Cases due for a check-in in the same evaluation
+   pass (advance device time past several Cases' intervals at once) — the shade bundles them under
+   one HODITH stack with a group summary ("N cases need a look…"), only the summary makes a sound,
+   and expanding shows a row per Case each with its own Log / All quiet. Then answer **All quiet**
+   on one: that row disappears and, once one Case is left, the summary collapses away too. A fired
+   Trigger in the same window joins the same stack.
 5. **POST_NOTIFICATIONS permission flow.**
    - First Trigger created, or first Case check-in enabled → the system permission dialog appears
      (once — creating a second Trigger or enabling check-ins on another Case doesn't ask again).

@@ -1,7 +1,9 @@
 package com.secondmonday.hodith.widget
 
 import com.secondmonday.hodith.data.HodithRepository
+import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.notification.Notifier
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -18,4 +20,8 @@ interface WidgetEntryPoint {
     fun repository(): HodithRepository
 
     fun clock(): Clock
+
+    fun settingsRepository(): SettingsRepository
+
+    fun notifier(): Notifier
 }

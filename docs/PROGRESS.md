@@ -50,7 +50,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. The only copy-touching items still open ahead of it are S9 (check-in copy reword) and B1 (Story-only picker copy).
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. The only copy-touching item still open ahead of it is B1 (Story-only picker copy). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit.
 
 **Acceptance criteria**
 
@@ -196,25 +196,6 @@ Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPic
 - [ ] Play data-safety answers reconciled with the same copy (once a listing exists).
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
-
-### S9 · Check-in notification copy is a bare reproach in the Serious voice
-
-*Branch: `fix/check-in-notification-copy` · Complexity: S · Priority: Medium · Area: Voice*
-
-Spec §11 requires check-in copy to "ask whether anything went unlogged, never imply the user should keep it up". The Serious `checkInDueNotificationBody` (`ui/voice/Voice.kt`) is just `"Nothing logged in $silentDays days."` — a flat statement with no question, which reads as a scold. Goth (`"$silentDays days of silence. Has it stopped, or have you?"`) and Quirky (`"Nothing logged in $silentDays days — all quiet, or did you forget?"`) both already pose the question.
-
-**Acceptance criteria**
-
-- [ ] `checkInDueNotificationBody` in all three voices asks the "did something go unlogged?" question per §11; Serious brought in line with Goth/Quirky.
-- [ ] `checkInDueNotificationTitle` / `checkInsSummaryNotificationTitle` reviewed for the same tone in all three voices.
-- [ ] Copy only — no new keys, no behaviour change, no spec edit (§11 already requires this framing). Re-fire cadence is explicitly out of scope.
-- [ ] `VoiceTest`'s existing non-blank / no-gamification checks still pass.
-
-**Plan** — reword the three `checkInDueNotificationBody` overrides (and check the two title keys) in `Voice.kt`. Pure string edits.
-
-**Tests** — `VoiceTest` (existing).
-
-**Concern** — changes existing Voice strings, so land before B2's audit.
 
 ## Blocked
 
