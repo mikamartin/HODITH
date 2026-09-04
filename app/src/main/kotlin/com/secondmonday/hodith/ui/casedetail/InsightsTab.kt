@@ -110,7 +110,7 @@ internal fun InsightsTabContent(
     when (state) {
         is InsightsTabState.NotEnoughData ->
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(voice.insightsNotEnoughDataMessage)
+                Text(voice.insightsNotEnoughDataMessage(state.eventsRemaining))
             }
         is InsightsTabState.Ready ->
             Column(

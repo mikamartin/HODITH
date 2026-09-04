@@ -195,7 +195,7 @@ class ShareCardStateTest {
             shareCardState(
                 case = testCase(),
                 displayName = testCase().name,
-                insightsState = InsightsTabState.NotEnoughData,
+                insightsState = InsightsTabState.NotEnoughData(eventsRemaining = 1),
                 hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 1,
                 observedDays = 3,
@@ -216,7 +216,7 @@ class ShareCardStateTest {
             shareCardState(
                 case = case,
                 displayName = "My custom title",
-                insightsState = InsightsTabState.NotEnoughData,
+                insightsState = InsightsTabState.NotEnoughData(eventsRemaining = 1),
                 hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 1,
                 observedDays = 1,
@@ -237,7 +237,7 @@ class ShareCardStateTest {
             shareCardState(
                 case = testCase(),
                 displayName = testCase().name,
-                insightsState = InsightsTabState.NotEnoughData,
+                insightsState = InsightsTabState.NotEnoughData(eventsRemaining = 1),
                 hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 1,
                 observedDays = 1,

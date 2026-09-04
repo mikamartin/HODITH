@@ -422,6 +422,11 @@ private fun HunchNoneCard(
     HunchCard {
         Text(voice.hunchTabNoneTitle, style = MaterialTheme.typography.titleMedium)
         Text(voice.hunchTabNoneBody, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            voice.hunchTabNoneDataNote,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Button(onClick = onAddClick) { Text(voice.hunchAddButtonLabel) }
     }
 }

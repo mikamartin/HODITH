@@ -362,7 +362,17 @@ class CaseDetailScreenTest {
         openHunchTab()
 
         composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneDataNote).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.hunchNudgeTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun hunchTab_zeroEvents_stillOffersAddingAHunch() {
+        setCaseDetailScreenContent(events = emptyList())
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneDataNote).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.hunchAddButtonLabel).assertExists()
     }
 
     @Test
