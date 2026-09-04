@@ -422,11 +422,13 @@ private fun IntensityChoice(
     onClick: () -> Unit,
 ) {
     val background = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val ringColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
     Box(
         modifier =
             Modifier
                 .size(INTENSITY_CHOICE_SIZE)
                 .background(background, CircleShape)
+                .border(2.dp, ringColor, CircleShape)
                 .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
         contentAlignment = Alignment.Center,
     ) {
@@ -736,4 +738,37 @@ private fun DurationSectionBrightPreview() {
     HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
         CompositionLocalProvider(LocalVoice provides voiceFor(AppTheme.BRIGHT)) { DurationSectionPreviewContent() }
     }
+}
+
+/** Selected vs. unselected side by side, so the ring is visible against each theme's own colors. */
+@Composable
+private fun IntensityChoicePreviewContent() {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
+        IntensityChoice(value = 3, selected = true, onClick = {})
+        IntensityChoice(value = 3, selected = false, onClick = {})
+    }
+}
+
+@Preview(name = "IntensityChoice — Plain light", showBackground = true, widthDp = 160)
+@Composable
+private fun IntensityChoicePlainLightPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) { IntensityChoicePreviewContent() }
+}
+
+@Preview(name = "IntensityChoice — Plain dark", showBackground = true, widthDp = 160)
+@Composable
+private fun IntensityChoicePlainDarkPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = true) { IntensityChoicePreviewContent() }
+}
+
+@Preview(name = "IntensityChoice — Intense", showBackground = true, widthDp = 160)
+@Composable
+private fun IntensityChoiceIntensePreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) { IntensityChoicePreviewContent() }
+}
+
+@Preview(name = "IntensityChoice — Bright", showBackground = true, widthDp = 160)
+@Composable
+private fun IntensityChoiceBrightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) { IntensityChoicePreviewContent() }
 }

@@ -15,6 +15,36 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/case-icon-selection-contrast
+
+**Scope:** PROGRESS.md item S3 — selection in the icon picker (`IconChoice`/`BrightIconChoice` in `CaseEditScreen.kt`) and the intensity selector (`IntensityChoice` in `LogDetailSheet.kt`) was shown by a background-color swap alone (`primaryContainer` vs. `surfaceVariant`, or Bright's 16% tint wash), with near-identical lightness in each pair — violating spec §3 principle 6 ("colour is never the only distinguisher").
+
+**Design decision taken with the user before building:** a stroked ring (2dp border in the primary/tint color, present only when selected), over a checkmark overlay or a scale/elevation change — chosen for direct precedent already in the app (`BigPictureGrid.kt`'s 2dp tint border marking "today") and because it adapts to both the flat-fill (Plain/Intense) and glow-halo (Bright) visual languages without crowding the small 40-48dp circles a checkmark badge would.
+
+**Found & fixed:**
+- `IconChoice` (Plain/Intense) and `IntensityChoice` gain `.border(2.dp, if (selected) primary else Color.Transparent, CircleShape)` — transparent when unselected so layout size never shifts between states.
+- `BrightIconChoice`'s selected branch gains the same 2dp primary border around `IconHalo`, sitting at the tinted circle's edge (the halo's blurred glow still bleeds past it); the unselected branch's existing faint 8% border is unchanged.
+- New Previews added for both components — Plain light/dark, Intense, Bright — each rendering a selected and unselected instance side by side, per the item's own acceptance criteria (no prior test covered selection visuals).
+
+**Sections walked, nothing to do (checked against the actual diff/repo state, not from memory):**
+- *Duplication* — `git diff` shows the `ringColor`/`.border(...)` pair repeats verbatim in `IconChoice` and `IntensityChoice` (two call sites, three lines); left inline per the "three similar lines" rule rather than extracting a shared modifier. `BrightIconChoice` differs enough (no transparent-ring branch, border applied directly to the already-conditional `IconHalo` call) that a shared helper wouldn't fit all three cleanly anyway. Grepped the rest of `ui/` for the same `if (selected) …Container else surfaceVariant`-style swap to check whether another spot has the identical bug S3 didn't name: `BigPictureGrid.kt`'s `CaseFilterChip`/`TagFilterChip` (lines 676-719) looked similar at a glance but already distinguish selection by fill-vs-outline shape — selected sets the border color equal to the fill (reads as a solid pill), unselected uses a visibly different `outlineVariant` border on plain `surface` — a real non-color affordance already, so out of scope, not a missed duplicate.
+- *Decoupling/Complexity* — no logic touched; read both composables post-edit, neither changed shape or gained nesting.
+- *Dead code* — `ktlintCheck` (which enforces no-unused-imports) passed clean on both files, including the newly added `Color` import in each.
+- *Hardcoded values* — `2.dp` matches the stroke width `BigPictureGrid.kt` already uses for its "today" ring (confirmed by reading that file); not a domain/product constant.
+- *Accessibility* — re-grepped `ICON_CHOICE_SIZE`/`INTENSITY_CHOICE_SIZE`: both still defined as `48.dp` and untouched by this diff, so touch targets are unchanged; selection now reads by ring presence, not color, addressing the checklist's "more than color alone" bullet.
+- *Deprecated APIs* — `ktlintCheck`/`lintDebug`/`assembleDebug` all ran clean; the only compiler warning (a `@param`-target annotation note in `DataStoreSettingsRepository.kt`) predates this branch and isn't in a touched file.
+- *Spec Review* — read `HODITH_SPEC.md` §3 principle 6 directly: it's about telling *Cases* apart by icon rather than color, not selection-state UI generally. This fix aligns with the principle's spirit but doesn't touch spec text since the spec itself didn't need correcting.
+- *Tests* — re-grepped `app/src/test` and `app/src/androidTest` for `IconChoice`/`IntensityChoice` after the edits: no matches in either, so nothing needed updating; visual-only change, covered by the new Previews only, matching the item's own "Tests" plan.
+- *Repo hygiene* — `git status --short` after all edits shows exactly the two source files plus `PROGRESS.md`/`CLEANUP_LOG.md`, nothing stray or secret-shaped.
+
+**Deferred:** nothing.
+
+**Docs updated:** `PROGRESS.md` — S3 section removed (resolved).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green.
+
+---
+
 ## feat/empty-state-messaging
 
 **Scope:** User noticed the Hunch tab's nudge card claimed "You've logged 5 events" on a case with far more than 5 — `Voice.hunchNudgeBody` baked the nudge *threshold* constant into the copy instead of the real event count. That led to a review of "not enough data yet" messaging across Big Picture, Insights, and the Hunch tab, and three related changes alongside the fix: (1) Big Picture's grid now always renders once ≥1 Case exists, with a note above it only at zero events, clearing the moment one exists; (2) Insights' not-enough-data placeholder now states how many more events are needed, from the real count, instead of a fixed message; (3) the Hunch tab's "no active Hunch" invite gained a short aside noting that checking a Hunch against reality takes data roughly proportionate to the hunch itself — Hunch creation was already available at 0 events, so no gating logic changed there.
