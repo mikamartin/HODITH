@@ -379,6 +379,7 @@ private fun HunchTabContent(
                     HunchNudgeCard(
                         caseIcon = case.icon,
                         caseName = case.name,
+                        eventCount = events.size,
                         voice = voice,
                         onAdd = onAddClick,
                         onDismiss = onDismissNudge,
@@ -429,13 +430,14 @@ private fun HunchNoneCard(
 private fun HunchNudgeCard(
     caseIcon: String,
     caseName: String,
+    eventCount: Int,
     voice: Voice,
     onAdd: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     HunchCard {
         Text(voice.hunchNudgeTitle, style = MaterialTheme.typography.titleMedium)
-        Text(voice.hunchNudgeBody(caseIcon, caseName), style = MaterialTheme.typography.bodyMedium)
+        Text(voice.hunchNudgeBody(caseIcon, caseName, eventCount), style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onAdd) { Text(voice.hunchAddButtonLabel) }
             TextButton(onClick = onDismiss) { Text(voice.hunchNudgeDismissAction) }

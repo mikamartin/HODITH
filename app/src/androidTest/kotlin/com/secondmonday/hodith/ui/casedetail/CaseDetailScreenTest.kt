@@ -374,6 +374,14 @@ class CaseDetailScreenTest {
     }
 
     @Test
+    fun hunchTab_nudgeBody_reflectsTheRealEventCount_notTheFixedThreshold() {
+        setCaseDetailScreenContent(events = eventsAt(8))
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeBody(startStopCase.icon, startStopCase.name, 8)).assertExists()
+    }
+
+    @Test
     fun hunchTab_dismissNudge_invokesOnDismissHunchNudge() {
         var dismissed = false
         setCaseDetailScreenContent(events = eventsAt(5), onDismissHunchNudge = { dismissed = true })
