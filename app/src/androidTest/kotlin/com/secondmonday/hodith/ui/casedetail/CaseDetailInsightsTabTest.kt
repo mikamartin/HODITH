@@ -82,7 +82,6 @@ class CaseDetailInsightsTabTest {
                     },
                     onSaveEvent = {},
                     onStopEvent = {},
-                    onDismissStalePrompt = {},
                     nowMillis = { now },
                     onAddHunch = { _, _, _ -> },
                     onResolveHunch = {},

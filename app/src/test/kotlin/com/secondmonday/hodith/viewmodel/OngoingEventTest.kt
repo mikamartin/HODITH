@@ -7,7 +7,6 @@ import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.testsupport.testCase
 import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -139,35 +138,5 @@ class OngoingEventTest {
     fun `formatElapsedDuration renders a day or more as days and hours`() {
         assertEquals("1d 0h", formatElapsedDuration(startMillis = 0L, nowMillis = MILLIS_PER_DAY))
         assertEquals("2d 3h", formatElapsedDuration(startMillis = 0L, nowMillis = 2 * MILLIS_PER_DAY + 3 * MILLIS_PER_HOUR))
-    }
-
-    // --- isStaleOngoing ---
-
-    @Test
-    fun `isStaleOngoing is false just under the threshold`() {
-        val event = testEvent(occurredAt = 0L)
-
-        assertFalse(isStaleOngoing(event, now = MILLIS_PER_DAY - 1))
-    }
-
-    @Test
-    fun `isStaleOngoing is true at exactly the threshold with no prior dismissal`() {
-        val event = testEvent(occurredAt = 0L)
-
-        assertTrue(isStaleOngoing(event, now = MILLIS_PER_DAY))
-    }
-
-    @Test
-    fun `isStaleOngoing stays suppressed just under a day after being dismissed`() {
-        val event = testEvent(occurredAt = 0L).copy(staleNudgeDismissedAt = MILLIS_PER_DAY)
-
-        assertFalse(isStaleOngoing(event, now = 2 * MILLIS_PER_DAY - 1))
-    }
-
-    @Test
-    fun `isStaleOngoing re-arms exactly a day after being dismissed`() {
-        val event = testEvent(occurredAt = 0L).copy(staleNudgeDismissedAt = MILLIS_PER_DAY)
-
-        assertTrue(isStaleOngoing(event, now = 2 * MILLIS_PER_DAY))
     }
 }

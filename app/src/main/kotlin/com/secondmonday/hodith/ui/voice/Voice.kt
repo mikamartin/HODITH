@@ -140,8 +140,6 @@ interface Voice {
 
     /** Clears an edited event's end time, putting it back into the ongoing state (spec §6). */
     val logSheetBackToOngoingAction: String
-    val staleOngoingEditEndTimeAction: String
-    val staleOngoingStillGoingAction: String
     val quickLogUndoAction: String
     val settingsSupportSectionLabel: String
     val settingsRateAppButton: String
@@ -341,17 +339,6 @@ interface Voice {
     /** Trailing summary after [ongoingPillLabel] once more than one event is running (spec §6). */
     fun ongoingCountIndicator(count: Int): String
 
-    fun staleOngoingPromptMessage(
-        caseName: String,
-        elapsed: String,
-    ): String
-
-    /** One consolidated banner when several of a Case's running events are all past the 24h mark. */
-    fun staleOngoingMultiPromptMessage(
-        caseName: String,
-        count: Int,
-    ): String
-
     /** Body of the [leaveStartStopConfirmTitle] dialog — names how many events will be stopped. */
     fun leaveStartStopConfirmBody(runningCount: Int): String
 
@@ -495,8 +482,8 @@ interface Voice {
     val notificationLogAction: String
     val notificationAllQuietAction: String
 
-    /** Anti-spam notification collapsing 2+ same-cycle due check-ins into one. */
-    fun checkInsSummaryNotificationTitle(count: Int): String
+    /** Title of the Android group summary that bundles HODITH's trigger and check-in notifications (spec §11). */
+    fun notificationsGroupSummaryTitle(count: Int): String
 
     val notificationsDeniedBannerMessage: String
     val notificationsDeniedBannerAction: String
@@ -667,8 +654,6 @@ object PlainVoice : Voice {
     override val logSheetOngoingLabel = "Ongoing"
     override val logSheetStopNowAction = "Stop now"
     override val logSheetBackToOngoingAction = "Back to ongoing"
-    override val staleOngoingEditEndTimeAction = "Edit end time"
-    override val staleOngoingStillGoingAction = "Still going"
     override val quickLogUndoAction = "Undo"
     override val settingsSupportSectionLabel = "Support"
     override val settingsRateAppButton = "Rate the app"
@@ -836,16 +821,6 @@ object PlainVoice : Voice {
 
     override fun ongoingCountIndicator(count: Int) = "$count running"
 
-    override fun staleOngoingPromptMessage(
-        caseName: String,
-        elapsed: String,
-    ) = "Still going, or forgot to stop $caseName? ($elapsed and counting.)"
-
-    override fun staleOngoingMultiPromptMessage(
-        caseName: String,
-        count: Int,
-    ) = "$count events on $caseName have been running over a day. Still going, or forgot to stop them?"
-
     override fun leaveStartStopConfirmBody(runningCount: Int) =
         "Only Start/Stop tracks a running event, so switching away stops all $runningCount of them now, at the current time."
 
@@ -998,12 +973,13 @@ object PlainVoice : Voice {
 
     override fun checkInDueNotificationTitle(caseName: String) = "$caseName check-in"
 
-    override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days."
+    override fun checkInDueNotificationBody(silentDays: Long) =
+        "Nothing logged in $silentDays days. Has it stopped, or just gone unrecorded?"
 
     override val notificationLogAction = "Log"
     override val notificationAllQuietAction = "All quiet"
 
-    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases are quiet — tap to review"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases need a look — tap to review"
 
     override val notificationsDeniedBannerMessage =
         "Notifications are off, so triggers and check-ins won't alert you — check back here instead."
@@ -1156,8 +1132,6 @@ object IntenseVoice : Voice {
     override val logSheetOngoingLabel = "Still unfolding"
     override val logSheetStopNowAction = "Seal it now"
     override val logSheetBackToOngoingAction = "Unseal it — still unfolding"
-    override val staleOngoingEditEndTimeAction = "Mark when it ended"
-    override val staleOngoingStillGoingAction = "Still unfolding"
     override val quickLogUndoAction = "Reverse it"
     override val settingsSupportSectionLabel = "The outside world"
     override val settingsRateAppButton = "Render a verdict"
@@ -1322,16 +1296,6 @@ object IntenseVoice : Voice {
 
     override fun ongoingCountIndicator(count: Int) = "$count still unfolding"
 
-    override fun staleOngoingPromptMessage(
-        caseName: String,
-        elapsed: String,
-    ) = "$caseName has lingered $elapsed. Still unfolding, or simply forgotten?"
-
-    override fun staleOngoingMultiPromptMessage(
-        caseName: String,
-        count: Int,
-    ) = "$count threads of $caseName have lingered past a day. Still unfolding, or simply forgotten?"
-
     override fun leaveStartStopConfirmBody(runningCount: Int) =
         "Only Start/Stop keeps a thread open, so leaving it seals all $runningCount that still run — here, now, at this very moment."
 
@@ -1486,7 +1450,7 @@ object IntenseVoice : Voice {
     override val notificationLogAction = "Log it"
     override val notificationAllQuietAction = "All is still"
 
-    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases have fallen silent — see which"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases stir — see which"
 
     override val notificationsDeniedBannerMessage =
         "Notifications are silenced. Alarms and the watch kept will not reach you — only what you find here."
@@ -1638,8 +1602,6 @@ object BrightVoice : Voice {
     override val logSheetOngoingLabel = "Still going!"
     override val logSheetStopNowAction = "Stop the clock!"
     override val logSheetBackToOngoingAction = "Actually, still going!"
-    override val staleOngoingEditEndTimeAction = "Fix the end time"
-    override val staleOngoingStillGoingAction = "Yep, still going!"
     override val quickLogUndoAction = "Oops, undo!"
     override val settingsSupportSectionLabel = "Spread the word!"
     override val settingsRateAppButton = "Give us stars!"
@@ -1802,16 +1764,6 @@ object BrightVoice : Voice {
 
     override fun ongoingCountIndicator(count: Int) = "$count still going!"
 
-    override fun staleOngoingPromptMessage(
-        caseName: String,
-        elapsed: String,
-    ) = "$caseName's been going $elapsed — still happening, or did you just forget?"
-
-    override fun staleOngoingMultiPromptMessage(
-        caseName: String,
-        count: Int,
-    ) = "$count of $caseName's events have been running over a day — still happening, or did you forget them?"
-
     override fun leaveStartStopConfirmBody(runningCount: Int) =
         "Start/Stop is the only mode that tracks a live event, so switching away stops all $runningCount running ones right now."
 
@@ -1966,7 +1918,7 @@ object BrightVoice : Voice {
     override val notificationLogAction = "Log it!"
     override val notificationAllQuietAction = "All quiet!"
 
-    override fun checkInsSummaryNotificationTitle(count: Int) = "$count cases are quiet — tap to check in!"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases want your eyes 👀"
 
     override val notificationsDeniedBannerMessage =
         "Notifications are off, so trigger and check-in nudges can't reach you — swing by here instead!"

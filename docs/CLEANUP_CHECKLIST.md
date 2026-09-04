@@ -2,6 +2,8 @@
 
 Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PLAYBOOK.md) §1). Actually walk through every applicable item below against the real diff — don't skip straight to writing up [CLEANUP_LOG.md](CLEANUP_LOG.md) from memory of what changed. Then record the pass there: what was found and fixed, what was deferred with a reason, and which sections didn't apply.
 
+**A finding may only be recorded as deferred with explicit human sign-off.** "Deferred" is a decision the human makes, not one the AI makes to move on — surface each finding, get the call (fix now / defer / not worth doing), and only then write it up. A finding parked without that sign-off is an unfinished task, not a deferral. Anything the human decides is worth picking up later goes in [PROGRESS.md](PROGRESS.md) (the outstanding-work tracker), not only in this log's Deferred list; a finding considered and rejected is written as "considered and declined", with the reason, not as "deferred".
+
 ### Duplication
 - [ ] Are any composables copy-pasted with minor variation? Extract a shared component or parameter.
 - [ ] Are any styling patterns (colors, gradients, padding sequences) repeated inline instead of using the design system / theme?

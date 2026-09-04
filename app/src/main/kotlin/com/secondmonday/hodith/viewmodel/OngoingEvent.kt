@@ -4,14 +4,7 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.tracksDuration
-import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
-
-/**
- * Spec §6: an ongoing event older than this surfaces the "still going, or forgot to stop it?"
- * prompt (`isStaleOngoing`). Named rather than inlined per CLAUDE.md's product-constants rule.
- */
-internal const val STALE_ONGOING_THRESHOLD_MILLIS = MILLIS_PER_DAY
 
 /**
  * Every open-ended event on the Case, earliest-started first. Only `START_STOP` cases can be
@@ -61,21 +54,6 @@ internal fun activeSpanEnd(
     } else {
         event.endedAt ?: if (durationMode == DurationMode.START_STOP) now else event.occurredAt
     }
-
-/**
- * Whether [event] should show the 24h-stale prompt at [now]. Re-arms after another
- * [STALE_ONGOING_THRESHOLD_MILLIS] once dismissed, rather than staying silenced forever, so a
- * genuinely-forgotten event doesn't go silent indefinitely (spec §6's "gentle prompt" is meant
- * to be periodic nudging, not a one-time notice).
- */
-internal fun isStaleOngoing(
-    event: EventEntity,
-    now: Long,
-): Boolean {
-    if (now - event.occurredAt < STALE_ONGOING_THRESHOLD_MILLIS) return false
-    val dismissedAt = event.staleNudgeDismissedAt ?: return true
-    return now - dismissedAt >= STALE_ONGOING_THRESHOLD_MILLIS
-}
 
 /**
  * Renders the time since [startMillis] as of [nowMillis] for the ongoing indicator: minutes

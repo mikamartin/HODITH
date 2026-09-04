@@ -50,7 +50,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. The only copy-touching items still open ahead of it are S9 (check-in copy reword) and B1 (Story-only picker copy).
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. The only copy-touching item still open ahead of it is B1 (Story-only picker copy). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit.
 
 **Acceptance criteria**
 
@@ -68,11 +68,12 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies. Pick any when resources are thin. One real ordering constraint and three soft batching opportunities:
+No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
-- **S9 → B2** *(ordering)* — S9 rewrites `checkInDueNotificationBody`, so it has to land before B2's Voice audit. Noted in both items.
 - **On-device QA batch — S2 · S4 · S5, with S3** — S2 needs the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
 - **Case Detail Log-tab — S4** — touches `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (empty-state alignment). S7 (sort row) and S8 (event-edit screen) already landed here, so expect a small rebase.
+- **Case Detail Insights tab — S4 · S10** — S10 adds tap targets to `InsightsTab.kt` and cases to `CaseDetailInsightsTabTest.kt`; S4 reworks the same file's empty state. Expect a small rebase between them.
+- **Case-editor selection controls — S3 · S11** — S3 retunes `IconChoice` / `IntensityChoice` selection contrast; S11 declutters the adjacent `SegmentedChoiceRow`. Both are affordance polish on the same screens.
 - **Fully isolated — S1** (icon vector + Previews), **S6** (external content), and **A10** (the old Story A read-through). Any order, any time.
 
 ### A10 · Verdict engine's handling of duration events is unreviewed
@@ -197,24 +198,51 @@ Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPic
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S9 · Check-in notification copy is a bare reproach in the Serious voice
+### S10 · Insights tab elements aren't tappable for drill-down
 
-*Branch: `fix/check-in-notification-copy` · Complexity: S · Priority: Medium · Area: Voice*
+*Branch: `feat/insights-drilldown` · Complexity: M · Priority: Medium · Area: Insights*
 
-Spec §11 requires check-in copy to "ask whether anything went unlogged, never imply the user should keep it up". The Serious `checkInDueNotificationBody` (`ui/voice/Voice.kt`) is just `"Nothing logged in $silentDays days."` — a flat statement with no question, which reads as a scold. Goth (`"$silentDays days of silence. Has it stopped, or have you?"`) and Quirky (`"Nothing logged in $silentDays days — all quiet, or did you forget?"`) both already pose the question.
+🎨 **Design decision** — intensity and tag drill-down aren't in spec §10, and the per-case calendar heatmap's day-tap isn't in spec §9 either (only the Big Picture's is). Needs a ruling on what each drill-down row shows and a §9/§10 sentence that these elements are tappable.
+
+On the Case Detail Insights tab (`ui/casedetail/InsightsTab.kt`), `HeatmapCell`, `IntensityCard`'s five shaded squares, and `TagsCard`'s per-tag `StatRow`s are pure display — no `Modifier.clickable`, no `onClick`. Tapping a specific intensity, a tag, or a heatmap day should open the logged events behind it. The pattern already exists in `ui/bigpicture/BigPictureGrid.kt`: `DayDetailDialog` / `WeekDetailDialog` render an `InfoDialog` listing events via `EventDetailRow`, each row `clickable` to open a Case. Here the tab is already scoped to one Case, so rows would instead call the Insights tab's existing `onEditEvent(caseId, eventId)` nav callback. All three filters run in memory over `CaseDetailUiState.events` (already loaded and in scope where `CaseDetailScreen` calls `InsightsTabContent`): `event.intensity == level`, `tags.any { it.name == tagName }`, and — for a heatmap day — the tapped `LocalDate` inside the event's active span via the existing `datesCovered` helper (`viewmodel/InsightsTabState.kt`). No new DAO query, no new nav route.
 
 **Acceptance criteria**
 
-- [ ] `checkInDueNotificationBody` in all three voices asks the "did something go unlogged?" question per §11; Serious brought in line with Goth/Quirky.
-- [ ] `checkInDueNotificationTitle` / `checkInsSummaryNotificationTitle` reviewed for the same tone in all three voices.
-- [ ] Copy only — no new keys, no behaviour change, no spec edit (§11 already requires this framing). Re-fire cadence is explicitly out of scope.
-- [ ] `VoiceTest`'s existing non-blank / no-gamification checks still pass.
+- [ ] A ruling in HODITH_SPEC §9 (per-case heatmap day-tap) and §10 (intensity + tag drill-down) that these elements are tappable, plus what each result row shows (timestamp, note, tags, ongoing/duration line — mirroring `EventDetailRow`).
+- [ ] `IntensityCard` square, `TagsCard` tag row, and `HeatmapCell` each become a tap target (`.clickable` / `Role.Button`) with a `contentDescription`; empty / zero-count cells stay inert.
+- [ ] One shared drill-down surface — an `InfoDialog` listing the matching events, reusing or extracting a row composable equivalent to `EventDetailRow`; each row opens that event's editor via `onEditEvent`.
+- [ ] Filtering stays in memory over `CaseDetailUiState.events`; no new nav route, no new `EventDao` query.
+- [ ] Dialog title + empty-state strings go through Voice ×3.
+- [ ] Renders under all three card decoration styles (Plain / Intense / Bright), like the Big Picture dialogs.
+- [ ] Tests: `CaseDetailInsightsTabTest` — tapping an intensity square / tag row / heatmap day opens the dialog with the right events, a row tap fires `onEditEvent` with the correct ids, a zero-count element opens nothing; a Preview of the drill-down dialog per theme.
 
-**Plan** — reword the three `checkInDueNotificationBody` overrides (and check the two title keys) in `Voice.kt`. Pure string edits.
+**Plan** — thread `events` + `onEditEvent` from `CaseDetailScreen`'s `INSIGHTS_TAB` branch into `InsightsTabContent` and down to `IntensityCard` / `TagsCard` / `CalendarHeatmapCard`. Add tap handlers that set a `selectedFilter` state, plus one `InsightsDrillDownDialog` modelled on `DayDetailDialog`. `EventDetailRow` is `private` to `BigPictureGrid.kt` — lift it to `ui/common/` or write a small local equivalent; decide during the cleanup pass.
 
-**Tests** — `VoiceTest` (existing).
+**Tests** — `CaseDetailInsightsTabTest` for the three tap paths and the `onEditEvent` callback. No domain-layer test needed — `datesCovered` is already covered and no new pure logic is added.
 
-**Concern** — changes existing Voice strings, so land before B2's audit.
+**Concern** — mostly a product / spec call (what belongs in each row, whether the heatmap day-tap should also offer a week view like the Big Picture) plus Voice ×3; the wiring is small because the data is already in memory.
+
+### S11 · Case-editor Duration segmented row is cramped at the right edge
+
+*Branch: `fix/segmented-row-label-crowding` · Complexity: S · Priority: Low · Area: Bug*
+
+🎨 **Design decision** — the fix lands in the shared `SegmentedChoiceRow`, and the tightest options trade against spec §3 principle 6 (the selected-state checkmark is a non-colour cue).
+
+`CaseEditScreen.kt`'s Duration section (`SectionWithInfo` + `SegmentedChoiceRow`, options None / Manual / Start/stop) renders through `ui/common/SegmentedChoiceRow.kt`. The Plain/Intense branch is `SingleChoiceSegmentedButtonRow` with one `SegmentedButton` per option: equal-width segments, no `maxLines` / `softWrap` / auto-size, and M3's leading selected-checkmark slot takes ~24–28dp. The longest label, "Start/stop", sits in the rightmost segment, so on narrower screens or larger font scales it reads tight or clips. The Bright branch (`BrightSegmentedChoiceRow`) uses `horizontal = 0.dp` inner padding, so its text butts the capsule edge too. The control is shared (Case Edit logFlow + durationMode, Settings theme picker, Insights frequency granularity, Log-tab sort), so a fix here is consistency-positive. `caseDurationModeNone` / `Manual` / `StartStop` are interface `get()` defaults, identical across voices.
+
+**Acceptance criteria**
+
+- [ ] The three Duration labels render comfortably (no clip, sensible wrap) at a ~320dp width and the largest supported font scale, in Plain, Intense, and Bright.
+- [ ] Fix applied in `SegmentedChoiceRow.kt` so every caller benefits; the Bright branch gains a small minimum horizontal inset.
+- [ ] The affordance decision recorded — e.g. (a) keep the checkmark, drop label typography to `labelMedium` and tighten `SegmentedButton` content padding; (b) allow labels to wrap to two lines; (c) shorten a Voice label. If the checkmark is dropped to reclaim width, a replacement non-colour cue is added (spec §3 principle 6).
+- [ ] `.selectable` / `Role.RadioButton` semantics unchanged.
+- [ ] A Plain and an Intense Preview of the three-option row at a narrow width + large font scale (only a Bright Preview exists today).
+
+**Plan** — reproduce in a Preview first (narrow width, bumped `fontScale`), pick the affordance, apply it once in `SegmentedChoiceRow.kt`, then eyeball the other call sites (the Settings theme picker is also three options) for regressions.
+
+**Tests** — add a `SegmentedChoiceRow` Compose test (none exists) asserting all option labels are displayed for the three-option case in a constrained-width container; `CaseEditScreenTest` and `SettingsScreenTest` stay green.
+
+**Concern** — cosmetic; nothing is functionally broken. Soft-batches with S3 (selection-state contrast in `IconChoice` / `IntensityChoice`), the other selection-control polish item on the same screens.
 
 ## Blocked
 

@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.notification
 
+import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -13,6 +14,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.R
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.SettingsRepository
@@ -49,9 +51,11 @@ import javax.inject.Inject
  * `hodith_alerts` channel that `HodithApplication.onCreate()` normally creates doesn't exist here
  * either, and `setUp` creates it itself.
  *
- * Each test posts its own decoy notification under an arbitrary id and passes that same id as
- * [EXTRA_NOTIFICATION_ID], then asserts it's gone afterward — [NotificationActionReceiver] cancels
- * whatever id it's told to, so this doesn't need to reproduce [SystemNotifier]'s private id scheme.
+ * The Log/all-quiet tests post a decoy notification under an arbitrary id and pass that same id as
+ * [EXTRA_NOTIFICATION_ID], then assert it's gone afterward — [NotificationActionReceiver] cancels
+ * whatever id it's told to. The group-summary test is the exception: it posts real check-in
+ * notifications via the injected [Notifier] and passes the Case's real [checkInNotificationId], so
+ * the receiver's post-action `refreshGroupSummary()` has a genuine batch to collapse.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -71,9 +75,12 @@ class NotificationActionReceiverTest {
     @Inject
     lateinit var clock: Clock
 
+    @Inject
+    lateinit var notifier: Notifier
+
     private lateinit var context: Context
     private lateinit var notificationManager: NotificationManager
-    private var insertedCaseId = 0L
+    private val insertedCaseIds = mutableListOf<Long>()
     private var originalTheme = AppTheme.PLAIN
 
     @Before
@@ -92,16 +99,17 @@ class NotificationActionReceiverTest {
     fun tearDown() =
         runBlocking {
             settingsRepository.setTheme(originalTheme)
-            if (insertedCaseId != 0L) {
-                repository.getCase(insertedCaseId)?.let { repository.deleteCase(it) }
-            }
+            NotificationManagerCompat.from(context).cancelAll()
+            insertedCaseIds.forEach { id -> repository.getCase(id)?.let { repository.deleteCase(it) } }
         }
+
+    private suspend fun trackCase(case: CaseEntity): Long = repository.insertCase(case).also { insertedCaseIds += it }
 
     @Test
     fun actionLog_oneTapCase_insertsEventAndCancelsTheNotification() =
         runBlocking {
             val caseName = "Coffee ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, logFlow = LogFlow.ONE_TAP))
+            val insertedCaseId = trackCase(testCase(name = caseName, logFlow = LogFlow.ONE_TAP))
             val notificationId = postDecoyNotification()
 
             context.sendBroadcast(logIntent(insertedCaseId, notificationId))
@@ -118,7 +126,7 @@ class NotificationActionReceiverTest {
     fun actionLog_detailSheetCase_launchesTrampolineAndSavesThroughIt() =
         runBlocking {
             val caseName = "Migraine ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, logFlow = LogFlow.DETAIL_SHEET))
+            val insertedCaseId = trackCase(testCase(name = caseName, logFlow = LogFlow.DETAIL_SHEET))
             val notificationId = postDecoyNotification()
 
             context.sendBroadcast(logIntent(insertedCaseId, notificationId))
@@ -141,7 +149,7 @@ class NotificationActionReceiverTest {
     fun actionAllQuiet_updatesLastCheckInAtWithoutLoggingAnEvent() =
         runBlocking {
             val caseName = "Migraine ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, lastCheckInAt = 0L))
+            val insertedCaseId = trackCase(testCase(name = caseName, lastCheckInAt = 0L))
             val notificationId = postDecoyNotification()
 
             context.sendBroadcast(allQuietIntent(insertedCaseId, notificationId))
@@ -157,6 +165,41 @@ class NotificationActionReceiverTest {
                 "Expected the notification to be cancelled after the All quiet action",
                 waitForNotificationGone(notificationId),
             )
+        }
+
+    @Test
+    fun actionAllQuiet_withOneCheckInRemaining_leavesTheSurvivingCheckInShowing() =
+        runBlocking {
+            val a = repository.getCase(trackCase(testCase(name = "Coffee ${System.currentTimeMillis()}", lastCheckInAt = 0L)))!!
+            val b = repository.getCase(trackCase(testCase(name = "Migraine ${System.currentTimeMillis()}", lastCheckInAt = 0L)))!!
+            notifier.notifyCheckInDue(a, 7L, PlainVoice)
+            notifier.notifyCheckInDue(b, 9L, PlainVoice)
+            assertNotNull(
+                "Expected a group summary once both check-ins are showing",
+                waitFor { activeGroupSummary() },
+            )
+
+            // Real check-in id so the receiver cancels a's actual notification, not a decoy; the
+            // receiver's refreshGroupSummary() then runs against a genuine (now single-child) group.
+            context.sendBroadcast(allQuietIntent(a.id, checkInNotificationId(a.id)))
+
+            assertTrue(
+                "Expected a's check-in gone after All quiet",
+                waitForNotificationGone(checkInNotificationId(a.id)),
+            )
+            // b's check-in must not be collateral of the group bookkeeping.
+            assertNotNull(
+                "Expected b's check-in to still be showing",
+                waitFor {
+                    notificationManager.activeNotifications
+                        .firstOrNull { it.id == checkInNotificationId(b.id) }
+                },
+            )
+        }
+
+    private fun activeGroupSummary() =
+        notificationManager.activeNotifications.firstOrNull {
+            it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
         }
 
     private fun logIntent(

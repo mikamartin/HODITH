@@ -237,6 +237,7 @@ class NotificationEvaluatorTest {
             evaluator.evaluateCase(1L)
 
             assertEquals(1, notifier.dueCheckIns.size)
+            assertTrue(notifier.cancelledCheckIns.isEmpty())
             // Re-arming is the "All quiet" action's job (or a new event), not automatic at fire
             // time — an ignored check-in must be able to fire again on the next periodic pass.
             assertNull(
@@ -292,11 +293,28 @@ class NotificationEvaluatorTest {
             evaluator.evaluateCase(1L)
 
             assertTrue(notifier.dueCheckIns.isEmpty())
+            // Not due (opted out) ⇒ any stale check-in notification for this Case is withdrawn.
+            assertEquals(listOf(1L), notifier.cancelledCheckIns)
             assertNull(
                 repository.cases.value
                     .single()
                     .lastCheckInAt,
             )
+        }
+
+    @Test
+    fun `evaluateCase withdraws the check-in notification once the Case is no longer due`() =
+        runTest {
+            // checkInsEnabled but re-armed to now, so nothing is due — a previously-posted check-in
+            // notification must be cancelled rather than left in the shade.
+            settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
+            repository.cases.value =
+                listOf(case(createdAt = 0L, checkInsEnabled = true, lastCheckInAt = clock.nowMillis()))
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.dueCheckIns.isEmpty())
+            assertEquals(listOf(1L), notifier.cancelledCheckIns)
         }
 
     @Test
@@ -324,8 +342,10 @@ class NotificationEvaluatorTest {
         }
 
     @Test
-    fun `evaluateAll collapses 2 or more due check-ins into a single summary notification`() =
+    fun `evaluateAll posts an actionable check-in for every due Case`() =
         runTest {
+            // Aggregation is the Android notification group's job now — the evaluator just posts one
+            // per due Case, each keeping its Log / All quiet actions.
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
             repository.cases.value =
                 listOf(
@@ -335,19 +355,15 @@ class NotificationEvaluatorTest {
 
             evaluator.evaluateAll()
 
-            assertTrue(notifier.dueCheckIns.isEmpty())
-            assertEquals(1, notifier.checkInSummaries.size)
             assertEquals(
                 setOf(1L, 2L),
-                notifier.checkInSummaries
-                    .single()
-                    .map { it.id }
-                    .toSet(),
+                notifier.dueCheckIns.map { it.first.id }.toSet(),
             )
+            assertTrue(notifier.cancelledCheckIns.isEmpty())
         }
 
     @Test
-    fun `evaluateAll posts an individual notification when exactly one check-in is due`() =
+    fun `evaluateAll withdraws the check-in for an active Case that is not due`() =
         runTest {
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
             repository.cases.value =
@@ -358,7 +374,7 @@ class NotificationEvaluatorTest {
 
             evaluator.evaluateAll()
 
-            assertEquals(1, notifier.dueCheckIns.size)
-            assertTrue(notifier.checkInSummaries.isEmpty())
+            assertEquals(listOf(1L), notifier.dueCheckIns.map { it.first.id })
+            assertEquals(listOf(2L), notifier.cancelledCheckIns)
         }
 }

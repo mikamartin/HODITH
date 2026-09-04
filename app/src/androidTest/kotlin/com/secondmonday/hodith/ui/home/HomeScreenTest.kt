@@ -7,7 +7,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
@@ -62,7 +61,6 @@ class HomeScreenTest {
         onQuickLogTap: (HomeCaseRow) -> Unit = {},
         onSaveLogSheetEvent: (LogDraft) -> Unit = {},
         onUndoQuickLog: (Long) -> Unit = {},
-        onDismissStalePrompt: (EventEntity) -> Unit = {},
         nowMillis: () -> Long = { 0L },
     ) {
         composeTestRule.setContent {
@@ -78,7 +76,6 @@ class HomeScreenTest {
                     onDismissLogSheet = {},
                     onSaveLogSheetEvent = onSaveLogSheetEvent,
                     onUndoQuickLog = onUndoQuickLog,
-                    onDismissStalePrompt = onDismissStalePrompt,
                     nowMillis = nowMillis,
                 )
             }
@@ -194,36 +191,6 @@ class HomeScreenTest {
         setHomeScreenContent(uiState = HomeUiState(cases = listOf(startStopRow), isLoading = false))
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.startActionDescription(startStopRow.name)).assertExists()
-    }
-
-    @Test
-    fun staleOngoingBanner_showsPastThreshold_andStillGoingInvokesDismiss() {
-        val staleRow =
-            oneTapRow.copy(caseId = 2L, name = "Stale Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
-        var dismissed: EventEntity? = null
-        // Just over the 24h threshold, so the banner should be showing.
-        val now = 24 * 60 * 60_000L + 1
-        setHomeScreenContent(
-            uiState = HomeUiState(cases = listOf(staleRow), isLoading = false),
-            onDismissStalePrompt = { dismissed = it },
-            nowMillis = { now },
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).performClick()
-
-        assertEquals(ongoingEvent, dismissed)
-    }
-
-    @Test
-    fun staleOngoingBanner_doesNotShowBeforeThreshold() {
-        val ongoingRow =
-            oneTapRow.copy(caseId = 2L, name = "Fresh Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
-        setHomeScreenContent(
-            uiState = HomeUiState(cases = listOf(ongoingRow), isLoading = false),
-            nowMillis = { 10_000L },
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.staleOngoingStillGoingAction).assertDoesNotExist()
     }
 
     @Test

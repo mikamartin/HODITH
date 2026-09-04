@@ -86,24 +86,6 @@ class CaseDetailViewModelTest {
         }
 
     @Test
-    fun `dismissStalePrompt records the dismissal time`() =
-        runTest {
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
-            repository.insertEvent(testEvent(endedAt = null))
-            val vm = viewModel()
-
-            clock.advanceBy(60_000L)
-            vm.dismissStalePrompt(repository.events.value.single())
-
-            assertEquals(
-                clock.nowMillis(),
-                repository.events.value
-                    .single()
-                    .staleNudgeDismissedAt,
-            )
-        }
-
-    @Test
     fun `saveNewEvent inserts an event with its tags`() =
         runTest {
             repository.cases.value = listOf(testCase())

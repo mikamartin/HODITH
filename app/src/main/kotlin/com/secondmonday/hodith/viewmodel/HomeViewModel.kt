@@ -125,10 +125,6 @@ class HomeViewModel
             }
         }
 
-        fun dismissStalePrompt(event: EventEntity) {
-            viewModelScope.launch { repository.updateEvent(event.copy(staleNudgeDismissedAt = clock.nowMillis())) }
-        }
-
         fun nowMillis(): Long = clock.nowMillis()
 
         private fun quickLogOneTap(row: HomeCaseRow) {

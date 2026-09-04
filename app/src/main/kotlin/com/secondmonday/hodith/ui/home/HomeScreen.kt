@@ -46,7 +46,6 @@ import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.NotificationsDeniedBanner
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
-import com.secondmonday.hodith.ui.common.StaleOngoingBanner
 import com.secondmonday.hodith.ui.common.acronymHighlighted
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
@@ -64,8 +63,6 @@ import com.secondmonday.hodith.viewmodel.HomeUiState
 import com.secondmonday.hodith.viewmodel.HomeViewModel
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.QuickLogUndo
-import com.secondmonday.hodith.viewmodel.formatElapsedDuration
-import com.secondmonday.hodith.viewmodel.isStaleOngoing
 import kotlinx.coroutines.flow.Flow
 
 @Composable
@@ -89,7 +86,6 @@ fun HomeRoute(
         onDismissLogSheet = viewModel::dismissLogSheet,
         onSaveLogSheetEvent = viewModel::saveLogSheetEvent,
         onUndoQuickLog = viewModel::undoQuickLog,
-        onDismissStalePrompt = viewModel::dismissStalePrompt,
         nowMillis = viewModel::nowMillis,
         modifier = modifier,
     )
@@ -107,7 +103,6 @@ fun HomeScreen(
     onDismissLogSheet: () -> Unit,
     onSaveLogSheetEvent: (LogDraft) -> Unit,
     onUndoQuickLog: (Long) -> Unit,
-    onDismissStalePrompt: (EventEntity) -> Unit,
     nowMillis: () -> Long,
     modifier: Modifier = Modifier,
 ) {
@@ -165,8 +160,6 @@ fun HomeScreen(
                                     isEvenRow = index % 2 == 0,
                                     onClick = { onOpenCase(row.caseId) },
                                     onQuickLogTap = { onQuickLogTap(row) },
-                                    onEditEndTime = { onOpenCase(row.caseId) },
-                                    onDismissStalePrompt = onDismissStalePrompt,
                                     nowMillis = nowMillis,
                                 )
                             }
@@ -215,17 +208,15 @@ private fun HomeCaseListItem(
     isEvenRow: Boolean,
     onClick: () -> Unit,
     onQuickLogTap: () -> Unit,
-    onEditEndTime: () -> Unit,
-    onDismissStalePrompt: (EventEntity) -> Unit,
     nowMillis: () -> Long,
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
-            BrightHomeCaseListItem(row, voice, isEvenRow, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+            BrightHomeCaseListItem(row, voice, isEvenRow, onClick, onQuickLogTap, nowMillis)
         CardDecorationStyle.PLAIN ->
-            PlainPlankHomeCaseListItem(row, voice, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+            PlainPlankHomeCaseListItem(row, voice, onClick, onQuickLogTap, nowMillis)
         CardDecorationStyle.INTENSE ->
-            HomeCaseRowBody(row, voice, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+            HomeCaseRowBody(row, voice, onClick, onQuickLogTap, nowMillis)
     }
 }
 
@@ -236,15 +227,13 @@ private fun PlainPlankHomeCaseListItem(
     voice: Voice,
     onClick: () -> Unit,
     onQuickLogTap: () -> Unit,
-    onEditEndTime: () -> Unit,
-    onDismissStalePrompt: (EventEntity) -> Unit,
     nowMillis: () -> Long,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        HomeCaseRowBody(row, voice, onClick, onQuickLogTap, onEditEndTime, onDismissStalePrompt, nowMillis)
+        HomeCaseRowBody(row, voice, onClick, onQuickLogTap, nowMillis)
     }
 }
 
@@ -276,48 +265,34 @@ private fun HomeCaseRowBody(
     voice: Voice,
     onClick: () -> Unit,
     onQuickLogTap: () -> Unit,
-    onEditEndTime: () -> Unit,
-    onDismissStalePrompt: (EventEntity) -> Unit,
     nowMillis: () -> Long,
 ) {
     val ongoing = row.ongoingEvent
     val now by rememberTickingNow(clockNow = nowMillis)
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onClick)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = row.icon, style = MaterialTheme.typography.headlineSmall)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = row.name, style = MaterialTheme.typography.titleMedium)
-                when {
-                    row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
-                    ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
-                    else ->
-                        Text(
-                            text = voice.homeCaseCounts(row.todayCount, row.weekCount),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = row.icon, style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = row.name, style = MaterialTheme.typography.titleMedium)
+            when {
+                row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
+                ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
+                else ->
+                    Text(
+                        text = voice.homeCaseCounts(row.todayCount, row.weekCount),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
             }
-            HomeCaseLogButton(row = row, voice = voice, onClick = onQuickLogTap)
         }
-        if (ongoing != null && isStaleOngoing(ongoing, now)) {
-            StaleOngoingBanner(
-                caseName = row.name,
-                elapsed = formatElapsedDuration(ongoing.occurredAt, now),
-                voice = voice,
-                onEditEndTime = onEditEndTime,
-                onStillGoing = { onDismissStalePrompt(ongoing) },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
-        }
+        HomeCaseLogButton(row = row, voice = voice, onClick = onQuickLogTap)
     }
 }
 
@@ -329,8 +304,6 @@ private fun BrightHomeCaseListItem(
     isEvenRow: Boolean,
     onClick: () -> Unit,
     onQuickLogTap: () -> Unit,
-    onEditEndTime: () -> Unit,
-    onDismissStalePrompt: (EventEntity) -> Unit,
     nowMillis: () -> Long,
 ) {
     val ongoing = row.ongoingEvent
@@ -342,35 +315,27 @@ private fun BrightHomeCaseListItem(
             fontWeight = FontWeight.Bold,
         )
 
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
-        GlowCard(tint = tint, onClick = onClick) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconHalo(tint = tint) { Text(text = row.icon, style = MaterialTheme.typography.headlineSmall) }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = row.name, style = nameStyle)
-                    when {
-                        row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
-                        ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
-                        else ->
-                            Text(
-                                text = voice.homeCaseCounts(row.todayCount, row.weekCount),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                    }
+    GlowCard(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+        tint = tint,
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconHalo(tint = tint) { Text(text = row.icon, style = MaterialTheme.typography.headlineSmall) }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = row.name, style = nameStyle)
+                when {
+                    row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
+                    ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
+                    else ->
+                        Text(
+                            text = voice.homeCaseCounts(row.todayCount, row.weekCount),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                 }
-                HomeCaseLogButton(row = row, voice = voice, onClick = onQuickLogTap)
             }
-        }
-        if (ongoing != null && isStaleOngoing(ongoing, now)) {
-            StaleOngoingBanner(
-                caseName = row.name,
-                elapsed = formatElapsedDuration(ongoing.occurredAt, now),
-                voice = voice,
-                onEditEndTime = onEditEndTime,
-                onStillGoing = { onDismissStalePrompt(ongoing) },
-                modifier = Modifier.padding(top = 4.dp),
-            )
+            HomeCaseLogButton(row = row, voice = voice, onClick = onQuickLogTap)
         }
     }
 }
@@ -426,8 +391,6 @@ private fun HomeBrightRowsPreviewContent() {
                     isEvenRow = index % 2 == 0,
                     onClick = {},
                     onQuickLogTap = {},
-                    onEditEndTime = {},
-                    onDismissStalePrompt = {},
                     nowMillis = { 0L },
                 )
             }
@@ -450,8 +413,6 @@ private fun HomePlainRowsPreviewContent() {
                         isEvenRow = index % 2 == 0,
                         onClick = {},
                         onQuickLogTap = {},
-                        onEditEndTime = {},
-                        onDismissStalePrompt = {},
                         nowMillis = { 0L },
                     )
                 }

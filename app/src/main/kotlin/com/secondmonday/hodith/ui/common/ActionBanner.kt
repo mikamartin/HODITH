@@ -14,9 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * A message plus one or more text actions in a `Card` (spec §6/§11) — shared shape behind
- * [StaleOngoingBanner] and [NotificationsDeniedBanner], so a third caller doesn't reimplement the
- * same padding/spacing inline.
+ * A message plus one or more text actions in a `Card` (spec §11) — shared shape behind
+ * [NotificationsDeniedBanner], so a second caller doesn't reimplement the same padding/spacing
+ * inline.
  */
 @Composable
 fun ActionBanner(
