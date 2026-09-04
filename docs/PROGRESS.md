@@ -131,25 +131,6 @@ Both widgets hand-roll every `TextStyle` / `GlanceModifier` with values pinned i
 
 **Concern** — if the underlying "+" ask is a "you haven't logged in a while" nudge, that hits spec §4 (no gamification) / §7 (HODITH doesn't nudge logging) — needs a spec ruling first; steer is not to add it. Glance's constraints make the fidelity work convergence-by-hand, not a shared-token import.
 
-### S3 · Selected-state indicator is low-contrast in the icon picker and the intensity selector
-
-*Branch: `fix/case-icon-selection-contrast` · Complexity: S · Priority: Medium · Area: Bug*
-
-🎨 **Design decision** — needs an affordance decision (checkmark overlay / stroked ring / scale-elevation change), not just a colour retune. Spec §3 principle 6 ("colour is never the only distinguisher") is the governing rule; no spec edit.
-
-Selection is shown only by a background-color swap, with no border, ring, or checkmark. Three places share the pattern: Plain's `IconChoice` (`ui/case/CaseEditScreen.kt`) uses `primaryContainer` (#C7E8ED light) vs. `surfaceVariant` (#CFE8F8 light) — near-identical lightness; the event-log `IntensityChoice` (`ui/logsheet/LogDetailSheet.kt`) uses the exact same `primaryContainer`-vs-`surfaceVariant` fill-only swap; and Bright's `BrightIconChoice` uses `IconHalo`'s selected fill, a 16% tint wash of `primary` over `surface` (near-white on near-white).
-
-**Acceptance criteria**
-
-- [ ] Selection shown by an element that doesn't depend on background contrast alone.
-- [ ] Applied in `IconChoice` (Plain/Intense, `CaseEditScreen.kt`), `IntensityChoice` (`LogDetailSheet.kt`), and `BrightIconChoice` — adapted to each visual language (flat fill vs. glow halo) and each control's size.
-- [ ] A Preview per theme showing selected vs. unselected side by side, for both the icon picker and the intensity row.
-- [ ] `.selectable(selected = …)` / `Role.RadioButton` structure unchanged in all three.
-
-**Plan** — needs a design decision on the affordance, not just a color retune, since a lightness-only swap will keep being fragile across themes (including future ones): add a distinguishing element that doesn't depend on background contrast alone — a checkmark overlay, a stroked ring, or a scale/elevation change. Once decided, apply it in `IconChoice` / `IntensityChoice` (Plain/Intense flat fill) and `BrightIconChoice` (glow halo) — the same primitive won't drop into both visual languages identically.
-
-**Tests** — no existing test covers selection visuals (Compose Previews only); add or update a Preview per theme for the icon picker and the intensity row showing selected vs. unselected side by side. The selection state itself is already exposed structurally via `.selectable(selected = ...)` / `Role.RadioButton`, so there's nothing new to unit-test beyond the visual.
-
 ### S4 · Empty-state note is shifted to the left edge on Bright and Intense
 
 *Branch: `fix/empty-state-left-alignment` · Complexity: S to fix, M to diagnose · Priority: Medium · Area: Bug*

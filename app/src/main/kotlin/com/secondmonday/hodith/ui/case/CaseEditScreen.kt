@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -367,12 +368,14 @@ private fun IconChoice(
         CardDecorationStyle.BRIGHT -> BrightIconChoice(icon = icon, selected = selected, onClick = onClick)
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
             val background = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+            val ringColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
             Box(
                 modifier =
                     Modifier
                         .size(ICON_CHOICE_SIZE)
                         .clip(CircleShape)
                         .background(background)
+                        .border(2.dp, ringColor, CircleShape)
                         .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
                 contentAlignment = Alignment.Center,
             ) {
@@ -384,10 +387,12 @@ private fun IconChoice(
 
 /**
  * Bright-only icon choice (Soft Glow mockup's `.icon-choice`/`.icon-choice.on`): the selected icon
- * gets [IconHalo]'s tint-wash + glow ring, the rest a plain thin-bordered circle — both sized to
- * [IconHalo]'s own default, smaller than the 48dp touch target ([ICON_CHOICE_SIZE]) they sit inside,
- * same touch-target-larger-than-visual pattern as the ripple already clipped to a circle for
- * Plain/Intense's [IconChoice] branch above.
+ * gets [IconHalo]'s tint-wash + glow ring plus a solid primary-color ring at the circle's edge, the
+ * rest a plain thin-bordered circle — both sized to [IconHalo]'s own default, smaller than the 48dp
+ * touch target ([ICON_CHOICE_SIZE]) they sit inside, same touch-target-larger-than-visual pattern as
+ * the ripple already clipped to a circle for Plain/Intense's [IconChoice] branch above. The ring
+ * (not the halo/tint alone) is what marks selection so it doesn't depend on background contrast
+ * (spec §3 principle 6).
  */
 @Composable
 private fun BrightIconChoice(
@@ -404,7 +409,11 @@ private fun BrightIconChoice(
         contentAlignment = Alignment.Center,
     ) {
         if (selected) {
-            IconHalo(size = BRIGHT_ICON_CHOICE_VISUAL_SIZE, tint = MaterialTheme.colorScheme.primary) {
+            IconHalo(
+                size = BRIGHT_ICON_CHOICE_VISUAL_SIZE,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+            ) {
                 Text(text = icon, style = MaterialTheme.typography.titleMedium)
             }
         } else {
@@ -501,5 +510,46 @@ private fun CaseEditScreenBrightDarkPreview() {
                 onBack = {},
             )
         }
+    }
+}
+
+/** Selected vs. unselected side by side, so the ring is visible against each theme's own colors. */
+@Composable
+private fun IconChoicePreviewContent() {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
+        IconChoice(icon = CASE_ICONS.first(), selected = true, onClick = {})
+        IconChoice(icon = CASE_ICONS.first(), selected = false, onClick = {})
+    }
+}
+
+@Preview(name = "IconChoice — Plain light", showBackground = true, widthDp = 160)
+@Composable
+private fun IconChoicePlainLightPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.PLAIN) { IconChoicePreviewContent() }
+    }
+}
+
+@Preview(name = "IconChoice — Plain dark", showBackground = true, widthDp = 160)
+@Composable
+private fun IconChoicePlainDarkPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = true) {
+        CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.PLAIN) { IconChoicePreviewContent() }
+    }
+}
+
+@Preview(name = "IconChoice — Intense", showBackground = true, widthDp = 160)
+@Composable
+private fun IconChoiceIntensePreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) {
+        CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.INTENSE) { IconChoicePreviewContent() }
+    }
+}
+
+@Preview(name = "IconChoice — Bright", showBackground = true, widthDp = 160)
+@Composable
+private fun IconChoiceBrightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        CompositionLocalProvider(LocalCardDecorationStyle provides CardDecorationStyle.BRIGHT) { IconChoicePreviewContent() }
     }
 }
