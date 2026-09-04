@@ -118,7 +118,7 @@ class CaseDetailInsightsTabTest {
     fun belowInsightsMinEvents_showsNotEnoughDataPlaceholder_notAnEmptyChart() {
         setInsightsTabContent(events = listOf(eventAt(1)))
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsNotEnoughDataMessage).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsNotEnoughDataMessage(eventsRemaining = 1)).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
     }
 

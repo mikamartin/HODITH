@@ -15,6 +15,35 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feat/empty-state-messaging
+
+**Scope:** User noticed the Hunch tab's nudge card claimed "You've logged 5 events" on a case with far more than 5 — `Voice.hunchNudgeBody` baked the nudge *threshold* constant into the copy instead of the real event count. That led to a review of "not enough data yet" messaging across Big Picture, Insights, and the Hunch tab, and three related changes alongside the fix: (1) Big Picture's grid now always renders once ≥1 Case exists, with a note above it only at zero events, clearing the moment one exists; (2) Insights' not-enough-data placeholder now states how many more events are needed, from the real count, instead of a fixed message; (3) the Hunch tab's "no active Hunch" invite gained a short aside noting that checking a Hunch against reality takes data roughly proportionate to the hunch itself — Hunch creation was already available at 0 events, so no gating logic changed there.
+
+**Design decisions taken with the user before/while building:**
+- Insights' message phrases the remaining count relative to what's already logged ("N more events"), not a restatement of the fixed minimum.
+- The Hunch aside is a separate, smaller line under the existing invite text, not folded into the same sentence, and not shown in the creation sheet.
+- Big Picture's `cases.isEmpty()` full-screen empty state stays untouched — only the zero-events-with-cases tier changes.
+- No pluralization handling on the new counts ("1 events"), matching the rest of the codebase's existing convention (`logSummaryLine`, `deleteCaseForeverConfirmBody`, etc.).
+
+**Found & fixed (checklist walk-through against the real diff):**
+- The actual nudge-count bug: `hunchNudgeBody` gained a real `eventCount: Int` parameter in all three voices, replacing `$HUNCH_NUDGE_EVENT_THRESHOLD`; `IntenseVoice`/`BrightVoice`'s `hunchNudgeTitle` also baked the literal "5" into the title text ("Five entries lie in the record.", "Ooh, 5 logs in!") and were reworded to drop the specific number.
+- `HUNCH_NUDGE_EVENT_THRESHOLD`'s import in `Voice.kt` became unused once the body stopped referencing it directly — removed (the constant is still used for its real job, gating `showNudge`, in `viewmodel/HunchTabState.kt`).
+- `ktlintFormat` flipped `Voice.kt` and `InsightsTabState.kt` to LF on this CRLF repo (known gotcha, see feedback memory) — restored via the same `perl -i -pe 's/\r?\n$/\r\n/'` pass used on prior branches; `git diff` confirmed no EOL churn afterward.
+
+**Sections walked, nothing to do:** *Duplication* — the Big Picture note reuses `FilterLegendRow`'s existing "no Cases selected" note styling (`labelSmall`/`onSurfaceVariant`) rather than inventing a new visual language; every new/changed string goes through Voice ×3, none inline. *Decoupling* — `InsightsTabState.NotEnoughData(eventsRemaining)` is computed with pure arithmetic (`INSIGHTS_MIN_EVENTS - events.size`) inside the existing pure `insightsTabState` mapper; no `System.currentTimeMillis()`, no `android.*` import added to `domain/`. *Complexity* — `BigPictureScreen.kt` stays well under 150 lines; no new `LaunchedEffect`/`remember` usage. *Dead code* — no leftover TODOs; `ktlintCheck` clean. *Repo hygiene* — `git status` shows only the intended files; nothing secret-shaped, no local paths. *Naming* — `hunchTabNoneDataNote` matches the existing `hunchTabNone*` key family. *Hardcoded values* — no new inline colors or magic numbers; `eventsRemaining` derives from the existing `INSIGHTS_MIN_EVENTS` constant. *Accessibility* — no new icon-only buttons or tap targets; the new notes are static text. *Deprecated APIs* — none. *Spec Review* — HODITH_SPEC.md §7 and §9 updated (see Docs); §10's Insights placeholder behavior is unchanged (still blocks below the minimum), so only its copy detail is new, not documented as a separate spec fact.
+
+**Deferred:** nothing.
+
+**Docs updated:** `HODITH_SPEC.md` §9 — the Big Picture early-days paragraph rewritten to describe the grid always rendering once ≥1 Case exists, with the note-only-at-zero-events behavior and an explicit callout that it's the one exception to §9's general "friendly placeholder, never an empty chart" rule. §7 — one sentence added noting a Hunch can be added with zero events and the invite explains the data-proportionality expectation. `TESTING.md` — the Big Picture row's early-days description updated to the grid-always-renders behavior; the Case Detail Insights row now notes the placeholder states the real remaining count; the general Compose UI row's hunch-nudge mention now notes the body reflects the real count and the "None" card's data-volume aside appears regardless of event count.
+
+**Tests:**
+- Unit (JVM, all green — 574/0): `InsightsTabStateTest`'s below-minimum case now asserts the exact `eventsRemaining` value; `ShareCardStateTest`'s three bare `InsightsTabState.NotEnoughData` references updated to the new constructor shape (unaffected by the actual assertions, which are about section filtering, not the insights state's own count). `VoiceTest`'s reflection-based coverage picked up every new/changed key and function automatically — no manual updates needed there.
+- Instrumented (**run on an API 36 emulator — 72/72 across the three touched classes**): `BigPictureScreenTest` — `earlyDaysState_showsWhenCasesHaveNoEvents` extended to assert the grid (filter chip, month title) renders alongside the note; new `earlyDaysNote_disappearsOnceAnEventExists`. `CaseDetailInsightsTabTest` — the not-enough-data assertion now checks the dynamic message text. `CaseDetailScreenTest` — new `hunchTab_nudgeBody_reflectsTheRealEventCount_notTheFixedThreshold` regression test (8 events, asserts "8" appears, not "5"); the "few events, no Hunch" test now also asserts the new data-volume aside; new `hunchTab_zeroEvents_stillOffersAddingAHunch` confirming Hunch creation was never gated on event count.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green; full unit suite 574/0. Instrumented on `emulator-5554` (`Pixel_8_API36`, API 36): `BigPictureScreenTest`, `CaseDetailScreenTest`, `CaseDetailInsightsTabTest` — 72/72.
+
+---
+
 ## feat/declutter-nudges
 
 **Scope:** PROGRESS.md item S9, reframed by the user from "reword the Serious check-in copy" to "HODITH's system nudges are too repetitive, and the 24h stale-ongoing prompt is redundant with the Ongoing pill." Three logical changes on one branch: (1) remove the stale-ongoing prompt entirely from both Home and Case Detail; (2) drop the now-dead `events.staleNudgeDismissedAt` column; (3) put every trigger/check-in notification in one Android notification group with an app-managed summary, so cases bundle in the shade and an unanswered check-in stops re-alerting every ~6h. Plus the original S9 copy reword, folded into (3).

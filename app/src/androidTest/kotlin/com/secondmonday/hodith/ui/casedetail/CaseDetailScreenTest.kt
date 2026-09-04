@@ -362,7 +362,17 @@ class CaseDetailScreenTest {
         openHunchTab()
 
         composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneDataNote).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.hunchNudgeTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun hunchTab_zeroEvents_stillOffersAddingAHunch() {
+        setCaseDetailScreenContent(events = emptyList())
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneDataNote).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.hunchAddButtonLabel).assertExists()
     }
 
     @Test
@@ -371,6 +381,14 @@ class CaseDetailScreenTest {
         openHunchTab()
 
         composeTestRule.onNodeWithText(PlainVoice.hunchNudgeTitle).assertExists()
+    }
+
+    @Test
+    fun hunchTab_nudgeBody_reflectsTheRealEventCount_notTheFixedThreshold() {
+        setCaseDetailScreenContent(events = eventsAt(8))
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeBody(startStopCase.icon, startStopCase.name, 8)).assertExists()
     }
 
     @Test

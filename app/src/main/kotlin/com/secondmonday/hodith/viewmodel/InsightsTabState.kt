@@ -41,7 +41,10 @@ import java.time.ZoneId
  * spec's "friendly placeholder, never an empty chart pretending to mean something" rule.
  */
 sealed interface InsightsTabState {
-    data object NotEnoughData : InsightsTabState
+    /** [eventsRemaining] is how many more events clear [INSIGHTS_MIN_EVENTS], for the placeholder's "N more events" copy. */
+    data class NotEnoughData(
+        val eventsRemaining: Int,
+    ) : InsightsTabState
 
     data class Ready(
         val heatmapMonths: List<HeatmapMonth>,
@@ -156,7 +159,7 @@ internal fun insightsTabState(
         eventsWithTags
             .map { it.event }
             .let { list -> if (case.durationMode.tracksDuration) list else list.map { it.copy(endedAt = null) } }
-    if (events.size < INSIGHTS_MIN_EVENTS) return InsightsTabState.NotEnoughData
+    if (events.size < INSIGHTS_MIN_EVENTS) return InsightsTabState.NotEnoughData(eventsRemaining = INSIGHTS_MIN_EVENTS - events.size)
 
     fun spanEnd(event: EventEntity) = activeSpanEnd(event, case.durationMode, now)
 

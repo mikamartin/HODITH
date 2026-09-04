@@ -32,7 +32,7 @@ class InsightsTabStateTest {
 
         val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(0)).withoutTags(), now = millisAtDay(5))
 
-        assertEquals(InsightsTabState.NotEnoughData, state)
+        assertEquals(InsightsTabState.NotEnoughData(eventsRemaining = 1), state)
     }
 
     @Test

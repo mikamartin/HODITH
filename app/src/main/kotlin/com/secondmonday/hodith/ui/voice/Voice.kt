@@ -7,7 +7,6 @@ import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FrequencyGranularity
-import com.secondmonday.hodith.domain.HUNCH_NUDGE_EVENT_THRESHOLD
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
 import com.secondmonday.hodith.domain.ShiftDirection
@@ -198,6 +197,9 @@ interface Voice {
     val aboutLicensesBody: String
     val hunchTabNoneTitle: String
     val hunchTabNoneBody: String
+
+    /** Short aside under [hunchTabNoneBody] — a Hunch can be made with zero events logged, but checking it needs some time first. */
+    val hunchTabNoneDataNote: String
     val hunchAddButtonLabel: String
     val hunchNudgeTitle: String
     val hunchNudgeDismissAction: String
@@ -227,7 +229,10 @@ interface Voice {
     val logSortLabel: String get() = "Sort"
     val logSortByStartLabel: String get() = "Started"
     val logSortByEndLabel: String get() = "Ended"
-    val insightsNotEnoughDataMessage: String
+
+    /** [eventsRemaining] is how many more events are needed to clear the Insights minimum — never a fixed restatement of the minimum itself. */
+    fun insightsNotEnoughDataMessage(eventsRemaining: Int): String
+
     val insightsSectionLabelHeatmap: String get() = "Calendar heatmap"
 
     /** Reveals months beyond the heatmap's default 3-month preview. */
@@ -361,9 +366,11 @@ interface Voice {
         total: Int,
     ): String = "$selected of $total"
 
+    /** [eventCount] is the Case's real, current event count — never a fixed threshold restated as if it were the count. */
     fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
+        eventCount: Int,
     ): String
 
     /** Title Case direction phrasing — the creation sheet's pills and, via [hunchHistoryRowText], history rows. */
@@ -720,6 +727,8 @@ object PlainVoice : Voice {
     override val hunchTabNoneTitle = "No hunch yet"
     override val hunchTabNoneBody =
         "Got a feeling about how often this happens? Add a Hunch to see how it compares to reality."
+    override val hunchTabNoneDataNote =
+        "Checking it against reality takes a little time — roughly matching how often you think it happens."
     override val hunchAddButtonLabel = "Add a Hunch"
     override val hunchNudgeTitle = "Got a feeling about this one?"
     override val hunchNudgeDismissAction = "Don't ask again"
@@ -732,7 +741,8 @@ object PlainVoice : Voice {
     override val hunchCreatingDecreaseCountDescription = "Decrease count"
     override val hunchCreatingIncreaseCountDescription = "Increase count"
     override val hunchHistoryHeader = "Past hunches"
-    override val insightsNotEnoughDataMessage = "Not enough data yet."
+
+    override fun insightsNotEnoughDataMessage(eventsRemaining: Int) = "Log $eventsRemaining more events to see Insights."
 
     override val insightsHeatmapShowMoreAction = "Show more months"
     override val insightsHeatmapShowFewerAction = "Show fewer months"
@@ -840,7 +850,8 @@ object PlainVoice : Voice {
     override fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
-    ) = "You've logged $HUNCH_NUDGE_EVENT_THRESHOLD events for $caseIcon $caseName. Add a Hunch to see how it compares to reality."
+        eventCount: Int,
+    ) = "You've logged $eventCount events for $caseIcon $caseName. Add a Hunch to see how it compares to reality."
 
     override fun hunchDirectionPillLabel(direction: HunchDirection) =
         when (direction) {
@@ -1197,8 +1208,10 @@ object IntenseVoice : Voice {
     override val hunchTabNoneTitle = "No claim has been made"
     override val hunchTabNoneBody =
         "You have watched this case, but sworn nothing about it. State a hunch, and the record will one day answer."
+    override val hunchTabNoneDataNote =
+        "The record needs time to answer — about as long as your claim itself implies."
     override val hunchAddButtonLabel = "State a hunch"
-    override val hunchNudgeTitle = "Five entries lie in the record."
+    override val hunchNudgeTitle = "The record grows, unclaimed."
     override val hunchNudgeDismissAction = "Never ask again"
     override val hunchEarlyHeadline = "The evidence is yet insufficient for despair or joy."
     override val hunchResolveLabel = "Seal the verdict"
@@ -1209,7 +1222,9 @@ object IntenseVoice : Voice {
     override val hunchCreatingDecreaseCountDescription = "Diminish the count"
     override val hunchCreatingIncreaseCountDescription = "Swell the count"
     override val hunchHistoryHeader = "The record of past claims"
-    override val insightsNotEnoughDataMessage = "The file is too thin to read yet."
+
+    override fun insightsNotEnoughDataMessage(eventsRemaining: Int) =
+        "The file needs $eventsRemaining more entries before it's worth reading."
 
     override val insightsHeatmapShowMoreAction = "Unseal the older files"
     override val insightsHeatmapShowFewerAction = "Reseal them"
@@ -1314,7 +1329,8 @@ object IntenseVoice : Voice {
     override fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
-    ) = "$caseIcon $caseName has been marked $HUNCH_NUDGE_EVENT_THRESHOLD times, and still no hunch stands against it. " +
+        eventCount: Int,
+    ) = "$caseIcon $caseName has been marked $eventCount times, and still no hunch stands against it. " +
         "Confess your suspicion, and let the record judge it."
 
     override fun hunchDirectionPillLabel(direction: HunchDirection) =
@@ -1664,8 +1680,9 @@ object BrightVoice : Voice {
             "WorkManager, and Kotlin Coroutines — all under the Apache License 2.0!"
     override val hunchTabNoneTitle = "No guess yet!"
     override val hunchTabNoneBody = "Got a gut feeling about how often this happens? Make a guess and see if reality agrees."
+    override val hunchTabNoneDataNote = "Reality just needs a little time to catch up — about as long as you think this takes!"
     override val hunchAddButtonLabel = "Make a guess!"
-    override val hunchNudgeTitle = "Ooh, 5 logs in!"
+    override val hunchNudgeTitle = "Ooh, logs are piling up!"
     override val hunchNudgeDismissAction = "Nah, don't ask"
     override val hunchEarlyHeadline = "Too soon to tell — feed me more moments!"
     override val hunchResolveLabel = "Lock it in"
@@ -1676,7 +1693,8 @@ object BrightVoice : Voice {
     override val hunchCreatingDecreaseCountDescription = "Fewer!"
     override val hunchCreatingIncreaseCountDescription = "More!"
     override val hunchHistoryHeader = "Your hunch history!"
-    override val insightsNotEnoughDataMessage = "Give it a little more time — the pattern's not ready yet!"
+
+    override fun insightsNotEnoughDataMessage(eventsRemaining: Int) = "$eventsRemaining more events and the pattern's ready to see!"
 
     override val insightsHeatmapShowMoreAction = "Show me more!"
     override val insightsHeatmapShowFewerAction = "Okay, tuck it back away"
@@ -1782,7 +1800,8 @@ object BrightVoice : Voice {
     override fun hunchNudgeBody(
         caseIcon: String,
         caseName: String,
-    ) = "You've logged $caseIcon $caseName $HUNCH_NUDGE_EVENT_THRESHOLD times without saying what you expected. " +
+        eventCount: Int,
+    ) = "You've logged $caseIcon $caseName $eventCount times without saying what you expected. " +
         "Wanna guess and see if you're right?"
 
     override fun hunchDirectionPillLabel(direction: HunchDirection) =

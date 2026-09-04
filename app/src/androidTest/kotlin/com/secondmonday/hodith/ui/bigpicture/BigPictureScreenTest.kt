@@ -97,6 +97,16 @@ class BigPictureScreenTest {
         setContent(uiStateWith(cases = listOf(case)))
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEarlyDays).assertExists()
+        // The grid itself still renders alongside the note — it's never blocked once a Case exists.
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).assertExists()
+        composeTestRule.onNodeWithText(monthTitle).assertExists()
+    }
+
+    @Test
+    fun earlyDaysNote_disappearsOnceAnEventExists() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday())))
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEarlyDays).assertDoesNotExist()
     }
 
     @Smoke
