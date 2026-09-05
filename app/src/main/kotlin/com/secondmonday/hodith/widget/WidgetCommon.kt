@@ -2,6 +2,7 @@ package com.secondmonday.hodith.widget
 
 import android.content.Context
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
@@ -38,8 +39,39 @@ internal object WidgetPalette {
  * rows would otherwise size the "+" and "Stop" tap targets to their text alone. */
 internal val MinTapTarget = 48.dp
 
-/** App widget corner radius — matches the system-drawn corner mask on Android 12+ hosts. */
-internal val WidgetCornerRadius = 16.dp
+/** App widget corner radius — matches the system-drawn corner mask on Android 12+ hosts, and Home's
+ * Plain plank `Card` (`HomeScreen.kt`'s `PlainPlankHomeCaseListItem`, which takes no explicit
+ * `shape` and so renders at M3's default Card shape, `ui/theme/Shape.kt`'s `medium`/`large`). */
+internal val WidgetCornerRadius = 8.dp
+
+/**
+ * Type/spacing/shape tokens mirroring Plain's `ui/theme/Type.kt`/`Shape.kt` scale as closely as
+ * Glance's API allows (DEV_PLAYBOOK.md §4 has the full mapping and the two gaps Glance can't
+ * close: no `lineHeight`/`letterSpacing` on [androidx.glance.text.TextStyle], and no SemiBold in
+ * [androidx.glance.text.FontWeight]). Values without a Home/`Type.kt` role are widget-only —
+ * documented in DEV_PLAYBOOK.md §4 rather than derived from an app surface.
+ */
+internal val WidgetIconGlyphSize = 24.sp
+internal val WidgetCaseNameSize = 16.sp
+internal val WidgetSubtitleSize = 12.sp
+internal val WidgetPillTextSize = 11.sp
+internal val WidgetPlusGlyphSize = 20.sp
+internal val WidgetHeaderTitleSize = 14.sp
+internal val WidgetInfoMessageSize = 14.sp
+
+internal val WidgetIconTextSpacing = 12.dp
+internal val WidgetPillPaddingHorizontal = 8.dp
+internal val WidgetPillPaddingVertical = 2.dp
+internal val WidgetPillCornerRadius = 999.dp
+internal val WidgetLogButtonCornerRadius = 8.dp
+
+/** Widget-only layout, no Home analogue — a widget's canvas is far narrower than a phone screen,
+ * so these stay hand-tuned rather than copied from Home's row padding/spacing. */
+internal val WidgetOuterPadding = 12.dp
+internal val WidgetRowPadding = 10.dp
+internal val WidgetLogButtonSpacing = 8.dp
+internal val WidgetSingleCaseOuterPadding = 8.dp
+internal val WidgetSingleCaseLogButtonSpacing = 6.dp
 
 internal val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
 

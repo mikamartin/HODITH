@@ -7,6 +7,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.view.View
+import android.widget.TextView
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.test.core.app.ApplicationProvider
@@ -18,6 +19,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -39,7 +41,10 @@ import org.junit.runner.RunWith
  * recompose race.
  *
  * Requires the emulator/device to have pre-granted bind permission:
- * `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0`.
+ * `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0`. Which package needs
+ * the grant is emulator-image-dependent (see DEV_PLAYBOOK.md §5) — on a Google Play/GMS-enabled
+ * local image, grant `com.secondmonday.hodith.test` instead if this fails with
+ * `bindAppWidgetIdIfAllowed failed` despite grantbind reporting success.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -88,6 +93,31 @@ class WidgetChromeNavigationTest {
             assertTapOpensMainActivity(PlainVoice.widgetCaseNotFoundMessage)
         }
 
+    @Test
+    fun listWidget_headerTitle_rendersAtWidgetHeaderTitleSize() =
+        runBlocking {
+            bindAndRenderListWidget()
+            // WidgetHeaderTitleSize has no Home equivalent — DEV_PLAYBOOK.md §4.
+            val textView = waitForTextViewWithText(PlainVoice.homeHeaderTitle)
+            assertEquals(spToPx(context, WidgetHeaderTitleSize.value), textView.textSize, 0.5f)
+        }
+
+    @Test
+    fun listWidget_emptyStateMessage_rendersAtWidgetInfoMessageSize() =
+        runBlocking {
+            bindAndRenderListWidget()
+            val textView = waitForTextViewWithText(PlainVoice.widgetNoCasesSelectedMessage)
+            assertEquals(spToPx(context, WidgetInfoMessageSize.value), textView.textSize, 0.5f)
+        }
+
+    @Test
+    fun singleCaseWidget_missingCaseMessage_rendersAtWidgetInfoMessageSize() =
+        runBlocking {
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, NONEXISTENT_CASE_ID)
+            val textView = waitForTextViewWithText(PlainVoice.widgetCaseNotFoundMessage)
+            assertEquals(spToPx(context, WidgetInfoMessageSize.value), textView.textSize, 0.5f)
+        }
+
     private fun assertTapOpensMainActivity(targetText: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val monitor = Instrumentation.ActivityMonitor(MainActivity::class.java.name, null, false)
@@ -128,6 +158,20 @@ class WidgetChromeNavigationTest {
             attempts++
         }
         return found ?: throw AssertionError("No clickable ancestor of a TextView with text '$text' rendered")
+    }
+
+    private fun waitForTextViewWithText(
+        text: String,
+        maxAttempts: Int = 30,
+    ): TextView {
+        var attempts = 0
+        var found = findTextViewWithText(renderedView(context, host, appWidgetId), text)
+        while (found == null && attempts < maxAttempts) {
+            Thread.sleep(200)
+            found = findTextViewWithText(renderedView(context, host, appWidgetId), text)
+            attempts++
+        }
+        return found ?: throw AssertionError("No TextView with text '$text' rendered")
     }
 
     companion object {

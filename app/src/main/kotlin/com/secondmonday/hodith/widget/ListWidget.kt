@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.glance.GlanceId
@@ -90,7 +89,7 @@ class ListWidget : GlanceAppWidget() {
                             .background(WidgetPalette.background)
                             .cornerRadius(WidgetCornerRadius)
                             .appWidgetBackground()
-                            .padding(12.dp),
+                            .padding(WidgetOuterPadding),
                 ) {
                     // Widget copy is pinned to PlainVoice regardless of the user's chosen in-app
                     // theme — mirrors the widget's fixed neutral palette (DEV_PLAYBOOK.md §4):
@@ -109,7 +108,7 @@ class ListWidget : GlanceAppWidget() {
                             style =
                                 TextStyle(
                                     color = ColorProvider(WidgetPalette.onSurfaceMuted),
-                                    fontSize = 13.sp,
+                                    fontSize = WidgetHeaderTitleSize,
                                     fontWeight = FontWeight.Medium,
                                 ),
                         )
@@ -125,7 +124,7 @@ class ListWidget : GlanceAppWidget() {
                         ) {
                             Text(
                                 text = PlainVoice.widgetNoCasesSelectedMessage,
-                                style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 13.sp),
+                                style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = WidgetInfoMessageSize),
                             )
                         }
                     } else {
@@ -163,11 +162,11 @@ private fun CaseRow(
             GlanceModifier
                 .fillMaxWidth()
                 .background(WidgetPalette.surface)
-                .padding(10.dp),
+                .padding(WidgetRowPadding),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
-        Text(text = row.icon, style = TextStyle(fontSize = 20.sp))
-        Spacer(modifier = GlanceModifier.width(10.dp))
+        Text(text = row.icon, style = TextStyle(fontSize = WidgetIconGlyphSize))
+        Spacer(modifier = GlanceModifier.width(WidgetIconTextSpacing))
         Column(
             modifier =
                 GlanceModifier
@@ -180,13 +179,13 @@ private fun CaseRow(
                 style =
                     TextStyle(
                         color = ColorProvider(WidgetPalette.onSurface),
-                        fontSize = 15.sp,
+                        fontSize = WidgetCaseNameSize,
                         fontWeight = FontWeight.Medium,
                     ),
             )
             WidgetCaseSubtitle(row = row, now = now)
         }
-        Spacer(modifier = GlanceModifier.width(8.dp))
+        Spacer(modifier = GlanceModifier.width(WidgetLogButtonSpacing))
         // The log button stays put whether or not an event runs (spec §6) — on a running
         // `START_STOP` Case it starts a second one. Stop lives in Case Detail, opened by tapping
         // the row.
@@ -213,7 +212,7 @@ private fun CaseRow(
                 style =
                     TextStyle(
                         color = ColorProvider(WidgetPalette.accent),
-                        fontSize = 20.sp,
+                        fontSize = WidgetPlusGlyphSize,
                         fontWeight = FontWeight.Bold,
                     ),
             )
@@ -235,7 +234,7 @@ internal fun WidgetCaseSubtitle(
     if (ongoing == null) {
         Text(
             text = PlainVoice.widgetTodayCount(row.todayCount),
-            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 12.sp),
+            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = WidgetSubtitleSize),
         )
         return
     }
@@ -244,15 +243,15 @@ internal fun WidgetCaseSubtitle(
             modifier =
                 GlanceModifier
                     .background(WidgetPalette.accentContainer)
-                    .cornerRadius(6.dp)
-                    .padding(horizontal = 6.dp, vertical = 1.dp),
+                    .cornerRadius(WidgetPillCornerRadius)
+                    .padding(horizontal = WidgetPillPaddingHorizontal, vertical = WidgetPillPaddingVertical),
         ) {
             Text(
                 text = PlainVoice.ongoingPillLabel,
                 style =
                     TextStyle(
                         color = ColorProvider(WidgetPalette.onAccentContainer),
-                        fontSize = 11.sp,
+                        fontSize = WidgetPillTextSize,
                         fontWeight = FontWeight.Medium,
                     ),
             )
@@ -265,7 +264,7 @@ internal fun WidgetCaseSubtitle(
                 } else {
                     formatElapsedDuration(ongoing.occurredAt, now)
                 },
-            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 12.sp),
+            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = WidgetSubtitleSize),
         )
     }
 }

@@ -5,8 +5,6 @@ import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.glance.GlanceId
@@ -102,13 +100,13 @@ class SingleCaseWidget : GlanceAppWidget() {
                             style =
                                 TextStyle(
                                     color = ColorProvider(WidgetPalette.onSurfaceMuted),
-                                    fontSize = 12.sp,
+                                    fontSize = WidgetInfoMessageSize,
                                     textAlign = TextAlign.Center,
                                 ),
                             modifier =
                                 GlanceModifier
                                     .fillMaxSize()
-                                    .padding(8.dp)
+                                    .padding(WidgetSingleCaseOuterPadding)
                                     .clickable(actionStartActivity(Intent(glanceContext, MainActivity::class.java))),
                         )
                     } else {
@@ -135,7 +133,7 @@ private fun SingleCaseContent(
             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             .putExtra(EXTRA_CASE_ID, row.caseId)
     Column(
-        modifier = GlanceModifier.fillMaxSize().padding(8.dp),
+        modifier = GlanceModifier.fillMaxSize().padding(WidgetSingleCaseOuterPadding),
         horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
     ) {
         Column(
@@ -147,10 +145,10 @@ private fun SingleCaseContent(
             horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
             verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
-            Text(text = row.icon, style = TextStyle(fontSize = 24.sp))
+            Text(text = row.icon, style = TextStyle(fontSize = WidgetIconGlyphSize))
             WidgetCaseSubtitle(row = row, now = now)
         }
-        Spacer(modifier = GlanceModifier.height(6.dp))
+        Spacer(modifier = GlanceModifier.height(WidgetSingleCaseLogButtonSpacing))
         // The log button stays put whether or not an event runs (spec §6) — on a running
         // `START_STOP` Case it starts a second one. Stop lives in Case Detail, opened by tapping
         // above.
@@ -170,7 +168,7 @@ private fun SingleCaseContent(
                     .fillMaxWidth()
                     .height(MinTapTarget)
                     .background(WidgetPalette.surface)
-                    .cornerRadius(8.dp)
+                    .cornerRadius(WidgetLogButtonCornerRadius)
                     .clickable(tapAction)
                     .semantics { contentDescription = PlainVoice.quickLogButtonDescription(row.name) },
             contentAlignment = Alignment.Center,
@@ -180,7 +178,7 @@ private fun SingleCaseContent(
                 style =
                     TextStyle(
                         color = ColorProvider(WidgetPalette.accent),
-                        fontSize = 18.sp,
+                        fontSize = WidgetPlusGlyphSize,
                         fontWeight = FontWeight.Bold,
                     ),
             )
