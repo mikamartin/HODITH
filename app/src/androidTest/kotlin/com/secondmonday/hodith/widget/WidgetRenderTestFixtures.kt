@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -57,6 +58,29 @@ internal fun findClickableAncestorOfText(
     }
     return null
 }
+
+// Returns the TextView itself (not just its text), so a test can assert rendered pixel attributes
+// — size, color — against a WidgetCommon.kt token, not just that the text is present.
+internal fun findTextViewWithText(
+    view: View,
+    text: String,
+): TextView? {
+    if (view is TextView && view.text.toString() == text) return view
+    if (view is ViewGroup) {
+        for (i in 0 until view.childCount) {
+            findTextViewWithText(view.getChildAt(i), text)?.let { return it }
+        }
+    }
+    return null
+}
+
+// Converts a WidgetCommon.kt sp token to the px value a rendered TextView.textSize should equal, via
+// the test device's own DisplayMetrics — matches how Android resolves sp -> px at render time, so it
+// holds across density instead of hardcoding a px number.
+internal fun spToPx(
+    context: Context,
+    sp: Float,
+): Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, context.resources.displayMetrics)
 
 internal fun bindAndRenderSingleCaseWidget(
     context: Context,

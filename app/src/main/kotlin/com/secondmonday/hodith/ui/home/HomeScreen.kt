@@ -220,6 +220,13 @@ private fun HomeCaseListItem(
     }
 }
 
+/**
+ * Vertical margin above and below each Plain plank [Card] in [PlainPlankHomeCaseListItem] — so
+ * adjacent planks sit twice this apart. The List widget mirrors twice this value as the gap between
+ * its own Case planks (`WidgetCommon.kt`'s `WidgetPlankSpacing`), guarded by `WidgetTokenFidelityTest`.
+ */
+internal val PlainPlankVerticalMargin = 4.dp
+
 /** Plain: the same row content as a white [Card] plank, margined off the tinted screen background. */
 @Composable
 private fun PlainPlankHomeCaseListItem(
@@ -230,7 +237,7 @@ private fun PlainPlankHomeCaseListItem(
     nowMillis: () -> Long,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = PlainPlankVerticalMargin),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         HomeCaseRowBody(row, voice, onClick, onQuickLogTap, nowMillis)

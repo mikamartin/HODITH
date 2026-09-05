@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.glance.GlanceId
@@ -83,6 +82,7 @@ class ListWidget : GlanceAppWidget() {
 
             GlanceTheme {
                 val context = LocalContext.current
+                val openApp = actionStartActivity(Intent(context, MainActivity::class.java))
                 Column(
                     modifier =
                         GlanceModifier
@@ -90,45 +90,45 @@ class ListWidget : GlanceAppWidget() {
                             .background(WidgetPalette.background)
                             .cornerRadius(WidgetCornerRadius)
                             .appWidgetBackground()
-                            .padding(12.dp),
+                            .padding(WidgetOuterPadding),
                 ) {
                     // Widget copy is pinned to PlainVoice regardless of the user's chosen in-app
                     // theme — mirrors the widget's fixed neutral palette (DEV_PLAYBOOK.md §4):
                     // colors already don't follow theme here, so reading Settings/DataStore just
                     // to swap text and not color would be inconsistent theming, not more of it.
-                    Box(
+                    //
+                    // The header and empty-state message carry `.fillMaxWidth().padding().clickable`
+                    // on the Text itself, the same shape Home's header Text uses (`HomeScreen.kt`).
+                    // A Text wrapped in a `Box` — even a `fillMaxWidth()` one — is measured at its
+                    // natural single-line width, so a long header clipped at the right edge on a
+                    // narrow widget and never wrapped; `fillMaxWidth()` on the Text gives its
+                    // TextView `match_parent`, so it wraps and grows.
+                    Text(
+                        text = PlainVoice.homeHeaderTitle,
+                        style =
+                            TextStyle(
+                                color = ColorProvider(WidgetPalette.onSurface),
+                                fontSize = WidgetHeaderTitleSize,
+                                fontWeight = WidgetHeaderTitleWeight,
+                            ),
                         modifier =
                             GlanceModifier
                                 .fillMaxWidth()
-                                .height(MinTapTarget)
-                                .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
-                        contentAlignment = Alignment.CenterStart,
-                    ) {
-                        Text(
-                            text = PlainVoice.homeHeaderTitle,
-                            style =
-                                TextStyle(
-                                    color = ColorProvider(WidgetPalette.onSurfaceMuted),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                ),
-                        )
-                    }
+                                .padding(vertical = WidgetHeaderPadding)
+                                .clickable(openApp),
+                    )
                     if (rows.isEmpty()) {
-                        Box(
+                        Text(
+                            text = PlainVoice.widgetNoCasesSelectedMessage,
+                            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = WidgetInfoMessageSize),
                             modifier =
                                 GlanceModifier
                                     .fillMaxWidth()
-                                    .height(MinTapTarget)
-                                    .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
-                            Text(
-                                text = PlainVoice.widgetNoCasesSelectedMessage,
-                                style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 13.sp),
-                            )
-                        }
+                                    .padding(vertical = WidgetHeaderPadding)
+                                    .clickable(openApp),
+                        )
                     } else {
+                        Spacer(modifier = GlanceModifier.height(WidgetPlankSpacing))
                         LazyColumn(modifier = GlanceModifier.fillMaxWidth()) {
                             items(rows) { row -> CaseRow(row, now) }
                         }
@@ -158,66 +158,73 @@ private fun CaseRow(
         Intent(context, MainActivity::class.java)
             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             .putExtra(EXTRA_CASE_ID, row.caseId)
-    Row(
-        modifier =
-            GlanceModifier
-                .fillMaxWidth()
-                .background(WidgetPalette.surface)
-                .padding(10.dp),
-        verticalAlignment = Alignment.Vertical.CenterVertically,
-    ) {
-        Text(text = row.icon, style = TextStyle(fontSize = 20.sp))
-        Spacer(modifier = GlanceModifier.width(10.dp))
-        Column(
+    // Column wrapper + trailing Spacer, not a bottom margin: Glance has no margin — every `padding`
+    // is interior and `background` fills it — so the gap that makes each row read as a discrete
+    // plank has to be a real (transparent) Spacer between the LazyColumn items.
+    Column(modifier = GlanceModifier.fillMaxWidth()) {
+        Row(
             modifier =
                 GlanceModifier
-                    .defaultWeight()
-                    .clickable(actionStartActivity(intent = caseDetailIntent)),
+                    .fillMaxWidth()
+                    .background(WidgetPalette.surface)
+                    .cornerRadius(WidgetCornerRadius)
+                    .padding(WidgetRowPadding),
+            verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
-            Text(
-                text = row.name,
-                maxLines = 1,
-                style =
-                    TextStyle(
-                        color = ColorProvider(WidgetPalette.onSurface),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-            )
-            WidgetCaseSubtitle(row = row, now = now)
-        }
-        Spacer(modifier = GlanceModifier.width(8.dp))
-        // The log button stays put whether or not an event runs (spec §6) — on a running
-        // `START_STOP` Case it starts a second one. Stop lives in Case Detail, opened by tapping
-        // the row.
-        val tapAction =
-            when (row.logFlow) {
-                LogFlow.ONE_TAP -> actionRunCallback<QuickLogAction>(actionParametersOf(CaseIdParam to row.caseId))
-                LogFlow.DETAIL_SHEET ->
-                    actionStartActivity(
-                        intent =
-                            Intent(context, WidgetLogTrampolineActivity::class.java)
-                                .putExtra(EXTRA_CASE_ID, row.caseId),
-                    )
+            Text(text = row.icon, style = TextStyle(fontSize = WidgetIconGlyphSize))
+            Spacer(modifier = GlanceModifier.width(WidgetIconTextSpacing))
+            Column(
+                modifier =
+                    GlanceModifier
+                        .defaultWeight()
+                        .clickable(actionStartActivity(intent = caseDetailIntent)),
+            ) {
+                Text(
+                    text = row.name,
+                    maxLines = 1,
+                    style =
+                        TextStyle(
+                            color = ColorProvider(WidgetPalette.onSurface),
+                            fontSize = WidgetCaseNameSize,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                )
+                WidgetCaseSubtitle(row = row, now = now)
             }
-        Box(
-            modifier =
-                GlanceModifier
-                    .size(MinTapTarget)
-                    .clickable(tapAction)
-                    .semantics { contentDescription = PlainVoice.quickLogButtonDescription(row.name) },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "+",
-                style =
-                    TextStyle(
-                        color = ColorProvider(WidgetPalette.accent),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-            )
+            Spacer(modifier = GlanceModifier.width(WidgetLogButtonSpacing))
+            // The log button stays put whether or not an event runs (spec §6) — on a running
+            // `START_STOP` Case it starts a second one. Stop lives in Case Detail, opened by tapping
+            // the row.
+            val tapAction =
+                when (row.logFlow) {
+                    LogFlow.ONE_TAP -> actionRunCallback<QuickLogAction>(actionParametersOf(CaseIdParam to row.caseId))
+                    LogFlow.DETAIL_SHEET ->
+                        actionStartActivity(
+                            intent =
+                                Intent(context, WidgetLogTrampolineActivity::class.java)
+                                    .putExtra(EXTRA_CASE_ID, row.caseId),
+                        )
+                }
+            Box(
+                modifier =
+                    GlanceModifier
+                        .size(MinTapTarget)
+                        .clickable(tapAction)
+                        .semantics { contentDescription = PlainVoice.quickLogButtonDescription(row.name) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "+",
+                    style =
+                        TextStyle(
+                            color = ColorProvider(WidgetPalette.accent),
+                            fontSize = WidgetPlusGlyphSize,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                )
+            }
         }
+        Spacer(modifier = GlanceModifier.height(WidgetPlankSpacing))
     }
 }
 
@@ -235,7 +242,7 @@ internal fun WidgetCaseSubtitle(
     if (ongoing == null) {
         Text(
             text = PlainVoice.widgetTodayCount(row.todayCount),
-            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 12.sp),
+            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = WidgetSubtitleSize),
         )
         return
     }
@@ -244,15 +251,15 @@ internal fun WidgetCaseSubtitle(
             modifier =
                 GlanceModifier
                     .background(WidgetPalette.accentContainer)
-                    .cornerRadius(6.dp)
-                    .padding(horizontal = 6.dp, vertical = 1.dp),
+                    .cornerRadius(WidgetPillCornerRadius)
+                    .padding(horizontal = WidgetPillPaddingHorizontal, vertical = WidgetPillPaddingVertical),
         ) {
             Text(
                 text = PlainVoice.ongoingPillLabel,
                 style =
                     TextStyle(
                         color = ColorProvider(WidgetPalette.onAccentContainer),
-                        fontSize = 11.sp,
+                        fontSize = WidgetPillTextSize,
                         fontWeight = FontWeight.Medium,
                     ),
             )
@@ -265,7 +272,7 @@ internal fun WidgetCaseSubtitle(
                 } else {
                     formatElapsedDuration(ongoing.occurredAt, now)
                 },
-            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = 12.sp),
+            style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = WidgetSubtitleSize),
         )
     }
 }
