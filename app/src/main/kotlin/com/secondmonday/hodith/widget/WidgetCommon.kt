@@ -7,6 +7,7 @@ import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.updateAll
+import androidx.glance.text.FontWeight
 import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.ui.theme.PlainLightBackground
 import com.secondmonday.hodith.ui.theme.PlainLightOnPrimary
@@ -59,6 +60,17 @@ internal val WidgetPlusGlyphSize = 20.sp
 internal val WidgetHeaderTitleSize = 14.sp
 internal val WidgetInfoMessageSize = 14.sp
 
+/**
+ * Weight for the List widget header ("How often does it truly happen?"). Its in-app counterpart —
+ * Home's header `Text` at `headlineSmall` (`HomeScreen.kt`) — carries Plain's display weight,
+ * `FontWeight.SemiBold`, which `androidx.glance.text.FontWeight` can't express (no 600 rung) and
+ * which Glance's RemoteViews host wouldn't apply as a 600 typeface anyway; Bold is the nearest
+ * rung. The widget keeps the header at the compact [WidgetHeaderTitleSize] rather than the app's
+ * 24sp — a widget's canvas is far narrower — so this is a weight-only nod to the app role, not a
+ * full mirror. `WidgetTokenFidelityTest` fails if Plain's `headlineSmall` weight moves off SemiBold.
+ */
+internal val WidgetHeaderTitleWeight = FontWeight.Bold
+
 internal val WidgetIconTextSpacing = 12.dp
 internal val WidgetPillPaddingHorizontal = 8.dp
 internal val WidgetPillPaddingVertical = 2.dp
@@ -72,6 +84,21 @@ internal val WidgetRowPadding = 10.dp
 internal val WidgetLogButtonSpacing = 8.dp
 internal val WidgetSingleCaseOuterPadding = 8.dp
 internal val WidgetSingleCaseLogButtonSpacing = 6.dp
+
+/** Vertical padding on the List widget header and empty-state message (both are a bare
+ * `.fillMaxWidth()` Text, so the padding also sets the clickable area). Sized so the one-line tap
+ * target clears [MinTapTarget] (15 + ~14sp line + 15 ≈ 50dp); with no fixed height the Text is free
+ * to wrap and grow. Widget-only, no Home analogue. */
+internal val WidgetHeaderPadding = 15.dp
+
+/**
+ * Gap between List widget Case planks (and between the header and the first plank), giving each row
+ * the discrete-card look Home's Plain planks have. Mirrors the space Home's `PlainPlankHomeCaseListItem`
+ * `Card` leaves between adjacent planks — its
+ * [com.secondmonday.hodith.ui.home.PlainPlankVerticalMargin] applied both above and below, so twice
+ * that value. A unit test (`WidgetTokenFidelityTest`) fails if the two drift apart.
+ */
+internal val WidgetPlankSpacing = 8.dp
 
 internal val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
 

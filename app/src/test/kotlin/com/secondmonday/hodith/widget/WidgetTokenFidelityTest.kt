@@ -2,12 +2,15 @@ package com.secondmonday.hodith.widget
 
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.ui.home.PlainPlankVerticalMargin
 import com.secondmonday.hodith.ui.theme.hodithShapes
 import com.secondmonday.hodith.ui.theme.hodithTypography
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import androidx.glance.text.FontWeight as GlanceFontWeight
 
 /**
  * Glance can't consume M3's `Typography`/`Shapes` directly (DEV_PLAYBOOK.md §4), so
@@ -17,9 +20,12 @@ import org.junit.Test
  * [com.secondmonday.hodith.ui.theme.HodithThemeTest] guards against across the theme definitions
  * themselves.
  *
- * Tokens with no Home/`Type.kt` role ([WidgetPlusGlyphSize], [WidgetHeaderTitleSize],
- * [WidgetInfoMessageSize], and every padding/spacing token) aren't covered here — there's nothing
- * in Plain's theme for them to drift against.
+ * Token *sizes* with no Home/`Type.kt` role ([WidgetPlusGlyphSize], [WidgetHeaderTitleSize],
+ * [WidgetInfoMessageSize]) aren't covered here — there's nothing in Plain's theme for them to drift
+ * against. Tokens anchored to a Home value that isn't a `Type.kt` size — [WidgetPlankSpacing] (a
+ * `HomeScreen.kt` plank-layout value) and [WidgetHeaderTitleWeight] (Plain's `headlineSmall`
+ * weight, the header's in-app role, even though the widget keeps the header size compact) — are
+ * checked against that value.
  */
 class WidgetTokenFidelityTest {
     private val plainTypography = hodithTypography(AppTheme.PLAIN)
@@ -54,5 +60,23 @@ class WidgetTokenFidelityTest {
         val plainMediumRadius = cornerRadiusDp(plainShapes.medium)
         assertEquals(plainMediumRadius, WidgetCornerRadius.value, 0.01f)
         assertEquals(plainMediumRadius, WidgetLogButtonCornerRadius.value, 0.01f)
+    }
+
+    @Test
+    fun `widget plank spacing mirrors Home's Plain plank vertical margins`() {
+        // Home's PlainPlankHomeCaseListItem Card carries PlainPlankVerticalMargin above and below,
+        // so adjacent planks sit twice that apart. The List widget uses one token for that gap, so
+        // its rows read as the same discrete cards.
+        assertEquals(PlainPlankVerticalMargin.value * 2, WidgetPlankSpacing.value, 0f)
+    }
+
+    @Test
+    fun `widget header weight tracks Plain's headlineSmall, at the nearest Glance rung`() {
+        // Home's header Text renders at headlineSmall, which carries Plain's display weight,
+        // FontWeight.SemiBold. Glance's FontWeight has no 600 rung, so the widget header uses Bold.
+        // If Plain's headlineSmall weight moves off SemiBold the nod is wrong: fail here rather than
+        // let the widget drift silently.
+        assertEquals(FontWeight.SemiBold, plainTypography.headlineSmall.fontWeight)
+        assertEquals(GlanceFontWeight.Bold, WidgetHeaderTitleWeight)
     }
 }

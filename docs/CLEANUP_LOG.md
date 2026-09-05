@@ -58,6 +58,42 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` (plus `assembleDebugAndroidTest`) sequential, all green. `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.secondmonday.hodith.widget`, run on a real emulator once the grantbind fix above was found: 17/17 widget-package tests passing on a fresh emulator instance. The full unscoped `connectedDebugAndroidTest` (252 tests) was attempted multiple times but hit a reproducible, pre-existing `INSTRUMENTATION_ABORTED: System has crashed` emulator abort around test 90-100 in the unrelated `BigPictureScreenTest`/Compose UI area — confirmed unrelated to this branch (happens on a clean checkout, in code this branch never touches) and not chased further; the widget-scoped run is this branch's relevant, clean signal.
 
+### Follow-up: real-device review pass
+
+**Scope:** the user placed the widget after the fidelity pass above and reported divergences from Home's Plain rendering that the token work hadn't reached, in `ListWidget.kt`. Three review rounds:
+
+Round 1 — built, then two were corrected:
+- List rows didn't read as discrete planks: the row `background` had no corner radius and no gap between rows, so the list was one continuous slab. **Kept.** `CaseRow` now wraps its `Row` in a `Column` that applies `WidgetCornerRadius` to the row surface and trails a transparent `WidgetPlankSpacing` (8dp) Spacer — Glance has no margin (all `padding` is interior, `background` fills it), so the inter-plank gap has to be a real Spacer between `LazyColumn` items. An 8dp Spacer also sits below the header.
+- Round 1 also bumped the Case *name* to Bold and `maxLines = 2`, misreading "the title is not in bold" / "wrapped title covered" as being about the plank name. **Reverted** — the user clarified both were about the *header* ("How often does it truly happen?"). Case name is back to `maxLines = 1` / `FontWeight.Medium`, matching the app exactly.
+
+Round 2 — the header, first attempt:
+- Removed the header `Box`'s fixed `height(MinTapTarget)` (which clipped a wrapped header, Glance clips to view bounds) for `padding(vertical = WidgetHeaderPadding)`; recoloured `onSurfaceMuted` → `onSurface` and `FontWeight.Medium` → `WidgetHeaderTitleWeight = FontWeight.Bold` (nearest Glance rung to Plain's `headlineSmall` SemiBold; the header *size* stays compact per the user's call, not the app's 24sp). The HODITH acronym tint the app applies isn't reproducible (`androidx.glance.text.Text` takes no `AnnotatedString`).
+
+Round 3 — the header, actually fixed:
+- Round 2 made it worse: the header still never wrapped (clipped at the right edge on a resize) and was still cut off vertically even at one line. Cause: a `Text` inside a Glance `Box` is measured at its natural single-line width *even when the `Box` is `fillMaxWidth()`*, so it can't wrap and the parent clips it. Fix: drop the `Box` entirely — the header and the empty-state message are now bare `Text`s with `.fillMaxWidth().padding(vertical = WidgetHeaderPadding).clickable(...)` on the `Text` itself, the exact shape Home's header `Text` uses (`HomeScreen.kt`). `fillMaxWidth()` on the `Text` gives its `TextView` `match_parent`, so it wraps and grows.
+
+**Found & fixed (final state):**
+- Four new `WidgetCommon.kt` tokens: `WidgetPlankSpacing`, `WidgetHeaderTitleWeight`, `WidgetHeaderPadding`, plus `HomeScreen.kt`'s `PlainPlankVerticalMargin` extracted from an inline `4.dp` — each documented against the Home value it tracks (or noted widget-only). No new inline literals in `ListWidget.kt`; the header/empty-state `Box`es are gone.
+- `WidgetTokenFidelityTest` gained two assertions: `WidgetPlankSpacing == PlainPlankVerticalMargin * 2`, and `plainTypography.headlineSmall.fontWeight == FontWeight.SemiBold` while `WidgetHeaderTitleWeight == GlanceFontWeight.Bold` (fails if Plain's header weight moves off SemiBold). Class KDoc updated for the non-`Type.kt`-size anchors.
+- DEV_PLAYBOOK §4 gained a bullet on the two Glance layout facts these fixes turned on (Text-in-Box clips instead of wrapping; no margin, gaps must be Spacers).
+
+**Full cleanup-checklist walk (against the final diff):**
+- *Duplication* — `actionStartActivity(Intent(context, MainActivity::class.java))` appeared twice (header + empty-state, pre-existing) — hoisted to a single `val openApp` in `provideGlance`. Considered a shared `WidgetChromeText` composable for the two near-identical header/empty-state `Text`s and declined: a 4-param helper for two call sites in one function, both already inline before this diff, doesn't earn the indirection. No inline `Voice` strings; no new styling literals (the new tokens are the fix for that category).
+- *Decoupling* — no ViewModel/Repository/domain code touched; `produceState` blocks untouched; still reads time via the injected `Clock` (`entryPoint.clock()`), no `System.currentTimeMillis()`.
+- *Complexity* — `CaseRow` gained one nesting level (`Column` wrapper + trailing Spacer), forced by Glance's no-margin model and commented with the reason; the header *lost* a level (`Box` removed). No composable over ~75 lines.
+- *Dead code* — `ktlintCheck` clean (no unused imports); `Box`/`Alignment`/`MinTapTarget`/`FontWeight`/`height`/`width` all still referenced (the "+" button box and its glyph, the two `Spacer`s, the name/pill weights).
+- *Repo hygiene* — `git status` shows only `HomeScreen.kt` / `ListWidget.kt` / `WidgetCommon.kt` / `WidgetTokenFidelityTest.kt` and three docs; no untracked files, nothing secret-shaped, no real paths.
+- *Naming* — `WidgetPlankSpacing` / `WidgetHeaderTitleWeight` / `WidgetHeaderPadding` follow the `Widget*` token convention; `PlainPlankVerticalMargin` follows `PlainPlank*`. No new files, composables, or `Voice` keys.
+- *Hardcoded values* — this diff removes inline literals; the new `*.dp` tokens are widget UI-layout constants alongside `MinTapTarget`, not the domain product constants CLAUDE.md's rule targets.
+- *Accessibility* — `WidgetHeaderPadding` set to 15dp (was 14 mid-pass) so the one-line header/empty-state tap target clears `MinTapTarget` (~50dp); `.size(MinTapTarget)` on the "+" untouched; `+` still carries its `PlainVoice.quickLogButtonDescription` semantics.
+- *Deprecated APIs* — no new deprecation warnings in the build (the one pre-existing Moshi/Kapt warning is from Hilt codegen, unrelated).
+- *Spec Review* — HODITH_SPEC §15's widget bullets + the "targets Plain's type ramp … and spacing/shape tokens" sentence (added in the first pass) still hold; the compact-header divergence is documented in DEV_PLAYBOOK §4, which §15 points to. No §17 Future Work item implemented.
+- *Tests* — no new Repository/ViewModel/domain logic to cover; the two new `WidgetTokenFidelityTest` assertions anchor to real Plain values, not to the widget token, so they can't pass for the wrong reason. `TESTING.md` line 45 describes the widget chrome tests functionally (no counts, no `WidgetTokenFidelityTest` mention — design-token guards aren't tracked there, same as `HodithThemeTest`); its descriptions still hold, so no edit. No new instrumented test class (no `@UiTest`/`@Smoke` decision); no new system-process-boundary flow for MANUAL_TEST_PLAN.
+
+**Docs updated:** `DEV_PLAYBOOK.md` §4 (token table: `WidgetHeaderTitleWeight` / `WidgetHeaderPadding` / `WidgetPlankSpacing` rows, `WidgetCaseNameSize` note, header size/weight split, intro reworded, + the Glance-layout-facts bullet); `PROGRESS.md` (S2 removed entirely — all its ACs met, and PROGRESS.md is outstanding-work-only; S12's "split out of S2" reference repointed at this log; on-device QA batch note already de-referenced from S2 earlier in the pass).
+
+**Verified:** `ktlintCheck → lintDebug → testDebugUnitTest → assembleDebug` sequential, all green (`WidgetTokenFidelityTest` 7/7). `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.secondmonday.hodith.widget` on the local `sdk_gphone64_x86_64` API 36 emulator: **17/17 widget-package tests passing** (grantbind needed the `.test` package on this GMS image, per §5) — confirms the header/empty-state `Box`→`Text` restructure keeps `WidgetChromeNavigationTest`'s render + tap-through assertions green.
+
 ---
 
 ## fix/case-icon-selection-contrast

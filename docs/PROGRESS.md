@@ -70,7 +70,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
-- **On-device QA batch — S2 · S4 · S5 · S12, with S3** — S2 needs a Compose Preview eyeball pass and an instrumented test run, S12 the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
+- **On-device QA batch — S4 · S5 · S12, with S3** — S12 the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
 - **Case Detail Log-tab — S4** — touches `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (empty-state alignment). S7 (sort row) and S8 (event-edit screen) already landed here, so expect a small rebase.
 - **Case Detail Insights tab — S4 · S10** — S10 adds tap targets to `InsightsTab.kt` and cases to `CaseDetailInsightsTabTest.kt`; S4 reworks the same file's empty state. Expect a small rebase between them.
 - **Case-editor selection controls — S3 · S11** — S3 retunes `IconChoice` / `IntensityChoice` selection contrast; S11 declutters the adjacent `SegmentedChoiceRow`. Both are affordance polish on the same screens.
@@ -109,32 +109,13 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Concern** — standalone, no dependencies.
 
-### S2 · Widget visuals have drifted from the in-app Plain theme
-
-*Branch: `fix/widget-plain-fidelity` · Complexity: M · Priority: Medium · Area: Bug*
-
-Both widgets hand-rolled every `TextStyle` / `GlanceModifier` with values pinned in `widget/WidgetCommon.kt` — colours were already sourced from `Color.kt`'s extracted Plain-light vals, but type sizes, weights, spacing, and corner radii were local literals never checked against `ui/theme/Type.kt` / `Shape.kt` or Home's actual Plain rendering (`WidgetCornerRadius = 16.dp` was literally 2× the 8dp Home's Plain plank `Card` renders at). Spec §15 / DEV_PLAYBOOK §4 already commit the widget to the Plain light palette — this is a fidelity pass, not a theming change. (The red "+" glyph report that used to share this item is split out as S12, below — its cause is already ruled out in source and what's left is on-device work this pass didn't touch.)
-
-**Acceptance criteria**
-
-- [x] A short written spec of the widget's Plain type ramp + spacing + shape tokens, derived from `ui/theme/Type.kt` / `Shape.kt` and the Plain Home surfaces, added to DEV_PLAYBOOK §4; HODITH_SPEC §15 gains one sentence that the widget targets Plain's type ramp and spacing, not only its palette.
-- [x] `WidgetCommon.kt` grows the missing tokens so `ListWidget.kt` / `SingleCaseWidget.kt` stop carrying inline literals.
-- [ ] Row layout, header, and empty state visually reconciled against Home's Plain rendering (Compose Preview eyeball pass — outstanding).
-- [x] Tests: `WidgetActionsFlowTest` / `WidgetChromeNavigationTest` (the real coverage — `ListWidgetTest`/`SingleCaseWidgetTest` never existed) extended with assertions for the newly-centralised tokens; a JVM `WidgetTokenFidelityTest` locks the tokens to Plain's actual `Type.kt`/`Shape.kt` values so a later theme change can't silently drift the widget out of sync again. `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.secondmonday.hodith.widget` confirmed green (17/17) on a real emulator.
-
-**Plan** — eyeball row layout, header, and empty state against Home's Plain rendering via Compose Preview.
-
-**Tests** — `WidgetActionsFlowTest`, `WidgetChromeNavigationTest`, `WidgetTokenFidelityTest`.
-
-**Concern** — Glance's constraints make the fidelity work convergence-by-hand, not a shared-token import (no `lineHeight`/`letterSpacing`, no SemiBold `FontWeight`) — documented in DEV_PLAYBOOK §4 rather than fought.
-
 ### S12 · Red "+" widget glyph has no cause in a source read
 
 *Branch: TBD · Complexity: S · Priority: Low · Area: Bug*
 
 🔍 **Investigation** — needs an on-device repro-and-photograph pass; nothing left to find by reading code.
 
-Split out of the old S2. Testers report the "+" glyph rendering red; it is unconditionally `WidgetPalette.accent` (`PlainLightPrimary` `#3A6B76`, a teal) in `widget/ListWidget.kt` / `widget/SingleCaseWidget.kt`, in every state, with no red anywhere in its history — there's no in-widget Stop control at all (a running `START_STOP` Case's "+" just starts a second event; Stop only lives in Case Detail, per spec §6/§15).
+Split off from the widget Plain-fidelity work (`fix/widget-plain-fidelity`; see CLEANUP_LOG.md). Testers report the "+" glyph rendering red; it is unconditionally `WidgetPalette.accent` (`PlainLightPrimary` `#3A6B76`, a teal) in `widget/ListWidget.kt` / `widget/SingleCaseWidget.kt`, in every state, with no red anywhere in its history — there's no in-widget Stop control at all (a running `START_STOP` Case's "+" just starts a second event; Stop only lives in Case Detail, per spec §6/§15).
 
 **Acceptance criteria**
 
