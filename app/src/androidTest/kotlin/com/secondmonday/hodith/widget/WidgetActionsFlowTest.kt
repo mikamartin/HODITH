@@ -57,7 +57,10 @@ import javax.inject.Inject
  * `createView()` returns real content.
  *
  * Requires the emulator/device to have pre-granted bind permission:
- * `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0`.
+ * `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0`. Which package needs
+ * the grant is emulator-image-dependent (see DEV_PLAYBOOK.md §5) — on a Google Play/GMS-enabled
+ * local image, grant `com.secondmonday.hodith.test` instead if this fails with
+ * `bindAppWidgetIdIfAllowed failed` despite grantbind reporting success.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -149,6 +152,11 @@ class WidgetActionsFlowTest {
                 collectText(renderedView(context, host, appWidgetId)).any { it.contains(PlainVoice.ongoingCountIndicator(2)) },
             )
 
+            // WidgetPillTextSize mirrors Home's labelSmall (ui/theme/Type.kt) — DEV_PLAYBOOK.md §4.
+            val pillTextView = findTextViewWithText(renderedView(context, host, appWidgetId), PlainVoice.ongoingPillLabel)
+            assertNotNull("Expected the Ongoing pill's TextView to render", pillTextView)
+            assertEquals(spToPx(context, WidgetPillTextSize.value), pillTextView!!.textSize, 0.5f)
+
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             val monitor = Instrumentation.ActivityMonitor(MainActivity::class.java.name, null, false)
             instrumentation.addMonitor(monitor)
@@ -191,6 +199,25 @@ class WidgetActionsFlowTest {
                         .takeIf { texts -> texts.any { it == PlainVoice.widgetTodayCount(1) } }
                 }
             assertNotNull("Expected the widget's today count to credit a duration event active today", rendered)
+        }
+
+    // WidgetCaseNameSize has no render-test coverage here: the Single-case widget never shows
+    // row.name (only icon + subtitle), and the List widget's CaseRow that does render it lives
+    // inside a LazyColumn this harness can't populate (see this class's doc comment). The JVM
+    // WidgetTokenFidelityTest is the only coverage for that token's fidelity to Plain's titleMedium.
+
+    @Test
+    fun singleCaseWidget_plusGlyph_rendersAtWidgetPlusGlyphSize() =
+        runBlocking {
+            insertedCaseId = repository.insertCase(testCase())
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
+
+            // WidgetPlusGlyphSize has no Home equivalent (Home's log button is a vector icon) —
+            // this locks the widget's own value so ListWidget/SingleCaseWidget can't drift apart.
+            val plusTextView =
+                waitFor { findTextViewWithText(renderedView(context, host, appWidgetId), "+") }
+                    ?: throw AssertionError("No '+' TextView rendered")
+            assertEquals(spToPx(context, WidgetPlusGlyphSize.value), plusTextView.textSize, 0.5f)
         }
 
     private suspend fun waitForClickableWithDescription(description: String): View =

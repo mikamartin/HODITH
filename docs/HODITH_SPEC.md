@@ -306,6 +306,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 - **List widget** (resizable): shows the Cases picked via its own configure picker (per-widget-instance — each placement can pick a different set); each row = icon, name, today count, one-tap log (respecting the Case's `logFlow` — `DETAIL_SHEET` opens the sheet via trampoline). A Case with a running event shows the "Ongoing" pill + elapsed (one) or a count (several) in place of the today count; the log button stays put (it starts a second event on a `START_STOP` Case), and tapping the row opens Case Detail to Stop (§6).
 - **Single-case widget** (small): bound to one Case via its own configure step. Shows icon + today count; a dedicated log button respects the Case's `logFlow` (matching the List widget's per-row treatment), tapping elsewhere on the Case opens its detail screen. A running Case shows the "Ongoing" pill + elapsed/count, same as the List widget.
 - Known Glance constraint: widget theming is limited, so widgets always render the Plain theme's light palette, regardless of the user's chosen in-app theme or the system's light/dark mode. Documented as a known limitation.
+- Widget rendering targets Plain's type ramp (icon/name/subtitle sizes and weights) and spacing/shape tokens too, not only its palette — DEV_PLAYBOOK §4 has the exact mapping and Glance's platform limits on it.
 
 ## 16. Data, privacy, distribution
 

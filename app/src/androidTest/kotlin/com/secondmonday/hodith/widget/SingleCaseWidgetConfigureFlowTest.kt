@@ -37,7 +37,10 @@ import javax.inject.Inject
  * rather than calling the ViewModel/Glance functions directly.
  *
  * Requires the emulator/device to have pre-granted bind permission:
- * `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0`.
+ * `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0`. Which package needs
+ * the grant is emulator-image-dependent (see DEV_PLAYBOOK.md §5) — on a Google Play/GMS-enabled
+ * local image, grant `com.secondmonday.hodith.test` instead if this fails with
+ * `bindAppWidgetIdIfAllowed failed` despite grantbind reporting success.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
