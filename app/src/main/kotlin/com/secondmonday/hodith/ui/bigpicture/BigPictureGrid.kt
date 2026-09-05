@@ -23,8 +23,10 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -547,7 +549,9 @@ private fun DayDetailDialog(
         if (dayEvents.isEmpty()) {
             Text(voice.bigPictureDayDetailEmptyState)
         } else {
-            Column {
+            // AlertDialog doesn't scroll its `text` slot on its own -- content taller than the
+            // dialog's window just clips silently rather than scrolling.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 dayEvents.forEach { dayEvent ->
                     EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, zoneId, onOpenCase, onDismiss, voice)
                 }
@@ -573,7 +577,9 @@ private fun WeekDetailDialog(
         title = voice.bigPictureWeekDetailTitle(formatMediumDate(week.first())),
         onDismiss = onDismiss,
     ) {
-        Column {
+        // AlertDialog doesn't scroll its `text` slot on its own -- content taller than the
+        // dialog's window just clips silently rather than scrolling.
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             validDays.forEach { day ->
                 val dayEvents = eventsByDay[day].orEmpty().filter { isEventVisible(it.event) }
                 if (dayEvents.isNotEmpty()) {

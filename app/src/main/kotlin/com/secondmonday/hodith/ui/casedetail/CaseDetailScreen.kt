@@ -222,9 +222,13 @@ fun CaseDetailScreen(
                                     now,
                                     frequencyGranularityOverride = frequencyGranularityOverride,
                                 ),
+                            case = case,
+                            events = uiState.events,
+                            now = now,
                             voice = voice,
                             frequencyGranularityOverride = frequencyGranularityOverride,
                             onFrequencyGranularityChange = { frequencyGranularityOverride = it },
+                            onEditEvent = { event -> onEditEvent(case.id, event.id) },
                         )
                     }
                 HUNCH_TAB ->

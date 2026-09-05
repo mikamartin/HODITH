@@ -15,6 +15,42 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feat/insights-drilldown
+
+**Scope:** PROGRESS.md item S10 — Case Detail Insights tab's `HeatmapCell`, `IntensityCard` squares, and `TagsCard` tag rows were pure display; tapping a specific intensity, tag, or heatmap day now opens the logged events behind it in a shared `InsightsDrillDownDialog`, adapted from Big Picture's existing day/week detail dialog pattern but scoped to one Case (no case icon/name per row) and operating over `EventWithTags`/`EventEntity`. Two bugs surfaced during exploratory testing on this same branch, both fixed here: (1) the new dialog — and Big Picture's pre-existing `DayDetailDialog`/`WeekDetailDialog`, sharing the same root cause — silently clipped a long event list instead of scrolling it; (2) intensity/tag-filtered rows repeated the exact value the dialog's own title already stated.
+
+**Design decisions taken with the user before/while building:**
+- Day-tap only for the per-case heatmap, no Big-Picture-style week view — a per-case week rollup would mostly repeat what the month grid already shows, and Big Picture's week view earns its keep by aggregating across many Cases, which doesn't apply here.
+- Intensity/tag-filtered dialogs suppress just the redundant per-row detail (the exact intensity, or the exact matched tag) rather than the whole details line — an event's *other* tags, or its duration, still show since those aren't redundant with the title.
+
+**Found & fixed (checklist walk-through against the real diff):**
+- **Both the new and Big Picture's pre-existing detail dialogs clipped long event lists instead of scrolling them** — caught by the user during exploratory testing, not by any test. Material3's `AlertDialog` doesn't scroll its `text` slot on its own; content taller than the dialog's window just clips. Fixed in `InsightsDrillDownDialog` and, since Big Picture's `DayDetailDialog`/`WeekDetailDialog` share the identical unscrolled `Column`, there too. New regression tests assert a scrollable container exists inside the open dialog (`hasScrollAction()`), since a plain `assertExists()` on a row's text doesn't catch clipping — Compose's semantics tree doesn't care whether content is visually clipped from view.
+- **Intensity/tag-filtered rows repeated the dialog's own title on every row** — also user-caught. `eventDetailSummary` (`viewmodel/CaseDetailViewModel.kt`) gained a `showIntensity: Boolean = true` param (default preserves the Log tab's existing behaviour); the Insights tab's intensity-filtered dialog passes `false`, and the tag-filtered dialog filters the matched tag out of the row's own tag list before it reaches `eventDetailSummary`, keeping any other tags the event carries.
+- **Duplication:** `HeatmapCell`, the `IntensityCard` square, and `StatRow` each hand-rolled the same "conditional clickable + contentDescription semantics" block (3 near-identical occurrences) — extracted to a shared `Modifier.tappableWithDescription(enabled, description, onClick)`.
+- **Accessibility:** `HeatmapCell`'s new tap target (7 columns per week row) renders at roughly 47dp — just under the 48dp minimum touch size (`IntensityCard`'s squares, 5 columns, are comfortably above it). Fixed with `Modifier.minimumInteractiveComponentSize()`, which expands only the touch area, not the visual cell.
+- **Tests:** `eventDetailSummary` has a thorough JVM unit suite (`CaseDetailFormattingTest.kt`) but had no case for the new `showIntensity` param — added two (`showIntensity = false` hides intensity; still shows duration/note/tags).
+
+**Sections walked, nothing to do (checked against the actual diff, not from memory):**
+- *Decoupling* — the three drill-down filters (`events.filter { ... }` for day/intensity/tag) are inlined in `InsightsTabContent` rather than extracted to the `viewmodel`/`domain` layer, unlike e.g. `sortEventsForLog`. Considered, not fixed: each is a one-line composition of already-tested primitives (`datesCovered`, `activeSpanEnd`, direct equality/membership), not new branching logic that would need its own isolated test the way `sortEventsForLog`'s BY_START/BY_END/ongoing-float branching does — consistent with the item's own "no domain-layer test needed" plan.
+- *Complexity* — no composable in the diff exceeds ~120 lines; `selectedDay`/`selectedIntensity`/`selectedTag` use plain `remember` (loses the open dialog on a config change), matching Big Picture's own `selectedDay`/`selectedWeek` precedent exactly, not a new inconsistency.
+- *Naming* — all 6 new `Voice` keys follow the existing `insights*`/`*Description`/`*Title` families; new composables PascalCase.
+- *Hardcoded values* — none; the touch-target fix uses the standard M3 helper rather than a hand-picked dp value.
+- *Spec Review* — HODITH_SPEC.md §9/§10 updated (see Docs); §17 Future Work has no matching deferred item to update.
+- *Repo hygiene* — `git status` clean; `.claude/settings.json` (an attribution-trailer setting change made mid-session) is entirely outside this diff — `.claude/` is gitignored in this repo, so it was never trackable here regardless.
+- *Deprecated APIs* — none; `lintDebug` clean throughout.
+
+**Deferred:** nothing — every finding above was fixed in this same pass.
+
+**Docs updated:** `HODITH_SPEC.md` §9 (per-case heatmap day-tap ruling: day-tap only, row content, zero-count inert) and §10 (intensity/tag drill-down ruling). `PROGRESS.md` — S10 section removed (resolved); new item **S13** added (Big Picture's day/week rows are sparser than the new Insights drill-down row — a design-decision item, not implemented, since it's a genuinely separate scope call); the Standalone overview's Insights-tab batching bullet updated to drop the now-resolved S10 reference.
+
+**Tests:**
+- Unit (JVM): `CaseDetailFormattingTest.kt` gained 2 cases for `eventDetailSummary`'s `showIntensity` param. Full suite green.
+- Instrumented (run on an API 36 emulator, in two passes — the first hit a pre-existing unrelated flaky emulator crash mid-run, `CaseDetailScreenTest.stopNowInSheet_thenSave_savesWithAnEndedAt`, not reproducible after restarting the emulator): `CaseDetailInsightsTabTest` — 30/30, including 6 new drill-down tests (day/intensity/tag tap-and-filter, both zero-count-inert cases, row-tap → `onEditEvent` + dismiss) plus the scroll and redundancy regression tests. `BigPictureScreenTest` — 30/30, including the new scroll regression test.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green, run repeatedly across the pass as fixes landed.
+
+---
+
 ## fix/case-icon-selection-contrast
 
 **Scope:** PROGRESS.md item S3 — selection in the icon picker (`IconChoice`/`BrightIconChoice` in `CaseEditScreen.kt`) and the intensity selector (`IntensityChoice` in `LogDetailSheet.kt`) was shown by a background-color swap alone (`primaryContainer` vs. `surfaceVariant`, or Bright's 16% tint wash), with near-identical lightness in each pair — violating spec §3 principle 6 ("colour is never the only distinguisher").

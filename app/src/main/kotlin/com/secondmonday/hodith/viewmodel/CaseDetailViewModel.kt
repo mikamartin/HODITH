@@ -188,6 +188,10 @@ internal fun monthsAgo(
  * only when [tracksDuration] — the Case's `durationMode != NONE` — and the span is non-zero;
  * a Case switched to `NONE`, or a zero-length event (`endedAt == occurredAt`), is a point
  * with no duration line. Stored `endedAt` is never read past this gate, so it survives intact.
+ *
+ * [showIntensity] defaults to true (the Log tab always shows it); the Insights tab's intensity
+ * drill-down dialog (spec §10) passes false, since every row there already shares the intensity
+ * the dialog's own title states — repeating it on each row would be pure noise, not information.
  */
 internal fun eventDetailSummary(
     event: EventEntity,
@@ -195,6 +199,7 @@ internal fun eventDetailSummary(
     voice: Voice,
     isOngoing: Boolean = false,
     tracksDuration: Boolean = true,
+    showIntensity: Boolean = true,
 ): String? {
     val parts = mutableListOf<String>()
     if (!isOngoing && tracksDuration) {
@@ -202,7 +207,7 @@ internal fun eventDetailSummary(
             ?.takeIf { it > event.occurredAt }
             ?.let { parts += voice.eventDurationLabel(formatElapsedDuration(event.occurredAt, it)) }
     }
-    event.intensity?.let { parts += voice.eventIntensityLabel(it) }
+    if (showIntensity) event.intensity?.let { parts += voice.eventIntensityLabel(it) }
     event.note?.takeIf { it.isNotBlank() }?.let { parts += it }
     if (tags.isNotEmpty()) parts += tags.joinToString(" ") { "#${it.name}" }
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
