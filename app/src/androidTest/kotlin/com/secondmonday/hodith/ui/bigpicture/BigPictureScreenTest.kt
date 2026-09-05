@@ -2,6 +2,7 @@ package com.secondmonday.hodith.ui.bigpicture
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
@@ -125,6 +126,19 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
 
         composeTestRule.onNodeWithText("felt fine").assertExists()
+    }
+
+    @Test
+    fun dayDetailDialog_eventListIsScrollable() {
+        // A plain `AlertDialog` clips overflowing content instead of scrolling it, so a day with
+        // many events needs its own scrollable container -- assertExists() alone can't catch this,
+        // since Compose's semantics tree doesn't care whether content is clipped from view.
+        setContent(uiStateWith(cases = listOf(case), events = (1L..15L).map { eventToday(id = it) }))
+
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+
+        // One scrollable container is the grid's own month list; a second is the day dialog's own event list.
+        composeTestRule.onAllNodes(hasScrollAction()).assertCountEquals(2)
     }
 
     @Test

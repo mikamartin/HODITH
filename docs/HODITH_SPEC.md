@@ -206,6 +206,8 @@ A scrollable multi-month calendar grid (day columns × week rows, like a standar
 
 A year-in-pixels month grid — each day a cell, shaded by how many events were active that day (the active-span rule above: a multi-day event shades every day it covers, a running event through today). Cozier, good for "what did this month look like". Rendered last on the Insights tab, after the §10 stat cards below. Shows the three most recent months by default, most-recent-first, with an option to reveal the Case's full history.
 
+Tapping a day with at least one active event opens that day's logged events for this Case — no separate week view the way Big Picture has one, since the per-case heatmap is already scoped to a single Case and a week rollup would mostly repeat what the month grid already shows at a glance. A day with zero events is inert (no tap target at all). Each result row reads timestamp (or ongoing/duration line for a spanned event), note, and tags — no case icon/name, since the tab is already scoped to one Case.
+
 ## 10. Stats (descriptive)
 
 On the case detail Insights tab, in this order:
@@ -219,6 +221,8 @@ On the case detail Insights tab, in this order:
 - **Tag breakdown** — counts per tag, shown against the Case's total event count so an individual tag's count reads in proportion rather than in isolation
 
 The calendar heatmap (§9) follows the tag breakdown as the tab's final section.
+
+Tapping an intensity square or a tag row opens the matching logged events for this Case, same shared result surface as the calendar heatmap's day-tap (§9). A zero-count intensity square is inert (no tap target); every tag row is tappable, since a tag only appears in the breakdown once it has counted at least one event.
 
 The duration and intensity cards are gated purely on the Case's current `durationMode`/`intensityEnabled` flags — turning either off hides its card but keeps every event's recorded `endedAt`/`intensity` untouched, so turning it back on restores the card with all its history intact. The same `durationMode` gate governs every other duration surface: the Case-detail event row's "lasted …" line (§6) and the Big Picture spans (§9) all treat a `NONE` Case's events as points, reading no stored `endedAt`.
 

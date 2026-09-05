@@ -72,9 +72,9 @@ No cross-dependencies. Pick any when resources are thin. Several soft batching o
 
 - **On-device QA batch — S4 · S5 · S12, with S3** — S12 the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
 - **Case Detail Log-tab — S4** — touches `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (empty-state alignment). S7 (sort row) and S8 (event-edit screen) already landed here, so expect a small rebase.
-- **Case Detail Insights tab — S4 · S10** — S10 adds tap targets to `InsightsTab.kt` and cases to `CaseDetailInsightsTabTest.kt`; S4 reworks the same file's empty state. Expect a small rebase between them.
+- **Case Detail Insights tab — S4** — touches `InsightsTab.kt`'s empty state; expect a small rebase against S10's now-landed drill-down changes to the same file.
 - **Case-editor selection controls — S3 · S11** — S3 retunes `IconChoice` / `IntensityChoice` selection contrast; S11 declutters the adjacent `SegmentedChoiceRow`. Both are affordance polish on the same screens.
-- **Fully isolated — S1** (icon vector + Previews), **S6** (external content), and **A10** (the old Story A read-through). Any order, any time.
+- **Fully isolated — S1** (icon vector + Previews), **S6** (external content), **S13** (Big Picture event-detail row review), and **A10** (the old Story A read-through). Any order, any time.
 
 ### A10 · Verdict engine's handling of duration events is unreviewed
 
@@ -176,30 +176,6 @@ Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPic
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S10 · Insights tab elements aren't tappable for drill-down
-
-*Branch: `feat/insights-drilldown` · Complexity: M · Priority: Medium · Area: Insights*
-
-🎨 **Design decision** — intensity and tag drill-down aren't in spec §10, and the per-case calendar heatmap's day-tap isn't in spec §9 either (only the Big Picture's is). Needs a ruling on what each drill-down row shows and a §9/§10 sentence that these elements are tappable.
-
-On the Case Detail Insights tab (`ui/casedetail/InsightsTab.kt`), `HeatmapCell`, `IntensityCard`'s five shaded squares, and `TagsCard`'s per-tag `StatRow`s are pure display — no `Modifier.clickable`, no `onClick`. Tapping a specific intensity, a tag, or a heatmap day should open the logged events behind it. The pattern already exists in `ui/bigpicture/BigPictureGrid.kt`: `DayDetailDialog` / `WeekDetailDialog` render an `InfoDialog` listing events via `EventDetailRow`, each row `clickable` to open a Case. Here the tab is already scoped to one Case, so rows would instead call the Insights tab's existing `onEditEvent(caseId, eventId)` nav callback. All three filters run in memory over `CaseDetailUiState.events` (already loaded and in scope where `CaseDetailScreen` calls `InsightsTabContent`): `event.intensity == level`, `tags.any { it.name == tagName }`, and — for a heatmap day — the tapped `LocalDate` inside the event's active span via the existing `datesCovered` helper (`viewmodel/InsightsTabState.kt`). No new DAO query, no new nav route.
-
-**Acceptance criteria**
-
-- [ ] A ruling in HODITH_SPEC §9 (per-case heatmap day-tap) and §10 (intensity + tag drill-down) that these elements are tappable, plus what each result row shows (timestamp, note, tags, ongoing/duration line — mirroring `EventDetailRow`).
-- [ ] `IntensityCard` square, `TagsCard` tag row, and `HeatmapCell` each become a tap target (`.clickable` / `Role.Button`) with a `contentDescription`; empty / zero-count cells stay inert.
-- [ ] One shared drill-down surface — an `InfoDialog` listing the matching events, reusing or extracting a row composable equivalent to `EventDetailRow`; each row opens that event's editor via `onEditEvent`.
-- [ ] Filtering stays in memory over `CaseDetailUiState.events`; no new nav route, no new `EventDao` query.
-- [ ] Dialog title + empty-state strings go through Voice ×3.
-- [ ] Renders under all three card decoration styles (Plain / Intense / Bright), like the Big Picture dialogs.
-- [ ] Tests: `CaseDetailInsightsTabTest` — tapping an intensity square / tag row / heatmap day opens the dialog with the right events, a row tap fires `onEditEvent` with the correct ids, a zero-count element opens nothing; a Preview of the drill-down dialog per theme.
-
-**Plan** — thread `events` + `onEditEvent` from `CaseDetailScreen`'s `INSIGHTS_TAB` branch into `InsightsTabContent` and down to `IntensityCard` / `TagsCard` / `CalendarHeatmapCard`. Add tap handlers that set a `selectedFilter` state, plus one `InsightsDrillDownDialog` modelled on `DayDetailDialog`. `EventDetailRow` is `private` to `BigPictureGrid.kt` — lift it to `ui/common/` or write a small local equivalent; decide during the cleanup pass.
-
-**Tests** — `CaseDetailInsightsTabTest` for the three tap paths and the `onEditEvent` callback. No domain-layer test needed — `datesCovered` is already covered and no new pure logic is added.
-
-**Concern** — mostly a product / spec call (what belongs in each row, whether the heatmap day-tap should also offer a week view like the Big Picture) plus Voice ×3; the wiring is small because the data is already in memory.
-
 ### S11 · Case-editor Duration segmented row is cramped at the right edge
 
 *Branch: `fix/segmented-row-label-crowding` · Complexity: S · Priority: Low · Area: Bug*
@@ -221,6 +197,24 @@ On the Case Detail Insights tab (`ui/casedetail/InsightsTab.kt`), `HeatmapCell`,
 **Tests** — add a `SegmentedChoiceRow` Compose test (none exists) asserting all option labels are displayed for the three-option case in a constrained-width container; `CaseEditScreenTest` and `SettingsScreenTest` stay green.
 
 **Concern** — cosmetic; nothing is functionally broken. Soft-batches with S3 (selection-state contrast in `IconChoice` / `IntensityChoice`), the other selection-control polish item on the same screens.
+
+### S13 · Big Picture's event-detail rows are sparser than the Insights drill-down's
+
+*Branch: TBD · Complexity: S · Priority: Low · Area: Big Picture*
+
+🎨 **Design decision** — needs a ruling on whether Big Picture's cross-case day/week dialogs should show the same detail Insights' drill-down rows do (S10), or whether the current sparser set is intentional given spec §9's "Intensity is not encoded on the grid" stance.
+
+Building S10's Insights drill-down (`InsightsDrillDownEventRow`, `ui/casedetail/InsightsTab.kt`) put it side by side with Big Picture's existing `EventDetailRow` (`ui/bigpicture/BigPictureGrid.kt`) for the first time, and the two turned out meaningfully different. Big Picture's row never shows intensity or a computed duration line, and its "ongoing since …" / span-range label is a static string computed once; Insights' row shows intensity, a duration line, and a live-ticking elapsed time, all via the shared `eventDetailSummary`/`formatEventTime`/`OngoingElapsedText` helpers (`viewmodel/CaseDetailViewModel.kt`, `viewmodel/EventTimeFormat.kt`, `ui/common/OngoingIndicator.kt`) that Big Picture's row doesn't use — it hand-rolls its own time-label logic instead. Unclear whether Big Picture's leaner row is a considered choice (cross-case view, less room per cell, intensity deliberately not encoded per spec §9) or just an artifact of predating those shared helpers.
+
+**Acceptance criteria**
+
+- [ ] A ruling recorded (HODITH_SPEC §9, or a note here if it's a non-decision) on what Big Picture's day/week detail rows should show, compared to Insights' drill-down rows.
+- [ ] If more detail is wanted: `EventDetailRow` reuses `eventDetailSummary`/`formatEventTime`/`OngoingElapsedText` the same way `InsightsDrillDownEventRow` does, rather than keeping its own hand-rolled time-label logic.
+- [ ] If the current sparser set is intentional: a one-line spec note saying so, so this doesn't get re-raised as an inconsistency later.
+
+**Plan** — revisit once there's appetite; not blocking S10, and no code plan until the ruling lands.
+
+**Tests** — depends on the ruling; if `EventDetailRow` changes, `BigPictureScreenTest`'s existing event-row assertions (`dayDetailDialog_showsEventTimestampAndTags` etc.) need updating alongside it.
 
 ## Blocked
 

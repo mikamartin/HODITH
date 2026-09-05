@@ -102,6 +102,25 @@ class CaseDetailFormattingTest {
     }
 
     @Test
+    fun `eventDetailSummary omits intensity when showIntensity is false, even though it's set`() {
+        assertEquals(
+            "Quick one",
+            eventDetailSummary(testEvent(intensity = 2, note = "Quick one"), tags = emptyList(), PlainVoice, showIntensity = false),
+        )
+    }
+
+    @Test
+    fun `eventDetailSummary showIntensity false still shows duration, note and tags`() {
+        val tags = listOf(TagEntity(id = 1, name = "dinner"))
+        val event = testEvent(intensity = 4, note = "Quick one", occurredAt = 0L, endedAt = 45 * 60_000L)
+
+        assertEquals(
+            "${PlainVoice.eventDurationLabel("45m")} · Quick one · #dinner",
+            eventDetailSummary(event, tags = tags, PlainVoice, showIntensity = false),
+        )
+    }
+
+    @Test
     fun `eventDetailSummary uses the given voice's intensity copy, not a hardcoded string`() {
         assertEquals(
             IntenseVoice.eventIntensityLabel(5),

@@ -2,10 +2,12 @@ package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -23,10 +25,14 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 /**
  * Drives [CaseDetailScreen]'s Insights tab (seven stat cards, then the calendar heatmap),
@@ -57,6 +63,7 @@ class CaseDetailInsightsTabTest {
         intensityEnabled: Boolean = false,
         caseCreatedAt: Long = daysAgo(30),
         events: List<EventWithTags> = emptyList(),
+        onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
     ) {
         val case = testCase(durationMode = durationMode, intensityEnabled = intensityEnabled, createdAt = caseCreatedAt)
         composeTestRule.setContent {
@@ -65,7 +72,7 @@ class CaseDetailInsightsTabTest {
                     uiState = CaseDetailUiState(case = case, events = events, isLoading = false),
                     onBack = {},
                     onEditCase = {},
-                    onEditEvent = { _, _ -> },
+                    onEditEvent = onEditEvent,
                     onOpenTriggers = {},
                     onOpenShare = {},
                     newEventDraft = {
@@ -102,6 +109,7 @@ class CaseDetailInsightsTabTest {
         endedAt: Long? = null,
         intensity: Int? = null,
         tags: List<TagEntity> = emptyList(),
+        note: String? = null,
     ) = EventWithTags(
         event =
             testEvent(
@@ -110,6 +118,7 @@ class CaseDetailInsightsTabTest {
                 occurredAt = daysAgo(daysAgo),
                 endedAt = endedAt,
                 intensity = intensity,
+                note = note,
             ),
         tags = tags,
     )
@@ -375,6 +384,185 @@ class CaseDetailInsightsTabTest {
         composeTestRule.onNodeWithText(PlainVoice.insightsGapsInfoTitle).assertDoesNotExist()
     }
 
+    @Test
+    fun intensitySquare_tapWithMatchingEvents_opensDialogListingOnlyThoseEvents() {
+        setInsightsTabContent(
+            intensityEnabled = true,
+            events =
+                listOf(
+                    eventAt(2, intensity = 4, note = "Match event"),
+                    eventAt(1, intensity = 2, note = "Other event"),
+                ),
+        )
+
+        composeTestRule
+            .onNodeWithContentDescription(PlainVoice.insightsIntensitySquareTapDescription(4))
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsIntensityDrillDownTitle(4)).assertExists()
+        // Exact match: the row's own intensity label is suppressed, since every row here shares
+        // the dialog's own title -- "Intensity 4" should appear exactly once, not once per row too.
+        composeTestRule.onNodeWithText("Match event").assertExists()
+        composeTestRule.onNodeWithText("Other event").assertDoesNotExist()
+        composeTestRule.onAllNodesWithText(PlainVoice.eventIntensityLabel(4)).assertCountEquals(1)
+    }
+
+    @Test
+    fun intensitySquare_zeroCount_staysInert() {
+        setInsightsTabContent(intensityEnabled = true, events = listOf(eventAt(2, intensity = 4), eventAt(1, intensity = 2)))
+
+        // Intensity 1 and 3 never occur among the logged events, so those squares carry no tap target at all.
+        composeTestRule.onNodeWithContentDescription(PlainVoice.insightsIntensitySquareTapDescription(1)).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.insightsIntensitySquareTapDescription(3)).assertDoesNotExist()
+    }
+
+    @Test
+    fun tagRow_tap_opensDialogListingOnlyMatchingEvents() {
+        setInsightsTabContent(
+            events =
+                listOf(
+                    eventAt(2, tags = listOf(TagEntity(id = 1L, name = "flare-up")), note = "Tagged event"),
+                    eventAt(1, note = "Untagged event"),
+                ),
+        )
+
+        composeTestRule
+            .onNodeWithContentDescription(PlainVoice.insightsTagRowTapDescription("flare-up"))
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsTagDrillDownTitle("flare-up")).assertExists()
+        // Exact match: the matched tag is suppressed from the row itself, since the dialog's own
+        // title already names it -- the row's line is just the note, no "#flare-up" repeated.
+        composeTestRule.onNodeWithText("Tagged event").assertExists()
+        composeTestRule.onNodeWithText("Untagged event").assertDoesNotExist()
+    }
+
+    @Test
+    fun tagRow_tap_suppressesOnlyTheMatchedTag_keepsAnyOtherTagsOnTheRow() {
+        setInsightsTabContent(
+            events =
+                listOf(
+                    eventAt(
+                        2,
+                        tags = listOf(TagEntity(id = 1L, name = "flare-up"), TagEntity(id = 2L, name = "morning")),
+                        note = "Multi-tag event",
+                    ),
+                    eventAt(1, note = "Filler event"),
+                ),
+        )
+
+        composeTestRule
+            .onNodeWithContentDescription(PlainVoice.insightsTagRowTapDescription("flare-up"))
+            .performScrollTo()
+            .performClick()
+
+        // "flare-up" (the matched tag) is gone from the row, but "morning" (an unrelated tag on
+        // the same event) isn't redundant with the title and stays.
+        composeTestRule.onNodeWithText("Multi-tag event · #morning").assertExists()
+    }
+
+    @Test
+    fun heatmapDay_tapWithEvents_opensDialogListingOnlyThatDaysEvents() {
+        setInsightsTabContent(
+            events = listOf(eventAt(2, note = "Two days ago"), eventAt(1, note = "Yesterday")),
+        )
+        val dayWithEvent = today.minusDays(2)
+
+        composeTestRule
+            .onNodeWithContentDescription(PlainVoice.insightsHeatmapDayTapDescription(mediumDate(dayWithEvent)))
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText(mediumDate(dayWithEvent)).assertExists()
+        composeTestRule.onNodeWithText("Two days ago").assertExists()
+        composeTestRule.onNodeWithText("Yesterday").assertDoesNotExist()
+    }
+
+    @Test
+    fun heatmapDay_tap_keepsIntensityAndTagsOnTheRow_unlikeTheIntensityAndTagFilters() {
+        // Unlike the intensity/tag filters, a day tap's own title is a date -- intensity and tags
+        // aren't redundant with it, so neither is suppressed here.
+        setInsightsTabContent(
+            intensityEnabled = true,
+            events =
+                listOf(
+                    eventAt(2, intensity = 4, tags = listOf(TagEntity(id = 1L, name = "flare-up")), note = "Two days ago"),
+                    eventAt(1, note = "Yesterday"),
+                ),
+        )
+        val dayWithEvent = today.minusDays(2)
+
+        composeTestRule
+            .onNodeWithContentDescription(PlainVoice.insightsHeatmapDayTapDescription(mediumDate(dayWithEvent)))
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText("${PlainVoice.eventIntensityLabel(4)} · Two days ago · #flare-up").assertExists()
+    }
+
+    @Test
+    fun heatmapDay_zeroEvents_staysInert() {
+        setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
+
+        // "Today" carries no event in this fixture, so its cell has no tap target at all.
+        composeTestRule.onNodeWithContentDescription(PlainVoice.insightsHeatmapDayTapDescription(mediumDate(today))).assertDoesNotExist()
+    }
+
+    @Test
+    fun drillDownDialog_eventRowTap_firesOnEditEventAndDismissesDialog() {
+        var capturedCaseId: Long? = null
+        var capturedEventId: Long? = null
+        val event = eventAt(2, intensity = 4, note = "Tap me")
+        setInsightsTabContent(
+            intensityEnabled = true,
+            // A second, non-matching event just to clear INSIGHTS_MIN_EVENTS -- only `event` carries intensity 4.
+            events = listOf(event, eventAt(1, intensity = 2)),
+            onEditEvent = { caseId, eventId ->
+                capturedCaseId = caseId
+                capturedEventId = eventId
+            },
+        )
+
+        composeTestRule
+            .onNodeWithContentDescription(PlainVoice.insightsIntensitySquareTapDescription(4))
+            .performScrollTo()
+            .performClick()
+        composeTestRule.onNodeWithText("Tap me", substring = true).performClick()
+
+        assertEquals(0L, capturedCaseId)
+        assertEquals(event.event.id, capturedEventId)
+        composeTestRule.onNodeWithText(PlainVoice.insightsIntensityDrillDownTitle(4)).assertDoesNotExist()
+    }
+
+    @Test
+    fun drillDownDialog_eventListIsScrollable() {
+        // A plain `AlertDialog` clips overflowing content instead of scrolling it, so a long
+        // event list needs its own scrollable container -- assertExists() alone can't catch this,
+        // since Compose's semantics tree doesn't care whether content is clipped from view.
+        setInsightsTabContent(
+            intensityEnabled = true,
+            events = (1L..15L).map { eventAt(it, intensity = 4) },
+        )
+
+        composeTestRule
+            .onNodeWithContentDescription(PlainVoice.insightsIntensitySquareTapDescription(4))
+            .performScrollTo()
+            .performClick()
+
+        // One scrollable container is the Insights tab's own outer Column (always present once
+        // Ready); a second is the drill-down dialog's own event list.
+        composeTestRule.onAllNodes(hasScrollAction()).assertCountEquals(2)
+    }
+
     // Mirrors InsightsTab.kt's private YearMonth.monthYearLabel() formatting, so the expected text matches exactly.
     private fun monthYearLabel(date: LocalDate): String = "${date.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${date.year}"
+
+    // Mirrors EventTimeFormat.kt's private MEDIUM_DATE_FORMATTER, which is `internal` and not
+    // visible from this module's androidTest source set (same reason BigPictureScreenTest restates it).
+    private fun mediumDate(date: LocalDate): String {
+        val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)
+        return date.format(formatter)
+    }
 }

@@ -256,6 +256,28 @@ interface Voice {
     /** Tag breakdown's denominator row — structural, identical across all three voices. */
     val insightsTagsTotalLabel: String get() = "Total events"
 
+    /**
+     * Spec §9/§10 drill-down (S10): tapping a heatmap day, an intensity square, or a tag row
+     * opens the logged events behind it. [insightsDrillDownEmptyState] is a defensive fallback —
+     * every tap target that reaches one of these is gated on having at least one matching event.
+     */
+    val insightsDrillDownEmptyState: String
+
+    /** Accessibility label for a tappable heatmap cell, wrapping its already-formatted [dateLabel] (e.g. "Jul 14, 2026"). */
+    fun insightsHeatmapDayTapDescription(dateLabel: String): String
+
+    /** Accessibility label for a tappable intensity square. */
+    fun insightsIntensitySquareTapDescription(level: Int): String
+
+    /** Accessibility label for a tappable tag row. */
+    fun insightsTagRowTapDescription(tagName: String): String
+
+    /** Intensity drill-down dialog title. */
+    fun insightsIntensityDrillDownTitle(level: Int): String
+
+    /** Tag drill-down dialog title. */
+    fun insightsTagDrillDownTitle(tagName: String): String
+
     /** Frequency-over-time's info icon, explaining the fixed 12-bucket window and its auto-picked granularity. */
     val insightsFrequencyInfoTitle: String
 
@@ -747,6 +769,18 @@ object PlainVoice : Voice {
     override val insightsHeatmapShowMoreAction = "Show more months"
     override val insightsHeatmapShowFewerAction = "Show fewer months"
 
+    override val insightsDrillDownEmptyState = "No matching events logged."
+
+    override fun insightsHeatmapDayTapDescription(dateLabel: String) = "See $dateLabel's events"
+
+    override fun insightsIntensitySquareTapDescription(level: Int) = "See intensity $level events"
+
+    override fun insightsTagRowTapDescription(tagName: String) = "See #$tagName events"
+
+    override fun insightsIntensityDrillDownTitle(level: Int) = "Intensity $level"
+
+    override fun insightsTagDrillDownTitle(tagName: String) = "Tagged #$tagName"
+
     override val insightsBurstFlagLabel = "Tends to come in bursts"
 
     override fun insightsTrendSentence(
@@ -1229,6 +1263,18 @@ object IntenseVoice : Voice {
     override val insightsHeatmapShowMoreAction = "Unseal the older files"
     override val insightsHeatmapShowFewerAction = "Reseal them"
 
+    override val insightsDrillDownEmptyState = "Nothing on record matches."
+
+    override fun insightsHeatmapDayTapDescription(dateLabel: String) = "Unseal $dateLabel"
+
+    override fun insightsIntensitySquareTapDescription(level: Int) = "Unseal intensity $level entries"
+
+    override fun insightsTagRowTapDescription(tagName: String) = "Unseal #$tagName entries"
+
+    override fun insightsIntensityDrillDownTitle(level: Int) = "Marked intensity $level"
+
+    override fun insightsTagDrillDownTitle(tagName: String) = "Marked #$tagName"
+
     override val insightsBurstFlagLabel = "It comes in waves, not a rhythm"
 
     override fun insightsTrendSentence(
@@ -1698,6 +1744,18 @@ object BrightVoice : Voice {
 
     override val insightsHeatmapShowMoreAction = "Show me more!"
     override val insightsHeatmapShowFewerAction = "Okay, tuck it back away"
+
+    override val insightsDrillDownEmptyState = "Nothing matches here — yet!"
+
+    override fun insightsHeatmapDayTapDescription(dateLabel: String) = "Peek at $dateLabel!"
+
+    override fun insightsIntensitySquareTapDescription(level: Int) = "See the intensity $level moments!"
+
+    override fun insightsTagRowTapDescription(tagName: String) = "See the #$tagName moments!"
+
+    override fun insightsIntensityDrillDownTitle(level: Int) = "Intensity $level moments"
+
+    override fun insightsTagDrillDownTitle(tagName: String) = "Tagged #$tagName!"
 
     override val insightsBurstFlagLabel = "Comes in bursts!"
 
