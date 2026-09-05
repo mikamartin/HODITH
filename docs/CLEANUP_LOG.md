@@ -15,6 +15,36 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/bright-light-onsurfacevariant-contrast
+
+**Scope:** PROGRESS.md item S5 — `Color.kt`'s `brightLight.onSurfaceVariant` (`#8A7A68`) missed WCAG AA (4.5:1) for body text against every Bright light surface it renders on: `surface` #FFFFFF (~4.15:1), `background` #FFF7ED (~3.91:1), and the card tone `surfaceContainerHigh` #FBEEE0 (~3.63:1). `HodithThemeTest`'s WCAG contrast test had been scoped to Plain only to avoid tripping on this known gap.
+
+**Design decision taken with the user:** four candidate values (current plus three progressively deeper taupes sharing the same warm hue family) were prototyped against faithful Bright-light mocks of the Big Picture card and Insights cards — an interactive artifact with a press-and-hold A/B against the current value and a live WCAG readout. The differences among the passing candidates are near-imperceptible by design (the constraint is "keep the warm cast", so any fix is a small deepening). User picked `#79654F` — surface 5.55:1, background 5.22:1, card 4.86:1.
+
+**Found & fixed (checklist walk-through against the real diff):**
+- **`brightLight.onSurfaceVariant` deepened `#8A7A68` → `#79654F`** — the fix. Inline rationale comment added, matching the file's existing per-role rationale style, citing the three ratios it now clears.
+- **`HodithThemeTest`'s contrast test widened from Plain-only to all six theme×mode schemes, and from two surfaces to three** — renamed to `every theme's text roles clear WCAG AA contrast against their surfaces`; the doc comment no longer explains a Plain-only carve-out. This is the regression guard: the test would have failed on Bright light before this fix. It also now asserts `onSurface`/`onSurfaceVariant` against `surfaceContainerHigh` — the one container tier authored as a distinct card tone (Bright #FBEEE0, Intense light #EDEDEB) rather than matching `surface` — which is where `onSurfaceVariant` contrast is actually tightest and which the old surface+background-only test never checked. All six schemes pass all three surfaces now; the tightest guarded case is Intense light `onSurfaceVariant` on `surfaceContainerHigh` at 4.55:1. No palette change beyond Bright light `onSurfaceVariant` was needed.
+
+**Sections walked, nothing to do (checked against the actual diff):**
+- *`secondary` / `onSecondaryContainer`* (S5's second acceptance line) — **considered and declined.** `brightLight.secondary` (#17B3A3) is only ever a fill/tint (`GlowDecoration.kt`'s `GlowCard` tint, the Big Picture selection dot) with `onSecondary` on top, never body text on a neutral surface, so it carries no AA text obligation. `onSecondaryContainer` (#00201C) on `secondaryContainer` (#CBF1EB) is near-black on pale mint (~15:1). Neither needs a value change.
+- *Duplication / Decoupling / Complexity* — n/a; the diff is one palette literal, one test loop, one PROGRESS.md removal.
+- *Hardcoded values* — the new hex is a `ColorScheme` role definition (the correct single source); no inline colour introduced.
+- *Dead code & hygiene* — no unused imports (ktlint/compile/lint clean); the updated test doc comment and new `Color.kt` comment state durable facts (why this hex), not a self-updating tally.
+- *Spec Review* — HODITH_SPEC.md doesn't specify palette hex values or contrast ratios; §12's "type feel" table is unaffected.
+- *Repo hygiene* — `git status` clean (3 files); no secrets, no local paths. The prototype HTML/PNG live in the session scratchpad, outside the repo.
+- *Accessibility* — this change is itself an accessibility fix; no tap targets or icon buttons touched.
+- *Deprecated APIs* — none.
+
+**Deferred:** nothing.
+
+**Docs updated:** `PROGRESS.md` — S5 section removed (resolved); the Standalone "On-device QA batch" bullet updated to drop the S5 reference. No SPEC / TESTING / PLAYBOOK changes (none reference this).
+
+**Tests:** `HodithThemeTest` (JVM) — widened contrast test green across all six schemes × three surfaces. No instrumented tests (palette-only change).
+
+**Verified:** `ktlintCheck → testDebugUnitTest (HodithThemeTest) → lintDebug → test → assembleDebug` sequential, all green.
+
+---
+
 ## feat/insights-drilldown
 
 **Scope:** PROGRESS.md item S10 — Case Detail Insights tab's `HeatmapCell`, `IntensityCard` squares, and `TagsCard` tag rows were pure display; tapping a specific intensity, tag, or heatmap day now opens the logged events behind it in a shared `InsightsDrillDownDialog`, adapted from Big Picture's existing day/week detail dialog pattern but scoped to one Case (no case icon/name per row) and operating over `EventWithTags`/`EventEntity`. Two bugs surfaced during exploratory testing on this same branch, both fixed here: (1) the new dialog — and Big Picture's pre-existing `DayDetailDialog`/`WeekDetailDialog`, sharing the same root cause — silently clipped a long event list instead of scrolling it; (2) intensity/tag-filtered rows repeated the exact value the dialog's own title already stated.

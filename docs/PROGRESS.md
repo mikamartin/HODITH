@@ -70,7 +70,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
-- **On-device QA batch — S4 · S5 · S12, with S3** — S12 the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
+- **On-device QA batch — S4 · S12, with S3** — S12 the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S3 are both Bright/Intense visual work. One emulator or device session covers them.
 - **Case Detail Log-tab — S4** — touches `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (empty-state alignment). S7 (sort row) and S8 (event-edit screen) already landed here, so expect a small rebase.
 - **Case Detail Insights tab — S4** — touches `InsightsTab.kt`'s empty state; expect a small rebase against S10's now-landed drill-down changes to the same file.
 - **Case-editor selection controls — S3 · S11** — S3 retunes `IconChoice` / `IntensityChoice` selection contrast; S11 declutters the adjacent `SegmentedChoiceRow`. Both are affordance polish on the same screens.
@@ -146,22 +146,6 @@ Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPic
 **Plan** — needs a repro-and-diagnose pass before a fix: capture screenshots on device/emulator for Bright and Intense across all three locations, and check what's outside the three composables already read — parent `Scaffold`/`Surface`/`Card` wrapping, `LocalLayoutDirection`, or a theme-specific decoration (`CardDecorationStyle`/`GlowDecoration.kt`) that might apply an offset the static read wouldn't show. Confirm whether it reproduces in all three locations or just Big Picture before assuming it's the shared pattern.
 
 **Tests** — no existing test asserts empty-state horizontal position; once the cause is found, a Compose UI test asserting the text node's bounds are centered (or at minimum not flush against the left edge) for Bright/Intense would catch a regression.
-
-### S5 · Bright theme's light-mode `onSurfaceVariant` fails WCAG AA contrast
-
-*Branch: `fix/bright-light-onsurfacevariant-contrast` · Complexity: S · Priority: Medium · Area: Bug*
-
-`Color.kt`'s `brightLight` `onSurfaceVariant` (#8A7A68) fails WCAG AA contrast (4.5:1) against both `surface` (~4.15:1) and `background` (~3.91:1). Found while writing `HodithThemeTest`'s new WCAG contrast test (scoped to Plain only for that reason — see its doc comment); not fixed in the branch that found it, since it's a pre-existing gap unrelated to the Plain-theme work.
-
-**Acceptance criteria**
-
-- [ ] `onSurfaceVariant` darkened to clear 4.5:1 against both `surface` and `background`, keeping Bright's warm cast.
-- [ ] `secondary` / `onSecondaryContainer` checked against the same bar and fixed if needed.
-- [ ] `HodithThemeTest`'s contrast test widened from Plain-only back to all 6 theme×mode combinations.
-
-**Plan** — darken `onSurfaceVariant` (and check `secondary`/`onSecondaryContainer`, which look similarly light) until it clears 4.5:1 against both `surface` and `background`, keeping Bright's warm cast. Then widen `HodithThemeTest`'s new contrast test from Plain-only back to all 6 theme×mode combinations, closing the gap this item is tracking.
-
-**Tests** — `HodithThemeTest`'s contrast test already exists and is ready to widen once this lands; no new test scaffolding needed.
 
 ### S6 · Audit the hosted privacy policy and Play data-safety form
 

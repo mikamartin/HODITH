@@ -42,12 +42,14 @@ class HodithThemeTest {
     }
 
     /**
-     * WCAG 2.1 relative luminance / contrast ratio (§1.4.3), scoped to Plain only: Bright
-     * light's `onSurfaceVariant` is a known pre-existing AA gap (~3.9-4.1:1) unrelated to this
-     * theme, so a general 6-combo assertion would fail on unrelated code.
+     * WCAG 2.1 relative luminance / contrast ratio (§1.4.3): every theme's `onSurface` and
+     * `onSurfaceVariant` must clear the 4.5:1 AA bar for body text against every surface that
+     * carries text — `surface`, `background`, and `surfaceContainerHigh` (the one container tier
+     * authored as a distinct card tone rather than matching `surface`) — across all six
+     * theme×mode schemes.
      */
     @Test
-    fun `Plain's text roles clear WCAG AA contrast against their surfaces`() {
+    fun `every theme's text roles clear WCAG AA contrast against their surfaces`() {
         fun channelLuminance(c: Float): Double {
             val cs = c.toDouble()
             return if (cs <= 0.03928) cs / 12.92 else ((cs + 0.055) / 1.055).pow(2.4)
@@ -64,13 +66,20 @@ class HodithThemeTest {
             return (lighter + 0.05) / (darker + 0.05)
         }
 
-        for (dark in listOf(false, true)) {
-            val scheme = schemesByThemeAndMode.getValue(AppTheme.PLAIN).getValue(dark)
-            val label = "Plain dark=$dark"
-            assertTrue("$label onSurface vs surface", contrastRatio(scheme.onSurface, scheme.surface) >= 4.5)
-            assertTrue("$label onSurface vs background", contrastRatio(scheme.onSurface, scheme.background) >= 4.5)
-            assertTrue("$label onSurfaceVariant vs surface", contrastRatio(scheme.onSurfaceVariant, scheme.surface) >= 4.5)
-            assertTrue("$label onSurfaceVariant vs background", contrastRatio(scheme.onSurfaceVariant, scheme.background) >= 4.5)
+        for ((theme, byMode) in schemesByThemeAndMode) {
+            for ((dark, scheme) in byMode) {
+                val label = "$theme dark=$dark"
+                val textSurfaces =
+                    mapOf(
+                        "surface" to scheme.surface,
+                        "background" to scheme.background,
+                        "surfaceContainerHigh" to scheme.surfaceContainerHigh,
+                    )
+                for ((surfaceName, surface) in textSurfaces) {
+                    assertTrue("$label onSurface vs $surfaceName", contrastRatio(scheme.onSurface, surface) >= 4.5)
+                    assertTrue("$label onSurfaceVariant vs $surfaceName", contrastRatio(scheme.onSurfaceVariant, surface) >= 4.5)
+                }
+            }
         }
     }
 
