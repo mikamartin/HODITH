@@ -209,7 +209,11 @@ private val brightLight =
         surface = Color(0xFFFFFFFF),
         onSurface = Color(0xFF794531),
         surfaceVariant = Color(0xFFF2E4D4),
-        onSurfaceVariant = Color(0xFF8A7A68),
+        // Deepened from #8A7A68 (which cleared only ~3.6-4.1:1) so secondary text clears WCAG AA
+        // 4.5:1 on every Bright light surface it renders on — surface #FFFFFF (5.55:1), background
+        // #FFF7ED (5.22:1), and the card tone surfaceContainerHigh #FBEEE0 (4.86:1) — while keeping
+        // the warm taupe cast.
+        onSurfaceVariant = Color(0xFF79654F),
         surfaceContainerLowest = Color(0xFFFFFFFF),
         surfaceContainerLow = Color(0xFFFFFFFF),
         surfaceContainer = Color(0xFFFFFFFF),
