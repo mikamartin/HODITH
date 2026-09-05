@@ -70,7 +70,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
-- **On-device QA batch — S2 · S4 · S5, with S3** — S2 needs the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
+- **On-device QA batch — S4 · S5 · S12, with S3** — S12 the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S5/S3 are all Bright/Intense visual work. One emulator or device session covers them.
 - **Case Detail Log-tab — S4** — touches `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (empty-state alignment). S7 (sort row) and S8 (event-edit screen) already landed here, so expect a small rebase.
 - **Case Detail Insights tab — S4 · S10** — S10 adds tap targets to `InsightsTab.kt` and cases to `CaseDetailInsightsTabTest.kt`; S4 reworks the same file's empty state. Expect a small rebase between them.
 - **Case-editor selection controls — S3 · S11** — S3 retunes `IconChoice` / `IntensityChoice` selection contrast; S11 declutters the adjacent `SegmentedChoiceRow`. Both are affordance polish on the same screens.
@@ -109,27 +109,24 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Concern** — standalone, no dependencies.
 
-### S2 · Widget visuals have drifted from the in-app Plain theme
+### S12 · Red "+" widget glyph has no cause in a source read
 
-*Branch: `fix/widget-plain-fidelity` · Complexity: M · Priority: Medium · Area: Bug*
+*Branch: TBD · Complexity: S · Priority: Low · Area: Bug*
 
-🎨 **Design decision** — what "matches Plain" means for a Glance surface (type ramp, spacing, corner radii, elevation), given Glance can't consume the M3 `ColorScheme` / `Typography` directly. 🔍 **Investigation** — the reported red "+" glyph has no cause in a source read; needs an on-device repro pass within this work.
+🔍 **Investigation** — needs an on-device repro-and-photograph pass; nothing left to find by reading code.
 
-Both widgets hand-roll every `TextStyle` / `GlanceModifier` with values pinned in `widget/WidgetCommon.kt` — colours are sourced from `Color.kt`'s extracted Plain-light vals, but type sizes, weights, spacing, `WidgetCornerRadius = 16.dp` and `MinTapTarget = 48.dp` are local literals, so the result reads as an approximation of Plain rather than Plain. Spec §15 / DEV_PLAYBOOK §4 already commit the widget to the Plain light palette — this is a fidelity pass, not a theming change. Separately, testers report the "+" glyph rendering red; it is unconditionally `WidgetPalette.accent` (`PlainLightPrimary` `#3A6B76`, a teal) in `widget/ListWidget.kt` / `widget/SingleCaseWidget.kt`, with no red in its history — the only red widget element is the Stop button (`PlainLightError #BA1A1A`) that replaces the "+" for a Case with a running event.
+Split off from the widget Plain-fidelity work (`fix/widget-plain-fidelity`; see CLEANUP_LOG.md). Testers report the "+" glyph rendering red; it is unconditionally `WidgetPalette.accent` (`PlainLightPrimary` `#3A6B76`, a teal) in `widget/ListWidget.kt` / `widget/SingleCaseWidget.kt`, in every state, with no red anywhere in its history — there's no in-widget Stop control at all (a running `START_STOP` Case's "+" just starts a second event; Stop only lives in Case Detail, per spec §6/§15).
 
 **Acceptance criteria**
 
-- [ ] A short written spec of the widget's Plain type ramp + spacing + shape tokens, derived from `ui/theme/Type.kt` / `Shape.kt` and the Plain Home surfaces, added to DEV_PLAYBOOK §4; HODITH_SPEC §15 gains one sentence that the widget targets Plain's type ramp and spacing, not only its palette.
-- [ ] `WidgetCommon.kt` grows the missing tokens so `ListWidget.kt` / `SingleCaseWidget.kt` stop carrying inline literals.
-- [ ] Row layout, header, and empty state visually reconciled against Home's Plain rendering.
-- [ ] Red "+" root cause identified on-device: rebuild, remove/re-add the widget, photograph; capture device / launcher / system theme; note List vs single-case; rule out the red Stop pill being misread; check for a stale older build. The "+" resolves to `accent` regardless of last-event age.
-- [ ] Tests: existing `ListWidgetTest` / `SingleCaseWidgetTest` still pass; assertions added for any newly-centralised token and, once the cause is known, a Glance check that the "+" resolves to `accent`.
+- [ ] Red "+" root cause identified on-device: rebuild, remove/re-add the widget, photograph; capture device / launcher / system theme; note List vs single-case; rule out the red Stop pill being misread; check for a stale older build.
+- [ ] If a real cause turns up outside this repo's code, fix or document it; if it doesn't reproduce, close this out as unreproducible with the repro notes kept for next time.
 
-**Plan** — pull the Plain type/spacing/shape values into named `WidgetCommon.kt` tokens mirroring `Type.kt`, replace the inline literals in both widgets, eyeball against Home; run the red-"+" repro in the same on-device session.
+**Plan** — on-device only; no code plan until a repro pins down where the red is coming from.
 
-**Tests** — `ListWidgetTest`, `SingleCaseWidgetTest`.
+**Tests** — none until a cause is found.
 
-**Concern** — if the underlying "+" ask is a "you haven't logged in a while" nudge, that hits spec §4 (no gamification) / §7 (HODITH doesn't nudge logging) — needs a spec ruling first; steer is not to add it. Glance's constraints make the fidelity work convergence-by-hand, not a shared-token import.
+**Concern** — if the underlying "+" ask is a "you haven't logged in a while" nudge, that hits spec §4 (no gamification) / §7 (HODITH doesn't nudge logging) — needs a spec ruling first; steer is not to add it.
 
 ### S4 · Empty-state note is shifted to the left edge on Bright and Intense
 
