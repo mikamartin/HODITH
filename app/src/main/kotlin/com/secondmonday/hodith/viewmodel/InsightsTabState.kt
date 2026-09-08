@@ -38,15 +38,20 @@ import java.time.ZoneId
 
 /**
  * What the Case Detail Insights tab renders (spec §9-10's visuals half), derived fresh from raw
- * data on every read — mirrors [hunchTabState]'s pure-mapping pattern. [NotEnoughData] covers the
- * spec's "friendly placeholder, never an empty chart pretending to mean something" rule.
+ * data on every read — mirrors [hunchTabState]'s pure-mapping pattern. [NothingLogged] covers the
+ * spec's "friendly placeholder, never an empty chart pretending to mean something" rule; from the
+ * first event the tab is [Ready] and the calendar heatmap has a cell to show (spec §9).
  */
 sealed interface InsightsTabState {
-    /** [eventsRemaining] is how many more events clear [INSIGHTS_MIN_EVENTS], for the placeholder's "N more events" copy. */
-    data class NotEnoughData(
-        val eventsRemaining: Int,
-    ) : InsightsTabState
+    /** Zero events logged: a flat invitation, never a countdown toward [INSIGHTS_MIN_EVENTS]. */
+    data object NothingLogged : InsightsTabState
 
+    /**
+     * At least one event. [stats] is always present, but with a single event
+     * [StatsSections.frequency] and [StatsSections.trend] are `null` (below [INSIGHTS_MIN_EVENTS]
+     * a per-bucket count or a 30-vs-30-day comparison has nothing to say) — the tab then shows
+     * only the one-event count note, the Rhythm and Gaps cards, and the heatmap.
+     */
     data class Ready(
         val heatmapMonths: List<HeatmapMonth>,
         val stats: StatsSections,
@@ -55,8 +60,10 @@ sealed interface InsightsTabState {
 
 /**
  * Spec §10's seven stat sections. [frequency], [trend], [duration], and [intensity] are absent
- * when not applicable — [frequency] specifically when the Case has a multi-day event (spec §9),
- * since a per-day/week/month count can't say "how often" without double-counting a long event.
+ * when not applicable — [frequency] when the Case has a multi-day event (spec §9), since a
+ * per-day/week/month count can't say "how often" without double-counting a long event, and both
+ * [frequency] and [trend] below [INSIGHTS_MIN_EVENTS] events, where a single bar or a
+ * 30-vs-30-day comparison would read as a pattern that isn't there yet.
  * [totalEventCount] gives the tag breakdown a denominator, so an individual tag's count reads
  * against the Case's whole history rather than floating on its own.
  */
@@ -160,7 +167,7 @@ internal fun insightsTabState(
         eventsWithTags
             .map { it.event }
             .let { list -> if (case.durationMode.tracksDuration) list else list.map { it.copy(endedAt = null) } }
-    if (events.size < INSIGHTS_MIN_EVENTS) return InsightsTabState.NotEnoughData(eventsRemaining = INSIGHTS_MIN_EVENTS - events.size)
+    if (events.isEmpty()) return InsightsTabState.NothingLogged
 
     fun spanEnd(event: EventEntity) = activeSpanEnd(event, case.durationMode, now)
 
@@ -207,9 +214,12 @@ private fun statsSections(
     frequencyGranularityOverride: FrequencyGranularity?,
 ): StatsSections {
     val spanDays = observationSpanDays(events, case.createdAt, now, zone)
+    // A single event has no bucket-to-bucket shape and no earlier half to compare against, so
+    // Frequency and Trend stay hidden until there are at least this many (spec §10).
+    val belowStatsMinimum = events.size < INSIGHTS_MIN_EVENTS
 
     val frequency =
-        if (hasMultiDayEvent) {
+        if (hasMultiDayEvent || belowStatsMinimum) {
             null
         } else {
             val frequencyStats =
@@ -253,14 +263,18 @@ private fun statsSections(
         )
 
     val trend =
-        computeTrendStats(events, now, spanDays)?.let {
-            TrendDisplay(
-                direction = it.direction,
-                recentCount = it.recentCount,
-                priorCount = it.priorCount,
-                gapShiftDirection = computeGapShift(gapStats.pastGaps),
-                streakShiftDirection = computeStreakShift(activeDates),
-            )
+        if (belowStatsMinimum) {
+            null
+        } else {
+            computeTrendStats(events, now, spanDays)?.let {
+                TrendDisplay(
+                    direction = it.direction,
+                    recentCount = it.recentCount,
+                    priorCount = it.priorCount,
+                    gapShiftDirection = computeGapShift(gapStats.pastGaps),
+                    streakShiftDirection = computeStreakShift(activeDates),
+                )
+            }
         }
 
     val duration =

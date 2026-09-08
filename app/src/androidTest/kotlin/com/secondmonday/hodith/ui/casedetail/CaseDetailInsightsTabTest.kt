@@ -37,9 +37,11 @@ import java.util.Locale
 /**
  * Drives [CaseDetailScreen]'s Insights tab (seven stat cards, then the calendar heatmap),
  * same stateless pattern as `CaseDetailScreenTest`'s Log/Hunch coverage but split into its own
- * class given the number of gating scenarios. Boundary values below (2 events, 56-day trend span,
- * 3-month heatmap default) mirror HODITH_SPEC.md §9-10 and the `domain` constants they're drawn
- * from (`INSIGHTS_MIN_EVENTS`, `TREND_MIN_SPAN_DAYS`) — those constants are `internal` and not
+ * class given the number of gating scenarios. From the first event the heatmap, a one-line count
+ * note, and the Rhythm and Gaps cards render; Frequency and Trend wait for `INSIGHTS_MIN_EVENTS`
+ * (2). Boundary values below (that 2-event threshold, the 56-day trend span, the 3-month heatmap
+ * default) mirror HODITH_SPEC.md §9-10 and the `domain` constants they're drawn from
+ * (`INSIGHTS_MIN_EVENTS`, `TREND_MIN_SPAN_DAYS`) — those constants are `internal` and not
  * visible from this module's `androidTest` source set, so the values are restated here rather
  * than imported, same as `CaseDetailScreenTest`'s 24h stale-event threshold. This exercises card
  * presence/absence, the two interactive toggles (granularity, "show more months"), and — for
@@ -123,11 +125,27 @@ class CaseDetailInsightsTabTest {
     )
 
     @Test
-    fun belowInsightsMinEvents_showsNotEnoughDataPlaceholder_notAnEmptyChart() {
-        setInsightsTabContent(events = listOf(eventAt(1)))
+    fun zeroEvents_showsFlatInvitation_notAnEmptyChart() {
+        setInsightsTabContent(events = emptyList())
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsNotEnoughDataMessage(eventsRemaining = 1)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsNothingLoggedMessage).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelHeatmap).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertDoesNotExist()
+    }
+
+    @Test
+    fun singleEvent_showsHeatmapRhythmGapsAndCountNote_butNotFrequencyOrTrend() {
+        // Case older than the 56-day trend span, so it's the event count — not the span — that
+        // holds Frequency and Trend back.
+        setInsightsTabContent(caseCreatedAt = daysAgo(60), events = listOf(eventAt(1)))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSingleEventNote).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelHeatmap).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelGaps).assertExists()
+
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).assertDoesNotExist()
     }
 
     @Smoke
@@ -135,6 +153,8 @@ class CaseDetailInsightsTabTest {
     fun atInsightsMinEvents_showsCoreCards_butNotOptionalOnes() {
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
+        // The single-event count note is gone once the stat cards proper are showing.
+        composeTestRule.onNodeWithText(PlainVoice.insightsSingleEventNote).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelHeatmap).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertExists()

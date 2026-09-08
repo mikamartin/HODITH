@@ -49,9 +49,9 @@ fun BoxScope.CenteredEmptyState(
 private fun CenteredEmptyStatePreviewContent(theme: AppTheme) {
     val voice = voiceFor(theme)
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        // Long enough to wrap at a phone width in every voice — the case the fix exists for.
+        // The longer voices wrap this at a phone width — the case the fix exists for.
         Box(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-            CenteredEmptyState(voice.insightsNotEnoughDataMessage(eventsRemaining = 1))
+            CenteredEmptyState(voice.insightsNothingLoggedMessage)
         }
         Box(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
             CenteredEmptyState(voice.eventListEmptyState)
