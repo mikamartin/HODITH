@@ -15,6 +15,36 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/empty-state-left-alignment
+
+**Scope:** PROGRESS.md item S2 — the Case Detail Log/Insights empty-state notes rendered flush-left on Bright and Intense. Diagnosis (source read + on-device repro): not theme-specific. Every empty state in the app centred its note only by the container (`contentAlignment` / `Modifier.align(Alignment.Center)`), with the `Text` left at `TextAlign.Start` and no horizontal padding — so a note that fits one line looks centred, and one that wraps lays each line out against the start edge. Bright/Intense only surfaced it because their `insightsNotEnoughDataMessage` / `eventListEmptyState` strings are the longest and wrap at a phone width. Confirmed no theme-conditional layout anywhere (`CardDecorationStyle`, `GlowDecoration`, `Color.kt` carry none; `LocalLayoutDirection` has zero matches in Kotlin source). Fix: one shared `ui/common/CenteredEmptyState.kt` (`BoxScope` extension: `TextAlign.Center` + `fillMaxWidth` + 24dp horizontal inset), used at all five call sites (Home, Big Picture, Archived cases, Case Detail Log, Case Detail Insights) — the latent bug was identical in all of them.
+
+**Found & fixed (checklist walk-through against the real `git diff`):**
+- **Five copy-pasted empty-state `Text` blocks collapsed to one `CenteredEmptyState` call each** — the Duplication finding that motivated the shared-composable choice over a two-file patch. No shared placeholder composable existed before (grep for `EmptyState` found only Voice string names).
+- **`InsightsTab.kt` `NotEnoughData` branch** — dropped the now-redundant `contentAlignment = Alignment.Center` from the wrapping `Box` (the composable centres itself).
+- **`BigPictureScreen.kt` unused `androidx.compose.ui.Alignment` import removed** — its only `.align(Alignment.Center)` was the migrated line; `Text` import stays (the `bigPictureEarlyDays` note). The other four files still use `Alignment` / `Text` elsewhere, so no import churn there (ktlint `no-unused-imports` clean).
+
+**Sections walked, nothing to do:**
+- *Decoupling* — pure UI; `CenteredEmptyState` takes a `String`, reads no `LocalVoice`, no `Clock`, no `android.*`.
+- *Hardcoded values* — the 24dp inset is a named `private val EMPTY_STATE_HORIZONTAL_PADDING`; it's a layout constant, not a product constant, so it stays local to the file rather than moving to `domain/`.
+- *Voice* — no string added, changed, or removed. Does not gate on B2. The "1 more events" / "1 more entries" grammar slip in the existing copy is **left alone** — it's S2 (the renumbered Insights-threshold item)'s scope, which replaces the parameterised key outright.
+- *Naming* — `CenteredEmptyState` PascalCase, in `ui/common/` beside the other shared composables.
+- *Accessibility* — text node, no tap target; content unchanged, still one readable string per voice.
+- *Deprecated APIs* — none; `lintDebug` clean.
+- *Spec* — HODITH_SPEC.md unaffected (no behaviour/spec divergence; the note reads the same, it's just centred). Shared UI components aren't catalogued in the spec (`SegmentedChoiceRow` isn't either); TESTING.md covers it.
+- *`CenteredEmptyState`'s `modifier` param is unused by all five callers* — **kept**, per the Compose convention that every composable takes a forwarded `modifier` (passed through to the `Text`).
+- *`@Smoke` on the new class* — **considered and declined.** `@Smoke` marks a class's representative critical-flow happy path for the fast subset; an empty-state alignment regression check isn't a critical flow. `@UiTest` only.
+- *Throwaway prototype cleared out* — no spike/mockup/scratch Preview was built for this; the Bright/Intense repro screenshots were supplied. `git status` shows only the two new source files plus the doc edits.
+- *Repo hygiene* — `git status` clean; no secrets, no local paths. New files are LF in the index (`core.autocrlf=true`), consistent with the rest of the tree.
+
+**Deferred:** nothing.
+
+**Docs updated:** `PROGRESS.md` — S2 (empty-state alignment) removed as resolved; the remaining Standalone items renumbered S3→S2 … S10→S9 with every cross-reference (B2's copy-touching list, the batching notes, S9's mockup-gate list), matching the prior renumber pass's convention. `TESTING.md` — new "Compose UI — shared components" row for `CenteredEmptyState`. No `HODITH_SPEC.md` / `DEV_PLAYBOOK.md` / `CLAUDE.md` / `README` change. (`docs/mockups/bright-theme-soft-glow.html` stays — still S9's reference and load-bearing KDoc.)
+
+**Tests:** new `CenteredEmptyStateTest` (`@UiTest`, 2 cases: node inset symmetrically from both container edges; `TextLayoutResult.layoutInput.style.textAlign == Center`). The wrap-and-check-line-offsets approach was tried first and dropped — `setContent`'s host gives the root fixed screen-width constraints, so `requiredWidth`/`width` on the content didn't reliably force a 2-line wrap for the shorter voice strings; asserting the alignment property directly is stable and still catches a `textAlign` regression, with the bounds test catching a padding regression.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. Instrumented (Pixel_8_API36 AVD — the connected physical Pixel 8 was screen-locked and failed the whole run with `No compose hierarchies found`, the known physical-device issue in TESTING.md): `CenteredEmptyStateTest` (2), `CaseDetailInsightsTabTest` (30), and the four migrated screens' tests — `HomeScreenTest` / `ArchivedCasesScreenTest` / `BigPictureScreenTest` / `CaseDetailScreenTest` (74 together) — all green.
+
 ## refactor/drop-hunch-nudge-dismiss
 
 **Scope:** PROGRESS.md item S14 — the Hunch-nudge "Don't ask again" button persisted `CaseEntity.hunchNudgeDismissed = true` correctly, but the state it revealed (`HunchNoneCard`) is itself an "add a Hunch" prompt with its own Add button, so dismissing swapped one invitation card for a near-identical one and read as doing nothing. Product decision (AskUserQuestion, before building): **option (a)** — remove the affordance and the column outright. Past 5 events on a hunch-less Case the nudge now shows until a Hunch is added; there is no dismiss, so there is no post-dismiss state to get wrong. Schema v8→v9 (`@DeleteColumn` auto-migration dropping `cases.hunchNudgeDismissed`, mirroring the v6→v7 `DropStaleNudgeColumn` precedent).

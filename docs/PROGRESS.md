@@ -48,7 +48,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy), and among Standalone S3 (Insights empty-state copy), S5 (a possible shortened segment label), S6 (retiring `bigPictureEventNoteEmptyState`), and S7 (resolved-hunch row wording). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy), and among Standalone S2 (Insights empty-state copy), S4 (a possible shortened segment label), S5 (retiring `bigPictureEventNoteEmptyState`), and S6 (resolved-hunch row wording). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit.
 
 **Acceptance criteria**
 
@@ -68,12 +68,10 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
-- **Case Detail Insights tab — S2 · S3 · S4** — S2 the empty-state alignment repro, S3 the min-events threshold and its copy, S4 the Trend-card calculation review. All touch `InsightsTab.kt` / `InsightsTabState.kt` (S4 also the `domain/` stats engines); expect small rebases between them.
-- **Case Detail Log tab — S2** — the same empty-state alignment also affects `LogTabContent` in `CaseDetailScreen.kt` (`CaseDetailScreenTest.kt`). The Log-tab sort row and the full-screen event editor already landed here.
-- **Selection controls — S5** — `SegmentedChoiceRow` is shared by the Case editor's Duration row and all four Hunch-creation-sheet selectors; one fix covers both.
-- **On-device visual repro — S2** — needs Bright and Intense screenshots of the two empty states.
-- **Fully isolated — S1** (icon vector + Previews), **S6** (Big Picture event-detail rows), **S7** (hunch-history row redesign), **S8** (performance review), **S9** (external content). No cross-dependencies; pick by appetite.
-- **Do last — S10** (prune `docs/mockups/`) — soft-blocked on S2/S5/S6 and B1, whose visual reference is the theme/share mockups it would remove.
+- **Case Detail Insights tab — S2 · S3** — S2 the min-events threshold and its copy, S3 the Trend-card calculation review. Both touch `InsightsTab.kt` / `InsightsTabState.kt` (S3 also the `domain/` stats engines); expect small rebases between them.
+- **Selection controls — S4** — `SegmentedChoiceRow` is shared by the Case editor's Duration row and all four Hunch-creation-sheet selectors; one fix covers both.
+- **Fully isolated — S1** (icon vector + Previews), **S5** (Big Picture event-detail rows), **S6** (hunch-history row redesign), **S7** (performance review), **S8** (external content). No cross-dependencies; pick by appetite.
+- **Do last — S9** (prune `docs/mockups/`) — soft-blocked on S4/S5 and B1, whose visual reference is the theme/share mockups it would remove.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -94,32 +92,13 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Concern** — standalone, no dependencies.
 
-### S2 · Empty-state note is shifted to the left edge on Bright and Intense
-
-*Branch: `fix/empty-state-left-alignment` · Complexity: S to fix, M to diagnose · Priority: Medium · Area: Bug*
-
-🔍 **Investigation** — confirmed visually, but a source read found no cause; needs a repro-and-diagnose pass first.
-
-The Case Detail Log tab and Insights tab empty states (`CaseDetailScreen.kt`'s `LogTabContent` at `:342`, `InsightsTab.kt` at `:145`) both use the identical `Modifier.align(Alignment.Center)` / `contentAlignment = Alignment.Center` pattern, with no theme-conditional branching anywhere in that code. Big Picture is no longer in scope: since the grid always renders (spec §9), its data-empty state is a small top-aligned `labelSmall` note (`bigPictureEarlyDays`), not centred text — the only centred string left there is `noCasesEmptyState`, a universal "no cases at all" state that isn't theme-specific.
-
-**Acceptance criteria**
-
-- [ ] Screenshots on Bright and Intense for the Log tab and Insights tab empty states; confirmed whether it repros in both or just one.
-- [ ] Cause found outside the two already-read composables (parent `Scaffold`/`Surface`/`Card`, `LocalLayoutDirection`, `CardDecorationStyle` / `GlowDecoration.kt`).
-- [ ] Empty-state text centred on all themes.
-- [ ] A Compose UI test asserting the text node's bounds are centred (or at least not flush left) for Bright/Intense.
-
-**Plan** — needs a repro-and-diagnose pass before a fix: capture screenshots on device/emulator for Bright and Intense on both locations, and check what's outside the two composables already read — parent `Scaffold`/`Surface`/`Card` wrapping, `LocalLayoutDirection`, or a theme-specific decoration (`CardDecorationStyle`/`GlowDecoration.kt`) that might apply an offset the static read wouldn't show. Confirm whether it reproduces in both locations or just one before assuming it's the shared pattern.
-
-**Tests** — no existing test asserts empty-state horizontal position; once the cause is found, a Compose UI test asserting the text node's bounds are centered (or at minimum not flush against the left edge) for Bright/Intense would catch a regression.
-
-### S3 · Insights stays hidden until the second event, and the "not yet" copy is a countdown
+### S2 · Insights stays hidden until the second event, and the "not yet" copy is a countdown
 
 *Branch: `feat/insights-from-first-event` · Complexity: S · Priority: Medium · Area: Insights*
 
 🎨 **Design decision** — what the Insights tab shows with exactly one event. Touches Voice, so before B2.
 
-`INSIGHTS_MIN_EVENTS = 2` (`domain/InsightsEngine.kt:10`) gates the whole tab: below it, `InsightsTabState.kt:163` returns `NotEnoughData(eventsRemaining = 2 - events.size)`, rendered as one centred `Text(voice.insightsNotEnoughDataMessage(eventsRemaining))` (`InsightsTab.kt:145-149`). One parameterised string covers both zero and one event, so the tab reads as "log N more events" — a countdown, close to the framing spec §4 warns against, and it withholds the tab through the entire first event.
+`INSIGHTS_MIN_EVENTS = 2` (`domain/InsightsEngine.kt:10`) gates the whole tab: below it, `InsightsTabState.kt:163` returns `NotEnoughData(eventsRemaining = 2 - events.size)`, rendered as one `CenteredEmptyState(voice.insightsNotEnoughDataMessage(eventsRemaining))` in `InsightsTab.kt`. One parameterised string covers both zero and one event, so the tab reads as "log N more events" — a countdown, close to the framing spec §4 warns against, and it withholds the tab through the entire first event.
 
 The ask: render Insights from the **first** event, and at zero events show a single flat invitation ("Log an event to see insights" per voice) with no number.
 
@@ -134,9 +113,9 @@ The ask: render Insights from the **first** event, and at zero events show a sin
 
 **Tests** — the existing `belowInsightsMinEvents_showsNotEnoughDataPlaceholder_notAnEmptyChart` becomes a zero-events test; add a one-event "tab renders" test.
 
-**Concern** — batches with S2 (same composable) and S4 (same subsystem). Verify the one-event tab doesn't render a degenerate single-bar chart or a misleading trend.
+**Concern** — batches with S3 (same subsystem). Verify the one-event tab doesn't render a degenerate single-bar chart or a misleading trend.
 
-### S4 · Review the Trend section's calculation and investigate additions
+### S3 · Review the Trend section's calculation and investigate additions
 
 *Branch: `chore/trend-calculation-review` · Complexity: S to M · Priority: Low · Area: Insights*
 
@@ -160,7 +139,7 @@ What it computes today:
 
 **Tests** — none; `StatsEngineTest` / `InsightsEngineTest` gain coverage only when an approved change lands as its own item.
 
-### S5 · Segmented-choice rows crowd at larger font scales
+### S4 · Segmented-choice rows crowd at larger font scales
 
 *Branch: `fix/segmented-row-label-crowding` · Complexity: S · Priority: Medium · Area: Bug*
 
@@ -183,7 +162,7 @@ Two screens surface this. `CaseEditScreen.kt`'s Duration section (options None /
 
 **Concern** — cosmetic; nothing is functionally broken, but it now touches a primary creation flow (the Hunch sheet), not just settings-adjacent screens.
 
-### S6 · Big Picture's event-detail rows diverge from the Insights drill-down's
+### S5 · Big Picture's event-detail rows diverge from the Insights drill-down's
 
 *Branch: TBD · Complexity: S · Priority: Low · Area: Big Picture*
 
@@ -205,7 +184,7 @@ Building the Insights drill-down (`InsightsDrillDownEventRow`, `ui/casedetail/In
 
 **Tests** — `BigPictureScreenTest`'s existing event-row assertions (`dayDetailDialog_showsEventTimestampAndTags` etc.) need updating alongside any `EventDetailRow` change, including the placeholder removal.
 
-### S7 · Resolved-hunch history rows need a proper design and content pass
+### S6 · Resolved-hunch history rows need a proper design and content pass
 
 *Branch: `feat/hunch-history-row-redesign` · Complexity: M · Priority: Medium · Area: Hunch*
 
@@ -229,7 +208,7 @@ Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `Hunc
 
 **Concern** — standalone; the redesign is a small surface but a visible one, and the content call (does the verdict tier show?) is a product decision.
 
-### S8 · Performance review for high event volume and rapid logging
+### S7 · Performance review for high event volume and rapid logging
 
 *Branch: `chore/high-volume-perf-review` · Complexity: M · Priority: Medium · Area: Performance*
 
@@ -255,7 +234,7 @@ Current shape (from a source read):
 
 **Tests** — none in this item; a follow-up that changes a query or adds a debounce brings its own.
 
-### S9 · Audit the hosted privacy policy and Play data-safety form
+### S8 · Audit the hosted privacy policy and Play data-safety form
 
 *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium · Area: Settings*
 
@@ -268,22 +247,22 @@ Current shape (from a source read):
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S10 · `docs/mockups/` holds prototype HTML past its usefulness
+### S9 · `docs/mockups/` holds prototype HTML past its usefulness
 
 *Branch: `chore/prune-design-mockups` · Complexity: S · Priority: Low · Area: Repo*
 
-Six design-prototype HTML files sit in `docs/mockups/`. Three are genuinely orphaned — **no reference anywhere** in code or docs, just "saved for reference" snapshots of long-shipped features: `case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`. The other three are load-bearing today: `plain-theme-light-neutrals.html` (7 KDoc citations across `Color.kt`, `HomeScreen.kt`, `SettingsScreen.kt`, `SegmentedChoiceRow.kt`, `SectionWithInfo.kt`, `CaseDetailScreen.kt`), `bright-theme-soft-glow.html` (`GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureGrid.kt`), `share-cards-prototype.html` (`ShareCardDecoration.kt`). Those three are also the visual reference for still-open items — **S2** (empty-state alignment on Bright/Intense), **S5** (segmented rows), **S6** (Big Picture rows) and **B1** (Square share preset) — so removing them now would orphan live KDoc *and* drop design context for pending work.
+Six design-prototype HTML files sit in `docs/mockups/`. Three are genuinely orphaned — **no reference anywhere** in code or docs, just "saved for reference" snapshots of long-shipped features: `case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`. The other three are load-bearing today: `plain-theme-light-neutrals.html` (7 KDoc citations across `Color.kt`, `HomeScreen.kt`, `SettingsScreen.kt`, `SegmentedChoiceRow.kt`, `SectionWithInfo.kt`, `CaseDetailScreen.kt`), `bright-theme-soft-glow.html` (`GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureGrid.kt`), `share-cards-prototype.html` (`ShareCardDecoration.kt`). Those three are also the visual reference for still-open items — **S4** (segmented rows), **S5** (Big Picture rows) and **B1** (Square share preset) — so removing them now would orphan live KDoc *and* drop design context for pending work.
 
 **Acceptance criteria**
 
 - [ ] The three orphaned mockups (`case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`) removed directly — no references to strip first.
 - [ ] For each of the three referenced mockups: a decision recorded on whether its KDoc citations still earn their keep now the feature is stable (a pointer to a committed design artifact is useful history) or read as clutter. If a mockup is to go, every citing KDoc updated first — describe the treatment in prose or drop the line — then the file deleted; if it stays, no change.
-- [ ] Gated on S2/S5/S6 and B1 either landing or being closed, so the theme/share mockups aren't pulled out from under open work.
+- [ ] Gated on S4/S5 and B1 either landing or being closed, so the theme/share mockups aren't pulled out from under open work.
 - [ ] `README.md`'s AI-workflow section checked — if it describes `docs/mockups/` as a standing convention, reconcile with whatever this audit decides.
 
 **Plan** — do this after the theme-polish and share items clear (or are dropped). Delete the three orphans, then walk the KDoc citations for the other three and make the keep/strip call per file. Not urgent; these are small static files with no build cost.
 
-**Concern** — soft-blocked on S2/S5/S6/B1; not "fully isolated" despite being repo hygiene.
+**Concern** — soft-blocked on S4/S5/B1; not "fully isolated" despite being repo hygiene.
 
 ## Blocked
 

@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
@@ -122,10 +123,7 @@ fun ArchivedCasesScreen(
             when {
                 uiState.isLoading -> Unit
                 uiState.cases.isEmpty() -> {
-                    Text(
-                        text = voice.archivedCasesEmptyState,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
+                    CenteredEmptyState(voice.archivedCasesEmptyState)
                 }
                 else -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {

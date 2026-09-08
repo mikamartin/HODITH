@@ -9,11 +9,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.viewmodel.BigPictureUiState
 import com.secondmonday.hodith.viewmodel.BigPictureViewModel
@@ -39,7 +39,7 @@ fun BigPictureScreen(
         when {
             uiState.isLoading -> Unit
             uiState.cases.isEmpty() -> {
-                Text(text = voice.noCasesEmptyState, modifier = Modifier.align(Alignment.Center))
+                CenteredEmptyState(voice.noCasesEmptyState)
             }
             else -> {
                 // Spec §9: at least one Case always renders the grid, even with zero events logged
