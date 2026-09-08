@@ -64,6 +64,7 @@ import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.SectionWithInfo
@@ -144,8 +145,8 @@ internal fun InsightsTabContent(
 
     when (state) {
         is InsightsTabState.NotEnoughData ->
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(voice.insightsNotEnoughDataMessage(state.eventsRemaining))
+            Box(modifier = modifier.fillMaxSize()) {
+                CenteredEmptyState(voice.insightsNotEnoughDataMessage(state.eventsRemaining))
             }
         is InsightsTabState.Ready ->
             Column(

@@ -60,6 +60,7 @@ import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.VerdictResult
 import com.secondmonday.hodith.domain.observationSpanDays
+import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
@@ -339,7 +340,7 @@ private fun LogTabContent(
             when {
                 uiState.isLoading -> Unit
                 uiState.events.isEmpty() -> {
-                    Text(text = voice.eventListEmptyState, modifier = Modifier.align(Alignment.Center))
+                    CenteredEmptyState(voice.eventListEmptyState)
                 }
                 else -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {

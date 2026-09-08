@@ -43,6 +43,7 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.NotificationsDeniedBanner
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
@@ -146,10 +147,7 @@ fun HomeScreen(
                 when {
                     uiState.isLoading -> Unit
                     uiState.cases.isEmpty() -> {
-                        Text(
-                            text = voice.noCasesEmptyState,
-                            modifier = Modifier.align(Alignment.Center),
-                        )
+                        CenteredEmptyState(voice.noCasesEmptyState)
                     }
                     else -> {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
