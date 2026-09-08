@@ -15,7 +15,6 @@ data class CaseEntity(
     val logFlow: LogFlow,
     val durationMode: DurationMode,
     val intensityEnabled: Boolean,
-    val hunchNudgeDismissed: Boolean,
     val checkInsEnabled: Boolean,
     val lastCheckInAt: Long?,
     val sortOrder: Int,

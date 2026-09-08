@@ -52,7 +52,6 @@ class WidgetLogSheetViewModelTest {
         logFlow = LogFlow.DETAIL_SHEET,
         durationMode = durationMode,
         intensityEnabled = intensityEnabled,
-        hunchNudgeDismissed = false,
         checkInsEnabled = true,
         lastCheckInAt = null,
         sortOrder = 0,

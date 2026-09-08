@@ -47,7 +47,6 @@ class NotificationEvaluatorTest {
         logFlow = LogFlow.DETAIL_SHEET,
         durationMode = durationMode,
         intensityEnabled = false,
-        hunchNudgeDismissed = false,
         checkInsEnabled = checkInsEnabled,
         lastCheckInAt = lastCheckInAt,
         sortOrder = 0,

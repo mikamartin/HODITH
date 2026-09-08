@@ -38,7 +38,6 @@ private fun case(
     logFlow = LogFlow.ONE_TAP,
     durationMode = DurationMode.NONE,
     intensityEnabled = false,
-    hunchNudgeDismissed = false,
     checkInsEnabled = checkInsEnabled,
     lastCheckInAt = lastCheckInAt,
     sortOrder = 0,

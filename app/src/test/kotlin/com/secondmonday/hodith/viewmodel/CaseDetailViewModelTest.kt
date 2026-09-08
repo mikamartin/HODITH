@@ -22,7 +22,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -197,25 +196,6 @@ class CaseDetailViewModelTest {
                 repository.hunches.value
                     .single()
                     .resolvedAt,
-            )
-        }
-
-    @Test
-    fun `dismissHunchNudge sets hunchNudgeDismissed on the case`() =
-        runTest {
-            repository.cases.value = listOf(testCase())
-            val vm = viewModel()
-            vm.uiState.test {
-                awaitLoadedItem { it.isLoading }
-                cancelAndIgnoreRemainingEvents()
-            }
-
-            vm.dismissHunchNudge()
-
-            assertTrue(
-                repository.cases.value
-                    .single()
-                    .hunchNudgeDismissed,
             )
         }
 }

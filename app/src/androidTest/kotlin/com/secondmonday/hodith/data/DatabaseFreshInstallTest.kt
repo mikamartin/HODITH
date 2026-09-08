@@ -107,4 +107,29 @@ class DatabaseFreshInstallTest {
                 }
             }
         }
+
+    /**
+     * v8 → v9 auto-migration ([DropHunchNudgeDismissedColumn]): the `cases` table loses
+     * `hunchNudgeDismissed` now the Hunch-nudge "don't ask again" opt-out is gone, and every
+     * existing Case row survives the table recreate.
+     */
+    @Test
+    fun migrationFrom8To9_dropsHunchNudgeDismissedColumn_andPreservesCaseRows() =
+        runTest {
+            migrationTestHelper.createDatabase(TEST_DB_NAME, 8).use { db ->
+                db.execSQL(
+                    "INSERT INTO cases (id, name, icon, createdAt, logFlow, durationMode, intensityEnabled, " +
+                        "hunchNudgeDismissed, checkInsEnabled, sortOrder, archived) " +
+                        "VALUES (1, 'Coffee', '☕', 0, 'ONE_TAP', 'NONE', 0, 1, 1, 0, 0)",
+                )
+            }
+
+            migrationTestHelper.runMigrationsAndValidate(TEST_DB_NAME, 9, true).use { db ->
+                db.query("SELECT * FROM cases WHERE id = 1").use { cursor ->
+                    assertTrue("the migrated case row should survive", cursor.moveToFirst())
+                    assertEquals(-1, cursor.getColumnIndex("hunchNudgeDismissed"))
+                    assertEquals("Coffee", cursor.getString(cursor.getColumnIndexOrThrow("name")))
+                }
+            }
+        }
 }

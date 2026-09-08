@@ -68,7 +68,6 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in d
 | logFlow | `ONE_TAP` \| `DETAIL_SHEET` — what the widget/log button does |
 | durationMode | `NONE` \| `MANUAL` \| `START_STOP` |
 | intensityEnabled | boolean — show 1–5 intensity on the detail sheet |
-| hunchNudgeDismissed | boolean — user said "stop asking" (see §7) |
 | checkInsEnabled | boolean — whether this Case participates in check-ins (§11); the interval itself is always the app-level default from Settings, or hunch-derived if the Case has an active Hunch. A Case wanting a custom silence threshold instead gets a `SILENT_FOR` Trigger (§11), which already covers exactly that. |
 | lastCheckInAt | nullable — when a check-in last fired or was answered "all quiet"; used for re-arming |
 | sortOrder | manual ordering on Home and Big Picture |
@@ -155,7 +154,7 @@ The switch-*in* conversion uses `endedAt = occurredAt` (the event's own start), 
 
 - Case creation asks: *"Got a feeling about this one?"* — skippable in one tap.
 - A Hunch can be added at any time, even with zero events logged yet — the Hunch tab's invite carries a short aside noting that checking it against reality takes some time, roughly proportionate to the hunch itself.
-- **Nudge:** after 5 logged events on a hunch-less Case, the case detail screen shows a dismissible card inviting a Hunch. "Don't ask again" sets `hunchNudgeDismissed`. The nudge lives in-app only; it never notifies.
+- **Nudge:** after 5 logged events on a hunch-less Case, the case detail screen's Hunch tab shows a card inviting a Hunch, in place of the plain "no hunch yet" card. It stays until a Hunch is added — there is no dismiss. The nudge lives in-app only; it never notifies.
 - Creating a Hunch: direction → expected frequency (count + period) → observation window, plus a metric picker for a duration-tracking Case. Voice-flavoured copy throughout. All these choices are made once at creation and stored on the Hunch — the verdict card never re-asks or offers a toggle. Every picker renders flat and always visible when applicable, up to five sections; no "more options" disclosure.
   - **Metric** (`HunchEntity.metric`) — shown only when the Case's `durationMode` tracks duration (`MANUAL`/`START_STOP`); a `NONE` Case sees no picker and its metric is implicitly occurrence count. See §8.
   - **Period** — occurrence count offers day/week/month; days-active offers week/month/3 months ("days active per day" is nonsensical). Same `ExpectedPer` enum, a different visible three-option subset.

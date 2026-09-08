@@ -10,11 +10,9 @@ Items are grouped by how they connect, not by feature area:
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Blocked** — gated on something external; not startable now.
 
-The old **Story A** (Start/Stop, duration & ongoing events) is complete, including its final read-through (A10 — the verdict metric choice and bounded observation window).
-
 Each item carries:
 
-- a **trailer** — *Branch · Complexity · Priority · Area*. Complexity: S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week (same scale as HODITH_SPEC §17). Priority: High gates the first release or corrects something wrong today · Medium worth doing before alpha · Low cosmetic or deferrable · Blocked can't start yet. Area preserves the old grouping (Bug / Duration / Big Picture / Share / Settings / Voice).
+- a **trailer** — *Branch · Complexity · Priority · Area*. Complexity: S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week (same scale as HODITH_SPEC §17). Priority: High gates the first release or corrects something wrong today · Medium worth doing before alpha · Low cosmetic or deferrable · Blocked can't start yet. Area is a loose bucket — Bug / Big Picture / Insights / Hunch / Share / Settings / Voice / Performance / Repo.
 - zero or more **tags** — 🎨 *Design decision* (needs a design or product-owner call before implementation) · 🌐 *External action* (work outside this repo) · 🔍 *Investigation* (needs a repro/diagnose pass before the fix is knowable).
 - **Acceptance criteria** — the checklist that says "done".
 - **Plan / Tests / Concern** — detail, unchanged from prior tracking.
@@ -50,7 +48,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. The only copy-touching item still open ahead of it is B1 (Story-only picker copy). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy), and among Standalone S3 (Insights empty-state copy), S5 (a possible shortened segment label), S6 (retiring `bigPictureEventNoteEmptyState`), and S7 (resolved-hunch row wording). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit.
 
 **Acceptance criteria**
 
@@ -70,12 +68,12 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
-- **On-device QA batch — S4 · S12, with S3** — S12 the widget red-`+` repro, S4 the Bright/Intense empty-state repro, and S4/S3 are both Bright/Intense visual work. One emulator or device session covers them.
-- **Case Detail Log-tab — S4** — touches `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (empty-state alignment). S7 (sort row) and S8 (event-edit screen) already landed here, so expect a small rebase.
-- **Case Detail Insights tab — S4** — touches `InsightsTab.kt`'s empty state; expect a small rebase against S10's now-landed drill-down changes to the same file.
-- **Case-editor selection controls — S3 · S11** — S3 retunes `IconChoice` / `IntensityChoice` selection contrast; S11 declutters the adjacent `SegmentedChoiceRow`. Both are affordance polish on the same screens.
-- **Fully isolated — S1** (icon vector + Previews), **S6** (external content), and **S13** (Big Picture event-detail row review). Any order, any time.
-- **Do last — S15** (prune `docs/mockups/`) — soft-blocked on S3/S4/S11/S13 and B1, whose visual reference is the theme/share mockups it would remove.
+- **Case Detail Insights tab — S2 · S3 · S4** — S2 the empty-state alignment repro, S3 the min-events threshold and its copy, S4 the Trend-card calculation review. All touch `InsightsTab.kt` / `InsightsTabState.kt` (S4 also the `domain/` stats engines); expect small rebases between them.
+- **Case Detail Log tab — S2** — the same empty-state alignment also affects `LogTabContent` in `CaseDetailScreen.kt` (`CaseDetailScreenTest.kt`). The Log-tab sort row and the full-screen event editor already landed here.
+- **Selection controls — S5** — `SegmentedChoiceRow` is shared by the Case editor's Duration row and all four Hunch-creation-sheet selectors; one fix covers both.
+- **On-device visual repro — S2** — needs Bright and Intense screenshots of the two empty states.
+- **Fully isolated — S1** (icon vector + Previews), **S6** (Big Picture event-detail rows), **S7** (hunch-history row redesign), **S8** (performance review), **S9** (external content). No cross-dependencies; pick by appetite.
+- **Do last — S10** (prune `docs/mockups/`) — soft-blocked on S2/S5/S6 and B1, whose visual reference is the theme/share mockups it would remove.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -96,45 +94,168 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Concern** — standalone, no dependencies.
 
-### S12 · Red "+" widget glyph has no cause in a source read
-
-*Branch: TBD · Complexity: S · Priority: Low · Area: Bug*
-
-🔍 **Investigation** — needs an on-device repro-and-photograph pass; nothing left to find by reading code.
-
-Split off from the widget Plain-fidelity work (`fix/widget-plain-fidelity`; see CLEANUP_LOG.md). Testers report the "+" glyph rendering red; it is unconditionally `WidgetPalette.accent` (`PlainLightPrimary` `#3A6B76`, a teal) in `widget/ListWidget.kt` / `widget/SingleCaseWidget.kt`, in every state, with no red anywhere in its history — there's no in-widget Stop control at all (a running `START_STOP` Case's "+" just starts a second event; Stop only lives in Case Detail, per spec §6/§15).
-
-**Acceptance criteria**
-
-- [ ] Red "+" root cause identified on-device: rebuild, remove/re-add the widget, photograph; capture device / launcher / system theme; note List vs single-case; rule out the red Stop pill being misread; check for a stale older build.
-- [ ] If a real cause turns up outside this repo's code, fix or document it; if it doesn't reproduce, close this out as unreproducible with the repro notes kept for next time.
-
-**Plan** — on-device only; no code plan until a repro pins down where the red is coming from.
-
-**Tests** — none until a cause is found.
-
-**Concern** — if the underlying "+" ask is a "you haven't logged in a while" nudge, that hits spec §4 (no gamification) / §7 (HODITH doesn't nudge logging) — needs a spec ruling first; steer is not to add it.
-
-### S4 · Empty-state note is shifted to the left edge on Bright and Intense
+### S2 · Empty-state note is shifted to the left edge on Bright and Intense
 
 *Branch: `fix/empty-state-left-alignment` · Complexity: S to fix, M to diagnose · Priority: Medium · Area: Bug*
 
 🔍 **Investigation** — confirmed visually, but a source read found no cause; needs a repro-and-diagnose pass first.
 
-Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPictureScreen.kt`, `CaseDetailScreen.kt`'s `LogTabContent`, `InsightsTab.kt`) all use the identical `Modifier.align(Alignment.Center)` / `contentAlignment = Alignment.Center` pattern, with no theme-conditional branching anywhere in that code.
+The Case Detail Log tab and Insights tab empty states (`CaseDetailScreen.kt`'s `LogTabContent` at `:342`, `InsightsTab.kt` at `:145`) both use the identical `Modifier.align(Alignment.Center)` / `contentAlignment = Alignment.Center` pattern, with no theme-conditional branching anywhere in that code. Big Picture is no longer in scope: since the grid always renders (spec §9), its data-empty state is a small top-aligned `labelSmall` note (`bigPictureEarlyDays`), not centred text — the only centred string left there is `noCasesEmptyState`, a universal "no cases at all" state that isn't theme-specific.
 
 **Acceptance criteria**
 
-- [ ] Screenshots on Bright and Intense for all three locations; confirmed whether it repros in all three or just Big Picture.
-- [ ] Cause found outside the three already-read composables (parent `Scaffold`/`Surface`/`Card`, `LocalLayoutDirection`, `CardDecorationStyle` / `GlowDecoration.kt`).
+- [ ] Screenshots on Bright and Intense for the Log tab and Insights tab empty states; confirmed whether it repros in both or just one.
+- [ ] Cause found outside the two already-read composables (parent `Scaffold`/`Surface`/`Card`, `LocalLayoutDirection`, `CardDecorationStyle` / `GlowDecoration.kt`).
 - [ ] Empty-state text centred on all themes.
 - [ ] A Compose UI test asserting the text node's bounds are centred (or at least not flush left) for Bright/Intense.
 
-**Plan** — needs a repro-and-diagnose pass before a fix: capture screenshots on device/emulator for Bright and Intense across all three locations, and check what's outside the three composables already read — parent `Scaffold`/`Surface`/`Card` wrapping, `LocalLayoutDirection`, or a theme-specific decoration (`CardDecorationStyle`/`GlowDecoration.kt`) that might apply an offset the static read wouldn't show. Confirm whether it reproduces in all three locations or just Big Picture before assuming it's the shared pattern.
+**Plan** — needs a repro-and-diagnose pass before a fix: capture screenshots on device/emulator for Bright and Intense on both locations, and check what's outside the two composables already read — parent `Scaffold`/`Surface`/`Card` wrapping, `LocalLayoutDirection`, or a theme-specific decoration (`CardDecorationStyle`/`GlowDecoration.kt`) that might apply an offset the static read wouldn't show. Confirm whether it reproduces in both locations or just one before assuming it's the shared pattern.
 
 **Tests** — no existing test asserts empty-state horizontal position; once the cause is found, a Compose UI test asserting the text node's bounds are centered (or at minimum not flush against the left edge) for Bright/Intense would catch a regression.
 
-### S6 · Audit the hosted privacy policy and Play data-safety form
+### S3 · Insights stays hidden until the second event, and the "not yet" copy is a countdown
+
+*Branch: `feat/insights-from-first-event` · Complexity: S · Priority: Medium · Area: Insights*
+
+🎨 **Design decision** — what the Insights tab shows with exactly one event. Touches Voice, so before B2.
+
+`INSIGHTS_MIN_EVENTS = 2` (`domain/InsightsEngine.kt:10`) gates the whole tab: below it, `InsightsTabState.kt:163` returns `NotEnoughData(eventsRemaining = 2 - events.size)`, rendered as one centred `Text(voice.insightsNotEnoughDataMessage(eventsRemaining))` (`InsightsTab.kt:145-149`). One parameterised string covers both zero and one event, so the tab reads as "log N more events" — a countdown, close to the framing spec §4 warns against, and it withholds the tab through the entire first event.
+
+The ask: render Insights from the **first** event, and at zero events show a single flat invitation ("Log an event to see insights" per voice) with no number.
+
+**Acceptance criteria**
+
+- [ ] `INSIGHTS_MIN_EVENTS` → 1 (or the gate reworked to "≥1 event").
+- [ ] The parameterised `insightsNotEnoughDataMessage(Int)` replaced by a no-argument key (×3 voices) with no count; `InsightsTabState.NotEnoughData` loses `eventsRemaining` (or becomes a plain `NothingLogged`).
+- [ ] A decision recorded here on what a one-event tab renders — likely just the calendar heatmap with a single cell plus a total-count line, with the multi-point cards (frequency, gaps, trend, …) staying hidden by their own existing min-data guards.
+- [ ] `VoiceTest`, `InsightsTabStateTest`, and `CaseDetailInsightsTabTest` (`belowInsightsMinEvents_...`) updated; a new test that one logged event renders the tab, not the placeholder.
+
+**Plan** — flip the constant, collapse the two-case message to one, decide the one-event layout, adjust the state type and its tests.
+
+**Tests** — the existing `belowInsightsMinEvents_showsNotEnoughDataPlaceholder_notAnEmptyChart` becomes a zero-events test; add a one-event "tab renders" test.
+
+**Concern** — batches with S2 (same composable) and S4 (same subsystem). Verify the one-event tab doesn't render a degenerate single-bar chart or a misleading trend.
+
+### S4 · Review the Trend section's calculation and investigate additions
+
+*Branch: `chore/trend-calculation-review` · Complexity: S to M · Priority: Low · Area: Insights*
+
+🔍 **Investigation** — a review pass, not a known fix. 🎨 **Design decision** — any new trend readout is a product call.
+
+Scope is the **Trend card specifically** (`InsightsTab.kt` trend section — the ↑/↓/→ arrow, `insightsTrendSentence`, and the optional gap-shift / streak-shift sentences), not the whole Insights screen.
+
+What it computes today:
+
+- `domain/StatsEngine.kt` `computeTrendStats` — last-30-days vs prior-30-days event count → UP / DOWN / FLAT; returns `null` below `TREND_MIN_SPAN_DAYS = 56` (`TREND_WINDOW_DAYS = 30`).
+- `domain/InsightsEngine.kt` `computeGapShift` / `computeStreakShift` / `shiftDirectionFor` — first half vs second half of past gaps / streak run lengths; "noticeable" gate `SHIFT_MIN_FRACTION = 0.3` and `SHIFT_MIN_ABSOLUTE_DAYS = 1.0`; needs ≥6 samples.
+
+**Acceptance criteria**
+
+- [ ] A written overview of the current trend + shift maths: each input, its min-data guard, and the Voice strings it drives.
+- [ ] A ruling on the open questions: is a fixed 30/30-day window right, or should it scale with the observation span? does the hard 56-day cutoff leave newer cases blank too long? are UP/DOWN/FLAT the right states, or is "not enough signal yet" worth showing?
+- [ ] A shortlist of candidate additions (rate change as a percentage, "trending toward / away from your Hunch", whole-history direction, …) with a keep/drop call each.
+- [ ] Anything approved spun out as its own item.
+
+**Plan** — read the `StatsEngine.kt` / `InsightsEngine.kt` trend paths, write the overview, then a short spike if a candidate needs feasibility-checking. No production code in this item.
+
+**Tests** — none; `StatsEngineTest` / `InsightsEngineTest` gain coverage only when an approved change lands as its own item.
+
+### S5 · Segmented-choice rows crowd at larger font scales
+
+*Branch: `fix/segmented-row-label-crowding` · Complexity: S · Priority: Medium · Area: Bug*
+
+🎨 **Design decision** — the fix lands in the shared `SegmentedChoiceRow`, and the tightest options trade against spec §3 principle 6 (the selected-state checkmark is a non-colour cue).
+
+Two screens surface this. `CaseEditScreen.kt`'s Duration section (options None / Manual / Start/stop) and all four selectors on the Hunch-creation sheet (`HunchCreationSheet.kt` — direction, verdict metric, period, observation window, rows at ~112/121/150/158) render through the shared `ui/common/SegmentedChoiceRow.kt`. The Plain/Intense branch is `SingleChoiceSegmentedButtonRow` with one `SegmentedButton` per option: equal-width segments, no `maxLines` / `softWrap` / auto-size, and M3's leading selected-checkmark slot takes ~24–28dp. The longer labels ("Start/stop", the days-active period options) sit in the rightmost segment, so on narrower screens or larger font scales they read tight or clip. The Bright branch (`BrightSegmentedChoiceRow`) already has `4dp` track padding and a `5dp` inter-segment gap but `horizontal = 0.dp` inner padding when `stretchToFill`, so its text still butts the capsule edge. The control is shared across seven more call sites (Settings theme / time-format / interval pickers, Log-tab sort, Insights granularity, Triggers, Share layout), so a fix here is consistency-positive. `caseDurationModeNone` / `Manual` / `StartStop` and the Hunch labels are interface `get()` defaults, identical across voices.
+
+**Acceptance criteria**
+
+- [ ] The Duration labels and the Hunch-sheet selector labels render comfortably (no clip, sensible wrap) at a ~320dp width and the largest supported font scale, in Plain, Intense, and Bright.
+- [ ] Fix applied in `SegmentedChoiceRow.kt` so every caller benefits; the Bright branch gains a small minimum horizontal inset.
+- [ ] Verified against the Hunch-creation sheet's four rows, not just the Case editor's Duration row.
+- [ ] The affordance decision recorded — e.g. (a) keep the checkmark, drop label typography to `labelMedium` and tighten `SegmentedButton` content padding; (b) allow labels to wrap to two lines; (c) shorten a Voice label. If the checkmark is dropped to reclaim width, a replacement non-colour cue is added (spec §3 principle 6).
+- [ ] `.selectable` / `Role.RadioButton` semantics unchanged.
+- [ ] A Plain and an Intense Preview of a three-option row at a narrow width + large font scale (only a Bright Preview exists today).
+
+**Plan** — reproduce in a Preview first (narrow width, bumped `fontScale`), pick the affordance, apply it once in `SegmentedChoiceRow.kt`, then eyeball the other call sites (the Settings theme picker is also three options) for regressions.
+
+**Tests** — add a `SegmentedChoiceRow` Compose test (none exists) asserting all option labels are displayed for the three-option case in a constrained-width container; `CaseEditScreenTest`, `SettingsScreenTest`, and the Hunch-sheet tests stay green.
+
+**Concern** — cosmetic; nothing is functionally broken, but it now touches a primary creation flow (the Hunch sheet), not just settings-adjacent screens.
+
+### S6 · Big Picture's event-detail rows diverge from the Insights drill-down's
+
+*Branch: TBD · Complexity: S · Priority: Low · Area: Big Picture*
+
+🎨 **Design decision** — needs a ruling on whether Big Picture's cross-case day/week dialogs should show the same detail the Insights drill-down rows do, or whether the current set is intentional given spec §9's "Intensity is not encoded on the grid" stance.
+
+Building the Insights drill-down (`InsightsDrillDownEventRow`, `ui/casedetail/InsightsTab.kt`) put it side by side with Big Picture's existing `EventDetailRow` (`ui/bigpicture/BigPictureGrid.kt`) for the first time, and the two turned out meaningfully different in both directions:
+
+- **Big Picture shows less where it matters** — no intensity, no computed duration line; its "ongoing since …" / span-range label is a static string computed once, where Insights' row shows a live-ticking elapsed time via the shared `eventDetailSummary` / `formatEventTime` / `OngoingElapsedText` helpers (`viewmodel/CaseDetailViewModel.kt`, `viewmodel/EventTimeFormat.kt`, `ui/common/OngoingIndicator.kt`) that Big Picture hand-rolls instead.
+- **Big Picture shows noise where Insights stays quiet** — `EventDetailRow` (`BigPictureGrid.kt:656-660`) always renders a note line, falling back to `voice.bigPictureEventNoteEmptyState` ("No note" / "No notes were left." / "No note — mystery!") when the note is blank. Insights' `eventDetailSummary()` just omits the note when blank, so a note-less event shows only its timestamp.
+
+**Acceptance criteria**
+
+- [ ] A ruling recorded (HODITH_SPEC §9, or a note here if it's a non-decision) on what Big Picture's day/week detail rows should show, compared to Insights' drill-down rows.
+- [ ] Regardless of the ruling: `EventDetailRow` drops the empty-note placeholder — a note-less event shows nothing there, matching Insights. `voice.bigPictureEventNoteEmptyState` (×3, `Voice.kt:28`) retired if nothing else uses it (grep first); this touches Voice, so before B2.
+- [ ] If more detail is wanted: `EventDetailRow` reuses `eventDetailSummary` / `formatEventTime` / `OngoingElapsedText` the same way `InsightsDrillDownEventRow` does, rather than keeping its own hand-rolled time-label logic.
+- [ ] If the current sparser set is intentional: a one-line spec note saying so, so this doesn't get re-raised as an inconsistency later.
+
+**Plan** — revisit once there's appetite; no code plan until the ruling lands, except the empty-note placeholder removal, which is unconditional.
+
+**Tests** — `BigPictureScreenTest`'s existing event-row assertions (`dayDetailDialog_showsEventTimestampAndTags` etc.) need updating alongside any `EventDetailRow` change, including the placeholder removal.
+
+### S7 · Resolved-hunch history rows need a proper design and content pass
+
+*Branch: `feat/hunch-history-row-redesign` · Complexity: M · Priority: Medium · Area: Hunch*
+
+🎨 **Design decision** — the whole row: which fields, their hierarchy, and the wording per voice. Touches Voice, so before B2.
+
+A full formatting review of the resolved-hunch record — design *and* content. The "0 months ago" bug is the trigger, not the scope.
+
+Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `HunchHistoryRow:535-559`): a header plus an "N of M held up" summary, then per row — line 1 is `hunchHistoryRowText(direction, frequencyLabel)` ("Too often, ~7×/week") left / `hunchHistoryRowWhen(monthsAgo(resolvedAt))` right; line 2 is `hunchHistoryRowOutcome(band, observedRateLabel)`. No made-date, no absolute resolved-date, no verdict-tier text, and no structure beyond two text lines. `monthsAgo` (`viewmodel/CaseDetailViewModel.kt:180-188`) counts whole calendar months, so a hunch resolved inside its first month reads "0 months ago" / "0 months past".
+
+**Acceptance criteria**
+
+- [ ] A decided row design recorded here — an ordered field list (made date, resolved date or a "held for N weeks" span, direction + expected rate, observed rate, outcome band, and whether the verdict tier belongs in the row) plus layout and per-voice wording.
+- [ ] `HunchHistoryRow` rebuilt to it; the time display reworked to absolute dates and/or a held-for span.
+- [ ] `hunchHistoryRowWhen` replaced or removed (×3 voices); `monthsAgo` removed if nothing else uses it (grep); any new Voice keys added ×3.
+- [ ] The `HunchHistoryCard` summary line re-checked against the new row shape.
+- [ ] `HunchTabStateTest`, `CaseDetailScreenTest`, `VoiceTest` updated.
+
+**Plan** — decide the row (a sketch or field list in this item), then implement. `HunchEntity` already carries `createdAt` and `resolvedAt`, so no schema change.
+
+**Tests** — `CaseDetailScreenTest` swaps its "N months ago" assertions for the new fields; `VoiceTest` covers the new keys.
+
+**Concern** — standalone; the redesign is a small surface but a visible one, and the content call (does the verdict tier show?) is a product decision.
+
+### S8 · Performance review for high event volume and rapid logging
+
+*Branch: `chore/high-volume-perf-review` · Complexity: M · Priority: Medium · Area: Performance*
+
+🔍 **Investigation** — measure first; the fix set depends on what the numbers say.
+
+Two scenarios worth checking before real users arrive:
+
+- **High volume** — ~3 events/day for 3 years on one case (~3.3k rows), across 10 cases (~33k rows total).
+- **Rapid logging** — a one-tap case tapped ~1000 times in quick succession.
+
+Current shape (from a source read):
+
+- `EventDao` list queries (`observeEventsForCase`, `observeEventsWithTagsForCase`) have no `LIMIT` and no pagination; `CaseDao.observeActiveCasesWithEvents[AndTags]` pulls every event and tag for every active case via `@Relation`. All aggregation is in-memory over the full list — Insights recomputes ~8 stat passes on every emission; Big Picture, Home, and the widget remap the whole cross-case set on every insert; the verdict re-filters the full list once per historical hunch.
+- The one-tap path is one DB insert per tap with no debounce or batching, and each insert also fires an un-debounced `evaluateNotificationsForCase` coroutine. Only the Glance widget refresh is coalesced (`enqueueUniqueWork` with `REPLACE`); the Home undo channel is not.
+
+**Acceptance criteria**
+
+- [ ] Measured numbers on a mid-range device profile: open a large case, scroll its Log tab, open Big Picture, and tap-storm a one-tap case.
+- [ ] A call on whether SQL-side aggregation, a windowed/capped Log query, or an insert debounce is worth doing before alpha — or whether realistic volumes stay comfortably fine and this closes with the measurements kept for reference.
+- [ ] Anything approved spun out as its own item.
+
+**Plan** — seed a large dataset (extend `DemoDataSeeder` locally or a throwaway test), profile with the Android Studio profiler, write up the findings.
+
+**Tests** — none in this item; a follow-up that changes a query or adds a debounce brings its own.
+
+### S9 · Audit the hosted privacy policy and Play data-safety form
 
 *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium · Area: Settings*
 
@@ -147,81 +268,22 @@ Big Picture, the case detail Log tab, and the Insights tab empty states (`BigPic
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S11 · Case-editor Duration segmented row is cramped at the right edge
-
-*Branch: `fix/segmented-row-label-crowding` · Complexity: S · Priority: Low · Area: Bug*
-
-🎨 **Design decision** — the fix lands in the shared `SegmentedChoiceRow`, and the tightest options trade against spec §3 principle 6 (the selected-state checkmark is a non-colour cue).
-
-`CaseEditScreen.kt`'s Duration section (`SectionWithInfo` + `SegmentedChoiceRow`, options None / Manual / Start/stop) renders through `ui/common/SegmentedChoiceRow.kt`. The Plain/Intense branch is `SingleChoiceSegmentedButtonRow` with one `SegmentedButton` per option: equal-width segments, no `maxLines` / `softWrap` / auto-size, and M3's leading selected-checkmark slot takes ~24–28dp. The longest label, "Start/stop", sits in the rightmost segment, so on narrower screens or larger font scales it reads tight or clips. The Bright branch (`BrightSegmentedChoiceRow`) uses `horizontal = 0.dp` inner padding, so its text butts the capsule edge too. The control is shared (Case Edit logFlow + durationMode, Settings theme picker, Insights frequency granularity, Log-tab sort), so a fix here is consistency-positive. `caseDurationModeNone` / `Manual` / `StartStop` are interface `get()` defaults, identical across voices.
-
-**Acceptance criteria**
-
-- [ ] The three Duration labels render comfortably (no clip, sensible wrap) at a ~320dp width and the largest supported font scale, in Plain, Intense, and Bright.
-- [ ] Fix applied in `SegmentedChoiceRow.kt` so every caller benefits; the Bright branch gains a small minimum horizontal inset.
-- [ ] The affordance decision recorded — e.g. (a) keep the checkmark, drop label typography to `labelMedium` and tighten `SegmentedButton` content padding; (b) allow labels to wrap to two lines; (c) shorten a Voice label. If the checkmark is dropped to reclaim width, a replacement non-colour cue is added (spec §3 principle 6).
-- [ ] `.selectable` / `Role.RadioButton` semantics unchanged.
-- [ ] A Plain and an Intense Preview of the three-option row at a narrow width + large font scale (only a Bright Preview exists today).
-
-**Plan** — reproduce in a Preview first (narrow width, bumped `fontScale`), pick the affordance, apply it once in `SegmentedChoiceRow.kt`, then eyeball the other call sites (the Settings theme picker is also three options) for regressions.
-
-**Tests** — add a `SegmentedChoiceRow` Compose test (none exists) asserting all option labels are displayed for the three-option case in a constrained-width container; `CaseEditScreenTest` and `SettingsScreenTest` stay green.
-
-**Concern** — cosmetic; nothing is functionally broken. Soft-batches with S3 (selection-state contrast in `IconChoice` / `IntensityChoice`), the other selection-control polish item on the same screens.
-
-### S13 · Big Picture's event-detail rows are sparser than the Insights drill-down's
-
-*Branch: TBD · Complexity: S · Priority: Low · Area: Big Picture*
-
-🎨 **Design decision** — needs a ruling on whether Big Picture's cross-case day/week dialogs should show the same detail Insights' drill-down rows do (S10), or whether the current sparser set is intentional given spec §9's "Intensity is not encoded on the grid" stance.
-
-Building S10's Insights drill-down (`InsightsDrillDownEventRow`, `ui/casedetail/InsightsTab.kt`) put it side by side with Big Picture's existing `EventDetailRow` (`ui/bigpicture/BigPictureGrid.kt`) for the first time, and the two turned out meaningfully different. Big Picture's row never shows intensity or a computed duration line, and its "ongoing since …" / span-range label is a static string computed once; Insights' row shows intensity, a duration line, and a live-ticking elapsed time, all via the shared `eventDetailSummary`/`formatEventTime`/`OngoingElapsedText` helpers (`viewmodel/CaseDetailViewModel.kt`, `viewmodel/EventTimeFormat.kt`, `ui/common/OngoingIndicator.kt`) that Big Picture's row doesn't use — it hand-rolls its own time-label logic instead. Unclear whether Big Picture's leaner row is a considered choice (cross-case view, less room per cell, intensity deliberately not encoded per spec §9) or just an artifact of predating those shared helpers.
-
-**Acceptance criteria**
-
-- [ ] A ruling recorded (HODITH_SPEC §9, or a note here if it's a non-decision) on what Big Picture's day/week detail rows should show, compared to Insights' drill-down rows.
-- [ ] If more detail is wanted: `EventDetailRow` reuses `eventDetailSummary`/`formatEventTime`/`OngoingElapsedText` the same way `InsightsDrillDownEventRow` does, rather than keeping its own hand-rolled time-label logic.
-- [ ] If the current sparser set is intentional: a one-line spec note saying so, so this doesn't get re-raised as an inconsistency later.
-
-**Plan** — revisit once there's appetite; not blocking S10, and no code plan until the ruling lands.
-
-**Tests** — depends on the ruling; if `EventDetailRow` changes, `BigPictureScreenTest`'s existing event-row assertions (`dayDetailDialog_showsEventTimestampAndTags` etc.) need updating alongside it.
-
-### S14 · Hunch nudge's "Don't ask again" persists correctly but reads as doing nothing
-
-*Branch: TBD · Complexity: S · Priority: Low · Area: Voice*
-
-🎨 **Design decision** — whether to remove the dismiss affordance entirely, restyle it, or make dismissal visibly change something. Touches a Voice key, so land before B2 if it goes ahead.
-
-Traced end to end: `HunchNudgeCard`'s "Don't ask again" (`CaseDetailScreen.kt`) correctly calls `CaseDetailViewModel.dismissHunchNudge()`, which persists `CaseEntity.hunchNudgeDismissed = true`; `HunchTabState.kt`'s `showNudge` then flips false and `HunchNoneCard` replaces the nudge card — spec §7's documented behaviour, not a stub. The problem is `HunchNoneCard` is itself just another "add a hunch" prompt with its own Add button, so dismissing swaps one nagging card for a near-identical one — the only visible change is the copy, which reads as if the button did nothing.
-
-**Acceptance criteria**
-
-- [ ] A decision recorded on the fix direction: (a) remove the "Don't ask again" affordance and the `hunchNudgeDismissed` column entirely, letting the nudge just always show past the event threshold until a Hunch is added; (b) keep the dismiss mechanism but make the post-dismissal state visibly distinct from the nudge (e.g. no further "please add a hunch" pressure); (c) some other resolution.
-- [ ] If (a): `CaseEntity.hunchNudgeDismissed` column removed with a Room migration + migration test; `dismissHunchNudge()`, the "Don't ask again" button, and `hunchNudgeDismissAction` (×3 Voice keys) removed; `HunchTabState.kt`'s `showNudge` logic simplified; `CaseEditViewModel.kt`'s and `DemoDataSeeder.kt`'s now-dead `hunchNudgeDismissed = false` writes removed; HODITH_SPEC §7's "Don't ask again sets hunchNudgeDismissed" line removed.
-- [ ] If (b) or (c): scoped separately once the direction is picked.
-- [ ] Tests updated to match: `CaseDetailViewModelTest`, `HunchTabStateTest`, `CaseDetailScreenTest`, `VoiceTest`, and the Room migration test suite if the column is dropped.
-
-**Plan** — needs the product decision above before any code changes; likely a schema migration if the dismiss path is removed outright, so worth its own branch.
-
-**Concern** — standalone, no dependencies on other outstanding items.
-
-### S15 · `docs/mockups/` holds prototype HTML past its usefulness
+### S10 · `docs/mockups/` holds prototype HTML past its usefulness
 
 *Branch: `chore/prune-design-mockups` · Complexity: S · Priority: Low · Area: Repo*
 
-Six design-prototype HTML files sit in `docs/mockups/`. Three are genuinely orphaned — **no reference anywhere** in code or docs, just "saved for reference" snapshots of long-shipped features: `case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`. The other three are load-bearing today: `plain-theme-light-neutrals.html` (7 KDoc citations across `Color.kt`, `HomeScreen.kt`, `SettingsScreen.kt`, `SegmentedChoiceRow.kt`, `SectionWithInfo.kt`, `CaseDetailScreen.kt`), `bright-theme-soft-glow.html` (`GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureGrid.kt`), `share-cards-prototype.html` (`ShareCardDecoration.kt`). Those three are also the visual reference for still-open items — **S3/S4/S11/S13** (Plain/Bright/Intense theme polish) and **B1** (Square share preset) — so removing them now would orphan live KDoc *and* drop design context for pending work.
+Six design-prototype HTML files sit in `docs/mockups/`. Three are genuinely orphaned — **no reference anywhere** in code or docs, just "saved for reference" snapshots of long-shipped features: `case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`. The other three are load-bearing today: `plain-theme-light-neutrals.html` (7 KDoc citations across `Color.kt`, `HomeScreen.kt`, `SettingsScreen.kt`, `SegmentedChoiceRow.kt`, `SectionWithInfo.kt`, `CaseDetailScreen.kt`), `bright-theme-soft-glow.html` (`GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureGrid.kt`), `share-cards-prototype.html` (`ShareCardDecoration.kt`). Those three are also the visual reference for still-open items — **S2** (empty-state alignment on Bright/Intense), **S5** (segmented rows), **S6** (Big Picture rows) and **B1** (Square share preset) — so removing them now would orphan live KDoc *and* drop design context for pending work.
 
 **Acceptance criteria**
 
 - [ ] The three orphaned mockups (`case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`) removed directly — no references to strip first.
 - [ ] For each of the three referenced mockups: a decision recorded on whether its KDoc citations still earn their keep now the feature is stable (a pointer to a committed design artifact is useful history) or read as clutter. If a mockup is to go, every citing KDoc updated first — describe the treatment in prose or drop the line — then the file deleted; if it stays, no change.
-- [ ] Gated on S3/S4/S11/S13 and B1 either landing or being closed, so the theme/share mockups aren't pulled out from under open work.
+- [ ] Gated on S2/S5/S6 and B1 either landing or being closed, so the theme/share mockups aren't pulled out from under open work.
 - [ ] `README.md`'s AI-workflow section checked — if it describes `docs/mockups/` as a standing convention, reconcile with whatever this audit decides.
 
 **Plan** — do this after the theme-polish and share items clear (or are dropped). Delete the three orphans, then walk the KDoc citations for the other three and make the keep/strip call per file. Not urgent; these are small static files with no build cost.
 
-**Concern** — soft-blocked on S3/S4/S11/S13/B1; not "fully isolated" despite being repo hygiene.
+**Concern** — soft-blocked on S2/S5/S6/B1; not "fully isolated" despite being repo hygiene.
 
 ## Blocked
 

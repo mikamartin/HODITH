@@ -202,7 +202,6 @@ interface Voice {
     val hunchTabNoneDataNote: String
     val hunchAddButtonLabel: String
     val hunchNudgeTitle: String
-    val hunchNudgeDismissAction: String
     val hunchEarlyHeadline: String
     val hunchResolveLabel: String
     val hunchCreatingTitle: String
@@ -804,7 +803,6 @@ object PlainVoice : Voice {
         "Checking it against reality takes a little time — roughly matching how often you think it happens."
     override val hunchAddButtonLabel = "Add a Hunch"
     override val hunchNudgeTitle = "Got a feeling about this one?"
-    override val hunchNudgeDismissAction = "Don't ask again"
     override val hunchEarlyHeadline = "Not enough data yet to judge your Hunch."
     override val hunchResolveLabel = "Resolve Hunch"
     override val hunchCreatingTitle = "New Hunch"
@@ -1342,7 +1340,6 @@ object IntenseVoice : Voice {
         "The record needs time to answer — about as long as your claim itself implies."
     override val hunchAddButtonLabel = "State a hunch"
     override val hunchNudgeTitle = "The record grows, unclaimed."
-    override val hunchNudgeDismissAction = "Never ask again"
     override val hunchEarlyHeadline = "The evidence is yet insufficient for despair or joy."
     override val hunchResolveLabel = "Seal the verdict"
     override val hunchCreatingTitle = "State your hunch"
@@ -1867,7 +1864,6 @@ object BrightVoice : Voice {
     override val hunchTabNoneDataNote = "Reality just needs a little time to catch up — about as long as you think this takes!"
     override val hunchAddButtonLabel = "Make a guess!"
     override val hunchNudgeTitle = "Ooh, logs are piling up!"
-    override val hunchNudgeDismissAction = "Nah, don't ask"
     override val hunchEarlyHeadline = "Too soon to tell — feed me more moments!"
     override val hunchResolveLabel = "Lock it in"
     override val hunchCreatingTitle = "Make your guess!"

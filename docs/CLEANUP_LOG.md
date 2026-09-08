@@ -15,6 +15,36 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## refactor/drop-hunch-nudge-dismiss
+
+**Scope:** PROGRESS.md item S14 — the Hunch-nudge "Don't ask again" button persisted `CaseEntity.hunchNudgeDismissed = true` correctly, but the state it revealed (`HunchNoneCard`) is itself an "add a Hunch" prompt with its own Add button, so dismissing swapped one invitation card for a near-identical one and read as doing nothing. Product decision (AskUserQuestion, before building): **option (a)** — remove the affordance and the column outright. Past 5 events on a hunch-less Case the nudge now shows until a Hunch is added; there is no dismiss, so there is no post-dismiss state to get wrong. Schema v8→v9 (`@DeleteColumn` auto-migration dropping `cases.hunchNudgeDismissed`, mirroring the v6→v7 `DropStaleNudgeColumn` precedent).
+
+**Found & fixed (checklist walk-through against the real `git diff`):**
+- **`HunchTabState.showNudge` reduced to a pure threshold check** — `!case.hunchNudgeDismissed && events.size >= HUNCH_NUDGE_EVENT_THRESHOLD` lost its first clause. `hunchTabState`'s `case` param is still used (history mapping), so no signature change.
+- **`CaseDetailViewModel.dismissHunchNudge()` deleted**; `CaseDetailScreen` loses the `onDismissHunchNudge` lambda through all four hops (hilt wrapper → stateless screen → `HunchTabContent` → `HunchNudgeCard`). `HunchNudgeCard` drops its `onDismiss` param and the now-single-child `Row` collapses to the bare `Button`.
+- **`hunchNudgeDismissAction` removed from the `Voice` interface and all three voices** ("Don't ask again" / "Never ask again" / "Nah, don't ask"). `VoiceTest` is reflection-driven (`declaredMemberProperties`), so it re-covers the smaller surface with no edit.
+- **Dead `hunchNudgeDismissed = false` writes removed** from `DemoDataSeeder` (seed insert) and `CaseEditViewModel` (new-case insert; the edit branch `copy()`s and never referenced it).
+- **`CaseDetailViewModelTest` lost its now-unused `assertTrue` import** once the dismiss test went.
+- **~18 test fixtures stripped of the field** — the `Fixtures.case` / `testCase` builders in `testsupport/Entities.kt` and `androidTest/.../TestFixtures.kt`, plus direct `CaseEntity(...)` calls across 12 test files. A repo-wide grep for `hunchNudgeDismissed` now returns only the historical `schemas/1..8.json`, the two pre-v9 `INSERT INTO cases` statements in the 6→7 / 7→8 migration tests (correct — they insert at the old schema), the new v8→v9 migration test's assertion, and the backup-compat test.
+
+**Sections walked, nothing to do:**
+- *Duplication — `HunchNudgeCard` and `HunchNoneCard` are still near-identical* — **considered and declined**, and out of scope per the approved plan. The split is intentional: below the threshold the plain "no hunch yet" card, at/past it the count-aware nudge ("You've logged 8 events for X"). Collapsing them would drop the event-count grounding, which is the on-brand "against logged reality" touch. Left as-is.
+- *Decoupling* — change is net-decoupling: one fewer VM method, one fewer lambda threaded through the screen. `HunchTabState` stays pure Kotlin, `Clock` unaffected.
+- *`BACKUP_SCHEMA_VERSION` bump* — **considered and declined.** `Moshi.Builder().build()` has no `failOnUnknown`, so a pre-v9 backup still carrying `"hunchNudgeDismissed"` restores fine (the key is ignored) and new backups simply omit it — compatible both directions. `BackupSerializer`'s own doc reserves the bump for a payload that *can't* be read forward; the v6→v7 column drop set the same precedent (version stayed 1). +1 `BackupSerializerTest` case locking the forward-compat.
+- *Hardcoded values* — `HUNCH_NUDGE_EVENT_THRESHOLD` is still the single named `domain` constant; nothing inlined.
+- *Naming* — `DropHunchNudgeDismissedColumn` follows `DropStaleNudgeColumn`; `AUTO_MIGRATION_COUNT` bumped to 3 alongside the `AutoMigration(8, 9, …)` entry, as its KDoc instructs.
+- *Accessibility* — a `TextButton` was removed; no icon-only control or tap target affected.
+- *Deprecated APIs* — none.
+- *Repo hygiene* — `git status` clean bar the generated `schemas/9.json` (committed, like 1–8). No secrets, no local paths. `ktlintFormat` rewrote `HunchTabStateTest.kt` with LF endings; `core.autocrlf=true` and the index already stores it as LF, so no line-ending change is recorded.
+
+**Deferred:** nothing — every finding was fixed or explicitly declined.
+
+**Docs updated:** `HODITH_SPEC.md` §7 (Nudge bullet reworded — no dismiss; "stays until a Hunch is added") and the §5 `cases` schema table (`hunchNudgeDismissed` row removed). `PROGRESS.md` — S14 removed (resolved). `TESTING.md` — Room-migrations row gains the v8→v9 drop; the Compose-UI nudge line's "and dismisses permanently" becomes "and stays until a Hunch is added". No `DEV_PLAYBOOK.md` / `CLAUDE.md` / `README` change.
+
+**Tests:** unit (`./gradlew testDebugUnitTest`, 610 green — net zero: `CaseDetailViewModelTest` −1 dismiss test, `BackupSerializerTest` +1 forward-compat; `HunchTabStateTest` renamed the dismissed-suppression case to a keeps-showing case). Instrumented (emulator, scoped) — new `DatabaseFreshInstallTest.migrationFrom8To9_dropsHunchNudgeDismissedColumn_andPreservesCaseRows`; `CaseDetailScreenTest` (26) and `CaseDetailInsightsTabTest` (30) green after dropping the dismiss test / `onDismissHunchNudge` harness arg.
+
+**Verified:** `ktlintCheck → assembleDebug (schemas/9.json generated, no `hunchNudgeDismissed`) → testDebugUnitTest (610) → lintDebug` sequential, all green; scoped `connectedDebugAndroidTest` (`DatabaseFreshInstallTest` 4, `CaseDetailScreenTest` 26, `CaseDetailInsightsTabTest` 30) green on `emulator-5554`.
+
 ## feat/verdict-coverage-metric
 
 **Scope:** PROGRESS.md item A10 (the last of the old Story A) — two independent additions to the Hunch-creation sheet, landed together on one Room migration since they share the `HunchEntity` / `computeVerdict` surface: (1) an opt-in **days-active** verdict metric alongside occurrence count, for a Case whose long, overlapping duration events make "3 a month" read *about right* even when nearly every day was active; (2) a per-Hunch **observation window** (since the start / rolling last-3-months / custom start date), since `computeVerdict`'s window previously always ran from Case creation to `now` and only grew. Schema v7→v8 (`hunches.metric` / `observationWindow` / `windowStartDate`, additive auto-migration with column defaults). New `data/VerdictMetric.kt`, `data/ObservationWindow.kt`; `ExpectedPer` gains `QUARTER`; `activeSpanEnd` moved `viewmodel/OngoingEvent.kt` → `domain/ActiveSpan.kt` so the pure engine can reuse it for the window filter.

@@ -243,7 +243,6 @@ class CaseEditViewModel
                             logFlow = state.logFlow,
                             durationMode = state.durationMode,
                             intensityEnabled = state.intensityEnabled,
-                            hunchNudgeDismissed = false,
                             checkInsEnabled = state.checkInsEnabled,
                             lastCheckInAt = null,
                             sortOrder = activeCases.size,

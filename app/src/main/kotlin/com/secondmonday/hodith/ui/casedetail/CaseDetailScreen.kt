@@ -116,7 +116,6 @@ fun CaseDetailRoute(
         nowMillis = viewModel::nowMillis,
         onAddHunch = viewModel::addHunch,
         onResolveHunch = viewModel::resolveHunch,
-        onDismissHunchNudge = viewModel::dismissHunchNudge,
         modifier = modifier,
     )
 }
@@ -136,7 +135,6 @@ fun CaseDetailScreen(
     nowMillis: () -> Long,
     onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit,
     onResolveHunch: (HunchEntity) -> Unit,
-    onDismissHunchNudge: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -241,7 +239,6 @@ fun CaseDetailScreen(
                             now = now,
                             voice = voice,
                             onAddClick = { showHunchCreationSheet = true },
-                            onDismissNudge = onDismissHunchNudge,
                             onResolveHunch = onResolveHunch,
                         )
                     }
@@ -371,7 +368,6 @@ private fun HunchTabContent(
     now: Long,
     voice: Voice,
     onAddClick: () -> Unit,
-    onDismissNudge: () -> Unit,
     onResolveHunch: (HunchEntity) -> Unit,
 ) {
     val events = uiState.events.map { it.event }
@@ -390,7 +386,6 @@ private fun HunchTabContent(
                         eventCount = events.size,
                         voice = voice,
                         onAdd = onAddClick,
-                        onDismiss = onDismissNudge,
                     )
                 } else {
                     HunchNoneCard(voice = voice, onAddClick = onAddClick)
@@ -446,15 +441,11 @@ private fun HunchNudgeCard(
     eventCount: Int,
     voice: Voice,
     onAdd: () -> Unit,
-    onDismiss: () -> Unit,
 ) {
     HunchCard {
         Text(voice.hunchNudgeTitle, style = MaterialTheme.typography.titleMedium)
         Text(voice.hunchNudgeBody(caseIcon, caseName, eventCount), style = MaterialTheme.typography.bodyMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onAdd) { Text(voice.hunchAddButtonLabel) }
-            TextButton(onClick = onDismiss) { Text(voice.hunchNudgeDismissAction) }
-        }
+        Button(onClick = onAdd) { Text(voice.hunchAddButtonLabel) }
     }
 }
 
