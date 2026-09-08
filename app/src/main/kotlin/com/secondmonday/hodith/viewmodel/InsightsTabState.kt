@@ -13,6 +13,7 @@ import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.computeDurationStats
 import com.secondmonday.hodith.domain.computeFrequencyStats
 import com.secondmonday.hodith.domain.computeGapShift

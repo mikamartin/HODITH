@@ -226,7 +226,7 @@ private fun HunchVsRealityBeat(
         BeatKicker(voice.shareHunchRealityKicker, skin)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HunchStat(
-                value = formatExpectedFrequency(beat.hunch.expectedCount, beat.hunch.expectedPer),
+                value = formatExpectedFrequency(beat.hunch.expectedCount, beat.hunch.expectedPer, beat.hunch.metric),
                 label = voice.shareHunchExpectedLabel,
                 skin = skin,
                 emphasize = false,
@@ -234,7 +234,7 @@ private fun HunchVsRealityBeat(
             )
             Text("→", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             HunchStat(
-                value = formatRate(beat.observedRate, beat.hunch.expectedPer),
+                value = formatRate(beat.observedRate, beat.hunch.expectedPer, beat.hunch.metric),
                 label = voice.shareHunchObservedLabel,
                 skin = skin,
                 emphasize = true,

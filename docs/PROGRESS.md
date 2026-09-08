@@ -10,7 +10,7 @@ Items are grouped by how they connect, not by feature area:
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Blocked** — gated on something external; not startable now.
 
-The old **Story A** (Start/Stop, duration & ongoing events) is done bar one read-through, **A10**, which has no dependencies and now sits under Standalone.
+The old **Story A** (Start/Stop, duration & ongoing events) is complete, including its final read-through (A10 — the verdict metric choice and bounded observation window).
 
 Each item carries:
 
@@ -74,21 +74,8 @@ No cross-dependencies. Pick any when resources are thin. Several soft batching o
 - **Case Detail Log-tab — S4** — touches `LogTabContent` / `CaseDetailScreen.kt` and `CaseDetailScreenTest.kt` (empty-state alignment). S7 (sort row) and S8 (event-edit screen) already landed here, so expect a small rebase.
 - **Case Detail Insights tab — S4** — touches `InsightsTab.kt`'s empty state; expect a small rebase against S10's now-landed drill-down changes to the same file.
 - **Case-editor selection controls — S3 · S11** — S3 retunes `IconChoice` / `IntensityChoice` selection contrast; S11 declutters the adjacent `SegmentedChoiceRow`. Both are affordance polish on the same screens.
-- **Fully isolated — S1** (icon vector + Previews), **S6** (external content), **S13** (Big Picture event-detail row review), and **A10** (the old Story A read-through). Any order, any time.
-
-### A10 · Verdict engine's handling of duration events is unreviewed
-
-*Branch: `feat/verdict-duration-review` · Complexity: S · Priority: Low · Area: Big Picture*
-
-🔍 **Investigation** — read-through first; a fix only if the read finds a real distortion. 🎨 **Design decision** — the ruling belongs in spec §8. No dependency on other outstanding work.
-
-The verdict engine and its observation-window / observed-rate math count each event once at `occurredAt` and never look at `endedAt`. Whether a multi-day event should still count as one occurrence (likely yes), whether a still-running event counts before it stops, and whether the observation window's end should track a running event, have not been decided or tested.
-
-**Acceptance criteria**
-
-- [ ] Verdict engine, observation window, and observed-rate code read through for duration/ongoing handling.
-- [ ] A written ruling added to HODITH_SPEC §8 (even if the ruling is "unchanged — starts only, one occurrence each").
-- [ ] Code changed only if the read finds a genuine distortion; otherwise a test locking the current behaviour.
+- **Fully isolated — S1** (icon vector + Previews), **S6** (external content), and **S13** (Big Picture event-detail row review). Any order, any time.
+- **Do last — S15** (prune `docs/mockups/`) — soft-blocked on S3/S4/S11/S13 and B1, whose visual reference is the theme/share mockups it would remove.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -199,6 +186,42 @@ Building S10's Insights drill-down (`InsightsDrillDownEventRow`, `ui/casedetail/
 **Plan** — revisit once there's appetite; not blocking S10, and no code plan until the ruling lands.
 
 **Tests** — depends on the ruling; if `EventDetailRow` changes, `BigPictureScreenTest`'s existing event-row assertions (`dayDetailDialog_showsEventTimestampAndTags` etc.) need updating alongside it.
+
+### S14 · Hunch nudge's "Don't ask again" persists correctly but reads as doing nothing
+
+*Branch: TBD · Complexity: S · Priority: Low · Area: Voice*
+
+🎨 **Design decision** — whether to remove the dismiss affordance entirely, restyle it, or make dismissal visibly change something. Touches a Voice key, so land before B2 if it goes ahead.
+
+Traced end to end: `HunchNudgeCard`'s "Don't ask again" (`CaseDetailScreen.kt`) correctly calls `CaseDetailViewModel.dismissHunchNudge()`, which persists `CaseEntity.hunchNudgeDismissed = true`; `HunchTabState.kt`'s `showNudge` then flips false and `HunchNoneCard` replaces the nudge card — spec §7's documented behaviour, not a stub. The problem is `HunchNoneCard` is itself just another "add a hunch" prompt with its own Add button, so dismissing swaps one nagging card for a near-identical one — the only visible change is the copy, which reads as if the button did nothing.
+
+**Acceptance criteria**
+
+- [ ] A decision recorded on the fix direction: (a) remove the "Don't ask again" affordance and the `hunchNudgeDismissed` column entirely, letting the nudge just always show past the event threshold until a Hunch is added; (b) keep the dismiss mechanism but make the post-dismissal state visibly distinct from the nudge (e.g. no further "please add a hunch" pressure); (c) some other resolution.
+- [ ] If (a): `CaseEntity.hunchNudgeDismissed` column removed with a Room migration + migration test; `dismissHunchNudge()`, the "Don't ask again" button, and `hunchNudgeDismissAction` (×3 Voice keys) removed; `HunchTabState.kt`'s `showNudge` logic simplified; `CaseEditViewModel.kt`'s and `DemoDataSeeder.kt`'s now-dead `hunchNudgeDismissed = false` writes removed; HODITH_SPEC §7's "Don't ask again sets hunchNudgeDismissed" line removed.
+- [ ] If (b) or (c): scoped separately once the direction is picked.
+- [ ] Tests updated to match: `CaseDetailViewModelTest`, `HunchTabStateTest`, `CaseDetailScreenTest`, `VoiceTest`, and the Room migration test suite if the column is dropped.
+
+**Plan** — needs the product decision above before any code changes; likely a schema migration if the dismiss path is removed outright, so worth its own branch.
+
+**Concern** — standalone, no dependencies on other outstanding items.
+
+### S15 · `docs/mockups/` holds prototype HTML past its usefulness
+
+*Branch: `chore/prune-design-mockups` · Complexity: S · Priority: Low · Area: Repo*
+
+Six design-prototype HTML files sit in `docs/mockups/`. Three are genuinely orphaned — **no reference anywhere** in code or docs, just "saved for reference" snapshots of long-shipped features: `case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`. The other three are load-bearing today: `plain-theme-light-neutrals.html` (7 KDoc citations across `Color.kt`, `HomeScreen.kt`, `SettingsScreen.kt`, `SegmentedChoiceRow.kt`, `SectionWithInfo.kt`, `CaseDetailScreen.kt`), `bright-theme-soft-glow.html` (`GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureGrid.kt`), `share-cards-prototype.html` (`ShareCardDecoration.kt`). Those three are also the visual reference for still-open items — **S3/S4/S11/S13** (Plain/Bright/Intense theme polish) and **B1** (Square share preset) — so removing them now would orphan live KDoc *and* drop design context for pending work.
+
+**Acceptance criteria**
+
+- [ ] The three orphaned mockups (`case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`) removed directly — no references to strip first.
+- [ ] For each of the three referenced mockups: a decision recorded on whether its KDoc citations still earn their keep now the feature is stable (a pointer to a committed design artifact is useful history) or read as clutter. If a mockup is to go, every citing KDoc updated first — describe the treatment in prose or drop the line — then the file deleted; if it stays, no change.
+- [ ] Gated on S3/S4/S11/S13 and B1 either landing or being closed, so the theme/share mockups aren't pulled out from under open work.
+- [ ] `README.md`'s AI-workflow section checked — if it describes `docs/mockups/` as a standing convention, reconcile with whatever this audit decides.
+
+**Plan** — do this after the theme-polish and share items clear (or are dropped). Delete the three orphans, then walk the KDoc citations for the other three and make the keep/strip call per file. Not urgent; these are small static files with no build cost.
+
+**Concern** — soft-blocked on S3/S4/S11/S13/B1; not "fully isolated" despite being repo hygiene.
 
 ## Blocked
 

@@ -11,6 +11,7 @@ import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.domain.activeSpanEnd
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow

@@ -53,6 +53,8 @@ import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
+import com.secondmonday.hodith.data.ObservationWindow
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -132,7 +134,7 @@ fun CaseDetailScreen(
     onSaveEvent: (LogDraft) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
     nowMillis: () -> Long,
-    onAddHunch: (HunchDirection, Int, ExpectedPer) -> Unit,
+    onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit,
     onResolveHunch: (HunchEntity) -> Unit,
     onDismissHunchNudge: () -> Unit,
     modifier: Modifier = Modifier,
@@ -263,12 +265,14 @@ fun CaseDetailScreen(
         )
     }
 
-    if (showHunchCreationSheet) {
+    if (showHunchCreationSheet && case != null) {
         HunchCreationSheet(
             voice = voice,
+            durationMode = case.durationMode,
+            caseCreatedAt = case.createdAt,
             onDismiss = { showHunchCreationSheet = false },
-            onSave = { direction, expectedCount, expectedPer ->
-                onAddHunch(direction, expectedCount, expectedPer)
+            onSave = { direction, expectedCount, expectedPer, metric, observationWindow, windowStartDate ->
+                onAddHunch(direction, expectedCount, expectedPer, metric, observationWindow, windowStartDate)
                 showHunchCreationSheet = false
             },
         )
@@ -460,18 +464,24 @@ private fun HunchEarlyCard(
     result: VerdictResult,
     voice: Voice,
 ) {
+    val daysActive = hunch.metric == VerdictMetric.DAYS_ACTIVE
+    val observationCount = if (daysActive) result.activeDayCount else result.eventCount
+    val progressUnit = if (daysActive) voice.hunchProgressUnitDaysActive else voice.hunchProgressUnitEvents
     HunchCard {
         Text(voice.hunchEarlyBadgeLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text(
-            voice.hunchChipLabel(hunch.direction, formatExpectedFrequency(hunch.expectedCount, hunch.expectedPer)),
+            voice.hunchChipLabel(hunch.direction, formatExpectedFrequency(hunch.expectedCount, hunch.expectedPer, hunch.metric)),
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(voice.hunchEarlyHeadline, style = MaterialTheme.typography.titleMedium)
         LinearProgressIndicator(
-            progress = { hunchProgressFraction(result.eventCount, result.windowDays) },
+            progress = { hunchProgressFraction(observationCount, result.windowDays) },
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(voice.hunchProgressLabel(result.eventCount, result.windowDays), style = MaterialTheme.typography.bodySmall)
+        Text(
+            voice.hunchProgressLabel(observationCount, progressUnit, result.windowDays),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -484,7 +494,8 @@ private fun HunchVerdictCard(
 ) {
     // Guaranteed non-null: hunchTabState only produces a Verdict once comparisonBand exists.
     val band = checkNotNull(result.comparisonBand) { "Verdict state must carry a resolved comparison band" }
-    val observedRateLabel = formatRate(result.observedRate, hunch.expectedPer)
+    val daysActive = hunch.metric == VerdictMetric.DAYS_ACTIVE
+    val observedRateLabel = formatRate(result.observedRate, hunch.expectedPer, hunch.metric)
 
     HunchCard {
         Text(
@@ -493,11 +504,25 @@ private fun HunchVerdictCard(
             color = MaterialTheme.colorScheme.primary,
         )
         Text(
-            voice.hunchChipLabel(hunch.direction, formatExpectedFrequency(hunch.expectedCount, hunch.expectedPer)),
+            voice.hunchChipLabel(hunch.direction, formatExpectedFrequency(hunch.expectedCount, hunch.expectedPer, hunch.metric)),
             style = MaterialTheme.typography.bodyMedium,
         )
-        Text(voice.verdictHeadline(hunch.direction, band, observedRateLabel), style = MaterialTheme.typography.titleMedium)
-        Text(voice.verdictMeta(result.tier, result.eventCount, result.windowDays), style = MaterialTheme.typography.bodySmall)
+        Text(
+            if (daysActive) {
+                voice.verdictHeadlineDaysActive(hunch.direction, band, observedRateLabel)
+            } else {
+                voice.verdictHeadline(hunch.direction, band, observedRateLabel)
+            },
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            if (daysActive) {
+                voice.verdictMetaDaysActive(result.tier, result.activeDayCount, result.windowDays)
+            } else {
+                voice.verdictMeta(result.tier, result.eventCount, result.windowDays)
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
         TextButton(onClick = { onResolve(hunch) }) { Text(voice.hunchResolveLabel) }
     }
 }
@@ -524,8 +549,8 @@ private fun HunchHistoryRow(
 ) {
     val hunch = entry.hunch
     val resolvedAt = hunch.resolvedAt ?: return
-    val frequencyLabel = formatExpectedFrequency(hunch.expectedCount, hunch.expectedPer)
-    val observedRateLabel = formatRate(entry.result.observedRate, hunch.expectedPer)
+    val frequencyLabel = formatExpectedFrequency(hunch.expectedCount, hunch.expectedPer, hunch.metric)
+    val observedRateLabel = formatRate(entry.result.observedRate, hunch.expectedPer, hunch.metric)
     // Guaranteed non-null: hunchTabState only surfaces history entries with a resolved band.
     val band = checkNotNull(entry.result.comparisonBand) { "History entry must carry a resolved comparison band" }
 

@@ -28,6 +28,18 @@ class Converters {
     fun toExpectedPer(value: String): ExpectedPer = ExpectedPer.valueOf(value)
 
     @TypeConverter
+    fun fromVerdictMetric(value: VerdictMetric): String = value.name
+
+    @TypeConverter
+    fun toVerdictMetric(value: String): VerdictMetric = VerdictMetric.valueOf(value)
+
+    @TypeConverter
+    fun fromObservationWindow(value: ObservationWindow): String = value.name
+
+    @TypeConverter
+    fun toObservationWindow(value: String): ObservationWindow = ObservationWindow.valueOf(value)
+
+    @TypeConverter
     fun fromTriggerKind(value: TriggerKind): String = value.name
 
     @TypeConverter

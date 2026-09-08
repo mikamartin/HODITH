@@ -9,7 +9,9 @@ import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.testsupport.Fixtures
 import kotlinx.coroutines.Dispatchers
@@ -149,7 +151,14 @@ class CaseDetailViewModelTest {
             repository.cases.value = listOf(testCase())
             val vm = viewModel()
 
-            vm.addHunch(HunchDirection.TOO_OFTEN, expectedCount = 5, expectedPer = ExpectedPer.WEEK)
+            vm.addHunch(
+                HunchDirection.TOO_OFTEN,
+                expectedCount = 5,
+                expectedPer = ExpectedPer.WEEK,
+                metric = VerdictMetric.DAYS_ACTIVE,
+                observationWindow = ObservationWindow.CUSTOM,
+                windowStartDate = 1_234L,
+            )
 
             val hunch = repository.hunches.value.single()
             assertEquals(caseId, hunch.caseId)
@@ -158,6 +167,9 @@ class CaseDetailViewModelTest {
             assertEquals(ExpectedPer.WEEK, hunch.expectedPer)
             assertEquals(clock.nowMillis(), hunch.createdAt)
             assertEquals(null, hunch.resolvedAt)
+            assertEquals(VerdictMetric.DAYS_ACTIVE, hunch.metric)
+            assertEquals(ObservationWindow.CUSTOM, hunch.observationWindow)
+            assertEquals(1_234L, hunch.windowStartDate)
         }
 
     @Test

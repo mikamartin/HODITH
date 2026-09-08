@@ -3,7 +3,11 @@ package com.secondmonday.hodith.data.backup
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.HunchDirection
+import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.ObservationWindow
+import com.secondmonday.hodith.data.VerdictMetric
 import com.squareup.moshi.JsonDataException
 import com.squareup.moshi.Moshi
 import org.junit.Assert.assertEquals
@@ -43,6 +47,32 @@ class BackupSerializerTest {
             hunches = emptyList(),
             triggers = emptyList(),
         )
+
+    @Test
+    fun `fromJson fills the new Hunch metric and window fields with defaults when an older backup omits them`() {
+        val hunch =
+            HunchEntity(
+                id = 1L,
+                caseId = 1L,
+                direction = HunchDirection.TOO_OFTEN,
+                expectedCount = 3,
+                expectedPer = com.secondmonday.hodith.data.ExpectedPer.WEEK,
+                createdAt = 0L,
+                resolvedAt = null,
+            )
+        val currentJson = serializer.toJson(testBackup().copy(hunches = listOf(hunch)))
+        // Strip the three v8 keys, as a backup exported before A10 would not carry them.
+        val olderJson =
+            currentJson
+                .replace(",\"metric\":\"OCCURRENCE_COUNT\"", "")
+                .replace(",\"observationWindow\":\"SINCE_START\"", "")
+
+        val restored = serializer.fromJson(olderJson).hunches.single()
+
+        assertEquals(VerdictMetric.OCCURRENCE_COUNT, restored.metric)
+        assertEquals(ObservationWindow.SINCE_START, restored.observationWindow)
+        assertNull(restored.windowStartDate)
+    }
 
     @Test
     fun `toJson then fromJson round-trips every field`() {

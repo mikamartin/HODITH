@@ -7,6 +7,8 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.ObservationWindow
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
 import org.junit.Assert.assertEquals
@@ -50,6 +52,7 @@ private fun testHunch(
     direction: HunchDirection = HunchDirection.TOO_OFTEN,
     createdAt: Long = millisAtDay(0),
     resolvedAt: Long? = null,
+    observationWindow: ObservationWindow = ObservationWindow.SINCE_START,
 ) = HunchEntity(
     id = id,
     caseId = 1L,
@@ -58,6 +61,9 @@ private fun testHunch(
     expectedPer = expectedPer,
     createdAt = createdAt,
     resolvedAt = resolvedAt,
+    metric = VerdictMetric.OCCURRENCE_COUNT,
+    observationWindow = observationWindow,
+    windowStartDate = null,
 )
 
 private fun eventsAt(
@@ -185,6 +191,34 @@ class HunchTabStateTest {
     }
 
     @Test
+    fun `history entry with a rolling window is frozen at resolvedAt, not the live clock`() {
+        val case = testCase()
+        // Resolved day 120 with a rolling (last-3-months) window. At resolution the window is
+        // day 30..120 and only the six pre-resolution events fall in it. A burst afterward, plus
+        // a live "now" far in the future, must not touch the frozen entry — a live rolling window
+        // at day 300 would start at day 210 and see nothing at all.
+        val hunch =
+            testHunch(
+                expectedCount = 5,
+                expectedPer = ExpectedPer.WEEK,
+                resolvedAt = millisAtDay(120),
+                observationWindow = ObservationWindow.LAST_3_MONTHS,
+            )
+        val inWindow =
+            listOf(35L, 45L, 55L, 65L, 75L, 85L).flatMap { eventsAt(1, millisAtDay(it)) }
+        val afterResolution = eventsAt(20, millisAtDay(130))
+
+        val state =
+            hunchTabState(case, activeHunch = null, events = inWindow + afterResolution, history = listOf(hunch), now = millisAtDay(300))
+
+        val entry = (state as HunchTabState.NoActiveHunch).history.single()
+        assertEquals(6, entry.result.eventCount)
+        // ~90-day rolling window measured from resolvedAt, not the day-300 live clock (which would
+        // see zero events); the fixed 90-day millis span can land a day either side across DST.
+        assertTrue(entry.result.windowDays in 89L..91L)
+    }
+
+    @Test
     fun `history omits a hunch resolved before it ever reached a verdict`() {
         val case = testCase()
         val resolvedTooEarly = testHunch(resolvedAt = millisAtDay(1))
@@ -200,16 +234,16 @@ class HunchTabStateTest {
     @Test
     fun `hunchProgressFraction is bottlenecked by whichever requirement is furthest behind`() {
         // 3 of 5 events (0.6) vs 9 of 14 days (~0.64) -> events is the bottleneck.
-        assertEquals(0.6f, hunchProgressFraction(eventCount = 3, windowDays = 9), 0.001f)
+        assertEquals(0.6f, hunchProgressFraction(observationCount = 3, windowDays = 9), 0.001f)
     }
 
     @Test
     fun `hunchProgressFraction is coerced to 1 once both requirements clear`() {
-        assertEquals(1f, hunchProgressFraction(eventCount = 20, windowDays = 40), 0.001f)
+        assertEquals(1f, hunchProgressFraction(observationCount = 20, windowDays = 40), 0.001f)
     }
 
     @Test
     fun `hunchProgressFraction is zero with nothing logged yet`() {
-        assertEquals(0f, hunchProgressFraction(eventCount = 0, windowDays = 0), 0.001f)
+        assertEquals(0f, hunchProgressFraction(observationCount = 0, windowDays = 0), 0.001f)
     }
 }

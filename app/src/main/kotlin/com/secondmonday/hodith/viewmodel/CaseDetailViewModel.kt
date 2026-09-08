@@ -10,7 +10,9 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
+import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.ui.voice.Voice
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -102,6 +104,9 @@ class CaseDetailViewModel
             direction: HunchDirection,
             expectedCount: Int,
             expectedPer: ExpectedPer,
+            metric: VerdictMetric,
+            observationWindow: ObservationWindow,
+            windowStartDate: Long?,
         ) {
             viewModelScope.launch {
                 repository.insertHunch(
@@ -112,6 +117,9 @@ class CaseDetailViewModel
                         expectedPer = expectedPer,
                         createdAt = clock.nowMillis(),
                         resolvedAt = null,
+                        metric = metric,
+                        observationWindow = observationWindow,
+                        windowStartDate = windowStartDate,
                     ),
                 )
             }
@@ -127,38 +135,46 @@ class CaseDetailViewModel
         }
     }
 
+/** "day" / "week" / "month" / "3 months" — the period a rate or expectation is stated against. */
+private fun perUnitLabel(per: ExpectedPer): String =
+    when (per) {
+        ExpectedPer.DAY -> "day"
+        ExpectedPer.WEEK -> "week"
+        ExpectedPer.MONTH -> "month"
+        ExpectedPer.QUARTER -> "3 months"
+    }
+
 /**
- * Renders a verdict rate as "2.6×/week" — shared by the hunch chip, verdict headline, and
- * history rows so the number always reads the same way everywhere it appears (spec §8).
+ * Renders a verdict rate — "2.6×/week" for an occurrence-count Hunch, "5.6 days/week" for a
+ * days-active one. Shared by the hunch chip, verdict headline, and history rows so the number
+ * always reads the same way everywhere it appears (spec §8).
  */
 internal fun formatRate(
     rate: Double,
     per: ExpectedPer,
+    metric: VerdictMetric,
 ): String {
-    val perLabel =
-        when (per) {
-            ExpectedPer.DAY -> "day"
-            ExpectedPer.WEEK -> "week"
-            ExpectedPer.MONTH -> "month"
-        }
-    return String.format(Locale.US, "%.1f×/%s", rate, perLabel)
+    val perLabel = perUnitLabel(per)
+    return when (metric) {
+        VerdictMetric.OCCURRENCE_COUNT -> String.format(Locale.US, "%.1f×/%s", rate, perLabel)
+        VerdictMetric.DAYS_ACTIVE -> String.format(Locale.US, "%.1f days/%s", rate, perLabel)
+    }
 }
 
 /**
- * Renders a Hunch's stated expectation as "~5×/week" — the whole-number counterpart of
- * [formatRate], used wherever the Hunch itself (not an observed rate) is quoted back.
+ * Renders a Hunch's stated expectation — "~5×/week" or "~4 days/week" — the whole-number
+ * counterpart of [formatRate], used wherever the Hunch itself (not an observed rate) is quoted back.
  */
 internal fun formatExpectedFrequency(
     expectedCount: Int,
     expectedPer: ExpectedPer,
+    metric: VerdictMetric,
 ): String {
-    val perLabel =
-        when (expectedPer) {
-            ExpectedPer.DAY -> "day"
-            ExpectedPer.WEEK -> "week"
-            ExpectedPer.MONTH -> "month"
-        }
-    return "~$expectedCount×/$perLabel"
+    val perLabel = perUnitLabel(expectedPer)
+    return when (metric) {
+        VerdictMetric.OCCURRENCE_COUNT -> "~$expectedCount×/$perLabel"
+        VerdictMetric.DAYS_ACTIVE -> "~$expectedCount days/$perLabel"
+    }
 }
 
 /**

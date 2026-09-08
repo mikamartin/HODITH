@@ -615,6 +615,42 @@ class LogDetailViewModelTest {
         assertEquals(45, resultZoned.minute)
     }
 
+    // --- toDatePickerUtcMillis / datePickerDateAtLocalStartOfDay ---
+
+    @Test
+    fun `toDatePickerUtcMillis maps a local instant to UTC-midnight of its calendar date`() {
+        // 2026-07-09 23:30 in New York is still the 9th locally; the picker wants 2026-07-09 00:00 UTC.
+        val newYork = ZoneId.of("America/New_York")
+        val localMillis = ZonedDateTime.of(2026, 7, 9, 23, 30, 0, 0, newYork).toInstant().toEpochMilli()
+
+        val result = toDatePickerUtcMillis(localMillis, newYork)
+
+        assertEquals(ZonedDateTime.of(2026, 7, 9, 0, 0, 0, 0, ZoneOffset.UTC).toInstant().toEpochMilli(), result)
+    }
+
+    @Test
+    fun `datePickerDateAtLocalStartOfDay maps a picked UTC-midnight date to local start-of-day`() {
+        val newYork = ZoneId.of("America/New_York")
+        val pickedUtcMillis = ZonedDateTime.of(2026, 7, 9, 0, 0, 0, 0, ZoneOffset.UTC).toInstant().toEpochMilli()
+
+        val result = datePickerDateAtLocalStartOfDay(pickedUtcMillis, newYork)
+
+        val resultZoned = Instant.ofEpochMilli(result).atZone(newYork)
+        assertEquals(9, resultZoned.dayOfMonth)
+        assertEquals(0, resultZoned.hour)
+        assertEquals(0, resultZoned.minute)
+    }
+
+    @Test
+    fun `the two picker helpers round-trip a date`() {
+        val zone = ZoneId.of("America/New_York")
+        val start = ZonedDateTime.of(2026, 3, 15, 0, 0, 0, 0, zone).toInstant().toEpochMilli()
+
+        val roundTripped = datePickerDateAtLocalStartOfDay(toDatePickerUtcMillis(start, zone), zone)
+
+        assertEquals(start, roundTripped)
+    }
+
     // --- formatEventDate / formatEventTimeOfDay ---
 
     @Test

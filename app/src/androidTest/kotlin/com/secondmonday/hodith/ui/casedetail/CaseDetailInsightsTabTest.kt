@@ -90,7 +90,7 @@ class CaseDetailInsightsTabTest {
                     onSaveEvent = {},
                     onStopEvent = {},
                     nowMillis = { now },
-                    onAddHunch = { _, _, _ -> },
+                    onAddHunch = { _, _, _, _, _, _ -> },
                     onResolveHunch = {},
                     onDismissHunchNudge = {},
                 )

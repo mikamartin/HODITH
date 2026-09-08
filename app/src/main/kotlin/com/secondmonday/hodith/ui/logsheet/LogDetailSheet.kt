@@ -77,9 +77,9 @@ import com.secondmonday.hodith.viewmodel.applyPickedDate
 import com.secondmonday.hodith.viewmodel.applyPickedTime
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTimeOfDay
+import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
 import java.time.Instant
 import java.time.ZoneId
-import java.time.ZoneOffset
 
 private val INTENSITY_RANGE = 1..5
 private val INTENSITY_CHOICE_SIZE = 48.dp
@@ -525,22 +525,8 @@ private fun LogDetailDatePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (pickedUtcMillis: Long) -> Unit,
 ) {
-    val todayUtcMillis =
-        Instant
-            .ofEpochMilli(now)
-            .atZone(zone)
-            .toLocalDate()
-            .atStartOfDay(ZoneOffset.UTC)
-            .toInstant()
-            .toEpochMilli()
-    val initialSelectedDateMillis =
-        Instant
-            .ofEpochMilli(occurredAt)
-            .atZone(zone)
-            .toLocalDate()
-            .atStartOfDay(ZoneOffset.UTC)
-            .toInstant()
-            .toEpochMilli()
+    val todayUtcMillis = toDatePickerUtcMillis(now, zone)
+    val initialSelectedDateMillis = toDatePickerUtcMillis(occurredAt, zone)
     val datePickerState: DatePickerState =
         rememberDatePickerState(
             initialSelectedDateMillis = initialSelectedDateMillis,

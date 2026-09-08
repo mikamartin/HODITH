@@ -92,6 +92,15 @@ class CheckInTest {
         assertEquals(HUNCH_CHECK_IN_MAX_DAYS, hunchCheckInDays(hunch(1, ExpectedPer.MONTH)))
     }
 
+    @Test
+    fun `hunch-derived interval handles a days-active QUARTER hunch as a period over count`() {
+        // A days-active Hunch states "N days active per 3 months" — QUARTER = 90 days.
+        // 4 days active / 90 -> gap 22.5 -> 2x = 45 -> clamps down to the 30-day ceiling.
+        assertEquals(HUNCH_CHECK_IN_MAX_DAYS, hunchCheckInDays(hunch(4, ExpectedPer.QUARTER)))
+        // 20 days active / 90 -> gap 4.5 -> 2x = 9, inside the bounds.
+        assertEquals(9, hunchCheckInDays(hunch(20, ExpectedPer.QUARTER)))
+    }
+
     // ---- evaluateCheckIn: due-check anchored on the latest of event / check-in / creation ----
 
     @Test
