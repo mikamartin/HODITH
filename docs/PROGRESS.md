@@ -187,25 +187,6 @@ Building S10's Insights drill-down (`InsightsDrillDownEventRow`, `ui/casedetail/
 
 **Tests** — depends on the ruling; if `EventDetailRow` changes, `BigPictureScreenTest`'s existing event-row assertions (`dayDetailDialog_showsEventTimestampAndTags` etc.) need updating alongside it.
 
-### S14 · Hunch nudge's "Don't ask again" persists correctly but reads as doing nothing
-
-*Branch: TBD · Complexity: S · Priority: Low · Area: Voice*
-
-🎨 **Design decision** — whether to remove the dismiss affordance entirely, restyle it, or make dismissal visibly change something. Touches a Voice key, so land before B2 if it goes ahead.
-
-Traced end to end: `HunchNudgeCard`'s "Don't ask again" (`CaseDetailScreen.kt`) correctly calls `CaseDetailViewModel.dismissHunchNudge()`, which persists `CaseEntity.hunchNudgeDismissed = true`; `HunchTabState.kt`'s `showNudge` then flips false and `HunchNoneCard` replaces the nudge card — spec §7's documented behaviour, not a stub. The problem is `HunchNoneCard` is itself just another "add a hunch" prompt with its own Add button, so dismissing swaps one nagging card for a near-identical one — the only visible change is the copy, which reads as if the button did nothing.
-
-**Acceptance criteria**
-
-- [ ] A decision recorded on the fix direction: (a) remove the "Don't ask again" affordance and the `hunchNudgeDismissed` column entirely, letting the nudge just always show past the event threshold until a Hunch is added; (b) keep the dismiss mechanism but make the post-dismissal state visibly distinct from the nudge (e.g. no further "please add a hunch" pressure); (c) some other resolution.
-- [ ] If (a): `CaseEntity.hunchNudgeDismissed` column removed with a Room migration + migration test; `dismissHunchNudge()`, the "Don't ask again" button, and `hunchNudgeDismissAction` (×3 Voice keys) removed; `HunchTabState.kt`'s `showNudge` logic simplified; `CaseEditViewModel.kt`'s and `DemoDataSeeder.kt`'s now-dead `hunchNudgeDismissed = false` writes removed; HODITH_SPEC §7's "Don't ask again sets hunchNudgeDismissed" line removed.
-- [ ] If (b) or (c): scoped separately once the direction is picked.
-- [ ] Tests updated to match: `CaseDetailViewModelTest`, `HunchTabStateTest`, `CaseDetailScreenTest`, `VoiceTest`, and the Room migration test suite if the column is dropped.
-
-**Plan** — needs the product decision above before any code changes; likely a schema migration if the dismiss path is removed outright, so worth its own branch.
-
-**Concern** — standalone, no dependencies on other outstanding items.
-
 ### S15 · `docs/mockups/` holds prototype HTML past its usefulness
 
 *Branch: `chore/prune-design-mockups` · Complexity: S · Priority: Low · Area: Repo*

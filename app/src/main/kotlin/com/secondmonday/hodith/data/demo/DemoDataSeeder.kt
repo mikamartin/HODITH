@@ -161,7 +161,6 @@ class DemoDataSeeder
                             logFlow = LogFlow.ONE_TAP,
                             durationMode = caseSeed.durationMode,
                             intensityEnabled = caseSeed.intensityEnabled,
-                            hunchNudgeDismissed = false,
                             checkInsEnabled = true,
                             lastCheckInAt = null,
                             sortOrder = index,

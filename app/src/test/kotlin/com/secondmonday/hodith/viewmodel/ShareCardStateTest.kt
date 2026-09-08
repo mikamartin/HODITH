@@ -35,7 +35,6 @@ private fun testCase(
     logFlow = LogFlow.ONE_TAP,
     durationMode = durationMode,
     intensityEnabled = intensityEnabled,
-    hunchNudgeDismissed = false,
     checkInsEnabled = true,
     lastCheckInAt = null,
     sortOrder = 0,

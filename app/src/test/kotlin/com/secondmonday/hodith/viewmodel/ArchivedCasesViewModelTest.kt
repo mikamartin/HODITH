@@ -47,7 +47,6 @@ class ArchivedCasesViewModelTest {
         logFlow = LogFlow.DETAIL_SHEET,
         durationMode = DurationMode.NONE,
         intensityEnabled = false,
-        hunchNudgeDismissed = false,
         checkInsEnabled = true,
         lastCheckInAt = null,
         sortOrder = sortOrder,

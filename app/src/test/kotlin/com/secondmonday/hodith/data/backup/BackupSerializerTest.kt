@@ -31,7 +31,6 @@ class BackupSerializerTest {
                         logFlow = LogFlow.ONE_TAP,
                         durationMode = DurationMode.NONE,
                         intensityEnabled = false,
-                        hunchNudgeDismissed = false,
                         checkInsEnabled = true,
                         lastCheckInAt = null,
                         sortOrder = 0,
@@ -72,6 +71,16 @@ class BackupSerializerTest {
         assertEquals(VerdictMetric.OCCURRENCE_COUNT, restored.metric)
         assertEquals(ObservationWindow.SINCE_START, restored.observationWindow)
         assertNull(restored.windowStartDate)
+    }
+
+    @Test
+    fun `fromJson ignores the removed hunchNudgeDismissed key a pre-v9 backup still carries`() {
+        val currentJson = serializer.toJson(testBackup())
+        val olderJson = currentJson.replace("\"intensityEnabled\":false", "\"intensityEnabled\":false,\"hunchNudgeDismissed\":true")
+
+        val restored = serializer.fromJson(olderJson, declaredVersion = 1)
+
+        assertEquals(testBackup().cases, restored.cases)
     }
 
     @Test

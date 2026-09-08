@@ -78,7 +78,6 @@ class CaseDetailScreenTest {
         onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit =
             { _, _, _, _, _, _ -> },
         onResolveHunch: (HunchEntity) -> Unit = {},
-        onDismissHunchNudge: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice, LocalTimeFormat provides timeFormat) {
@@ -113,7 +112,6 @@ class CaseDetailScreenTest {
                     nowMillis = nowMillis,
                     onAddHunch = onAddHunch,
                     onResolveHunch = onResolveHunch,
-                    onDismissHunchNudge = onDismissHunchNudge,
                 )
             }
         }
@@ -392,17 +390,6 @@ class CaseDetailScreenTest {
         openHunchTab()
 
         composeTestRule.onNodeWithText(PlainVoice.hunchNudgeBody(startStopCase.icon, startStopCase.name, 8)).assertExists()
-    }
-
-    @Test
-    fun hunchTab_dismissNudge_invokesOnDismissHunchNudge() {
-        var dismissed = false
-        setCaseDetailScreenContent(events = eventsAt(5), onDismissHunchNudge = { dismissed = true })
-        openHunchTab()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeDismissAction).performClick()
-
-        assertTrue(dismissed)
     }
 
     private data class SavedHunch(

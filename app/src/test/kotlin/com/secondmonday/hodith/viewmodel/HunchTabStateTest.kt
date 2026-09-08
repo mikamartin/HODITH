@@ -27,23 +27,20 @@ private fun millisAtDay(epochDay: Long): Long =
         .toInstant()
         .toEpochMilli()
 
-private fun testCase(
-    createdAt: Long = millisAtDay(0),
-    hunchNudgeDismissed: Boolean = false,
-) = CaseEntity(
-    id = 1L,
-    name = "Test Case",
-    icon = "🐛",
-    createdAt = createdAt,
-    logFlow = LogFlow.ONE_TAP,
-    durationMode = DurationMode.NONE,
-    intensityEnabled = false,
-    hunchNudgeDismissed = hunchNudgeDismissed,
-    checkInsEnabled = true,
-    lastCheckInAt = null,
-    sortOrder = 0,
-    archived = false,
-)
+private fun testCase(createdAt: Long = millisAtDay(0)) =
+    CaseEntity(
+        id = 1L,
+        name = "Test Case",
+        icon = "🐛",
+        createdAt = createdAt,
+        logFlow = LogFlow.ONE_TAP,
+        durationMode = DurationMode.NONE,
+        intensityEnabled = false,
+        checkInsEnabled = true,
+        lastCheckInAt = null,
+        sortOrder = 0,
+        archived = false,
+    )
 
 private fun testHunch(
     id: Long = 1L,
@@ -98,13 +95,13 @@ class HunchTabStateTest {
     }
 
     @Test
-    fun `nudge is suppressed once dismissed even past the threshold`() {
-        val case = testCase(hunchNudgeDismissed = true)
+    fun `nudge keeps showing past the threshold until a Hunch is added`() {
+        val case = testCase()
         val state =
             hunchTabState(case, activeHunch = null, events = eventsAt(10, millisAtDay(0)), history = emptyList(), now = millisAtDay(1))
 
         val noActiveHunch = state as HunchTabState.NoActiveHunch
-        assertFalse(noActiveHunch.showNudge)
+        assertTrue(noActiveHunch.showNudge)
     }
 
     // ---- active hunch: early days vs verdict ----

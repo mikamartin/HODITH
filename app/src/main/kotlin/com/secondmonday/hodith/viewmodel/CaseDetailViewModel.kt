@@ -128,11 +128,6 @@ class CaseDetailViewModel
         fun resolveHunch(hunch: HunchEntity) {
             viewModelScope.launch { repository.updateHunch(hunch.copy(resolvedAt = clock.nowMillis())) }
         }
-
-        fun dismissHunchNudge() {
-            val case = uiState.value.case ?: return
-            viewModelScope.launch { repository.updateCase(case.copy(hunchNudgeDismissed = true)) }
-        }
     }
 
 /** "day" / "week" / "month" / "3 months" — the period a rate or expectation is stated against. */

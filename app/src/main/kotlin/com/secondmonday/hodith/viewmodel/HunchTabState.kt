@@ -57,7 +57,7 @@ internal fun hunchTabState(
     now: Long,
 ): HunchTabState {
     if (activeHunch == null) {
-        val showNudge = !case.hunchNudgeDismissed && events.size >= HUNCH_NUDGE_EVENT_THRESHOLD
+        val showNudge = events.size >= HUNCH_NUDGE_EVENT_THRESHOLD
         return HunchTabState.NoActiveHunch(
             showNudge = showNudge,
             history = history.mapNotNull { it.toHistoryEntry(events, case) },
