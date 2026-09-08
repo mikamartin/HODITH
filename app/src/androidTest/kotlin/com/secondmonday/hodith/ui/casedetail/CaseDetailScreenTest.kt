@@ -500,14 +500,16 @@ class CaseDetailScreenTest {
                 resolvedAt = null,
                 metric = VerdictMetric.DAYS_ACTIVE,
             )
+        // 5 active days over a 20-day window clears the Preliminary bar; the card renders the
+        // days-active copy set. Kept small so the full 3-tab screen stays light on CI's emulator.
         val events =
-            List(20) {
+            List(5) {
                 EventWithTags(
-                    testEvent(id = it.toLong(), caseId = 1L, occurredAt = it * oneDay, endedAt = it * oneDay),
+                    testEvent(id = it.toLong(), caseId = 1L, occurredAt = it * 4 * oneDay, endedAt = it * 4 * oneDay),
                     emptyList(),
                 )
             }
-        setCaseDetailScreenContent(activeHunch = hunch, events = events, nowMillis = { 30 * oneDay })
+        setCaseDetailScreenContent(activeHunch = hunch, events = events, nowMillis = { 20 * oneDay })
         openHunchTab()
 
         // The verdict rate reads as a share of days, not a "×" count.
