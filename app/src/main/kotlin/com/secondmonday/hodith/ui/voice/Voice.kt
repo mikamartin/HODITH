@@ -209,6 +209,9 @@ interface Voice {
     val hunchCreatingDirectionLabel: String
     val hunchCreatingFreqLabel: String
     val hunchCreatingFreqSuffix: String get() = "times per"
+
+    /** Stepper suffix when the days-active metric is selected — "days active per" week/month/3 months. */
+    val hunchCreatingFreqSuffixDaysActive: String get() = "days active per"
     val hunchCreatingSaveButton: String
     val hunchCreatingDecreaseCountDescription: String
     val hunchCreatingIncreaseCountDescription: String
@@ -216,6 +219,20 @@ interface Voice {
     val hunchExpectedPerDay: String get() = "Day"
     val hunchExpectedPerWeek: String get() = "Week"
     val hunchExpectedPerMonth: String get() = "Month"
+    val hunchExpectedPerQuarter: String get() = "3 Months"
+
+    /** Metric picker (spec §8) — shown only for a duration-tracking Case; one line, no jargon. */
+    val hunchCreatingMetricLabel: String
+    val hunchMetricOccurrence: String
+    val hunchMetricDaysActive: String
+
+    /** Observation-window picker (spec §8) — shown for every Case. */
+    val hunchCreatingWindowLabel: String
+    val hunchWindowSinceStart: String
+    val hunchWindowLast3Months: String
+    val hunchWindowCustom: String
+    val hunchWindowCustomDatePrompt: String
+    val hunchWindowCustomDateDescription: String get() = "Choose the window start date"
     val caseDetailLogTabLabel: String get() = "Log"
     val caseDetailInsightsTabLabel: String get() = "Insights"
     val caseDetailHunchTabLabel: String get() = "Hunch"
@@ -410,11 +427,18 @@ interface Voice {
         expectedFrequencyLabel: String,
     ): String = "${hunchDirectionPillLabel(direction)}, $expectedFrequencyLabel"
 
-    /** "3 of 5 events · 9 of 14 days" toward the Preliminary bar. */
+    /** The unit a Hunch's Early-days progress is counted in for the occurrence metric — "events" / "entries" / "logs". */
+    val hunchProgressUnitEvents: String
+
+    /** The days-active metric's progress unit — a domain term, so identical across voices. */
+    val hunchProgressUnitDaysActive: String get() = "active days"
+
+    /** "3 of 5 events · 9 of 14 days" toward the Preliminary bar; [unit] is [hunchProgressUnitEvents] or [hunchProgressUnitDaysActive]. */
     fun hunchProgressLabel(
-        eventCount: Int,
+        observedCount: Int,
+        unit: String,
         windowDays: Long,
-    ): String
+    ): String = "$observedCount of $PRELIMINARY_MIN_EVENTS $unit · $windowDays of $PRELIMINARY_MIN_DAYS days"
 
     /** The confirmed 15-branch (direction × band) verdict headline; [observedRateLabel] is pre-formatted. */
     fun verdictHeadline(
@@ -423,10 +447,37 @@ interface Voice {
         observedRateLabel: String,
     ): String
 
+    /**
+     * The days-active counterpart of [verdictHeadline] — same 15-branch (direction × band) shape,
+     * phrased as a share of days ("how much of the time") rather than a count of occurrences.
+     * [observedRateLabel] is pre-formatted (e.g. "5.6 days/week").
+     */
+    fun verdictHeadlineDaysActive(
+        direction: HunchDirection,
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String
+
+    /** Appended to a Preliminary-tier verdict meta line by both [verdictMeta] and [verdictMetaDaysActive]. */
+    val verdictPreliminaryTail: String
+
+    /** [base] as-is for a Confident verdict, [base] plus [verdictPreliminaryTail] for a Preliminary one. */
+    fun verdictMetaLine(
+        base: String,
+        tier: ConfidenceTier,
+    ): String = if (tier == ConfidenceTier.PRELIMINARY) "$base $verdictPreliminaryTail" else base
+
     /** [tier] is always Preliminary or Confident here — Early Days has no meta line. */
     fun verdictMeta(
         tier: ConfidenceTier,
         eventCount: Int,
+        windowDays: Long,
+    ): String
+
+    /** The days-active counterpart of [verdictMeta] — "Based on 24 active days over 30 days." */
+    fun verdictMetaDaysActive(
+        tier: ConfidenceTier,
+        activeDayCount: Int,
         windowDays: Long,
     ): String
 
@@ -763,6 +814,14 @@ object PlainVoice : Voice {
     override val hunchCreatingDecreaseCountDescription = "Decrease count"
     override val hunchCreatingIncreaseCountDescription = "Increase count"
     override val hunchHistoryHeader = "Past hunches"
+    override val hunchCreatingMetricLabel = "How should we measure it?"
+    override val hunchMetricOccurrence = "How often it starts"
+    override val hunchMetricDaysActive = "How many days it's active"
+    override val hunchCreatingWindowLabel = "How far back should we count?"
+    override val hunchWindowSinceStart = "Since the start"
+    override val hunchWindowLast3Months = "Last 3 months"
+    override val hunchWindowCustom = "Custom date"
+    override val hunchWindowCustomDatePrompt = "Count from"
 
     override fun insightsNotEnoughDataMessage(eventsRemaining: Int) = "Log $eventsRemaining more events to see Insights."
 
@@ -907,10 +966,7 @@ object PlainVoice : Voice {
         return "Your hunch: $inline, $expectedFrequencyLabel"
     }
 
-    override fun hunchProgressLabel(
-        eventCount: Int,
-        windowDays: Long,
-    ) = "$eventCount of $PRELIMINARY_MIN_EVENTS events · $windowDays of $PRELIMINARY_MIN_DAYS days"
+    override val hunchProgressUnitEvents = "events"
 
     override fun verdictHeadline(
         direction: HunchDirection,
@@ -947,14 +1003,54 @@ object PlainVoice : Voice {
         return "Observed: $observedRateLabel — $comparison."
     }
 
+    override fun verdictHeadlineDaysActive(
+        direction: HunchDirection,
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String {
+        val comparison =
+            when (direction) {
+                HunchDirection.TOO_OFTEN ->
+                    when (band) {
+                        ComparisonBand.MUCH_LESS -> "active far less of the time than you feared"
+                        ComparisonBand.LESS -> "active a bit less of the time than you estimated"
+                        ComparisonBand.ABOUT_RIGHT -> "active about as much of the time as you expected"
+                        ComparisonBand.MORE -> "active more of the time than you expected"
+                        ComparisonBand.MUCH_MORE -> "active far more of the time than you feared"
+                    }
+                HunchDirection.NOT_ENOUGH ->
+                    when (band) {
+                        ComparisonBand.MUCH_LESS -> "confirmed — active far less of the time than you'd like"
+                        ComparisonBand.LESS -> "still active less of the time than you'd like"
+                        ComparisonBand.ABOUT_RIGHT -> "active about as much of the time as you expected"
+                        ComparisonBand.MORE -> "active more of the time than you expected"
+                        ComparisonBand.MUCH_MORE -> "active far more of the time than you thought"
+                    }
+                HunchDirection.JUST_CURIOUS ->
+                    when (band) {
+                        ComparisonBand.MUCH_LESS -> "active much less of the time than your estimate"
+                        ComparisonBand.LESS -> "active a bit less of the time than your estimate"
+                        ComparisonBand.ABOUT_RIGHT -> "active about as much of the time as your estimate"
+                        ComparisonBand.MORE -> "active a bit more of the time than your estimate"
+                        ComparisonBand.MUCH_MORE -> "active much more of the time than your estimate"
+                    }
+            }
+        return "Observed: $observedRateLabel — $comparison."
+    }
+
+    override val verdictPreliminaryTail = "A few more weeks will sharpen this."
+
     override fun verdictMeta(
         tier: ConfidenceTier,
         eventCount: Int,
         windowDays: Long,
-    ) = when (tier) {
-        ConfidenceTier.PRELIMINARY -> "Based on $eventCount events over $windowDays days. A few more weeks will sharpen this."
-        else -> "Based on $eventCount events over $windowDays days."
-    }
+    ) = verdictMetaLine("Based on $eventCount events over $windowDays days.", tier)
+
+    override fun verdictMetaDaysActive(
+        tier: ConfidenceTier,
+        activeDayCount: Int,
+        windowDays: Long,
+    ) = verdictMetaLine("Based on $activeDayCount active days over $windowDays days.", tier)
 
     override fun hunchHistorySummary(
         total: Int,
@@ -1256,6 +1352,14 @@ object IntenseVoice : Voice {
     override val hunchCreatingDecreaseCountDescription = "Diminish the count"
     override val hunchCreatingIncreaseCountDescription = "Swell the count"
     override val hunchHistoryHeader = "The record of past claims"
+    override val hunchCreatingMetricLabel = "How shall the record measure it?"
+    override val hunchMetricOccurrence = "How often it begins"
+    override val hunchMetricDaysActive = "How many days it holds"
+    override val hunchCreatingWindowLabel = "How far back shall the record reach?"
+    override val hunchWindowSinceStart = "From the beginning"
+    override val hunchWindowLast3Months = "The last 3 months"
+    override val hunchWindowCustom = "A chosen date"
+    override val hunchWindowCustomDatePrompt = "Reckon from"
 
     override fun insightsNotEnoughDataMessage(eventsRemaining: Int) =
         "The file needs $eventsRemaining more entries before it's worth reading."
@@ -1399,10 +1503,7 @@ object IntenseVoice : Voice {
         return "Your claim: $inline, $expectedFrequencyLabel"
     }
 
-    override fun hunchProgressLabel(
-        eventCount: Int,
-        windowDays: Long,
-    ) = "$eventCount of $PRELIMINARY_MIN_EVENTS entries · $windowDays of $PRELIMINARY_MIN_DAYS days"
+    override val hunchProgressUnitEvents = "entries"
 
     override fun verdictHeadline(
         direction: HunchDirection,
@@ -1436,14 +1537,51 @@ object IntenseVoice : Voice {
                 }
         }
 
+    override fun verdictHeadlineDaysActive(
+        direction: HunchDirection,
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String =
+        when (direction) {
+            HunchDirection.TOO_OFTEN ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Your dread was exaggerated — active only $observedRateLabel, the record shows."
+                    ComparisonBand.LESS -> "Less of your days than you feared — active $observedRateLabel."
+                    ComparisonBand.ABOUT_RIGHT -> "The record agrees with your dread — active $observedRateLabel, near enough."
+                    ComparisonBand.MORE -> "It holds more of your days than you feared — active $observedRateLabel."
+                    ComparisonBand.MUCH_MORE -> "Your dread was justified — active $observedRateLabel, far more days than you feared."
+                }
+            HunchDirection.NOT_ENOUGH ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Your fear is confirmed — active a mere $observedRateLabel, the record shows."
+                    ComparisonBand.LESS -> "Still wanting — active $observedRateLabel, fewer days than you hoped."
+                    ComparisonBand.ABOUT_RIGHT -> "The record agrees — active $observedRateLabel, near enough to your hope."
+                    ComparisonBand.MORE -> "Better than you dared hope — active $observedRateLabel of your days."
+                    ComparisonBand.MUCH_MORE -> "Far beyond your hope — active $observedRateLabel of your days."
+                }
+            HunchDirection.JUST_CURIOUS ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Curiosity answered — active $observedRateLabel, far below your guess."
+                    ComparisonBand.LESS -> "Curiosity answered — active $observedRateLabel, a little below your guess."
+                    ComparisonBand.ABOUT_RIGHT -> "Curiosity answered — active $observedRateLabel, near enough to your guess."
+                    ComparisonBand.MORE -> "Curiosity answered — active $observedRateLabel, a little above your guess."
+                    ComparisonBand.MUCH_MORE -> "Curiosity answered — active $observedRateLabel, far above your guess."
+                }
+        }
+
+    override val verdictPreliminaryTail = "More time will harden this into certainty."
+
     override fun verdictMeta(
         tier: ConfidenceTier,
         eventCount: Int,
         windowDays: Long,
-    ) = when (tier) {
-        ConfidenceTier.PRELIMINARY -> "$eventCount entries across $windowDays days. More time will harden this into certainty."
-        else -> "$eventCount entries, borne out across $windowDays days."
-    }
+    ) = verdictMetaLine("$eventCount entries over $windowDays days.", tier)
+
+    override fun verdictMetaDaysActive(
+        tier: ConfidenceTier,
+        activeDayCount: Int,
+        windowDays: Long,
+    ) = verdictMetaLine("$activeDayCount active days over $windowDays days.", tier)
 
     override fun hunchHistorySummary(
         total: Int,
@@ -1739,6 +1877,14 @@ object BrightVoice : Voice {
     override val hunchCreatingDecreaseCountDescription = "Fewer!"
     override val hunchCreatingIncreaseCountDescription = "More!"
     override val hunchHistoryHeader = "Your hunch history!"
+    override val hunchCreatingMetricLabel = "What should we count?"
+    override val hunchMetricOccurrence = "How often it kicks off"
+    override val hunchMetricDaysActive = "How many days it's a thing"
+    override val hunchCreatingWindowLabel = "How far back do we look?"
+    override val hunchWindowSinceStart = "The whole time"
+    override val hunchWindowLast3Months = "Past 3 months"
+    override val hunchWindowCustom = "Pick a date"
+    override val hunchWindowCustomDatePrompt = "Start counting from"
 
     override fun insightsNotEnoughDataMessage(eventsRemaining: Int) = "$eventsRemaining more events and the pattern's ready to see!"
 
@@ -1882,10 +2028,7 @@ object BrightVoice : Voice {
         return "Your guess: $inline, $expectedFrequencyLabel"
     }
 
-    override fun hunchProgressLabel(
-        eventCount: Int,
-        windowDays: Long,
-    ) = "$eventCount of $PRELIMINARY_MIN_EVENTS logs · $windowDays of $PRELIMINARY_MIN_DAYS days"
+    override val hunchProgressUnitEvents = "logs"
 
     override fun verdictHeadline(
         direction: HunchDirection,
@@ -1919,14 +2062,51 @@ object BrightVoice : Voice {
                 }
         }
 
+    override fun verdictHeadlineDaysActive(
+        direction: HunchDirection,
+        band: ComparisonBand,
+        observedRateLabel: String,
+    ): String =
+        when (direction) {
+            HunchDirection.TOO_OFTEN ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Plot twist: active just $observedRateLabel. Way fewer days than your brain said!"
+                    ComparisonBand.LESS -> "So far: active $observedRateLabel — a few fewer days than you guessed!"
+                    ComparisonBand.ABOUT_RIGHT -> "Nailed it: active $observedRateLabel — right on the money!"
+                    ComparisonBand.MORE -> "Whoa: active $observedRateLabel — more days than you guessed!"
+                    ComparisonBand.MUCH_MORE -> "Plot twist: active $observedRateLabel — way more of your days than you feared!"
+                }
+            HunchDirection.NOT_ENOUGH ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Yep, called it: active just $observedRateLabel — barely any days at all."
+                    ComparisonBand.LESS -> "So far: active $observedRateLabel — still fewer days than you'd like."
+                    ComparisonBand.ABOUT_RIGHT -> "Nailed it: active $observedRateLabel — right on the money!"
+                    ComparisonBand.MORE -> "Good news: active $observedRateLabel — more days than you thought!"
+                    ComparisonBand.MUCH_MORE -> "Whoa: active $observedRateLabel — way more days than you thought!"
+                }
+            HunchDirection.JUST_CURIOUS ->
+                when (band) {
+                    ComparisonBand.MUCH_LESS -> "Turns out: active $observedRateLabel — way fewer days than your guess!"
+                    ComparisonBand.LESS -> "Turns out: active $observedRateLabel — a few fewer days than your guess!"
+                    ComparisonBand.ABOUT_RIGHT -> "Turns out: active $observedRateLabel — right on your guess!"
+                    ComparisonBand.MORE -> "Turns out: active $observedRateLabel — a few more days than your guess!"
+                    ComparisonBand.MUCH_MORE -> "Turns out: active $observedRateLabel — way more days than your guess!"
+                }
+        }
+
+    override val verdictPreliminaryTail = "Give it a few more weeks to be sure!"
+
     override fun verdictMeta(
         tier: ConfidenceTier,
         eventCount: Int,
         windowDays: Long,
-    ) = when (tier) {
-        ConfidenceTier.PRELIMINARY -> "Based on $eventCount logs over $windowDays days. Give it a few more weeks to be sure."
-        else -> "Based on $eventCount logs over $windowDays days."
-    }
+    ) = verdictMetaLine("Based on $eventCount logs over $windowDays days.", tier)
+
+    override fun verdictMetaDaysActive(
+        tier: ConfidenceTier,
+        activeDayCount: Int,
+        windowDays: Long,
+    ) = verdictMetaLine("That's $activeDayCount active days out of $windowDays days!", tier)
 
     override fun hunchHistorySummary(
         total: Int,

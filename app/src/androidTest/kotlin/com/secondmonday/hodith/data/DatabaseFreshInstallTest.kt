@@ -75,4 +75,36 @@ class DatabaseFreshInstallTest {
                 }
             }
         }
+
+    /**
+     * v7 → v8 auto-migration: the `hunches` table gains `metric` / `observationWindow` /
+     * `windowStartDate`. An existing Hunch must come through with the safe defaults (occurrence
+     * count, since-the-start, no custom date) so the migration can't silently reinterpret anyone's
+     * verdict.
+     */
+    @Test
+    fun migrationFrom7To8_addsHunchMetricAndWindowColumns_withSafeDefaults() =
+        runTest {
+            migrationTestHelper.createDatabase(TEST_DB_NAME, 7).use { db ->
+                db.execSQL(
+                    "INSERT INTO cases (id, name, icon, createdAt, logFlow, durationMode, intensityEnabled, " +
+                        "hunchNudgeDismissed, checkInsEnabled, sortOrder, archived) " +
+                        "VALUES (1, 'Fights', '💥', 0, 'ONE_TAP', 'START_STOP', 0, 0, 1, 0, 0)",
+                )
+                db.execSQL(
+                    "INSERT INTO hunches (id, caseId, direction, expectedCount, expectedPer, createdAt, resolvedAt) " +
+                        "VALUES (1, 1, 'TOO_OFTEN', 3, 'WEEK', 0, NULL)",
+                )
+            }
+
+            migrationTestHelper.runMigrationsAndValidate(TEST_DB_NAME, 8, true).use { db ->
+                db.query("SELECT * FROM hunches WHERE id = 1").use { cursor ->
+                    assertTrue("the migrated hunch row should survive", cursor.moveToFirst())
+                    assertEquals("OCCURRENCE_COUNT", cursor.getString(cursor.getColumnIndexOrThrow("metric")))
+                    assertEquals("SINCE_START", cursor.getString(cursor.getColumnIndexOrThrow("observationWindow")))
+                    assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("windowStartDate")))
+                    assertEquals("WEEK", cursor.getString(cursor.getColumnIndexOrThrow("expectedPer")))
+                }
+            }
+        }
 }

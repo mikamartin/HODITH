@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
+import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.ui.casedetail.EXPECTED_COUNT_RANGE
@@ -70,6 +71,16 @@ fun validateBackup(backup: BackupData): BackupValidationResult {
     backup.hunches.forEach { hunch ->
         if (hunch.caseId !in caseIds) violations += "Hunch ${hunch.id}: caseId ${hunch.caseId} not present in backup"
         if (hunch.expectedCount !in EXPECTED_COUNT_RANGE) violations += "Hunch ${hunch.id}: expectedCount out of range"
+        when (hunch.observationWindow) {
+            ObservationWindow.CUSTOM ->
+                if (hunch.windowStartDate == null) {
+                    violations += "Hunch ${hunch.id}: CUSTOM observation window requires a windowStartDate"
+                }
+            else ->
+                if (hunch.windowStartDate != null) {
+                    violations += "Hunch ${hunch.id}: windowStartDate is only valid with a CUSTOM observation window"
+                }
+        }
     }
 
     backup.triggers.forEach { trigger ->

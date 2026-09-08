@@ -2,6 +2,7 @@ package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.testsupport.testEvent
 import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -237,23 +238,36 @@ class CaseDetailFormattingTest {
 
     @Test
     fun `formatRate renders one decimal place and the per-unit suffix`() {
-        assertEquals("2.6×/week", formatRate(2.6, ExpectedPer.WEEK))
-        assertEquals("1.0×/day", formatRate(1.0, ExpectedPer.DAY))
-        assertEquals("1.1×/month", formatRate(1.1, ExpectedPer.MONTH))
+        assertEquals("2.6×/week", formatRate(2.6, ExpectedPer.WEEK, VerdictMetric.OCCURRENCE_COUNT))
+        assertEquals("1.0×/day", formatRate(1.0, ExpectedPer.DAY, VerdictMetric.OCCURRENCE_COUNT))
+        assertEquals("1.1×/month", formatRate(1.1, ExpectedPer.MONTH, VerdictMetric.OCCURRENCE_COUNT))
     }
 
     @Test
     fun `formatRate rounds to one decimal place`() {
-        assertEquals("2.4×/week", formatRate(2.36, ExpectedPer.WEEK))
+        assertEquals("2.4×/week", formatRate(2.36, ExpectedPer.WEEK, VerdictMetric.OCCURRENCE_COUNT))
+    }
+
+    @Test
+    fun `formatRate renders a days-active rate without the multiplication sign`() {
+        assertEquals("5.6 days/week", formatRate(5.6, ExpectedPer.WEEK, VerdictMetric.DAYS_ACTIVE))
+        assertEquals("24.0 days/month", formatRate(24.0, ExpectedPer.MONTH, VerdictMetric.DAYS_ACTIVE))
+        assertEquals("60.0 days/3 months", formatRate(60.0, ExpectedPer.QUARTER, VerdictMetric.DAYS_ACTIVE))
     }
 
     // ---- formatExpectedFrequency ----
 
     @Test
     fun `formatExpectedFrequency renders a whole-number rate with a tilde`() {
-        assertEquals("~5×/week", formatExpectedFrequency(5, ExpectedPer.WEEK))
-        assertEquals("~1×/day", formatExpectedFrequency(1, ExpectedPer.DAY))
-        assertEquals("~2×/month", formatExpectedFrequency(2, ExpectedPer.MONTH))
+        assertEquals("~5×/week", formatExpectedFrequency(5, ExpectedPer.WEEK, VerdictMetric.OCCURRENCE_COUNT))
+        assertEquals("~1×/day", formatExpectedFrequency(1, ExpectedPer.DAY, VerdictMetric.OCCURRENCE_COUNT))
+        assertEquals("~2×/month", formatExpectedFrequency(2, ExpectedPer.MONTH, VerdictMetric.OCCURRENCE_COUNT))
+    }
+
+    @Test
+    fun `formatExpectedFrequency renders a days-active expectation without the multiplication sign`() {
+        assertEquals("~4 days/week", formatExpectedFrequency(4, ExpectedPer.WEEK, VerdictMetric.DAYS_ACTIVE))
+        assertEquals("~20 days/3 months", formatExpectedFrequency(20, ExpectedPer.QUARTER, VerdictMetric.DAYS_ACTIVE))
     }
 
     // ---- monthsAgo ----

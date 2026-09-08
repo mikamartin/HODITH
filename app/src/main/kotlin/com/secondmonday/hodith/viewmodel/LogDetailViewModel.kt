@@ -191,6 +191,41 @@ internal fun applyPickedTime(
 }
 
 /**
+ * The UTC-midnight millis Material3's `DatePicker` expects for the calendar date [localMillis]
+ * falls on in [zone] — the input direction for `initialSelectedDateMillis` and `SelectableDates`
+ * bounds, both of which the picker reads in UTC. The inverse of [applyPickedDate] /
+ * [datePickerDateAtLocalStartOfDay].
+ */
+internal fun toDatePickerUtcMillis(
+    localMillis: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): Long =
+    Instant
+        .ofEpochMilli(localMillis)
+        .atZone(zone)
+        .toLocalDate()
+        .atStartOfDay(ZoneOffset.UTC)
+        .toInstant()
+        .toEpochMilli()
+
+/**
+ * The local start-of-day millis in [zone] for the date picked in Material3's `DatePicker` (a bare
+ * calendar date at UTC-midnight). Unlike [applyPickedDate] this carries no time-of-day — for a
+ * value that is a date, not a datetime, like a Hunch's observation-window start.
+ */
+internal fun datePickerDateAtLocalStartOfDay(
+    pickedDateUtcMillis: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): Long =
+    Instant
+        .ofEpochMilli(pickedDateUtcMillis)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+        .atStartOfDay(zone)
+        .toInstant()
+        .toEpochMilli()
+
+/**
  * Which tags to add/remove so [originalTags] ends up matching [selectedNames]. Matching is
  * case-insensitive (mirrors Case Edit's own duplicate-name check and `ui.logsheet.tagToAdd`), so
  * a selection of "Coffee" against an original tag named "coffee" is a no-op, not an add+remove.

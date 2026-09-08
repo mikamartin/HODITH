@@ -25,13 +25,18 @@ internal fun effectiveCheckInDays(
     return hunch?.let(::hunchCheckInDays) ?: settingsDefaultDays
 }
 
-/** 2× the Hunch's expected gap between events, clamped to spec §11's 3–30 day bounds. */
+/**
+ * 2× the Hunch's expected gap between events, clamped to spec §11's 3–30 day bounds. For a
+ * days-active Hunch the "gap" is `period ÷ count` of expected active days — a loose reading, but
+ * §11's check-in timing is an explicit heuristic and the clamp keeps the result sane either way.
+ */
 internal fun hunchCheckInDays(hunch: HunchEntity): Int {
     val periodDays =
         when (hunch.expectedPer) {
             ExpectedPer.DAY -> 1.0
             ExpectedPer.WEEK -> DAYS_PER_WEEK
             ExpectedPer.MONTH -> DAYS_PER_MONTH
+            ExpectedPer.QUARTER -> DAYS_PER_QUARTER
         }
     val expectedGapDays = periodDays / hunch.expectedCount
     return (expectedGapDays * HUNCH_CHECK_IN_GAP_MULTIPLIER)

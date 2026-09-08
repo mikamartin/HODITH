@@ -18,7 +18,9 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TimeFormat
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
@@ -73,7 +75,8 @@ class CaseDetailScreenTest {
         onStopEvent: (EventEntity) -> Unit = {},
         nowMillis: () -> Long = { 10_000L },
         timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
-        onAddHunch: (HunchDirection, Int, ExpectedPer) -> Unit = { _, _, _ -> },
+        onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit =
+            { _, _, _, _, _, _ -> },
         onResolveHunch: (HunchEntity) -> Unit = {},
         onDismissHunchNudge: () -> Unit = {},
     ) {
@@ -402,17 +405,116 @@ class CaseDetailScreenTest {
         assertTrue(dismissed)
     }
 
+    private data class SavedHunch(
+        val direction: HunchDirection,
+        val count: Int,
+        val per: ExpectedPer,
+        val metric: VerdictMetric,
+        val window: ObservationWindow,
+        val windowStartDate: Long?,
+    )
+
+    private val noneCase =
+        testCase(id = 2L, name = "Coffee", icon = "☕", logFlow = LogFlow.ONE_TAP, durationMode = DurationMode.NONE)
+
     @Test
     fun hunchTab_addHunch_opensSheetAndSavesSelectedOptions() {
-        var saved: Triple<HunchDirection, Int, ExpectedPer>? = null
-        setCaseDetailScreenContent(onAddHunch = { direction, count, per -> saved = Triple(direction, count, per) })
+        var saved: SavedHunch? = null
+        setCaseDetailScreenContent(
+            onAddHunch = { d, c, p, m, w, s -> saved = SavedHunch(d, c, p, m, w, s) },
+        )
         openHunchTab()
 
         composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
         composeTestRule.onNodeWithText(PlainVoice.hunchCreatingSaveButton).performClick()
 
-        assertEquals(HunchDirection.TOO_OFTEN, saved?.first)
-        assertEquals(ExpectedPer.WEEK, saved?.third)
+        assertEquals(HunchDirection.TOO_OFTEN, saved?.direction)
+        assertEquals(ExpectedPer.WEEK, saved?.per)
+        assertEquals(VerdictMetric.OCCURRENCE_COUNT, saved?.metric)
+        assertEquals(ObservationWindow.SINCE_START, saved?.window)
+        assertNull(saved?.windowStartDate)
+    }
+
+    @Test
+    fun hunchCreationSheet_metricPicker_showsForDurationTrackingCase() {
+        setCaseDetailScreenContent(case = startStopCase)
+        openHunchTab()
+        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchCreatingMetricLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.hunchMetricDaysActive).assertExists()
+    }
+
+    @Test
+    fun hunchCreationSheet_metricPicker_absentForNoneCase() {
+        setCaseDetailScreenContent(case = noneCase)
+        openHunchTab()
+        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchCreatingMetricLabel).assertDoesNotExist()
+        // The window picker still shows, whatever the duration mode.
+        composeTestRule.onNodeWithText(PlainVoice.hunchCreatingWindowLabel).assertExists()
+    }
+
+    @Test
+    fun hunchCreationSheet_periodRow_swapsOptionsWhenDaysActiveIsPicked() {
+        setCaseDetailScreenContent(case = startStopCase)
+        openHunchTab()
+        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
+
+        // Occurrence count (default): Day / Week / Month.
+        composeTestRule.onNodeWithText(PlainVoice.hunchExpectedPerDay).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.hunchExpectedPerQuarter).assertDoesNotExist()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchMetricDaysActive).performClick()
+
+        // Days active: Week / Month / 3 Months — Day drops out.
+        composeTestRule.onNodeWithText(PlainVoice.hunchExpectedPerQuarter).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.hunchExpectedPerDay).assertDoesNotExist()
+    }
+
+    @Test
+    fun hunchCreationSheet_customWindow_revealsTheDateField() {
+        setCaseDetailScreenContent(case = startStopCase)
+        openHunchTab()
+        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchWindowCustomDatePrompt).assertDoesNotExist()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchWindowCustom).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchWindowCustomDatePrompt).assertExists()
+    }
+
+    @Test
+    fun hunchTab_daysActiveVerdictCard_rendersDaysActiveCopyAndNoHeatmap() {
+        val oneDay = 24 * 60 * 60_000L
+        val hunch =
+            HunchEntity(
+                id = 1L,
+                caseId = 1L,
+                direction = HunchDirection.TOO_OFTEN,
+                expectedCount = 5,
+                expectedPer = ExpectedPer.WEEK,
+                createdAt = 0L,
+                resolvedAt = null,
+                metric = VerdictMetric.DAYS_ACTIVE,
+            )
+        val events =
+            List(20) {
+                EventWithTags(
+                    testEvent(id = it.toLong(), caseId = 1L, occurredAt = it * oneDay, endedAt = it * oneDay),
+                    emptyList(),
+                )
+            }
+        setCaseDetailScreenContent(activeHunch = hunch, events = events, nowMillis = { 30 * oneDay })
+        openHunchTab()
+
+        // The verdict rate reads as a share of days, not a "×" count.
+        composeTestRule.onAllNodesWithText("days/week", substring = true).onFirst().assertExists()
+        composeTestRule.onAllNodesWithText("active days", substring = true).onFirst().assertExists()
+        // Text-only card: the calendar heatmap belongs to Insights, never the verdict card.
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelHeatmap).assertDoesNotExist()
     }
 
     @Test

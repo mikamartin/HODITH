@@ -8,6 +8,7 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
@@ -51,6 +52,8 @@ private fun testHunch(
     id: Long = 1L,
     caseId: Long = 1L,
     expectedCount: Int = 3,
+    observationWindow: ObservationWindow = ObservationWindow.SINCE_START,
+    windowStartDate: Long? = null,
 ) = HunchEntity(
     id = id,
     caseId = caseId,
@@ -59,6 +62,8 @@ private fun testHunch(
     expectedPer = ExpectedPer.WEEK,
     createdAt = 0L,
     resolvedAt = null,
+    observationWindow = observationWindow,
+    windowStartDate = windowStartDate,
 )
 
 private fun testTrigger(
@@ -187,6 +192,33 @@ class BackupValidationResultTest {
     fun `a hunch expectedCount above the allowed range is rejected`() {
         val backup = validBackup().copy(hunches = listOf(testHunch(expectedCount = 100)))
         assertTrue(!validateBackup(backup).isValid)
+    }
+
+    @Test
+    fun `a hunch with a CUSTOM observation window but no windowStartDate is rejected`() {
+        val backup =
+            validBackup().copy(
+                hunches = listOf(testHunch(observationWindow = ObservationWindow.CUSTOM, windowStartDate = null)),
+            )
+        assertTrue(!validateBackup(backup).isValid)
+    }
+
+    @Test
+    fun `a hunch with a windowStartDate but a non-CUSTOM window is rejected`() {
+        val backup =
+            validBackup().copy(
+                hunches = listOf(testHunch(observationWindow = ObservationWindow.SINCE_START, windowStartDate = 123L)),
+            )
+        assertTrue(!validateBackup(backup).isValid)
+    }
+
+    @Test
+    fun `a hunch with a CUSTOM observation window and a windowStartDate is accepted`() {
+        val backup =
+            validBackup().copy(
+                hunches = listOf(testHunch(observationWindow = ObservationWindow.CUSTOM, windowStartDate = 123L)),
+            )
+        assertTrue(validateBackup(backup).isValid)
     }
 
     @Test

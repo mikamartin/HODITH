@@ -60,11 +60,11 @@ internal fun hunchTabState(
         val showNudge = !case.hunchNudgeDismissed && events.size >= HUNCH_NUDGE_EVENT_THRESHOLD
         return HunchTabState.NoActiveHunch(
             showNudge = showNudge,
-            history = history.mapNotNull { it.toHistoryEntry(events, case.createdAt) },
+            history = history.mapNotNull { it.toHistoryEntry(events, case) },
         )
     }
 
-    val result = computeVerdict(activeHunch, events, case.createdAt, now)
+    val result = computeVerdict(activeHunch, events, case.createdAt, now, case.durationMode)
     return if (result.comparisonBand == null) {
         HunchTabState.EarlyDays(activeHunch, result)
     } else {
@@ -74,11 +74,13 @@ internal fun hunchTabState(
 
 private fun HunchEntity.toHistoryEntry(
     events: List<EventEntity>,
-    caseCreatedAt: Long,
+    case: CaseEntity,
 ): HunchHistoryEntry? {
     val resolvedAt = resolvedAt ?: return null
     val eventsAtResolution = events.filter { it.occurredAt <= resolvedAt }
-    val result = computeVerdict(this, eventsAtResolution, caseCreatedAt, now = resolvedAt)
+    // now = resolvedAt keeps a resolved Hunch's verdict frozen — a rolling window is measured as
+    // of the resolution instant, not the live clock, so a history entry never drifts.
+    val result = computeVerdict(this, eventsAtResolution, case.createdAt, now = resolvedAt, case.durationMode)
     // A hunch resolved before it ever reached a verdict (comparisonBand == null) has nothing
     // meaningful to show in history — the app's own "Resolve Hunch" button only appears once a
     // band exists, so this only guards against manually-edited or imported data.
@@ -88,14 +90,15 @@ private fun HunchEntity.toHistoryEntry(
 
 /**
  * How far toward the Preliminary bar an active Hunch's Early Days card is — whichever of the
- * event-count or day-count requirement is furthest behind, since both must clear together
- * (spec §8). Drives the progress bar's fill fraction.
+ * observation-count or window-length requirement is furthest behind, since both must clear
+ * together (spec §8). Drives the progress bar's fill fraction. [observationCount] is the event
+ * count for an occurrence-count Hunch and the active-day count for a days-active one.
  */
 internal fun hunchProgressFraction(
-    eventCount: Int,
+    observationCount: Int,
     windowDays: Long,
 ): Float {
-    val eventFraction = eventCount.toFloat() / PRELIMINARY_MIN_EVENTS
+    val countFraction = observationCount.toFloat() / PRELIMINARY_MIN_EVENTS
     val dayFraction = windowDays.toFloat() / PRELIMINARY_MIN_DAYS
-    return minOf(eventFraction, dayFraction).coerceIn(0f, 1f)
+    return minOf(countFraction, dayFraction).coerceIn(0f, 1f)
 }

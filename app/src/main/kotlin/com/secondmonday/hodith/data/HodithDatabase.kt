@@ -11,11 +11,13 @@ import androidx.room.migration.Migration
 /**
  * v1-5 never shipped, so [SCHEMA_FREEZE_POINT] (v6) is the first version a real migration is
  * required from. v7 drops the `events.staleNudgeDismissedAt` column via an auto-migration (see
- * [DropStaleNudgeColumn]). `@Database.version` can't be read back via reflection (Room's annotation
- * uses [AnnotationRetention.BINARY]), so this is the one place migration-guard tests should get the
- * current version from instead of a second hardcoded literal.
+ * [DropStaleNudgeColumn]); v8 adds the `hunches.metric` / `observationWindow` / `windowStartDate`
+ * columns (spec §8), a pure additive auto-migration carrying column defaults. `@Database.version`
+ * can't be read back via reflection (Room's annotation uses [AnnotationRetention.BINARY]), so this
+ * is the one place migration-guard tests should get the current version from instead of a second
+ * hardcoded literal.
  */
-const val HODITH_DATABASE_VERSION = 7
+const val HODITH_DATABASE_VERSION = 8
 
 /** Schema versions at or below this shipped without migrations; every version past it needs one. */
 const val SCHEMA_FREEZE_POINT = 6
@@ -34,7 +36,10 @@ class DropStaleNudgeColumn : AutoMigrationSpec
         TriggerEntity::class,
     ],
     version = HODITH_DATABASE_VERSION,
-    autoMigrations = [AutoMigration(from = 6, to = 7, spec = DropStaleNudgeColumn::class)],
+    autoMigrations = [
+        AutoMigration(from = 6, to = 7, spec = DropStaleNudgeColumn::class),
+        AutoMigration(from = 7, to = 8),
+    ],
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -57,6 +62,6 @@ abstract class HodithDatabase : RoomDatabase() {
          * annotation directly), so the schema-coverage guard counts them here. Bump when adding an
          * `AutoMigration` entry above.
          */
-        const val AUTO_MIGRATION_COUNT = 1
+        const val AUTO_MIGRATION_COUNT = 2
     }
 }

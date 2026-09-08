@@ -61,6 +61,7 @@ import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.ui.common.InfoDialog
@@ -88,7 +89,6 @@ import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
 import com.secondmonday.hodith.viewmodel.TrendDisplay
-import com.secondmonday.hodith.viewmodel.activeSpanEnd
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatFrequencyPeriodLabel

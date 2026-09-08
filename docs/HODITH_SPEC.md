@@ -156,21 +156,32 @@ The switch-*in* conversion uses `endedAt = occurredAt` (the event's own start), 
 - Case creation asks: *"Got a feeling about this one?"* — skippable in one tap.
 - A Hunch can be added at any time, even with zero events logged yet — the Hunch tab's invite carries a short aside noting that checking it against reality takes some time, roughly proportionate to the hunch itself.
 - **Nudge:** after 5 logged events on a hunch-less Case, the case detail screen shows a dismissible card inviting a Hunch. "Don't ask again" sets `hunchNudgeDismissed`. The nudge lives in-app only; it never notifies.
-- Creating a Hunch: direction → expected frequency (count + per day/week/month). Voice-flavoured copy throughout.
-- A Hunch can be resolved ("verdict accepted"), archiving it to the Case's hunch history; a new Hunch can then be made. The history of hunches vs verdicts is itself a fun artifact ("you've been wrong about this three times").
+- Creating a Hunch: direction → expected frequency (count + period) → observation window, plus a metric picker for a duration-tracking Case. Voice-flavoured copy throughout. All these choices are made once at creation and stored on the Hunch — the verdict card never re-asks or offers a toggle. Every picker renders flat and always visible when applicable, up to five sections; no "more options" disclosure.
+  - **Metric** (`HunchEntity.metric`) — shown only when the Case's `durationMode` tracks duration (`MANUAL`/`START_STOP`); a `NONE` Case sees no picker and its metric is implicitly occurrence count. See §8.
+  - **Period** — occurrence count offers day/week/month; days-active offers week/month/3 months ("days active per day" is nonsensical). Same `ExpectedPer` enum, a different visible three-option subset.
+  - **Observation window** (`HunchEntity.observationWindow`, + `windowStartDate` for custom) — every Case. See §8.
+- A Hunch can be resolved ("verdict accepted"), archiving it to the Case's hunch history; a new Hunch can then be made. The history of hunches vs verdicts is itself a fun artifact ("you've been wrong about this three times"). A resolved Hunch's verdict is frozen as of `resolvedAt` (a rolling window is measured from that instant, not the live clock).
 
 ## 8. Verdict engine
 
-Pure Kotlin, no Android dependencies. Inputs: hunch, event list, `now`.
+Pure Kotlin, no Android dependencies. Inputs: hunch, event list, the Case's `createdAt` and `durationMode`, `now`.
 
-- **Observation window** starts at `min(case.createdAt, earliest event.occurredAt)` and ends at `now`.
-- **Observed rate** = event count ÷ window length, normalised to the hunch's `expectedPer` unit.
-- **Confidence tiers** (both conditions required per tier):
-  - **No verdict** — fewer than 5 events *or* window < 14 days → "early days" state
-  - **Preliminary** — ≥5 events and ≥14 days
-  - **Confident** — ≥15 events and ≥28 days
+- **Observation window** always ends at `now`; the start comes from `hunch.observationWindow`:
+  - **Since the start** (default) — `min(case.createdAt, earliest event.occurredAt)`; a retro-logged event can predate the Case.
+  - **Last 3 months** — a rolling fixed 90-day span before `now` (the same round approximation as `DAYS_PER_MONTH = 30`, not a calendar quarter), floored so it never predates the Case. Slides forward as `now` advances.
+  - **Custom** — a user-picked fixed start date (`hunch.windowStartDate`), floored at `case.createdAt`; the picker disallows earlier dates, since a "custom" pick identical to "since the start" is just a confusing label.
+- **Window filtering** — an event feeds the count only if its active span (§9) reaches into `[windowStart, now]` and it started by `now`. A duration event that began before the window but is still active inside it counts (span-overlap, not `occurredAt` alone). Days-active only counts the event's in-window days.
+- **Metric** (`hunch.metric`):
+  - **Occurrence count** (default, and the only option for a `NONE` Case) — number of in-window events.
+  - **Days active** — number of distinct calendar days any in-window event's active span touched. Two same-day events read as one active day ("a day either had it happen or it didn't"). Honest for a Case with long, overlapping duration events, where a raw event tally undersells how much of the time the event was happening. Only offered when the Case tracks duration.
+- **Observed rate** = the metric's count ÷ window length, normalised to the hunch's `expectedPer` unit.
+- **Confidence tiers** (both conditions required per tier) — the same math for every window and both metrics; days-active feeds its distinct-active-day count in where the event count would go, with no new constants and no dual-condition guard. Accepted tradeoff: a single long duration event can clear the bar alone.
+  - **No verdict** — count < 5 *or* window < 14 days → "early days" state
+  - **Preliminary** — count ≥5 and window ≥14 days
+  - **Confident** — count ≥15 and window ≥28 days
 - **Comparison bands** (observed ÷ expected): `<0.5` much less · `0.5–0.8` less · `0.8–1.25` about right · `1.25–2.0` more · `>2.0` much more. Each cutoff itself belongs to the higher band (e.g. exactly `0.8` is "about right", not "less").
-- Rendering is direction-aware: for `TOO_OFTEN`, "much less" is a relief; for `NOT_ENOUGH`, it's a confirmation. `JUST_CURIOUS` gets neutral phrasing. All copy comes from the Voice layer (§12).
+- Rendering is direction-aware: for `TOO_OFTEN`, "much less" is a relief; for `NOT_ENOUGH`, it's a confirmation. `JUST_CURIOUS` gets neutral phrasing. Days-active has its own headline/meta copy set, phrased as a share of days. All copy comes from the Voice layer (§12).
+- The verdict card stays text-only (tier badge, headline, meta) whatever the metric or window — the calendar visualization lives on the Insights tab (§9), never the card.
 - Cases without a Hunch still get visuals and stats (§9–10), just no verdict card.
 
 ## 9. Visualizations
