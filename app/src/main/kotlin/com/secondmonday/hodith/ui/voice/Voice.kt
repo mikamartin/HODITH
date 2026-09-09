@@ -246,8 +246,11 @@ interface Voice {
     val logSortByStartLabel: String get() = "Started"
     val logSortByEndLabel: String get() = "Ended"
 
-    /** [eventsRemaining] is how many more events are needed to clear the Insights minimum — never a fixed restatement of the minimum itself. */
-    fun insightsNotEnoughDataMessage(eventsRemaining: Int): String
+    /** Insights tab with zero events (spec §9): a flat invitation, never a countdown or a count. */
+    val insightsNothingLoggedMessage: String
+
+    /** One-line note above the heatmap when a single event is logged and the Frequency/Trend cards are still held back. */
+    val insightsSingleEventNote: String
 
     val insightsSectionLabelHeatmap: String get() = "Calendar heatmap"
 
@@ -821,7 +824,8 @@ object PlainVoice : Voice {
     override val hunchWindowCustom = "Custom date"
     override val hunchWindowCustomDatePrompt = "Count from"
 
-    override fun insightsNotEnoughDataMessage(eventsRemaining: Int) = "Log $eventsRemaining more events to see Insights."
+    override val insightsNothingLoggedMessage = "Log an event to see insights."
+    override val insightsSingleEventNote = "One event logged so far."
 
     override val insightsHeatmapShowMoreAction = "Show more months"
     override val insightsHeatmapShowFewerAction = "Show fewer months"
@@ -1358,8 +1362,8 @@ object IntenseVoice : Voice {
     override val hunchWindowCustom = "A chosen date"
     override val hunchWindowCustomDatePrompt = "Reckon from"
 
-    override fun insightsNotEnoughDataMessage(eventsRemaining: Int) =
-        "The file needs $eventsRemaining more entries before it's worth reading."
+    override val insightsNothingLoggedMessage = "Log the first piece of evidence to open the file."
+    override val insightsSingleEventNote = "One piece of evidence on record so far."
 
     override val insightsHeatmapShowMoreAction = "Unseal the older files"
     override val insightsHeatmapShowFewerAction = "Reseal them"
@@ -1882,7 +1886,8 @@ object BrightVoice : Voice {
     override val hunchWindowCustom = "Pick a date"
     override val hunchWindowCustomDatePrompt = "Start counting from"
 
-    override fun insightsNotEnoughDataMessage(eventsRemaining: Int) = "$eventsRemaining more events and the pattern's ready to see!"
+    override val insightsNothingLoggedMessage = "Log a moment and the insights start taking shape!"
+    override val insightsSingleEventNote = "One event in — the picture starts here!"
 
     override val insightsHeatmapShowMoreAction = "Show me more!"
     override val insightsHeatmapShowFewerAction = "Okay, tuck it back away"

@@ -13,7 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextAlign
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.voice.BrightVoice
+import com.secondmonday.hodith.ui.voice.IntenseVoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -31,8 +31,8 @@ class CenteredEmptyStateTest {
 
     private val containerTag = "empty_state_container"
 
-    // The Bright string is the longest of the three voices, so it exercises the widest inset.
-    private val note = BrightVoice.insightsNotEnoughDataMessage(eventsRemaining = 1)
+    // The Intense string is (with Bright) the longest of the three voices, so it exercises the widest inset.
+    private val note = IntenseVoice.insightsNothingLoggedMessage
 
     private fun setContent() {
         composeTestRule.setContent {

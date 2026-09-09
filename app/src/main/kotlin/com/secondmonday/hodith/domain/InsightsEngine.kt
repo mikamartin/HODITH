@@ -7,7 +7,12 @@ import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
-/** Spec §9: below this many events, a Case's visuals/stats have no gap or pattern to show yet. */
+/**
+ * Spec §9: the per-case calendar heatmap, its one-line event-count note, and the Rhythm and
+ * Gaps & streaks cards render from the first event (as the Big Picture grid does — an empty
+ * calendar doesn't pretend to show a pattern). Frequency over time and the Trend arrow need at
+ * least this many events before a per-bucket count or a 30-vs-30-day comparison means anything.
+ */
 internal const val INSIGHTS_MIN_EVENTS = 2
 
 /** Spec §10 heatmap: number of non-empty shaded tiers most consumers bucket into ([HeatmapLevel.L1]..[HeatmapLevel.L10]), by ratio to the Case's own busiest day in range. */

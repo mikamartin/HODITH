@@ -218,9 +218,11 @@ A year-in-pixels month grid — each day a cell, shaded by how many events were 
 
 Tapping a day with at least one active event opens that day's logged events for this Case — no separate week view the way Big Picture has one, since the per-case heatmap is already scoped to a single Case and a week rollup would mostly repeat what the month grid already shows at a glance. A day with zero events is inert (no tap target at all). Each result row reads timestamp (or ongoing/duration line for a spanned event), note, and tags — no case icon/name, since the tab is already scoped to one Case.
 
+The heatmap renders from the **first** event, alongside a one-line event-count note and the Rhythm and Gaps & streaks cards (§10) — the same carve-out §9's Big Picture grid takes, since a calendar with one marked day doesn't pretend to show a pattern the way an empty chart would. With zero events the Insights tab shows a flat invitation to log one, never a countdown toward a threshold.
+
 ## 10. Stats (descriptive)
 
-On the case detail Insights tab, in this order:
+On the case detail Insights tab, in this order. Rhythm and Gaps & streaks appear from the first event; Frequency over time and the Trend arrow are held back until there are at least two events, where a single bar or a 30-vs-30-day comparison would read as a pattern that isn't there yet:
 
 - **Frequency over time** — counts per day/week/month (granularity auto-picked from data density, user-overridable). Hidden entirely for a Case with any multi-day event (§9): a per-bucket count would double-count a long event, and the calendar heatmap already shows the shape honestly.
 - **Rhythm heatmap** — day-of-week × time-of-day grid, cell shade = count, shaded on a finer 20-tier scale than the calendar heatmap or intensity stats for more visible contrast between nearby counts. Always plots each event's start; retitled "Start times" for a Case with any multi-day event (§9), so a span that began late one night doesn't read as "only happens at night".

@@ -27,21 +27,52 @@ private val ZONE = TEST_ZONE
 
 class InsightsTabStateTest {
     @Test
-    fun `insightsTabState is NotEnoughData below the minimum event count`() {
+    fun `insightsTabState is NothingLogged when no events are logged`() {
         val case = testCase(createdAt = millisAtDay(0))
 
-        val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(0)).withoutTags(), now = millisAtDay(5))
+        val state = insightsTabState(case, eventsWithTags = emptyList(), now = millisAtDay(5))
 
-        assertEquals(InsightsTabState.NotEnoughData(eventsRemaining = 1), state)
+        assertEquals(InsightsTabState.NothingLogged, state)
     }
 
     @Test
-    fun `insightsTabState is Ready once the minimum event count is met`() {
+    fun `a single event renders the heatmap plus Rhythm and Gaps but not Frequency or Trend`() {
+        // 90-day observation span clears the 56-day trend cutoff, so it's the event-count guard —
+        // not the span guard — that holds the Trend card back here.
+        val case = testCase(createdAt = millisAtDay(0))
+
+        val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(0)).withoutTags(), now = millisAtDay(90))
+
+        assertTrue(state is InsightsTabState.Ready)
+        state as InsightsTabState.Ready
+        assertEquals(1, state.shadedDates().size)
+        assertNull(state.stats.frequency)
+        assertNull(state.stats.trend)
+        // Rhythm and Gaps are non-nullable on StatsSections — their presence is the point: the
+        // single-event tab still shows them.
+        assertEquals(28, state.stats.rhythm.cells.size)
+    }
+
+    @Test
+    fun `a second event restores the Frequency card`() {
         val case = testCase(createdAt = millisAtDay(0))
 
         val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(0), eventAtDay(3)).withoutTags(), now = millisAtDay(5))
 
         assertTrue(state is InsightsTabState.Ready)
+        assertNotNull((state as InsightsTabState.Ready).stats.frequency)
+    }
+
+    @Test
+    fun `the Trend card appears at exactly two events once the span qualifies`() {
+        // Same 90-day span as the single-event case above, so the only thing that changed is the
+        // event count crossing INSIGHTS_MIN_EVENTS.
+        val case = testCase(createdAt = millisAtDay(0))
+
+        val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(75), eventAtDay(85)).withoutTags(), now = millisAtDay(90))
+
+        assertTrue(state is InsightsTabState.Ready)
+        assertNotNull((state as InsightsTabState.Ready).stats.trend)
     }
 
     @Test

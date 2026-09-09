@@ -55,6 +55,7 @@ import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
 import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.domain.INTENSITY_MIN
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
@@ -118,8 +119,9 @@ private const val RHYTHM_LABEL_WIDTH = 88
 
 /**
  * Case Detail's Insights tab (spec §9-10): the seven stat cards followed by the per-case calendar
- * heatmap. Below [com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS] events neither has a gap or
- * a pattern to show, so a placeholder replaces the whole tab.
+ * heatmap. With zero events a flat invitation replaces the whole tab; from the first event the
+ * heatmap, a one-line count note, and the Rhythm and Gaps cards render (spec §9's Big Picture
+ * carve-out), with Frequency and Trend held back until [INSIGHTS_MIN_EVENTS] events.
  *
  * Spec §9/§10 drill-down (S10): a heatmap day, an intensity square, or a tag row opens the logged
  * events behind it in a shared [InsightsDrillDownDialog], filtered in memory over [events] —
@@ -144,15 +146,26 @@ internal fun InsightsTabContent(
     val zone = remember { ZoneId.systemDefault() }
 
     when (state) {
-        is InsightsTabState.NotEnoughData ->
+        is InsightsTabState.NothingLogged ->
             Box(modifier = modifier.fillMaxSize()) {
-                CenteredEmptyState(voice.insightsNotEnoughDataMessage(state.eventsRemaining))
+                CenteredEmptyState(voice.insightsNothingLoggedMessage)
             }
         is InsightsTabState.Ready ->
             Column(
                 modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                // The count note fills the gap left by the still-hidden Frequency/Trend cards; its
+                // singular copy assumes the sparse band is exactly one event (true while
+                // INSIGHTS_MIN_EVENTS == 2).
+                if (state.stats.totalEventCount < INSIGHTS_MIN_EVENTS) {
+                    // Same muted aside as the Hunch tab's `hunchTabNoneDataNote` on the sibling tab.
+                    Text(
+                        text = voice.insightsSingleEventNote,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 StatsSectionCards(
                     stats = state.stats,
                     frequencyGranularityOverride = frequencyGranularityOverride,

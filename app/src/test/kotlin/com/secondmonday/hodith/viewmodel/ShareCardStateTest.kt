@@ -194,7 +194,7 @@ class ShareCardStateTest {
             shareCardState(
                 case = testCase(),
                 displayName = testCase().name,
-                insightsState = InsightsTabState.NotEnoughData(eventsRemaining = 1),
+                insightsState = InsightsTabState.NothingLogged,
                 hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 1,
                 observedDays = 3,
@@ -215,7 +215,7 @@ class ShareCardStateTest {
             shareCardState(
                 case = case,
                 displayName = "My custom title",
-                insightsState = InsightsTabState.NotEnoughData(eventsRemaining = 1),
+                insightsState = InsightsTabState.NothingLogged,
                 hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 1,
                 observedDays = 1,
@@ -231,14 +231,14 @@ class ShareCardStateTest {
     // ---- section filtering ----
 
     @Test
-    fun `NotEnoughData insights leaves every section null regardless of selection`() {
+    fun `NothingLogged insights leaves every section null regardless of selection`() {
         val data =
             shareCardState(
                 case = testCase(),
                 displayName = testCase().name,
-                insightsState = InsightsTabState.NotEnoughData(eventsRemaining = 1),
+                insightsState = InsightsTabState.NothingLogged,
                 hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
-                eventCount = 1,
+                eventCount = 0,
                 observedDays = 1,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
@@ -251,6 +251,43 @@ class ShareCardStateTest {
         assertNull(data.trend)
         assertNull(data.duration)
         assertNull(data.intensity)
+    }
+
+    @Test
+    fun `a single-event Case offers Rhythm and Gaps but not Frequency or Trend on the share card`() {
+        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
+        val oneEvent =
+            listOf(
+                EventWithTags(
+                    EventEntity(
+                        caseId = 1L,
+                        occurredAt = millisAtDay(0),
+                        endedAt = null,
+                        intensity = null,
+                        note = null,
+                        loggedAt = millisAtDay(0),
+                    ),
+                    emptyList(),
+                ),
+            )
+
+        val data =
+            shareCardState(
+                case = case,
+                displayName = case.name,
+                insightsState = insightsTabState(case, oneEvent, now = millisAtDay(NOW)),
+                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
+                eventCount = 1,
+                observedDays = 60,
+                format = ShareCardFormat.SQUARE,
+                selectedSections = ALL_SECTIONS,
+                showHunchVsReality = false,
+            )
+
+        assertTrue(data.rhythm != null)
+        assertTrue(data.gaps != null)
+        assertNull(data.frequency)
+        assertNull(data.trend)
     }
 
     @Test

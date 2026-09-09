@@ -59,7 +59,7 @@ data class ShareCardData(
  * from [CaseEntity.name] so the share screen's editable name field never mutates the actual Case.
  * [eventCount]/[observedDays]
  * mirror the Log tab summary line's inputs (`events.size`/`observationSpanDays`), since [StatsSections.totalEventCount]
- * is unavailable whenever [insightsState] is [InsightsTabState.NotEnoughData] but the Reality beat still needs
+ * is unavailable whenever [insightsState] is [InsightsTabState.NothingLogged] but the Reality beat still needs
  * to show the true count. A section is only included when both the caller selected it (spec §13: notes/tags
  * never offered; Duration/Intensity only offered when the Case tracks them) and it's actually present in
  * [insightsState] — sections absent from the Case's config are already `null` in [StatsSections].
