@@ -15,6 +15,42 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/notifier-group-summary-race
+
+**Scope:** CI's `Instrumented Tests` job went red on `main` (post-merge of #91, which touched no notification code) on `NotifierContentTest.cancelCheckIn_forEveryChild_removesTheSummary` — and it failed the re-run and #91's own first run too, on a sibling in the same class. Root cause: `SystemNotifier.syncGroupSummary` decided whether to tear down the Android group summary by reading `NotificationManager.getActiveNotifications`, which reflects a `notify`/`cancel` only after an async hop. The `~6h` evaluation pass withdraws every no-longer-due check-in in a row (`NotificationEvaluator.evaluateCheckIns`), and the old single-`removedId` compensation only discounted one cancel per call, so the last withdrawal of a batch recomputed the summary against a stack still showing its siblings and never brought the child count to zero — the summary was orphaned. The symmetric add-side race (several `notifyCheckInDue` in a row, an early `syncGroupSummary` seeing a partial stack) was raised with the human and folded into the same fix rather than deferred.
+
+**Approach (confirmed with the human before building, after a first "seeded in-process map" proposal was dropped):** an in-process map drifts from reality on `setAutoCancel`/swipe/`cancelAll` and would need a `@VisibleForTesting` reset for the shared-singleton instrumented tests. Instead, keep the real `NotificationManager` as the single source of truth and make the caller **wait for its own write to surface** before recomputing: a bounded `awaitStack { … }` (≤ 15 × 20 ms, returns as soon as the stack agrees) after every `notify` / `cancel`, then a parameter-free `syncGroupSummary(voice)` that just counts a now-settled stack.
+
+**Found & fixed (checklist walk-through against the real `git diff`):**
+- **`Notifier.cancelCheckIns(Collection<Long>, voice)` added; `cancelCheckIn` (singular) delegates to it.** The periodic pass now withdraws the whole no-longer-due set in one call — cancel all, `awaitStack` until none remain, then one `syncGroupSummary`. `NotificationEvaluator.evaluateCheckIns`'s per-Case cancel loop became one `cancelCheckIns` call. Singular stays for the immediate per-event hook (`evaluateCheckInForCase`), where `cancelCheckIns(listOf(id))` would read worse.
+- **`syncGroupSummary` lost its `addedId` / `removedId` params** and the `buildMap` that applied them — it reads `activeGroupChildren()` directly now that callers pre-settle the stack. `post()` gained an `awaitStack { id in stack }` (guarded on `notify()` having actually posted); `refreshGroupSummary` gained `awaitStack { id !in stack }` for the id the caller cancelled by raw hand.
+- **`notify()` now returns `Boolean`** (posted / no-op-because-permission-denied) so `post()` only waits for a notification that was actually sent.
+- **`NotificationActionReceiver` passes the id it just cancelled** to `refreshGroupSummary(voice, alreadyCancelledChildId = …)` — its "last check-in dismissed ⇒ summary goes" path is now deterministic too (`ACTION_ALL_QUIET` doesn't run the evaluator, so this hook is the only thing that collapses the group after a tap).
+- **`awaitStack` + `GROUP_SYNC_CONFIRM_ATTEMPTS` (15) / `GROUP_SYNC_CONFIRM_INTERVAL_MS` (20L)** — attempt-counted, not wall-clock; sits with the other `GROUP_SUMMARY_*` file-private consts (not a product constant, so not `domain/`). `Thread.sleep` runs on the background thread the evaluation pass / action broadcast already uses (`Dispatchers.Default` for the immediate hook, `Dispatchers.IO` in the receiver, WorkManager's executor for the periodic job) — never main; noted in the KDoc.
+- **`FakeNotifier` gained `cancelCheckIns`** (funnels into the existing `cancelledCheckIns` list) and the widened `refreshGroupSummary` signature. `NotificationEvaluatorTest` needed no edits — its `cancelledCheckIns` assertions (lines 296/316/361/377) still hold because batch and singular land in the same list.
+- **`NotifierContentTest.cancelCheckIn_forEveryChild_removesTheSummary` → `cancelCheckIns_forEveryChild_removesTheSummary`**, now driving the batch API it exercises; `cancelCheckIn_droppingToOneChild_keepsTheSurvivingCheckIn` still covers the singular path.
+
+**Sections walked, nothing to do:**
+- *Duplication* — no composables/Voice keys/DAO queries touched. `cancelCheckIns` vs `cancelCheckIn` isn't a dup: singular delegates, plural holds the one implementation.
+- *Decoupling* — all changes sit in `notification/` glue; `NotificationEvaluator` gained no `android.*` import and stays the evaluation-logic seam. No `System.currentTimeMillis()` — `awaitStack` is attempt-counted.
+- *Complexity* — `syncGroupSummary` got **smaller** (params + `buildMap` gone); `awaitStack` is a 4-line single-concern helper with three callers. `Notifier.kt` ~310 lines for the whole notification surface.
+- *Dead code / hygiene* — `git status` shows only the intended files (five in `notification/`, plus this log and `TESTING.md`); no TODO/prototype/commented code; the summary `notify()` call legitimately ignores the new `Boolean` (nothing to do if the post no-ops).
+- *Spec Review* — HODITH_SPEC §11's anti-spam paragraph ("withdrawn on the next pass, so the stack doesn't keep a stale entry") stays accurate; batch-vs-loop and the confirmation wait are below spec granularity. No §17 item.
+- *Tests* — the renamed `cancelCheckIns_forEveryChild` test is the withdrawal-side regression test (was CI-red, now green across consecutive local reruns), and `severalDueCheckInsInARow_summaryCountsEveryChild` was added for the add side: three back-to-back `notifyCheckInDue` calls, the summary title must settle on the full count. It's deterministic because of the confirmation wait rather than in spite of timing, so it doesn't fall foul of this doc's no-flaky-timing stance. No new test class, so no `@UiTest`/`@Smoke` call. No new system-process boundary for MANUAL_TEST_PLAN.
+- *Naming / hardcoded values / a11y / deprecated APIs* — covered above / not applicable; `lintDebug` clean, no new deprecations.
+
+**Considered and declined:**
+- A `synchronized` lock serialising the summary-sync entry points against a concurrent `evaluateAll` (worker) vs `evaluateCase` (event hook). Pre-existing (the old code had no lock either), needs an event logged during the ~6h pass to even occur, self-corrects on the next pass, and `Thread.sleep` under a lock adds head-of-line blocking. Out of scope for a stale-read race fix — flag separately if it ever bites.
+- The in-process id→title map as source of truth (see Approach above).
+
+**Deferred:** nothing.
+
+**Docs updated:** `TESTING.md` — the Notifications coverage row now names the group-summary bundling + teardown (batch included) and states the count is only recomputed after the triggering `notify`/`cancel` has surfaced in `activeNotifications`. No SPEC / PLAYBOOK / CLAUDE / README change.
+
+**Tests:** `NotifierContentTest` — `cancelCheckIn_forEveryChild_removesTheSummary` renamed to `cancelCheckIns_forEveryChild_removesTheSummary`, retargeted at the batch API, same assertions; `severalDueCheckInsInARow_summaryCountsEveryChild` added (add-side regression, 3 back-to-back check-ins). `FakeNotifier` gained `cancelCheckIns`.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (full JVM suite). Instrumented on a Pixel 8 API 36 emulator: the notification package (`NotifierContentTest` + `NotificationActionReceiverTest` + `NotificationEvalWorkerTest`) green, and `NotifierContentTest` green across consecutive `--rerun-tasks` runs — the CI flake is gone.
+
 ## feat/big-picture-overview-detail
 
 **Scope:** PROGRESS.md item S4 — Big Picture's day/week detail rows had drifted from the Insights drill-down's: no intensity, no "lasted …" for a same-day duration event, and a `bigPictureEventNoteEmptyState` placeholder on note-less events where Insights stays quiet. Ruling (product owner, via a published options prototype): the rows become user-configurable — an edit icon at the right of the filter row opens a four-switch `InfoDialog` (Notes / Tags / Duration / Intensity), persisted via `SettingsRepository`, default Notes+Tags+Duration on / Intensity off. Time and the Case icon/name stay always-on; the empty-note placeholder is gone unconditionally. Spec §9 keeps intensity and sub-day duration off the *grid* — this only touches the tap-through dialogs.
