@@ -15,6 +15,31 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## chore/prune-design-mockups
+
+**Scope:** PROGRESS.md item S8 — `docs/mockups/` held six prototype HTML files. Three were reference-free snapshots of long-shipped features (`case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`). Two more — `plain-theme-light-neutrals.html` and `bright-theme-soft-glow.html` — backed the Plain and Bright themes, both shipped and stable, but were still cited by ~26 code comments. S8's original plan deferred those two behind items S3/B1; re-checking the citations against the current PROGRESS.md showed that mapping was stale (S3 is a segmented-row inset fix, not a palette matter; the "Bright theme redesign checklist" those comments pointed at no longer exists). Product-owner call: delete all five, rewrite every comment to stand on its own, and keep only `share-cards-prototype.html`, which genuinely maps to still-open B1 (its Story/Square section layouts are B1's design material).
+
+**Found & fixed (checklist walk-through against the real `git diff`):**
+- **Five mockup files deleted**, and every reference to them rewritten — not just the 11 that carried the literal `docs/mockups/…html` path, but the whole family that read "Soft Glow mockup's `.chip`", "the mockup's `.field .input` radius", "the theme-review mockup", etc. Treatment per comment: keep the design rationale (formulas, the specced ring/gradient, the "Bright's Soft Glow direction" lineage) in prose, drop the dead file/CSS-class/line-number anchors. Touched `BigPictureGrid.kt`, `CardDecorationStyle.kt`, `CaseDetailScreen.kt`, `CaseEditScreen.kt`, `Color.kt`, `GlowDecoration.kt`, `HodithNavHost.kt`, `HomeScreen.kt`, `InsightsTab.kt`, `SectionWithInfo.kt`, `SegmentedChoiceRow.kt`, `SettingsScreen.kt`, `Shape.kt`, `ThemedToggle.kt`, `Type.kt`.
+- **Two stale non-mockup pointers in the same comments swept up:** `Color.kt` and `GlowDecoration.kt` both pointed `*HeadingInk` / `IconHalo` at "PROGRESS.md's Bright theme redesign checklist" (struck from PROGRESS.md across the Bright-theme branches); `BigPictureGrid.kt`'s `DayCell` KDoc pointed at "PROGRESS.md's Phase 5 entry" (phase history lives in this log now, not PROGRESS.md); `HunchTabState.kt` said "the mockup's 'creating' toggle" for a prototype that was never in the repo. All reworded to plain statements.
+- **`share-cards-prototype.html` kept, one dangling internal line fixed** — its dev-note said "Same theme tokens … as the Case Detail and Triggers prototypes", two files this pass removes; reworded to "as the rest of the app".
+
+**Sections walked, nothing to do:**
+- *Duplication / Decoupling / Complexity* — no code changed; comment text only.
+- *Dead Code & Hygiene* — the deleted prototypes are exactly this item ("throwaway prototype served its purpose"); `docs/mockups/` now holds one file, deliberately kept and pointed at by open B1. `git status` clean, no untracked prototypes.
+- *Docs narrating history* — S8 removed from PROGRESS.md outright (not struck), its Standalone batching bullet dropped, and a checkbox added to B1 for the final `share-cards-prototype.html` deletion. `README.md`'s AI-workflow section never mentioned `docs/mockups/` — nothing to reconcile.
+- *Checklist gap this pass exposed* — the "throwaway prototype cleared out?" item only covered a *just-built* spike, and "orphaned" was easy to read as "no path reference" when the real cost was the ~15 `.css-class`/`"Soft Glow mockup"` comment anchors a path grep misses. Extended that item (rather than adding a near-duplicate bullet): it now also covers an already-committed `docs/mockups/` file when this diff is what stabilises its feature, and spells out grepping every mention form before deleting one.
+- *Repo hygiene* — no secrets, no local paths; edits are LF/CRLF-clean (`git diff` vs `git status` match, no `sed` used).
+- *Naming / Hardcoded values / Accessibility / Deprecated APIs / Spec Review* — n/a; no API, constant, or spec surface touched. `lintDebug` clean.
+
+**Deferred:** `docs/mockups/share-cards-prototype.html` and its one `ShareCardDecoration.kt` KDoc pointer — kept for now as B1's Story/Square layout reference, tracked as a checkbox on B1 (human sign-off: it's the last mockup and only earns its keep while B1 is open).
+
+**Docs updated:** `PROGRESS.md` — S8 section and its Standalone batching bullet removed; B1 gains the final-cleanup checkbox. `CLEANUP_CHECKLIST.md` — the "throwaway prototype cleared out?" item extended to cover already-committed `docs/mockups/` files whose feature this diff stabilises, and to require grepping every reference form before removing a mockup. No `HODITH_SPEC.md` / `TESTING.md` / `DEV_PLAYBOOK.md` / `README` / `CLAUDE.md` change.
+
+**Tests:** none — comment and doc text only, no behaviour or test surface.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green.
+
 ## fix/notifier-group-summary-race
 
 **Scope:** CI's `Instrumented Tests` job went red on `main` (post-merge of #91, which touched no notification code) on `NotifierContentTest.cancelCheckIn_forEveryChild_removesTheSummary` — and it failed the re-run and #91's own first run too, on a sibling in the same class. Root cause: `SystemNotifier.syncGroupSummary` decided whether to tear down the Android group summary by reading `NotificationManager.getActiveNotifications`, which reflects a `notify`/`cancel` only after an async hop. The `~6h` evaluation pass withdraws every no-longer-due check-in in a row (`NotificationEvaluator.evaluateCheckIns`), and the old single-`removedId` compensation only discounted one cancel per call, so the last withdrawal of a batch recomputed the summary against a stack still showing its siblings and never brought the child count to zero — the summary was orphaned. The symmetric add-side race (several `notifyCheckInDue` in a row, an early `syncGroupSummary` seeing a partial stack) was raised with the human and folded into the same fix rather than deferred.

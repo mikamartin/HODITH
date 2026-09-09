@@ -5,7 +5,7 @@ import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
 
-/** One corner-radius scale per theme (spec §12), validated in the theme-review mockup. */
+/** One corner-radius scale per theme (spec §12). */
 fun hodithShapes(theme: AppTheme): Shapes =
     when (theme) {
         AppTheme.PLAIN -> plainShapes

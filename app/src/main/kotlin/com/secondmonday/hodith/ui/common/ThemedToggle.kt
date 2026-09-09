@@ -32,7 +32,7 @@ fun ToggleRow(
     }
 }
 
-/** Bright-only pill switch colors matching the mockup's `.mswitch`/`.mswitch.on` (white thumb both states, tinted track when on). */
+/** Bright-only pill switch colors (white thumb both states, tinted track when on). */
 @Composable
 fun themedSwitchColors(): SwitchColors =
     when (LocalCardDecorationStyle.current) {

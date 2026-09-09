@@ -849,12 +849,11 @@ private fun TagFilterChip(
 }
 
 /**
- * Shared Bright chip pill (Soft Glow mockup's `.chip`/`.chip.on`,
- * docs/mockups/bright-theme-soft-glow.html): tint-wash background + hairline border when selected,
- * plain surface otherwise. The mockup's selected-state ring is a zero-blur `box-shadow: 0 0 0 3px`
- * spread, which Compose has no direct primitive for; it's approximated here as an outer
- * [Modifier.border] on a Box padded out by the same 3dp, which at the mockup's 10%-alpha tint reads
- * as the same soft halo. [CaseFilterChip] and [TagFilterChip] share this rather than each
+ * Shared Bright chip pill: tint-wash background + hairline border when selected, plain surface
+ * otherwise. Bright's selected-state ring was specced as a zero-blur `0 0 0 3px` spread, which
+ * Compose has no direct primitive for; it's approximated here as an outer [Modifier.border] on a
+ * Box padded out by the same 3dp, which at a 10%-alpha tint reads as the same soft halo.
+ * [CaseFilterChip] and [TagFilterChip] share this rather than each
  * reimplementing the pill+ring chrome, since only their inner content (icon+name vs. tag text)
  * differs. [onToggle] null renders a read-only pill, same as the other two.
  */
@@ -1091,8 +1090,7 @@ private fun WeekdayHeader(modifier: Modifier = Modifier) {
 }
 
 /**
- * Dispatches to the active theme's bespoke cell treatment (spec §12; concepts validated against
- * a mockup before this was written — see PROGRESS.md's Phase 5 entry). The three variants below
+ * Dispatches to the active theme's bespoke cell treatment (spec §12). The three variants below
  * are the only place in this file that branch on [BigPictureCellStyle]; everything else (filter
  * chips, week borders) is unchanged and stays theme-agnostic via [MaterialTheme] tokens alone.
  */
@@ -1235,8 +1233,8 @@ private fun IntenseDayCell(
 
 /**
  * Playful-reveal read: a floating shadowed card, case icons as a fanned sticker cluster. Today's
- * cell also carries a blurred primary-tint ring (Soft Glow mockup's `.cal-cell.today` box-shadow
- * ring) built from the same blur+tint technique as [com.secondmonday.hodith.ui.theme.IconHalo],
+ * cell also carries a blurred primary-tint ring (Bright's today-cell treatment) built from the
+ * same blur+tint technique as [com.secondmonday.hodith.ui.theme.IconHalo],
  * not that composable itself — it's a fixed-size circular badge, and this cell is a dynamic-width
  * rounded square, so the ring is drawn locally instead of forcing a shape mismatch.
  */

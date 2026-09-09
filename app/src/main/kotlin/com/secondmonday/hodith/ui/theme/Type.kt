@@ -39,8 +39,8 @@ private val Nunito =
  * One [Typography] per theme (spec §12's "type feel"). Each theme pairs a display face — used
  * for display/headline/label roles, which covers Material3's default button text (`labelLarge`)
  * — with a body face for title/body roles, which covers case names (`titleMedium`) and any
- * long-form text (notes). This mirrors the theme-review mockup, where only the app bar,
- * section labels, and buttons opted into the display face; everything else read in body.
+ * long-form text (notes). Only the app bar, section labels, and buttons take the display face;
+ * everything else reads in body.
  */
 fun hodithTypography(theme: AppTheme): Typography =
     when (theme) {

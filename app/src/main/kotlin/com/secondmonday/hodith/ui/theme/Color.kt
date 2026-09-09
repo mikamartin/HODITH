@@ -54,7 +54,7 @@ private val plainLight =
         onSecondaryContainer = Color(0xFF0A2A36),
         // Settings-only accent: ActionRow buttons and the theme/check-in segmented pickers need a
         // lighter, colder tone than secondaryContainer (which stays punchier for Insights' chips
-        // and the nav indicator pill) — see docs/mockups/plain-theme-light-neutrals.html.
+        // and the nav indicator pill).
         tertiaryContainer = Color(0xFFBAD7E6),
         onTertiaryContainer = Color(0xFF071620),
         error = PlainLightError,
@@ -181,12 +181,11 @@ private val intenseDark =
 // is the turquoise half, used for selected states, distinct from the coral primary.
 //
 // onBackground/onSurface/BrightXHeadingInk aren't flat ink — both are the primary blended into
-// a warm neutral (Soft Glow mockup formula, docs/mockups/bright-theme-soft-glow.html: 26% primary
-// for body-weight ink, 52% for heading-weight ink), so text reads as part of the coral/turquoise
-// palette rather than generic near-black/near-white. *HeadingInk isn't a ColorScheme role — it's
-// for Baloo 2 heading-weight text (screen titles, card labels) once those screens pick it up
-// (PROGRESS.md's Bright theme redesign checklist); body-weight ink covers everything else via
-// onBackground/onSurface.
+// a warm neutral (Soft Glow formula: 26% primary for body-weight ink, 52% for heading-weight
+// ink), so text reads as part of the coral/turquoise palette rather than generic
+// near-black/near-white. *HeadingInk isn't a ColorScheme role — it's for Baloo 2 heading-weight
+// text (screen titles, card labels) once those screens pick it up; body-weight ink covers
+// everything else via onBackground/onSurface.
 internal val BrightLightHeadingInk = Color(0xFFA8523A)
 internal val BrightDarkHeadingInk = Color(0xFFFFB8A3)
 

@@ -30,9 +30,9 @@ import com.secondmonday.hodith.data.AppTheme
 
 /**
  * Bright-only "gradient-wash card": diagonal tint-to-surface gradient, hairline border, soft
- * tinted shadow (Soft Glow mockup's `.card`/`.hrow`, docs/mockups/bright-theme-soft-glow.html).
- * Meant to be reached only from a [LocalCardDecorationStyle.BRIGHT] branch — Plain/Intense keep
- * plain [androidx.compose.material3.Card] and never call this. [onClick], not a `Modifier
+ * tinted shadow (Bright's Soft Glow direction). Meant to be reached only from a
+ * [LocalCardDecorationStyle.BRIGHT] branch — Plain/Intense keep plain
+ * [androidx.compose.material3.Card] and never call this. [onClick], not a `Modifier
  * .clickable` tacked onto [modifier] by the caller, so the ripple is clipped to [shape] instead
  * of spilling into the card's rounded corners.
  */
@@ -65,11 +65,10 @@ fun GlowCard(
 }
 
 /**
- * Bright-only "icon halo": a tinted circle with a soft blurred glow bleeding past its edge (Soft
- * Glow mockup's `.icon-badge`/`.halo`/`.navitem.on .ico`) — shared by Home's case icons, Big
- * Picture's today-cell ring, and Insights' stat-tile icons (PROGRESS.md's Bright theme redesign
- * checklist). [size] is the icon's own layout footprint; the glow overflows it without affecting
- * layout, same as the mockup's non-layout-affecting `box-shadow` blur.
+ * Bright-only "icon halo": a tinted circle with a soft blurred glow bleeding past its edge
+ * (Bright's Soft Glow direction) — shared by Home's case icons, Big Picture's today-cell ring,
+ * and Insights' stat-tile icons. [size] is the icon's own layout footprint; the glow overflows
+ * it without affecting layout, like a non-layout-affecting `box-shadow` blur.
  */
 @Composable
 fun IconHalo(

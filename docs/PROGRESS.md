@@ -37,6 +37,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 - [ ] Story keeps full customization and content-sizing.
 - [ ] Any Story-only picker copy goes through Voice ×3.
 - [ ] Tests: `ShareCardStateTest.kt` (Square driven by preset), `SharePreviewScreenTest.kt` (picker only for Story); `ShareCardTemplateTest.kt` Square floor/no-clip still passes.
+- [ ] `docs/mockups/share-cards-prototype.html` deleted and its `ShareCardDecoration.kt` KDoc pointer dropped — it was the last mockup left in that directory, kept only as this item's Story/Square section-layout reference (`chore/prune-design-mockups` removed the other five).
 
 **Plan** — needs a product decision first: which sections (and in what fixed order) Square always shows. Once decided: show `SectionsPicker` only when `ShareCardFormat.STORY` is selected in `SharePreviewScreen.kt`, and have `shareCardState()` source Square's sections from the fixed preset, independent of `selectedSections`.
 
@@ -70,7 +71,6 @@ No cross-dependencies. Pick any when resources are thin. Several soft batching o
 
 - **Selection controls — S3** — `SegmentedChoiceRow` is shared by the Case editor's Duration row and all four Hunch-creation-sheet selectors; one fix covers both.
 - **Fully isolated — S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S4** (event tag-pill order), **S5** (hunch-history row redesign), **S6** (performance review), **S7** (external content). No cross-dependencies; pick by appetite.
-- **Do last — S8** (prune `docs/mockups/`) — soft-blocked on S3 and B1, whose visual reference is the theme/share mockups it would remove.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -218,23 +218,6 @@ Current shape (from a source read):
 - [ ] Play data-safety answers reconciled with the same copy (once a listing exists).
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
-
-### S8 · `docs/mockups/` holds prototype HTML past its usefulness
-
-*Branch: `chore/prune-design-mockups` · Complexity: S · Priority: Low · Area: Repo*
-
-Six design-prototype HTML files sit in `docs/mockups/`. Three are genuinely orphaned — **no reference anywhere** in code or docs, just "saved for reference" snapshots of long-shipped features: `case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`. The other three are load-bearing today: `plain-theme-light-neutrals.html` (7 KDoc citations across `Color.kt`, `HomeScreen.kt`, `SettingsScreen.kt`, `SegmentedChoiceRow.kt`, `SectionWithInfo.kt`, `CaseDetailScreen.kt`), `bright-theme-soft-glow.html` (`GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureGrid.kt`), `share-cards-prototype.html` (`ShareCardDecoration.kt`). Those three are also the visual reference for still-open items — **S3** (segmented rows) and **B1** (Square share preset) — so removing them now would orphan live KDoc *and* drop design context for pending work.
-
-**Acceptance criteria**
-
-- [ ] The three orphaned mockups (`case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`) removed directly — no references to strip first.
-- [ ] For each of the three referenced mockups: a decision recorded on whether its KDoc citations still earn their keep now the feature is stable (a pointer to a committed design artifact is useful history) or read as clutter. If a mockup is to go, every citing KDoc updated first — describe the treatment in prose or drop the line — then the file deleted; if it stays, no change.
-- [ ] Gated on S3 and B1 either landing or being closed, so the theme/share mockups aren't pulled out from under open work.
-- [ ] `README.md`'s AI-workflow section checked — if it describes `docs/mockups/` as a standing convention, reconcile with whatever this audit decides.
-
-**Plan** — do this after the theme-polish and share items clear (or are dropped). Delete the three orphans, then walk the KDoc citations for the other three and make the keep/strip call per file. Not urgent; these are small static files with no build cost.
-
-**Concern** — soft-blocked on S3/B1; not "fully isolated" despite being repo hygiene.
 
 ## Blocked
 
