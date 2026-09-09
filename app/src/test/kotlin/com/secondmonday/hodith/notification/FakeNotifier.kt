@@ -34,7 +34,17 @@ class FakeNotifier : Notifier {
         cancelledCheckIns += caseId
     }
 
-    override fun refreshGroupSummary(voice: Voice) {
+    override fun cancelCheckIns(
+        caseIds: Collection<Long>,
+        voice: Voice,
+    ) {
+        cancelledCheckIns += caseIds
+    }
+
+    override fun refreshGroupSummary(
+        voice: Voice,
+        alreadyCancelledChildId: Int?,
+    ) {
         groupSummaryRefreshes++
     }
 }

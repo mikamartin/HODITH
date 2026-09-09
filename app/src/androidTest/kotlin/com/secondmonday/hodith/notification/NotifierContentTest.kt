@@ -150,6 +150,34 @@ class NotifierContentTest {
         }
 
     @Test
+    fun severalDueCheckInsInARow_summaryCountsEveryChild() =
+        runBlocking {
+            // Posting back-to-back: each notifyCheckInDue recomputes the summary, and a plain read of
+            // getActiveNotifications between a notify() and its async landing would undercount. The
+            // summary title must settle on the real total, not a partial snapshot of it.
+            val cases =
+                (0 until 3).map { i ->
+                    testCase(id = 520L + i, name = "Case $i ${System.currentTimeMillis()}")
+                }
+
+            cases.forEach { notifier.notifyCheckInDue(it, silentDays = 7L, voice = PlainVoice) }
+
+            assertNotNull(
+                "Expected the group summary to count all ${cases.size} check-ins",
+                waitForNotification { title, _, _ -> title == PlainVoice.notificationsGroupSummaryTitle(cases.size) },
+            )
+            assertEquals(
+                "the only posted summary reflects the full count, with no stale lower-count summary left",
+                PlainVoice.notificationsGroupSummaryTitle(cases.size),
+                activeGroupSummary()
+                    ?.notification
+                    ?.extras
+                    ?.getCharSequence(Notification.EXTRA_TITLE)
+                    ?.toString(),
+            )
+        }
+
+    @Test
     fun cancelCheckIn_droppingToOneChild_keepsTheSurvivingCheckIn() =
         runBlocking {
             val a = testCase(id = 506L, name = "Coffee ${System.currentTimeMillis()}")
@@ -175,7 +203,7 @@ class NotifierContentTest {
         }
 
     @Test
-    fun cancelCheckIn_forEveryChild_removesTheSummary() =
+    fun cancelCheckIns_forEveryChild_removesTheSummary() =
         runBlocking {
             val a = testCase(id = 508L, name = "Coffee ${System.currentTimeMillis()}")
             val b = testCase(id = 509L, name = "Migraine ${System.currentTimeMillis()}")
@@ -183,8 +211,9 @@ class NotifierContentTest {
             notifier.notifyCheckInDue(b, 9L, PlainVoice)
             assertNotNull(waitForNotification { title, _, _ -> title == PlainVoice.notificationsGroupSummaryTitle(2) })
 
-            notifier.cancelCheckIn(a.id, PlainVoice)
-            notifier.cancelCheckIn(b.id, PlainVoice)
+            // The periodic pass withdraws every no-longer-due Case in one batch; the summary is
+            // recomputed once, after the whole batch has left the stack, so it clears cleanly.
+            notifier.cancelCheckIns(listOf(a.id, b.id), PlainVoice)
 
             assertTrue(
                 "no children left ⇒ both check-ins and the summary are gone",

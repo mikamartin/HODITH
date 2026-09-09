@@ -52,9 +52,13 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 }
                 // ACTION_ALL_QUIET updates the Case, which doesn't run NotificationEvaluator; even
                 // for ACTION_LOG the evaluator's own refresh may not have landed yet. Recompute the
-                // group summary here so a now-single check-in stack drops its summary.
+                // group summary here so a now-single (or empty) check-in stack drops its summary —
+                // passing the id just cancelled, which getActiveNotifications may not reflect yet.
                 val voice = voiceFor(entryPoint.settingsRepository().observeTheme().first())
-                entryPoint.notifier().refreshGroupSummary(voice)
+                entryPoint.notifier().refreshGroupSummary(
+                    voice,
+                    alreadyCancelledChildId = notificationId.takeIf { it != -1 },
+                )
             } finally {
                 pendingResult.finish()
             }

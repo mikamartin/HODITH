@@ -42,11 +42,30 @@ interface Notifier {
     )
 
     /**
+     * Withdraw several Cases' check-in notifications at once and refresh the group summary once, for
+     * the whole batch. The periodic pass withdraws every no-longer-due Case in a row; the summary is
+     * recomputed a single time, after all of them have left
+     * [android.app.NotificationManager.getActiveNotifications], so the last withdrawal still brings
+     * the child count to zero and tears the summary down.
+     */
+    fun cancelCheckIns(
+        caseIds: Collection<Long>,
+        voice: Voice,
+    )
+
+    /**
      * Recompute the group summary from HODITH's currently-posted notifications. [notifyCheckInDue] /
      * [cancelCheckIn] already keep it in step; this is the hook [NotificationActionReceiver] uses
      * after a Log / All quiet tap, which cancels a child without going through either.
+     *
+     * [alreadyCancelledChildId], when set, is a child the caller has already cancelled by raw id —
+     * the summary is rebuilt only once that cancellation has surfaced in
+     * [android.app.NotificationManager.getActiveNotifications].
      */
-    fun refreshGroupSummary(voice: Voice)
+    fun refreshGroupSummary(
+        voice: Voice,
+        alreadyCancelledChildId: Int? = null,
+    )
 }
 
 class SystemNotifier
@@ -91,13 +110,27 @@ class SystemNotifier
         override fun cancelCheckIn(
             caseId: Long,
             voice: Voice,
+        ) = cancelCheckIns(listOf(caseId), voice)
+
+        override fun cancelCheckIns(
+            caseIds: Collection<Long>,
+            voice: Voice,
         ) {
-            val id = checkInNotificationId(caseId)
-            NotificationManagerCompat.from(context).cancel(id)
-            syncGroupSummary(voice, removedId = id)
+            if (caseIds.isEmpty()) return
+            val ids = caseIds.map(::checkInNotificationId).toSet()
+            val manager = NotificationManagerCompat.from(context)
+            ids.forEach(manager::cancel)
+            awaitStack { stack -> ids.none { it in stack } }
+            syncGroupSummary(voice)
         }
 
-        override fun refreshGroupSummary(voice: Voice) = syncGroupSummary(voice)
+        override fun refreshGroupSummary(
+            voice: Voice,
+            alreadyCancelledChildId: Int?,
+        ) {
+            alreadyCancelledChildId?.let { id -> awaitStack { stack -> id !in stack } }
+            syncGroupSummary(voice)
+        }
 
         /**
          * Keep the group summary in step with HODITH's posted trigger/check-in notifications. The
@@ -105,9 +138,11 @@ class SystemNotifier
          * on the children) and it alerts once, so a check-in re-posted on each ~6h pass updates the
          * stack silently. Its lines are the children's own titles — already voiced, no extra key.
          *
-         * [addedId] / [removedId] adjust for a `notify`/`cancel` that may not have reached
-         * [android.app.NotificationManager.getActiveNotifications] yet — the batch check-in pass
-         * fires several in a row, so a plain read would race itself.
+         * Callers first [awaitStack] their own `notify` / `cancel` into (or out of)
+         * [android.app.NotificationManager.getActiveNotifications], so the count read here is settled
+         * — the periodic pass posts and withdraws several in a row, and a plain read taken between a
+         * write and its async landing would miscount and, when withdrawing the last of a batch,
+         * never bring the child count to zero.
          *
          * A one-child (or empty) group gets no summary: cancelling a `setGroupSummary(true)`
          * notification cascades to the group's remaining children, so tearing it down while one
@@ -115,17 +150,8 @@ class SystemNotifier
          * anyway (it shows the child standalone); the explicit cancel only runs at zero children,
          * where nothing can cascade.
          */
-        private fun syncGroupSummary(
-            voice: Voice,
-            addedId: Int? = null,
-            removedId: Int? = null,
-        ) {
-            val children =
-                buildMap {
-                    putAll(activeGroupChildren())
-                    removedId?.let { remove(it) }
-                    addedId?.let { putIfAbsent(it, "") }
-                }
+        private fun syncGroupSummary(voice: Voice) {
+            val children = activeGroupChildren()
             when {
                 children.isEmpty() -> NotificationManagerCompat.from(context).cancel(GROUP_SUMMARY_NOTIFICATION_ID)
                 children.size == 1 -> Unit
@@ -148,6 +174,20 @@ class SystemNotifier
                             .build(),
                     )
                 }
+            }
+        }
+
+        /**
+         * Block until HODITH's group children in [android.app.NotificationManager.getActiveNotifications]
+         * satisfy [settled], or [GROUP_SYNC_CONFIRM_ATTEMPTS] short waits elapse. `notify` / `cancel`
+         * reach the stack after an async hop; [syncGroupSummary] would otherwise recompute the
+         * summary against a stack that hasn't caught up with the caller's own write. Runs on the
+         * background thread the evaluation pass / action broadcast already uses, never the main one.
+         */
+        private fun awaitStack(settled: (Set<Int>) -> Boolean) {
+            repeat(GROUP_SYNC_CONFIRM_ATTEMPTS) {
+                if (settled(activeGroupChildren().keys)) return
+                Thread.sleep(GROUP_SYNC_CONFIRM_INTERVAL_MS)
             }
         }
 
@@ -212,21 +252,24 @@ class SystemNotifier
                     .setOnlyAlertOnce(true)
             if (text != null) builder.setContentText(text)
             actions.forEach { builder.addAction(it) }
-            notify(notificationId, builder.build())
-            syncGroupSummary(voice, addedId = notificationId)
+            if (notify(notificationId, builder.build())) {
+                awaitStack { stack -> notificationId in stack }
+            }
+            syncGroupSummary(voice)
         }
 
-        /** Post [notification] under [id], or silently no-op when POST_NOTIFICATIONS isn't granted. */
+        /** Post [notification] under [id]; returns false (a no-op) when POST_NOTIFICATIONS isn't granted. */
         private fun notify(
             id: Int,
             notification: Notification,
-        ) {
+        ): Boolean {
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED
             ) {
-                return
+                return false
             }
             NotificationManagerCompat.from(context).notify(id, notification)
+            return true
         }
 
         private fun openAppPendingIntent(
@@ -252,6 +295,12 @@ private const val NOTIFICATION_ID_MODULUS = 100_000
 private const val CHECK_IN_NOTIFICATION_ID_BASE = 1_000_000
 private const val GROUP_SUMMARY_NOTIFICATION_ID = 3_000_000
 private const val GROUP_SUMMARY_MAX_LINES = 6
+
+// How long to let a just-posted / just-cancelled notification surface in getActiveNotifications
+// before recomputing the group summary against it: up to 15 × 20 ms, but it returns as soon as the
+// stack agrees (usually the first check).
+private const val GROUP_SYNC_CONFIRM_ATTEMPTS = 15
+private const val GROUP_SYNC_CONFIRM_INTERVAL_MS = 20L
 
 private fun triggerNotificationId(triggerId: Long): Int = (triggerId % NOTIFICATION_ID_MODULUS).toInt()
 

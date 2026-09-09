@@ -73,7 +73,9 @@ class NotificationEvaluator
                 }
             val dueIds = due.mapTo(mutableSetOf()) { it.first.id }
             due.forEach { (case, silentDays) -> notifier.notifyCheckInDue(case, silentDays, voice) }
-            activeCases.forEach { if (it.id !in dueIds) notifier.cancelCheckIn(it.id, voice) }
+            // One batched cancel, not one per Case: the group summary is recomputed once, after the
+            // whole batch has left getActiveNotifications, so the last withdrawal empties it cleanly.
+            notifier.cancelCheckIns(activeCases.map { it.id }.filter { it !in dueIds }, voice)
         }
 
         private suspend fun currentVoice(): Voice = voiceFor(settingsRepository.observeTheme().first())
