@@ -4,12 +4,10 @@ import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,7 +18,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -36,7 +33,6 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,6 +40,7 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.HunchTabState
@@ -264,29 +261,3 @@ private fun sectionLabel(
         ShareInsightsSection.DURATION -> voice.insightsSectionLabelDuration
         ShareInsightsSection.INTENSITY -> voice.insightsSectionLabelIntensity
     }
-
-/**
- * The whole row toggles, not just the [Switch] — bigger tap target, and it merges the label and
- * switch into one accessible node (a screen reader announces "Rhythm, Switch, on" instead of an
- * unlabelled switch). [Switch.onCheckedChange] is `null` since [Modifier.toggleable] on the row
- * already owns the click, per Material's guidance for a label+control row.
- */
-@Composable
-private fun ToggleRow(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .toggleable(value = checked, onValueChange = onCheckedChange, role = Role.Switch),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label)
-        Switch(checked = checked, onCheckedChange = null)
-    }
-}

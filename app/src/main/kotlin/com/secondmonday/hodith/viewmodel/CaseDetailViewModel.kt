@@ -211,15 +211,45 @@ internal fun eventDetailSummary(
     isOngoing: Boolean = false,
     tracksDuration: Boolean = true,
     showIntensity: Boolean = true,
+): String? =
+    eventDetailSummary(
+        occurredAt = event.occurredAt,
+        endedAt = event.endedAt,
+        intensity = event.intensity,
+        note = event.note,
+        tagNames = tags.map { it.name },
+        voice = voice,
+        isOngoing = isOngoing,
+        tracksDuration = tracksDuration,
+        showIntensity = showIntensity,
+    )
+
+/**
+ * The primitive-parameter core of [eventDetailSummary] — the same ` · `-joined line (duration,
+ * intensity, note, then tags, any of which may be absent; null when none apply) built from an
+ * event's raw fields rather than an [EventEntity]. Big Picture's grid holds only its own
+ * `CalendarEvent` projection, so its detail rows (spec §9) call this directly, passing no note or
+ * tags (those render on their own lines) — it contributes only the duration/intensity line there.
+ */
+internal fun eventDetailSummary(
+    occurredAt: Long,
+    endedAt: Long?,
+    intensity: Int?,
+    note: String?,
+    tagNames: List<String>,
+    voice: Voice,
+    isOngoing: Boolean = false,
+    tracksDuration: Boolean = true,
+    showIntensity: Boolean = true,
 ): String? {
     val parts = mutableListOf<String>()
     if (!isOngoing && tracksDuration) {
-        event.endedAt
-            ?.takeIf { it > event.occurredAt }
-            ?.let { parts += voice.eventDurationLabel(formatElapsedDuration(event.occurredAt, it)) }
+        endedAt
+            ?.takeIf { it > occurredAt }
+            ?.let { parts += voice.eventDurationLabel(formatElapsedDuration(occurredAt, it)) }
     }
-    if (showIntensity) event.intensity?.let { parts += voice.eventIntensityLabel(it) }
-    event.note?.takeIf { it.isNotBlank() }?.let { parts += it }
-    if (tags.isNotEmpty()) parts += tags.joinToString(" ") { "#${it.name}" }
+    if (showIntensity) intensity?.let { parts += voice.eventIntensityLabel(it) }
+    note?.takeIf { it.isNotBlank() }?.let { parts += it }
+    if (tagNames.isNotEmpty()) parts += tagNames.joinToString(" ") { "#$it" }
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }

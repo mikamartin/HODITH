@@ -25,10 +25,17 @@ interface Voice {
     val bigPictureMonthPickerTitle: String
     val bigPictureDayDetailEmptyState: String
     val bigPictureWeekDetailEmptyState: String
-    val bigPictureEventNoteEmptyState: String
     val bigPictureWeekViewDescription: String
     val bigPictureCasesFilterLabel: String get() = "Cases"
     val bigPictureTagsFilterLabel: String get() = "Tags"
+
+    /** Big Picture's day/week detail-row field toggles (spec §9). Field labels are shared across voices. */
+    val bigPictureDetailDialogTitle: String
+    val bigPictureDetailEditDescription: String
+    val bigPictureDetailNotesLabel: String get() = "Notes"
+    val bigPictureDetailTagsLabel: String get() = "Tags"
+    val bigPictureDetailDurationLabel: String get() = "Duration"
+    val bigPictureDetailIntensityLabel: String get() = "Intensity"
     val bigPictureFilterCountAll: String
     val bigPictureAllCasesLabel: String
     val bigPictureAllTagsLabel: String
@@ -648,8 +655,9 @@ object PlainVoice : Voice {
     override val bigPictureMonthPickerTitle = "Jump to month"
     override val bigPictureDayDetailEmptyState = "No events logged this day."
     override val bigPictureWeekDetailEmptyState = "No events logged this week."
-    override val bigPictureEventNoteEmptyState = "No note"
     override val bigPictureWeekViewDescription = "Open week view"
+    override val bigPictureDetailDialogTitle = "Row detail"
+    override val bigPictureDetailEditDescription = "Edit which detail the rows show"
     override val bigPictureFilterCountAll = "All"
     override val bigPictureAllCasesLabel = "All Cases"
     override val bigPictureAllTagsLabel = "All tags"
@@ -1186,8 +1194,9 @@ object IntenseVoice : Voice {
     override val bigPictureMonthPickerTitle = "Leap to another month"
     override val bigPictureDayDetailEmptyState = "Nothing was recorded this day."
     override val bigPictureWeekDetailEmptyState = "Nothing was recorded this week."
-    override val bigPictureEventNoteEmptyState = "No notes were left."
     override val bigPictureWeekViewDescription = "Unveil the week"
+    override val bigPictureDetailDialogTitle = "What each entry reveals"
+    override val bigPictureDetailEditDescription = "Choose what each entry reveals"
     override val bigPictureFilterCountAll = "Every one"
     override val bigPictureAllCasesLabel = "Every Case"
     override val bigPictureAllTagsLabel = "Every tag"
@@ -1715,8 +1724,9 @@ object BrightVoice : Voice {
     override val bigPictureMonthPickerTitle = "Jump to a month!"
     override val bigPictureDayDetailEmptyState = "Nothing logged this day — a blank page."
     override val bigPictureWeekDetailEmptyState = "Nothing logged this week — a blank page."
-    override val bigPictureEventNoteEmptyState = "No note — mystery!"
     override val bigPictureWeekViewDescription = "Peek at the week!"
+    override val bigPictureDetailDialogTitle = "Row detail!"
+    override val bigPictureDetailEditDescription = "Pick what shows up in each row!"
     override val bigPictureFilterCountAll = "All!"
     override val bigPictureAllCasesLabel = "All Cases!"
     override val bigPictureAllTagsLabel = "All tags!"

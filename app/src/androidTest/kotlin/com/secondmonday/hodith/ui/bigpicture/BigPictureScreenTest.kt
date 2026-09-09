@@ -2,12 +2,19 @@ package com.secondmonday.hodith.ui.bigpicture
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.secondmonday.hodith.data.BigPictureDetail
+import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
@@ -50,6 +57,7 @@ class BigPictureScreenTest {
         cellStyle: BigPictureCellStyle = BigPictureCellStyle.PLAIN,
         decorationStyle: CardDecorationStyle = CardDecorationStyle.PLAIN,
         onOpenCase: (Long) -> Unit = {},
+        onToggleDetail: (BigPictureDetailField, Boolean) -> Unit = { _, _ -> },
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(
@@ -57,7 +65,7 @@ class BigPictureScreenTest {
                 LocalBigPictureCellStyle provides cellStyle,
                 LocalCardDecorationStyle provides decorationStyle,
             ) {
-                BigPictureScreen(uiState = uiState, onOpenCase = onOpenCase)
+                BigPictureScreen(uiState = uiState, onOpenCase = onOpenCase, onToggleDetail = onToggleDetail)
             }
         }
     }
@@ -65,12 +73,14 @@ class BigPictureScreenTest {
     private fun uiStateWith(
         cases: List<CalendarCase> = emptyList(),
         events: List<CalendarEvent> = emptyList(),
+        detail: BigPictureDetail = BigPictureDetail.DEFAULT,
     ) = BigPictureUiState(
         cases = cases,
         events = events,
         earliestMonth = currentMonth,
         currentMonth = currentMonth,
         today = today,
+        detail = detail,
         isLoading = false,
     )
 
@@ -78,11 +88,13 @@ class BigPictureScreenTest {
         id: Long = 1L,
         note: String? = null,
         tags: List<String> = emptyList(),
+        intensity: Int? = null,
     ) = CalendarEvent(
         id = id,
         caseId = case.id,
         occurredAt = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
         note = note,
+        intensity = intensity,
         tags = tags,
     )
 
@@ -193,8 +205,8 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
 
-        // Midnight (today.atStartOfDay) formats as "12:00 AM".
-        composeTestRule.onNodeWithText("12:00 AM").assertExists()
+        // Midnight (today.atStartOfDay) formats as "12:00 AM"; it's a trailing span in the name line.
+        composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
         // The legend row is empty by default (both Cases and tags start fully selected), so the
         // only "late night" node is the tag pill on this event row inside the now-open dialog.
         composeTestRule.onNodeWithText("late night").assertExists()
@@ -224,12 +236,13 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(weekStart.plusDays(1).dayOfMonth.toString()).performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20", "Jul 22")).assertExists()
+        // The carried-day row carries the real start date + time, not a bare clock time.
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertExists()
         composeTestRule.onNodeWithText("9:00 AM").assertDoesNotExist()
     }
 
     @Test
-    fun dayDetailDialog_carriedDayOfOngoingEvent_showsOngoingSince() {
+    fun dayDetailDialog_carriedDayOfOngoingEvent_showsOngoingSinceWithDateAndTime() {
         val ongoing =
             CalendarEvent(
                 id = 1L,
@@ -243,7 +256,7 @@ class BigPictureScreenTest {
         // today is the 23rd; the 22nd is a carried day of the still-running event.
         composeTestRule.onNodeWithText(today.minusDays(1).dayOfMonth.toString()).performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21, 8:00 AM")).assertExists()
     }
 
     @Test
@@ -256,7 +269,7 @@ class BigPictureScreenTest {
         val dayTitle = today.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
 
-        composeTestRule.onNodeWithText("${case.icon} ${case.name}").performClick()
+        composeTestRule.onNodeWithText("${case.icon} ${case.name}", substring = true).performClick()
 
         assert(openedCaseId == case.id) { "expected onOpenCase to be called with ${case.id}, was $openedCaseId" }
         composeTestRule.onNodeWithText(dayTitle).assertDoesNotExist()
@@ -362,8 +375,8 @@ class BigPictureScreenTest {
         // Today's week is the last (bottom-most) rendered week row.
         composeTestRule.onAllNodesWithText("›").onLast().performClick()
 
-        // Midnight (today.atStartOfDay) formats as "12:00 AM".
-        composeTestRule.onNodeWithText("12:00 AM").assertExists()
+        // Midnight (today.atStartOfDay) formats as "12:00 AM"; it's a trailing span in the name line.
+        composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
         // The legend row is empty by default (both Cases and tags start fully selected), so the
         // only "late night" node is the tag pill on this event row inside the now-open dialog.
         composeTestRule.onNodeWithText("late night").assertExists()
@@ -379,7 +392,7 @@ class BigPictureScreenTest {
         val formattedWeekStart = weekStart.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
         composeTestRule.onAllNodesWithText("›").onLast().performClick()
 
-        composeTestRule.onNodeWithText("${case.icon} ${case.name}").performClick()
+        composeTestRule.onNodeWithText("${case.icon} ${case.name}", substring = true).performClick()
 
         assert(openedCaseId == case.id) { "expected onOpenCase to be called with ${case.id}, was $openedCaseId" }
         composeTestRule.onNodeWithText(PlainVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertDoesNotExist()
@@ -401,8 +414,10 @@ class BigPictureScreenTest {
         composeTestRule.onAllNodesWithText("›").onLast().performClick()
 
         // The week dialog lists the event once per covered day (20th, 21st, 22nd); every row reads
-        // the span range in place of a clock time, matching the day dialog.
-        composeTestRule.onAllNodesWithText(PlainVoice.bigPictureEventSpanRange("Jul 20", "Jul 22")).assertCountEquals(3)
+        // the span range (start + end date and time) in place of a bare clock time.
+        composeTestRule
+            .onAllNodesWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM"))
+            .assertCountEquals(3)
         composeTestRule.onNodeWithText("9:00 AM").assertDoesNotExist()
     }
 
@@ -421,7 +436,7 @@ class BigPictureScreenTest {
         composeTestRule.onAllNodesWithText("›").onLast().performClick()
 
         // Covered days 21st, 22nd, 23rd (today) all fall in this week; each row reads "ongoing since".
-        composeTestRule.onAllNodesWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21")).assertCountEquals(3)
+        composeTestRule.onAllNodesWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21, 8:00 AM")).assertCountEquals(3)
     }
 
     @Test
@@ -550,5 +565,233 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureAllCasesLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureUntaggedOnlyLabel).assertExists()
+    }
+
+    // ---- overview-detail control (spec §9) ----
+
+    private fun detailTag(field: BigPictureDetailField) = BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX + field.name
+
+    private fun openDay() = composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+
+    @Test
+    fun dayDetailDialog_notelessEvent_showsNoPlaceholder() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday(note = null))))
+
+        openDay()
+
+        // The retired bigPictureEventNoteEmptyState used to render "No note" here.
+        composeTestRule.onNodeWithText("No note").assertDoesNotExist()
+        composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
+    }
+
+    @Test
+    fun detailDialog_opensFromEditIcon_showsFourTogglesAtTheDefault() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday())))
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.bigPictureDetailEditDescription).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureDetailDialogTitle).assertExists()
+        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.NOTES)).assertIsOn()
+        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.TAGS)).assertIsOn()
+        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.DURATION)).assertIsOn()
+        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.INTENSITY)).assertIsOff()
+    }
+
+    @Test
+    fun detailDialog_togglingARow_reportsTheFieldAndNewValue() {
+        val toggles = mutableListOf<Pair<BigPictureDetailField, Boolean>>()
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(eventToday())),
+            onToggleDetail = { field, enabled -> toggles += field to enabled },
+        )
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.bigPictureDetailEditDescription).performClick()
+        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.INTENSITY)).performClick()
+        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.NOTES)).performClick()
+
+        assert(toggles == listOf(BigPictureDetailField.INTENSITY to true, BigPictureDetailField.NOTES to false)) {
+            "expected an on and an off toggle, was $toggles"
+        }
+    }
+
+    @Test
+    fun editIcon_sitsRightOfTheCasesAndTagsChips() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday(tags = listOf("late night")))))
+
+        val casesRight = composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).getBoundsInRoot().right
+        val editLeft =
+            composeTestRule.onNodeWithContentDescription(PlainVoice.bigPictureDetailEditDescription).getBoundsInRoot().left
+
+        assert(editLeft > casesRight) { "expected the edit icon ($editLeft) right of the Cases chip ($casesRight)" }
+    }
+
+    @Test
+    fun dayDetailRow_notesToggleOff_hidesTheNote() {
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(eventToday(note = "started at the temples")),
+                detail = BigPictureDetail.DEFAULT.copy(notes = false),
+            ),
+        )
+
+        openDay()
+
+        composeTestRule.onNodeWithText("started at the temples").assertDoesNotExist()
+    }
+
+    @Test
+    fun dayDetailRow_tagsToggleOff_hidesTheTagPills() {
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(eventToday(note = "felt fine", tags = listOf("late night"))),
+                detail = BigPictureDetail.DEFAULT.copy(tags = false),
+            ),
+        )
+
+        openDay()
+
+        composeTestRule.onNodeWithText("felt fine").assertExists()
+        composeTestRule.onNodeWithText("late night").assertDoesNotExist()
+    }
+
+    @Test
+    fun dayDetailRow_intensityToggleOn_showsTheIntensityLabel() {
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(eventToday(intensity = 3)),
+                detail = BigPictureDetail.DEFAULT.copy(intensity = true),
+            ),
+        )
+
+        openDay()
+
+        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(3), substring = true).assertExists()
+    }
+
+    @Test
+    fun dayDetailRow_intensityToggleOff_hidesTheIntensityLabel() {
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(eventToday(intensity = 3)),
+                detail = BigPictureDetail.DEFAULT.copy(intensity = false),
+            ),
+        )
+
+        openDay()
+
+        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(3), substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun dayDetailRow_durationToggleOn_showsLastedForASameDayDurationEvent() {
+        val start = millisAt(today, 9)
+        val end = start + 40 * 60_000L
+        val sameDayDuration = CalendarEvent(id = 1L, caseId = case.id, occurredAt = start, endedAt = end)
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(sameDayDuration),
+                detail = BigPictureDetail.DEFAULT.copy(duration = true),
+            ),
+        )
+
+        openDay()
+
+        composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel("40m"), substring = true).assertExists()
+    }
+
+    @Test
+    fun dayDetailRow_durationToggleOff_hidesLasted() {
+        val start = millisAt(today, 9)
+        val sameDayDuration = CalendarEvent(id = 1L, caseId = case.id, occurredAt = start, endedAt = start + 40 * 60_000L)
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(sameDayDuration),
+                detail = BigPictureDetail.DEFAULT.copy(duration = false),
+            ),
+        )
+
+        openDay()
+
+        composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel("40m"), substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun dayDetailRow_multiDaySpan_keepsItsRangeLabelAndAddsNoLastedLine() {
+        val span =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart, 9),
+                endedAt = millisAt(weekStart.plusDays(2), 17),
+            )
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(span), detail = BigPictureDetail.DEFAULT.copy(duration = true)),
+        )
+
+        composeTestRule.onNodeWithText(weekStart.plusDays(1).dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel(""), substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun dayDetailRow_allTogglesOff_showsOnlyNameAndTime() {
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(eventToday(note = "felt fine", tags = listOf("late night"), intensity = 3)),
+                detail = BigPictureDetail.ALL_OFF,
+            ),
+        )
+
+        openDay()
+
+        // Name + time are one wrapping line; nothing else on the row.
+        composeTestRule.onNodeWithText("${case.icon} ${case.name}", substring = true).assertExists()
+        composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
+        composeTestRule.onNodeWithText("felt fine").assertDoesNotExist()
+        composeTestRule.onNodeWithText("late night").assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(3), substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun weekDetailRow_honoursTheIntensityToggle() {
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(eventToday(intensity = 4)),
+                detail = BigPictureDetail.DEFAULT.copy(intensity = true),
+            ),
+        )
+
+        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(4), substring = true).assertExists()
+    }
+
+    @Test
+    fun detailMetaLineAndDialog_renderUnderBrightTheme() {
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(eventToday(intensity = 3)),
+                detail = BigPictureDetail.DEFAULT.copy(intensity = true),
+            ),
+            cellStyle = BigPictureCellStyle.BRIGHT,
+            decorationStyle = CardDecorationStyle.BRIGHT,
+        )
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.bigPictureDetailEditDescription).performClick()
+        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.INTENSITY)).assertIsOn()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        openDay()
+        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(3), substring = true).assertExists()
     }
 }

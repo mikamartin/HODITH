@@ -7,6 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.Locale
 
 /**
@@ -40,6 +42,20 @@ class EventTimeFormatTest {
     @Test
     fun `formatSpanDate is month and day, no year`() {
         assertEquals("Jul 9", formatSpanDate(LocalDate.of(2026, 7, 9)))
+    }
+
+    @Test
+    fun `formatSpanDateTime is month, day and time with no year, in both clock formats and the given zone`() {
+        val utc = ZoneId.of("UTC")
+        val millis = ZonedDateTime.of(2026, 7, 9, 8, 2, 0, 0, utc).toInstant().toEpochMilli()
+
+        val twelve = formatSpanDateTime(millis, use24Hour = false, zone = utc)
+        assertEquals("Jul 9, 8:02 AM", twelve)
+        assertFalse("expected no year in \"$twelve\"", twelve.contains("2026"))
+
+        assertEquals("Jul 9, 08:02", formatSpanDateTime(millis, use24Hour = true, zone = utc))
+        // America/New_York is UTC-4 in July, so 08:02 UTC is 04:02 local.
+        assertEquals("Jul 9, 4:02 AM", formatSpanDateTime(millis, use24Hour = false, zone = ZoneId.of("America/New_York")))
     }
 
     @Test

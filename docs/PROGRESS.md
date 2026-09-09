@@ -48,7 +48,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy), and among Standalone S3 (a possible shortened segment label), S4 (retiring `bigPictureEventNoteEmptyState`), and S5 (resolved-hunch row wording). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy), and among Standalone S3 (a possible shortened segment label) and S5 (resolved-hunch row wording). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too. The `feat/big-picture-overview-detail` branch retired `bigPictureEventNoteEmptyState` (×3) and added `bigPictureDetailDialogTitle` + `bigPictureDetailEditDescription` (×3) plus four shared `get()` field labels — fold those in.
 
 **Acceptance criteria**
 
@@ -69,8 +69,8 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
 - **Selection controls — S3** — `SegmentedChoiceRow` is shared by the Case editor's Duration row and all four Hunch-creation-sheet selectors; one fix covers both.
-- **Fully isolated — S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S4** (Big Picture event-detail rows), **S5** (hunch-history row redesign), **S6** (performance review), **S7** (external content). No cross-dependencies; pick by appetite.
-- **Do last — S8** (prune `docs/mockups/`) — soft-blocked on S3/S4 and B1, whose visual reference is the theme/share mockups it would remove.
+- **Fully isolated — S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S4** (event tag-pill order), **S5** (hunch-history row redesign), **S6** (performance review), **S7** (external content). No cross-dependencies; pick by appetite.
+- **Do last — S8** (prune `docs/mockups/`) — soft-blocked on S3 and B1, whose visual reference is the theme/share mockups it would remove.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -138,27 +138,23 @@ Two screens surface this. `CaseEditScreen.kt`'s Duration section (options None /
 
 **Concern** — cosmetic; nothing is functionally broken, but it now touches a primary creation flow (the Hunch sheet), not just settings-adjacent screens.
 
-### S4 · Big Picture's event-detail rows diverge from the Insights drill-down's
+### S4 · Per-event tag pills render in an arbitrary order outside Big Picture
 
-*Branch: TBD · Complexity: S · Priority: Low · Area: Big Picture*
+*Branch: `fix/event-tag-pill-order` · Complexity: S · Priority: Low · Area: Bug*
 
-🎨 **Design decision** — needs a ruling on whether Big Picture's cross-case day/week dialogs should show the same detail the Insights drill-down rows do, or whether the current set is intentional given spec §9's "Intensity is not encoded on the grid" stance.
-
-Building the Insights drill-down (`InsightsDrillDownEventRow`, `ui/casedetail/InsightsTab.kt`) put it side by side with Big Picture's existing `EventDetailRow` (`ui/bigpicture/BigPictureGrid.kt`) for the first time, and the two turned out meaningfully different in both directions:
-
-- **Big Picture shows less where it matters** — no intensity, no computed duration line; its "ongoing since …" / span-range label is a static string computed once, where Insights' row shows a live-ticking elapsed time via the shared `eventDetailSummary` / `formatEventTime` / `OngoingElapsedText` helpers (`viewmodel/CaseDetailViewModel.kt`, `viewmodel/EventTimeFormat.kt`, `ui/common/OngoingIndicator.kt`) that Big Picture hand-rolls instead.
-- **Big Picture shows noise where Insights stays quiet** — `EventDetailRow` (`BigPictureGrid.kt:656-660`) always renders a note line, falling back to `voice.bigPictureEventNoteEmptyState` ("No note" / "No notes were left." / "No note — mystery!") when the note is blank. Insights' `eventDetailSummary()` just omits the note when blank, so a note-less event shows only its timestamp.
+The tags shown on a single event's row come out in the order they were attached to that event, not sorted. `TagDao.observeTagsForEvent` (`SELECT tags.* FROM tags INNER JOIN event_tags … WHERE event_tags.eventId = :eventId`) and the `EventWithTags` `@Relation` both have no `ORDER BY`, so SQLite returns rows in `event_tags` insertion order. This surfaces on the Case Detail **Log tab** row and the **Insights drill-down** row — both build their tag text via `eventDetailSummary(event, eventWithTags.tags, …)` (`CaseDetailScreen.kt` `EventRowContent`, `InsightsTab.kt` `InsightsDrillDownEventRow`) — where it reads as random and doesn't match the alphabetically-sorted tag list in the Big Picture / Insights filter dialogs. The Big Picture detail row was fixed in `feat/big-picture-overview-detail` with a `.sorted()` in `bigPictureUiState`; this item brings the rest in line.
 
 **Acceptance criteria**
 
-- [ ] A ruling recorded (HODITH_SPEC §9, or a note here if it's a non-decision) on what Big Picture's day/week detail rows should show, compared to Insights' drill-down rows.
-- [ ] Regardless of the ruling: `EventDetailRow` drops the empty-note placeholder — a note-less event shows nothing there, matching Insights. `voice.bigPictureEventNoteEmptyState` (×3, `Voice.kt:28`) retired if nothing else uses it (grep first); this touches Voice, so before B2.
-- [ ] If more detail is wanted: `EventDetailRow` reuses `eventDetailSummary` / `formatEventTime` / `OngoingElapsedText` the same way `InsightsDrillDownEventRow` does, rather than keeping its own hand-rolled time-label logic.
-- [ ] If the current sparser set is intentional: a one-line spec note saying so, so this doesn't get re-raised as an inconsistency later.
+- [ ] A single event's tag pills/text render alphabetically on the Log-tab row and the Insights drill-down row, matching Big Picture and the filter dialogs.
+- [ ] Fixed once — sort inside `eventDetailSummary` (both call sites share it) rather than per screen; `bigPictureUiState`'s own `.sorted()` stays (Big Picture renders pills from `CalendarEvent.tags`, not via `eventDetailSummary`), or is consolidated if a cleaner single seam appears.
+- [ ] Case-sensitivity decided and consistent with the filter dialogs' `.sorted()` (currently case-sensitive).
 
-**Plan** — revisit once there's appetite; no code plan until the ruling lands, except the empty-note placeholder removal, which is unconditional.
+**Plan** — add `tags.sortedBy { … }` at the top of `eventDetailSummary` before the `#`-join. A DAO `ORDER BY tags.name` on `observeTagsForEvent` would also help, but Room can't `ORDER BY` a plain `@Relation`, so the display-layer sort is the single seam that covers every surface.
 
-**Tests** — `BigPictureScreenTest`'s existing event-row assertions (`dayDetailDialog_showsEventTimestampAndTags` etc.) need updating alongside any `EventDetailRow` change, including the placeholder removal.
+**Tests** — `CaseDetailFormattingTest` gains a case where the input `tags` are out of order and the output is sorted; `CaseDetailScreenTest` / `CaseDetailInsightsTabTest` tag assertions stay green (or gain an order assertion).
+
+**Concern** — purely cosmetic; no data or behaviour change.
 
 ### S5 · Resolved-hunch history rows need a proper design and content pass
 
@@ -227,18 +223,18 @@ Current shape (from a source read):
 
 *Branch: `chore/prune-design-mockups` · Complexity: S · Priority: Low · Area: Repo*
 
-Six design-prototype HTML files sit in `docs/mockups/`. Three are genuinely orphaned — **no reference anywhere** in code or docs, just "saved for reference" snapshots of long-shipped features: `case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`. The other three are load-bearing today: `plain-theme-light-neutrals.html` (7 KDoc citations across `Color.kt`, `HomeScreen.kt`, `SettingsScreen.kt`, `SegmentedChoiceRow.kt`, `SectionWithInfo.kt`, `CaseDetailScreen.kt`), `bright-theme-soft-glow.html` (`GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureGrid.kt`), `share-cards-prototype.html` (`ShareCardDecoration.kt`). Those three are also the visual reference for still-open items — **S3** (segmented rows), **S4** (Big Picture rows) and **B1** (Square share preset) — so removing them now would orphan live KDoc *and* drop design context for pending work.
+Six design-prototype HTML files sit in `docs/mockups/`. Three are genuinely orphaned — **no reference anywhere** in code or docs, just "saved for reference" snapshots of long-shipped features: `case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`. The other three are load-bearing today: `plain-theme-light-neutrals.html` (7 KDoc citations across `Color.kt`, `HomeScreen.kt`, `SettingsScreen.kt`, `SegmentedChoiceRow.kt`, `SectionWithInfo.kt`, `CaseDetailScreen.kt`), `bright-theme-soft-glow.html` (`GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureGrid.kt`), `share-cards-prototype.html` (`ShareCardDecoration.kt`). Those three are also the visual reference for still-open items — **S3** (segmented rows) and **B1** (Square share preset) — so removing them now would orphan live KDoc *and* drop design context for pending work.
 
 **Acceptance criteria**
 
 - [ ] The three orphaned mockups (`case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`) removed directly — no references to strip first.
 - [ ] For each of the three referenced mockups: a decision recorded on whether its KDoc citations still earn their keep now the feature is stable (a pointer to a committed design artifact is useful history) or read as clutter. If a mockup is to go, every citing KDoc updated first — describe the treatment in prose or drop the line — then the file deleted; if it stays, no change.
-- [ ] Gated on S3/S4 and B1 either landing or being closed, so the theme/share mockups aren't pulled out from under open work.
+- [ ] Gated on S3 and B1 either landing or being closed, so the theme/share mockups aren't pulled out from under open work.
 - [ ] `README.md`'s AI-workflow section checked — if it describes `docs/mockups/` as a standing convention, reconcile with whatever this audit decides.
 
 **Plan** — do this after the theme-polish and share items clear (or are dropped). Delete the three orphans, then walk the KDoc citations for the other three and make the keep/strip call per file. Not urgent; these are small static files with no build cost.
 
-**Concern** — soft-blocked on S3/S4/B1; not "fully isolated" despite being repo hygiene.
+**Concern** — soft-blocked on S3/B1; not "fully isolated" despite being repo hygiene.
 
 ## Blocked
 

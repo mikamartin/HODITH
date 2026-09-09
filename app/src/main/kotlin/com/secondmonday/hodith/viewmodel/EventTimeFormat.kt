@@ -33,6 +33,8 @@ private val EVENT_TIME_WITH_YEAR_12H = DateTimeFormatter.ofPattern("MMM d, yyyy,
 private val EVENT_TIME_WITH_YEAR_24H = DateTimeFormatter.ofPattern("MMM d, yyyy, HH:mm, EEE", Locale.US)
 private val TIME_ONLY_12H = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
 private val TIME_ONLY_24H = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
+private val SPAN_DATE_TIME_12H = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US)
+private val SPAN_DATE_TIME_24H = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.US)
 private val SPAN_DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM d", Locale.US)
 private val WEEKDAY_DAY_FORMATTER = DateTimeFormatter.ofPattern("EEE d", Locale.US)
 private val MEDIUM_DATE_FORMATTER = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)
@@ -86,6 +88,17 @@ internal fun formatClockTime(
 
 /** "MMM d" — a span endpoint on the Big Picture grid. */
 internal fun formatSpanDate(date: LocalDate): String = date.format(SPAN_DATE_FORMATTER)
+
+/**
+ * "MMM d, h:mm a" — a Big Picture ongoing/span endpoint that fell on a different day than the row
+ * it's shown on, so the day alone would drop the actual start time and the time alone would read
+ * as belonging to the row's day. No year (the dialog is always within recent history).
+ */
+internal fun formatSpanDateTime(
+    occurredAt: Long,
+    use24Hour: Boolean,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(if (use24Hour) SPAN_DATE_TIME_24H else SPAN_DATE_TIME_12H)
 
 /** Localized medium date — the Big Picture day/week detail dialog titles. */
 internal fun formatMediumDate(date: LocalDate): String = date.format(MEDIUM_DATE_FORMATTER)
