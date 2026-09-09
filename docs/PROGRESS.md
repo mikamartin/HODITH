@@ -69,7 +69,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
 - **Selection controls — S3** — `SegmentedChoiceRow` is shared by the Case editor's Duration row and all four Hunch-creation-sheet selectors; one fix covers both.
-- **Fully isolated — S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S6** (performance review), **S7** (external content). No cross-dependencies; pick by appetite.
+- **Fully isolated — S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S4** (event tag-pill order), **S5** (hunch-history row redesign), **S6** (performance review), **S7** (external content). No cross-dependencies; pick by appetite.
 - **Do last — S8** (prune `docs/mockups/`) — soft-blocked on S3 and B1, whose visual reference is the theme/share mockups it would remove.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
@@ -137,6 +137,24 @@ Two screens surface this. `CaseEditScreen.kt`'s Duration section (options None /
 **Tests** — add a `SegmentedChoiceRow` Compose test (none exists) asserting all option labels are displayed for the three-option case in a constrained-width container; `CaseEditScreenTest`, `SettingsScreenTest`, and the Hunch-sheet tests stay green.
 
 **Concern** — cosmetic; nothing is functionally broken, but it now touches a primary creation flow (the Hunch sheet), not just settings-adjacent screens.
+
+### S4 · Per-event tag pills render in an arbitrary order outside Big Picture
+
+*Branch: `fix/event-tag-pill-order` · Complexity: S · Priority: Low · Area: Bug*
+
+The tags shown on a single event's row come out in the order they were attached to that event, not sorted. `TagDao.observeTagsForEvent` (`SELECT tags.* FROM tags INNER JOIN event_tags … WHERE event_tags.eventId = :eventId`) and the `EventWithTags` `@Relation` both have no `ORDER BY`, so SQLite returns rows in `event_tags` insertion order. This surfaces on the Case Detail **Log tab** row and the **Insights drill-down** row — both build their tag text via `eventDetailSummary(event, eventWithTags.tags, …)` (`CaseDetailScreen.kt` `EventRowContent`, `InsightsTab.kt` `InsightsDrillDownEventRow`) — where it reads as random and doesn't match the alphabetically-sorted tag list in the Big Picture / Insights filter dialogs. The Big Picture detail row was fixed in `feat/big-picture-overview-detail` with a `.sorted()` in `bigPictureUiState`; this item brings the rest in line.
+
+**Acceptance criteria**
+
+- [ ] A single event's tag pills/text render alphabetically on the Log-tab row and the Insights drill-down row, matching Big Picture and the filter dialogs.
+- [ ] Fixed once — sort inside `eventDetailSummary` (both call sites share it) rather than per screen; `bigPictureUiState`'s own `.sorted()` stays (Big Picture renders pills from `CalendarEvent.tags`, not via `eventDetailSummary`), or is consolidated if a cleaner single seam appears.
+- [ ] Case-sensitivity decided and consistent with the filter dialogs' `.sorted()` (currently case-sensitive).
+
+**Plan** — add `tags.sortedBy { … }` at the top of `eventDetailSummary` before the `#`-join. A DAO `ORDER BY tags.name` on `observeTagsForEvent` would also help, but Room can't `ORDER BY` a plain `@Relation`, so the display-layer sort is the single seam that covers every surface.
+
+**Tests** — `CaseDetailFormattingTest` gains a case where the input `tags` are out of order and the output is sorted; `CaseDetailScreenTest` / `CaseDetailInsightsTabTest` tag assertions stay green (or gain an order assertion).
+
+**Concern** — purely cosmetic; no data or behaviour change.
 
 ### S5 · Resolved-hunch history rows need a proper design and content pass
 
