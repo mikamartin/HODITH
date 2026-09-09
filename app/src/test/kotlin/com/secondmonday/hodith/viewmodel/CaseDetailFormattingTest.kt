@@ -234,6 +234,55 @@ class CaseDetailFormattingTest {
         )
     }
 
+    // ---- eventDetailSummary primitive overload (Big Picture's detail rows, spec §9) ----
+
+    @Test
+    fun `eventDetailSummary primitive overload is null when only a blank note and no duration or intensity`() {
+        assertNull(
+            eventDetailSummary(
+                occurredAt = 0L,
+                endedAt = null,
+                intensity = null,
+                note = "  ",
+                tagNames = emptyList(),
+                voice = PlainVoice,
+                tracksDuration = false,
+                showIntensity = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `eventDetailSummary primitive overload gives just the duration when intensity is hidden`() {
+        assertEquals(
+            PlainVoice.eventDurationLabel("40m"),
+            eventDetailSummary(
+                occurredAt = 0L,
+                endedAt = 40 * 60_000L,
+                intensity = 3,
+                note = null,
+                tagNames = emptyList(),
+                voice = PlainVoice,
+                showIntensity = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `eventDetailSummary primitive overload joins tag names with a hash each`() {
+        assertEquals(
+            "#work #morning",
+            eventDetailSummary(
+                occurredAt = 0L,
+                endedAt = null,
+                intensity = null,
+                note = null,
+                tagNames = listOf("work", "morning"),
+                voice = PlainVoice,
+            ),
+        )
+    }
+
     // ---- formatRate ----
 
     @Test

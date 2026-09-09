@@ -1,12 +1,15 @@
 package com.secondmonday.hodith.viewmodel
 
 import app.cash.turbine.test
+import com.secondmonday.hodith.data.BigPictureDetail
+import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CaseWithEventsAndTags
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.testsupport.Fixtures
@@ -29,8 +32,11 @@ import java.time.ZoneId
 @OptIn(ExperimentalCoroutinesApi::class)
 class BigPictureViewModelTest {
     private val repository = FakeHodithRepository()
+    private val settings = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
     private val zoneId = ZoneId.systemDefault()
+
+    private fun viewModel() = BigPictureViewModel(repository, settings, clock)
 
     @Before
     fun setUp() {
@@ -61,7 +67,7 @@ class BigPictureViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase(), testCase(id = 2L, name = "Archived").copy(archived = true))
             repository.events.value = listOf(testEvent(note = "felt fine"))
-            val viewModel = BigPictureViewModel(repository, clock)
+            val viewModel = viewModel()
 
             viewModel.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
@@ -74,20 +80,25 @@ class BigPictureViewModelTest {
         }
 
     @Test
-    fun `uiState maps each event's id and tag names`() =
+    fun `uiState maps each event's id and its tag names, sorted alphabetically`() =
         runTest {
             repository.cases.value = listOf(testCase())
             val event = testEvent(note = "felt fine")
             repository.events.value = listOf(event)
-            repository.tags.value = listOf(TagEntity(id = 1L, name = "late night"))
-            repository.eventTags.value = listOf(EventTagCrossRef(eventId = event.id, tagId = 1L))
-            val viewModel = BigPictureViewModel(repository, clock)
+            repository.tags.value =
+                listOf(
+                    TagEntity(id = 1L, name = "work"),
+                    TagEntity(id = 2L, name = "admin"),
+                    TagEntity(id = 3L, name = "late night"),
+                )
+            repository.eventTags.value = (1L..3L).map { EventTagCrossRef(eventId = event.id, tagId = it) }
+            val viewModel = viewModel()
 
             viewModel.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
                 val mappedEvent = state.events.single()
                 assertEquals(event.id, mappedEvent.id)
-                assertEquals(listOf("late night"), mappedEvent.tags)
+                assertEquals(listOf("admin", "late night", "work"), mappedEvent.tags)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -202,6 +213,145 @@ class BigPictureViewModelTest {
         assertEquals(endMillis, mapped.endedAt)
         assertEquals(false, mapped.isOngoing)
     }
+
+    // ---- intensity projection (spec §9: detail rows only, never the grid) ----
+
+    @Test
+    fun `bigPictureUiState carries an event's intensity when the Case has intensity enabled`() {
+        val casesWithEvents =
+            listOf(
+                CaseWithEventsAndTags(
+                    case = testCase(id = 1L).copy(intensityEnabled = true),
+                    events = listOf(EventWithTags(Fixtures.event(caseId = 1L, intensity = 4), emptyList())),
+                ),
+            )
+
+        assertEquals(4, bigPictureUiState(casesWithEvents, clock.nowMillis(), zoneId).events.single().intensity)
+    }
+
+    @Test
+    fun `bigPictureUiState drops a stored intensity when the Case has intensity disabled`() {
+        val casesWithEvents =
+            listOf(
+                CaseWithEventsAndTags(
+                    case = testCase(id = 1L).copy(intensityEnabled = false),
+                    events = listOf(EventWithTags(Fixtures.event(caseId = 1L, intensity = 4), emptyList())),
+                ),
+            )
+
+        assertNull(bigPictureUiState(casesWithEvents, clock.nowMillis(), zoneId).events.single().intensity)
+    }
+
+    @Test
+    fun `bigPictureUiState leaves intensity null when the event has none`() {
+        val casesWithEvents =
+            listOf(
+                CaseWithEventsAndTags(
+                    case = testCase(id = 1L).copy(intensityEnabled = true),
+                    events = listOf(EventWithTags(Fixtures.event(caseId = 1L, intensity = null), emptyList())),
+                ),
+            )
+
+        assertNull(bigPictureUiState(casesWithEvents, clock.nowMillis(), zoneId).events.single().intensity)
+    }
+
+    @Test
+    fun `bigPictureUiState keeps a same-day endedAt on a duration-tracking Case so the row can show a duration`() {
+        val occurredAt = Instant.parse("2026-05-16T09:10:00Z").toEpochMilli()
+        val endedAt = Instant.parse("2026-05-16T09:50:00Z").toEpochMilli()
+        val casesWithEvents =
+            listOf(
+                CaseWithEventsAndTags(
+                    case = testCase(id = 1L).copy(durationMode = DurationMode.MANUAL),
+                    events = listOf(EventWithTags(Fixtures.event(caseId = 1L, occurredAt = occurredAt, endedAt = endedAt), emptyList())),
+                ),
+            )
+
+        assertEquals(endedAt, bigPictureUiState(casesWithEvents, clock.nowMillis(), zoneId).events.single().endedAt)
+    }
+
+    // ---- overview-detail preference wiring ----
+
+    @Test
+    fun `bigPictureUiState carries the detail argument, defaulting to DEFAULT`() {
+        assertEquals(BigPictureDetail.DEFAULT, bigPictureUiState(emptyList(), clock.nowMillis()).detail)
+        assertEquals(
+            BigPictureDetail.ALL_OFF,
+            bigPictureUiState(emptyList(), clock.nowMillis(), detail = BigPictureDetail.ALL_OFF).detail,
+        )
+    }
+
+    @Test
+    fun `uiState detail defaults to DEFAULT with an untouched settings repository`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            viewModel().uiState.test {
+                assertEquals(BigPictureDetail.DEFAULT, awaitLoadedItem { it.isLoading }.detail)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `uiState reflects a detail value emitted by the settings repository`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            viewModel().uiState.test {
+                awaitLoadedItem { it.isLoading }
+                settings.bigPictureDetail.value = BigPictureDetail.ALL_OFF
+                assertEquals(BigPictureDetail.ALL_OFF, awaitItem().detail)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `uiState keeps the current detail across a repository change`() =
+        runTest {
+            settings.bigPictureDetail.value = BigPictureDetail.DEFAULT.with(BigPictureDetailField.INTENSITY, true)
+            viewModel().uiState.test {
+                awaitLoadedItem { it.isLoading }
+                repository.cases.value = listOf(testCase())
+                val state = awaitItem()
+                assertEquals(1, state.cases.size)
+                assertTrue(state.detail.intensity)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setDetail flips one field and persists the rest unchanged`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.setDetail(BigPictureDetailField.INTENSITY, true)
+            assertEquals(BigPictureDetail.DEFAULT.copy(intensity = true), settings.bigPictureDetail.value)
+
+            vm.setDetail(BigPictureDetailField.NOTES, false)
+            assertEquals(
+                BigPictureDetail.DEFAULT.copy(intensity = true, notes = false),
+                settings.bigPictureDetail.value,
+            )
+        }
+
+    @Test
+    fun `setDetail off then on round-trips to the starting value`() =
+        runTest {
+            val vm = viewModel()
+            vm.setDetail(BigPictureDetailField.DURATION, false)
+            vm.setDetail(BigPictureDetailField.DURATION, true)
+
+            assertEquals(BigPictureDetail.DEFAULT, settings.bigPictureDetail.value)
+        }
+
+    @Test
+    fun `setDetail from a non-default starting point preserves the fields it is not touching`() =
+        runTest {
+            settings.bigPictureDetail.value = BigPictureDetail.ALL_OFF
+            val vm = viewModel()
+
+            vm.setDetail(BigPictureDetailField.TAGS, true)
+
+            assertEquals(BigPictureDetail.ALL_OFF.copy(tags = true), settings.bigPictureDetail.value)
+        }
 
     private fun withNoEvents(case: CaseEntity) = CaseWithEventsAndTags(case = case, events = emptyList())
 }

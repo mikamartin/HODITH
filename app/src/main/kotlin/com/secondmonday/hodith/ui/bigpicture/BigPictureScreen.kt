@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.viewmodel.BigPictureUiState
@@ -25,7 +26,12 @@ fun BigPictureRoute(
     viewModel: BigPictureViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    BigPictureScreen(uiState = uiState, onOpenCase = onOpenCase, modifier = modifier)
+    BigPictureScreen(
+        uiState = uiState,
+        onOpenCase = onOpenCase,
+        onToggleDetail = viewModel::setDetail,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -33,6 +39,7 @@ fun BigPictureScreen(
     uiState: BigPictureUiState,
     onOpenCase: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    onToggleDetail: (BigPictureDetailField, Boolean) -> Unit = { _, _ -> },
 ) {
     val voice = LocalVoice.current
     Box(modifier = modifier.fillMaxSize()) {
@@ -60,7 +67,9 @@ fun BigPictureScreen(
                         cases = uiState.cases,
                         events = uiState.events,
                         today = uiState.today!!,
+                        detail = uiState.detail,
                         onOpenCase = onOpenCase,
+                        onToggleDetail = onToggleDetail,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
                 }

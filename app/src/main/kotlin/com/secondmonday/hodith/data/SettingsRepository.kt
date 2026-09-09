@@ -34,4 +34,9 @@ interface SettingsRepository {
     fun observeCloudBackupEnabled(): Flow<Boolean>
 
     suspend fun setCloudBackupEnabled(enabled: Boolean)
+
+    /** Spec §9: which optional fields the Big Picture day/week detail rows show. Default [BigPictureDetail.DEFAULT]. */
+    fun observeBigPictureDetail(): Flow<BigPictureDetail>
+
+    suspend fun setBigPictureDetail(detail: BigPictureDetail)
 }

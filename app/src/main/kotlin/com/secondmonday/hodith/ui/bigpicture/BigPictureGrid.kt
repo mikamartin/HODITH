@@ -27,6 +27,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,13 +49,20 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.BigPictureDetail
+import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.domain.weeksInGrid
 import com.secondmonday.hodith.ui.common.InfoDialog
+import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
@@ -62,9 +73,10 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
+import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatClockTime
 import com.secondmonday.hodith.viewmodel.formatMediumDate
-import com.secondmonday.hodith.viewmodel.formatSpanDate
+import com.secondmonday.hodith.viewmodel.formatSpanDateTime
 import com.secondmonday.hodith.viewmodel.formatWeekdayDayDate
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -86,11 +98,15 @@ import java.time.ZoneId
  * as a separate tap target from the day cells since a click handler spanning the whole row would
  * never fire for taps landing on a day cell (the innermost clickable wins).
  *
- * Intensity is not encoded. Duration is, but only for an event whose active span (spec §9) covers
- * more than one calendar day: its icon then appears on every covered day and the start day's icon
- * is ringed in `primary`. A still-running event's span runs to today. A same-day duration event
- * reads exactly like a moment event. The day/week detail dialogs show "ongoing since …" /
- * "lasted …" for those events in place of a clock time that would mislead on a carried day.
+ * Intensity is not encoded on the grid. Duration is, but only for an event whose active span
+ * (spec §9) covers more than one calendar day: its icon then appears on every covered day and the
+ * start day's icon is ringed in `primary`. A still-running event's span runs to today. A same-day
+ * duration event reads exactly like a moment event. The day/week detail dialogs give those events
+ * an "ongoing since …" / "lasted …" label on its own line — carrying the start date *and* time
+ * once the event began on a different day than the row, since a bare clock time would read as
+ * belonging to that row's day. What else those rows carry (note, tags, a same-day duration line,
+ * intensity) follows the user's [BigPictureDetail] preference, edited from the filter row's edit
+ * icon.
  *
  * Scroll range is [earliestMonth]..[currentMonth] inclusive, opening at the bottom (current
  * month). Replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired
@@ -149,6 +165,8 @@ fun BigPictureGrid(
     today: LocalDate,
     onOpenCase: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    detail: BigPictureDetail = BigPictureDetail.DEFAULT,
+    onToggleDetail: (BigPictureDetailField, Boolean) -> Unit = { _, _ -> },
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     var visibleCaseIds by remember(cases) { mutableStateOf(cases.map { it.id }.toSet()) }
@@ -219,6 +237,8 @@ fun BigPictureGrid(
                     visibleTagNames = if (tag in visibleTagNames) visibleTagNames - tag else visibleTagNames + tag
                 },
                 onSetVisibleTagNames = { visibleTagNames = it },
+                detail = detail,
+                onToggleDetail = onToggleDetail,
             )
             WeekdayHeader(modifier = Modifier.padding(horizontal = 12.dp))
             LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
@@ -271,6 +291,7 @@ fun BigPictureGrid(
             dayEvents = eventsByDay[day].orEmpty().filter { isEventVisible(it.event) },
             today = today,
             caseById = caseById,
+            detail = detail,
             zoneId = zoneId,
             onOpenCase = onOpenCase,
             onDismiss = { selectedDay = null },
@@ -283,6 +304,7 @@ fun BigPictureGrid(
             eventsByDay = eventsByDay,
             caseById = caseById,
             isEventVisible = isEventVisible,
+            detail = detail,
             zoneId = zoneId,
             onOpenCase = onOpenCase,
             onDismiss = { selectedWeek = null },
@@ -306,13 +328,20 @@ private fun FilterSummaryRow(
     visibleTagNames: Set<String>,
     onToggleTag: (String) -> Unit,
     onSetVisibleTagNames: (Set<String>) -> Unit,
+    detail: BigPictureDetail,
+    onToggleDetail: (BigPictureDetailField, Boolean) -> Unit,
 ) {
     val voice = LocalVoice.current
     var showCasesDialog by remember { mutableStateOf(false) }
     var showTagsDialog by remember { mutableStateOf(false) }
+    var showDetailDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             FilterTriggerChip(
                 label = voice.bigPictureCasesFilterLabel,
                 count = filterCountLabel(voice, visibleCaseIds.size, cases.size),
@@ -324,6 +353,12 @@ private fun FilterSummaryRow(
                     count = filterCountLabel(voice, visibleTagNames.size, allTagNames.size),
                     onClick = { showTagsDialog = true },
                 )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            // Edit which fields the day/week detail rows carry (spec §9) — the filters above stay
+            // left-aligned, this stays pinned right.
+            IconButton(onClick = { showDetailDialog = true }) {
+                Icon(Icons.Filled.Edit, contentDescription = voice.bigPictureDetailEditDescription)
             }
         }
         FilterLegendRow(
@@ -372,6 +407,26 @@ private fun FilterSummaryRow(
             }
         }
     }
+    if (showDetailDialog) {
+        InfoDialog(
+            title = voice.bigPictureDetailDialogTitle,
+            onDismiss = { showDetailDialog = false },
+        ) {
+            Column {
+                BigPictureDetailField.entries.forEach { field ->
+                    ToggleRow(
+                        label = detailFieldLabel(field, voice),
+                        checked = detail.has(field),
+                        onCheckedChange = { onToggleDetail(field, it) },
+                        modifier =
+                            Modifier
+                                .testTag(BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX + field.name)
+                                .padding(vertical = 4.dp),
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** Flips the whole dialog's selection in one tap — "Select all" when not everything is selected, "Clear all" once it is. */
@@ -392,6 +447,20 @@ private fun filterCountLabel(
     selected: Int,
     total: Int,
 ) = if (selected == total) voice.bigPictureFilterCountAll else voice.bigPictureFilterCount(selected, total)
+
+/** Test hook — the same field label also appears in the row behind the open dialog. */
+internal const val BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX = "bp_detail_toggle_"
+
+private fun detailFieldLabel(
+    field: BigPictureDetailField,
+    voice: Voice,
+): String =
+    when (field) {
+        BigPictureDetailField.NOTES -> voice.bigPictureDetailNotesLabel
+        BigPictureDetailField.TAGS -> voice.bigPictureDetailTagsLabel
+        BigPictureDetailField.DURATION -> voice.bigPictureDetailDurationLabel
+        BigPictureDetailField.INTENSITY -> voice.bigPictureDetailIntensityLabel
+    }
 
 /** Read-only summary of the current selection; collapsing rules are spec §9's (see [bigPictureCaseLegend]/[bigPictureTagLegend]). */
 @Composable
@@ -537,6 +606,7 @@ private fun DayDetailDialog(
     dayEvents: List<DayEvent>,
     today: LocalDate,
     caseById: Map<Long, CalendarCase>,
+    detail: BigPictureDetail,
     zoneId: ZoneId,
     onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
@@ -553,7 +623,7 @@ private fun DayDetailDialog(
             // dialog's window just clips silently rather than scrolling.
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 dayEvents.forEach { dayEvent ->
-                    EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, zoneId, onOpenCase, onDismiss, voice)
+                    EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, detail, zoneId, onOpenCase, onDismiss, voice)
                 }
             }
         }
@@ -567,6 +637,7 @@ private fun WeekDetailDialog(
     eventsByDay: Map<LocalDate, List<DayEvent>>,
     caseById: Map<Long, CalendarCase>,
     isEventVisible: (CalendarEvent) -> Boolean,
+    detail: BigPictureDetail,
     zoneId: ZoneId,
     onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
@@ -589,7 +660,7 @@ private fun WeekDetailDialog(
                         modifier = Modifier.padding(top = 6.dp),
                     )
                     dayEvents.forEach { dayEvent ->
-                        EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, zoneId, onOpenCase, onDismiss, voice)
+                        EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, detail, zoneId, onOpenCase, onDismiss, voice)
                     }
                 }
             }
@@ -605,6 +676,7 @@ private fun EventDetailRow(
     dayEvent: DayEvent,
     case: CalendarCase?,
     today: LocalDate,
+    detail: BigPictureDetail,
     zoneId: ZoneId,
     onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
@@ -622,16 +694,55 @@ private fun EventDetailRow(
         when {
             event.isOngoing ->
                 voice.bigPictureEventOngoingSince(
-                    if (startDate == today) startTime else formatSpanDate(startDate),
+                    // Started today → just the time (the dialog title already carries the date).
+                    // Started earlier → date + time, so a carried-day row keeps the real start time.
+                    if (startDate == today) startTime else formatSpanDateTime(event.occurredAt, use24Hour, zoneId),
                 )
             dayEvent.isSpanStart || dayEvent.isSpanCarried ->
                 voice.bigPictureEventSpanRange(
-                    formatSpanDate(startDate),
-                    formatSpanDate(
-                        Instant.ofEpochMilli(event.endedAt!!).atZone(zoneId).toLocalDate(),
-                    ),
+                    formatSpanDateTime(event.occurredAt, use24Hour, zoneId),
+                    formatSpanDateTime(event.endedAt!!, use24Hour, zoneId),
                 )
             else -> startTime
+        }
+    // A bare clock time sits inline after the Case name; the wordier "ongoing since …" / span-range
+    // labels take their own line so a long Case name can't squeeze them into an ugly wrap.
+    val timeOnOwnLine = event.isOngoing || dayEvent.isSpanStart || dayEvent.isSpanCarried
+    // Duration/intensity line (spec §9), governed by the user's overview-detail preference. A
+    // multi-day span and a still-running event already state their extent in [timeLabel], so the
+    // "lasted N" line is limited to same-day finished events; `eventDetailSummary` renders only
+    // the duration/intensity part here — note and tags get their own lines below.
+    val showDuration = detail.duration && !dayEvent.isSpanStart && !dayEvent.isSpanCarried && !event.isOngoing
+    val metaLine =
+        eventDetailSummary(
+            occurredAt = event.occurredAt,
+            endedAt = event.endedAt.takeIf { showDuration },
+            intensity = event.intensity,
+            note = null,
+            tagNames = emptyList(),
+            voice = voice,
+            isOngoing = event.isOngoing,
+            showIntensity = detail.intensity,
+        )
+    val note = event.note?.takeIf { detail.notes && it.isNotBlank() }
+    // Icon + name and, for a same-day event, its clock time are one wrapping text flow — a `Row`
+    // of two `Text`s squeezes the time into an ugly wrap when the Case name is long, so they share
+    // one `Text` and the time is a trailing muted span instead.
+    val heading =
+        buildAnnotatedString {
+            append("${case?.icon.orEmpty()} ${case?.name.orEmpty()}")
+            if (!timeOnOwnLine) {
+                append("  ")
+                withStyle(
+                    SpanStyle(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                        fontWeight = MaterialTheme.typography.labelSmall.fontWeight,
+                    ),
+                ) {
+                    append(timeLabel)
+                }
+            }
         }
     Column(
         modifier =
@@ -640,28 +751,36 @@ private fun EventDetailRow(
                 .clickable {
                     onDismiss()
                     onOpenCase(event.caseId)
-                }.padding(vertical = 6.dp),
+                }.padding(vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "${case?.icon.orEmpty()} ${case?.name.orEmpty()}",
-                style = MaterialTheme.typography.titleSmall,
-            )
+        Text(text = heading, style = MaterialTheme.typography.titleSmall)
+        if (timeOnOwnLine) {
             Text(
                 text = timeLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
-            text = event.note?.takeIf { it.isNotBlank() } ?: voice.bigPictureEventNoteEmptyState,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (event.tags.isNotEmpty()) {
+        if (metaLine != null) {
+            Text(
+                text = metaLine,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (note != null) {
+            Text(
+                text = note,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (detail.tags && event.tags.isNotEmpty()) {
             FlowRow(
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 event.tags.forEach { tag -> TagPill(tag) }
             }
@@ -902,9 +1021,15 @@ private fun FilterChipBrightDarkPreview() {
 @Composable
 private fun FilterSummaryRowBrightPreviewContent() {
     Column(modifier = Modifier.padding(16.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             FilterTriggerChip(label = "Cases", count = "2 of 3", onClick = {})
             FilterTriggerChip(label = "Tags", count = "All", onClick = {})
+            Spacer(modifier = Modifier.weight(1f))
+            IconButton(onClick = {}) { Icon(Icons.Filled.Edit, contentDescription = "Edit which detail the rows show") }
         }
         FlowRow(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             CaseFilterChip(case = CalendarCase(id = 1, icon = "🏃", name = "Runs"), selected = true, onToggle = null)
@@ -1359,5 +1484,83 @@ private fun BigPictureGridBrightDarkPreview() {
         HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
             BigPictureGridPreviewContent()
         }
+    }
+}
+
+/**
+ * The day/week detail rows themselves (spec §9) — the detail dialogs can't render inside a static
+ * `@Preview` (a platform Dialog limitation, same as `InsightsTab`'s drill-down rows), so this
+ * exercises [EventDetailRow] directly: a point event with note + tags, a same-day duration event
+ * with intensity, a still-running event, and a multi-day span — under a given [BigPictureDetail].
+ */
+@Composable
+private fun EventDetailRowsPreviewContent(detail: BigPictureDetail) {
+    val today = LocalDate.of(2026, 9, 9)
+    val zone = ZoneId.systemDefault()
+
+    fun at(
+        day: LocalDate,
+        hour: Int,
+        minute: Int = 0,
+    ) = day
+        .atTime(hour, minute)
+        .atZone(zone)
+        .toInstant()
+        .toEpochMilli()
+
+    val coffee = CalendarCase(1, "☕", "Perfect coffee")
+    val migraine = CalendarCase(2, "🤕", "Migraine")
+    val workout = CalendarCase(3, "🏋️", "Workout")
+    val argument = CalendarCase(4, "😤", "Argument")
+    val rows =
+        listOf(
+            DayEvent(
+                CalendarEvent(1, 1, at(today, 7, 15), note = "Right after the walk, felt great", tags = listOf("weekend")),
+                false,
+                false,
+            ),
+            DayEvent(
+                CalendarEvent(2, 2, at(today, 9, 10), endedAt = at(today, 9, 50), note = "Started at the temples", intensity = 3),
+                false,
+                false,
+            ),
+            DayEvent(CalendarEvent(3, 3, at(today, 8, 2), isOngoing = true, note = "Forgot to stop it"), false, false),
+            DayEvent(
+                CalendarEvent(4, 4, at(today.minusDays(8), 20), endedAt = at(today.minusDays(5), 10), note = "Rough patch"),
+                true,
+                false,
+            ),
+        )
+    val caseById = listOf(coffee, migraine, workout, argument).associateBy { it.id }
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            rows.forEach { row ->
+                EventDetailRow(row, caseById[row.event.caseId], today, detail, zone, {}, {}, LocalVoice.current)
+            }
+        }
+    }
+}
+
+@Preview(name = "EventDetailRow — default detail", showBackground = true, widthDp = 340)
+@Composable
+private fun EventDetailRowsDefaultPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        EventDetailRowsPreviewContent(BigPictureDetail.DEFAULT)
+    }
+}
+
+@Preview(name = "EventDetailRow — all on, Intense", showBackground = true, widthDp = 340)
+@Composable
+private fun EventDetailRowsAllOnIntensePreview() {
+    HodithTheme(theme = AppTheme.INTENSE) {
+        EventDetailRowsPreviewContent(BigPictureDetail(notes = true, tags = true, duration = true, intensity = true))
+    }
+}
+
+@Preview(name = "EventDetailRow — all off", showBackground = true, widthDp = 340)
+@Composable
+private fun EventDetailRowsAllOffPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = true) {
+        EventDetailRowsPreviewContent(BigPictureDetail.ALL_OFF)
     }
 }

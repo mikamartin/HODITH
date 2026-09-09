@@ -11,6 +11,7 @@ class FakeSettingsRepository : SettingsRepository {
     val notificationPermissionRequested = MutableStateFlow(false)
     val developerModeUnlocked = MutableStateFlow(false)
     val cloudBackupEnabled = MutableStateFlow(true)
+    val bigPictureDetail = MutableStateFlow(BigPictureDetail.DEFAULT)
 
     override fun observeTheme(): Flow<AppTheme> = theme
 
@@ -50,5 +51,11 @@ class FakeSettingsRepository : SettingsRepository {
 
     override suspend fun setCloudBackupEnabled(enabled: Boolean) {
         cloudBackupEnabled.value = enabled
+    }
+
+    override fun observeBigPictureDetail(): Flow<BigPictureDetail> = bigPictureDetail
+
+    override suspend fun setBigPictureDetail(detail: BigPictureDetail) {
+        bigPictureDetail.value = detail
     }
 }
