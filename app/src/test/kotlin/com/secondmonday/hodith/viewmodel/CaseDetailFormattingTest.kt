@@ -134,7 +134,22 @@ class CaseDetailFormattingTest {
         val tags = listOf(TagEntity(id = 1, name = "work"), TagEntity(id = 2, name = "morning"))
 
         assertEquals(
-            "#work #morning",
+            "#morning #work",
+            eventDetailSummary(testEvent(intensity = null, note = null), tags = tags, PlainVoice),
+        )
+    }
+
+    @Test
+    fun `eventDetailSummary sorts an event's tag pills alphabetically, not in attach order`() {
+        val tags =
+            listOf(
+                TagEntity(id = 1, name = "zeta"),
+                TagEntity(id = 2, name = "alpha"),
+                TagEntity(id = 3, name = "mid"),
+            )
+
+        assertEquals(
+            "#alpha #mid #zeta",
             eventDetailSummary(testEvent(intensity = null, note = null), tags = tags, PlainVoice),
         )
     }
@@ -269,9 +284,9 @@ class CaseDetailFormattingTest {
     }
 
     @Test
-    fun `eventDetailSummary primitive overload joins tag names with a hash each`() {
+    fun `eventDetailSummary primitive overload joins tag names with a hash each, sorted`() {
         assertEquals(
-            "#work #morning",
+            "#morning #work",
             eventDetailSummary(
                 occurredAt = 0L,
                 endedAt = null,

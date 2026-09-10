@@ -15,6 +15,33 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/event-tag-pill-order
+
+**Scope:** PROGRESS.md item S4 — a single event's tag pills on the Case Detail Log-tab row and the Insights drill-down row rendered in `event_tags` attach order, not alphabetically, so they read as random and didn't match the sorted tag lists in the Big Picture / Insights filter dialogs. Both rows build their tag text through the shared `eventDetailSummary` (`viewmodel/CaseDetailViewModel.kt`); Big Picture's own detail row was already sorted in `feat/big-picture-overview-detail` (`BigPictureViewModel.kt` `.sorted()`), rendering from `CalendarEvent.tags` rather than through `eventDetailSummary`.
+
+**Found & fixed (checklist walk-through against the real `git diff`):**
+- **One-line display sort** in the primitive `eventDetailSummary` overload: `tagNames.sorted()` before the `#`-join. The `EventEntity` overload delegates to it, so the Log tab (`CaseDetailScreen.kt`) and Insights drill-down (`InsightsTab.kt`) both pick it up from the single seam. Plain `List<String>.sorted()` — case-sensitive natural order, matching `BigPictureViewModel.kt` and `BigPictureGrid.kt`'s `allTagNames.sorted()` (acceptance criterion: case-sensitivity consistent with the filter dialogs).
+- **KDoc updated** on the overload to state the alphabetical order as current fact, noting the DB `@Relation` returns attach order.
+- Big Picture's grid passes `tagNames = emptyList()` to this overload (it renders its own pills), so it's untouched; its existing `.sorted()` stays.
+
+**Sections walked, nothing to do:**
+- *Duplication / Decoupling / Complexity* — single seam, no new component or helper, pure Kotlin, no `Clock` / `android.*` / ViewModel-UI-type involvement. The sort lives at the one display point every affected surface already shares.
+- *Dead Code & Hygiene* — no spike or prototype (fix was knowable from the item). `git status` shows only the intended files (one main, one test, `PROGRESS.md`, `TESTING.md`, this log). No TODO/commented code. Edits LF/CRLF-clean, no `sed`.
+- *Naming / Hardcoded values / Accessibility / Deprecated APIs* — n/a; no constant, name, tappable target, or API surface touched. `ktlintCheck` / `lintDebug` clean.
+- *Spec Review* — HODITH_SPEC §9's Big Picture detail-row paragraph and §10 make no claim about per-event tag order in either direction; the sort is below spec granularity (same call the `feat/big-picture-overview-detail` `.sorted()` didn't spec). Nothing to update.
+
+**Considered and declined:**
+- A DAO `ORDER BY tags.name` on `TagDao.observeTagsForEvent` / the `EventWithTags` `@Relation`. Room can't `ORDER BY` a plain `@Relation`, and the `observeTagsForEvent` query isn't the seam the affected rows read through anyway — the display-layer sort covers every surface in one place.
+- An instrumented ordering assertion. No existing `CaseDetailScreenTest` / `CaseDetailInsightsTabTest` case renders two-plus tags on one row (the `tagRow_tap` test ends up with a single tag after suppressing the matched one), so a new one would mean fresh fixture plumbing for a cosmetic sort. The JVM `CaseDetailFormattingTest` covers the single seam directly; not earning its keep at the instrumented layer.
+
+**Deferred:** nothing.
+
+**Docs updated:** `PROGRESS.md` — S4 section removed outright (resolved, same commit), its Standalone "Fully isolated" batching bullet dropped; S5–S7 numbering left as-is (stable labels; B2 cross-references S3/S5 by number). `TESTING.md` — the ViewModels row's `eventDetailSummary` clause notes a single event's tag pills render alphabetically, not in attach order. No SPEC / PLAYBOOK / CLAUDE / README change.
+
+**Tests:** `CaseDetailFormattingTest` — new `eventDetailSummary sorts an event's tag pills alphabetically, not in attach order` (`zeta`/`alpha`/`mid` → `#alpha #mid #zeta`, the regression test); two existing assertions (`shows tags only when intensity and note are unset`, `primitive overload joins tag names with a hash each`) corrected from `#work #morning` to `#morning #work` so they no longer pass against attach order.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (full JVM suite).
+
 ## chore/prune-design-mockups
 
 **Scope:** PROGRESS.md item S8 — `docs/mockups/` held six prototype HTML files. Three were reference-free snapshots of long-shipped features (`case-detail-prototype.html`, `duration-unit-selector-prototype.html`, `triggers-prototype.html`). Two more — `plain-theme-light-neutrals.html` and `bright-theme-soft-glow.html` — backed the Plain and Bright themes, both shipped and stable, but were still cited by ~26 code comments. S8's original plan deferred those two behind items S3/B1; re-checking the citations against the current PROGRESS.md showed that mapping was stale (S3 is a segmented-row inset fix, not a palette matter; the "Bright theme redesign checklist" those comments pointed at no longer exists). Product-owner call: delete all five, rewrite every comment to stand on its own, and keep only `share-cards-prototype.html`, which genuinely maps to still-open B1 (its Story/Square section layouts are B1's design material).
