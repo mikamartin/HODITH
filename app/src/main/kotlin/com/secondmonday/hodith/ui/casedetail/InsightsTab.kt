@@ -242,7 +242,7 @@ private fun StatsSectionCards(
 
 /**
  * Shared shell for every Insights card — full-width [Card] with a padded, vertically-spaced
- * [Column]. Bright branches to [GlowCard] (Soft Glow mockup's `.card`), same dispatch as
+ * [Column]. Bright branches to [GlowCard], same dispatch as
  * [com.secondmonday.hodith.ui.home.HomeCaseListItem].
  */
 @Composable
@@ -451,7 +451,7 @@ private fun FrequencyCard(
     }
 }
 
-/** Bright's bars fade from full [Color]`.primary` at the top to this fraction toward the surface at the bottom (mockup's `.bars-row .bar` gradient); Plain/Intense keep a flat fill. */
+/** Bright's bars fade from full [Color]`.primary` at the top to this fraction toward the surface at the bottom; Plain/Intense keep a flat fill. */
 private const val FREQUENCY_BAR_GRADIENT_END_TINT_FRACTION = 0.4f
 
 @Composable

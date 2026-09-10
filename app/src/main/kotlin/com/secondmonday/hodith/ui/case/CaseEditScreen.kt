@@ -386,7 +386,7 @@ private fun IconChoice(
 }
 
 /**
- * Bright-only icon choice (Soft Glow mockup's `.icon-choice`/`.icon-choice.on`): the selected icon
+ * Bright-only icon choice: the selected icon
  * gets [IconHalo]'s tint-wash + glow ring plus a solid primary-color ring at the circle's edge, the
  * rest a plain thin-bordered circle — both sized to [IconHalo]'s own default, smaller than the 48dp
  * touch target ([ICON_CHOICE_SIZE]) they sit inside, same touch-target-larger-than-visual pattern as
@@ -432,7 +432,7 @@ private fun BrightIconChoice(
     }
 }
 
-/** Bright-only field shape matching the mockup's `.field .input` 16dp radius (Bright's `shapes.small`); Plain/Intense keep the M3 default. */
+/** Bright-only field shape: a 16dp radius (Bright's `shapes.small`); Plain/Intense keep the M3 default. */
 @Composable
 private fun caseEditTextFieldShape() =
     when (LocalCardDecorationStyle.current) {

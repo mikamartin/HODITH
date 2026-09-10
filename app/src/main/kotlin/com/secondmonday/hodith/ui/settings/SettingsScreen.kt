@@ -327,10 +327,9 @@ private fun CheckInSection(
 }
 
 /**
- * Area grouping for the Settings screen. Bright branches to [GlowCard] (Soft Glow mockup's
- * `.plank`, same dispatch as [com.secondmonday.hodith.ui.casedetail.InsightsTab]'s
- * `InsightsCard`); Intense keeps the thin-border [OutlinedCard]; Plain is a borderless white
- * plank on the tinted screen background (see docs/mockups/plain-theme-light-neutrals.html).
+ * Area grouping for the Settings screen. Bright branches to [GlowCard] (same dispatch as
+ * [com.secondmonday.hodith.ui.casedetail.InsightsTab]'s `InsightsCard`); Intense keeps the
+ * thin-border [OutlinedCard]; Plain is a borderless white plank on the tinted screen background.
  */
 @Composable
 private fun Plank(
@@ -383,8 +382,7 @@ private fun AreaHeader(title: String) {
  * explicitly uses `tertiaryContainer` instead — `secondaryContainer` reads too heavy repeated
  * across 5+ stacked full-width buttons and two segmented pickers on this screen, so Plain
  * authors a second, lighter/colder tonal role just for these controls, keeping
- * `secondaryContainer` at its punchier value for Insights' chips and the nav indicator (see
- * docs/mockups/plain-theme-light-neutrals.html).
+ * `secondaryContainer` at its punchier value for Insights' chips and the nav indicator.
  */
 @Composable
 private fun ActionRow(
@@ -415,7 +413,7 @@ private fun ActionRow(
 }
 
 /**
- * Bright-only flat label + chevron row (Soft Glow mockup's `.arow`) — [GlowCard]'s tinted surface
+ * Bright-only flat label + chevron row — [GlowCard]'s tinted surface
  * already reads as chrome, so a filled button pill on top of it would double up. Plain/Intense
  * deliberately keep [FilledTonalButton] instead — a settled per-theme divergence, not an open item.
  */

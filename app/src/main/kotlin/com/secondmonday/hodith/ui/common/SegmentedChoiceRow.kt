@@ -64,7 +64,7 @@ fun <T> SegmentedChoiceRow(
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
             // Plain uses tertiaryContainer for the selected segment instead of the default
             // secondaryContainer — same reasoning as ActionRow's colors override, see its doc
-            // comment (docs/mockups/plain-theme-light-neutrals.html).
+            // comment.
             val colors =
                 if (LocalCardDecorationStyle.current == CardDecorationStyle.PLAIN) {
                     SegmentedButtonDefaults.colors(
@@ -90,10 +90,10 @@ fun <T> SegmentedChoiceRow(
 }
 
 /**
- * Bright-only continuous "pill track" segmented control (Soft Glow mockup's `.segrow`/`.seg`/
- * `.seg.on`): a single tinted track holding every option, with the selected one popped forward as
- * a floating capsule. That's a different visual metaphor than M3's bordered per-segment
- * [SegmentedButton] chrome (which only rounds the group's outer ends, not each segment), so this
+ * Bright-only continuous "pill track" segmented control: a single tinted track holding every
+ * option, with the selected one popped forward as a floating capsule. That's a different visual
+ * metaphor than M3's bordered per-segment [SegmentedButton] chrome (which only rounds the
+ * group's outer ends, not each segment), so this
  * builds the track directly rather than reskinning the M3 primitive — same call already made for
  * [com.secondmonday.hodith.ui.theme.GlowCard] over a restyled [androidx.compose.material3.Card].
  * Manually replicates the selectable-group semantics [SegmentedButton] normally provides, same

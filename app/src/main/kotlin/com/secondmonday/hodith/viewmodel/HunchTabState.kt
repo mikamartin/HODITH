@@ -11,8 +11,8 @@ import com.secondmonday.hodith.domain.computeVerdict
 
 /**
  * What the Case Detail Hunch tab renders (spec §7), derived fresh from raw data on every read —
- * mirrors [homeCaseRows]/[ongoingEventIn]'s pure-mapping pattern. The mockup's "creating" toggle
- * (the Hunch-creation sheet) isn't represented here: it's a UI overlay that can sit on top of any
+ * mirrors [homeCaseRows]/[ongoingEventIn]'s pure-mapping pattern. The "creating" state (the
+ * Hunch-creation sheet) isn't represented here: it's a UI overlay that can sit on top of any
  * of these three states, not a data state of its own.
  */
 sealed interface HunchTabState {

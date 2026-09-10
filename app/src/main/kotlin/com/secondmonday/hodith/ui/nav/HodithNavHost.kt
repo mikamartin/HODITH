@@ -215,7 +215,7 @@ fun HodithNavHost(
 }
 
 /**
- * Soft Glow mockup's `.navitem.on .ico` — the active tab's icon sits inside an [IconHalo] glow
+ * Bright's active-tab treatment — the active tab's icon sits inside an [IconHalo] glow
  * instead of Material3's default pill indicator (suppressed via `indicatorColor = Color
  * .Transparent` at the call site). Shared/app-wide like the bottom nav itself, so it branches on
  * [LocalCardDecorationStyle] here rather than per-screen.
@@ -226,7 +226,7 @@ private fun BrightNavIcon(
     selected: Boolean,
 ) {
     if (selected) {
-        // Smaller than IconHalo's own 34dp default: the mockup's nav icon sits in a compact 26px
+        // Smaller than IconHalo's own 34dp default: the nav icon sits in a compact ~26dp
         // circle, well below the card/stat-tile icons IconHalo's default size was tuned for.
         IconHalo(size = 28.dp) { Icon(icon, contentDescription = null) }
     } else {

@@ -196,8 +196,8 @@ fun HomeScreen(
  * Dispatches to the active theme's row treatment (mirrors `BigPictureGrid.kt`'s `DayCell`
  * dispatch pattern): [CardDecorationStyle.BRIGHT] gets [BrightHomeCaseListItem], [PLAIN][
  * CardDecorationStyle.PLAIN] wraps the shared [HomeCaseRowBody] in a white plank card on the
- * screen's tinted background (see docs/mockups/plain-theme-light-neutrals.html), and
- * [INTENSE][CardDecorationStyle.INTENSE] renders [HomeCaseRowBody] flat, unchanged.
+ * screen's tinted background, and [INTENSE][CardDecorationStyle.INTENSE] renders
+ * [HomeCaseRowBody] flat, unchanged.
  */
 @Composable
 private fun HomeCaseListItem(
@@ -301,7 +301,7 @@ private fun HomeCaseRowBody(
     }
 }
 
-/** Soft Glow mockup's `.hrow` — alternates [IconHalo] tint primary/secondary per row via [isEvenRow]. */
+/** Bright's glow-card row — alternates [IconHalo] tint primary/secondary per row via [isEvenRow]. */
 @Composable
 private fun BrightHomeCaseListItem(
     row: HomeCaseRow,

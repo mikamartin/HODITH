@@ -560,8 +560,8 @@ private fun HunchHistoryRow(
 }
 
 /**
- * Plain wraps [EventRowContent] in a white plank card on the tinted screen background (see
- * docs/mockups/plain-theme-light-neutrals.html); Intense and Bright keep today's flat row.
+ * Plain wraps [EventRowContent] in a white plank card on the tinted screen background;
+ * Intense and Bright keep today's flat row.
  */
 @Composable
 private fun EventRow(
