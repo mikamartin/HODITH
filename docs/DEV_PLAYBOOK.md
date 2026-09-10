@@ -128,3 +128,42 @@ Permanent accepted constraints — nothing here gets checked off.
 - [ ] Dedicated branch; expect 3–5 sync/build errors on a major jump
 - [ ] `./gradlew assembleDebug` from terminal to confirm
 - [ ] Run tests after a clean build
+
+---
+
+## 8. Performance — baseline & re-measuring
+
+The S6 investigation (`chore/high-volume-perf-review`) measured HODITH at high volume (~3.3k events
+on one Case, ~33k across ten) and rapid one-tap logging. Open follow-ups live in PROGRESS.md's
+**Performance** section (F1–F6); detailed numbers + interpretation are in local (non-committed)
+baseline notes. Re-run this recipe after any Performance item lands and refresh the numbers below.
+
+**Root cause.** Room's `InvalidationTracker` is table-level: every `events` write re-runs *every*
+query touching `events`, whole-dataset. With Home, a widget, or Big Picture subscribed, each insert
+pays a full refetch. The in-memory aggregation (`insightsTabState`, the stat engines, `homeCaseRows`,
+`bigPictureUiState`) is not a bottleneck at these volumes — all sub-10 ms.
+
+**Headline numbers** (emulator, `Pixel_8_API36`, 33k events / 10 Cases):
+
+| | Time |
+|---|---:|
+| `observeActiveCasesWithEvents().first()` (Home / widget feed) | ~83 ms |
+| `observeActiveCasesWithEventsAndTags().first()` (Big Picture feed) | ~483 ms |
+| 100 inserts, no active collector | ~230 ms |
+| 100 inserts with a live Big Picture collector | ~40 s (~405 ms/insert) |
+
+**Recipe.** Two throwaway probes, deleted after capture (not committed — a hard time assertion is
+flaky, and they add CI weight):
+
+1. **JVM engine probe** — a JUnit4 class in `src/test/.../domain` or `.../viewmodel` (production
+   package, for `internal` visibility). Build `List(n) { testEvent(...) }` directly (never loop
+   `FakeHodithRepository.insertEvent` — O(n²)). Time with `System.nanoTime()`, ~3 warm-up + ~7
+   measured, median. Run: `./gradlew :app:testDebugUnitTest --tests "*Probe"`.
+2. **Instrumented DAO probe** — a class in `src/androidTest/.../data`, **file-backed**
+   `Room.databaseBuilder` (real journal), seed in one `withTransaction`. Time the observe queries'
+   `.first()`, and the invalidation cost: collect `observeActiveCasesWithEventsAndTags()` in a
+   background job, do 100 inserts, measure total. Run:
+   `ANDROID_SERIAL=<emulator> ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=<Fqcn>`.
+   **Emulator only.** Its `println` output lands in
+   `app/build/outputs/androidTest-results/connected/debug/<avd>/logcat-<class>-<method>.txt`, not the
+   Gradle console.

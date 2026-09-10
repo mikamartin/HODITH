@@ -8,6 +8,7 @@ Items are grouped by how they connect, not by feature area:
 
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
+- **Performance** — the S6 investigation's follow-ups: six items sharing one root cause and one baseline.
 - **Blocked** — gated on something external; not startable now.
 
 Each item carries:
@@ -70,7 +71,9 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
 
 - **Selection controls — S3** — `SegmentedChoiceRow` is shared by the Case editor's Duration row and all four Hunch-creation-sheet selectors; one fix covers both.
-- **Fully isolated — S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S6** (performance review), **S7** (external content). No cross-dependencies; pick by appetite.
+- **Fully isolated — S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S7** (external content). No cross-dependencies; pick by appetite.
+
+The **Performance** section below holds the S6 investigation's spun-out fixes — six items, F1 the one on the critical path.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -162,32 +165,6 @@ Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `Hunc
 
 **Concern** — standalone; the redesign is a small surface but a visible one, and the content call (does the verdict tier show?) is a product decision.
 
-### S6 · Performance review for high event volume and rapid logging
-
-*Branch: `chore/high-volume-perf-review` · Complexity: M · Priority: Medium · Area: Performance*
-
-🔍 **Investigation** — measure first; the fix set depends on what the numbers say.
-
-Two scenarios worth checking before real users arrive:
-
-- **High volume** — ~3 events/day for 3 years on one case (~3.3k rows), across 10 cases (~33k rows total).
-- **Rapid logging** — a one-tap case tapped ~1000 times in quick succession.
-
-Current shape (from a source read):
-
-- `EventDao` list queries (`observeEventsForCase`, `observeEventsWithTagsForCase`) have no `LIMIT` and no pagination; `CaseDao.observeActiveCasesWithEvents[AndTags]` pulls every event and tag for every active case via `@Relation`. All aggregation is in-memory over the full list — Insights recomputes ~8 stat passes on every emission; Big Picture, Home, and the widget remap the whole cross-case set on every insert; the verdict re-filters the full list once per historical hunch.
-- The one-tap path is one DB insert per tap with no debounce or batching, and each insert also fires an un-debounced `evaluateNotificationsForCase` coroutine. Only the Glance widget refresh is coalesced (`enqueueUniqueWork` with `REPLACE`); the Home undo channel is not.
-
-**Acceptance criteria**
-
-- [ ] Measured numbers on a mid-range device profile: open a large case, scroll its Log tab, open Big Picture, and tap-storm a one-tap case.
-- [ ] A call on whether SQL-side aggregation, a windowed/capped Log query, or an insert debounce is worth doing before alpha — or whether realistic volumes stay comfortably fine and this closes with the measurements kept for reference.
-- [ ] Anything approved spun out as its own item.
-
-**Plan** — seed a large dataset (extend `DemoDataSeeder` locally or a throwaway test), profile with the Android Studio profiler, write up the findings.
-
-**Tests** — none in this item; a follow-up that changes a query or adds a debounce brings its own.
-
 ### S7 · Audit the hosted privacy policy and Play data-safety form
 
 *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium · Area: Settings*
@@ -200,6 +177,117 @@ Current shape (from a source read):
 - [ ] Play data-safety answers reconciled with the same copy (once a listing exists).
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
+
+## Performance
+
+Six items from the S6 investigation (`chore/high-volume-perf-review`, now closed). They share one root cause and one set of measurements — taken on an emulator at S6's target volumes (~3.3k events on one Case, ~33k across ten), kept in local notes rather than committed. The stat-engine math S6 worried about ("~8 stat passes on every emission") proved cheap: `insightsTabState` ~7 ms, the individual engines sub-2 ms, `homeCaseRows` / `bigPictureUiState` sub-3 ms at 33k rows. The real cost is **Room's table-level invalidation re-running every `events`-touching query over the whole dataset on every insert** — measured at ~83 ms/insert for Home's feed and ~405 ms/insert for Big Picture's tag-joined feed while either is on screen, which the rapid-logging scenario multiplies by ~1000.
+
+F1, F2, F3, F6 are the "before alpha" set. F4 is deliberately parked. **F1 + F3 + F5 are being done together on `refactor/scoped-recompute`** — all three stop work being redone over the full dataset on every DB change.
+
+### F1 · Home and the widgets re-materialise every event on every insert
+
+*Branch: `refactor/scoped-recompute` (with F3, F5) · Complexity: M · Priority: High · Area: Performance*
+
+`HomeViewModel.uiState` and both Glance widgets subscribe to `repository.observeActiveCasesWithEvents()` — a `@Transaction` / `@Relation` that loads every event of every active Case — then reduce it to per-Case today / this-week counts in `homeCaseRows`. Room invalidates that Flow on *any* `events` write, so every one-tap log triggers a full refetch (~83 ms at 33k rows, measured) and `homeCaseRows` re-runs its 3 passes per Case. The rapid-logging scenario (~1000 taps) compounds this into ~80 s of churn while a widget or Home is visible.
+
+**Acceptance criteria**
+
+- [ ] A `CaseDao` query returning per-Case today / this-week event counts (`GROUP BY caseId` with day/week predicates, active-span aware per §9/§14) instead of full event lists — Home and both widgets consume it.
+- [ ] `homeCaseRows`' count math moves into SQL or operates on the count rows, not raw events; the `START_STOP` open-event lookup stays a small separate query.
+- [ ] `observeActiveCasesWithEvents()` kept only for callers that genuinely need full event lists (confirm none remain on Home / the widgets after this).
+- [ ] Optional belt-and-braces: `.conflate()` / `flowOn(Dispatchers.Default)` on any remaining heavy observe Flow so an insert burst collapses to one refetch off the main thread.
+- [ ] Re-measured: per-insert cost on Home / widget at 33k rows drops to single-digit ms.
+
+**Plan** — add the aggregate DAO query, point Home + widgets at it, keep `homeCaseRows` as a thin mapper over count rows + the ongoing lookup. F3 sits in the same file and may fold in.
+
+**Tests** — DAO test for the count query (today/week window boundaries in the device zone, active-span overlap, several Cases in one call); `HomeViewModelTest` and the widget `homeCaseRows` coverage adjusted to the new repository method.
+
+**Concern** — the counts must stay identical to `homeCaseRows`' current active-span semantics (§9/§14 — an event counts once if its span reaches into the window). SQL date-bucketing in the device zone is the fiddly part; a wrong `GROUP BY` boundary is a silent count bug.
+
+### F2 · Big Picture loads every event and every tag eagerly
+
+*Branch: `refactor/big-picture-windowed-query` · Complexity: M · Priority: Medium · Area: Performance*
+
+`BigPictureViewModel` subscribes to `observeActiveCasesWithEventsAndTags()` — the full cross-Case event set *plus a tag junction per event*. Measured cold cost at 33k events / ~16k tagged: **483 ms** (6× the no-tags variant's 83 ms), refetched on every `events` / `event_tags` write like F1. The grid opens on the current month and scrolls; it never renders tags on the grid itself — only the day / week tap-through dialog needs them.
+
+**Acceptance criteria**
+
+- [ ] The grid query bounded to a visible month range (open month ± a scroll buffer), extended as the user scrolls, rather than all history eagerly.
+- [ ] Tags dropped from the grid query; an event's tags loaded on demand when a day / week detail dialog opens.
+- [ ] The filter chips' tag universe (`allTagNames`) sourced from a lightweight distinct-tags query, not by flattening every event's tags.
+- [ ] Re-measured: Big Picture cold open and per-insert refetch at 33k rows both well under one frame's worth per visible month.
+
+**Plan** — windowed month-range DAO query for the grid; separate on-demand tag fetch for the detail dialogs; distinct-tags query for the filter chips.
+
+**Tests** — `bigPictureUiState` over a windowed event list; a DAO test for the month-range query; the detail-dialog tag fetch; Big Picture Compose tests stay green.
+
+**Concern** — scroll-triggered range extension must not stutter or flash empty cells on a fast scroll to a distant month, and the month-picker quick-jump (§9) must still land populated.
+
+### F3 · Home counts archived Cases by loading every archived event
+
+*Branch: `refactor/scoped-recompute` (with F1, F5) · Complexity: S · Priority: Medium · Area: Performance*
+
+`HomeViewModel.uiState` does `repository.observeArchivedCasesWithEvents().map { it.size }` — the same `@Relation` shape as F2's 483 ms query, run continuously on Home, to produce one Int. `ArchivedCasesViewModel` similarly only uses `events.size` per row.
+
+**Acceptance criteria**
+
+- [ ] `@Query("SELECT COUNT(*) FROM cases WHERE archived = 1")` (or equivalent `Flow<Int>`), consumed by `HomeViewModel`.
+- [ ] `ArchivedCasesViewModel`'s per-row event count sourced from a `GROUP BY` count rather than a full `@Relation` — or left as-is with a note if the archived list is expected to stay small.
+- [ ] `HomeViewModelTest` / `ArchivedCasesViewModelTest` updated.
+
+**Plan** — trivial count query for Home; decide whether the archived list's per-row counts warrant the same. Natural companion to F1.
+
+**Tests** — `HomeViewModelTest`'s archived-count assertion moves to the new method; a DAO test for the count.
+
+### F4 · Log tab has no query cap and sorts the whole history in memory
+
+*Branch: `feat/log-tab-paged-query` · Complexity: M · Priority: Low · Area: Performance*
+
+🔍 **Investigation** — measure in alpha before committing to Paging.
+
+`observeEventsWithTagsForCase` returns the full Case history (67 ms at 3.3k, the tag junction again), then `sortEventsForLog` sorts it all in memory into one `LazyColumn`. Tolerable at 3.3k events; a multi-year power user is the edge.
+
+**Acceptance criteria**
+
+- [ ] A call, informed by alpha feedback, on whether the Log tab needs a capped / paged query or stays as-is.
+- [ ] If taken: Paging 3 (or a capped query with "load older") for the Log tab; the Started / Ended sort (§6) pushed into SQL or kept as a small in-memory sort over the loaded page.
+
+**Plan** — defer until F1 / F2 land and alpha shows whether the Log tab feels slow; then Paging or a capped query.
+
+**Tests** — `CaseDetailScreenTest` Log-tab coverage; a DAO test for the paged / capped query if taken.
+
+### F5 · Insights and Hunch tabs recompute inline on every tick and unrelated insert
+
+*Branch: `refactor/scoped-recompute` (with F1, F3) · Complexity: S · Priority: Low · Area: Performance*
+
+`CaseDetailScreen` calls `insightsTabState(...)` and `hunchTabState(...)` directly in composition with no `remember`, so both re-run on every 60 s `rememberTickingNow` tick and every emission from an unrelated Case's write. Only 5–7 ms on the JVM, so low urgency — but the fix is nearly free.
+
+**Acceptance criteria**
+
+- [ ] `insightsTabState` / `hunchTabState` wrapped in `remember(...)` with a correct key.
+- [ ] Assess whether `insightsTabState` needs a ticking `now` at all — nothing it computes changes minute-to-minute except a running event's active span; a coarser or event-derived `now` would drop the periodic recompute entirely.
+- [ ] No behaviour change; existing `CaseDetailScreenTest` / `InsightsTabStateTest` / `HunchTabStateTest` green.
+
+**Plan** — memoize; decide the `now` key. Good bundle with F3.
+
+**Tests** — covered by existing tests staying green; add one only if the `now` key changes observable behaviour.
+
+### F6 · Rapid logging fans out unbounded notification-eval coroutines and floods the undo channel
+
+*Branch: `fix/rapid-log-debounce` · Complexity: M · Priority: Medium · Area: Performance*
+
+Every `insertEvent` fires an un-debounced `evaluateNotificationsForCase` coroutine on the application scope — 4–6 DAO reads plus a possible `triggers` write each, no per-Case dedup. 1000 taps = 1000 overlapping evaluations contending with F1's refetch. The Home `_quickLogUndo` `Channel(BUFFERED)` also emits once per tap and back-pressures (SUSPEND) past 64, parking producer coroutines.
+
+**Acceptance criteria**
+
+- [ ] `evaluateNotificationsForCase` debounced / deduped by `caseId` (e.g. a `MutableSharedFlow<Long>` on the app scope with `debounce` + `distinctUntilChanged`), so a tap burst collapses to one evaluation per Case.
+- [ ] `_quickLogUndo` given `onBufferOverflow = BufferOverflow.DROP_OLDEST` (only the most recent undo is actionable).
+- [ ] A genuine single edit still evaluates triggers immediately (the debounce window is sub-second); the ~6 h WorkManager job is unchanged.
+- [ ] A test for the burst case: N rapid inserts on one Case → one (or few) evaluations, not N.
+
+**Plan** — route `evaluateNotificationsForCase` through a debounced `SharedFlow` on the app scope; flip the undo channel's overflow policy. `updateEvent` / `deleteEvent` route through the same seam and must stay correct.
+
+**Tests** — a `RoomHodithRepository` / evaluator test asserting a burst of inserts collapses to a bounded number of evaluations; `HomeViewModelTest` for the undo channel under overflow.
 
 ## Blocked
 
