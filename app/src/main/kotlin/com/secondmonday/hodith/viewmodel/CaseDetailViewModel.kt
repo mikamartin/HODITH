@@ -230,6 +230,9 @@ internal fun eventDetailSummary(
  * event's raw fields rather than an [EventEntity]. Big Picture's grid holds only its own
  * `CalendarEvent` projection, so its detail rows (spec §9) call this directly, passing no note or
  * tags (those render on their own lines) — it contributes only the duration/intensity line there.
+ *
+ * Tag names render alphabetically, matching the tag lists in the Big Picture and Insights filter
+ * dialogs; the DB `@Relation` hands them back in attach order, so the sort lives here.
  */
 internal fun eventDetailSummary(
     occurredAt: Long,
@@ -250,6 +253,6 @@ internal fun eventDetailSummary(
     }
     if (showIntensity) intensity?.let { parts += voice.eventIntensityLabel(it) }
     note?.takeIf { it.isNotBlank() }?.let { parts += it }
-    if (tagNames.isNotEmpty()) parts += tagNames.joinToString(" ") { "#$it" }
+    if (tagNames.isNotEmpty()) parts += tagNames.sorted().joinToString(" ") { "#$it" }
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
