@@ -285,4 +285,52 @@ class EventDaoTest {
 
             assertEquals(listOf(300L, 200L), page.map { it.event.occurredAt })
         }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByEnd_ordersSeveralRunningEventsByNewestStartFirst() =
+        runTest {
+            val id1 = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
+            val id2 = eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L, endedAt = null))
+            val id3 = eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L, endedAt = null))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByEnd(caseId, isStartStopCase = true, limit = 10).first()
+
+            assertEquals(listOf(id2, id3, id1), page.map { it.event.id })
+        }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByEnd_ordersFinishedEventsByEndedAt_notByStart() =
+        runTest {
+            // Started last but ended first, vs. started first but ended last — proves the sort key
+            // is endedAt, not occurredAt, for two events that are both already finished.
+            val startedLaterEndedFirst = eventDao.insert(testEvent(caseId = caseId, occurredAt = 400L, endedAt = 450L))
+            val startedFirstEndedLast = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 900L))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByEnd(caseId, isStartStopCase = true, limit = 10).first()
+
+            assertEquals(listOf(startedFirstEndedLast, startedLaterEndedFirst), page.map { it.event.id })
+        }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByEnd_ordersByOccurredAt_whenEndedAtTies() =
+        runTest {
+            val id1 = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 500L))
+            val id2 = eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 500L))
+            val id3 = eventDao.insert(testEvent(caseId = caseId, occurredAt = 150L, endedAt = 500L))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByEnd(caseId, isStartStopCase = true, limit = 10).first()
+
+            assertEquals(listOf(id2, id3, id1), page.map { it.event.id })
+        }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByEnd_ordersById_whenOccurredAtAndEndedAtBothTie() =
+        runTest {
+            val earlierId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 500L))
+            val laterId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 500L))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByEnd(caseId, isStartStopCase = true, limit = 10).first()
+
+            assertEquals(listOf(laterId, earlierId), page.map { it.event.id })
+        }
 }
