@@ -242,7 +242,7 @@ The duration and intensity cards are gated purely on the Case's current `duratio
 
 ### Triggers (user-configured, about the event)
 
-- Evaluated (a) immediately on every event insert/edit/delete, and (b) by a WorkManager periodic job (~every 6 h) so `SILENT_FOR` triggers can fire without any logging happening.
+- Evaluated (a) immediately on every event insert/edit/delete — a sub-second per-Case debounce collapses a rapid logging burst to one evaluation — and (b) by a WorkManager periodic job (~every 6 h) so `SILENT_FOR` triggers can fire without any logging happening.
 - `AT_LEAST`: fires when the rolling-window count reaches threshold; re-arms when it drops below. Requires a `windowDays` — the kind has no meaning without one, so the create sheet always supplies it.
 - `SILENT_FOR`: fires when the gap since the last event *ended* reaches n days (a duration event's silence starts when it stops; a still-running event counts as no silence at all; a Case that no longer tracks duration counts from `occurredAt`, ignoring any stored `endedAt`, per §9/§10); re-arms on the next event. A Case with no events yet counts from its creation instead, so a never-logged Case still fires.
 - Notification content is voice-flavoured and factual: icon + count + case name + "tap to see". Information, not advice.

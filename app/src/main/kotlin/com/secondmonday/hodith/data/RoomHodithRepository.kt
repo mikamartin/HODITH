@@ -2,12 +2,9 @@ package com.secondmonday.hodith.data
 
 import androidx.room.withTransaction
 import com.secondmonday.hodith.data.backup.BackupData
-import com.secondmonday.hodith.notification.NotificationEvaluator
-import kotlinx.coroutines.CoroutineScope
+import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
@@ -20,16 +17,16 @@ class RoomHodithRepository
         private val tagDao: TagDao,
         private val hunchDao: HunchDao,
         private val triggerDao: TriggerDao,
-        private val notificationEvaluator: Provider<NotificationEvaluator>,
-        private val applicationScope: CoroutineScope,
+        private val notificationEvalScheduler: NotificationEvalScheduler,
     ) : HodithRepository {
         /**
          * Spec §11: Triggers/check-ins evaluate immediately on every event mutation, not just the
-         * ~6h periodic job — launched fire-and-forget on [applicationScope] so quick-log/start-stop
-         * stay instant rather than waiting on DB reads and notification posting.
+         * ~6h periodic job. [NotificationEvalScheduler] runs it fire-and-forget off the caller's
+         * thread — so quick-log/start-stop stay instant — and debounces per Case so a rapid logging
+         * burst collapses to one evaluation.
          */
         private fun evaluateNotificationsForCase(caseId: Long) {
-            applicationScope.launch { notificationEvaluator.get().evaluateCase(caseId) }
+            notificationEvalScheduler.schedule(caseId)
         }
 
         // Case
