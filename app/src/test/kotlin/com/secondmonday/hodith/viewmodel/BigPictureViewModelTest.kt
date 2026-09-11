@@ -3,11 +3,10 @@ package com.secondmonday.hodith.viewmodel
 import app.cash.turbine.test
 import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
-import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.CaseWithEventsAndTags
+import com.secondmonday.hodith.data.CaseEventDetail
 import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
-import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.TagEntity
@@ -62,6 +61,17 @@ class BigPictureViewModelTest {
         note: String? = null,
     ) = Fixtures.event(caseId = caseId, occurredAt = occurredAt, endedAt = occurredAt, note = note)
 
+    /** [bigPictureUiState] now takes the flat [CaseEventDetail] projection, not a nested relation. */
+    private fun detailOf(event: EventEntity) =
+        CaseEventDetail(
+            id = event.id,
+            caseId = event.caseId,
+            occurredAt = event.occurredAt,
+            endedAt = event.endedAt,
+            intensity = event.intensity,
+            note = event.note,
+        )
+
     @Test
     fun `uiState reflects seeded active cases and events, excluding archived`() =
         runTest {
@@ -108,13 +118,13 @@ class BigPictureViewModelTest {
         val marchCreatedAt = Instant.parse("2026-03-15T00:00:00Z").toEpochMilli()
         val aprilCreatedAt = Instant.parse("2026-04-01T00:00:00Z").toEpochMilli()
         val nowMillis = Instant.parse("2026-05-20T00:00:00Z").toEpochMilli()
-        val casesWithEvents =
+        val cases =
             listOf(
-                withNoEvents(testCase(id = 1L, createdAt = aprilCreatedAt)),
-                withNoEvents(testCase(id = 2L, createdAt = marchCreatedAt)),
+                testCase(id = 1L, createdAt = aprilCreatedAt),
+                testCase(id = 2L, createdAt = marchCreatedAt),
             )
 
-        val state = bigPictureUiState(casesWithEvents, nowMillis, zoneId)
+        val state = bigPictureUiState(cases, emptyList(), emptyList(), nowMillis, zoneId)
 
         assertEquals(YearMonth.from(Instant.ofEpochMilli(marchCreatedAt).atZone(zoneId)), state.earliestMonth)
     }
@@ -135,23 +145,19 @@ class BigPictureViewModelTest {
             loggedAt = startMillis,
         )
 
-        val casesWithEvents =
+        val cases =
             listOf(
-                CaseWithEventsAndTags(
-                    case = testCase(id = 1L).copy(durationMode = DurationMode.START_STOP),
-                    events =
-                        listOf(
-                            EventWithTags(event(1L, endedAt = null), emptyList()),
-                            EventWithTags(event(1L, endedAt = endMillis), emptyList()),
-                        ),
-                ),
-                CaseWithEventsAndTags(
-                    case = testCase(id = 2L).copy(durationMode = DurationMode.MANUAL),
-                    events = listOf(EventWithTags(event(2L, endedAt = null), emptyList())),
-                ),
+                testCase(id = 1L).copy(durationMode = DurationMode.START_STOP),
+                testCase(id = 2L).copy(durationMode = DurationMode.MANUAL),
+            )
+        val eventDetails =
+            listOf(
+                detailOf(event(1L, endedAt = null)),
+                detailOf(event(1L, endedAt = endMillis)),
+                detailOf(event(2L, endedAt = null)),
             )
 
-        val events = bigPictureUiState(casesWithEvents, nowMillis, zoneId).events
+        val events = bigPictureUiState(cases, eventDetails, emptyList(), nowMillis, zoneId).events
 
         val open = events.single { it.caseId == 1L && it.endedAt == null }
         val finished = events.single { it.caseId == 1L && it.endedAt != null }
@@ -165,7 +171,7 @@ class BigPictureViewModelTest {
 
     @Test
     fun `bigPictureUiState falls back to currentMonth when there are no cases`() {
-        val state = bigPictureUiState(emptyList(), clock.nowMillis(), zoneId)
+        val state = bigPictureUiState(emptyList(), emptyList(), emptyList(), clock.nowMillis(), zoneId)
 
         assertEquals(state.currentMonth, state.earliestMonth)
         assertTrue(state.cases.isEmpty())
@@ -179,15 +185,9 @@ class BigPictureViewModelTest {
         val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, loggedAt = startMillis)
-        val casesWithEvents =
-            listOf(
-                CaseWithEventsAndTags(
-                    case = testCase(id = 1L).copy(durationMode = DurationMode.NONE),
-                    events = listOf(EventWithTags(event, emptyList())),
-                ),
-            )
+        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.NONE))
 
-        val mapped = bigPictureUiState(casesWithEvents, nowMillis, zoneId).events.single()
+        val mapped = bigPictureUiState(cases, listOf(detailOf(event)), emptyList(), nowMillis, zoneId).events.single()
 
         assertNull(mapped.endedAt)
         assertEquals(false, mapped.isOngoing)
@@ -200,15 +200,9 @@ class BigPictureViewModelTest {
         val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, loggedAt = startMillis)
-        val casesWithEvents =
-            listOf(
-                CaseWithEventsAndTags(
-                    case = testCase(id = 1L).copy(durationMode = DurationMode.MANUAL),
-                    events = listOf(EventWithTags(event, emptyList())),
-                ),
-            )
+        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.MANUAL))
 
-        val mapped = bigPictureUiState(casesWithEvents, nowMillis, zoneId).events.single()
+        val mapped = bigPictureUiState(cases, listOf(detailOf(event)), emptyList(), nowMillis, zoneId).events.single()
 
         assertEquals(endMillis, mapped.endedAt)
         assertEquals(false, mapped.isOngoing)
@@ -218,66 +212,49 @@ class BigPictureViewModelTest {
 
     @Test
     fun `bigPictureUiState carries an event's intensity when the Case has intensity enabled`() {
-        val casesWithEvents =
-            listOf(
-                CaseWithEventsAndTags(
-                    case = testCase(id = 1L).copy(intensityEnabled = true),
-                    events = listOf(EventWithTags(Fixtures.event(caseId = 1L, intensity = 4), emptyList())),
-                ),
-            )
+        val cases = listOf(testCase(id = 1L).copy(intensityEnabled = true))
+        val eventDetails = listOf(detailOf(Fixtures.event(caseId = 1L, intensity = 4)))
 
-        assertEquals(4, bigPictureUiState(casesWithEvents, clock.nowMillis(), zoneId).events.single().intensity)
+        assertEquals(4, bigPictureUiState(cases, eventDetails, emptyList(), clock.nowMillis(), zoneId).events.single().intensity)
     }
 
     @Test
     fun `bigPictureUiState drops a stored intensity when the Case has intensity disabled`() {
-        val casesWithEvents =
-            listOf(
-                CaseWithEventsAndTags(
-                    case = testCase(id = 1L).copy(intensityEnabled = false),
-                    events = listOf(EventWithTags(Fixtures.event(caseId = 1L, intensity = 4), emptyList())),
-                ),
-            )
+        val cases = listOf(testCase(id = 1L).copy(intensityEnabled = false))
+        val eventDetails = listOf(detailOf(Fixtures.event(caseId = 1L, intensity = 4)))
 
-        assertNull(bigPictureUiState(casesWithEvents, clock.nowMillis(), zoneId).events.single().intensity)
+        assertNull(bigPictureUiState(cases, eventDetails, emptyList(), clock.nowMillis(), zoneId).events.single().intensity)
     }
 
     @Test
     fun `bigPictureUiState leaves intensity null when the event has none`() {
-        val casesWithEvents =
-            listOf(
-                CaseWithEventsAndTags(
-                    case = testCase(id = 1L).copy(intensityEnabled = true),
-                    events = listOf(EventWithTags(Fixtures.event(caseId = 1L, intensity = null), emptyList())),
-                ),
-            )
+        val cases = listOf(testCase(id = 1L).copy(intensityEnabled = true))
+        val eventDetails = listOf(detailOf(Fixtures.event(caseId = 1L, intensity = null)))
 
-        assertNull(bigPictureUiState(casesWithEvents, clock.nowMillis(), zoneId).events.single().intensity)
+        assertNull(bigPictureUiState(cases, eventDetails, emptyList(), clock.nowMillis(), zoneId).events.single().intensity)
     }
 
     @Test
     fun `bigPictureUiState keeps a same-day endedAt on a duration-tracking Case so the row can show a duration`() {
         val occurredAt = Instant.parse("2026-05-16T09:10:00Z").toEpochMilli()
         val endedAt = Instant.parse("2026-05-16T09:50:00Z").toEpochMilli()
-        val casesWithEvents =
-            listOf(
-                CaseWithEventsAndTags(
-                    case = testCase(id = 1L).copy(durationMode = DurationMode.MANUAL),
-                    events = listOf(EventWithTags(Fixtures.event(caseId = 1L, occurredAt = occurredAt, endedAt = endedAt), emptyList())),
-                ),
-            )
+        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.MANUAL))
+        val eventDetails = listOf(detailOf(Fixtures.event(caseId = 1L, occurredAt = occurredAt, endedAt = endedAt)))
 
-        assertEquals(endedAt, bigPictureUiState(casesWithEvents, clock.nowMillis(), zoneId).events.single().endedAt)
+        assertEquals(
+            endedAt,
+            bigPictureUiState(cases, eventDetails, emptyList(), clock.nowMillis(), zoneId).events.single().endedAt,
+        )
     }
 
     // ---- overview-detail preference wiring ----
 
     @Test
     fun `bigPictureUiState carries the detail argument, defaulting to DEFAULT`() {
-        assertEquals(BigPictureDetail.DEFAULT, bigPictureUiState(emptyList(), clock.nowMillis()).detail)
+        assertEquals(BigPictureDetail.DEFAULT, bigPictureUiState(emptyList(), emptyList(), emptyList(), clock.nowMillis()).detail)
         assertEquals(
             BigPictureDetail.ALL_OFF,
-            bigPictureUiState(emptyList(), clock.nowMillis(), detail = BigPictureDetail.ALL_OFF).detail,
+            bigPictureUiState(emptyList(), emptyList(), emptyList(), clock.nowMillis(), detail = BigPictureDetail.ALL_OFF).detail,
         )
     }
 
@@ -352,6 +329,4 @@ class BigPictureViewModelTest {
 
             assertEquals(BigPictureDetail.ALL_OFF.copy(tags = true), settings.bigPictureDetail.value)
         }
-
-    private fun withNoEvents(case: CaseEntity) = CaseWithEventsAndTags(case = case, events = emptyList())
 }

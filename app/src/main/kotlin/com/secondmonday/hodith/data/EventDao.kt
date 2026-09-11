@@ -61,6 +61,18 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE endedAt IS NULL ORDER BY occurredAt")
     fun observeOpenEvents(): Flow<List<EventEntity>>
 
+    /**
+     * Lean per-event projection for the Big Picture grid (see [CaseEventDetail]) — `id`, `caseId`,
+     * timing, intensity, and note, for every active Case's events. One flat JOIN, no `@Relation`,
+     * no tag junction.
+     */
+    @Query(
+        "SELECT e.id AS id, e.caseId AS caseId, e.occurredAt AS occurredAt, e.endedAt AS endedAt, " +
+            "e.intensity AS intensity, e.note AS note " +
+            "FROM events e JOIN cases c ON c.id = e.caseId WHERE c.archived = 0",
+    )
+    fun observeActiveCaseEventDetails(): Flow<List<CaseEventDetail>>
+
     @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC LIMIT 1")
     suspend fun getMostRecentEventForCase(caseId: Long): EventEntity?
 

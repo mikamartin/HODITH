@@ -346,7 +346,7 @@ The list, in no particular priority order:
 
 - **Computed cross-case co-occurrence** — the math version of what the Big Picture shows visually. Statistically treacherous (small samples, confounders); needs UX that suggests, never asserts.
 
-  *Status: open · Effort: M · Touches: a new `domain/` engine, one Big Picture or Insights surface, Voice ×3 · Lean: hold — the cross-case data plumbing already exists (`observeActiveCasesWithEventsAndTags`), so the real cost is the statistical-honesty UX, not the wiring.*
+  *Status: open · Effort: M · Touches: a new `domain/` engine, one Big Picture or Insights surface, Voice ×3 · Lean: hold — the cross-case data plumbing already exists (`observeActiveCases`, `observeActiveCaseEventDetails`, `observeActiveCaseEventTagNames`), so the real cost is the statistical-honesty UX, not the wiring.*
 - **Charting library evaluation** — if a custom Compose visual can't render acceptably across a multi-year range, evaluate Vico or similar. That range case is the only open trip-wire: the Big Picture grid has no pinch/continuous zoom by design (§9), and the calendar heatmap already reaches full history behind its show-more-months control.
 
   *Status: open, on a trigger that hasn't been hit · Effort: S to evaluate · Touches: nothing until it is · Lean: abandon unless the range case appears in practice.*

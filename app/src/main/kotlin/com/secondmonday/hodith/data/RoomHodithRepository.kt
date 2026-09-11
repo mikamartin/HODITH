@@ -34,9 +34,6 @@ class RoomHodithRepository
 
         override suspend fun getActiveCases(): List<CaseEntity> = caseDao.getActiveCases()
 
-        override fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>> =
-            caseDao.observeActiveCasesWithEventsAndTags()
-
         override fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeArchivedCasesWithEvents()
 
         override fun observeArchivedCaseCount(): Flow<Int> = caseDao.observeArchivedCaseCount()
@@ -62,6 +59,8 @@ class RoomHodithRepository
         override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
 
         override fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>> = eventDao.observeActiveCaseEventSpans()
+
+        override fun observeActiveCaseEventDetails(): Flow<List<CaseEventDetail>> = eventDao.observeActiveCaseEventDetails()
 
         override fun observeOpenEvents(): Flow<List<EventEntity>> = eventDao.observeOpenEvents()
 
@@ -104,6 +103,8 @@ class RoomHodithRepository
         override fun observeTagsForCase(caseId: Long): Flow<List<TagEntity>> = tagDao.observeTagsForCase(caseId)
 
         override fun observeTagsForEvent(eventId: Long): Flow<List<TagEntity>> = tagDao.observeTagsForEvent(eventId)
+
+        override fun observeActiveCaseEventTagNames(): Flow<List<EventTagName>> = tagDao.observeActiveCaseEventTagNames()
 
         override suspend fun addTagToEvent(
             eventId: Long,

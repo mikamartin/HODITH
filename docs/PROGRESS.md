@@ -9,6 +9,7 @@ Items are grouped by how they connect, not by feature area:
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Performance** — what's left of the S6 high-volume review, one shared root cause.
+- **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
 - **Blocked** — gated on something external; not startable now.
 
 Each item carries:
@@ -68,7 +69,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S7** (external content). Pick by appetite. The **Performance** section below is a separate cluster with its own shared root cause.
+No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S7** (external content), **S16** (flaky-test investigation). Pick by appetite.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -150,28 +151,28 @@ Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `Hunc
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-## Performance
+### S16 · Chase the recurring instrumented-test teardown flake
 
-The open tail of the S6 high-volume / rapid-logging review. One root cause runs through both: **Room's invalidation is table-level**, so every `events` write re-runs every query that touches `events`, over the whole dataset — fine per query until the dataset is large or the query is heavy. S6's measurements and the reasoning behind each item live in the local (non-committed) performance baseline notes; the stat-engine aggregation it flagged turned out not to be a bottleneck.
+*Branch: `chore/investigate-activityscenario-flake` · Complexity: S · Priority: Low · Area: Repo*
 
-### F2 · Big Picture loads every event and every tag on every write
+🔍 **Investigation** — root cause unknown; this is a diagnose-first item, not a fix-first one.
 
-*Branch: `refactor/big-picture-windowed-query` · Complexity: M · Priority: Medium · Area: Performance*
-
-`BigPictureViewModel` subscribes to `observeActiveCasesWithEventsAndTags()` — the full cross-Case event set *plus a tag junction per event*, the heaviest query in the app — and it refetches on every `events` / `event_tags` write. At S6-scale volumes this is a visible stall on Big Picture open and on logging while it's on screen. The grid opens on the current month and scrolls, and it never renders tags on the grid itself — only the day / week tap-through dialog needs them.
+`connectedDebugAndroidTest` has repeatedly hit an `ActivityScenario` lifecycle-teardown timeout (`Activity never becomes requested state "[DESTROYED]"`) across multiple past branches, per CLEANUP_LOG.md — always a different test/class each time, always on a run the log describes as long-running or the emulator as loaded, and always passing clean on rerun. It's never blocked a release, only cost a rerun each time, so it's stayed a footnote rather than a tracked item — but it keeps recurring often enough to be worth an actual diagnose pass rather than re-discovering "it's probably the emulator" every time it shows up.
 
 **Acceptance criteria**
 
-- [ ] The grid query bounded to a visible month range (open month ± a scroll buffer), extended as the user scrolls, rather than all history eagerly.
-- [ ] Tags dropped from the grid query; an event's tags loaded on demand when a day / week detail dialog opens.
-- [ ] The filter chips' tag universe (`allTagNames`) sourced from a lightweight distinct-tags query, not by flattening every event's tags.
-- [ ] Re-run the S6 baseline probe: Big Picture cold open and per-write refetch both within a frame's budget per visible month.
+- [ ] Every known occurrence pulled from CLEANUP_LOG.md into one list (test/class, branch, run length, what else was happening on the emulator at the time).
+- [ ] A working theory for the trigger (e.g. emulator uptime/memory pressure, a specific slow teardown step, test ordering) — or a documented "still unexplained" if none holds up.
+- [ ] A call on whether it's worth a mitigation (e.g. a longer `ActivityScenario` teardown timeout, a CI retry-on-this-signature rule) or is cheap enough to keep shrugging off.
+- [ ] Anything approved spun out as its own item; otherwise this one closes with the findings recorded.
 
-**Plan** — windowed month-range DAO query for the grid; separate on-demand tag fetch for the detail dialogs; distinct-tags query for the filter chips.
+**Plan** — read every CLEANUP_LOG.md mention of this signature first; only reach for new diagnostics (e.g. capturing emulator resource usage during a full instrumented run) if the existing record doesn't already point somewhere.
 
-**Tests** — `bigPictureUiState` over a windowed event list; a DAO test for the month-range query; the detail-dialog tag fetch; Big Picture Compose tests stay green.
+**Tests** — none; this item is diagnosis, not a code change.
 
-**Concern** — scroll-triggered range extension must not stutter or flash empty cells on a fast scroll to a distant month, and the month-picker quick-jump (§9) must still land populated.
+## Performance
+
+The open tail of the S6 high-volume / rapid-logging review — **Room's invalidation is table-level**, so every `events` write re-runs every query that touches `events`, over the whole dataset, fine per query until the dataset is large or the query is heavy. S6's measurements and the reasoning behind each item live in the local (non-committed) performance baseline notes; the stat-engine aggregation it flagged turned out not to be a bottleneck.
 
 ### F4 · Log tab has no query cap and sorts the whole history in memory
 
@@ -186,9 +187,32 @@ The open tail of the S6 high-volume / rapid-logging review. One root cause runs 
 - [ ] A call, informed by alpha feedback, on whether the Log tab needs a capped / paged query or stays as-is.
 - [ ] If taken: Paging 3 (or a capped query with "load older") for the Log tab; the Started / Ended sort (§6) pushed into SQL or kept as a small in-memory sort over the loaded page.
 
-**Plan** — defer until F2 lands and alpha shows whether the Log tab feels slow; then Paging or a capped query.
+**Plan** — defer until alpha shows whether the Log tab feels slow; then Paging or a capped query.
 
 **Tests** — `CaseDetailScreenTest` Log-tab coverage; a DAO test for the paged / capped query if taken.
+
+## Deferred
+
+### D1 · Big Picture's grid query, windowed or not
+
+*Branch: `refactor/big-picture-windowed-query` (if taken) · Complexity: S–M · Priority: Low · Area: Performance*
+
+🔍 **Investigation, deferred** — `BigPictureViewModel` now reads two lean flat projections (`EventDao.observeActiveCaseEventDetails()`, `TagDao.observeActiveCaseEventTagNames()`) instead of the `@Transaction @Relation` cascade this item originally flagged (see CLEANUP_LOG). That already removes the chunked `IN (...)` sub-fetches and full-row hydration that were the measured cost, and a throwaway JVM probe confirmed the Kotlin-side mapping is cheap at S6 scale. Undecided: whether the two flat queries' raw SQL-scan cost also holds up at that scale under a write burst.
+
+**Deferred rather than pursued next** — closing that needs a synthetic, S6-scale instrumented DB probe with no real usage behind it. Building month-range windowing on the back of a synthetic measurement, before knowing it's even felt, is speculative complexity worth avoiding; real alpha usage is a better trigger than a cautionary probe — the same "measure in alpha first" logic already used elsewhere in this file's Performance section.
+
+**Acceptance criteria**
+
+- [ ] Alpha usage (or a deliberate decision to probe synthetically instead) confirms whether the two flat projections' SQL scans — particularly the tag-attachment join — hold up under a logging burst at real-world scale. This is the decision gate for everything below.
+- [ ] If not: a `SELECT DISTINCT` per-case tag-vocabulary query sourcing `allTagNames` directly, rather than flattening every event's tags client-side.
+- [ ] If still needed after that: `observeActiveCaseEventDetails` bounded to a loaded month range (half-open bounds, mirroring `eventsInWindow`), extended in chunks as the grid nears the top of its loaded range, well before the user hits the edge. The tag projection stays live-and-windowed alongside it rather than moving to on-demand fetch, unless that's also still too hot.
+- [ ] Month-picker quick-jump (§9) extends the loaded range to cover the picked month before scrolling, rather than landing in an unpopulated region.
+
+**Plan** — revisit once alpha usage says whether Big Picture feels slow at scale; only then run the probe, and only build the criteria its result actually calls for, cheapest lever first.
+
+**Tests** — if windowing is taken: `bigPictureUiState` over a windowed event list; a DAO test for the month-range query; Big Picture Compose tests stay green.
+
+**Concern** — scroll-triggered range extension (if taken) must not stutter or flash empty cells on a fast scroll to a distant month.
 
 ## Blocked
 

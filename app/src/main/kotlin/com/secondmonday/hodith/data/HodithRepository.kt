@@ -9,8 +9,6 @@ interface HodithRepository {
 
     suspend fun getActiveCases(): List<CaseEntity>
 
-    fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>>
-
     fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>>
 
     /** Count of archived Cases, for Home's archived-cases link (spec §14). */
@@ -35,6 +33,9 @@ interface HodithRepository {
 
     /** Lean per-event projection (timing + Case `durationMode`) for every active Case — Home / widget counts (spec §9/§14). */
     fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>>
+
+    /** Lean per-event projection (timing, intensity, note) for every active Case — the Big Picture grid (spec §9). */
+    fun observeActiveCaseEventDetails(): Flow<List<CaseEventDetail>>
 
     /** Every open-ended event across all Cases, earliest first — Home / widget ongoing indicators (spec §6). */
     fun observeOpenEvents(): Flow<List<EventEntity>>
@@ -69,6 +70,9 @@ interface HodithRepository {
     fun observeTagsForCase(caseId: Long): Flow<List<TagEntity>>
 
     fun observeTagsForEvent(eventId: Long): Flow<List<TagEntity>>
+
+    /** One row per tag attachment, for every active Case's events — the Big Picture grid's tag filter and detail rows (spec §9). */
+    fun observeActiveCaseEventTagNames(): Flow<List<EventTagName>>
 
     suspend fun addTagToEvent(
         eventId: Long,

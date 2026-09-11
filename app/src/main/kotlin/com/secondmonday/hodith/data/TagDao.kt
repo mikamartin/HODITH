@@ -44,6 +44,19 @@ interface TagDao {
     )
     fun observeTagsForCase(caseId: Long): Flow<List<TagEntity>>
 
+    /**
+     * One row per tag attachment, for every active Case's events (see [EventTagName]) — the Big
+     * Picture grid's tag filter and detail-row pills. Flat, no per-event nesting, no `IN (...)`
+     * chunking over event ids the way the old `@Relation` cascade needed.
+     */
+    @Query(
+        "SELECT et.eventId AS eventId, t.name AS tagName " +
+            "FROM event_tags et JOIN tags t ON t.id = et.tagId " +
+            "JOIN events e ON e.id = et.eventId JOIN cases c ON c.id = e.caseId " +
+            "WHERE c.archived = 0",
+    )
+    fun observeActiveCaseEventTagNames(): Flow<List<EventTagName>>
+
     // Tags aren't scoped to a case (they're a shared vocabulary across cases), so they don't
     // cascade when cases are deleted — deleteAllData() must clear them explicitly.
     @Query("DELETE FROM tags")
