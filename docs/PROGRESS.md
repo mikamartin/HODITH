@@ -68,7 +68,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S7** (external content), **S16** (flaky-test investigation). Pick by appetite.
+No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S7** (external content). Pick by appetite.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -149,25 +149,6 @@ Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `Hunc
 - [ ] Play data-safety answers reconciled with the same copy (once a listing exists).
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
-
-### S16 · Chase the recurring instrumented-test teardown flake
-
-*Branch: `chore/investigate-activityscenario-flake` · Complexity: S · Priority: Low · Area: Repo*
-
-🔍 **Investigation** — root cause unknown; this is a diagnose-first item, not a fix-first one.
-
-`connectedDebugAndroidTest` has repeatedly hit an `ActivityScenario` lifecycle-teardown timeout (`Activity never becomes requested state "[DESTROYED]"`) across multiple past branches, per CLEANUP_LOG.md — always a different test/class each time, always on a run the log describes as long-running or the emulator as loaded, and always passing clean on rerun. It's never blocked a release, only cost a rerun each time, so it's stayed a footnote rather than a tracked item — but it keeps recurring often enough to be worth an actual diagnose pass rather than re-discovering "it's probably the emulator" every time it shows up.
-
-**Acceptance criteria**
-
-- [ ] Every known occurrence pulled from CLEANUP_LOG.md into one list (test/class, branch, run length, what else was happening on the emulator at the time).
-- [ ] A working theory for the trigger (e.g. emulator uptime/memory pressure, a specific slow teardown step, test ordering) — or a documented "still unexplained" if none holds up.
-- [ ] A call on whether it's worth a mitigation (e.g. a longer `ActivityScenario` teardown timeout, a CI retry-on-this-signature rule) or is cheap enough to keep shrugging off.
-- [ ] Anything approved spun out as its own item; otherwise this one closes with the findings recorded.
-
-**Plan** — read every CLEANUP_LOG.md mention of this signature first; only reach for new diagnostics (e.g. capturing emulator resource usage during a full instrumented run) if the existing record doesn't already point somewhere.
-
-**Tests** — none; this item is diagnosis, not a code change.
 
 ## Deferred
 
