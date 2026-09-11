@@ -94,6 +94,39 @@ class FakeHodithRepository : HodithRepository {
             }
         }
 
+    override fun observeLogEventsForCase(
+        caseId: Long,
+        order: LogSortOrder,
+        limit: Int,
+        durationMode: DurationMode,
+    ): Flow<LogEventsPage> =
+        combine(events, tags, eventTags) { eventList, tagList, crossRefs ->
+            val forCase = eventList.filter { it.caseId == caseId }
+            val ordered =
+                when (order) {
+                    LogSortOrder.BY_START ->
+                        forCase.sortedWith(compareByDescending<EventEntity> { it.occurredAt }.thenByDescending { it.id })
+                    LogSortOrder.BY_END -> {
+                        fun isRunning(e: EventEntity) = durationMode == DurationMode.START_STOP && e.endedAt == null
+                        forCase.sortedWith(
+                            compareByDescending<EventEntity> { isRunning(it) }
+                                .thenByDescending { it.endedAt ?: it.occurredAt }
+                                .thenByDescending { it.occurredAt }
+                                .thenByDescending { it.id },
+                        )
+                    }
+                }
+            val page = ordered.take(limit + 1)
+            LogEventsPage(
+                events =
+                    page.take(limit).map { event ->
+                        val tagIds = crossRefs.filter { it.eventId == event.id }.map { it.tagId }.toSet()
+                        EventWithTags(event, tagList.filter { it.id in tagIds })
+                    },
+                hasMore = page.size > limit,
+            )
+        }
+
     override fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>> =
         combine(cases, events) { caseList, eventList ->
             val activeById = caseList.filterNot { it.archived }.associateBy { it.id }

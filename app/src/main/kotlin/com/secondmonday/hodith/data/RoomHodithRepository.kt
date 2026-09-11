@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -57,6 +58,25 @@ class RoomHodithRepository
 
         // Event
         override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
+
+        override fun observeLogEventsForCase(
+            caseId: Long,
+            order: LogSortOrder,
+            limit: Int,
+            durationMode: DurationMode,
+        ): Flow<LogEventsPage> {
+            val rows =
+                when (order) {
+                    LogSortOrder.BY_START -> eventDao.observeEventsWithTagsForCasePagedByStart(caseId, limit = limit + 1)
+                    LogSortOrder.BY_END ->
+                        eventDao.observeEventsWithTagsForCasePagedByEnd(
+                            caseId,
+                            isStartStopCase = durationMode == DurationMode.START_STOP,
+                            limit = limit + 1,
+                        )
+                }
+            return rows.map { LogEventsPage(events = it.take(limit), hasMore = it.size > limit) }
+        }
 
         override fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>> = eventDao.observeActiveCaseEventSpans()
 

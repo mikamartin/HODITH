@@ -253,6 +253,9 @@ interface Voice {
     val logSortByStartLabel: String get() = "Started"
     val logSortByEndLabel: String get() = "Ended"
 
+    /** Reveals 50 more Log tab events beyond the currently loaded window (spec §6, PROGRESS.md F4). Persona-styled, like [insightsHeatmapShowMoreAction] — a similar "reveal more of the list" CTA. */
+    val logShowMoreAction: String
+
     /** Insights tab with zero events (spec §9): a flat invitation, never a countdown or a count. */
     val insightsNothingLoggedMessage: String
 
@@ -713,6 +716,8 @@ object PlainVoice : Voice {
         eventCount: Int,
         observedDays: Long,
     ) = "$eventCount events logged · observed for $observedDays days"
+
+    override val logShowMoreAction = "Show more events"
 
     override val deleteEventConfirmTitle = "Delete this event?"
     override val deleteEventConfirmBody = "This can't be undone."
@@ -1254,6 +1259,8 @@ object IntenseVoice : Voice {
         observedDays: Long,
     ) = "$eventCount marks in the record — $observedDays days under watch"
 
+    override val logShowMoreAction = "Exhume more of the record"
+
     override val deleteEventConfirmTitle = "Strike this from the record?"
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
     override val deleteEventConfirmAction = "Erase"
@@ -1782,6 +1789,8 @@ object BrightVoice : Voice {
         eventCount: Int,
         observedDays: Long,
     ) = "$eventCount logs so far, tracked for $observedDays days!"
+
+    override val logShowMoreAction = "Show me more!"
 
     override val deleteEventConfirmTitle = "Zap this event?"
     override val deleteEventConfirmBody = "Poof — no take-backs."

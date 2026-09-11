@@ -4,22 +4,29 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
+import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.ui.voice.Voice
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -30,6 +37,9 @@ import javax.inject.Inject
 data class CaseDetailUiState(
     val case: CaseEntity? = null,
     val events: List<EventWithTags> = emptyList(),
+    val logEvents: List<EventWithTags> = emptyList(),
+    val logHasMore: Boolean = false,
+    val logSortOrder: LogSortOrder = LogSortOrder.BY_START,
     val tagSuggestions: List<TagEntity> = emptyList(),
     val activeHunch: HunchEntity? = null,
     val hunchHistory: List<HunchEntity> = emptyList(),
@@ -37,6 +47,12 @@ data class CaseDetailUiState(
 )
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
+
+/** Log tab paging (spec §6, PROGRESS.md F4) — the row list starts at this many events... */
+private const val LOG_INITIAL_LIMIT = 30
+
+/** ...and each "Show more" tap grows the loaded window by this many, cumulatively (30 → 80 → 130 → ...). */
+private const val LOG_LOAD_MORE_INCREMENT = 50
 
 @HiltViewModel
 class CaseDetailViewModel
@@ -47,6 +63,23 @@ class CaseDetailViewModel
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
+
+        private val logSortOrder = MutableStateFlow(LogSortOrder.BY_START)
+        private val logLimit = MutableStateFlow(LOG_INITIAL_LIMIT)
+
+        /**
+         * The Log tab's capped, sorted page — re-queried (not re-sorted client-side) whenever the
+         * sort order, the loaded limit, or the Case's `durationMode` changes; the last of those
+         * matters because [LogSortOrder.BY_END]'s "is this running?" check is only meaningful for a
+         * `START_STOP` Case (PROGRESS.md F4).
+         */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        private val logPage =
+            combine(repository.observeCase(caseId), logSortOrder, logLimit) { case, order, limit -> Triple(case, order, limit) }
+                .distinctUntilChanged()
+                .flatMapLatest { (case, order, limit) ->
+                    repository.observeLogEventsForCase(caseId, order, limit, case?.durationMode ?: DurationMode.NONE)
+                }
 
         val uiState: StateFlow<CaseDetailUiState> =
             combine(
@@ -64,11 +97,28 @@ class CaseDetailViewModel
                     hunchHistory = hunchHistory,
                     isLoading = false,
                 )
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                initialValue = CaseDetailUiState(),
-            )
+            }.combine(logPage) { partial, page -> partial.copy(logEvents = page.events, logHasMore = page.hasMore) }
+                .combine(logSortOrder) { partial, order -> partial.copy(logSortOrder = order) }
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+                    initialValue = CaseDetailUiState(),
+                )
+
+        /**
+         * Switches the Log tab's sort order and resets the loaded window back to
+         * [LOG_INITIAL_LIMIT] — a re-sorted list should read as a fresh top-[LOG_INITIAL_LIMIT], not
+         * keep whatever window size was earned by tapping "Show more" under the old order.
+         */
+        fun setLogSortOrder(order: LogSortOrder) {
+            logSortOrder.value = order
+            logLimit.value = LOG_INITIAL_LIMIT
+        }
+
+        /** "Show more" — cumulative, one-directional growth of the Log tab's loaded window. */
+        fun loadMoreLogEvents() {
+            logLimit.update { it + LOG_LOAD_MORE_INCREMENT }
+        }
 
         /** Always immediate, regardless of `logFlow` — see [HomeViewModel.onQuickLogTap]. */
         fun stopEvent(event: EventEntity) {

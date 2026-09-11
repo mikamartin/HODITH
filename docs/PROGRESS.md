@@ -8,7 +8,6 @@ Items are grouped by how they connect, not by feature area:
 
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
-- **Performance** — what's left of the S6 high-volume review, one shared root cause.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
 - **Blocked** — gated on something external; not startable now.
 
@@ -170,27 +169,6 @@ Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `Hunc
 
 **Tests** — none; this item is diagnosis, not a code change.
 
-## Performance
-
-The open tail of the S6 high-volume / rapid-logging review — **Room's invalidation is table-level**, so every `events` write re-runs every query that touches `events`, over the whole dataset, fine per query until the dataset is large or the query is heavy. S6's measurements and the reasoning behind each item live in the local (non-committed) performance baseline notes; the stat-engine aggregation it flagged turned out not to be a bottleneck.
-
-### F4 · Log tab has no query cap and sorts the whole history in memory
-
-*Branch: `feat/log-tab-paged-query` · Complexity: M · Priority: Low · Area: Performance*
-
-🔍 **Investigation** — measure in alpha before committing to Paging.
-
-`observeEventsWithTagsForCase` returns the full Case history (with its tag junction), then `sortEventsForLog` sorts it all in memory into one `LazyColumn`. Comfortable at ordinary volumes; a multi-year single Case is the edge.
-
-**Acceptance criteria**
-
-- [ ] A call, informed by alpha feedback, on whether the Log tab needs a capped / paged query or stays as-is.
-- [ ] If taken: Paging 3 (or a capped query with "load older") for the Log tab; the Started / Ended sort (§6) pushed into SQL or kept as a small in-memory sort over the loaded page.
-
-**Plan** — defer until alpha shows whether the Log tab feels slow; then Paging or a capped query.
-
-**Tests** — `CaseDetailScreenTest` Log-tab coverage; a DAO test for the paged / capped query if taken.
-
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
@@ -199,7 +177,7 @@ The open tail of the S6 high-volume / rapid-logging review — **Room's invalida
 
 🔍 **Investigation, deferred** — `BigPictureViewModel` now reads two lean flat projections (`EventDao.observeActiveCaseEventDetails()`, `TagDao.observeActiveCaseEventTagNames()`) instead of the `@Transaction @Relation` cascade this item originally flagged (see CLEANUP_LOG). That already removes the chunked `IN (...)` sub-fetches and full-row hydration that were the measured cost, and a throwaway JVM probe confirmed the Kotlin-side mapping is cheap at S6 scale. Undecided: whether the two flat queries' raw SQL-scan cost also holds up at that scale under a write burst.
 
-**Deferred rather than pursued next** — closing that needs a synthetic, S6-scale instrumented DB probe with no real usage behind it. Building month-range windowing on the back of a synthetic measurement, before knowing it's even felt, is speculative complexity worth avoiding; real alpha usage is a better trigger than a cautionary probe — the same "measure in alpha first" logic already used elsewhere in this file's Performance section.
+**Deferred rather than pursued next** — closing that needs a synthetic, S6-scale instrumented DB probe with no real usage behind it. Building month-range windowing on the back of a synthetic measurement, before knowing it's even felt, is speculative complexity worth avoiding; real alpha usage is a better trigger than a cautionary probe.
 
 **Acceptance criteria**
 
