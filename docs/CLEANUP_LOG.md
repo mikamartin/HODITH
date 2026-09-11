@@ -15,6 +15,35 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## refactor/big-picture-lean-projections
+
+**Scope:** PROGRESS.md's F2 — `BigPictureViewModel` subscribed to `observeActiveCasesWithEventsAndTags()`, a `@Transaction @Relation` cascade (cases → events per case → tags per event via the `event_tags` junction, chunked `IN (...)` fetches, full hydration), the heaviest query in the app, refetched on every `events` / `event_tags` / `tags` / `cases` write. The acceptance criteria called for month-range windowing immediately; this pass did the lower-risk fix first (query shape, not volume, was the measured cost) and deferred windowing to real alpha usage instead of a synthetic probe — item renumbered D1, moved to a new Deferred section.
+
+**Changes:**
+
+- **Two new lean flat projections, mirroring `observeActiveCaseEventSpans` (670b605).** `EventDao.observeActiveCaseEventDetails()` — `events JOIN cases WHERE archived = 0`, carrying `id`/`caseId`/`occurredAt`/`endedAt`/`intensity`/`note` (new `CaseEventDetail`). `TagDao.observeActiveCaseEventTagNames()` — `event_tags JOIN tags JOIN events JOIN cases WHERE archived = 0`, one flat `(eventId, tagName)` row per attachment (new `EventTagName`), replacing the junction's chunked `IN (...)` + nested `TagEntity` hydration.
+- **`bigPictureUiState` takes the three lean inputs (`cases: List<CaseEntity>`, `eventDetails`, `tagNames`) instead of `List<CaseWithEventsAndTags>`**, grouping by `caseId`/`eventId` itself rather than receiving pre-nested data. Case-level gating (`durationMode.tracksDuration`, `intensityEnabled`) stays applied from the case list already in scope — deliberately not duplicated onto `CaseEventDetail` the way `CaseEventSpan` carries its own `durationMode`, since Big Picture's mapper (unlike Home's) already holds the full case list for other reasons. Output shape (`CalendarEvent.tags` included) is unchanged, so the Compose layer (grid tag filter, `allTagNames` visible-case scoping, detail-dialog pills) needed no changes.
+- **`BigPictureViewModel.uiState` gained `.flowOn(Dispatchers.Default).conflate()`**, matching `HomeViewModel` (previously absent here — a rapid-logging burst touched the main thread).
+- **Dead code removed:** `CaseDao.observeActiveCasesWithEventsAndTags()`, `CaseWithEventsAndTags.kt` (single call site), `CaseWithEventsAndTagsTest.kt`.
+
+**Checklist walk (against the working-tree `git diff`):**
+
+- *Duplication* — no composables, styling, or Voice strings touched. New DAO queries don't overlap existing ones — they replace the one query with a Kotlin-side nest, pushing that nesting into two flat SQL projections instead.
+- *Decoupling* — `CaseEventDetail`/`EventTagName` are plain `data/` types, no `android.*`, no UI types; a first-draft KDoc cross-link from `CaseEventDetail` into `viewmodel.CalendarCase` was reworded to stay in prose rather than a cross-layer `[Link]`. `BigPictureViewModel` still takes no UI types; `Clock.nowMillis()` still the only time source.
+- *Complexity & pattern health* — `combine` grew from 2 to 4 flows, same shape as `HomeViewModel`'s existing 3-flow `combine` with `.flowOn(Dispatchers.Default).conflate()`; no composable or `remember` touched.
+- *Dead code & hygiene* — the throwaway JVM mapper probe (median ~10ms over 40 cases / 30k events / 75k tag attachments — confirms the Kotlin-side grouping is cheap regardless of Room) was written, run, and deleted; `git status` clean of it. No unused imports (ktlint clean after `ktlintFormat` auto-wrapped one long line in the new DAO test).
+- *Repo hygiene* — three new `.kt` files, no secrets, no local paths; `git status` matches the intended diff.
+- *Naming* — `CaseEventDetail`/`EventTagName`/`observeActiveCaseEventDetails`/`observeActiveCaseEventTagNames` follow the `observe*` / projection-type conventions next to `CaseEventSpan`/`observeActiveCaseEventSpans`.
+- *Hardcoded values / accessibility / deprecated APIs* — n/a: no UI, no constants, lint clean.
+- *Spec review* — HODITH_SPEC.md §17's cross-case co-occurrence Future Work item cited `observeActiveCasesWithEventsAndTags` as existing plumbing; updated to name the two new projections instead.
+- *Tests* — `BigPictureViewModelTest` rewritten for the flat-projection inputs (all ~20 cases kept, same assertions); new `BigPictureQueriesTest` (androidTest, 4 cases, one `@Smoke`) for the two new queries; `FakeHodithRepository` gained matching `combine`-based implementations. `BigPictureScreenTest` / `BigPictureFilterStateTest` needed no changes (they operate on `CalendarEvent`/pure filter logic, untouched by this refactor). `connectedDebugAndroidTest` ran on a rebuilt `Pixel_8_API36` emulator: 235/237 clean first pass, all 48 Big Picture–related tests (including the new `BigPictureQueriesTest`) among them; the 2 failures (`SettingsScreenTest.backupEvent_showsMatchingSnackbarMessage`, `.developerMode_hiddenByDefault`) are in a file with zero diff on this branch, matched a signature already logged multiple times elsewhere in this file as emulator-load `ActivityScenario` teardown flakiness, and passed clean on a scoped rerun — confirmed flake, not a regression.
+
+**Deferred:** whether Stage 2 (windowing) is needed at all — needs a synthetic S6-scale probe with no real usage behind it, so it's held for real alpha usage to decide instead (PROGRESS.md's D1).
+
+**Docs updated:** `PROGRESS.md` — F2 rewritten and moved to a new `## Deferred` section as D1, with the deferral rationale; the file's own "how this is organised" list gained a Deferred bucket; the Log tab item's plan note reworded to drop its now-stale dependency on this one. Also added S16 (chase the recurring `ActivityScenario` teardown flake — see above) to Standalone. `HODITH_SPEC.md` §17 — cross-case co-occurrence item's plumbing citation updated. `TESTING.md` — Room DAOs row (lean Big Picture projections) and ViewModels row (tag sort-order parenthetical).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. `connectedDebugAndroidTest` green (2 confirmed-flaky failures unrelated to this branch, detailed above).
+
 ## fix/rapid-log-debounce
 
 **Scope:** the S6 review's F6 — a rapid quick-log burst fanned out one un-debounced `evaluateNotificationsForCase` coroutine per tap (each several DAO reads + a possible `triggers` write, all on the one SQLite connection), and `HomeViewModel._quickLogUndo` (`Channel.BUFFERED`) back-pressured its producers on `send` past 64 unconsumed items.

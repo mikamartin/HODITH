@@ -43,18 +43,6 @@ class FakeHodithRepository : HodithRepository {
 
     override fun observeArchivedCaseCount(): Flow<Int> = cases.map { list -> list.count { it.archived } }
 
-    override fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>> =
-        combine(cases, events, tags, eventTags) { caseList, eventList, tagList, crossRefs ->
-            caseList.filterNot { it.archived }.sortedBy { it.sortOrder }.map { case ->
-                val eventsWithTags =
-                    eventList.filter { it.caseId == case.id }.map { event ->
-                        val tagIds = crossRefs.filter { it.eventId == event.id }.map { it.tagId }.toSet()
-                        EventWithTags(event, tagList.filter { it.id in tagIds })
-                    }
-                CaseWithEventsAndTags(case, eventsWithTags)
-            }
-        }
-
     override fun observeCase(caseId: Long): Flow<CaseEntity?> = cases.map { list -> list.find { it.id == caseId } }
 
     override suspend fun getCase(caseId: Long): CaseEntity? = cases.value.find { it.id == caseId }
@@ -116,6 +104,14 @@ class FakeHodithRepository : HodithRepository {
             }
         }
 
+    override fun observeActiveCaseEventDetails(): Flow<List<CaseEventDetail>> =
+        combine(cases, events) { caseList, eventList ->
+            val activeIds = caseList.filterNot { it.archived }.map { it.id }.toSet()
+            eventList
+                .filter { it.caseId in activeIds }
+                .map { CaseEventDetail(it.id, it.caseId, it.occurredAt, it.endedAt, it.intensity, it.note) }
+        }
+
     override fun observeOpenEvents(): Flow<List<EventEntity>> =
         events.map { list -> list.filter { it.endedAt == null }.sortedBy { it.occurredAt } }
 
@@ -171,6 +167,17 @@ class FakeHodithRepository : HodithRepository {
         combine(tags, eventTags) { tagList, crossRefs ->
             val tagIds = crossRefs.filter { it.eventId == eventId }.map { it.tagId }.toSet()
             tagList.filter { it.id in tagIds }
+        }
+
+    override fun observeActiveCaseEventTagNames(): Flow<List<EventTagName>> =
+        combine(cases, events, tags, eventTags) { caseList, eventList, tagList, crossRefs ->
+            val activeIds = caseList.filterNot { it.archived }.map { it.id }.toSet()
+            val activeEventIds = eventList.filter { it.caseId in activeIds }.map { it.id }.toSet()
+            val tagsById = tagList.associateBy { it.id }
+            crossRefs.mapNotNull { xref ->
+                if (xref.eventId !in activeEventIds) return@mapNotNull null
+                tagsById[xref.tagId]?.let { EventTagName(xref.eventId, it.name) }
+            }
         }
 
     override suspend fun addTagToEvent(
