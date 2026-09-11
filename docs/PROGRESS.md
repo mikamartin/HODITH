@@ -152,7 +152,7 @@ Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `Hunc
 
 ## Performance
 
-The open tail of the S6 high-volume / rapid-logging review. One root cause runs through all three: **Room's invalidation is table-level**, so every `events` write re-runs every query that touches `events`, over the whole dataset — fine per query until the dataset is large or the query is heavy. S6's measurements and the reasoning behind each item live in the local (non-committed) performance baseline notes; the stat-engine aggregation it flagged turned out not to be a bottleneck.
+The open tail of the S6 high-volume / rapid-logging review. One root cause runs through both: **Room's invalidation is table-level**, so every `events` write re-runs every query that touches `events`, over the whole dataset — fine per query until the dataset is large or the query is heavy. S6's measurements and the reasoning behind each item live in the local (non-committed) performance baseline notes; the stat-engine aggregation it flagged turned out not to be a bottleneck.
 
 ### F2 · Big Picture loads every event and every tag on every write
 
@@ -189,23 +189,6 @@ The open tail of the S6 high-volume / rapid-logging review. One root cause runs 
 **Plan** — defer until F2 lands and alpha shows whether the Log tab feels slow; then Paging or a capped query.
 
 **Tests** — `CaseDetailScreenTest` Log-tab coverage; a DAO test for the paged / capped query if taken.
-
-### F6 · Rapid logging fans out unbounded notification-eval coroutines and floods the undo channel
-
-*Branch: `fix/rapid-log-debounce` · Complexity: M · Priority: Medium · Area: Performance*
-
-Every `insertEvent` fires an un-debounced `evaluateNotificationsForCase` coroutine on the application scope — several DAO reads plus a possible `triggers` write each, no per-Case dedup — so a burst of taps launches one overlapping evaluation per tap, all contending on the single SQLite connection. The Home `_quickLogUndo` `Channel(BUFFERED)` also emits once per tap and back-pressures (SUSPEND) past 64, parking producer coroutines.
-
-**Acceptance criteria**
-
-- [ ] `evaluateNotificationsForCase` debounced / deduped by `caseId` (e.g. a `MutableSharedFlow<Long>` on the app scope with `debounce` + `distinctUntilChanged`), so a tap burst collapses to one evaluation per Case.
-- [ ] `_quickLogUndo` given `onBufferOverflow = BufferOverflow.DROP_OLDEST` (only the most recent undo is actionable).
-- [ ] A genuine single edit still evaluates triggers immediately (the debounce window is sub-second); the ~6 h WorkManager job is unchanged.
-- [ ] A test for the burst case: N rapid inserts on one Case → one (or few) evaluations, not N.
-
-**Plan** — route `evaluateNotificationsForCase` through a debounced `SharedFlow` on the app scope; flip the undo channel's overflow policy. `updateEvent` / `deleteEvent` route through the same seam and must stay correct.
-
-**Tests** — a `RoomHodithRepository` / evaluator test asserting a burst of inserts collapses to a bounded number of evaluations; `HomeViewModelTest` for the undo channel under overflow.
 
 ## Blocked
 

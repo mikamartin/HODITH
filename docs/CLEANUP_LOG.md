@@ -15,6 +15,33 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## fix/rapid-log-debounce
+
+**Scope:** the S6 review's F6 — a rapid quick-log burst fanned out one un-debounced `evaluateNotificationsForCase` coroutine per tap (each several DAO reads + a possible `triggers` write, all on the one SQLite connection), and `HomeViewModel._quickLogUndo` (`Channel.BUFFERED`) back-pressured its producers on `send` past 64 unconsumed items.
+
+**Changes:**
+
+- **New `NotificationEvalScheduler` (`notification/`).** `@Singleton`, owns the app `CoroutineScope` + `Provider<NotificationEvaluator>`; `schedule(caseId)` keeps at most one pending `Job` per Case behind a lock, replaced on each new request, firing `evaluateCase` after `EVAL_DEBOUNCE_MILLIS = 300`. `RoomHodithRepository` drops its `Provider<NotificationEvaluator>` + `CoroutineScope` constructor params for this one dependency; `evaluateNotificationsForCase` now delegates to it. The `~6h` `NotificationEvalWorker` path (`evaluateAll`) is untouched.
+- **`_quickLogUndo` → `Channel(capacity = 1, onBufferOverflow = DROP_OLDEST)`.** Only the latest one-tap event is undoable, so `send` never suspends and no producer parks. Consumer (`HomeScreen`) already only needs a `Flow`.
+
+**Checklist walk (against the working-tree `git diff`):**
+
+- *Duplication* — the two androidTest constructors that build `RoomHodithRepository` directly needed the same throwaway scheduler; `RoomHodithRepositoryBackupTest` builds it twice so it got a private `unusedScheduler()` helper, `BackupImportIntegrationTest` builds it once inline in its existing `repositoryFor`. No repeated logic in `main`.
+- *Decoupling* — `NotificationEvalScheduler` is coroutines-only, no `android.*`, no `Clock` (it schedules, it doesn't reason about time); the debounce window is infrastructure timing, not a product constant, so it stays a `const` on the class rather than moving to `domain/`. Repository still owns no scope. Trigger/check-in logic in `domain/` is untouched.
+- *Complexity & pattern health* — `schedule` is ~10 lines; the `pending[caseId] === job` identity check in the `finally` keeps a cancelled job's cleanup from evicting its replacement's map entry. `MutableSharedFlow` + `debounce` was the AC's parenthetical suggestion but only debounces globally — a per-`caseId` `Job` map is the smaller correct thing (a burst across two Cases still evaluates both). `viewModelScope` / channel usage in `HomeViewModel` unchanged in shape.
+- *Dead code & hygiene* — `CoroutineScopeModule`'s KDoc rerouted from `RoomHodithRepository` to `NotificationEvalScheduler` (still its only non-`HodithApplication` user); `RoomHodithRepository` lost 4 now-unused imports (ktlint clean). No throwaway prototype — the change was small enough to build directly. `git status` clean of stray files.
+- *Repo hygiene* — two new `.kt` files, LF like every committed source; no secrets, no local paths.
+- *Naming* — `NotificationEvalScheduler` sits in `notification/` beside `NotificationEvaluator` / `NotificationEvalWorker`; `schedule` / `EVAL_DEBOUNCE_MILLIS` match the surrounding style. No `Voice` keys touched.
+- *Hardcoded values / accessibility / deprecated APIs* — n/a: one named `const`, no UI, no deprecated calls; lint clean.
+- *Spec review* — §11 said triggers/check-ins "evaluate immediately on every event insert/edit/delete"; still true, with a clause added that a sub-second per-Case debounce collapses a burst. Intentional, so the spec was updated.
+- *Tests* — new `NotificationEvalSchedulerTest` (3, JVM, virtual time): burst on one Case → one evaluation; interleaved distinct Cases → one each; a lone request waits out the window. `HomeViewModelTest` +1: a 70-tap burst with no collector never blocks and leaves only the latest undo actionable. Existing `NotificationEvaluatorTest` / `HomeViewModelTest` green unchanged. The two androidTest backup classes only changed a constructor argument (evaluator still a throwing stand-in, never invoked) — **instrumented re-run pending an emulator**; the JVM suite covers the wiring. No new system-boundary flow → no MANUAL_TEST_PLAN change.
+
+**Deferred:** nothing.
+
+**Docs updated:** `PROGRESS.md` — F6 struck (Performance section now F2 + F4, intro "all three" → "both"). `HODITH_SPEC.md` §11 — debounce clause added. `TESTING.md` — Notification evaluation row (the scheduler's debounce contract) and ViewModels row (undo-burst).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (650 JVM tests, was 646). Instrumented re-run pending the emulator.
+
 ## refactor/scoped-recompute
 
 **Scope:** the S6 high-volume review's data-layer set — Home + widgets re-materialising every event of every active Case on every insert (was F1), Home counting archived Cases via a full `@Relation` (was F3), Insights/Hunch tab state recomputed inline in composition (was F5). Option B was chosen over pushing the count math into SQL (which would have moved ~12 active-span boundary tests off the JVM); the baseline numbers and that reasoning are in local (non-committed) notes. Also here: removing now-dead `observeActiveCasesWithEvents()` and striking the stale S3 tracker item.

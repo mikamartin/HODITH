@@ -15,6 +15,7 @@ import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.activeSpanEnd
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -119,7 +120,10 @@ class HomeViewModel
         private val _logSheet = MutableStateFlow<HomeLogSheetState?>(null)
         val logSheet: StateFlow<HomeLogSheetState?> = _logSheet.asStateFlow()
 
-        private val _quickLogUndo = Channel<QuickLogUndo>(Channel.BUFFERED)
+        // Only the most recent one-tap event is undoable, so a rapid logging burst must not park
+        // the producer coroutines on a full buffer (Channel.BUFFERED back-pressures at 64): keep
+        // the latest signal, drop the rest.
+        private val _quickLogUndo = Channel<QuickLogUndo>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
         val quickLogUndo: Flow<QuickLogUndo> = _quickLogUndo.receiveAsFlow()
 
         /**

@@ -94,6 +94,28 @@ class HomeViewModelTest {
         }
 
     @Test
+    fun `a rapid one-tap burst never blocks and leaves only the latest undo actionable`() =
+        runTest {
+            repository.cases.value = listOf(testCase(logFlow = LogFlow.ONE_TAP))
+            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+
+            viewModel.uiState.test {
+                val row = awaitLoadedItem { it.isLoading }.cases.single()
+                // Well past the old Channel.BUFFERED capacity of 64: with SUSPEND overflow the
+                // producer coroutines would have parked on send with no collector draining them.
+                repeat(70) { viewModel.onQuickLogTap(row) }
+
+                viewModel.quickLogUndo.test {
+                    val undo = awaitItem()
+                    assertEquals(70L, undo.eventId)
+                    expectNoEvents()
+                }
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(70, repository.events.value.size)
+        }
+
+    @Test
     fun `onQuickLogTap on an ongoing START_STOP case starts a second concurrent event`() =
         runTest {
             repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))

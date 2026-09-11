@@ -2,6 +2,7 @@ package com.secondmonday.hodith.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.backup.BackupData
+import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import com.secondmonday.hodith.testtags.Smoke
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,8 +21,8 @@ import javax.inject.Provider
  * Room database — the one place this repository's own logic (not just DAO queries) matters: the
  * FK-safe insert order and the all-in-one-transaction restore. The notification-evaluation side of
  * [RoomHodithRepository] is irrelevant here (import writes via DAOs directly, bypassing the
- * insert/update wrappers that trigger it), so its `Provider<NotificationEvaluator>` is a stand-in
- * that's never invoked.
+ * insert/update wrappers that trigger it), so its [NotificationEvalScheduler]'s evaluator is a
+ * stand-in that's never invoked.
  */
 @RunWith(AndroidJUnit4::class)
 class RoomHodithRepositoryBackupTest {
@@ -39,10 +40,15 @@ class RoomHodithRepositoryBackupTest {
                 tagDao = db.tagDao(),
                 hunchDao = db.hunchDao(),
                 triggerDao = db.triggerDao(),
-                notificationEvaluator = Provider { error("not used by backup export/import") },
-                applicationScope = CoroutineScope(Dispatchers.Unconfined),
+                notificationEvalScheduler = unusedScheduler(),
             )
     }
+
+    private fun unusedScheduler() =
+        NotificationEvalScheduler(
+            scope = CoroutineScope(Dispatchers.Unconfined),
+            evaluator = Provider { error("not used by backup export/import") },
+        )
 
     @After
     fun tearDown() {
@@ -74,8 +80,7 @@ class RoomHodithRepositoryBackupTest {
                         tagDao = freshDb.tagDao(),
                         hunchDao = freshDb.hunchDao(),
                         triggerDao = freshDb.triggerDao(),
-                        notificationEvaluator = Provider { error("not used by backup export/import") },
-                        applicationScope = CoroutineScope(Dispatchers.Unconfined),
+                        notificationEvalScheduler = unusedScheduler(),
                     )
 
                 freshRepository.importBackupData(backup)

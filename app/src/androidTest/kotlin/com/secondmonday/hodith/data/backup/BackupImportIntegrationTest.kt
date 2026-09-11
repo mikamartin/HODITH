@@ -8,6 +8,7 @@ import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.data.testHunch
 import com.secondmonday.hodith.data.testTrigger
+import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import com.secondmonday.hodith.testtags.Smoke
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.CoroutineScope
@@ -83,7 +84,10 @@ class BackupImportIntegrationTest {
             tagDao = database.tagDao(),
             hunchDao = database.hunchDao(),
             triggerDao = database.triggerDao(),
-            notificationEvaluator = Provider { error("not used by backup export/import") },
-            applicationScope = CoroutineScope(Dispatchers.Unconfined),
+            notificationEvalScheduler =
+                NotificationEvalScheduler(
+                    scope = CoroutineScope(Dispatchers.Unconfined),
+                    evaluator = Provider { error("not used by backup export/import") },
+                ),
         )
 }
