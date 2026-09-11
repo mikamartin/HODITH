@@ -73,7 +73,7 @@ Permanent accepted constraints — nothing here gets checked off.
 - **`provideGlance()` must read its data reactively, inside `provideContent { }`** — via `currentState<Preferences>()` for Glance-owned per-instance state, and a live collected `Flow` (e.g. `produceState { repository.observeX().collect { value = ... } }`) for Room-backed data — never as one-shot suspend reads captured by the composable from *outside* `provideContent { }`. This was the real root cause of a bug where both widgets got permanently stuck showing their empty/not-found state even after a correct, verified configure flow: Android binds a widget (`bindAppWidgetIdIfAllowed`) *before* its `android:configure` Activity even runs, so Glance can start a session and run `provideGlance()` once with no data configured yet. If that first pass captures its values as plain `val`s instead of Compose `State`, the composable has nothing to recompose against — later `update()` calls (even when they demonstrably write the right data and the system genuinely receives an update push) just reapply the same frozen output. Reading state reactively inside `provideContent { }` fixes this regardless of when the session started, since the composable then recomposes itself whenever the underlying value actually changes.
 - **`android:initialLayout` is required in every `res/xml/*_widget_info.xml`.** Its absence caused a separate, earlier-discovered bug: `AppWidgetHostView` threw `Resources$NotFoundException` (resource ID 0) trying to inflate a placeholder before a widget's first real update landed. Point it at a minimal placeholder layout (see `res/layout/widget_loading.xml`) — Glance doesn't generate one automatically.
 - **Widget configure-time updates should target the specific widget being configured**, not `updateAll()`: a widget being configured for the first time isn't guaranteed to be in Glance's "known instances" list yet, so `updateAll()` can silently miss it. Resolve the real `glanceId` via `GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)` and call `MyWidget().update(context, glanceId)` instead.
-- **Real, end-to-end `AppWidgetHost` instrumented tests are possible without a physical device or manual placement** — see `ListWidgetConfigureFlowTest`/`SingleCaseWidgetConfigureFlowTest` for the pattern. Requires `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0` on the target device/emulator first — it's a per-device grant, not a per-run one, so it only needs redoing when the device/AVD itself is reset (a locally reused emulator needs this once; CI's disposable emulator needs it every run, wired into `instrumented-tests.yml`'s test step). **The app must already be installed when `grantbind` runs** — it resolves the package name against what's actually on the device, so a no-op-looking `grantbind` against a not-yet-installed package silently fails to grant anything (the actual failure only surfaces later as `bindAppWidgetIdIfAllowed` returning `false` in the test itself). CI runs `./gradlew installDebug` before `grantbind`, ahead of the main `connectedDebugAndroidTest` invocation, and this has run green across every recent CI run (confirmed via `gh run view` on several merged PRs — 88/88 widget + repository-shard tests passing).
+- **Real, end-to-end `AppWidgetHost` instrumented tests are possible without a physical device or manual placement** — see `ListWidgetConfigureFlowTest`/`SingleCaseWidgetConfigureFlowTest` for the pattern. Requires `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0` on the target device/emulator first — it's a per-device grant, not a per-run one, so it only needs redoing when the device/AVD itself is reset (a locally reused emulator needs this once; CI's disposable emulator needs it every run, wired into `instrumented-tests.yml`'s test step). **The app must already be installed when `grantbind` runs** — it resolves the package name against what's actually on the device, so a no-op-looking `grantbind` against a not-yet-installed package silently fails to grant anything (the actual failure only surfaces later as `bindAppWidgetIdIfAllowed` returning `false` in the test itself). CI runs `./gradlew installDebug` before `grantbind`, ahead of the main `connectedDebugAndroidTest` invocation, and this has run green across every recent CI run (confirmed via `gh run view` on several merged PRs — the widget + repository-shard tests all passing).
   - **Which package needs the grant appears to be emulator-image-dependent.** CI's AOSP `default` x86_64 pixel_6 API36 image works granting the app's own `com.secondmonday.hodith`, per the green runs above. On at least one local Windows dev machine's Google Play/GMS-enabled image (`sdk_gphone64_x86_64`, API36), that same grant reported success (`setBindAppWidgetPermission() 0` in logcat, no error) but every `AppWidgetHost` test still failed with `bindAppWidgetIdIfAllowed failed` — `dumpsys package` showed the app and its `.test` package hold distinct UIDs on that image, and granting `com.secondmonday.hodith.test` instead (confirmed via a direct `adb shell am instrument -e class ...` run, bypassing Gradle) fixed it immediately. If a widget instrumented test fails locally with `bindAppWidgetIdIfAllowed failed` despite `grantbind` reporting success, try granting the `.test` package instead before assuming it's a code regression.
   - **Drive the real configure Activity, not the ViewModel/Glance functions directly.** An early version of these tests called `ListWidgetConfigureViewModel`/`Glance` functions directly instead of launching the real Activity, and it passed even though the real on-device flow was still broken by the bug above — it only proved the data/render pipeline works in isolation, not that the Activity actually reaches it. Launch the real Activity via `ActivityScenario.launch<T>(intent)` (with `EXTRA_APPWIDGET_ID` set, after `AppWidgetHost.allocateAppWidgetId()` + `bindAppWidgetIdIfAllowed()`), drive its real Compose picker dialog with a `createEmptyComposeRule()` (not `createAndroidComposeRule<T>()` — that manages its own Activity launch and doesn't support a custom Intent), then inspect the real `AppWidgetHostView`'s inflated RemoteViews via `AppWidgetHost.createView()`.
   - **`LazyColumn`-backed content won't populate its row items in this minimal host**: Glance backs it with a `RemoteViewsService`/`ListView` adapter, which needs a fuller service-binding lifecycle than this host implements. Assert on structural presence (e.g. is a `ListView` there, is the empty-state message gone) rather than list-item text for those widgets.
@@ -128,3 +128,39 @@ Permanent accepted constraints — nothing here gets checked off.
 - [ ] Dedicated branch; expect 3–5 sync/build errors on a major jump
 - [ ] `./gradlew assembleDebug` from terminal to confirm
 - [ ] Run tests after a clean build
+
+---
+
+## 8. Performance — things to keep in mind
+
+**Room invalidation is table-level.** A `Flow` `@Query` re-runs *in full* on every write to any
+table it reads — for every active subscriber, regardless of which row changed. So a new observe
+query over a hot table (`events`, `event_tags`) is refetched on every log. If it's expensive, every
+subscribed screen pays that per insert; if it's *slow*, it also starves the single SQLite
+connection's write path and a tap-storm ANRs. When adding one:
+
+- For counts or timing, read a lean projection — `SELECT` only the columns needed, one JOIN — not
+  the events-per-Case `@Relation` graph. Put a scalar in SQL (`SELECT COUNT(*)`), not
+  `observe…WithEvents().map { it.size }`.
+- Bound the query to what's on screen (a month range, a page) rather than all history.
+- Map any non-trivial transform on `Dispatchers.Default` with `.conflate()`.
+- Memoize derived Compose state (`remember`) so it isn't recomputed on unrelated recompositions.
+
+The pure-Kotlin aggregation (`insightsTabState`, the stat engines, `homeCaseRows`) is *not* a
+bottleneck even at multi-year volumes — don't spend effort there without a measurement saying so.
+
+**Measuring.** Two throwaway probes, run then deleted — never committed (a hard timing assertion is
+flaky and adds CI weight):
+
+1. **JVM engine probe** — a JUnit4 class in `src/test/.../domain` or `.../viewmodel` (production
+   package, for `internal` visibility). Build `List(n) { testEvent(...) }` directly (never loop
+   `FakeHodithRepository.insertEvent` — O(n²)). Time with `System.nanoTime()`, ~3 warm-up + ~7
+   measured, median. Run: `./gradlew :app:testDebugUnitTest --tests "*Probe"`.
+2. **Instrumented DAO probe** — a class in `src/androidTest/.../data`, **file-backed**
+   `Room.databaseBuilder` (real journal), seed in one `withTransaction`. Time the observe queries'
+   `.first()`, and the invalidation cost: collect the screen's heaviest observe flow in a background
+   job, do 100 inserts, measure the total. Run:
+   `ANDROID_SERIAL=<emulator> ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=<Fqcn>`.
+   **Emulator only.** Its `println` output lands in
+   `app/build/outputs/androidTest-results/connected/debug/<avd>/logcat-<class>-<method>.txt`, not the
+   Gradle console.

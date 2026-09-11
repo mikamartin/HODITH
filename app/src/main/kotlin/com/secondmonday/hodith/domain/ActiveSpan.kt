@@ -19,9 +19,22 @@ internal fun activeSpanEnd(
     event: EventEntity,
     durationMode: DurationMode,
     now: Long,
+): Long = activeSpanEnd(event.occurredAt, event.endedAt, durationMode, now)
+
+/**
+ * Primitive-parameter core of [activeSpanEnd] — the same span-end rule from an event's raw
+ * `occurredAt` / `endedAt` rather than an [EventEntity]. Home's row counts read a lean
+ * `caseId / occurredAt / endedAt / durationMode` projection (`CaseEventSpan`) rather than full
+ * events, so the rule lives here in one place and stays JVM-tested.
+ */
+internal fun activeSpanEnd(
+    occurredAt: Long,
+    endedAt: Long?,
+    durationMode: DurationMode,
+    now: Long,
 ): Long =
     if (!durationMode.tracksDuration) {
-        event.occurredAt
+        occurredAt
     } else {
-        event.endedAt ?: if (durationMode == DurationMode.START_STOP) now else event.occurredAt
+        endedAt ?: if (durationMode == DurationMode.START_STOP) now else occurredAt
     }

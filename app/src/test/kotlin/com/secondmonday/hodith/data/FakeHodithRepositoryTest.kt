@@ -15,13 +15,14 @@ class FakeHodithRepositoryTest {
         name: String = "Coffee",
         sortOrder: Int = 0,
         archived: Boolean = false,
+        durationMode: DurationMode = DurationMode.NONE,
     ) = CaseEntity(
         id = id,
         name = name,
         icon = "☕️",
         createdAt = 0L,
         logFlow = LogFlow.ONE_TAP,
-        durationMode = DurationMode.NONE,
+        durationMode = durationMode,
         intensityEnabled = false,
         checkInsEnabled = true,
         lastCheckInAt = null,
@@ -80,25 +81,44 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeActiveCasesWithEvents excludes archived cases, sorts by sortOrder, and joins matching events`() =
+    fun `observeActiveCaseEventSpans projects timing plus the owning Case's durationMode, excluding archived`() =
         runTest {
-            val keptId = repository.insertCase(testCase(name = "Kept", sortOrder = 1))
-            repository.insertCase(testCase(name = "Archived", sortOrder = 0, archived = true))
-            repository.insertEvent(testEvent(caseId = keptId, occurredAt = 100L))
-            repository.insertEvent(testEvent(caseId = 999L, occurredAt = 200L)) // belongs to a different case
+            val trackingId = repository.insertCase(testCase(name = "Tracked", durationMode = DurationMode.START_STOP))
+            repository.insertCase(testCase(name = "Archived", archived = true, durationMode = DurationMode.MANUAL))
+            repository.insertEvent(testEvent(caseId = trackingId, occurredAt = 100L, endedAt = 400L))
+            repository.insertEvent(testEvent(caseId = 999L, occurredAt = 200L)) // archived Case's event
 
-            repository.observeActiveCasesWithEvents().test {
-                val rows = awaitItem()
-                assertEquals(listOf("Kept"), rows.map { it.case.name })
-                assertEquals(1, rows.single().events.size)
-                assertEquals(
-                    100L,
-                    rows
-                        .single()
-                        .events
-                        .single()
-                        .occurredAt,
-                )
+            repository.observeActiveCaseEventSpans().test {
+                val spans = awaitItem()
+                assertEquals(1, spans.size)
+                assertEquals(CaseEventSpan(trackingId, 100L, 400L, DurationMode.START_STOP), spans.single())
+            }
+        }
+
+    @Test
+    fun `observeOpenEvents returns only end-less events, earliest first, across all Cases`() =
+        runTest {
+            val a = repository.insertCase(testCase(name = "A"))
+            val b = repository.insertCase(testCase(name = "B"))
+            repository.insertEvent(testEvent(caseId = a, occurredAt = 500L, endedAt = null))
+            repository.insertEvent(testEvent(caseId = a, occurredAt = 100L, endedAt = null))
+            repository.insertEvent(testEvent(caseId = b, occurredAt = 300L, endedAt = 900L)) // finished
+
+            repository.observeOpenEvents().test {
+                val open = awaitItem()
+                assertEquals(listOf(100L, 500L), open.map { it.occurredAt })
+            }
+        }
+
+    @Test
+    fun `observeArchivedCaseCount counts only archived Cases`() =
+        runTest {
+            repository.insertCase(testCase(name = "Active"))
+            repository.insertCase(testCase(name = "Gone 1", archived = true))
+            repository.insertCase(testCase(name = "Gone 2", archived = true))
+
+            repository.observeArchivedCaseCount().test {
+                assertEquals(2, awaitItem())
             }
         }
 

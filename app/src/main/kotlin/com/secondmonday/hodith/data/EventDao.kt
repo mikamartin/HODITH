@@ -45,6 +45,22 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE caseId = :caseId AND endedAt IS NULL LIMIT 1")
     suspend fun getOngoingEvent(caseId: Long): EventEntity?
 
+    /**
+     * Lean per-event projection for Home / the widgets' today / this-week counts — `caseId`,
+     * timing, and the owning Case's `durationMode`, for every active Case's events. One flat JOIN,
+     * no `@Relation`, no full-row hydration (see [CaseEventSpan]).
+     */
+    @Query(
+        "SELECT e.caseId AS caseId, e.occurredAt AS occurredAt, e.endedAt AS endedAt, " +
+            "c.durationMode AS durationMode " +
+            "FROM events e JOIN cases c ON c.id = e.caseId WHERE c.archived = 0",
+    )
+    fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>>
+
+    /** Every open-ended event across all Cases, earliest first — Home / widget ongoing indicators. Small set (only running events). */
+    @Query("SELECT * FROM events WHERE endedAt IS NULL ORDER BY occurredAt")
+    fun observeOpenEvents(): Flow<List<EventEntity>>
+
     @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC LIMIT 1")
     suspend fun getMostRecentEventForCase(caseId: Long): EventEntity?
 

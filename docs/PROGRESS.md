@@ -8,6 +8,7 @@ Items are grouped by how they connect, not by feature area:
 
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
+- **Performance** — what's left of the S6 high-volume review, one shared root cause.
 - **Blocked** — gated on something external; not startable now.
 
 Each item carries:
@@ -49,7 +50,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy), and among Standalone S3 (a possible shortened segment label) and S5 (resolved-hunch row wording). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too. The `feat/big-picture-overview-detail` branch retired `bigPictureEventNoteEmptyState` (×3) and added `bigPictureDetailDialogTitle` + `bigPictureDetailEditDescription` (×3) plus four shared `get()` field labels — fold those in.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy) and S5 (resolved-hunch row wording). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too. The `feat/big-picture-overview-detail` branch retired `bigPictureEventNoteEmptyState` (×3) and added `bigPictureDetailDialogTitle` + `bigPictureDetailEditDescription` (×3) plus four shared `get()` field labels — fold those in.
 
 **Acceptance criteria**
 
@@ -67,10 +68,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies. Pick any when resources are thin. Several soft batching opportunities:
-
-- **Selection controls — S3** — `SegmentedChoiceRow` is shared by the Case editor's Duration row and all four Hunch-creation-sheet selectors; one fix covers both.
-- **Fully isolated — S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S6** (performance review), **S7** (external content). No cross-dependencies; pick by appetite.
+No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S7** (external content). Pick by appetite. The **Performance** section below is a separate cluster with its own shared root cause.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -115,29 +113,6 @@ What it computes today:
 
 **Tests** — none; `StatsEngineTest` / `InsightsEngineTest` gain coverage only when an approved change lands as its own item.
 
-### S3 · Segmented-choice rows crowd at larger font scales
-
-*Branch: `fix/segmented-row-label-crowding` · Complexity: S · Priority: Medium · Area: Bug*
-
-🎨 **Design decision** — the fix lands in the shared `SegmentedChoiceRow`, and the tightest options trade against spec §3 principle 6 (the selected-state checkmark is a non-colour cue).
-
-Two screens surface this. `CaseEditScreen.kt`'s Duration section (options None / Manual / Start/stop) and all four selectors on the Hunch-creation sheet (`HunchCreationSheet.kt` — direction, verdict metric, period, observation window, rows at ~112/121/150/158) render through the shared `ui/common/SegmentedChoiceRow.kt`. The Plain/Intense branch is `SingleChoiceSegmentedButtonRow` with one `SegmentedButton` per option: equal-width segments, no `maxLines` / `softWrap` / auto-size, and M3's leading selected-checkmark slot takes ~24–28dp. The longer labels ("Start/stop", the days-active period options) sit in the rightmost segment, so on narrower screens or larger font scales they read tight or clip. The Bright branch (`BrightSegmentedChoiceRow`) already has `4dp` track padding and a `5dp` inter-segment gap but `horizontal = 0.dp` inner padding when `stretchToFill`, so its text still butts the capsule edge. The control is shared across seven more call sites (Settings theme / time-format / interval pickers, Log-tab sort, Insights granularity, Triggers, Share layout), so a fix here is consistency-positive. `caseDurationModeNone` / `Manual` / `StartStop` and the Hunch labels are interface `get()` defaults, identical across voices.
-
-**Acceptance criteria**
-
-- [ ] The Duration labels and the Hunch-sheet selector labels render comfortably (no clip, sensible wrap) at a ~320dp width and the largest supported font scale, in Plain, Intense, and Bright.
-- [ ] Fix applied in `SegmentedChoiceRow.kt` so every caller benefits; the Bright branch gains a small minimum horizontal inset.
-- [ ] Verified against the Hunch-creation sheet's four rows, not just the Case editor's Duration row.
-- [ ] The affordance decision recorded — e.g. (a) keep the checkmark, drop label typography to `labelMedium` and tighten `SegmentedButton` content padding; (b) allow labels to wrap to two lines; (c) shorten a Voice label. If the checkmark is dropped to reclaim width, a replacement non-colour cue is added (spec §3 principle 6).
-- [ ] `.selectable` / `Role.RadioButton` semantics unchanged.
-- [ ] A Plain and an Intense Preview of a three-option row at a narrow width + large font scale (only a Bright Preview exists today).
-
-**Plan** — reproduce in a Preview first (narrow width, bumped `fontScale`), pick the affordance, apply it once in `SegmentedChoiceRow.kt`, then eyeball the other call sites (the Settings theme picker is also three options) for regressions.
-
-**Tests** — add a `SegmentedChoiceRow` Compose test (none exists) asserting all option labels are displayed for the three-option case in a constrained-width container; `CaseEditScreenTest`, `SettingsScreenTest`, and the Hunch-sheet tests stay green.
-
-**Concern** — cosmetic; nothing is functionally broken, but it now touches a primary creation flow (the Hunch sheet), not just settings-adjacent screens.
-
 ### S5 · Resolved-hunch history rows need a proper design and content pass
 
 *Branch: `feat/hunch-history-row-redesign` · Complexity: M · Priority: Medium · Area: Hunch*
@@ -162,32 +137,6 @@ Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `Hunc
 
 **Concern** — standalone; the redesign is a small surface but a visible one, and the content call (does the verdict tier show?) is a product decision.
 
-### S6 · Performance review for high event volume and rapid logging
-
-*Branch: `chore/high-volume-perf-review` · Complexity: M · Priority: Medium · Area: Performance*
-
-🔍 **Investigation** — measure first; the fix set depends on what the numbers say.
-
-Two scenarios worth checking before real users arrive:
-
-- **High volume** — ~3 events/day for 3 years on one case (~3.3k rows), across 10 cases (~33k rows total).
-- **Rapid logging** — a one-tap case tapped ~1000 times in quick succession.
-
-Current shape (from a source read):
-
-- `EventDao` list queries (`observeEventsForCase`, `observeEventsWithTagsForCase`) have no `LIMIT` and no pagination; `CaseDao.observeActiveCasesWithEvents[AndTags]` pulls every event and tag for every active case via `@Relation`. All aggregation is in-memory over the full list — Insights recomputes ~8 stat passes on every emission; Big Picture, Home, and the widget remap the whole cross-case set on every insert; the verdict re-filters the full list once per historical hunch.
-- The one-tap path is one DB insert per tap with no debounce or batching, and each insert also fires an un-debounced `evaluateNotificationsForCase` coroutine. Only the Glance widget refresh is coalesced (`enqueueUniqueWork` with `REPLACE`); the Home undo channel is not.
-
-**Acceptance criteria**
-
-- [ ] Measured numbers on a mid-range device profile: open a large case, scroll its Log tab, open Big Picture, and tap-storm a one-tap case.
-- [ ] A call on whether SQL-side aggregation, a windowed/capped Log query, or an insert debounce is worth doing before alpha — or whether realistic volumes stay comfortably fine and this closes with the measurements kept for reference.
-- [ ] Anything approved spun out as its own item.
-
-**Plan** — seed a large dataset (extend `DemoDataSeeder` locally or a throwaway test), profile with the Android Studio profiler, write up the findings.
-
-**Tests** — none in this item; a follow-up that changes a query or adds a debounce brings its own.
-
 ### S7 · Audit the hosted privacy policy and Play data-safety form
 
 *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium · Area: Settings*
@@ -200,6 +149,63 @@ Current shape (from a source read):
 - [ ] Play data-safety answers reconciled with the same copy (once a listing exists).
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
+
+## Performance
+
+The open tail of the S6 high-volume / rapid-logging review. One root cause runs through all three: **Room's invalidation is table-level**, so every `events` write re-runs every query that touches `events`, over the whole dataset — fine per query until the dataset is large or the query is heavy. S6's measurements and the reasoning behind each item live in the local (non-committed) performance baseline notes; the stat-engine aggregation it flagged turned out not to be a bottleneck.
+
+### F2 · Big Picture loads every event and every tag on every write
+
+*Branch: `refactor/big-picture-windowed-query` · Complexity: M · Priority: Medium · Area: Performance*
+
+`BigPictureViewModel` subscribes to `observeActiveCasesWithEventsAndTags()` — the full cross-Case event set *plus a tag junction per event*, the heaviest query in the app — and it refetches on every `events` / `event_tags` write. At S6-scale volumes this is a visible stall on Big Picture open and on logging while it's on screen. The grid opens on the current month and scrolls, and it never renders tags on the grid itself — only the day / week tap-through dialog needs them.
+
+**Acceptance criteria**
+
+- [ ] The grid query bounded to a visible month range (open month ± a scroll buffer), extended as the user scrolls, rather than all history eagerly.
+- [ ] Tags dropped from the grid query; an event's tags loaded on demand when a day / week detail dialog opens.
+- [ ] The filter chips' tag universe (`allTagNames`) sourced from a lightweight distinct-tags query, not by flattening every event's tags.
+- [ ] Re-run the S6 baseline probe: Big Picture cold open and per-write refetch both within a frame's budget per visible month.
+
+**Plan** — windowed month-range DAO query for the grid; separate on-demand tag fetch for the detail dialogs; distinct-tags query for the filter chips.
+
+**Tests** — `bigPictureUiState` over a windowed event list; a DAO test for the month-range query; the detail-dialog tag fetch; Big Picture Compose tests stay green.
+
+**Concern** — scroll-triggered range extension must not stutter or flash empty cells on a fast scroll to a distant month, and the month-picker quick-jump (§9) must still land populated.
+
+### F4 · Log tab has no query cap and sorts the whole history in memory
+
+*Branch: `feat/log-tab-paged-query` · Complexity: M · Priority: Low · Area: Performance*
+
+🔍 **Investigation** — measure in alpha before committing to Paging.
+
+`observeEventsWithTagsForCase` returns the full Case history (with its tag junction), then `sortEventsForLog` sorts it all in memory into one `LazyColumn`. Comfortable at ordinary volumes; a multi-year single Case is the edge.
+
+**Acceptance criteria**
+
+- [ ] A call, informed by alpha feedback, on whether the Log tab needs a capped / paged query or stays as-is.
+- [ ] If taken: Paging 3 (or a capped query with "load older") for the Log tab; the Started / Ended sort (§6) pushed into SQL or kept as a small in-memory sort over the loaded page.
+
+**Plan** — defer until F2 lands and alpha shows whether the Log tab feels slow; then Paging or a capped query.
+
+**Tests** — `CaseDetailScreenTest` Log-tab coverage; a DAO test for the paged / capped query if taken.
+
+### F6 · Rapid logging fans out unbounded notification-eval coroutines and floods the undo channel
+
+*Branch: `fix/rapid-log-debounce` · Complexity: M · Priority: Medium · Area: Performance*
+
+Every `insertEvent` fires an un-debounced `evaluateNotificationsForCase` coroutine on the application scope — several DAO reads plus a possible `triggers` write each, no per-Case dedup — so a burst of taps launches one overlapping evaluation per tap, all contending on the single SQLite connection. The Home `_quickLogUndo` `Channel(BUFFERED)` also emits once per tap and back-pressures (SUSPEND) past 64, parking producer coroutines.
+
+**Acceptance criteria**
+
+- [ ] `evaluateNotificationsForCase` debounced / deduped by `caseId` (e.g. a `MutableSharedFlow<Long>` on the app scope with `debounce` + `distinctUntilChanged`), so a tap burst collapses to one evaluation per Case.
+- [ ] `_quickLogUndo` given `onBufferOverflow = BufferOverflow.DROP_OLDEST` (only the most recent undo is actionable).
+- [ ] A genuine single edit still evaluates triggers immediately (the debounce window is sub-second); the ~6 h WorkManager job is unchanged.
+- [ ] A test for the burst case: N rapid inserts on one Case → one (or few) evaluations, not N.
+
+**Plan** — route `evaluateNotificationsForCase` through a debounced `SharedFlow` on the app scope; flip the undo channel's overflow policy. `updateEvent` / `deleteEvent` route through the same seam and must stay correct.
+
+**Tests** — a `RoomHodithRepository` / evaluator test asserting a burst of inserts collapses to a bounded number of evaluations; `HomeViewModelTest` for the undo channel under overflow.
 
 ## Blocked
 

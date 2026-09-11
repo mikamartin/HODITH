@@ -215,14 +215,19 @@ fun CaseDetailScreen(
                     )
                 INSIGHTS_TAB ->
                     if (case != null) {
-                        InsightsTabContent(
-                            state =
+                        // Derived state — memoize so the many-pass aggregation recomputes only on a
+                        // real input change, not on every unrelated recomposition of this screen.
+                        val insightsState =
+                            remember(case, uiState.events, now, frequencyGranularityOverride) {
                                 insightsTabState(
                                     case,
                                     uiState.events,
                                     now,
                                     frequencyGranularityOverride = frequencyGranularityOverride,
-                                ),
+                                )
+                            }
+                        InsightsTabContent(
+                            state = insightsState,
                             case = case,
                             events = uiState.events,
                             now = now,
@@ -371,8 +376,15 @@ private fun HunchTabContent(
     onAddClick: () -> Unit,
     onResolveHunch: (HunchEntity) -> Unit,
 ) {
-    val events = uiState.events.map { it.event }
-    val state = hunchTabState(case, uiState.activeHunch, events, uiState.hunchHistory, now)
+    val events = remember(uiState.events) { uiState.events.map { it.event } }
+    // Derived state, not a cheap read — memoize so it recomputes only on a real input change, not
+    // on every unrelated recomposition of CaseDetailScreen (spec §7). `now` stays a key: a
+    // resolved-Hunch verdict is frozen at `resolvedAt`, but an active Hunch's window ends at `now`,
+    // so the tick still has to flow through.
+    val state =
+        remember(case, uiState.activeHunch, events, uiState.hunchHistory, now) {
+            hunchTabState(case, uiState.activeHunch, events, uiState.hunchHistory, now)
+        }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),

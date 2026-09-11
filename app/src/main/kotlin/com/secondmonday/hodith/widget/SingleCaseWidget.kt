@@ -42,7 +42,7 @@ import com.secondmonday.hodith.MainActivity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
-import com.secondmonday.hodith.viewmodel.homeCaseRows
+import com.secondmonday.hodith.viewmodel.homeCaseRowsFlow
 import dagger.hilt.android.EntryPointAccessors
 
 /** Per-instance Glance state key — each Single-case widget placement is bound to its own Case, so
@@ -71,13 +71,14 @@ class SingleCaseWidget : GlanceAppWidget() {
             // whenever CaseIdKey or the underlying Case/event data actually changes.
             val boundCaseId = currentState<Preferences>()[CaseIdKey]
             val now = entryPoint.clock().nowMillis()
+            val repository = entryPoint.repository()
             val row by
                 produceState<HomeCaseRow?>(initialValue = null, boundCaseId) {
                     if (boundCaseId == null) {
                         value = null
                     } else {
-                        entryPoint.repository().observeActiveCasesWithEvents().collect { casesWithEvents ->
-                            value = homeCaseRows(casesWithEvents.filter { it.case.id == boundCaseId }, now).firstOrNull()
+                        homeCaseRowsFlow(repository) { now }.collect { allRows ->
+                            value = allRows.firstOrNull { it.caseId == boundCaseId }
                         }
                     }
                 }

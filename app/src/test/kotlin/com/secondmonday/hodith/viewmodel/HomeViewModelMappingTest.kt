@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
+import com.secondmonday.hodith.data.CaseEventSpan
 import com.secondmonday.hodith.data.CaseWithEvents
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
@@ -22,7 +23,7 @@ class HomeViewModelMappingTest {
 
     @Test
     fun `case with no events gets zero counts`() {
-        val rows = homeCaseRows(listOf(caseWithEvents(events = emptyList())), now.toInstant().toEpochMilli())
+        val rows = homeRows(listOf(caseWithEvents(events = emptyList())), now.toInstant().toEpochMilli())
 
         assertEquals(0, rows.single().todayCount)
         assertEquals(0, rows.single().weekCount)
@@ -31,7 +32,7 @@ class HomeViewModelMappingTest {
     @Test
     fun `event exactly at start of today counts as today and this week`() {
         val event = testEvent(startOfToday.toInstant().toEpochMilli())
-        val rows = homeCaseRows(listOf(caseWithEvents(events = listOf(event))), now.toInstant().toEpochMilli())
+        val rows = homeRows(listOf(caseWithEvents(events = listOf(event))), now.toInstant().toEpochMilli())
 
         assertEquals(1, rows.single().todayCount)
         assertEquals(1, rows.single().weekCount)
@@ -40,7 +41,7 @@ class HomeViewModelMappingTest {
     @Test
     fun `event one millisecond before start of today counts as this week but not today`() {
         val event = testEvent(startOfToday.toInstant().toEpochMilli() - 1)
-        val rows = homeCaseRows(listOf(caseWithEvents(events = listOf(event))), now.toInstant().toEpochMilli())
+        val rows = homeRows(listOf(caseWithEvents(events = listOf(event))), now.toInstant().toEpochMilli())
 
         assertEquals(0, rows.single().todayCount)
         assertEquals(1, rows.single().weekCount)
@@ -49,7 +50,7 @@ class HomeViewModelMappingTest {
     @Test
     fun `event exactly at start of week counts as this week`() {
         val event = testEvent(startOfWeek.toInstant().toEpochMilli())
-        val rows = homeCaseRows(listOf(caseWithEvents(events = listOf(event))), now.toInstant().toEpochMilli())
+        val rows = homeRows(listOf(caseWithEvents(events = listOf(event))), now.toInstant().toEpochMilli())
 
         assertEquals(1, rows.single().weekCount)
     }
@@ -57,7 +58,7 @@ class HomeViewModelMappingTest {
     @Test
     fun `event one millisecond before start of week does not count as this week`() {
         val event = testEvent(startOfWeek.toInstant().toEpochMilli() - 1)
-        val rows = homeCaseRows(listOf(caseWithEvents(events = listOf(event))), now.toInstant().toEpochMilli())
+        val rows = homeRows(listOf(caseWithEvents(events = listOf(event))), now.toInstant().toEpochMilli())
 
         assertEquals(0, rows.single().weekCount)
     }
@@ -69,7 +70,7 @@ class HomeViewModelMappingTest {
     fun `running START_STOP event started before this week counts for today and this week`() {
         val running = testEvent(now.minusDays(5).toInstant().toEpochMilli()).copy(endedAt = null)
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(running), durationMode = DurationMode.START_STOP)),
                 now.toInstant().toEpochMilli(),
             )
@@ -82,7 +83,7 @@ class HomeViewModelMappingTest {
     fun `running START_STOP event started earlier today counts for today`() {
         val running = testEvent(startOfToday.plusHours(2).toInstant().toEpochMilli()).copy(endedAt = null)
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(running), durationMode = DurationMode.START_STOP)),
                 now.toInstant().toEpochMilli(),
             )
@@ -97,7 +98,7 @@ class HomeViewModelMappingTest {
             testEvent(now.minusDays(6).toInstant().toEpochMilli())
                 .copy(endedAt = startOfToday.plusHours(9).toInstant().toEpochMilli())
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.MANUAL)),
                 now.toInstant().toEpochMilli(),
             )
@@ -112,7 +113,7 @@ class HomeViewModelMappingTest {
             testEvent(now.minusDays(9).toInstant().toEpochMilli())
                 .copy(endedAt = startOfWeek.plusDays(1).toInstant().toEpochMilli())
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.MANUAL)),
                 now.toInstant().toEpochMilli(),
             )
@@ -127,7 +128,7 @@ class HomeViewModelMappingTest {
             testEvent(now.minusDays(9).toInstant().toEpochMilli())
                 .copy(endedAt = now.toInstant().toEpochMilli())
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.NONE)),
                 now.toInstant().toEpochMilli(),
             )
@@ -140,7 +141,7 @@ class HomeViewModelMappingTest {
     fun `MANUAL event with no endedAt stays a point and does not count from before the window`() {
         val event = testEvent(now.minusDays(9).toInstant().toEpochMilli()).copy(endedAt = null)
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.MANUAL)),
                 now.toInstant().toEpochMilli(),
             )
@@ -159,7 +160,7 @@ class HomeViewModelMappingTest {
             testEvent(startOfToday.plusHours(3).toInstant().toEpochMilli())
                 .copy(id = 3L, endedAt = startOfToday.plusHours(4).toInstant().toEpochMilli())
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(
                     caseWithEvents(
                         events = listOf(running, pointA, pointB),
@@ -181,7 +182,7 @@ class HomeViewModelMappingTest {
                 testEvent(startOfWeek.plusHours(1).toInstant().toEpochMilli()),
             )
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(
                     caseWithEvents(caseId = 1L, name = "A", events = listOf(caseAEvent)),
                     caseWithEvents(caseId = 2L, name = "B", events = caseBEvents),
@@ -197,9 +198,31 @@ class HomeViewModelMappingTest {
     }
 
     @Test
-    fun `maps case identity fields through`() {
+    fun `spans and open events for cases not in the list are ignored (widget passes the full set)`() {
+        val todayMillis = startOfToday.plusHours(1).toInstant().toEpochMilli()
         val rows =
             homeCaseRows(
+                cases = listOf(Fixtures.case(id = 1L, name = "Shown")),
+                eventSpans =
+                    listOf(
+                        CaseEventSpan(caseId = 1L, occurredAt = todayMillis, endedAt = null, durationMode = DurationMode.NONE),
+                        CaseEventSpan(caseId = 2L, occurredAt = todayMillis, endedAt = null, durationMode = DurationMode.NONE),
+                    ),
+                openEvents =
+                    listOf(
+                        Fixtures.event(id = 9L, caseId = 2L, occurredAt = todayMillis, endedAt = null),
+                    ),
+                nowMillis = now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(1, rows.single().todayCount)
+        assertNull(rows.single().ongoingEvent)
+    }
+
+    @Test
+    fun `maps case identity fields through`() {
+        val rows =
+            homeRows(
                 listOf(caseWithEvents(caseId = 7L, icon = "☕️", name = "Coffee", events = emptyList())),
                 now.toInstant().toEpochMilli(),
             )
@@ -213,7 +236,7 @@ class HomeViewModelMappingTest {
     @Test
     fun `maps logFlow, durationMode and intensityEnabled through`() {
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(
                     caseWithEvents(
                         events = emptyList(),
@@ -235,7 +258,7 @@ class HomeViewModelMappingTest {
     fun `maps the open event as ongoingEvent for a START_STOP case`() {
         val open = testEvent(occurredAt = 0L).copy(endedAt = null)
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(open), durationMode = DurationMode.START_STOP)),
                 now.toInstant().toEpochMilli(),
             )
@@ -247,7 +270,7 @@ class HomeViewModelMappingTest {
     fun `ongoingEvent is null for a START_STOP case with no open event`() {
         val closed = testEvent(occurredAt = 0L).copy(endedAt = 1_000L)
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(closed), durationMode = DurationMode.START_STOP)),
                 now.toInstant().toEpochMilli(),
             )
@@ -259,7 +282,7 @@ class HomeViewModelMappingTest {
     fun `ongoingEvent and runningCount ignore a null endedAt event on a non-START_STOP case`() {
         val event = testEvent(occurredAt = 0L).copy(endedAt = null)
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(event), durationMode = DurationMode.NONE)),
                 now.toInstant().toEpochMilli(),
             )
@@ -272,7 +295,7 @@ class HomeViewModelMappingTest {
     fun `runningCount is zero when nothing is running`() {
         val closed = testEvent(occurredAt = 0L).copy(endedAt = 1_000L)
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(closed), durationMode = DurationMode.START_STOP)),
                 now.toInstant().toEpochMilli(),
             )
@@ -286,7 +309,7 @@ class HomeViewModelMappingTest {
         val second = testEvent(occurredAt = 500L).copy(id = 2L, endedAt = null)
         val third = testEvent(occurredAt = 900L).copy(id = 3L, endedAt = null)
         val rows =
-            homeCaseRows(
+            homeRows(
                 listOf(caseWithEvents(events = listOf(third, first, second), durationMode = DurationMode.START_STOP)),
                 now.toInstant().toEpochMilli(),
             )
@@ -294,6 +317,23 @@ class HomeViewModelMappingTest {
         val row = rows.single()
         assertEquals(3, row.runningCount)
         assertEquals(first, row.ongoingEvent)
+    }
+
+    /**
+     * Bridges the old `CaseWithEvents`-shaped fixtures to [homeCaseRows]' current inputs: the flat
+     * Case list, the `CaseEventSpan` projection (`observeActiveCaseEventSpans`' flat join), and the
+     * open-events list (`observeOpenEvents`). Keeps every boundary assertion below unchanged.
+     */
+    private fun homeRows(
+        casesWithEvents: List<CaseWithEvents>,
+        nowMillis: Long,
+    ): List<HomeCaseRow> {
+        val spans =
+            casesWithEvents.flatMap { (case, events) ->
+                events.map { CaseEventSpan(case.id, it.occurredAt, it.endedAt, case.durationMode) }
+            }
+        val openEvents = casesWithEvents.flatMap { it.events }.filter { it.endedAt == null }
+        return homeCaseRows(casesWithEvents.map { it.case }, spans, openEvents, nowMillis)
     }
 
     private fun caseWithEvents(

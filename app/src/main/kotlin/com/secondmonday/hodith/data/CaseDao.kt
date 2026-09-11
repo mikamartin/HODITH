@@ -31,9 +31,9 @@ interface CaseDao {
     @Query("SELECT * FROM cases WHERE archived = 0 ORDER BY sortOrder")
     suspend fun getActiveCases(): List<CaseEntity>
 
-    @Transaction
-    @Query("SELECT * FROM cases WHERE archived = 0 ORDER BY sortOrder")
-    fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>>
+    /** Home's archived-cases link count — a scalar, not the full `@Relation` the Archived screen itself needs. */
+    @Query("SELECT COUNT(*) FROM cases WHERE archived = 1")
+    fun observeArchivedCaseCount(): Flow<Int>
 
     @Transaction
     @Query("SELECT * FROM cases WHERE archived = 0 ORDER BY sortOrder")
