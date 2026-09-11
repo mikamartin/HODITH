@@ -37,8 +37,7 @@ import org.junit.runner.RunWith
  *
  * The Single-case "Case is gone" test binds to a Case id that was never inserted rather than
  * deleting a real one — functionally identical from the widget's point of view (its bound id just
- * doesn't match anything in `observeActiveCasesWithEvents()`), and avoids a delete-then-wait-for-
- * recompose race.
+ * doesn't match any active Case), and avoids a delete-then-wait-for-recompose race.
  *
  * Requires the emulator/device to have pre-granted bind permission:
  * `adb shell appwidget grantbind --package com.secondmonday.hodith --user 0`. Which package needs

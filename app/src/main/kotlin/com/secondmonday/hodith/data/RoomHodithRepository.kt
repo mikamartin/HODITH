@@ -37,12 +37,12 @@ class RoomHodithRepository
 
         override suspend fun getActiveCases(): List<CaseEntity> = caseDao.getActiveCases()
 
-        override fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeActiveCasesWithEvents()
-
         override fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>> =
             caseDao.observeActiveCasesWithEventsAndTags()
 
         override fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeArchivedCasesWithEvents()
+
+        override fun observeArchivedCaseCount(): Flow<Int> = caseDao.observeArchivedCaseCount()
 
         override fun observeCase(caseId: Long): Flow<CaseEntity?> = caseDao.observeById(caseId)
 
@@ -63,6 +63,10 @@ class RoomHodithRepository
 
         // Event
         override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
+
+        override fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>> = eventDao.observeActiveCaseEventSpans()
+
+        override fun observeOpenEvents(): Flow<List<EventEntity>> = eventDao.observeOpenEvents()
 
         override suspend fun getEvent(eventId: Long): EventEntity? = eventDao.getById(eventId)
 

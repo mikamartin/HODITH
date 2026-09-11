@@ -34,19 +34,14 @@ class FakeHodithRepository : HodithRepository {
 
     override suspend fun getActiveCases(): List<CaseEntity> = cases.value.filterNot { it.archived }.sortedBy { it.sortOrder }
 
-    override fun observeActiveCasesWithEvents(): Flow<List<CaseWithEvents>> =
-        combine(cases, events) { caseList, eventList ->
-            caseList.filterNot { it.archived }.sortedBy { it.sortOrder }.map { case ->
-                CaseWithEvents(case, eventList.filter { it.caseId == case.id })
-            }
-        }
-
     override fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>> =
         combine(cases, events) { caseList, eventList ->
             caseList.filter { it.archived }.sortedBy { it.name.lowercase() }.map { case ->
                 CaseWithEvents(case, eventList.filter { it.caseId == case.id })
             }
         }
+
+    override fun observeArchivedCaseCount(): Flow<Int> = cases.map { list -> list.count { it.archived } }
 
     override fun observeActiveCasesWithEventsAndTags(): Flow<List<CaseWithEventsAndTags>> =
         combine(cases, events, tags, eventTags) { caseList, eventList, tagList, crossRefs ->
@@ -110,6 +105,19 @@ class FakeHodithRepository : HodithRepository {
                 EventWithTags(event, tagList.filter { it.id in tagIds })
             }
         }
+
+    override fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>> =
+        combine(cases, events) { caseList, eventList ->
+            val activeById = caseList.filterNot { it.archived }.associateBy { it.id }
+            eventList.mapNotNull { event ->
+                activeById[event.caseId]?.let { case ->
+                    CaseEventSpan(event.caseId, event.occurredAt, event.endedAt, case.durationMode)
+                }
+            }
+        }
+
+    override fun observeOpenEvents(): Flow<List<EventEntity>> =
+        events.map { list -> list.filter { it.endedAt == null }.sortedBy { it.occurredAt } }
 
     override suspend fun getEvent(eventId: Long): EventEntity? = events.value.find { it.id == eventId }
 

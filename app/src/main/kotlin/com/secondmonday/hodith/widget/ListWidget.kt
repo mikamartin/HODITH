@@ -47,7 +47,7 @@ import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
-import com.secondmonday.hodith.viewmodel.homeCaseRows
+import com.secondmonday.hodith.viewmodel.homeCaseRowsFlow
 import dagger.hilt.android.EntryPointAccessors
 
 /** Per-instance Glance state key — each List widget placement picks its own set of Cases, so the
@@ -73,10 +73,11 @@ class ListWidget : GlanceAppWidget() {
             // afterward can't force a recompute against something that isn't Compose State.
             val selectedCaseIds = currentState<Preferences>()[CaseIdsKey].orEmpty().mapNotNull { it.toLongOrNull() }.toSet()
             val now = entryPoint.clock().nowMillis()
+            val repository = entryPoint.repository()
             val rows by
                 produceState(initialValue = emptyList<HomeCaseRow>(), selectedCaseIds) {
-                    entryPoint.repository().observeActiveCasesWithEvents().collect { casesWithEvents ->
-                        value = homeCaseRows(casesWithEvents.filter { it.case.id in selectedCaseIds }, now)
+                    homeCaseRowsFlow(repository) { now }.collect { allRows ->
+                        value = allRows.filter { it.caseId in selectedCaseIds }
                     }
                 }
 

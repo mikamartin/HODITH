@@ -2,7 +2,8 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.secondmonday.hodith.data.CaseWithEvents
+import com.secondmonday.hodith.data.CaseEntity
+import com.secondmonday.hodith.data.CaseEventSpan
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
@@ -13,6 +14,7 @@ import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.activeSpanEnd
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,8 +22,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -89,23 +92,29 @@ class HomeViewModel
         private val settingsRepository: SettingsRepository,
         private val clock: Clock,
     ) : ViewModel() {
+        // Rows come from [homeCaseRowsFlow]'s three lean projections (shared with the widgets), not
+        // the events-per-Case `@Relation` graph. The mapping runs on `Dispatchers.Default` so a
+        // rapid-logging burst never touches the main thread; `clock::nowMillis` is read per emission,
+        // so day-boundary rollover lands on the next emission or resubscribe.
         val uiState: StateFlow<HomeUiState> =
             combine(
-                repository.observeActiveCasesWithEvents(),
-                repository.observeArchivedCasesWithEvents().map { it.size },
+                homeCaseRowsFlow(repository, clock::nowMillis),
+                repository.observeArchivedCaseCount(),
                 settingsRepository.observeHasRequestedNotificationPermission(),
-            ) { casesWithEvents, archivedCount, notificationPermissionRequested ->
+            ) { cases, archivedCount, notificationPermissionRequested ->
                 HomeUiState(
-                    cases = homeCaseRows(casesWithEvents, clock.nowMillis()),
+                    cases = cases,
                     archivedCount = archivedCount,
                     isLoading = false,
                     notificationPermissionRequested = notificationPermissionRequested,
                 )
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                initialValue = HomeUiState(),
-            )
+            }.flowOn(Dispatchers.Default)
+                .conflate()
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+                    initialValue = HomeUiState(),
+                )
 
         private val _logSheet = MutableStateFlow<HomeLogSheetState?>(null)
         val logSheet: StateFlow<HomeLogSheetState?> = _logSheet.asStateFlow()
@@ -178,11 +187,35 @@ class HomeViewModel
     }
 
 /**
- * Pure mapping, split out from [HomeViewModel] so the today/this-week boundary math is
- * unit-testable on the JVM without a repository or Hilt.
+ * Every active Case's Home row, from three lean projections — the flat Case list for
+ * identity/config, `EventDao.observeActiveCaseEventSpans` for the today/this-week counts, and
+ * `observeOpenEvents` for the ongoing indicator — never the events-per-Case `@Relation` graph.
+ * Shared by [HomeViewModel] and both Glance widgets (each filters the result to its own Cases).
+ * Room re-emits all three on any `events` write, but each payload is small. [now] is read per
+ * emission ([HomeViewModel] passes `clock::nowMillis`; a widget passes its once-captured value).
+ */
+internal fun homeCaseRowsFlow(
+    repository: HodithRepository,
+    now: () -> Long,
+): Flow<List<HomeCaseRow>> =
+    combine(
+        repository.observeActiveCases(),
+        repository.observeActiveCaseEventSpans(),
+        repository.observeOpenEvents(),
+    ) { cases, eventSpans, openEvents ->
+        homeCaseRows(cases, eventSpans, openEvents, now())
+    }
+
+/**
+ * Pure mapping, split out so the today/this-week boundary math is unit-testable on the JVM
+ * without a repository or Hilt. [eventSpans] and [openEvents] span *every* active Case; both are
+ * grouped by `caseId` here, and spans/opens for a Case not in [cases] are ignored (so a widget
+ * can pass the full set and let [cases] narrow the output).
  */
 internal fun homeCaseRows(
-    casesWithEvents: List<CaseWithEvents>,
+    cases: List<CaseEntity>,
+    eventSpans: List<CaseEventSpan>,
+    openEvents: List<EventEntity>,
     nowMillis: Long,
 ): List<HomeCaseRow> {
     val zone = ZoneId.systemDefault()
@@ -194,8 +227,11 @@ internal fun homeCaseRows(
             .atStartOfDay(zone)
             .toInstant()
             .toEpochMilli()
-    return casesWithEvents.map { (case, events) ->
-        val openEvents = ongoingEventsIn(case, events)
+    val spansByCase = eventSpans.groupBy { it.caseId }
+    val openEventsByCase = openEvents.groupBy { it.caseId }
+    return cases.map { case ->
+        val spans = spansByCase[case.id].orEmpty()
+        val open = ongoingEventsIn(case, openEventsByCase[case.id].orEmpty())
         // Spec §9 active span: an event counts toward a window if its span reaches into it,
         // counted once whatever its length — so Home agrees with the calendar heatmap.
         // activeSpanEnd handles the NONE-collapses-to-a-point and running-runs-to-now cases.
@@ -203,13 +239,13 @@ internal fun homeCaseRows(
             caseId = case.id,
             icon = case.icon,
             name = case.name,
-            todayCount = events.count { activeSpanEnd(it, case.durationMode, nowMillis) >= startOfToday },
-            weekCount = events.count { activeSpanEnd(it, case.durationMode, nowMillis) >= startOfWeek },
+            todayCount = spans.count { activeSpanEnd(it.occurredAt, it.endedAt, it.durationMode, nowMillis) >= startOfToday },
+            weekCount = spans.count { activeSpanEnd(it.occurredAt, it.endedAt, it.durationMode, nowMillis) >= startOfWeek },
             logFlow = case.logFlow,
             durationMode = case.durationMode,
             intensityEnabled = case.intensityEnabled,
-            ongoingEvent = openEvents.firstOrNull(),
-            runningCount = openEvents.size,
+            ongoingEvent = open.firstOrNull(),
+            runningCount = open.size,
         )
     }
 }
