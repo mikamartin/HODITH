@@ -9,6 +9,7 @@ import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
@@ -22,6 +23,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -64,6 +67,68 @@ class CaseDetailViewModelTest {
                 assertEquals("Coffee", state.case?.name)
                 assertEquals(1, state.events.size)
                 assertEquals(listOf("focus"), state.tagSuggestions.map { it.name })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `uiState logEvents caps at the initial 30-event window`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            repeat(35) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(35, state.events.size)
+                assertEquals(30, state.logEvents.size)
+                assertTrue(state.logHasMore)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `uiState logHasMore is false once every event is loaded`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            repeat(10) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(10, state.logEvents.size)
+                assertFalse(state.logHasMore)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `loadMoreLogEvents grows the loaded window by 50`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
+            val vm = viewModel()
+            vm.loadMoreLogEvents()
+
+            vm.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(80, state.logEvents.size)
+                assertTrue(state.logHasMore)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogSortOrder changes the sort order and resets the window back to 30`() =
+        runTest {
+            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
+            val vm = viewModel()
+            vm.loadMoreLogEvents()
+            vm.setLogSortOrder(LogSortOrder.BY_END)
+
+            vm.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(LogSortOrder.BY_END, state.logSortOrder)
+                assertEquals(30, state.logEvents.size)
                 cancelAndIgnoreRemainingEvents()
             }
         }

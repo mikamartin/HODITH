@@ -2,7 +2,6 @@ package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -18,6 +17,7 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.VerdictMetric
@@ -65,6 +65,9 @@ class CaseDetailScreenTest {
     private fun setCaseDetailScreenContent(
         case: CaseEntity = startStopCase,
         events: List<EventWithTags> = emptyList(),
+        logEvents: List<EventWithTags> = events,
+        logHasMore: Boolean = false,
+        logSortOrder: LogSortOrder = LogSortOrder.BY_START,
         activeHunch: HunchEntity? = null,
         hunchHistory: List<HunchEntity> = emptyList(),
         onEditCase: (Long) -> Unit = {},
@@ -78,6 +81,8 @@ class CaseDetailScreenTest {
         onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit =
             { _, _, _, _, _, _ -> },
         onResolveHunch: (HunchEntity) -> Unit = {},
+        onLogSortOrderChange: (LogSortOrder) -> Unit = {},
+        onShowMoreLogEvents: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice, LocalTimeFormat provides timeFormat) {
@@ -86,6 +91,9 @@ class CaseDetailScreenTest {
                         CaseDetailUiState(
                             case = case,
                             events = events,
+                            logEvents = logEvents,
+                            logHasMore = logHasMore,
+                            logSortOrder = logSortOrder,
                             activeHunch = activeHunch,
                             hunchHistory = hunchHistory,
                             isLoading = false,
@@ -112,6 +120,8 @@ class CaseDetailScreenTest {
                     nowMillis = nowMillis,
                     onAddHunch = onAddHunch,
                     onResolveHunch = onResolveHunch,
+                    onLogSortOrderChange = onLogSortOrderChange,
+                    onShowMoreLogEvents = onShowMoreLogEvents,
                 )
             }
         }
@@ -277,32 +287,71 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun logSortToggle_byEnded_floatsARunningEventAboveAMoreRecentlyStartedFinishedOne() {
-        val running = testEvent(id = 5L, caseId = 1L, occurredAt = 1_000L, note = "still going")
-        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 2_000L, endedAt = 3_000L, note = "all done")
+    fun logSortToggle_tapEnded_invokesSortOrderChangeCallback() {
+        // CaseDetailScreen is stateless now — it renders uiState.logEvents exactly as given and
+        // just forwards the tap. The actual BY_END reordering (running event floats first, then by
+        // endedAt) is proven in EventDaoTest against the real paged query, not re-proven here.
+        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+        var changedTo: LogSortOrder? = null
         setCaseDetailScreenContent(
             case = startStopCase,
-            events =
-                listOf(
-                    EventWithTags(event = running, tags = emptyList()),
-                    EventWithTags(event = finished, tags = emptyList()),
-                ),
-            nowMillis = { 10_000L },
-        )
-
-        // Default "Started": the later-started finished event sits above the running one.
-        assertTrue(
-            composeTestRule.onNodeWithText("all done", substring = true).getUnclippedBoundsInRoot().top <
-                composeTestRule.onNodeWithText("still going", substring = true).getUnclippedBoundsInRoot().top,
+            events = listOf(EventWithTags(event = finished, tags = emptyList())),
+            onLogSortOrderChange = { changedTo = it },
         )
 
         composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).performClick()
 
-        // "Ended": the running event floats to the top.
-        assertTrue(
-            composeTestRule.onNodeWithText("still going", substring = true).getUnclippedBoundsInRoot().top <
-                composeTestRule.onNodeWithText("all done", substring = true).getUnclippedBoundsInRoot().top,
+        assertEquals(LogSortOrder.BY_END, changedTo)
+    }
+
+    @Test
+    fun logTab_rendersOnlyLogEvents_notTheFullEventHistory() {
+        // Regression guard for PROGRESS.md F4: the Log tab's row list must come from the capped,
+        // paged uiState.logEvents, not the full uiState.events used by ongoing-event detection and
+        // the Insights/Hunch tabs.
+        val shown = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, note = "shown row")
+        val hidden = testEvent(id = 9L, caseId = 1L, occurredAt = 1_000L, note = "hidden row")
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = shown, tags = emptyList()), EventWithTags(event = hidden, tags = emptyList())),
+            logEvents = listOf(EventWithTags(event = shown, tags = emptyList())),
         )
+
+        composeTestRule.onNodeWithText("shown row", substring = true).assertExists()
+        composeTestRule.onNodeWithText("hidden row", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun logShowMoreButton_hidden_whenLogHasNoMoreEvents() {
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+            logHasMore = false,
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.logShowMoreAction).assertDoesNotExist()
+    }
+
+    @Test
+    fun logShowMoreButton_shown_whenLogHasMoreEvents() {
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+            logHasMore = true,
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.logShowMoreAction).assertExists()
+    }
+
+    @Test
+    fun logShowMoreButton_tap_invokesOnShowMoreLogEvents() {
+        var tapped = false
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+            logHasMore = true,
+            onShowMoreLogEvents = { tapped = true },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.logShowMoreAction).performClick()
+
+        assertTrue(tapped)
     }
 
     @Test

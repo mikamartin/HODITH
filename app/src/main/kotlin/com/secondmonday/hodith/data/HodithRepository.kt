@@ -31,6 +31,20 @@ interface HodithRepository {
     // Event
     fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>>
 
+    /**
+     * Capped, sorted page of a Case's events for the Log tab's row list only (spec §6) — at most
+     * [limit] events in [order], plus whether more remain. Every other Log-tab-adjacent need
+     * (ongoing-event detection, Insights/Hunch stats, the Log tab's own summary line/day-span) keeps
+     * reading the full history via [observeEventsWithTagsForCase]; this is additive, not a
+     * replacement.
+     */
+    fun observeLogEventsForCase(
+        caseId: Long,
+        order: LogSortOrder,
+        limit: Int,
+        durationMode: DurationMode,
+    ): Flow<LogEventsPage>
+
     /** Lean per-event projection (timing + Case `durationMode`) for every active Case — Home / widget counts (spec §9/§14). */
     fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>>
 

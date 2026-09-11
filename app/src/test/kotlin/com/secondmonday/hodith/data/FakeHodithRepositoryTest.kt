@@ -3,6 +3,7 @@ package com.secondmonday.hodith.data
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -246,6 +247,62 @@ class FakeHodithRepositoryTest {
                 assertEquals(listOf("focus"), rows.first { it.event.id == newerId }.tags.map { it.name })
                 assertTrue(rows.first { it.event.id == olderId }.tags.isEmpty())
             }
+        }
+
+    @Test
+    fun `observeLogEventsForCase caps at limit and reports hasMore`() =
+        runTest {
+            val caseId = repository.insertCase(testCase())
+            repeat(5) { i -> repository.insertEvent(testEvent(caseId = caseId, occurredAt = i.toLong())) }
+
+            repository.observeLogEventsForCase(caseId, LogSortOrder.BY_START, limit = 3, durationMode = DurationMode.NONE).test {
+                val page = awaitItem()
+                assertEquals(listOf(4L, 3L, 2L), page.events.map { it.event.occurredAt })
+                assertTrue(page.hasMore)
+            }
+        }
+
+    @Test
+    fun `observeLogEventsForCase reports hasMore false when the case has exactly limit events`() =
+        runTest {
+            val caseId = repository.insertCase(testCase())
+            repeat(3) { i -> repository.insertEvent(testEvent(caseId = caseId, occurredAt = i.toLong())) }
+
+            repository.observeLogEventsForCase(caseId, LogSortOrder.BY_START, limit = 3, durationMode = DurationMode.NONE).test {
+                val page = awaitItem()
+                assertEquals(3, page.events.size)
+                assertFalse(page.hasMore)
+            }
+        }
+
+    @Test
+    fun `observeLogEventsForCase BY_END floats a running event above a more recently started finished one`() =
+        runTest {
+            val caseId = repository.insertCase(testCase(durationMode = DurationMode.START_STOP))
+            val runningId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
+            val finishedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
+
+            repository
+                .observeLogEventsForCase(caseId, LogSortOrder.BY_END, limit = 10, durationMode = DurationMode.START_STOP)
+                .test {
+                    val page = awaitItem()
+                    assertEquals(listOf(runningId, finishedId), page.events.map { it.event.id })
+                }
+        }
+
+    @Test
+    fun `observeLogEventsForCase BY_END never floats a running event for a non START_STOP case`() =
+        runTest {
+            val caseId = repository.insertCase(testCase(durationMode = DurationMode.MANUAL))
+            val openEndedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
+            val laterFinishedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
+
+            repository
+                .observeLogEventsForCase(caseId, LogSortOrder.BY_END, limit = 10, durationMode = DurationMode.MANUAL)
+                .test {
+                    val page = awaitItem()
+                    assertEquals(listOf(laterFinishedId, openEndedId), page.events.map { it.event.id })
+                }
         }
 
     @Test

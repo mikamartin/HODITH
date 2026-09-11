@@ -53,6 +53,7 @@ import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
+import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.tracksDuration
@@ -77,7 +78,6 @@ import com.secondmonday.hodith.viewmodel.CaseDetailViewModel
 import com.secondmonday.hodith.viewmodel.HunchHistoryEntry
 import com.secondmonday.hodith.viewmodel.HunchTabState
 import com.secondmonday.hodith.viewmodel.LogDraft
-import com.secondmonday.hodith.viewmodel.LogSortOrder
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatExpectedFrequency
@@ -87,7 +87,6 @@ import com.secondmonday.hodith.viewmodel.hunchTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.monthsAgo
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
-import com.secondmonday.hodith.viewmodel.sortEventsForLog
 
 private const val LOG_TAB = 0
 private const val INSIGHTS_TAB = 1
@@ -117,6 +116,8 @@ fun CaseDetailRoute(
         nowMillis = viewModel::nowMillis,
         onAddHunch = viewModel::addHunch,
         onResolveHunch = viewModel::resolveHunch,
+        onLogSortOrderChange = viewModel::setLogSortOrder,
+        onShowMoreLogEvents = viewModel::loadMoreLogEvents,
         modifier = modifier,
     )
 }
@@ -136,6 +137,8 @@ fun CaseDetailScreen(
     nowMillis: () -> Long,
     onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit,
     onResolveHunch: (HunchEntity) -> Unit,
+    onLogSortOrderChange: (LogSortOrder) -> Unit,
+    onShowMoreLogEvents: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -149,7 +152,6 @@ fun CaseDetailScreen(
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
     var showHunchCreationSheet by remember { mutableStateOf(false) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
-    var logSortOrder by remember { mutableStateOf(LogSortOrder.BY_START) }
 
     Scaffold(
         modifier = modifier,
@@ -208,8 +210,9 @@ fun CaseDetailScreen(
                         uiState = uiState,
                         now = now,
                         voice = voice,
-                        sortOrder = logSortOrder,
-                        onSortOrderChange = { logSortOrder = it },
+                        sortOrder = uiState.logSortOrder,
+                        onSortOrderChange = onLogSortOrderChange,
+                        onShowMore = onShowMoreLogEvents,
                         onStopEvent = onStopEvent,
                         onEditEvent = { event -> case?.let { onEditEvent(it.id, event.id) } },
                     )
@@ -291,6 +294,7 @@ private fun LogTabContent(
     voice: Voice,
     sortOrder: LogSortOrder,
     onSortOrderChange: (LogSortOrder) -> Unit,
+    onShowMore: () -> Unit,
     onStopEvent: (EventEntity) -> Unit,
     onEditEvent: (EventEntity) -> Unit,
 ) {
@@ -339,8 +343,6 @@ private fun LogTabContent(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
-        val sortedEvents =
-            case?.let { sortEventsForLog(uiState.events, sortOrder, it.durationMode) } ?: uiState.events
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
                 uiState.isLoading -> Unit
@@ -349,7 +351,7 @@ private fun LogTabContent(
                 }
                 else -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(sortedEvents, key = { it.event.id }) { eventWithTags ->
+                        items(uiState.logEvents, key = { it.event.id }) { eventWithTags ->
                             EventRow(
                                 eventWithTags = eventWithTags,
                                 caseName = case?.name.orEmpty(),
@@ -359,6 +361,16 @@ private fun LogTabContent(
                                 onClick = { onEditEvent(eventWithTags.event) },
                                 onStopEvent = onStopEvent,
                             )
+                        }
+                        if (uiState.logHasMore) {
+                            item(key = "log_show_more") {
+                                TextButton(
+                                    onClick = onShowMore,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                ) {
+                                    Text(voice.logShowMoreAction)
+                                }
+                            }
                         }
                     }
                 }

@@ -94,6 +94,8 @@ class CaseDetailInsightsTabTest {
                     nowMillis = { now },
                     onAddHunch = { _, _, _, _, _, _ -> },
                     onResolveHunch = {},
+                    onLogSortOrderChange = {},
+                    onShowMoreLogEvents = {},
                 )
             }
         }

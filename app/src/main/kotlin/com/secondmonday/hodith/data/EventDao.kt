@@ -32,6 +32,43 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC")
     fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>>
 
+    /**
+     * Capped page of a Case's events, newest-started first (spec §6, "Started" order) — at most
+     * [limit] rows, `id DESC` breaking ties on an identical `occurredAt`. Log-tab-only: ongoing-event
+     * detection, Insights/Hunch stats, and the Log tab's own summary line all need the full history
+     * and keep using [observeEventsWithTagsForCase]. Callers fetch `limit + 1` and trim to detect
+     * whether more rows remain (see `RoomHodithRepository.observeLogEventsForCase`).
+     */
+    @Transaction
+    @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC, id DESC LIMIT :limit")
+    fun observeEventsWithTagsForCasePagedByStart(
+        caseId: Long,
+        limit: Int,
+    ): Flow<List<EventWithTags>>
+
+    /**
+     * Capped page of a Case's events ordered by when they *ended* (spec §6, "Ended" order): any
+     * still-running event floats first — only meaningful when [isStartStopCase], since a
+     * `MANUAL`/`NONE` Case's events are never "running" the way the Log tab's sort toggle means it —
+     * then by `endedAt` (or `occurredAt` for an end-less `MANUAL` entry, the same
+     * `IFNULL(endedAt, occurredAt)` [getLatestEventEndForCase] already reads), then `occurredAt`,
+     * then `id`, all descending. Same `limit + 1` peek-ahead contract as
+     * [observeEventsWithTagsForCasePagedByStart].
+     */
+    @Transaction
+    @Query(
+        "SELECT * FROM events WHERE caseId = :caseId " +
+            "ORDER BY " +
+            "CASE WHEN :isStartStopCase = 1 AND endedAt IS NULL THEN 1 ELSE 0 END DESC, " +
+            "IFNULL(endedAt, occurredAt) DESC, occurredAt DESC, id DESC " +
+            "LIMIT :limit",
+    )
+    fun observeEventsWithTagsForCasePagedByEnd(
+        caseId: Long,
+        isStartStopCase: Boolean,
+        limit: Int,
+    ): Flow<List<EventWithTags>>
+
     @Query(
         "SELECT * FROM events WHERE caseId = :caseId " +
             "AND occurredAt >= :windowStart AND occurredAt < :windowEnd ORDER BY occurredAt",

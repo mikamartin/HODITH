@@ -212,4 +212,77 @@ class EventDaoTest {
 
             assertEquals(listOf(300L, 200L, 100L), events.map { it.event.occurredAt })
         }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByStart_capsAtLimit() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByStart(caseId, limit = 2).first()
+
+            assertEquals(listOf(300L, 200L), page.map { it.event.occurredAt })
+        }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByStart_ordersById_whenOccurredAtTies() =
+        runTest {
+            val earlierId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            val laterId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByStart(caseId, limit = 10).first()
+
+            assertEquals(listOf(laterId, earlierId), page.map { it.event.id })
+        }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByEnd_floatsARunningStartStopEventAboveAMoreRecentlyStartedFinishedOne() =
+        runTest {
+            val running = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
+            val finished = eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByEnd(caseId, isStartStopCase = true, limit = 10).first()
+
+            assertEquals(listOf(running, finished), page.map { it.event.id })
+        }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByEnd_ignoresRunningState_whenNotAStartStopCase() =
+        runTest {
+            val openEnded = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
+            val laterFinished = eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByEnd(caseId, isStartStopCase = false, limit = 10).first()
+
+            // isStartStopCase = false — no event floats regardless of endedAt, order falls back to
+            // IFNULL(endedAt, occurredAt) descending: laterFinished ended at 250, openEnded's
+            // fallback is its own occurredAt (100).
+            assertEquals(listOf(laterFinished, openEnded), page.map { it.event.id })
+        }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByEnd_fallsBackToOccurredAt_forAnEndlessManualEntry() =
+        runTest {
+            val earlyButEndless = eventDao.insert(testEvent(caseId = caseId, occurredAt = 500L, endedAt = null))
+            val laterAndFinished = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 200L))
+
+            // A MANUAL Case is never "running" (isStartStopCase = false), so the end-less entry
+            // orders by its own occurredAt (500), ahead of the other event's endedAt (200).
+            val page = eventDao.observeEventsWithTagsForCasePagedByEnd(caseId, isStartStopCase = false, limit = 10).first()
+
+            assertEquals(listOf(earlyButEndless, laterAndFinished), page.map { it.event.id })
+        }
+
+    @Test
+    fun observeEventsWithTagsForCasePagedByEnd_capsAtLimit() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 100L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L, endedAt = 300L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 200L))
+
+            val page = eventDao.observeEventsWithTagsForCasePagedByEnd(caseId, isStartStopCase = true, limit = 2).first()
+
+            assertEquals(listOf(300L, 200L), page.map { it.event.occurredAt })
+        }
 }
