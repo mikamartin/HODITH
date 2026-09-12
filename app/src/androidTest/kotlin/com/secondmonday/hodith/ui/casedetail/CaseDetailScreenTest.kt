@@ -31,6 +31,7 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
+import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -580,5 +581,68 @@ class CaseDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.hunchResolveLabel).performClick()
 
         assertEquals(hunch, resolved)
+    }
+
+    @Test
+    fun hunchTab_activeVerdict_stillShowsPastHunches() {
+        val activeHunch =
+            HunchEntity(
+                id = 1L,
+                caseId = 1L,
+                direction = HunchDirection.TOO_OFTEN,
+                expectedCount = 5,
+                expectedPer = ExpectedPer.WEEK,
+                createdAt = 0L,
+                resolvedAt = null,
+            )
+        val resolvedHunch =
+            HunchEntity(
+                id = 2L,
+                caseId = 1L,
+                direction = HunchDirection.NOT_ENOUGH,
+                expectedCount = 1,
+                expectedPer = ExpectedPer.DAY,
+                createdAt = 0L,
+                resolvedAt = 20 * 24 * 60 * 60_000L,
+            )
+        val thirtyDaysMillis = 30 * 24 * 60 * 60_000L
+        setCaseDetailScreenContent(
+            activeHunch = activeHunch,
+            hunchHistory = listOf(resolvedHunch),
+            events = eventsAt(6),
+            nowMillis = { thirtyDaysMillis },
+        )
+        openHunchTab()
+
+        // Regression guard: the resolved-Hunch record used to disappear entirely once a new
+        // Hunch went active. It must still render underneath the active verdict card.
+        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryHeader).assertExists()
+    }
+
+    @Test
+    fun hunchTab_historyRow_leadsWithTheMadeAndResolvedStamp() {
+        val resolvedAt = 20 * 24 * 60 * 60_000L
+        val resolvedHunch =
+            HunchEntity(
+                id = 1L,
+                caseId = 1L,
+                direction = HunchDirection.TOO_OFTEN,
+                expectedCount = 1,
+                expectedPer = ExpectedPer.DAY,
+                createdAt = 0L,
+                resolvedAt = resolvedAt,
+            )
+        setCaseDetailScreenContent(
+            hunchHistory = listOf(resolvedHunch),
+            events = eventsAt(6),
+            nowMillis = { 30 * 24 * 60 * 60_000L },
+        )
+        openHunchTab()
+
+        // Regression guard: this used to be `hunchHistoryRowWhen(monthsAgo(resolvedAt))`, which
+        // read "0 months ago" for anything resolved inside its first month.
+        composeTestRule
+            .onNodeWithText(PlainVoice.hunchHistoryRowStamp(formatEventDate(0L), formatEventDate(resolvedAt)))
+            .assertExists()
     }
 }

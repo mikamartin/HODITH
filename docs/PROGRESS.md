@@ -50,7 +50,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy) and S5 (resolved-hunch row wording). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too. The `feat/big-picture-overview-detail` branch retired `bigPictureEventNoteEmptyState` (×3) and added `bigPictureDetailDialogTitle` + `bigPictureDetailEditDescription` (×3) plus four shared `get()` field labels — fold those in.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too. The `feat/big-picture-overview-detail` branch retired `bigPictureEventNoteEmptyState` (×3) and added `bigPictureDetailDialogTitle` + `bigPictureDetailEditDescription` (×3) plus four shared `get()` field labels — fold those in.
 
 **Acceptance criteria**
 
@@ -68,7 +68,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S5** (hunch-history row redesign), **S7** (external content), **S16** (flaky-test investigation). Pick by appetite.
+No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S7** (external content). Pick by appetite.
 
 ### S1 · App-icon handle butts directly against the lens ring with no clearance
 
@@ -113,30 +113,6 @@ What it computes today:
 
 **Tests** — none; `StatsEngineTest` / `InsightsEngineTest` gain coverage only when an approved change lands as its own item.
 
-### S5 · Resolved-hunch history rows need a proper design and content pass
-
-*Branch: `feat/hunch-history-row-redesign` · Complexity: M · Priority: Medium · Area: Hunch*
-
-🎨 **Design decision** — the whole row: which fields, their hierarchy, and the wording per voice. Touches Voice, so before B2.
-
-A full formatting review of the resolved-hunch record — design *and* content. The "0 months ago" bug is the trigger, not the scope.
-
-Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `HunchHistoryRow:535-559`): a header plus an "N of M held up" summary, then per row — line 1 is `hunchHistoryRowText(direction, frequencyLabel)` ("Too often, ~7×/week") left / `hunchHistoryRowWhen(monthsAgo(resolvedAt))` right; line 2 is `hunchHistoryRowOutcome(band, observedRateLabel)`. No made-date, no absolute resolved-date, no verdict-tier text, and no structure beyond two text lines. `monthsAgo` (`viewmodel/CaseDetailViewModel.kt:180-188`) counts whole calendar months, so a hunch resolved inside its first month reads "0 months ago" / "0 months past".
-
-**Acceptance criteria**
-
-- [ ] A decided row design recorded here — an ordered field list (made date, resolved date or a "held for N weeks" span, direction + expected rate, observed rate, outcome band, and whether the verdict tier belongs in the row) plus layout and per-voice wording.
-- [ ] `HunchHistoryRow` rebuilt to it; the time display reworked to absolute dates and/or a held-for span.
-- [ ] `hunchHistoryRowWhen` replaced or removed (×3 voices); `monthsAgo` removed if nothing else uses it (grep); any new Voice keys added ×3.
-- [ ] The `HunchHistoryCard` summary line re-checked against the new row shape.
-- [ ] `HunchTabStateTest`, `CaseDetailScreenTest`, `VoiceTest` updated.
-
-**Plan** — decide the row (a sketch or field list in this item), then implement. `HunchEntity` already carries `createdAt` and `resolvedAt`, so no schema change.
-
-**Tests** — `CaseDetailScreenTest` swaps its "N months ago" assertions for the new fields; `VoiceTest` covers the new keys.
-
-**Concern** — standalone; the redesign is a small surface but a visible one, and the content call (does the verdict tier show?) is a product decision.
-
 ### S7 · Audit the hosted privacy policy and Play data-safety form
 
 *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium · Area: Settings*
@@ -149,25 +125,6 @@ Today (`ui/casedetail/CaseDetailScreen.kt` — `HunchHistoryCard:521-533`, `Hunc
 - [ ] Play data-safety answers reconciled with the same copy (once a listing exists).
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
-
-### S16 · Chase the recurring instrumented-test teardown flake
-
-*Branch: `chore/investigate-activityscenario-flake` · Complexity: S · Priority: Low · Area: Repo*
-
-🔍 **Investigation** — root cause unknown; this is a diagnose-first item, not a fix-first one.
-
-`connectedDebugAndroidTest` has repeatedly hit an `ActivityScenario` lifecycle-teardown timeout (`Activity never becomes requested state "[DESTROYED]"`) across multiple past branches, per CLEANUP_LOG.md — always a different test/class each time, always on a run the log describes as long-running or the emulator as loaded, and always passing clean on rerun. It's never blocked a release, only cost a rerun each time, so it's stayed a footnote rather than a tracked item — but it keeps recurring often enough to be worth an actual diagnose pass rather than re-discovering "it's probably the emulator" every time it shows up.
-
-**Acceptance criteria**
-
-- [ ] Every known occurrence pulled from CLEANUP_LOG.md into one list (test/class, branch, run length, what else was happening on the emulator at the time).
-- [ ] A working theory for the trigger (e.g. emulator uptime/memory pressure, a specific slow teardown step, test ordering) — or a documented "still unexplained" if none holds up.
-- [ ] A call on whether it's worth a mitigation (e.g. a longer `ActivityScenario` teardown timeout, a CI retry-on-this-signature rule) or is cheap enough to keep shrugging off.
-- [ ] Anything approved spun out as its own item; otherwise this one closes with the findings recorded.
-
-**Plan** — read every CLEANUP_LOG.md mention of this signature first; only reach for new diagnostics (e.g. capturing emulator resource usage during a full instrumented run) if the existing record doesn't already point somewhere.
-
-**Tests** — none; this item is diagnosis, not a code change.
 
 ## Deferred
 

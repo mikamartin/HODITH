@@ -15,6 +15,33 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feat/hunch-history-row-redesign
+
+**Scope:** PROGRESS.md's S5. The trigger was a bug — `monthsAgo`/`hunchHistoryRowWhen` reads "0 months ago" for anything resolved inside its first month — but the item called for a full design-and-content pass, prototyped via an Artifact mockup before any Compose changes. The design review itself surfaced a second, unrelated bug: `HunchTabState.EarlyDays`/`Verdict` never carried `history` at all, so a Case's entire resolved-Hunch record disappeared from the screen the moment a new Hunch went active.
+
+**Changes:**
+
+- `HunchTabState`'s `history` moved onto the sealed interface itself (all three subtypes already carried it), so it's read unconditionally in `CaseDetailScreen.kt` rather than only inside the `NoActiveHunch` branch.
+- `HunchHistoryRow` rebuilt to lead with a `Made … · Resolved …` stamp (`hunchHistoryRowStamp`, new Voice key ×3) using absolute dates via the existing `formatEventDate` — no live-clock dependency left in the row at all. Rows are separated by `HorizontalDivider`s inside a card now sitting on `MaterialTheme.colorScheme.surfaceVariant` (via a new `containerColor` param on the shared `HunchCard` shell) instead of default surface, so a closed record reads as visibly distinct from the live active-Hunch card above it. No verdict-tier badge in the row — stays only on the live verdict card.
+- `hunchHistoryRowOutcome` reworded from a binary held-up/off to three severity tiers (`ABOUT_RIGHT` / `LESS`+`MORE` / `MUCH_LESS`+`MUCH_MORE`) — found during the design review, fixed in this same pass on explicit sign-off rather than deferred. `hunchHistorySummary` and `hunchHistoryRowOutcome` also lost their em dashes (×3 voices each), on request.
+- `monthsAgo` (`CaseDetailViewModel.kt`) and `hunchHistoryRowWhen` (×3, `Voice.kt`) deleted outright.
+
+**Checklist walk (against the working-tree `git diff`):**
+
+- *Duplication* — first pass had `HunchHistoryCard` hand-roll its own `Card` + padded `Column` to get a different tone, duplicating `HunchCard`'s existing shell; caught and folded back in via the new `containerColor` param (default unchanged, so every other Hunch-tab card call site is untouched). No inline strings — everything through Voice; `hunchHistoryRowStamp` is the only new key, added to all three voices in this commit.
+- *Decoupling* — `HunchHistoryRow` calls `formatEventDate` directly, same convention `formatEventTime`/`formatRate`/`formatExpectedFrequency` already use in this file. No `System.currentTimeMillis()`; `now` is no longer threaded into the history composables at all now that both dates are absolute. No `android.*` in domain code (untouched).
+- *Complexity & pattern health* — first pass computed `history` via a value-returning `when` with side-effecting composable calls inside each branch; reworked by lifting `history` onto the interface so `HunchTabContent` goes back to a plain dispatch `when`, `state.history` read once afterward.
+- *Dead code & hygiene* — grepped every `monthsAgo`/`hunchHistoryRowWhen` reference; also caught a dangling KDoc mention of `[monthsAgo]` in `TriggersViewModel.kt`'s `triggerRows` doc comment (reworded), and my own new doc-comments citing "(spec S5)" as if it were a stable `HODITH_SPEC.md` section rather than a PROGRESS.md tracker code this same diff struck out — removed from all six spots before they could go stale on merge. The Artifact prototype used to pick the layout lived only in the session scratchpad, never the repo (`git status` confirmed clean).
+- *Repo hygiene, naming, hardcoded values, accessibility, deprecated APIs* — no findings.
+- *Spec review* — `HODITH_SPEC.md` §7's hunch-history paragraph describes resolve → archive → frozen-verdict at an abstract level, not row layout, so it stays accurate; no update needed.
+- *Tests* — `HunchTabStateTest` gained two cases pinning `history` on `EarlyDays`/`Verdict` (the exact visibility bug). `CaseDetailScreenTest` gained a regression guard for the visibility bug and a second case locking the new stamp field's exact rendered text — closing a first-pass gap where the row's actual headline change had no UI coverage at all. `VoiceTest` gained a case pinning the three-severity-tier fix (LESS/MORE now read distinctly from ABOUT_RIGHT and from MUCH_LESS/MUCH_MORE) — the pure-Voice-logic equivalent of a regression test, at the unit level rather than Compose, since `hunchHistoryRowOutcome` has no Android dependency. `CaseDetailFormattingTest`'s two `monthsAgo` cases removed with the function. `VoiceTest`'s existing reflection walk covers every other new/removed key automatically.
+
+**Deferred:** nothing — the one finding from this pass (outcome-text granularity) was fixed in the same branch on explicit sign-off rather than deferred.
+
+**Docs updated:** `PROGRESS.md` — S5 struck in full (all acceptance criteria met), its two cross-references in the Standalone intro and B2's copy-touching list removed.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. `connectedDebugAndroidTest` scoped to `CaseDetailScreenTest` — 32/32 green on `Pixel_8_API36(AVD)`, including both new cases.
+
 ## feat/log-tab-paged-query
 
 **Scope:** PROGRESS.md's F4 — the Log tab's `CaseDetailViewModel.uiState` read a Case's entire event history (`EventDao.observeEventsWithTagsForCase`) and re-sorted it all in memory (`sortEventsForLog`) into one `LazyColumn` on every recomposition. The request was specifically to show the 30 most recent events with a "Show more" button (+50 per tap), and to have that genuinely resolve F4 rather than only capping what's rendered — so the fix is a real capped/sorted SQL query, not a client-side window over the full list.

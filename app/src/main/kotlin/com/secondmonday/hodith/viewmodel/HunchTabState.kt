@@ -14,27 +14,31 @@ import com.secondmonday.hodith.domain.computeVerdict
  * mirrors [homeCaseRows]/[ongoingEventIn]'s pure-mapping pattern. The "creating" state (the
  * Hunch-creation sheet) isn't represented here: it's a UI overlay that can sit on top of any
  * of these three states, not a data state of its own.
+ *
+ * [history] carries any previously-resolved Hunches and is present on every state, not only
+ * [NoActiveHunch] — an active Hunch never hides the record of past ones.
  */
 sealed interface HunchTabState {
-    /**
-     * No currently-active Hunch. [showNudge] gates the "got a feeling about this one?" card;
-     * [history] carries any previously-resolved Hunches, shown below regardless of [showNudge].
-     */
+    val history: List<HunchHistoryEntry>
+
+    /** No currently-active Hunch. [showNudge] gates the "got a feeling about this one?" card. */
     data class NoActiveHunch(
         val showNudge: Boolean,
-        val history: List<HunchHistoryEntry>,
+        override val history: List<HunchHistoryEntry>,
     ) : HunchTabState
 
     /** Active Hunch, but [VerdictResult.tier] is [com.secondmonday.hodith.domain.ConfidenceTier.NO_VERDICT]. */
     data class EarlyDays(
         val hunch: HunchEntity,
         val result: VerdictResult,
+        override val history: List<HunchHistoryEntry>,
     ) : HunchTabState
 
     /** Active Hunch with a preliminary or confident verdict — resolvable. */
     data class Verdict(
         val hunch: HunchEntity,
         val result: VerdictResult,
+        override val history: List<HunchHistoryEntry>,
     ) : HunchTabState
 }
 
@@ -56,19 +60,18 @@ internal fun hunchTabState(
     history: List<HunchEntity>,
     now: Long,
 ): HunchTabState {
+    val historyEntries = history.mapNotNull { it.toHistoryEntry(events, case) }
+
     if (activeHunch == null) {
         val showNudge = events.size >= HUNCH_NUDGE_EVENT_THRESHOLD
-        return HunchTabState.NoActiveHunch(
-            showNudge = showNudge,
-            history = history.mapNotNull { it.toHistoryEntry(events, case) },
-        )
+        return HunchTabState.NoActiveHunch(showNudge = showNudge, history = historyEntries)
     }
 
     val result = computeVerdict(activeHunch, events, case.createdAt, now, case.durationMode)
     return if (result.comparisonBand == null) {
-        HunchTabState.EarlyDays(activeHunch, result)
+        HunchTabState.EarlyDays(activeHunch, result, historyEntries)
     } else {
-        HunchTabState.Verdict(activeHunch, result)
+        HunchTabState.Verdict(activeHunch, result, historyEntries)
     }
 }
 
