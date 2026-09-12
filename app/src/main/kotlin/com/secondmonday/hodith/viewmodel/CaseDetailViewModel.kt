@@ -28,9 +28,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 import javax.inject.Inject
 
@@ -220,21 +217,6 @@ internal fun formatExpectedFrequency(
         VerdictMetric.OCCURRENCE_COUNT -> "~$expectedCount×/$perLabel"
         VerdictMetric.DAYS_ACTIVE -> "~$expectedCount days/$perLabel"
     }
-}
-
-/**
- * Whole months between [pastMillis] and [nowMillis] in the device zone, for the hunch history
- * list's "N months ago" rows. Calendar-month-aware (via [java.time.temporal.ChronoUnit.MONTHS]),
- * not a fixed 30-day division, so it doesn't drift against actual month boundaries.
- */
-internal fun monthsAgo(
-    pastMillis: Long,
-    nowMillis: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
-): Long {
-    val past = Instant.ofEpochMilli(pastMillis).atZone(zone)
-    val now = Instant.ofEpochMilli(nowMillis).atZone(zone)
-    return ChronoUnit.MONTHS.between(past, now)
 }
 
 /**

@@ -333,22 +333,4 @@ class CaseDetailFormattingTest {
         assertEquals("~4 days/week", formatExpectedFrequency(4, ExpectedPer.WEEK, VerdictMetric.DAYS_ACTIVE))
         assertEquals("~20 days/3 months", formatExpectedFrequency(20, ExpectedPer.QUARTER, VerdictMetric.DAYS_ACTIVE))
     }
-
-    // ---- monthsAgo ----
-
-    @Test
-    fun `monthsAgo counts whole calendar months`() {
-        val past = ZonedDateTime.of(2026, 3, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
-        val now = ZonedDateTime.of(2026, 7, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
-
-        assertEquals(4L, monthsAgo(past, now, utc))
-    }
-
-    @Test
-    fun `monthsAgo is zero for less than a full month`() {
-        val past = ZonedDateTime.of(2026, 3, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
-        val now = ZonedDateTime.of(2026, 3, 20, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
-
-        assertEquals(0L, monthsAgo(past, now, utc))
-    }
 }

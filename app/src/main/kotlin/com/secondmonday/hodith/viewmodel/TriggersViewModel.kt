@@ -104,7 +104,7 @@ class TriggersViewModel
 /**
  * Pure mapping so the list-row shape is unit-testable on the JVM without a repository or Hilt,
  * same pattern as [archivedCaseRows]. [TriggerRow.firedDaysAgo] is calendar-day-aware (via
- * [ChronoUnit.DAYS]), matching [monthsAgo]'s precedent rather than a fixed-millis division.
+ * [ChronoUnit.DAYS]) rather than a fixed-millis division.
  */
 internal fun triggerRows(
     triggers: List<TriggerEntity>,

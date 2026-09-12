@@ -498,13 +498,21 @@ interface Voice {
         heldUpCount: Int,
     ): String
 
-    /** [band] `ABOUT_RIGHT` reads as "held up"; anything else reads as "off" — see spec §8. */
+    /**
+     * Three severity tiers, not a binary held-up/off (spec §8's five bands collapsed no further
+     * than this): `ABOUT_RIGHT` reads as "held up"; `LESS`/`MORE` (0.5-0.8x or 1.25-2x expected)
+     * reads as a near miss; `MUCH_LESS`/`MUCH_MORE` (beyond that) reads as fully "off".
+     */
     fun hunchHistoryRowOutcome(
         band: ComparisonBand,
         observedRateLabel: String,
     ): String
 
-    fun hunchHistoryRowWhen(monthsAgo: Long): String
+    /** "Made Jun 3, 2026 · Resolved Aug 24, 2026" — leads a history row; both dates pre-formatted (see `formatEventDate`). */
+    fun hunchHistoryRowStamp(
+        madeDateLabel: String,
+        resolvedDateLabel: String,
+    ): String
 
     /** Badge text on the Hunch tab's cards — identical across all three voices, like the nav/tab labels. */
     val hunchEarlyBadgeLabel: String get() = "Early days"
@@ -1070,17 +1078,21 @@ object PlainVoice : Voice {
     override fun hunchHistorySummary(
         total: Int,
         heldUpCount: Int,
-    ) = "$total hunches so far — ${total - heldUpCount} were off, $heldUpCount held up."
+    ) = "$total hunches so far. ${total - heldUpCount} were off, $heldUpCount held up."
 
     override fun hunchHistoryRowOutcome(
         band: ComparisonBand,
         observedRateLabel: String,
     ) = when (band) {
-        ComparisonBand.ABOUT_RIGHT -> "About right — observed $observedRateLabel"
-        else -> "Way off — observed $observedRateLabel"
+        ComparisonBand.ABOUT_RIGHT -> "About right, observed $observedRateLabel"
+        ComparisonBand.LESS, ComparisonBand.MORE -> "A bit off, observed $observedRateLabel"
+        ComparisonBand.MUCH_LESS, ComparisonBand.MUCH_MORE -> "Way off, observed $observedRateLabel"
     }
 
-    override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months ago"
+    override fun hunchHistoryRowStamp(
+        madeDateLabel: String,
+        resolvedDateLabel: String,
+    ) = "Made $madeDateLabel · Resolved $resolvedDateLabel"
 
     override val triggersScreenTitle = "Triggers"
     override val triggersOpenDescription = "Open triggers"
@@ -1603,17 +1615,21 @@ object IntenseVoice : Voice {
     override fun hunchHistorySummary(
         total: Int,
         heldUpCount: Int,
-    ) = "$total claims stand in the record — ${total - heldUpCount} false, $heldUpCount true."
+    ) = "$total claims stand in the record. ${total - heldUpCount} false, $heldUpCount true."
 
     override fun hunchHistoryRowOutcome(
         band: ComparisonBand,
         observedRateLabel: String,
     ) = when (band) {
-        ComparisonBand.ABOUT_RIGHT -> "The record agrees — near enough, at $observedRateLabel"
-        else -> "Far from true — $observedRateLabel, the record shows"
+        ComparisonBand.ABOUT_RIGHT -> "The record agrees, near enough, at $observedRateLabel"
+        ComparisonBand.LESS, ComparisonBand.MORE -> "Nearly true. $observedRateLabel, the record shows"
+        ComparisonBand.MUCH_LESS, ComparisonBand.MUCH_MORE -> "Far from true. $observedRateLabel, the record shows"
     }
 
-    override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months past"
+    override fun hunchHistoryRowStamp(
+        madeDateLabel: String,
+        resolvedDateLabel: String,
+    ) = "Claimed $madeDateLabel · Judged $resolvedDateLabel"
 
     override val triggersScreenTitle = "Alarms"
     override val triggersOpenDescription = "Tend the alarms"
@@ -2131,17 +2147,21 @@ object BrightVoice : Voice {
     override fun hunchHistorySummary(
         total: Int,
         heldUpCount: Int,
-    ) = "$total guesses so far — ${total - heldUpCount} were off, $heldUpCount was spot-on!"
+    ) = "$total guesses so far. ${total - heldUpCount} were off, $heldUpCount was spot-on!"
 
     override fun hunchHistoryRowOutcome(
         band: ComparisonBand,
         observedRateLabel: String,
     ) = when (band) {
-        ComparisonBand.ABOUT_RIGHT -> "Spot-on — actually $observedRateLabel"
-        else -> "Way off — actually $observedRateLabel"
+        ComparisonBand.ABOUT_RIGHT -> "Spot-on, actually $observedRateLabel!"
+        ComparisonBand.LESS, ComparisonBand.MORE -> "Close, actually $observedRateLabel!"
+        ComparisonBand.MUCH_LESS, ComparisonBand.MUCH_MORE -> "Way off, actually $observedRateLabel!"
     }
 
-    override fun hunchHistoryRowWhen(monthsAgo: Long) = "$monthsAgo months ago"
+    override fun hunchHistoryRowStamp(
+        madeDateLabel: String,
+        resolvedDateLabel: String,
+    ) = "Guessed $madeDateLabel · Found out $resolvedDateLabel!"
 
     override val triggersScreenTitle = "Alerts!"
     override val triggersOpenDescription = "Check your alerts!"

@@ -139,6 +139,35 @@ class HunchTabStateTest {
         assertEquals(ConfidenceTier.CONFIDENT, verdict.result.tier)
     }
 
+    // ---- history persists alongside an active hunch ----
+
+    @Test
+    fun `active EarlyDays still carries the resolved history alongside it`() {
+        val case = testCase()
+        val activeHunch = testHunch(id = 1L)
+        val resolvedHunch = testHunch(id = 2L, expectedCount = 1, expectedPer = ExpectedPer.DAY, resolvedAt = millisAtDay(14))
+        val events = eventsAt(14, millisAtDay(7))
+
+        val state = hunchTabState(case, activeHunch = activeHunch, events = events, history = listOf(resolvedHunch), now = millisAtDay(10))
+
+        val earlyDays = state as HunchTabState.EarlyDays
+        assertEquals(ConfidenceTier.NO_VERDICT, earlyDays.result.tier)
+        assertEquals(1, earlyDays.history.size)
+    }
+
+    @Test
+    fun `active Verdict still carries the resolved history alongside it`() {
+        val case = testCase()
+        val activeHunch = testHunch(id = 1L, expectedCount = 5, expectedPer = ExpectedPer.WEEK)
+        val resolvedHunch = testHunch(id = 2L, expectedCount = 1, expectedPer = ExpectedPer.DAY, resolvedAt = millisAtDay(14))
+        val events = eventsAt(14, millisAtDay(7))
+
+        val state = hunchTabState(case, activeHunch = activeHunch, events = events, history = listOf(resolvedHunch), now = millisAtDay(16))
+
+        val verdict = state as HunchTabState.Verdict
+        assertEquals(1, verdict.history.size)
+    }
+
     // ---- history: frozen at resolvedAt, not recomputed against today ----
 
     @Test

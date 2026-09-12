@@ -24,6 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -42,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -79,13 +81,13 @@ import com.secondmonday.hodith.viewmodel.HunchHistoryEntry
 import com.secondmonday.hodith.viewmodel.HunchTabState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
+import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatExpectedFrequency
 import com.secondmonday.hodith.viewmodel.formatRate
 import com.secondmonday.hodith.viewmodel.hunchProgressFraction
 import com.secondmonday.hodith.viewmodel.hunchTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
-import com.secondmonday.hodith.viewmodel.monthsAgo
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
 
 private const val LOG_TAB = 0
@@ -415,9 +417,6 @@ private fun HunchTabContent(
                 } else {
                     HunchNoneCard(voice = voice, onAddClick = onAddClick)
                 }
-                if (state.history.isNotEmpty()) {
-                    HunchHistoryCard(history = state.history, now = now, voice = voice)
-                }
             }
             is HunchTabState.EarlyDays -> HunchEarlyCard(hunch = state.hunch, result = state.result, voice = voice)
             is HunchTabState.Verdict ->
@@ -428,16 +427,24 @@ private fun HunchTabContent(
                     onResolve = onResolveHunch,
                 )
         }
+        if (state.history.isNotEmpty()) {
+            HunchHistoryCard(history = state.history, voice = voice)
+        }
     }
 }
 
-/** Shared shell for every Hunch-tab card — full-width [Card] with a padded, vertically-spaced [Column]. */
+/**
+ * Shared shell for every Hunch-tab card — full-width [Card] with a padded, vertically-spaced
+ * [Column]. [containerColor] defaults to the live-card surface; [HunchHistoryCard] overrides it
+ * to sit on a visibly quieter tone.
+ */
 @Composable
 private fun HunchCard(
     spacing: Dp = 8.dp,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = containerColor)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(spacing), content = content)
     }
 }
@@ -543,24 +550,33 @@ private fun HunchVerdictCard(
     }
 }
 
+/**
+ * Sits on [MaterialTheme.colorScheme.surfaceVariant] rather than [HunchCard]'s default surface —
+ * a quieter, visibly different tone from the live active-Hunch card above it, so a closed record
+ * doesn't read as more of the same live content. Shown below the active Hunch card whenever one
+ * exists, not only when [HunchTabState.NoActiveHunch] — the record of past Hunches never
+ * disappears just because a new one is running.
+ */
 @Composable
 private fun HunchHistoryCard(
     history: List<HunchHistoryEntry>,
-    now: Long,
     voice: Voice,
 ) {
     val heldUpCount = history.count { it.result.comparisonBand == ComparisonBand.ABOUT_RIGHT }
-    HunchCard(spacing = 12.dp) {
+    HunchCard(spacing = 10.dp, containerColor = MaterialTheme.colorScheme.surfaceVariant) {
         Text(voice.hunchHistoryHeader, style = MaterialTheme.typography.titleMedium)
         Text(voice.hunchHistorySummary(history.size, heldUpCount), style = MaterialTheme.typography.bodyMedium)
-        history.forEach { entry -> HunchHistoryRow(entry = entry, now = now, voice = voice) }
+        history.forEachIndexed { index, entry ->
+            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            HunchHistoryRow(entry = entry, voice = voice)
+        }
     }
 }
 
+/** One resolved Hunch, leading with its made→resolved stamp rather than burying the date. */
 @Composable
 private fun HunchHistoryRow(
     entry: HunchHistoryEntry,
-    now: Long,
     voice: Voice,
 ) {
     val hunch = entry.hunch
@@ -570,15 +586,13 @@ private fun HunchHistoryRow(
     // Guaranteed non-null: hunchTabState only surfaces history entries with a resolved band.
     val band = checkNotNull(entry.result.comparisonBand) { "History entry must carry a resolved comparison band" }
 
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                voice.hunchHistoryRowText(hunch.direction, frequencyLabel),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-            Text(voice.hunchHistoryRowWhen(monthsAgo(resolvedAt, now)), style = MaterialTheme.typography.bodySmall)
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            voice.hunchHistoryRowStamp(formatEventDate(hunch.createdAt), formatEventDate(resolvedAt)),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(voice.hunchHistoryRowText(hunch.direction, frequencyLabel), style = MaterialTheme.typography.bodyMedium)
         Text(voice.hunchHistoryRowOutcome(band, observedRateLabel), style = MaterialTheme.typography.bodySmall)
     }
 }

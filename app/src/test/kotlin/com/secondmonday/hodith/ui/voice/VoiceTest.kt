@@ -2,6 +2,7 @@ package com.secondmonday.hodith.ui.voice
 
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.domain.ComparisonBand
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.reflect.KClass
@@ -58,6 +59,23 @@ class VoiceTest {
         }
 
         assertTrue(violations.joinToString("\n"), violations.isEmpty())
+    }
+
+    @Test
+    fun `hunchHistoryRowOutcome distinguishes a near miss from fully off, not just held-up vs off`() {
+        // Regression guard: this used to collapse every non-ABOUT_RIGHT band to one "way off"
+        // string, so a LESS band at 0.52x read identically to a MUCH_MORE at 3x.
+        for (voice in voices) {
+            val heldUp = voice.hunchHistoryRowOutcome(ComparisonBand.ABOUT_RIGHT, "2.6x/week")
+            val nearMiss = voice.hunchHistoryRowOutcome(ComparisonBand.LESS, "2.6x/week")
+            val fullyOff = voice.hunchHistoryRowOutcome(ComparisonBand.MUCH_LESS, "2.6x/week")
+
+            assertTrue("$voice: LESS should read differently from ABOUT_RIGHT", nearMiss != heldUp)
+            assertTrue("$voice: LESS should read differently from MUCH_LESS", nearMiss != fullyOff)
+            // LESS/MORE share wording (direction isn't a parameter of this row), same for MUCH_LESS/MUCH_MORE.
+            assertEquals(nearMiss, voice.hunchHistoryRowOutcome(ComparisonBand.MORE, "2.6x/week"))
+            assertEquals(fullyOff, voice.hunchHistoryRowOutcome(ComparisonBand.MUCH_MORE, "2.6x/week"))
+        }
     }
 
     @Test
