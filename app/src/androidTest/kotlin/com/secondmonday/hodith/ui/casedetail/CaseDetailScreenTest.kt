@@ -2,6 +2,7 @@ package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -9,6 +10,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
@@ -25,6 +27,7 @@ import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.common.overlapsRect
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -34,6 +37,7 @@ import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -353,6 +357,30 @@ class CaseDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.logShowMoreAction).performClick()
 
         assertTrue(tapped)
+    }
+
+    @Test
+    fun logTab_fullScreenList_lastRowsStopButton_doesNotOverlapRetroLogFab() {
+        val events = eventsAt(30)
+        setCaseDetailScreenContent(events = events)
+        // The LazyColumn only composes visible rows, so scroll its container to the last index
+        // first. Every ongoing row shares the same Stop content description, so once scrolled,
+        // pick the bottom-most match rather than assuming a fixed index among composed nodes.
+        composeTestRule.onNode(hasScrollToIndexAction()).performScrollToIndex(events.lastIndex)
+
+        val fabBounds =
+            composeTestRule
+                .onNodeWithContentDescription(PlainVoice.retroLogEntryDescription, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+        val lastStopButtonBounds =
+            composeTestRule
+                .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name))
+                .fetchSemanticsNodes()
+                .maxBy { it.boundsInRoot.top }
+                .boundsInRoot
+
+        assertFalse(fabBounds.overlapsRect(lastStopButtonBounds))
     }
 
     @Test

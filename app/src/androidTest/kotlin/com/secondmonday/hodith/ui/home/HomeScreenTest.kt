@@ -1,16 +1,19 @@
 package com.secondmonday.hodith.ui.home
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.common.overlapsRect
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.DurationUnit
@@ -21,6 +24,7 @@ import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.QuickLogUndo
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -243,5 +247,27 @@ class HomeScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
 
         assertEquals(sheetState.draft, savedDraft)
+    }
+
+    @Test
+    fun fullScreenCaseList_lastRowsLogButton_doesNotOverlapNewCaseFab() {
+        val manyRows =
+            (1..30L).map { id ->
+                oneTapRow.copy(caseId = id, name = "Case $id")
+            }
+        setHomeScreenContent(uiState = HomeUiState(cases = manyRows, isLoading = false))
+        // The LazyColumn only composes visible rows, so scroll its container to the last index
+        // before looking up that row's node — it doesn't exist in the semantics tree until then.
+        composeTestRule.onNode(hasScrollToIndexAction()).performScrollToIndex(manyRows.lastIndex)
+
+        val fabBounds =
+            composeTestRule.onNodeWithContentDescription(PlainVoice.newCaseFabDescription).fetchSemanticsNode().boundsInRoot
+        val lastLogButtonBounds =
+            composeTestRule
+                .onNodeWithContentDescription(PlainVoice.quickLogButtonDescription(manyRows.last().name))
+                .fetchSemanticsNode()
+                .boundsInRoot
+
+        assertFalse(fabBounds.overlapsRect(lastLogButtonBounds))
     }
 }
