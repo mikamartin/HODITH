@@ -4,7 +4,7 @@
 
 ## 1. Post-Work Cleanup
 
-Run after any significant feature work or refactor. See [CLEANUP_CHECKLIST.md](CLEANUP_CHECKLIST.md) for the full checklist — walk through it against the real diff, then record the pass in a new [CLEANUP_LOG.md](CLEANUP_LOG.md) entry: what was found and fixed, what was deferred with a reason, and which sections didn't apply.
+Run after any significant feature work or refactor. See [CLEANUP_CHECKLIST.md](CLEANUP_CHECKLIST.md) for the full checklist — walk through it against the real diff, then record the pass in a new [CLEANUP_LOG.md](CLEANUP_LOG.md) entry: what was found and fixed, what was deferred with a reason, and which sections didn't apply. [CLEANUP_LOG.md](CLEANUP_LOG.md) keeps only its 5 newest entries — adding one past that count means deleting the oldest entry in the same commit; older passes stay reachable via `git log -- docs/CLEANUP_LOG.md`.
 
 ---
 
