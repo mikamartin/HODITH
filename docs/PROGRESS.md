@@ -44,8 +44,6 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 **Tests** — `ShareCardStateTest.kt` needs coverage that Square's output is driven by the preset; `SharePreviewScreenTest.kt` needs coverage that the section picker appears only for Story. `ShareCardTemplateTest.kt`'s Square floor/no-clip coverage should keep passing as-is, since the preset's fixed content is what it already exercises.
 
-**Concern** — this is as much a product decision as an implementation task, and it touches Voice (Story-only picker copy), so land it before B2.
-
 ### B2 · Review phrasing across all three Voice implementations
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
@@ -86,8 +84,6 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 **Plan** — push the handle's two inner points (`58.818,65.182` and `65.182,58.818`) outward along the (1,1) diagonal; mirror the change in `ic_launcher_monochrome.xml`. The handle tip is already near the 66dp adaptive-icon safe zone, so this may also mean shortening the handle or nudging the enclosing `group` scale (0.9).
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
-
-**Concern** — standalone, no dependencies.
 
 ### S2 · Review the Trend section's calculation and investigate additions
 
@@ -146,7 +142,7 @@ User testing on `RhythmCard` (`InsightsTab.kt:470-526`) flagged three things on 
 
 **Tests** — a Compose UI test asserting Rhythm cells are clickable and invoke the callback with the tapped day/time-of-day; no `StatsEngine`/`InsightsEngine` changes needed.
 
-**Concern** — needs the tap-target design decision resolved before implementation; prefer actually wiring the interaction through to something useful over adding a no-op ripple for consistency's sake alone.
+**Concern** — prefer wiring the interaction through to something useful over adding a no-op ripple for consistency's sake alone.
 
 ### S9 · Frequency-over-time chart: axis labels illegible
 
@@ -166,8 +162,6 @@ User testing on `RhythmCard` (`InsightsTab.kt:470-526`) flagged three things on 
 **Plan** — prototype two or three label layouts cheaply (Compose Preview) before committing to one, since this reshapes a chart rather than fixing a single value.
 
 **Tests** — `EventTimeFormatTest` for any format changes; Compose Preview/manual check for the chosen layout at narrow widths.
-
-**Concern** — needs a cheap prototype/spike before committing to an approach, per the usual bar for anything that starts feeling like a redesign.
 
 ### S10 · Resolved hunches list: planks, pagination, and a clear-all setting
 
@@ -211,8 +205,6 @@ User testing asked for an exploratory pass over the Intense and Bright visual th
 
 **Tests** — none for the audit itself.
 
-**Concern** — keep scope restyle-only; don't let exploratory testing regrow into a feature request.
-
 ### S13 · CSV export of case/event data
 
 *Branch: `feat/csv-export` · Complexity: S · Priority: Medium · Area: Settings*
@@ -251,7 +243,7 @@ Current spec §14 only supports deleting all data outright; there's no partial o
 
 **Tests** — a DAO test for the date-bounded delete; `SettingsScreenTest` for the picker/confirm flow.
 
-**Concern** — touching historical data that Hunches may reference needs a clear answer on cascade/rollup effects before coding; don't assume delete-and-move-on is safe.
+**Concern** — don't assume delete-and-move-on is safe for historical data Hunches may reference.
 
 ### S15 · Big Picture: year-level filter UX exploration
 
@@ -270,8 +262,6 @@ No year-level filter exists in Big Picture today (§9 only has a scrolling multi
 **Plan** — cheap prototype/spike only in this item, per the standing rule for anything that starts feeling complicated.
 
 **Tests** — none until an approach is approved and implemented.
-
-**Concern** — don't build the real windowed-query/UI work in this item; keep it to the design spike only.
 
 ## Deferred
 
@@ -312,8 +302,6 @@ No year-level filter exists in Big Picture today (§9 only has a scrolling multi
 
 **Tests** — none until a proposal is approved.
 
-**Concern** — don't let this drift into a cross-case suggestions feature; that was explicitly declined.
-
 ### D3 · Investigate app capacity at multi-year logging scale
 
 *Branch: none yet — investigation first · Complexity: S (investigation) · Priority: Medium · Area: Performance*
@@ -332,8 +320,6 @@ User testing raised the same underlying question **D1** is deferred pending — 
 **Plan** — probe first, no production code in this item; read alongside D1 before deciding investigation scope, to avoid running two parallel capacity investigations.
 
 **Tests** — none until a follow-up item lands.
-
-**Concern** — don't duplicate D1's Big Picture-specific investigation; resolve the overlap explicitly.
 
 ## Blocked
 
