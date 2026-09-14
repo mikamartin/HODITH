@@ -3,6 +3,7 @@ package com.secondmonday.hodith.ui.home
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +45,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
+import com.secondmonday.hodith.ui.common.FabListBottomClearance
 import com.secondmonday.hodith.ui.common.NotificationsDeniedBanner
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
@@ -150,7 +152,10 @@ fun HomeScreen(
                         CenteredEmptyState(voice.noCasesEmptyState)
                     }
                     else -> {
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = FabListBottomClearance),
+                        ) {
                             itemsIndexed(uiState.cases, key = { _, row -> row.caseId }) { index, row ->
                                 HomeCaseListItem(
                                     row = row,

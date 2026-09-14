@@ -126,6 +126,175 @@ What it computes today:
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
+### S8 · Rhythm card: legend spacing, cell size, and tap interaction
+
+*Branch: `feat/rhythm-card-interaction` · Complexity: S–M · Priority: Medium · Area: Insights*
+
+🎨 **Design decision** — what tapping a Rhythm cell should open.
+
+User testing on `RhythmCard` (`InsightsTab.kt:470-526`) flagged three things on the same screen: the gap between the time-of-day/day-of-week legend and the grid feels cramped, the cells themselves feel small, and — unlike `TagsCard`'s tag rows, which are tappable via `tappableWithDescription` and open matching logged events — Rhythm cells aren't tappable at all. Today a single `Modifier.width(RHYTHM_LABEL_WIDTH.dp)` spacer (88dp) does double duty as both the label column and the only separation from the grid, and `RHYTHM_CELL_SIZE = 20` sets both the cell size and the day header width.
+
+**Acceptance criteria**
+
+- [ ] A dedicated gap added between the label column and the grid, distinct from the label column's own width.
+- [ ] `RHYTHM_CELL_SIZE` increased (value TBD by review) and checked against the widest supported screen width so the grid still fits without scrolling.
+- [ ] Rhythm cells made tappable via the same `tappableWithDescription` pattern `TagsCard` uses.
+- [ ] A design decision on what tapping a cell opens — most likely the matching logged events for that day-of-week/time-of-day combination, mirroring tag-tap behavior.
+- [ ] Voice strings added for the new tap's accessibility description.
+
+**Plan** — split `RHYTHM_LABEL_WIDTH` from a new spacing constant in `InsightsTab.kt`, bump `RHYTHM_CELL_SIZE`, and wire a `tappableWithDescription` click modifier onto each cell `Box`, routing to a new `onRhythmCellTap(dayOfWeek, timeOfDay)` callback plumbed the same way `onTagTap` is today.
+
+**Tests** — a Compose UI test asserting Rhythm cells are clickable and invoke the callback with the tapped day/time-of-day; no `StatsEngine`/`InsightsEngine` changes needed.
+
+**Concern** — needs the tap-target design decision resolved before implementation; prefer actually wiring the interaction through to something useful over adding a no-op ripple for consistency's sake alone.
+
+### S9 · Frequency-over-time chart: axis labels illegible
+
+*Branch: `fix/frequency-chart-axis-labels` · Complexity: S–M · Priority: Medium · Area: Insights*
+
+🎨 **Design decision** — labeling strategy for a custom (non-charting-library) bar layout.
+
+`FrequencyCard` (`InsightsTab.kt:378-452`) is a hand-built Compose bar layout, not a charting library. It only ever renders two x-axis labels — the first and last bar's period start (lines 438-449) — so every bar in between is unlabeled, which testers read as "labels missing." The two labels shown already use a shortened format (`formatFrequencyPeriodLabel`, `EventTimeFormat.kt:114-124`) but still crowd the chart edges.
+
+**Acceptance criteria**
+
+- [ ] A labeling strategy decided: more ticks (e.g. every Nth bar), rotated labels, or a shorter format still — whichever reads clearly at minimum supported screen width.
+- [ ] Chosen approach implemented in `FrequencyCard`.
+- [ ] Confirmed no label overlap at minimum supported screen width, across the shortest and longest period-count cases the card renders.
+- [ ] `EventTimeFormatTest` updated if the label format itself changes.
+
+**Plan** — prototype two or three label layouts cheaply (Compose Preview) before committing to one, since this reshapes a chart rather than fixing a single value.
+
+**Tests** — `EventTimeFormatTest` for any format changes; Compose Preview/manual check for the chosen layout at narrow widths.
+
+**Concern** — needs a cheap prototype/spike before committing to an approach, per the usual bar for anything that starts feeling like a redesign.
+
+### S10 · Resolved hunches list: planks, pagination, and a clear-all setting
+
+*Branch: `feat/resolved-hunch-list-redesign` · Complexity: M–L · Priority: Medium · Area: Hunch*
+
+🎨 **Design decision** — plank visual style, and the show-more/clear-all copy.
+
+Iterates on the row redesign that just shipped in `a6d70e7` (`feat/hunch-history-row-redesign`), which fixed the created→resolved stamp, reworded outcome tiers, and a history-visibility bug — but kept every resolved Hunch as a divider-separated row inside one shared `HunchCard` (`HunchHistoryCard`/`HunchHistoryRow`, `CaseDetailScreen.kt:560-598`), rendered unconditionally via `forEachIndexed` with no pagination. New user-testing ask: drop the per-item summary line, give each resolved Hunch its own full-width "plank" card — matching the pattern `HomeScreen.kt`'s `PlainPlankHomeCaseListItem` already establishes elsewhere in the app, rather than the shared-card-with-dividers layout — show only the 5 most recent by default with a "Show more" revealing the next 10, and add a settings action to clear all resolved hunches for a Case.
+
+**Acceptance criteria**
+
+- [ ] Each resolved Hunch rendered as its own plank/card, no shared-card dividers.
+- [ ] Per-item summary line removed — decide exactly what stays (the created→resolved stamp and outcome, presumably).
+- [ ] Default view shows the 5 most recent resolved hunches, newest first.
+- [ ] "Show more" reveals the next 10; decide behavior after that (further paging vs. show-all).
+- [ ] A settings/action to permanently clear all resolved hunches for a Case, with a confirm dialog mirroring the existing "delete all data" confirm pattern.
+- [ ] Clear-all copy reviewed against spec §4 non-goals — must not read like a gamification "reset"/"fresh start," even though the action itself isn't gamification.
+- [ ] Voice ×3 for all new/changed strings.
+
+**Plan** — rework `HunchHistoryCard`/`Row` into individually-carded planks with client-side windowing (first 5, then +10 on tap); add a repository method plus a confirm dialog for bulk-clearing a Case's resolved hunches.
+
+**Tests** — `CaseDetailScreen` Compose tests for the plank layout, the show-more reveal count, and the clear-all confirm/cancel flow; a repository/DAO test for the bulk-clear query.
+
+**Concern** — this reopens a screen area that just shipped a redesign; re-read `a6d70e7`'s rationale before changing layout again so nothing already fixed (the visibility bug, the outcome-tier wording) regresses.
+
+### S12 · Intense/Bright theme: exploratory testing pass
+
+*Branch: `chore/intense-bright-theme-audit` · Complexity: S–M · Priority: Low · Area: Settings*
+
+🔍 **Investigation** — a review pass, not a known fix.
+
+User testing asked for an exploratory pass over the Intense and Bright visual themes (`Color.kt`, `GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureDecoration.kt`, `ShareCardDecoration.kt`) with an eye to minor redesigns. Scope stays restyle-only, per the standing rule from the prior Bright redesign pass — visual refinement of what already exists, not new features a mockup might otherwise suggest.
+
+**Acceptance criteria**
+
+- [ ] A written pass over both themes across the main screens (Home, Case Detail/Insights, Big Picture, Share, Settings) noting legibility/contrast/consistency issues.
+- [ ] A shortlist of proposed tweaks, restyle-only, each with a keep/drop call.
+- [ ] Approved tweaks spun out as their own follow-up items.
+
+**Plan** — audit pass first, no code; produce a findings list. Implementation only for approved items, spun out separately.
+
+**Tests** — none for the audit itself.
+
+**Concern** — keep scope restyle-only; don't let exploratory testing regrow into a feature request.
+
+### S13 · CSV export of case/event data
+
+*Branch: `feat/csv-export` · Complexity: S · Priority: Medium · Area: Settings*
+
+Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existing JSON export, JSON staying canonical for import since a flattened tabular format doesn't round-trip cleanly, making CSV export-only. This item promotes that spec entry into active work — no spec change needed, just implementation.
+
+**Acceptance criteria**
+
+- [ ] A new CSV writer alongside the existing `BackupFileWriter` (`data/backup/`).
+- [ ] A Settings row for CSV export, alongside the existing JSON export/import row.
+- [ ] Voice ×3 for the new row and any share/save-location prompts.
+- [ ] Confirmed export-only — no CSV import path.
+
+**Plan** — implement per §17 as already scoped: new writer, Settings row, Voice strings.
+
+**Tests** — a unit test for the CSV writer's output shape; `SettingsScreenTest` coverage for the new row/action.
+
+**Concern** — none; per the spec's own note, this is the most self-contained item here.
+
+### S14 · Settings: delete logs older than a chosen date
+
+*Branch: `feat/bulk-delete-logs-by-date` · Complexity: M · Priority: Medium · Area: Settings*
+
+🎨 **Design decision** — cascade behavior, plus a spec update.
+
+Current spec §14 only supports deleting all data outright; there's no partial or date-scoped delete anywhere in spec or code. This is a genuine spec addition, not a bug fix — approving it means adding a new Data-card action to HODITH_SPEC §14.
+
+**Acceptance criteria**
+
+- [ ] Design decision: does this delete raw Events only, or does it also need to handle Hunches/Verdicts whose window now has missing data? What happens to stats/rhythm/frequency computations for a Case whose oldest data was just trimmed?
+- [ ] A Settings row with a date picker and a destructive confirm dialog, mirroring the existing "delete all data" pattern.
+- [ ] HODITH_SPEC §14 updated with the new Data-card action.
+- [ ] Voice ×3 for the new row/dialog.
+
+**Plan** — resolve the design decision above first; likely a bounded DAO delete query plus a confirm dialog reusing existing patterns.
+
+**Tests** — a DAO test for the date-bounded delete; `SettingsScreenTest` for the picker/confirm flow.
+
+**Concern** — touching historical data that Hunches may reference needs a clear answer on cascade/rollup effects before coding; don't assume delete-and-move-on is safe.
+
+### S15 · Big Picture: year-level filter UX exploration
+
+*Branch: none yet — design exploration first · Complexity: S–M (investigation) · Priority: Low · Area: Big Picture*
+
+🎨 **Design decision** — UX approach, before any implementation.
+
+No year-level filter exists in Big Picture today (§9 only has a scrolling multi-month grid with a month quick-jump). User testing asked for design options for a "big picture year filter" — a UX design question before it's an implementation one.
+
+**Acceptance criteria**
+
+- [ ] 2–3 candidate UX approaches sketched cheaply (mockup or Compose Preview) — e.g. a year selector alongside the existing month quick-jump, a year-summary zoom level, etc.
+- [ ] A recommendation with tradeoffs, reviewed with the user before any production code.
+- [ ] Approved direction spun out as its own implementation item.
+
+**Plan** — cheap prototype/spike only in this item, per the standing rule for anything that starts feeling complicated.
+
+**Tests** — none until an approach is approved and implemented.
+
+**Concern** — don't build the real windowed-query/UI work in this item; keep it to the design spike only.
+
+### S16 · Insights: add per-section info affordance explaining what's included
+
+*Branch: `feat/insights-section-info` · Complexity: S–M · Priority: Medium · Area: Insights*
+
+🎨 **Design decision** — the affordance pattern, and which sections need it.
+
+Grew out of triaging a user report that the Duration section's average only reflects events with a recorded duration. That's confirmed correct — `StatsEngine.computeDurationStats()` (lines 156-167) already excludes no-duration events from both sum and count, per spec §10, and `StatsEngineTest` already covers this exact shape. The gap isn't the calculation, it's that the UI doesn't disclose its own scope. Rather than a one-off Duration caption, treat it as a per-section info affordance across Insights (Duration, Trend, Rhythm, Frequency, Tags) — a small info icon/tooltip stating what each section counts or excludes (e.g. "based on the N events with a recorded duration"). **S2**'s Trend-calculation review (already scoped to produce "a written overview of the current trend + shift maths … and the Voice strings it drives") is a natural source for that section's copy — sequence this alongside or after S2.
+
+**Acceptance criteria**
+
+- [ ] The affordance decided: info icon + tooltip/dialog vs. inline caption, consistent across every Insights section that needs one.
+- [ ] Duration section gets a note when the average excludes any no-duration events (e.g. "N of M events had a duration").
+- [ ] Shortlist which other sections (Trend, Rhythm, Frequency, Tags) need the same treatment and which don't.
+- [ ] Voice ×3 for every new string.
+- [ ] Cross-checked against S2's output before writing Trend's note, to avoid two competing descriptions of the same math.
+
+**Plan** — design the affordance first (small spike/Preview), then wire per-section strings once the pattern is picked.
+
+**Tests** — a Compose test that the Duration info affordance appears and shows the right counts for a Case with mixed duration/no-duration events (mirrors the existing `StatsEngineTest` fixture).
+
+**Concern** — could sprawl if every section gets bespoke copy; keep the affordance mechanically simple (one component, per-section text) so it doesn't become its own mini-feature per section.
+
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
@@ -148,6 +317,45 @@ What it computes today:
 **Tests** — if windowing is taken: `bigPictureUiState` over a windowed event list; a DAO test for the month-range query; Big Picture Compose tests stay green.
 
 **Concern** — scroll-triggered range extension (if taken) must not stutter or flash empty cells on a fast scroll to a distant month.
+
+### D2 · New-case tag suggestions have no history to draw from
+
+*Branch: none — deferred, no fix prescribed · Complexity: S · Priority: Low · Area: Bug*
+
+🔍 **Investigation, deferred**
+
+`TagInput.kt`'s suggestion filtering and case-insensitive dedup (`filterTagSuggestions`) are already correct; every call site (`LogDetailScreenViewModel`, `HomeViewModel`, `WidgetLogSheetViewModel`) sources its candidate list from `repository.observeTagsForCase(caseId)`. A brand-new Case's per-case tag list is empty on its very first tag entry, so nothing suggests, even when the same tag name already exists on other Cases — which is how testers ended up with near-duplicate spellings. Cross-case suggestions were considered and explicitly ruled out, so no fix is prescribed here.
+
+**Acceptance criteria**
+
+- [ ] Revisit with a concrete proposal once one exists — this item exists to hold the observation, not to specify a solution.
+
+**Plan** — none yet; deferred pending a future proposal that doesn't widen tag suggestions across Cases.
+
+**Tests** — none until a proposal is approved.
+
+**Concern** — don't let this drift into a cross-case suggestions feature; that was explicitly declined.
+
+### D3 · Investigate app capacity at multi-year logging scale
+
+*Branch: none yet — investigation first · Complexity: S (investigation) · Priority: Medium · Area: Performance*
+
+🔍 **Investigation**
+
+User testing raised the same underlying question **D1** is deferred pending — "what's the current capacity for years of extensive records?" — but broader than D1's Big Picture-specific scope. `EventDao.observeEventsWithTagsForCase` (the unbounded query) backs every Insights/Hunch stats computation (rhythm, frequency-over-time, trend, duration averages) with no row-count limit or windowing at all; only the Log tab's own display got paged querying (`feat/log-tab-paged-query`). This user-testing ask may itself be the "real alpha usage" trigger D1 was waiting on — worth resolving together with D1 rather than as a fully separate track.
+
+**Acceptance criteria**
+
+- [ ] A synthetic or real multi-year dataset used to measure current behavior of the unbounded per-case stats query (load time, memory) at a defined scale (e.g. matching D1's S6 reference point).
+- [ ] A stated current capacity (rows/years before a defined threshold degrades).
+- [ ] A ruling on whether this satisfies D1's alpha-usage gate, supersedes it, or should stay a separate track.
+- [ ] If a guardrail is warranted: a shortlist of options (windowed stats queries, a soft in-app warning at N events, etc.) with a keep/drop call each, spun out as their own item(s).
+
+**Plan** — probe first, no production code in this item; read alongside D1 before deciding investigation scope, to avoid running two parallel capacity investigations.
+
+**Tests** — none until a follow-up item lands.
+
+**Concern** — don't duplicate D1's Big Picture-specific investigation; resolve the overlap explicitly.
 
 ## Blocked
 

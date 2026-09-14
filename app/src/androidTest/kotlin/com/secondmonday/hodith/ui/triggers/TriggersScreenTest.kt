@@ -1,18 +1,22 @@
 package com.secondmonday.hodith.ui.triggers
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.common.overlapsRect
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.TriggerRow
 import com.secondmonday.hodith.viewmodel.TriggersUiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -143,5 +147,25 @@ class TriggersScreenTest {
         assertEquals(TriggerKind.SILENT_FOR, saved?.first)
         assertEquals(14, saved?.second)
         assertNull(saved?.third)
+    }
+
+    @Test
+    fun fullScreenTriggerList_lastRowsToggle_doesNotOverlapFab() {
+        val rows = (1..30).map { i -> atLeastRow.copy(id = i.toLong(), threshold = i) }
+        setContent(uiState = TriggersUiState(triggers = rows, isLoading = false))
+        // The LazyColumn only composes visible rows, so scroll its container to the last index
+        // before looking up that row's node — it doesn't exist in the semantics tree until then.
+        composeTestRule.onNode(hasScrollToIndexAction()).performScrollToIndex(rows.lastIndex)
+        val lastSummary = PlainVoice.triggerSummary(TriggerKind.AT_LEAST, rows.last().threshold, rows.last().windowDays)
+
+        val fabBounds =
+            composeTestRule.onNodeWithContentDescription(PlainVoice.triggersFabDescription).fetchSemanticsNode().boundsInRoot
+        val lastToggleBounds =
+            composeTestRule
+                .onNodeWithContentDescription(PlainVoice.triggerToggleDescription(lastSummary))
+                .fetchSemanticsNode()
+                .boundsInRoot
+
+        assertFalse(fabBounds.overlapsRect(lastToggleBounds))
     }
 }
