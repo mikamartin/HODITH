@@ -76,7 +76,7 @@ class ShareCardTemplateTest {
                 RhythmDisplay(
                     cells =
                         DayOfWeek.entries.flatMap { day ->
-                            TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.L2) }
+                            TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.L2, count = 0) }
                         },
                     plottedByStart = false,
                 ),

@@ -235,7 +235,7 @@ On the case detail Insights tab, in this order. Rhythm and Gaps & streaks appear
 
 The calendar heatmap (§9) follows the tag breakdown as the tab's final section.
 
-Tapping an intensity square or a tag row opens the matching logged events for this Case, same shared result surface as the calendar heatmap's day-tap (§9). A zero-count intensity square is inert (no tap target); every tag row is tappable, since a tag only appears in the breakdown once it has counted at least one event.
+Tapping an intensity square, a tag row, or a rhythm cell opens the matching logged events for this Case, same shared result surface as the calendar heatmap's day-tap (§9) — a rhythm cell's match is every event whose start falls in that day-of-week/time-of-day bucket. A zero-count intensity square or rhythm cell is inert (no tap target); every tag row is tappable, since a tag only appears in the breakdown once it has counted at least one event.
 
 The duration and intensity cards are gated purely on the Case's current `durationMode`/`intensityEnabled` flags — turning either off hides its card but keeps every event's recorded `endedAt`/`intensity` untouched, so turning it back on restores the card with all its history intact. The same `durationMode` gate governs every other duration surface: the Case-detail event row's "lasted …" line (§6) and the Big Picture spans (§9) all treat a `NONE` Case's events as points, reading no stored `endedAt`.
 

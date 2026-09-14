@@ -7,10 +7,12 @@ import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
+import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.durationEvent
 import com.secondmonday.hodith.testsupport.eventAtDay
 import com.secondmonday.hodith.testsupport.finishedPoint
+import com.secondmonday.hodith.testsupport.millisAt
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testCase
 import com.secondmonday.hodith.testsupport.testEvent
@@ -20,6 +22,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -51,6 +54,28 @@ class InsightsTabStateTest {
         // Rhythm and Gaps are non-nullable on StatsSections — their presence is the point: the
         // single-event tab still shows them.
         assertEquals(28, state.stats.rhythm.cells.size)
+    }
+
+    @Test
+    fun `rhythm cells carry the raw event count for their day-of-week and time-of-day bucket`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val occurredAt = millisAt(epochDay = 10, hour = 10)
+        val bucketDayOfWeek = Instant.ofEpochMilli(occurredAt).atZone(ZONE).dayOfWeek
+
+        val state = insightsTabState(case, eventsWithTags = listOf(testEvent(occurredAt = occurredAt)).withoutTags(), now = millisAtDay(90))
+
+        assertTrue(state is InsightsTabState.Ready)
+        state as InsightsTabState.Ready
+        val matchingCell =
+            state.stats.rhythm.cells
+                .single { it.dayOfWeek == bucketDayOfWeek && it.timeOfDay == TimeOfDay.MORNING }
+        assertEquals(1, matchingCell.count)
+        assertEquals(
+            0,
+            state.stats.rhythm.cells
+                .filterNot { it === matchingCell }
+                .sumOf { it.count },
+        )
     }
 
     @Test

@@ -53,11 +53,15 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.tracksDuration
+import com.secondmonday.hodith.domain.AFTERNOON_START_HOUR
+import com.secondmonday.hodith.domain.EVENING_START_HOUR
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
 import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.domain.INTENSITY_MIN
+import com.secondmonday.hodith.domain.MORNING_START_HOUR
+import com.secondmonday.hodith.domain.NIGHT_START_HOUR
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
@@ -65,6 +69,7 @@ import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.domain.timeOfDayFor
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
@@ -92,12 +97,15 @@ import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
 import com.secondmonday.hodith.viewmodel.TrendDisplay
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
+import com.secondmonday.hodith.viewmodel.formatClockTime
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatFrequencyPeriodLabel
 import com.secondmonday.hodith.viewmodel.formatMediumDate
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.TextStyle
@@ -112,10 +120,13 @@ private const val FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.02f
 private const val FREQUENCY_BAR_MAX_HEIGHT_FRACTION = 0.8f
 private const val FREQUENCY_BAR_LABEL_GAP = 2
 private const val FREQUENCY_CHART_TOP_SPACING = 16
-private const val RHYTHM_CELL_SIZE = 20
+private const val RHYTHM_CELL_SIZE = 26
 
-/** Wide enough for "Afternoon" — the longest time-of-day label — to fit on one line in every theme's display font, Baloo2 Bold (Bright) included. A fixed width (not `Modifier.weight`) keeps the label snug against the grid instead of stretching to fill the row. */
-private const val RHYTHM_LABEL_WIDTH = 88
+/** Meant to fit "Afternoon" — the longest time-of-day label, at [MaterialTheme.typography]'s `bodyMedium` — on one line; falls back to an ellipsis (`TextOverflow.Ellipsis` on the label `Text`) rather than breaking the row's layout if a theme's display font doesn't quite fit it. A fixed width (not `Modifier.weight`) keeps the label snug against the grid instead of stretching to fill the row. */
+private const val RHYTHM_LABEL_WIDTH = 112
+
+/** Separation between the label column and the grid, independent of [RHYTHM_LABEL_WIDTH] itself. */
+private const val RHYTHM_GRID_GAP = 8
 
 /**
  * Case Detail's Insights tab (spec §9-10): the seven stat cards followed by the per-case calendar
@@ -123,10 +134,10 @@ private const val RHYTHM_LABEL_WIDTH = 88
  * heatmap, a one-line count note, and the Rhythm and Gaps cards render (spec §9's Big Picture
  * carve-out), with Frequency and Trend held back until [INSIGHTS_MIN_EVENTS] events.
  *
- * Spec §9/§10 drill-down (S10): a heatmap day, an intensity square, or a tag row opens the logged
- * events behind it in a shared [InsightsDrillDownDialog], filtered in memory over [events] —
- * [case]/[now] carry just enough to format and open a row via [onEditEvent], same shape as the Log
- * tab's own [EventEntity]-keyed callback.
+ * Spec §9/§10 drill-down (S10): a heatmap day, an intensity square, a tag row, or a rhythm cell
+ * opens the logged events behind it in a shared [InsightsDrillDownDialog], filtered in memory over
+ * [events] — [case]/[now] carry just enough to format and open a row via [onEditEvent], same shape
+ * as the Log tab's own [EventEntity]-keyed callback.
  */
 @Composable
 internal fun InsightsTabContent(
@@ -143,7 +154,9 @@ internal fun InsightsTabContent(
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
     var selectedIntensity by remember { mutableStateOf<Int?>(null) }
     var selectedTag by remember { mutableStateOf<String?>(null) }
+    var selectedRhythmCell by remember { mutableStateOf<Pair<DayOfWeek, TimeOfDay>?>(null) }
     val zone = remember { ZoneId.systemDefault() }
+    val locale = LocalLocale.current.platformLocale
 
     when (state) {
         is InsightsTabState.NothingLogged ->
@@ -171,6 +184,7 @@ internal fun InsightsTabContent(
                     frequencyGranularityOverride = frequencyGranularityOverride,
                     onFrequencyGranularityChange = onFrequencyGranularityChange,
                     voice = voice,
+                    onRhythmCellTap = { day, timeOfDay -> selectedRhythmCell = day to timeOfDay },
                     onIntensityTap = { selectedIntensity = it },
                     onTagTap = { selectedTag = it },
                 )
@@ -219,6 +233,24 @@ internal fun InsightsTabContent(
             onDismiss = { selectedTag = null },
         )
     }
+    selectedRhythmCell?.let { (day, timeOfDay) ->
+        val dayLabel = day.getDisplayName(TextStyle.FULL, locale)
+        val timeOfDayLabel = rhythmTimeOfDayLabel(voice, timeOfDay)
+        InsightsDrillDownDialog(
+            title = voice.insightsRhythmDrillDownTitle(dayLabel, timeOfDayLabel),
+            events =
+                events
+                    .filter { ew ->
+                        val dateTime = Instant.ofEpochMilli(ew.event.occurredAt).atZone(zone)
+                        dateTime.dayOfWeek == day && timeOfDayFor(dateTime.hour) == timeOfDay
+                    }.sortedByDescending { it.event.occurredAt },
+            now = now,
+            durationMode = case.durationMode,
+            voice = voice,
+            onEditEvent = onEditEvent,
+            onDismiss = { selectedRhythmCell = null },
+        )
+    }
 }
 
 /** Spec §10's seven stat sections, in spec order. [StatsSections.frequency]/[trend]/[duration]/[intensity] omit their card entirely when absent. */
@@ -228,11 +260,12 @@ private fun StatsSectionCards(
     frequencyGranularityOverride: FrequencyGranularity?,
     onFrequencyGranularityChange: (FrequencyGranularity?) -> Unit,
     voice: Voice,
+    onRhythmCellTap: (DayOfWeek, TimeOfDay) -> Unit,
     onIntensityTap: (Int) -> Unit,
     onTagTap: (String) -> Unit,
 ) {
     stats.frequency?.let { FrequencyCard(it, frequencyGranularityOverride, onFrequencyGranularityChange, voice) }
-    RhythmCard(stats.rhythm, voice)
+    RhythmCard(stats.rhythm, voice, onRhythmCellTap)
     GapsCard(stats.gaps, voice)
     stats.trend?.let { TrendCard(it, voice) }
     stats.duration?.let { DurationCard(it, voice) }
@@ -466,59 +499,96 @@ private fun frequencyBarBrush(decorationStyle: CardDecorationStyle): Brush {
     }
 }
 
-/** Spec §10 rhythm heatmap: day-of-week columns x time-of-day rows, shaded like the calendar heatmap. */
+/** Shared with [InsightsTabContent] so the drill-down dialog title uses the same wording as the card's own row labels. */
+private fun rhythmTimeOfDayLabel(
+    voice: Voice,
+    timeOfDay: TimeOfDay,
+): String =
+    when (timeOfDay) {
+        TimeOfDay.MORNING -> voice.insightsTimeOfDayMorning
+        TimeOfDay.AFTERNOON -> voice.insightsTimeOfDayAfternoon
+        TimeOfDay.EVENING -> voice.insightsTimeOfDayEvening
+        TimeOfDay.NIGHT -> voice.insightsTimeOfDayNight
+    }
+
+/**
+ * Spec §10 rhythm heatmap: day-of-week columns x time-of-day rows, shaded like the calendar
+ * heatmap, with an info icon spelling out the four [TimeOfDay] boundaries in the viewer's own
+ * [LocalTimeFormat]. A cell with at least one event is a drill-down tap target (spec §10); a
+ * zero-count cell stays inert, matching [IntensityCard]'s squares and [HeatmapCell]. Unlike those
+ * two, cells here don't get [HeatmapCell]'s [minimumInteractiveComponentSize] touch-target
+ * expansion — this grid's fixed-width `Row` (not weight-based) reports each cell's *expanded* size
+ * straight into the row's layout width, ballooning all 7 columns well past the card's available
+ * width instead of staying an invisible touch-catching margin. Below the 48dp guideline at
+ * [RHYTHM_CELL_SIZE], same tradeoff as [IntensityCard]'s own squares already accept when width is
+ * tight.
+ */
 @Composable
 private fun RhythmCard(
     display: RhythmDisplay,
     voice: Voice,
+    onCellTap: (DayOfWeek, TimeOfDay) -> Unit,
 ) {
-    val timeOfDayLabel: (TimeOfDay) -> String = { timeOfDay ->
-        when (timeOfDay) {
-            TimeOfDay.MORNING -> voice.insightsTimeOfDayMorning
-            TimeOfDay.AFTERNOON -> voice.insightsTimeOfDayAfternoon
-            TimeOfDay.EVENING -> voice.insightsTimeOfDayEvening
-            TimeOfDay.NIGHT -> voice.insightsTimeOfDayNight
-        }
-    }
     val locale = LocalLocale.current.platformLocale
+    val use24Hour = LocalTimeFormat.current.is24Hour
 
     InsightsCard {
-        Text(
-            if (display.plottedByStart) voice.insightsSectionLabelRhythmStarts else voice.insightsSectionLabelRhythm,
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Spacer(modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp))
-            DayOfWeek.entries.forEach { day ->
-                Text(
-                    text = day.getDisplayName(TextStyle.NARROW, locale),
-                    modifier = Modifier.width(RHYTHM_CELL_SIZE.dp),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        TimeOfDay.entries.forEach { timeOfDay ->
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = timeOfDayLabel(timeOfDay),
-                    modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        SectionWithInfo(
+            label = if (display.plottedByStart) voice.insightsSectionLabelRhythmStarts else voice.insightsSectionLabelRhythm,
+            infoTitle = voice.insightsRhythmInfoTitle,
+            infoBody =
+                voice.insightsRhythmInfoBody(
+                    morningStart = formatClockTime(LocalTime.of(MORNING_START_HOUR, 0), use24Hour),
+                    afternoonStart = formatClockTime(LocalTime.of(AFTERNOON_START_HOUR, 0), use24Hour),
+                    eveningStart = formatClockTime(LocalTime.of(EVENING_START_HOUR, 0), use24Hour),
+                    nightStart = formatClockTime(LocalTime.of(NIGHT_START_HOUR, 0), use24Hour),
+                ),
+            infoDescription = voice.caseSectionInfoDescription,
+            labelStyle = MaterialTheme.typography.titleSmall,
+        ) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp))
+                Spacer(modifier = Modifier.width(RHYTHM_GRID_GAP.dp))
                 DayOfWeek.entries.forEach { day ->
-                    val level = display.cells.first { it.dayOfWeek == day && it.timeOfDay == timeOfDay }.level
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(RHYTHM_CELL_SIZE.dp)
-                                .padding(2.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(level.toCellColor(tierCount = RHYTHM_TIER_COUNT)),
+                    Text(
+                        text = day.getDisplayName(TextStyle.NARROW, locale),
+                        modifier = Modifier.width(RHYTHM_CELL_SIZE.dp),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+            TimeOfDay.entries.forEach { timeOfDay ->
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = rhythmTimeOfDayLabel(voice, timeOfDay),
+                        modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(RHYTHM_GRID_GAP.dp))
+                    DayOfWeek.entries.forEach { day ->
+                        val cell = display.cells.first { it.dayOfWeek == day && it.timeOfDay == timeOfDay }
+                        val dayLabel = day.getDisplayName(TextStyle.FULL, locale)
+                        val timeOfDayLabel = rhythmTimeOfDayLabel(voice, timeOfDay)
+                        val isTappable = cell.count > 0
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(RHYTHM_CELL_SIZE.dp)
+                                    .padding(2.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(cell.level.toCellColor(tierCount = RHYTHM_TIER_COUNT))
+                                    .tappableWithDescription(
+                                        enabled = isTappable,
+                                        description = { voice.insightsRhythmCellTapDescription(dayLabel, timeOfDayLabel) },
+                                        onClick = { onCellTap(day, timeOfDay) },
+                                    ),
+                        )
+                    }
                 }
             }
         }

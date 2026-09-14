@@ -301,11 +301,23 @@ interface Voice {
     /** Accessibility label for a tappable tag row. */
     fun insightsTagRowTapDescription(tagName: String): String
 
+    /** Accessibility label for a tappable rhythm cell, wrapping its already-formatted [dayLabel] (e.g. "Monday") and [timeOfDayLabel] (e.g. "Morning"). */
+    fun insightsRhythmCellTapDescription(
+        dayLabel: String,
+        timeOfDayLabel: String,
+    ): String
+
     /** Intensity drill-down dialog title. */
     fun insightsIntensityDrillDownTitle(level: Int): String
 
     /** Tag drill-down dialog title. */
     fun insightsTagDrillDownTitle(tagName: String): String
+
+    /** Rhythm cell drill-down dialog title, wrapping its already-formatted [dayLabel] and [timeOfDayLabel]. */
+    fun insightsRhythmDrillDownTitle(
+        dayLabel: String,
+        timeOfDayLabel: String,
+    ): String
 
     /** Frequency-over-time's info icon, explaining the fixed 12-bucket window and its auto-picked granularity. */
     val insightsFrequencyInfoTitle: String
@@ -367,6 +379,25 @@ interface Voice {
     val insightsTimeOfDayAfternoon: String get() = "Afternoon"
     val insightsTimeOfDayEvening: String get() = "Evening"
     val insightsTimeOfDayNight: String get() = "Night"
+
+    /** Rhythm's info icon title, per voice. */
+    val insightsRhythmInfoTitle: String
+
+    /**
+     * Rhythm's info icon body: just the four time-of-day boundaries, each already formatted per
+     * [com.secondmonday.hodith.ui.theme.LocalTimeFormat] — structural, identical across all three
+     * voices, since these are objective clock times rather than voiced copy.
+     */
+    fun insightsRhythmInfoBody(
+        morningStart: String,
+        afternoonStart: String,
+        eveningStart: String,
+        nightStart: String,
+    ): String =
+        "Morning: $morningStart – $afternoonStart\n" +
+            "Afternoon: $afternoonStart – $eveningStart\n" +
+            "Evening: $eveningStart – $nightStart\n" +
+            "Night: $nightStart – $morningStart"
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -867,9 +898,19 @@ object PlainVoice : Voice {
 
     override fun insightsTagRowTapDescription(tagName: String) = "See #$tagName events"
 
+    override fun insightsRhythmCellTapDescription(
+        dayLabel: String,
+        timeOfDayLabel: String,
+    ) = "See $dayLabel ${timeOfDayLabel.lowercase()} events"
+
     override fun insightsIntensityDrillDownTitle(level: Int) = "Intensity $level"
 
     override fun insightsTagDrillDownTitle(tagName: String) = "Tagged #$tagName"
+
+    override fun insightsRhythmDrillDownTitle(
+        dayLabel: String,
+        timeOfDayLabel: String,
+    ) = "$dayLabel ${timeOfDayLabel.lowercase()}s"
 
     override val insightsBurstFlagLabel = "Tends to come in bursts"
 
@@ -929,6 +970,8 @@ object PlainVoice : Voice {
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
         "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
+
+    override val insightsRhythmInfoTitle = "About rhythm"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -1422,9 +1465,19 @@ object IntenseVoice : Voice {
 
     override fun insightsTagRowTapDescription(tagName: String) = "Unseal #$tagName entries"
 
+    override fun insightsRhythmCellTapDescription(
+        dayLabel: String,
+        timeOfDayLabel: String,
+    ) = "Unseal $dayLabel ${timeOfDayLabel.lowercase()} entries"
+
     override fun insightsIntensityDrillDownTitle(level: Int) = "Marked intensity $level"
 
     override fun insightsTagDrillDownTitle(tagName: String) = "Marked #$tagName"
+
+    override fun insightsRhythmDrillDownTitle(
+        dayLabel: String,
+        timeOfDayLabel: String,
+    ) = "Marked $dayLabel ${timeOfDayLabel.lowercase()}s"
 
     override val insightsBurstFlagLabel = "It comes in waves, not a rhythm"
 
@@ -1484,6 +1537,8 @@ object IntenseVoice : Voice {
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
         "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
+
+    override val insightsRhythmInfoTitle = "On the pull of the clock"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -1963,9 +2018,19 @@ object BrightVoice : Voice {
 
     override fun insightsTagRowTapDescription(tagName: String) = "See the #$tagName moments!"
 
+    override fun insightsRhythmCellTapDescription(
+        dayLabel: String,
+        timeOfDayLabel: String,
+    ) = "See the $dayLabel ${timeOfDayLabel.lowercase()} moments!"
+
     override fun insightsIntensityDrillDownTitle(level: Int) = "Intensity $level moments"
 
     override fun insightsTagDrillDownTitle(tagName: String) = "Tagged #$tagName!"
+
+    override fun insightsRhythmDrillDownTitle(
+        dayLabel: String,
+        timeOfDayLabel: String,
+    ) = "$dayLabel ${timeOfDayLabel.lowercase()}s!"
 
     override val insightsBurstFlagLabel = "Comes in bursts!"
 
@@ -2025,6 +2090,8 @@ object BrightVoice : Voice {
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =
         "Average, longest, and total time only include events that have wrapped up — anything still running doesn't count yet!"
+
+    override val insightsRhythmInfoTitle = "When does it happen?!"
 
     override fun homeCaseCounts(
         todayCount: Int,

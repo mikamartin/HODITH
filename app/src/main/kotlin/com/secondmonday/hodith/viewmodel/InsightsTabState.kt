@@ -90,11 +90,17 @@ data class FrequencyDisplay(
     val bars: List<FrequencyBar>,
 )
 
-/** [level] reuses the heatmap's shared shading scale, relative to this Case's own busiest rhythm cell. */
+/**
+ * [level] reuses the heatmap's shared shading scale, relative to this Case's own busiest rhythm
+ * cell. [count] is the raw event count for this day-of-week/time-of-day bucket, kept alongside the
+ * derived [level] so a tap can gate on "has events" and a drill-down can be built without
+ * recomputing [com.secondmonday.hodith.domain.computeRhythmStats].
+ */
 data class RhythmCellDisplay(
     val dayOfWeek: DayOfWeek,
     val timeOfDay: TimeOfDay,
     val level: HeatmapLevel,
+    val count: Int,
 )
 
 /**
@@ -246,7 +252,7 @@ private fun statsSections(
             cells =
                 rhythmStats.cells.map { cell ->
                     val level = heatmapLevelFor(cell.count, rhythmStats.maxCount, tierCount = RHYTHM_TIER_COUNT)
-                    RhythmCellDisplay(cell.dayOfWeek, cell.timeOfDay, level)
+                    RhythmCellDisplay(cell.dayOfWeek, cell.timeOfDay, level, cell.count)
                 },
             plottedByStart = hasMultiDayEvent,
         )

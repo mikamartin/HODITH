@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -14,12 +15,14 @@ import androidx.compose.ui.test.performScrollTo
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
@@ -32,6 +35,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.time.format.TextStyle
 import java.util.Locale
 
 /**
@@ -65,11 +69,12 @@ class CaseDetailInsightsTabTest {
         intensityEnabled: Boolean = false,
         caseCreatedAt: Long = daysAgo(30),
         events: List<EventWithTags> = emptyList(),
+        timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
         onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
     ) {
         val case = testCase(durationMode = durationMode, intensityEnabled = intensityEnabled, createdAt = caseCreatedAt)
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalTimeFormat provides timeFormat) {
                 CaseDetailScreen(
                     uiState = CaseDetailUiState(case = case, events = events, isLoading = false),
                     onBack = {},
@@ -389,11 +394,63 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
+    fun rhythmCard_infoIcon_opensAndDismissesDefinitions() {
+        // Same fixture as singleEvent_showsHeatmapRhythmGapsAndCountNote_butNotFrequencyOrTrend.
+        // Below INSIGHTS_MIN_EVENTS keeps Frequency hidden, so Rhythm is the *first* node carrying
+        // the shared info-icon description (Gaps, which always renders once there's an event, is
+        // the only other one present here).
+        setInsightsTabContent(caseCreatedAt = daysAgo(60), events = listOf(eventAt(1)))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).performScrollTo()
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onFirst()
+            .performClick()
+        composeTestRule.onNodeWithText(PlainVoice.insightsRhythmInfoTitle).assertExists()
+
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.insightsRhythmInfoTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun rhythmCard_infoIcon_body_showsBoundariesInTwelveHourFormatByDefault() {
+        setInsightsTabContent(caseCreatedAt = daysAgo(60), events = listOf(eventAt(1)))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).performScrollTo()
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onFirst()
+            .performClick()
+
+        // MORNING_START_HOUR/AFTERNOON_START_HOUR/EVENING_START_HOUR/NIGHT_START_HOUR (StatsEngine.kt)
+        // restated as clock times, same reason this class restates INSIGHTS_MIN_EVENTS etc.
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsRhythmInfoBody("6:00 AM", "12:00 PM", "5:00 PM", "9:00 PM"))
+            .assertExists()
+    }
+
+    @Test
+    fun rhythmCard_infoIcon_body_showsBoundariesInTwentyFourHourFormat_whenSelected() {
+        setInsightsTabContent(caseCreatedAt = daysAgo(60), events = listOf(eventAt(1)), timeFormat = TimeFormat.TWENTY_FOUR_HOUR)
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).performScrollTo()
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onFirst()
+            .performClick()
+
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsRhythmInfoBody("06:00", "12:00", "17:00", "21:00"))
+            .assertExists()
+    }
+
+    @Test
     fun gapsCard_infoIcon_opensAndDismissesDefinitions() {
-        // Frequency, Gaps & streaks, Trend, and Duration can all carry an info icon (Trend's and
-        // Duration's own icons are tested separately below). This fixture's short history (below
-        // the 56-day trend span) and NONE duration mode keep Trend and Duration hidden, so Gaps
-        // is still the last node carrying the shared info-icon description.
+        // Frequency, Rhythm, Gaps & streaks, Trend, and Duration can all carry an info icon
+        // (Rhythm's, Trend's, and Duration's own icons are tested separately). This fixture's
+        // short history (below the 56-day trend span) and NONE duration mode keep Trend and
+        // Duration hidden, so Gaps is still the last node carrying the shared info-icon
+        // description.
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelGaps).performScrollTo()
@@ -411,7 +468,7 @@ class CaseDetailInsightsTabTest {
     fun trendCard_infoIcon_opensAndDismissesDefinitions() {
         // Same 8-week-span fixture as trendCard_shownAtEightWeekSpan_withDirectionAwareSentence.
         // NONE duration mode keeps Duration hidden, so Trend is the last node carrying the
-        // shared info-icon description (after Frequency and Gaps).
+        // shared info-icon description (after Frequency, Rhythm, and Gaps).
         setInsightsTabContent(
             caseCreatedAt = daysAgo(56),
             events = listOf(eventAt(5), eventAt(10), eventAt(20), eventAt(45)),
@@ -432,7 +489,7 @@ class CaseDetailInsightsTabTest {
     fun durationCard_infoIcon_opensAndDismissesDefinitions() {
         // Same fixture as durationCard_presentWhenDurationModeSetAndAnEventHasADuration. Default
         // (30-day-old) case keeps Trend hidden, so Duration is the last node carrying the shared
-        // info-icon description (after Frequency and Gaps).
+        // info-icon description (after Frequency, Rhythm, and Gaps).
         setInsightsTabContent(
             durationMode = DurationMode.START_STOP,
             events = listOf(eventAt(2, endedAt = daysAgo(2) + 60_000L), eventAt(1)),
@@ -526,6 +583,42 @@ class CaseDetailInsightsTabTest {
         // "flare-up" (the matched tag) is gone from the row, but "morning" (an unrelated tag on
         // the same event) isn't redundant with the title and stays.
         composeTestRule.onNodeWithText("Multi-tag event · #morning").assertExists()
+    }
+
+    @Test
+    fun rhythmCell_tap_opensDialogListingOnlyMatchingEvents() {
+        // Every eventAt(...) fixture lands at midnight, i.e. the Night bucket -- daysAgo(2) and
+        // daysAgo(1) fall on different days-of-week, same as the tag/intensity match-vs-other setup.
+        setInsightsTabContent(
+            events =
+                listOf(
+                    eventAt(2, note = "Matching night event"),
+                    eventAt(1, note = "Different day, same time of day"),
+                ),
+        )
+        val dayLabel = dayOfWeekLabel(today.minusDays(2))
+        val timeOfDayLabel = PlainVoice.insightsTimeOfDayNight
+
+        composeTestRule
+            .onNodeWithContentDescription(PlainVoice.insightsRhythmCellTapDescription(dayLabel, timeOfDayLabel))
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsRhythmDrillDownTitle(dayLabel, timeOfDayLabel)).assertExists()
+        composeTestRule.onNodeWithText("Matching night event").assertExists()
+        composeTestRule.onNodeWithText("Different day, same time of day").assertDoesNotExist()
+    }
+
+    @Test
+    fun rhythmCell_zeroCount_staysInert() {
+        setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
+
+        // Both fixture events land at midnight (Night); no event ever falls in the Morning bucket,
+        // whatever day-of-week it's paired with.
+        composeTestRule
+            .onNodeWithContentDescription(
+                PlainVoice.insightsRhythmCellTapDescription(dayOfWeekLabel(today.minusDays(2)), PlainVoice.insightsTimeOfDayMorning),
+            ).assertDoesNotExist()
     }
 
     @Test
@@ -630,4 +723,8 @@ class CaseDetailInsightsTabTest {
         val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)
         return date.format(formatter)
     }
+
+    // Mirrors RhythmCard's own day label (getDisplayName(TextStyle.FULL, locale)), Locale.US fixed
+    // for the same determinism reason as mediumDate above.
+    private fun dayOfWeekLabel(date: LocalDate): String = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.US)
 }

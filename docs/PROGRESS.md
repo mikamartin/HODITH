@@ -122,28 +122,6 @@ What it computes today:
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S8 · Rhythm card: legend spacing, cell size, and tap interaction
-
-*Branch: `feat/rhythm-card-interaction` · Complexity: S–M · Priority: Medium · Area: Insights*
-
-🎨 **Design decision** — what tapping a Rhythm cell should open.
-
-User testing on `RhythmCard` (`InsightsTab.kt:470-526`) flagged three things on the same screen: the gap between the time-of-day/day-of-week legend and the grid feels cramped, the cells themselves feel small, and — unlike `TagsCard`'s tag rows, which are tappable via `tappableWithDescription` and open matching logged events — Rhythm cells aren't tappable at all. Today a single `Modifier.width(RHYTHM_LABEL_WIDTH.dp)` spacer (88dp) does double duty as both the label column and the only separation from the grid, and `RHYTHM_CELL_SIZE = 20` sets both the cell size and the day header width.
-
-**Acceptance criteria**
-
-- [ ] A dedicated gap added between the label column and the grid, distinct from the label column's own width.
-- [ ] `RHYTHM_CELL_SIZE` increased (value TBD by review) and checked against the widest supported screen width so the grid still fits without scrolling.
-- [ ] Rhythm cells made tappable via the same `tappableWithDescription` pattern `TagsCard` uses.
-- [ ] A design decision on what tapping a cell opens — most likely the matching logged events for that day-of-week/time-of-day combination, mirroring tag-tap behavior.
-- [ ] Voice strings added for the new tap's accessibility description.
-
-**Plan** — split `RHYTHM_LABEL_WIDTH` from a new spacing constant in `InsightsTab.kt`, bump `RHYTHM_CELL_SIZE`, and wire a `tappableWithDescription` click modifier onto each cell `Box`, routing to a new `onRhythmCellTap(dayOfWeek, timeOfDay)` callback plumbed the same way `onTagTap` is today.
-
-**Tests** — a Compose UI test asserting Rhythm cells are clickable and invoke the callback with the tapped day/time-of-day; no `StatsEngine`/`InsightsEngine` changes needed.
-
-**Concern** — prefer wiring the interaction through to something useful over adding a no-op ripple for consistency's sake alone.
-
 ### S9 · Frequency-over-time chart: axis labels illegible
 
 *Branch: `fix/frequency-chart-axis-labels` · Complexity: S–M · Priority: Medium · Area: Insights*

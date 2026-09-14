@@ -595,7 +595,7 @@ private fun previewData(format: ShareCardFormat): ShareCardData =
             RhythmDisplay(
                 cells =
                     DayOfWeek.entries.flatMap { day ->
-                        TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.entries.random()) }
+                        TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.entries.random(), count = 0) }
                     },
                 plottedByStart = false,
             ),
