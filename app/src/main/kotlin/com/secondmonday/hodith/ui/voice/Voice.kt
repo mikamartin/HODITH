@@ -342,10 +342,18 @@ interface Voice {
     /** As [insightsGapShiftSentence], for streak length rather than gap length. */
     fun insightsStreakShiftSentence(direction: ShiftDirection): String
 
+    /** Trend's info icon: what the arrow compares, when it's held back, and what the gap/streak shift lines mean. */
+    val insightsTrendInfoTitle: String
+    val insightsTrendInfoBody: String
+
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
     val insightsDurationLongestLabel: String get() = "Longest"
     val insightsDurationTotalLabel: String get() = "Total"
+
+    /** Duration's info icon: clarifies the average/longest/total figures only count events that have already ended. */
+    val insightsDurationInfoTitle: String
+    val insightsDurationInfoBody: String
 
     val insightsIntensityAverageLabel: String get() = "Average intensity"
 
@@ -912,6 +920,16 @@ object PlainVoice : Voice {
             "A duration event counts on every day it was active, so a single long event can carry a streak on its own. " +
             "\"Tends to come in bursts\" shows when the gaps vary a lot."
 
+    override val insightsTrendInfoTitle = "About the trend arrow"
+    override val insightsTrendInfoBody =
+        "Compares the last 30 days to the 30 days before that: more events recently is ↑, fewer is ↓, about the same is →.\n\n" +
+            "Only shown once there's enough history to compare fairly. When the average gap or streak length has shifted " +
+            "noticeably between the earlier and more recent half of this case's history, that's noted below the arrow too."
+
+    override val insightsDurationInfoTitle = "About duration"
+    override val insightsDurationInfoBody =
+        "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
+
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
@@ -1457,6 +1475,16 @@ object IntenseVoice : Voice {
             "An event with duration marks every day it was active, so one long event can hold a streak alone. " +
             "\"It comes in waves, not a rhythm\" appears when the gaps are wildly uneven."
 
+    override val insightsTrendInfoTitle = "On the arrow's meaning"
+    override val insightsTrendInfoBody =
+        "It weighs the last thirty days against the thirty before: more lately points up, less points down, unchanged points onward.\n\n" +
+            "It only speaks once there is history enough to judge. When the gaps or spells have shifted noticeably between " +
+            "the earlier and later half of this case's past, that shift is named beneath the arrow."
+
+    override val insightsDurationInfoTitle = "On what is counted"
+    override val insightsDurationInfoBody =
+        "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
+
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
@@ -1987,6 +2015,16 @@ object BrightVoice : Voice {
             "Average streak: how long those runs usually go.\n\n" +
             "Heads up: a duration event counts on every day it was active, so one long event can fill a whole streak by itself! " +
             "\"Comes in bursts!\" pops up when the gaps are all over the place."
+
+    override val insightsTrendInfoTitle = "What the arrow means!"
+    override val insightsTrendInfoBody =
+        "It compares the last 30 days to the 30 days before that — more events lately means ↑, fewer means ↓, about the same means →.\n\n" +
+            "It only shows up once there's enough history to compare fairly. If the average gap or streak length has shifted " +
+            "noticeably between the earlier and later half of this case's history, you'll see a note about that too!"
+
+    override val insightsDurationInfoTitle = "What counts toward duration!"
+    override val insightsDurationInfoBody =
+        "Average, longest, and total time only include events that have wrapped up — anything still running doesn't count yet!"
 
     override fun homeCaseCounts(
         todayCount: Int,
