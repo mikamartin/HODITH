@@ -15,6 +15,27 @@ A record of every cleanup pass, newest first (ordering, not dating, marks recenc
 
 ---
 
+## feat/insights-section-info
+
+**Scope:** PROGRESS.md's S16 — added the existing per-section info affordance (`SectionWithInfo`/`InfoDialog`, already used by Frequency and Gaps & streaks) to the Trend and Duration cards on the Case Detail Insights tab. Rhythm and Tags were shortlisted and declined: their content is already self-explanatory (a heatmap grid, a per-tag count against the case total) without a dedicated explanation.
+
+**Changes:**
+
+- `TrendCard` and `DurationCard` (`InsightsTab.kt`) now wrap their content in `SectionWithInfo`, adding a tappable info icon next to each section label — same shape as the existing `GapsCard`/`FrequencyCard` usage, no other logic touched.
+- Four new `Voice` keys (`insightsTrendInfoTitle`/`Body`, `insightsDurationInfoTitle`/`Body`) added to all three voices. Duration's copy is a static sentence ("still-running events aren't counted until they stop") rather than S16's suggested dynamic "N of M events had a duration" count — declined on sign-off, to avoid extending `DurationStats`/`DurationDisplay` for an edge-case detail. Trend's copy describes the current 30-vs-30-day comparison and gap/streak shift notes directly, rather than waiting on S2 (an unstarted, separate investigation into whether that math itself should change).
+
+**Checklist walk (against the working-tree `git diff`):**
+
+- *Duplication, decoupling, complexity, hardcoded values, accessibility, deprecated APIs, repo hygiene, naming* — no findings; the change reuses the existing shared component and Voice pattern exactly, no new composables and no strings outside Voice.
+- *Dead code & hygiene / tests* — found `CaseDetailInsightsTabTest.gapsCard_infoIcon_opensAndDismissesDefinitions`'s comment ("Frequency and Gaps & streaks are the only two cards with an info icon") had gone stale: it still passed only because that test's fixture (short history, `NONE` duration mode) keeps the new Trend/Duration icons hidden, not because they don't exist. Fixed the comment on sign-off, and added `trendCard_infoIcon_opensAndDismissesDefinitions` / `durationCard_infoIcon_opensAndDismissesDefinitions`, mirroring the existing Gaps coverage — closing the analogous coverage gap the new icons introduced.
+- *Spec review* — `HODITH_SPEC.md` §10 describes what Trend and Duration compute, not the info-icon UI affordance (true for Frequency/Gaps already too), so no divergence.
+
+**Deferred:** nothing — Rhythm and Tags were considered and declined rather than deferred (see Scope above), and S16 is otherwise complete, so it's removed from PROGRESS.md rather than struck.
+
+**Docs updated:** `TESTING.md`'s Case Detail Insights coverage row now names the Trend and Duration info icons alongside Gaps'; PROGRESS.md's S16 item removed (fully resolved).
+
+---
+
 ## feat/hunch-history-row-redesign
 
 **Scope:** PROGRESS.md's S5. The trigger was a bug — `monthsAgo`/`hunchHistoryRowWhen` reads "0 months ago" for anything resolved inside its first month — but the item called for a full design-and-content pass, prototyped via an Artifact mockup before any Compose changes. The design review itself surfaced a second, unrelated bug: `HunchTabState.EarlyDays`/`Verdict` never carried `history` at all, so a Case's entire resolved-Hunch record disappeared from the screen the moment a new Hunch went active.

@@ -273,28 +273,6 @@ No year-level filter exists in Big Picture today (§9 only has a scrolling multi
 
 **Concern** — don't build the real windowed-query/UI work in this item; keep it to the design spike only.
 
-### S16 · Insights: add per-section info affordance explaining what's included
-
-*Branch: `feat/insights-section-info` · Complexity: S–M · Priority: Medium · Area: Insights*
-
-🎨 **Design decision** — the affordance pattern, and which sections need it.
-
-Grew out of triaging a user report that the Duration section's average only reflects events with a recorded duration. That's confirmed correct — `StatsEngine.computeDurationStats()` (lines 156-167) already excludes no-duration events from both sum and count, per spec §10, and `StatsEngineTest` already covers this exact shape. The gap isn't the calculation, it's that the UI doesn't disclose its own scope. Rather than a one-off Duration caption, treat it as a per-section info affordance across Insights (Duration, Trend, Rhythm, Frequency, Tags) — a small info icon/tooltip stating what each section counts or excludes (e.g. "based on the N events with a recorded duration"). **S2**'s Trend-calculation review (already scoped to produce "a written overview of the current trend + shift maths … and the Voice strings it drives") is a natural source for that section's copy — sequence this alongside or after S2.
-
-**Acceptance criteria**
-
-- [ ] The affordance decided: info icon + tooltip/dialog vs. inline caption, consistent across every Insights section that needs one.
-- [ ] Duration section gets a note when the average excludes any no-duration events (e.g. "N of M events had a duration").
-- [ ] Shortlist which other sections (Trend, Rhythm, Frequency, Tags) need the same treatment and which don't.
-- [ ] Voice ×3 for every new string.
-- [ ] Cross-checked against S2's output before writing Trend's note, to avoid two competing descriptions of the same math.
-
-**Plan** — design the affordance first (small spike/Preview), then wire per-section strings once the pattern is picked.
-
-**Tests** — a Compose test that the Duration info affordance appears and shows the right counts for a Case with mixed duration/no-duration events (mirrors the existing `StatsEngineTest` fixture).
-
-**Concern** — could sprawl if every section gets bespoke copy; keep the affordance mechanically simple (one component, per-section text) so it doesn't become its own mini-feature per section.
-
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not

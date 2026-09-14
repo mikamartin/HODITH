@@ -390,8 +390,10 @@ class CaseDetailInsightsTabTest {
 
     @Test
     fun gapsCard_infoIcon_opensAndDismissesDefinitions() {
-        // Frequency and Gaps & streaks are the only two cards with an info icon, in that order,
-        // so the Gaps one is the last node carrying the shared info-icon description.
+        // Frequency, Gaps & streaks, Trend, and Duration can all carry an info icon (Trend's and
+        // Duration's own icons are tested separately below). This fixture's short history (below
+        // the 56-day trend span) and NONE duration mode keep Trend and Duration hidden, so Gaps
+        // is still the last node carrying the shared info-icon description.
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelGaps).performScrollTo()
@@ -403,6 +405,48 @@ class CaseDetailInsightsTabTest {
 
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.insightsGapsInfoTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun trendCard_infoIcon_opensAndDismissesDefinitions() {
+        // Same 8-week-span fixture as trendCard_shownAtEightWeekSpan_withDirectionAwareSentence.
+        // NONE duration mode keeps Duration hidden, so Trend is the last node carrying the
+        // shared info-icon description (after Frequency and Gaps).
+        setInsightsTabContent(
+            caseCreatedAt = daysAgo(56),
+            events = listOf(eventAt(5), eventAt(10), eventAt(20), eventAt(45)),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).performScrollTo()
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onLast()
+            .performClick()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendInfoTitle).assertExists()
+
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendInfoTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun durationCard_infoIcon_opensAndDismissesDefinitions() {
+        // Same fixture as durationCard_presentWhenDurationModeSetAndAnEventHasADuration. Default
+        // (30-day-old) case keeps Trend hidden, so Duration is the last node carrying the shared
+        // info-icon description (after Frequency and Gaps).
+        setInsightsTabContent(
+            durationMode = DurationMode.START_STOP,
+            events = listOf(eventAt(2, endedAt = daysAgo(2) + 60_000L), eventAt(1)),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelDuration).performScrollTo()
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onLast()
+            .performClick()
+        composeTestRule.onNodeWithText(PlainVoice.insightsDurationInfoTitle).assertExists()
+
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.insightsDurationInfoTitle).assertDoesNotExist()
     }
 
     @Test

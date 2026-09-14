@@ -564,36 +564,43 @@ private fun TrendCard(
     voice: Voice,
 ) {
     InsightsCard {
-        Text(voice.insightsSectionLabelTrend, style = MaterialTheme.typography.titleSmall)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text =
-                    when (display.direction) {
-                        TrendDirection.UP -> "↑"
-                        TrendDirection.DOWN -> "↓"
-                        TrendDirection.FLAT -> "→"
-                    },
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = voice.insightsTrendSentence(display.direction, display.recentCount, display.priorCount),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-        display.gapShiftDirection?.let {
-            Text(
-                text = voice.insightsGapShiftSentence(it),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        display.streakShiftDirection?.let {
-            Text(
-                text = voice.insightsStreakShiftSentence(it),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        SectionWithInfo(
+            label = voice.insightsSectionLabelTrend,
+            infoTitle = voice.insightsTrendInfoTitle,
+            infoBody = voice.insightsTrendInfoBody,
+            infoDescription = voice.caseSectionInfoDescription,
+            labelStyle = MaterialTheme.typography.titleSmall,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text =
+                        when (display.direction) {
+                            TrendDirection.UP -> "↑"
+                            TrendDirection.DOWN -> "↓"
+                            TrendDirection.FLAT -> "→"
+                        },
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = voice.insightsTrendSentence(display.direction, display.recentCount, display.priorCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            display.gapShiftDirection?.let {
+                Text(
+                    text = voice.insightsGapShiftSentence(it),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            display.streakShiftDirection?.let {
+                Text(
+                    text = voice.insightsStreakShiftSentence(it),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -605,10 +612,17 @@ private fun DurationCard(
     voice: Voice,
 ) {
     InsightsCard {
-        Text(voice.insightsSectionLabelDuration, style = MaterialTheme.typography.titleSmall)
-        StatRow(voice.insightsDurationAverageLabel, formatMinutesDuration(display.averageMinutes.roundToInt().toLong()))
-        StatRow(voice.insightsDurationLongestLabel, formatMinutesDuration(display.longestMinutes))
-        StatRow(voice.insightsDurationTotalLabel, formatMinutesDuration(display.totalMinutes))
+        SectionWithInfo(
+            label = voice.insightsSectionLabelDuration,
+            infoTitle = voice.insightsDurationInfoTitle,
+            infoBody = voice.insightsDurationInfoBody,
+            infoDescription = voice.caseSectionInfoDescription,
+            labelStyle = MaterialTheme.typography.titleSmall,
+        ) {
+            StatRow(voice.insightsDurationAverageLabel, formatMinutesDuration(display.averageMinutes.roundToInt().toLong()))
+            StatRow(voice.insightsDurationLongestLabel, formatMinutesDuration(display.longestMinutes))
+            StatRow(voice.insightsDurationTotalLabel, formatMinutesDuration(display.totalMinutes))
+        }
     }
 }
 
