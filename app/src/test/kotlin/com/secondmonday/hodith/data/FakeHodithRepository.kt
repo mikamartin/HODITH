@@ -87,6 +87,16 @@ class FakeHodithRepository : HodithRepository {
         triggers.value = emptyList()
     }
 
+    override suspend fun deleteEventsOlderThan(cutoff: Long) {
+        val survivingIds =
+            events.value
+                .filter { it.occurredAt >= cutoff }
+                .map { it.id }
+                .toSet()
+        events.update { list -> list.filter { it.id in survivingIds } }
+        eventTags.update { list -> list.filter { it.eventId in survivingIds } }
+    }
+
     // Event
     override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> =
         combine(events, tags, eventTags) { eventList, tagList, crossRefs ->

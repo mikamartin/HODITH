@@ -171,11 +171,22 @@ interface Voice {
     val settingsCloudBackupToggleLabel: String
     val settingsCloudBackupInfoTitle: String
     val settingsCloudBackupInfoBody: String
-    val settingsDeleteAllDataButton: String
+    val settingsDeleteDataButton: String
+    val settingsDeleteDataOptionsTitle: String
+    val settingsDeleteDataOptionAll: String
+    val settingsDeleteDataOptionLogsOnly: String
+    val settingsDeleteDataDateLabel: String
+    val settingsDeleteDataOptionsNextAction: String
+    val settingsDeleteDataOptionsCancelAction: String
     val settingsDeleteAllDataConfirmTitle: String
     val settingsDeleteAllDataConfirmBody: String
     val settingsDeleteAllDataConfirmAction: String
     val settingsDeleteAllDataCancelAction: String
+    val settingsDeleteDataLogsConfirmTitle: String
+
+    fun settingsDeleteDataLogsConfirmBody(dateLabel: String): String
+
+    val settingsDeleteDataLogsConfirmAction: String
     val settingsExportButton: String
     val settingsImportButton: String
     val settingsImportConfirmTitle: String
@@ -819,12 +830,24 @@ object PlainVoice : Voice {
         "When this is on, Android's own device backup can carry HODITH's data along with everything else " +
             "on your phone, if you have phone backup turned on. Turning it off stops future backups from " +
             "including HODITH's data — it won't remove a backup that's already been made."
-    override val settingsDeleteAllDataButton = "Delete all data"
+    override val settingsDeleteDataButton = "Delete data"
+    override val settingsDeleteDataOptionsTitle = "What to delete"
+    override val settingsDeleteDataOptionAll = "All data"
+    override val settingsDeleteDataOptionLogsOnly = "Logs only"
+    override val settingsDeleteDataDateLabel = "Delete logs before"
+    override val settingsDeleteDataOptionsNextAction = "Continue"
+    override val settingsDeleteDataOptionsCancelAction = "Cancel"
     override val settingsDeleteAllDataConfirmTitle = "Delete all data?"
     override val settingsDeleteAllDataConfirmBody =
         "Every case and event will be permanently deleted. This can't be undone."
     override val settingsDeleteAllDataConfirmAction = "Delete everything"
     override val settingsDeleteAllDataCancelAction = "Cancel"
+    override val settingsDeleteDataLogsConfirmTitle = "Delete these logs?"
+
+    override fun settingsDeleteDataLogsConfirmBody(dateLabel: String) =
+        "Every event logged before $dateLabel will be permanently deleted. This can't be undone."
+
+    override val settingsDeleteDataLogsConfirmAction = "Delete logs"
     override val settingsExportButton = "Export data"
     override val settingsImportButton = "Import data"
     override val settingsImportConfirmTitle = "Replace all data?"
@@ -1387,12 +1410,24 @@ object IntenseVoice : Voice {
         "Left open, the phone's own reckoning carries a copy of this archive beyond these walls, wherever " +
             "its backup already goes. Close it, and no new copy leaves — but what has already gone cannot " +
             "be summoned home."
-    override val settingsDeleteAllDataButton = "Erase everything"
+    override val settingsDeleteDataButton = "Erase data"
+    override val settingsDeleteDataOptionsTitle = "What to erase"
+    override val settingsDeleteDataOptionAll = "Every record"
+    override val settingsDeleteDataOptionLogsOnly = "Old records only"
+    override val settingsDeleteDataDateLabel = "Strike records before"
+    override val settingsDeleteDataOptionsNextAction = "Proceed"
+    override val settingsDeleteDataOptionsCancelAction = "Abandon"
     override val settingsDeleteAllDataConfirmTitle = "Erase everything?"
     override val settingsDeleteAllDataConfirmBody =
         "Every case and record will be struck from existence, beyond recall."
     override val settingsDeleteAllDataConfirmAction = "Erase it all"
     override val settingsDeleteAllDataCancelAction = "Abandon"
+    override val settingsDeleteDataLogsConfirmTitle = "Strike these records?"
+
+    override fun settingsDeleteDataLogsConfirmBody(dateLabel: String) =
+        "Every record before $dateLabel will be struck from existence, beyond recall."
+
+    override val settingsDeleteDataLogsConfirmAction = "Strike them"
     override val settingsExportButton = "Copy the case files"
     override val settingsImportButton = "Restore the case files"
     override val settingsImportConfirmTitle = "Erase the present for the past?"
@@ -1944,11 +1979,22 @@ object BrightVoice : Voice {
         "When this is on, your phone's own backup can scoop up HODITH's data along with everything else, " +
             "if you've got phone backup turned on. Switch it off and future backups skip HODITH — but heads " +
             "up, it won't erase a backup that already happened!"
-    override val settingsDeleteAllDataButton = "Nuke everything"
+    override val settingsDeleteDataButton = "Nuke data"
+    override val settingsDeleteDataOptionsTitle = "What's getting nuked?"
+    override val settingsDeleteDataOptionAll = "Everything"
+    override val settingsDeleteDataOptionLogsOnly = "Old logs only"
+    override val settingsDeleteDataDateLabel = "Nuke logs before"
+    override val settingsDeleteDataOptionsNextAction = "Let's go"
+    override val settingsDeleteDataOptionsCancelAction = "Nah, never mind"
     override val settingsDeleteAllDataConfirmTitle = "Nuke everything?"
     override val settingsDeleteAllDataConfirmBody = "Every case and event goes poof — for real, no take-backs."
     override val settingsDeleteAllDataConfirmAction = "Yeet it all"
     override val settingsDeleteAllDataCancelAction = "Nah, never mind"
+    override val settingsDeleteDataLogsConfirmTitle = "Nuke these logs?"
+
+    override fun settingsDeleteDataLogsConfirmBody(dateLabel: String) = "Every log before $dateLabel goes poof — for real, no take-backs."
+
+    override val settingsDeleteDataLogsConfirmAction = "Yeet 'em"
     override val settingsExportButton = "Save a backup!"
     override val settingsImportButton = "Restore a backup!"
     override val settingsImportConfirmTitle = "Swap in the backup?"

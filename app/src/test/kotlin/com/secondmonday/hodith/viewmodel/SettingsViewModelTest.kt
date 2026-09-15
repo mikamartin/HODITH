@@ -12,6 +12,8 @@ import com.secondmonday.hodith.data.backup.BackupSerializer
 import com.secondmonday.hodith.data.backup.FakeBackupFileWriter
 import com.secondmonday.hodith.data.demo.DemoDataSeeder
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.testsupport.testCase
+import com.secondmonday.hodith.testsupport.testEvent
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,7 +31,8 @@ import org.junit.Test
 class SettingsViewModelTest {
     private val hodithRepository = FakeHodithRepository()
     private val settingsRepository = FakeSettingsRepository()
-    private val demoDataSeeder = DemoDataSeeder(hodithRepository, FakeClock())
+    private val clock = FakeClock()
+    private val demoDataSeeder = DemoDataSeeder(hodithRepository, clock)
     private val backupSerializer = BackupSerializer(Moshi.Builder().build())
     private val backupFileWriter = FakeBackupFileWriter()
 
@@ -43,7 +46,8 @@ class SettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = SettingsViewModel(settingsRepository, hodithRepository, demoDataSeeder, backupSerializer, backupFileWriter)
+    private fun viewModel() =
+        SettingsViewModel(settingsRepository, hodithRepository, demoDataSeeder, backupSerializer, backupFileWriter, clock)
 
     @Test
     fun `uiState reflects the persisted theme`() =
@@ -175,6 +179,21 @@ class SettingsViewModelTest {
             assertTrue(hodithRepository.cases.value.isEmpty())
             assertTrue(hodithRepository.events.value.isEmpty())
             assertTrue(hodithRepository.tags.value.isEmpty())
+        }
+
+    @Test
+    fun `deleteEventsOlderThan clears only older events, keeps cases and tags`() =
+        runTest {
+            val viewModel = viewModel()
+            val caseId = hodithRepository.insertCase(testCase())
+            val olderId = hodithRepository.insertEvent(testEvent(caseId = caseId, occurredAt = 100L))
+            val newerId = hodithRepository.insertEvent(testEvent(caseId = caseId, occurredAt = 300L))
+
+            viewModel.deleteEventsOlderThan(cutoff = 200L)
+
+            assertEquals(listOf(newerId), hodithRepository.events.value.map { it.id })
+            assertTrue(hodithRepository.events.value.none { it.id == olderId })
+            assertTrue(hodithRepository.cases.value.isNotEmpty())
         }
 
     @Test

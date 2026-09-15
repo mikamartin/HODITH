@@ -28,6 +28,9 @@ interface HodithRepository {
 
     suspend fun deleteAllData()
 
+    /** Deletes every Event with `occurredAt` strictly before [cutoff]; `event_tags` cascades, `tags` stay untouched (spec §14). */
+    suspend fun deleteEventsOlderThan(cutoff: Long)
+
     // Event
     fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>>
 

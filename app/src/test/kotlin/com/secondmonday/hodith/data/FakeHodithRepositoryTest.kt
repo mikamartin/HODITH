@@ -159,6 +159,38 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
+    fun `deleteEventsOlderThan removes only events strictly before cutoff, across every case, leaving cases and tags alone`() =
+        runTest {
+            val caseA = repository.insertCase(testCase(name = "A"))
+            val caseB = repository.insertCase(testCase(name = "B"))
+            val olderA = repository.insertEvent(testEvent(caseId = caseA, occurredAt = 100L))
+            val atCutoffA = repository.insertEvent(testEvent(caseId = caseA, occurredAt = 200L))
+            val olderB = repository.insertEvent(testEvent(caseId = caseB, occurredAt = 50L))
+            val newerB = repository.insertEvent(testEvent(caseId = caseB, occurredAt = 300L))
+            repository.addTagToEvent(olderA, "focus")
+            repository.addTagToEvent(atCutoffA, "focus")
+
+            repository.deleteEventsOlderThan(cutoff = 200L)
+
+            assertEquals(
+                setOf(atCutoffA, newerB),
+                repository.events.value
+                    .map { it.id }
+                    .toSet(),
+            )
+            assertEquals(
+                setOf(caseA, caseB),
+                repository.cases.value
+                    .map { it.id }
+                    .toSet(),
+            )
+            assertEquals(listOf("focus"), repository.tags.value.map { it.name })
+            assertTrue(repository.eventTags.value.none { it.eventId == olderA })
+            assertEquals(1, repository.eventTags.value.count { it.eventId == atCutoffA })
+            assertTrue(repository.events.value.none { it.id == olderB })
+        }
+
+    @Test
     fun `eventsInWindow is a half-open range on occurredAt scoped to the given case`() =
         runTest {
             val caseId = 1L

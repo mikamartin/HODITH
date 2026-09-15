@@ -324,6 +324,93 @@ class EventDaoTest {
         }
 
     @Test
+    fun deleteOlderThan_removesOnlyEventsStrictlyBeforeCutoff() =
+        runTest {
+            val older = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            val atCutoff = eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L))
+            val newer = eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L))
+
+            eventDao.deleteOlderThan(cutoff = 200L)
+
+            assertNull(eventDao.getById(older))
+            assertEquals(200L, eventDao.getById(atCutoff)?.occurredAt)
+            assertEquals(300L, eventDao.getById(newer)?.occurredAt)
+        }
+
+    @Test
+    fun deleteOlderThan_cascadesEventTagsForDeletedEventsOnly() =
+        runTest {
+            val tagDao = db.tagDao()
+            val deletedId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            val keptId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L))
+            val sharedTagId = tagDao.insert(TagEntity(name = "at-dinner"))
+            tagDao.insertEventTag(EventTagCrossRef(eventId = deletedId, tagId = sharedTagId))
+            tagDao.insertEventTag(EventTagCrossRef(eventId = keptId, tagId = sharedTagId))
+
+            eventDao.deleteOlderThan(cutoff = 200L)
+
+            val remainingTags = eventDao.observeEventsWithTagsForCase(caseId).first()
+            val kept = remainingTags.single { it.event.id == keptId }
+            assertEquals(listOf("at-dinner"), kept.tags.map { it.name })
+            assertEquals(1, remainingTags.size)
+        }
+
+    @Test
+    fun deleteOlderThan_leavesAnOrphanedTagRowInPlace() =
+        runTest {
+            // A tag used only by the deleted event still shouldn't itself be removed from `tags` —
+            // "tags untouched" is a documented invariant of this method, same shape as
+            // deleteAllData()'s split between caseDao.deleteAll() and the separate tagDao.deleteAll().
+            val tagDao = db.tagDao()
+            val deletedId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            val onlyTagId = tagDao.insert(TagEntity(name = "solo-tag"))
+            tagDao.insertEventTag(EventTagCrossRef(eventId = deletedId, tagId = onlyTagId))
+
+            eventDao.deleteOlderThan(cutoff = 200L)
+
+            assertEquals(listOf("solo-tag"), tagDao.getAll().map { it.name })
+        }
+
+    @Test
+    fun deleteOlderThan_isNotScopedToASingleCase() =
+        runTest {
+            // deleteEventsOlderThan is a global bulk action (spec §14: "logs before a chosen date"),
+            // not per-Case — this pins that it reaches every Case's events, not just the one the
+            // Settings screen happens to be showing.
+            val otherCaseId = db.caseDao().insert(testCase(name = "Other"))
+            val olderInThisCase = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            val olderInOtherCase = eventDao.insert(testEvent(caseId = otherCaseId, occurredAt = 150L))
+            val newerInOtherCase = eventDao.insert(testEvent(caseId = otherCaseId, occurredAt = 300L))
+
+            eventDao.deleteOlderThan(cutoff = 200L)
+
+            assertNull(eventDao.getById(olderInThisCase))
+            assertNull(eventDao.getById(olderInOtherCase))
+            assertEquals(300L, eventDao.getById(newerInOtherCase)?.occurredAt)
+        }
+
+    @Test
+    fun deleteOlderThan_onAnEmptyTableIsANoOp() =
+        runTest {
+            eventDao.deleteOlderThan(cutoff = 200L)
+
+            assertEquals(emptyList<EventEntity>(), eventDao.getAll())
+        }
+
+    @Test
+    fun getCaseIdsWithEventsOlderThan_returnsDistinctAffectedCaseIds() =
+        runTest {
+            val otherCaseId = db.caseDao().insert(testCase(name = "Other"))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 150L))
+            eventDao.insert(testEvent(caseId = otherCaseId, occurredAt = 300L))
+
+            val affected = eventDao.getCaseIdsWithEventsOlderThan(cutoff = 200L)
+
+            assertEquals(listOf(caseId), affected)
+        }
+
+    @Test
     fun observeEventsWithTagsForCasePagedByEnd_ordersById_whenOccurredAtAndEndedAtBothTie() =
         runTest {
             val earlierId = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 500L))

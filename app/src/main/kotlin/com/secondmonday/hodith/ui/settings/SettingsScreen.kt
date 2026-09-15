@@ -102,6 +102,8 @@ fun SettingsRoute(
         onCloudBackupToggle = viewModel::onCloudBackupToggle,
         onLoadDemoData = viewModel::loadDemoData,
         onDeleteAllData = viewModel::deleteAllData,
+        onDeleteEventsOlderThan = viewModel::deleteEventsOlderThan,
+        nowMillis = viewModel::nowMillis,
         onExportClick = { exportLauncher.launch(BACKUP_FILE_NAME) },
         onImportConfirm = { importLauncher.launch(arrayOf("*/*")) },
         onOpenAbout = onOpenAbout,
@@ -123,6 +125,8 @@ fun SettingsScreen(
     onCloudBackupToggle: (Boolean) -> Unit,
     onLoadDemoData: () -> Unit,
     onDeleteAllData: () -> Unit,
+    onDeleteEventsOlderThan: (cutoff: Long) -> Unit,
+    nowMillis: () -> Long,
     onExportClick: () -> Unit,
     onImportConfirm: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -132,7 +136,7 @@ fun SettingsScreen(
     val voice = LocalVoice.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    var showDeleteAllConfirm by remember { mutableStateOf(false) }
+    var showDeleteDataFlow by remember { mutableStateOf(false) }
     var showImportConfirm by remember { mutableStateOf(false) }
 
     fun showComingSoonSnackbar() {
@@ -164,19 +168,14 @@ fun SettingsScreen(
         }
     }
 
-    if (showDeleteAllConfirm) {
-        ConfirmDialog(
-            title = voice.settingsDeleteAllDataConfirmTitle,
-            body = voice.settingsDeleteAllDataConfirmBody,
-            confirmLabel = voice.settingsDeleteAllDataConfirmAction,
-            cancelLabel = voice.settingsDeleteAllDataCancelAction,
-            onDismiss = { showDeleteAllConfirm = false },
-            onConfirm = {
-                showDeleteAllConfirm = false
-                onDeleteAllData()
-            },
-        )
-    }
+    DeleteDataFlow(
+        visible = showDeleteDataFlow,
+        nowMillis = nowMillis,
+        voice = voice,
+        onDismiss = { showDeleteDataFlow = false },
+        onDeleteAllData = onDeleteAllData,
+        onDeleteEventsOlderThan = onDeleteEventsOlderThan,
+    )
 
     if (showImportConfirm) {
         ConfirmDialog(
@@ -244,7 +243,7 @@ fun SettingsScreen(
                 }
                 ActionRow(voice.settingsExportButton, onClick = onExportClick)
                 ActionRow(voice.settingsImportButton, onClick = { showImportConfirm = true })
-                ActionRow(voice.settingsDeleteAllDataButton, onClick = { showDeleteAllConfirm = true }, isDestructive = true)
+                ActionRow(voice.settingsDeleteDataButton, onClick = { showDeleteDataFlow = true }, isDestructive = true)
             }
 
             if (uiState.developerModeUnlocked) {
@@ -457,7 +456,7 @@ private fun SettingsBrightPlankPreviewContent() {
             }
             Plank(voice.settingsDataSectionLabel) {
                 ActionRow(voice.settingsExportButton, onClick = {})
-                ActionRow(voice.settingsDeleteAllDataButton, onClick = {}, isDestructive = true)
+                ActionRow(voice.settingsDeleteDataButton, onClick = {}, isDestructive = true)
             }
         }
     }
@@ -480,7 +479,7 @@ private fun SettingsPlainPlankPreviewContent() {
                 }
                 Plank(voice.settingsDataSectionLabel) {
                     ActionRow(voice.settingsExportButton, onClick = {})
-                    ActionRow(voice.settingsDeleteAllDataButton, onClick = {}, isDestructive = true)
+                    ActionRow(voice.settingsDeleteDataButton, onClick = {}, isDestructive = true)
                 }
             }
         }
