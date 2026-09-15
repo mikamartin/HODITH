@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * The single place an event's stored epoch-millis becomes the strings the UI shows — every
@@ -20,8 +21,8 @@ import java.util.Locale
  * [formatMinutesDuration]. Compose passes `use24Hour` down from `LocalTimeFormat`; anything
  * genuinely inside a ViewModel would read it from an injected `SettingsRepository` instead.
  *
- * Dates are fixed `Locale.US` (the app's display locale) except [formatFrequencyPeriodLabel],
- * whose chart-axis labels follow the platform locale as they did before.
+ * Dates are fixed `Locale.US` (the app's display locale) except [formatFrequencyTickLabel], whose
+ * chart-axis labels follow the platform locale as they did before.
  *
  * Note: `h:mm a` renders a plain ASCII space before AM/PM, whereas the JDK's localized SHORT time
  * uses a narrow no-break space — tests that assert on the 12-hour output match on substrings.
@@ -107,18 +108,48 @@ internal fun formatMediumDate(date: LocalDate): String = date.format(MEDIUM_DATE
 internal fun formatWeekdayDayDate(date: LocalDate): String = date.format(WEEKDAY_DAY_FORMATTER)
 
 /**
- * Frequency-chart axis label. Follows the platform [locale], unlike the fixed-US formatters above,
- * because the chart's Day/Week/Month scale is chrome rather than an event's own recorded time. The
- * weekly bucket's wrapper text comes from [weekOf] (a `Voice` key) so it isn't an inline UI string.
+ * Frequency-chart tick label — deliberately numeric/short rather than authored copy (spec S9: the
+ * old "Week of …" wrapper text crowded the chart once more than two ticks were shown), so unlike
+ * every other formatter in this file it needs no `Voice` input. Follows the platform [locale] (the
+ * chart's Day/Week/Month scale is chrome, not an event's own recorded time), same as before.
  */
-internal fun formatFrequencyPeriodLabel(
+internal fun formatFrequencyTickLabel(
     periodStart: LocalDate,
     granularity: FrequencyGranularity,
     locale: Locale,
-    weekOf: (date: String) -> String,
 ): String =
     when (granularity) {
-        FrequencyGranularity.DAY -> periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale))
-        FrequencyGranularity.WEEK -> weekOf(periodStart.format(DateTimeFormatter.ofPattern("MMM d", locale)))
-        FrequencyGranularity.MONTH -> "${periodStart.month.getDisplayName(TextStyle.SHORT, locale)} ${periodStart.year}"
+        FrequencyGranularity.DAY -> periodStart.format(DateTimeFormatter.ofPattern("d", locale))
+        FrequencyGranularity.WEEK -> periodStart.format(DateTimeFormatter.ofPattern("M/dd", locale))
+        FrequencyGranularity.MONTH -> periodStart.month.getDisplayName(TextStyle.SHORT, locale)
+    }
+
+/**
+ * [tickCount] indices spread evenly across [barCount] bars, each centered in its own equal-width
+ * slice — neither bar 0 nor the last bar is pinned. A stride walk anchored to one end only reaches
+ * the other by coincidence, which is what crowded two ticks together before (spec S9); centering
+ * each tick in its slice spreads any rounding remainder across every gap instead of concentrating
+ * it at one edge. Whether an end bar ends up tagged is itself just a coincidence of [tickCount]'s
+ * parity, not a guarantee: a tick count equal to [barCount] always covers both trivially, but
+ * 12 bars / 6 ticks lands on bar 11 and not bar 0, and 12 bars / 4 ticks lands on neither.
+ */
+internal fun frequencyTickIndices(
+    barCount: Int,
+    tickCount: Int,
+): List<Int> {
+    val width = barCount.toDouble() / tickCount
+    return (0 until tickCount).map { k -> ((k + 0.5) * width - 0.5).roundToInt() }.distinct()
+}
+
+// How many of the 12 bars carry a tick label, per granularity (spec S9). Day's numeric label is
+// narrow enough to show on every bar; Week's "M/dd" and Month's short name need more room.
+internal const val FREQUENCY_TICK_COUNT_DAY = 12
+internal const val FREQUENCY_TICK_COUNT_WEEK = 6
+internal const val FREQUENCY_TICK_COUNT_MONTH = 6
+
+internal fun frequencyTickCount(granularity: FrequencyGranularity): Int =
+    when (granularity) {
+        FrequencyGranularity.DAY -> FREQUENCY_TICK_COUNT_DAY
+        FrequencyGranularity.WEEK -> FREQUENCY_TICK_COUNT_WEEK
+        FrequencyGranularity.MONTH -> FREQUENCY_TICK_COUNT_MONTH
     }
