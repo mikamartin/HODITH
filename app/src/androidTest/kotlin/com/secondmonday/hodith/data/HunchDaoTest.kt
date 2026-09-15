@@ -99,4 +99,32 @@ class HunchDaoTest {
 
             assertEquals(listOf(100L, 0L), history.map { it.createdAt })
         }
+
+    @Test
+    fun deleteResolvedHunchesBeyondLimit_keepsOnlyTheMostRecentlyResolved() =
+        runTest {
+            listOf(10L, 20L, 30L, 40L).forEach { resolvedAt ->
+                hunchDao.insert(testHunch(caseId = caseId, resolvedAt = resolvedAt))
+            }
+
+            hunchDao.deleteResolvedHunchesBeyondLimit(caseId, keep = 2)
+
+            val remaining = hunchDao.observeHunchHistory(caseId).first()
+            assertEquals(setOf(30L, 40L), remaining.map { it.resolvedAt }.toSet())
+        }
+
+    @Test
+    fun deleteResolvedHunchesBeyondLimit_neverTouchesTheActiveHunch() =
+        runTest {
+            val activeId = hunchDao.insert(testHunch(caseId = caseId))
+            listOf(10L, 20L, 30L).forEach { resolvedAt ->
+                hunchDao.insert(testHunch(caseId = caseId, resolvedAt = resolvedAt))
+            }
+
+            hunchDao.deleteResolvedHunchesBeyondLimit(caseId, keep = 1)
+
+            assertEquals(activeId, hunchDao.getActiveHunch(caseId)?.id)
+            val remaining = hunchDao.observeHunchHistory(caseId).first()
+            assertEquals(listOf(30L), remaining.mapNotNull { it.resolvedAt })
+        }
 }

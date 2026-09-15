@@ -25,7 +25,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -62,6 +61,7 @@ import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
+import com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT
 import com.secondmonday.hodith.domain.VerdictResult
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
@@ -95,6 +95,9 @@ import com.secondmonday.hodith.viewmodel.ongoingEventsIn
 private const val LOG_TAB = 0
 private const val INSIGHTS_TAB = 1
 private const val HUNCH_TAB = 2
+
+/** Resolved-hunch history starts collapsed to this many; "show more" reveals the rest (capped at [HUNCH_HISTORY_RETENTION_LIMIT]). */
+private const val HUNCH_HISTORY_SHOWN_INITIAL = 5
 
 @Composable
 fun CaseDetailRoute(
@@ -433,7 +436,13 @@ private fun HunchTabContent(
                 )
         }
         if (state.history.isNotEmpty()) {
-            HunchHistoryCard(history = state.history, voice = voice)
+            var shownCount by remember(case.id) { mutableIntStateOf(HUNCH_HISTORY_SHOWN_INITIAL) }
+            HunchHistoryList(
+                history = state.history,
+                shownCount = shownCount,
+                onShowMore = { shownCount = state.history.size },
+                voice = voice,
+            )
         }
     }
 }
@@ -556,48 +565,59 @@ private fun HunchVerdictCard(
 }
 
 /**
- * Sits on [MaterialTheme.colorScheme.surfaceVariant] rather than [HunchCard]'s default surface —
- * a quieter, visibly different tone from the live active-Hunch card above it, so a closed record
- * doesn't read as more of the same live content. Shown below the active Hunch card whenever one
- * exists, not only when [HunchTabState.NoActiveHunch] — the record of past Hunches never
- * disappears just because a new one is running.
+ * The resolved-Hunch record: a plain section heading and summary, then one plank [Card] per
+ * resolved Hunch (no shared card, no dividers — spec: each entry stands on its own). Shown below
+ * the active Hunch card whenever one exists, not only when [HunchTabState.NoActiveHunch] — the
+ * record of past Hunches never disappears just because a new one is running. [history] is
+ * newest-first and already capped at [HUNCH_HISTORY_RETENTION_LIMIT] by the repository's
+ * prune-on-resolve, so "show more" only ever reveals the rest of what's already loaded.
  */
 @Composable
-private fun HunchHistoryCard(
+private fun HunchHistoryList(
     history: List<HunchHistoryEntry>,
+    shownCount: Int,
+    onShowMore: () -> Unit,
     voice: Voice,
 ) {
     val heldUpCount = history.count { it.result.comparisonBand == ComparisonBand.ABOUT_RIGHT }
-    HunchCard(spacing = 10.dp, containerColor = MaterialTheme.colorScheme.surfaceVariant) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(voice.hunchHistoryHeader, style = MaterialTheme.typography.titleMedium)
         Text(voice.hunchHistorySummary(history.size, heldUpCount), style = MaterialTheme.typography.bodyMedium)
-        history.forEachIndexed { index, entry ->
-            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            HunchHistoryRow(entry = entry, voice = voice)
+        history.take(shownCount).forEach { entry -> HunchHistoryPlank(entry = entry, voice = voice) }
+        if (shownCount < history.size) {
+            TextButton(onClick = onShowMore) { Text(voice.hunchHistoryShowMoreAction) }
+        } else {
+            Text(
+                voice.hunchHistoryRetentionNote,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
 
-/** One resolved Hunch, leading with its made→resolved stamp rather than burying the date. */
+/**
+ * One resolved Hunch as its own plank — the made→resolved stamp and the outcome only; the
+ * restated frequency claim line was dropped as the redundant "per-item summary line" (the outcome
+ * already reads against that claim).
+ */
 @Composable
-private fun HunchHistoryRow(
+private fun HunchHistoryPlank(
     entry: HunchHistoryEntry,
     voice: Voice,
 ) {
     val hunch = entry.hunch
     val resolvedAt = hunch.resolvedAt ?: return
-    val frequencyLabel = formatExpectedFrequency(hunch.expectedCount, hunch.expectedPer, hunch.metric)
     val observedRateLabel = formatRate(entry.result.observedRate, hunch.expectedPer, hunch.metric)
     // Guaranteed non-null: hunchTabState only surfaces history entries with a resolved band.
     val band = checkNotNull(entry.result.comparisonBand) { "History entry must carry a resolved comparison band" }
 
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    HunchCard(spacing = 3.dp, containerColor = MaterialTheme.colorScheme.surfaceVariant) {
         Text(
             voice.hunchHistoryRowStamp(formatEventDate(hunch.createdAt), formatEventDate(resolvedAt)),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(voice.hunchHistoryRowText(hunch.direction, frequencyLabel), style = MaterialTheme.typography.bodyMedium)
         Text(voice.hunchHistoryRowOutcome(band, observedRateLabel), style = MaterialTheme.typography.bodySmall)
     }
 }

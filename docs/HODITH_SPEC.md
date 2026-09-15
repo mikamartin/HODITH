@@ -160,7 +160,7 @@ The switch-*in* conversion uses `endedAt = occurredAt` (the event's own start), 
   - **Metric** (`HunchEntity.metric`) — shown only when the Case's `durationMode` tracks duration (`MANUAL`/`START_STOP`); a `NONE` Case sees no picker and its metric is implicitly occurrence count. See §8.
   - **Period** — occurrence count offers day/week/month; days-active offers week/month/3 months ("days active per day" is nonsensical). Same `ExpectedPer` enum, a different visible three-option subset.
   - **Observation window** (`HunchEntity.observationWindow`, + `windowStartDate` for custom) — every Case. See §8.
-- A Hunch can be resolved ("verdict accepted"), archiving it to the Case's hunch history; a new Hunch can then be made. The history of hunches vs verdicts is itself a fun artifact ("you've been wrong about this three times"). A resolved Hunch's verdict is frozen as of `resolvedAt` (a rolling window is measured from that instant, not the live clock).
+- A Hunch can be resolved ("verdict accepted"), archiving it to the Case's hunch history; a new Hunch can then be made. The history of hunches vs verdicts is itself a fun artifact ("you've been wrong about this three times"). A resolved Hunch's verdict is frozen as of `resolvedAt` (a rolling window is measured from that instant, not the live clock). History is capped at the 15 most recently resolved Hunches per Case — the 5 shown by default plus the 10 a "show more" reveals — with older ones pruned automatically as new Hunches resolve; a note on the fully-expanded list states the cap plainly.
 
 ## 8. Verdict engine
 

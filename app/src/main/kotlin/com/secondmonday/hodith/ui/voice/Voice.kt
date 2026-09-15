@@ -471,7 +471,7 @@ interface Voice {
         eventCount: Int,
     ): String
 
-    /** Title Case direction phrasing — the creation sheet's pills and, via [hunchHistoryRowText], history rows. */
+    /** Title Case direction phrasing — the creation sheet's pills. */
     fun hunchDirectionPillLabel(direction: HunchDirection): String
 
     /** "Your hunch: too often, ~5×/week" — [expectedFrequencyLabel] is pre-formatted (see `formatExpectedFrequency`). */
@@ -479,12 +479,6 @@ interface Voice {
         direction: HunchDirection,
         expectedFrequencyLabel: String,
     ): String
-
-    /** "Too often, ~7×/week" — same shape across all three voices, so this has one shared implementation. */
-    fun hunchHistoryRowText(
-        direction: HunchDirection,
-        expectedFrequencyLabel: String,
-    ): String = "${hunchDirectionPillLabel(direction)}, $expectedFrequencyLabel"
 
     /** The unit a Hunch's Early-days progress is counted in for the occurrence metric — "events" / "entries" / "logs". */
     val hunchProgressUnitEvents: String
@@ -560,6 +554,16 @@ interface Voice {
         madeDateLabel: String,
         resolvedDateLabel: String,
     ): String
+
+    /** Reveals the rest of the resolved-Hunch history beyond the initial 5 (capped at [com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT]) — same "reveal more of the list" CTA family as [logShowMoreAction]. */
+    val hunchHistoryShowMoreAction: String
+
+    /**
+     * Shown once the resolved-Hunch history is fully expanded — states plainly that only the most
+     * recent [com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT] are kept. A factual
+     * data-retention note, not a "fresh start"/reset framing (spec §4 non-goals).
+     */
+    val hunchHistoryRetentionNote: String
 
     /** Badge text on the Hunch tab's cards — identical across all three voices, like the nav/tab labels. */
     val hunchEarlyBadgeLabel: String get() = "Early days"
@@ -1173,6 +1177,9 @@ object PlainVoice : Voice {
         resolvedDateLabel: String,
     ) = "Made $madeDateLabel · Resolved $resolvedDateLabel"
 
+    override val hunchHistoryShowMoreAction = "Show more hunches"
+    override val hunchHistoryRetentionNote = "Only your 15 most recent resolved hunches are kept."
+
     override val triggersScreenTitle = "Triggers"
     override val triggersOpenDescription = "Open triggers"
     override val triggersFabDescription = "New trigger"
@@ -1742,6 +1749,9 @@ object IntenseVoice : Voice {
         resolvedDateLabel: String,
     ) = "Claimed $madeDateLabel · Judged $resolvedDateLabel"
 
+    override val hunchHistoryShowMoreAction = "Unearth more of the record"
+    override val hunchHistoryRetentionNote = "Only the 15 most recent verdicts remain on record."
+
     override val triggersScreenTitle = "Alarms"
     override val triggersOpenDescription = "Tend the alarms"
     override val triggersFabDescription = "Set a new alarm"
@@ -2304,6 +2314,9 @@ object BrightVoice : Voice {
         madeDateLabel: String,
         resolvedDateLabel: String,
     ) = "Guessed $madeDateLabel · Found out $resolvedDateLabel!"
+
+    override val hunchHistoryShowMoreAction = "Dig up more!"
+    override val hunchHistoryRetentionNote = "Only the 15 newest stick around, so the rest make room."
 
     override val triggersScreenTitle = "Alerts!"
     override val triggersOpenDescription = "Check your alerts!"

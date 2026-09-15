@@ -17,6 +17,39 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/resolved-hunch-list-redesign
+
+**Scope:** PROGRESS.md's S10 — plank redesign for the Case Detail Hunch tab's resolved-history list, plus "show more" pagination. Redirected mid-scope after discussion with the user: S10 originally paired pagination with an open "further paging vs. show-all" question and a separate manual "clear all resolved hunches" settings action; landed instead as pagination capped at a 15-item retention ceiling (5 shown + 10 revealed = the entire retained set) that prunes automatically the moment a new Hunch resolves past it, with a footer note on the fully-expanded list stating the cap plainly (so the pruning is transparent, not a silent surprise) and the manual clear-all setting dropped as redundant once the cap exists.
+
+**Changes:**
+
+- `HunchDao.deleteResolvedHunchesBeyondLimit(caseId, keep)` — new `DELETE` query keeping only the `keep` most-recently-resolved rows for a Case (`ORDER BY resolvedAt DESC, id DESC` inside a `NOT IN` subquery), leaving the active (unresolved) Hunch untouched. `HodithRepository.pruneResolvedHunches(caseId)` / `RoomHodithRepository`'s implementation wrap it with the new `HUNCH_HISTORY_RETENTION_LIMIT = 15` constant (`domain/VerdictEngine.kt`, alongside the domain's other named Hunch-tier constants). `CaseDetailViewModel.resolveHunch` calls it right after persisting the resolved verdict snapshot.
+- `CaseDetailScreen.kt`: `HunchHistoryCard`/`HunchHistoryRow` (one shared card, divider-separated rows, unconditionally rendered) replaced with `HunchHistoryList`/`HunchHistoryPlank` — each resolved Hunch is its own plank `Card` (reusing the existing `HunchCard` shell), the restated frequency-claim line dropped (stamp + outcome only), 5 shown by default with a "Show more" `TextButton` revealing the rest via local Compose state, and a footer note once fully expanded.
+- Voice ×3: new `hunchHistoryShowMoreAction`/`hunchHistoryRetentionNote`; removed `hunchHistoryRowText` (was a single shared default implementation on the interface, not per-voice overrides, so its removal was a one-line deletion, not a three-voice hunt).
+- `FakeHodithRepository` gained a matching `pruneResolvedHunches` so `CaseDetailViewModelTest` exercises real prune behavior rather than a stub that silently no-ops.
+
+**Checklist walk (against the working-tree `git diff`):**
+
+- *Duplication* — no inline strings anywhere in the new composables; every one routes through `Voice`. Each plank reuses the existing `HunchCard` shell rather than a new component. `pruneResolvedHunches` doesn't overlap any existing repository method — genuinely new capability, not a case for parameterizing an existing one.
+- *Decoupling* — the "show more" window is plain Compose `remember` state, not threaded through the ViewModel/repository, since the prune already keeps the whole list small (≤15) — no `LIMIT`/`OFFSET`/`hasMore` machinery needed the way the Log tab's unbounded Events list requires. No `System.currentTimeMillis()` (the prune is count-based, not time-based, so it doesn't touch `Clock` at all). No `android.*` import in the `domain/VerdictEngine.kt` constant addition.
+- *Complexity & pattern health* — `shownCount`'s plain `remember(case.id)` matches this same file's existing precedent (`selectedTab`, `showHunchCreationSheet`, `frequencyGranularityOverride` are all plain `remember`, not `rememberSaveable`) rather than introducing a new state-holding convention for this one toggle.
+- *Dead code & hygiene* — removed the now-unused `HorizontalDivider` import; grepped for `hunchHistoryRowText` before deleting it (zero references outside `Voice.kt` itself). Caught one own mistake mid-pass: an unneeded explicit import of `assertDoesNotExist` in the new `CaseDetailScreenTest` cases (it's used unqualified everywhere else in the codebase, as a member function) — only surfaced as a real compile error once `connectedDebugAndroidTest` actually compiled the `androidTest` source set; `lintDebug`'s own `lintAnalyzeDebugAndroidTest` pass had reported success without catching it, worth remembering next time lint-clean is read as compile-clean for that source set.
+- *Repo hygiene* — no secrets, no local paths; `git status` clean throughout (no stray untracked files).
+- *Naming* — new Voice keys join the existing `hunchHistory*` run; `HunchHistoryList`/`HunchHistoryPlank` are descriptive PascalCase replacements for `HunchHistoryCard`/`HunchHistoryRow`.
+- *Hardcoded values* — `HUNCH_HISTORY_RETENTION_LIMIT` (15) is a named domain constant. The "5 shown initially" number stays a private UI-layer constant in `CaseDetailScreen.kt` rather than domain — it's pure presentation windowing, not a product rule, matching the Log tab's own precedent of keeping its pagination-window constants (`LOG_INITIAL_LIMIT`/`LOG_LOAD_MORE_INCREMENT`) outside `domain/`.
+- *Accessibility* — no new icon-only controls; the "Show more" `TextButton` is a standard M3 component at its default touch target.
+- *Deprecated APIs* — none introduced; `lintDebug` clean.
+- *Spec review* — `HODITH_SPEC.md` §7 updated to state the 15-item retention cap in present tense; no stale "further paging vs. show-all" ambiguity left anywhere in the spec or PROGRESS.md.
+- *Tests* — `HunchDaoTest` (2 new cases: keeps exactly the N most-recently-resolved, never touches the active Hunch); `CaseDetailViewModelTest` (1 new case: resolving a Hunch triggers the prune, pinning the ordering the way PROGRESS.md's **D4** already flagged this exact class of side-effect-after-a-repository-call bug matters); `CaseDetailScreenTest` (2 new cases: the show-more reveal count, and the retention note appearing only once fully expanded, not before).
+
+**Deferred:** nothing — every acceptance criterion in the redirected scope was met in this pass, so S10 is removed from PROGRESS.md rather than struck.
+
+**Docs updated:** `PROGRESS.md` — S10 removed (fully resolved; scope redirected mid-item, see Scope above); B2's Voice-key fold-in list gained this branch's `hunchHistoryShowMoreAction`/`hunchHistoryRetentionNote` additions and `hunchHistoryRowText` retirement. `HODITH_SPEC.md` §7 — resolved-hunch history's 15-item retention cap stated. `TESTING.md` — Verdict engine row (prune-on-resolve coverage) and Compose UI row (plank/show-more/retention-note coverage).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (one round-trip: a ktlint import-ordering/line-wrap fix, then the `assertDoesNotExist` import fix above, before all four passed clean together). `connectedDebugAndroidTest` scoped to `HunchDaoTest` and `CaseDetailScreenTest` — 44/44 green on `Pixel_8_API36(AVD)`, including every new case.
+
+---
+
 ## fix/frequency-chart-axis-labels
 
 **Scope:** PROGRESS.md's S9 — `FrequencyCard` labeled only its first and last bar (not even aligned to their own columns), unreadable once more than two of the chart's 12 bars needed a label. Design decision made interactively via a published Artifact prototype (theme-accurate replicas across Plain/Intense/Bright, light/dark, 320/380dp) rather than guessed at in code: numeric/short labels (Day: bare date number, Week: `M/dd`, Month: short name) at a per-granularity density (Day every bar, Week and Month every 2nd), placed by centering each tick in an equal-width slice of the 12 bars rather than pinning either end bar — an earlier stride-based approach forced both endpoints and produced either an adjacent-label collision or an uneven first gap, both caught and fixed during the prototype iteration before any Kotlin was written. This work started uncommitted on `feat/bulk-delete-logs-by-date` (that branch's own S14 work, below, was already merged before this pass started) and was moved to its own `fix/frequency-chart-axis-labels` branch, cut fresh from `main`, before anything here was committed.
@@ -160,23 +193,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green throughout every round of this pass, including after the `minimumInteractiveComponentSize()` revert, the label-width/font follow-ups, and the info-icon addition (one `lintAnalyzeDebugAndroidTest` run crashed with an internal Kotlin-FIR analyzer exception inside an unrelated, untouched file, `BackupImportIntegrationTest.kt`; a bare retry passed clean, confirming it was a transient analyzer crash rather than anything in this diff). `connectedDebugAndroidTest` scoped to `CaseDetailInsightsTabTest` (38/38) and `ShareCardTemplateTest` (5/5) — both green on `Pixel_8_API36(AVD)`, including all five new Rhythm cases. Two on-device layout issues earlier in this pass (the touch-target-expansion overflow, and the label truncation) were only caught by the user's own device checks, not by any automated gate — a reminder these gates don't cover visual layout; this final device run confirms the current state renders correctly.
 
----
-
-## feat/insights-section-info
-
-**Scope:** PROGRESS.md's S16 — added the existing per-section info affordance (`SectionWithInfo`/`InfoDialog`, already used by Frequency and Gaps & streaks) to the Trend and Duration cards on the Case Detail Insights tab. Rhythm and Tags were shortlisted and declined: their content is already self-explanatory (a heatmap grid, a per-tag count against the case total) without a dedicated explanation.
-
-**Changes:**
-
-- `TrendCard` and `DurationCard` (`InsightsTab.kt`) now wrap their content in `SectionWithInfo`, adding a tappable info icon next to each section label — same shape as the existing `GapsCard`/`FrequencyCard` usage, no other logic touched.
-- Four new `Voice` keys (`insightsTrendInfoTitle`/`Body`, `insightsDurationInfoTitle`/`Body`) added to all three voices. Duration's copy is a static sentence ("still-running events aren't counted until they stop") rather than S16's suggested dynamic "N of M events had a duration" count — declined on sign-off, to avoid extending `DurationStats`/`DurationDisplay` for an edge-case detail. Trend's copy describes the current 30-vs-30-day comparison and gap/streak shift notes directly, rather than waiting on S2 (an unstarted, separate investigation into whether that math itself should change).
-
-**Checklist walk (against the working-tree `git diff`):**
-
-- *Duplication, decoupling, complexity, hardcoded values, accessibility, deprecated APIs, repo hygiene, naming* — no findings; the change reuses the existing shared component and Voice pattern exactly, no new composables and no strings outside Voice.
-- *Dead code & hygiene / tests* — found `CaseDetailInsightsTabTest.gapsCard_infoIcon_opensAndDismissesDefinitions`'s comment ("Frequency and Gaps & streaks are the only two cards with an info icon") had gone stale: it still passed only because that test's fixture (short history, `NONE` duration mode) keeps the new Trend/Duration icons hidden, not because they don't exist. Fixed the comment on sign-off, and added `trendCard_infoIcon_opensAndDismissesDefinitions` / `durationCard_infoIcon_opensAndDismissesDefinitions`, mirroring the existing Gaps coverage — closing the analogous coverage gap the new icons introduced.
-- *Spec review* — `HODITH_SPEC.md` §10 describes what Trend and Duration compute, not the info-icon UI affordance (true for Frequency/Gaps already too), so no divergence.
-
-**Deferred:** nothing — Rhythm and Tags were considered and declined rather than deferred (see Scope above), and S16 is otherwise complete, so it's removed from PROGRESS.md rather than struck.
-
-**Docs updated:** `TESTING.md`'s Case Detail Insights coverage row now names the Trend and Duration info icons alongside Gaps'; PROGRESS.md's S16 item removed (fully resolved).

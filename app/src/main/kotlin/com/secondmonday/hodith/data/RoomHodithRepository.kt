@@ -2,6 +2,7 @@ package com.secondmonday.hodith.data
 
 import androidx.room.withTransaction
 import com.secondmonday.hodith.data.backup.BackupData
+import com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT
 import com.secondmonday.hodith.domain.computeVerdict
 import com.secondmonday.hodith.domain.withResolvedVerdictSnapshot
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
@@ -160,6 +161,9 @@ class RoomHodithRepository
         override suspend fun updateHunch(hunch: HunchEntity) = hunchDao.update(hunch)
 
         override suspend fun deleteHunch(hunch: HunchEntity) = hunchDao.delete(hunch)
+
+        override suspend fun pruneResolvedHunches(caseId: Long) =
+            hunchDao.deleteResolvedHunchesBeyondLimit(caseId, keep = HUNCH_HISTORY_RETENTION_LIMIT)
 
         override suspend fun backfillResolvedHunchVerdicts() {
             val pending = hunchDao.getResolvedHunchesMissingSnapshot()
