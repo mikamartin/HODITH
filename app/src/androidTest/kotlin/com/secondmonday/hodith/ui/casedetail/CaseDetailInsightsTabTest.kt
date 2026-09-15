@@ -311,14 +311,28 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
-    fun frequencyGranularityToggle_day_switchesBucketLabelFormat() {
+    fun frequencyGranularityToggle_week_labelsTicksWithNumericDates() {
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyGranularityWeek).performScrollTo().performClick()
 
-        // Both the first and last bucket's period labels switch to the weekly wrapper, hence two matches.
-        val weekWrapper = PlainVoice.insightsFrequencyWeekAxisLabel("").trim()
-        composeTestRule.onAllNodesWithText(weekWrapper, substring = true).assertCountEquals(2)
+        // Bar 11 (this week, periodsAgo = 0) is always one of the 6 evenly-spaced ticks at this
+        // density (spec S9), so its Monday-of-the-week start is a stable anchor regardless of how
+        // the other 5 ticks land.
+        val thisWeekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+        composeTestRule.onNodeWithText(weekTickLabel(thisWeekStart)).assertExists()
+    }
+
+    @Test
+    fun frequencyGranularityToggle_month_labelsTicksWithShortMonthNames() {
+        setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyGranularityMonth).performScrollTo().performClick()
+
+        // Bar 11 (this month, periodsAgo = 0) is always one of the 6 evenly-spaced ticks at this
+        // density (spec S9). The short month name is a collision-free anchor: the heatmap's own
+        // month headers spell the month in full ("July 2026"), never the bare "Jul" form.
+        composeTestRule.onNodeWithText(monthTickLabel(today)).assertExists()
     }
 
     @Test
@@ -727,4 +741,12 @@ class CaseDetailInsightsTabTest {
     // Mirrors RhythmCard's own day label (getDisplayName(TextStyle.FULL, locale)), Locale.US fixed
     // for the same determinism reason as mediumDate above.
     private fun dayOfWeekLabel(date: LocalDate): String = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.US)
+
+    // Mirrors formatFrequencyTickLabel's WEEK branch ("M/dd"), Locale.US fixed for the same
+    // determinism reason as mediumDate/dayOfWeekLabel above.
+    private fun weekTickLabel(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern("M/dd", Locale.US))
+
+    // Mirrors formatFrequencyTickLabel's MONTH branch (getDisplayName(TextStyle.SHORT, locale)),
+    // Locale.US fixed for the same determinism reason as mediumDate/dayOfWeekLabel above.
+    private fun monthTickLabel(date: LocalDate): String = date.month.getDisplayName(TextStyle.SHORT, Locale.US)
 }

@@ -69,12 +69,43 @@ class EventTimeFormatTest {
     }
 
     @Test
-    fun `formatFrequencyPeriodLabel varies by granularity and routes the weekly wrapper through the given label fn`() {
+    fun `formatFrequencyTickLabel is numeric and short, varying by granularity`() {
         val start = LocalDate.of(2026, 7, 9)
-        val weekOf = { date: String -> "wk:$date" }
 
-        assertEquals("Jul 9", formatFrequencyPeriodLabel(start, FrequencyGranularity.DAY, Locale.US, weekOf))
-        assertEquals("wk:Jul 9", formatFrequencyPeriodLabel(start, FrequencyGranularity.WEEK, Locale.US, weekOf))
-        assertEquals("Jul 2026", formatFrequencyPeriodLabel(start, FrequencyGranularity.MONTH, Locale.US, weekOf))
+        assertEquals("9", formatFrequencyTickLabel(start, FrequencyGranularity.DAY, Locale.US))
+        assertEquals("7/09", formatFrequencyTickLabel(start, FrequencyGranularity.WEEK, Locale.US))
+        assertEquals("Jul", formatFrequencyTickLabel(start, FrequencyGranularity.MONTH, Locale.US))
+    }
+
+    @Test
+    fun `frequencyTickCount maps each granularity to its shipped density`() {
+        // Pinned so a swapped WEEK/MONTH mapping (or a DAY that stops being "every bar") shows up
+        // here on the JVM instead of only in the Compose-level instrumented test (spec S9).
+        assertEquals(12, frequencyTickCount(FrequencyGranularity.DAY))
+        assertEquals(6, frequencyTickCount(FrequencyGranularity.WEEK))
+        assertEquals(6, frequencyTickCount(FrequencyGranularity.MONTH))
+    }
+
+    @Test
+    fun `frequencyTickIndices labels every bar when the tick count equals the bar count`() {
+        assertEquals((0..11).toList(), frequencyTickIndices(barCount = 12, tickCount = 12))
+    }
+
+    @Test
+    fun `frequencyTickIndices centers ticks in each slice without pinning either endpoint`() {
+        // The "every 2nd"/"every 3rd" strategies HODITH ships deliberately don't force bar 0 or
+        // bar 11 the way an interpolation between the two ends would — that's what crowded a tick
+        // right next to a forced endpoint before (spec S9). 12 bars / 4 ticks -> 3-wide slices,
+        // centered at 1, 4, 7, 10 — neither end is touched at all.
+        assertEquals(listOf(1, 4, 7, 10), frequencyTickIndices(barCount = 12, tickCount = 4))
+    }
+
+    @Test
+    fun `frequencyTickIndices spreads gaps evenly rather than concentrating rounding error at one edge`() {
+        val indices = frequencyTickIndices(barCount = 12, tickCount = 6)
+
+        assertEquals(listOf(1, 3, 5, 7, 9, 11), indices)
+        val gaps = indices.zipWithNext { a, b -> b - a }
+        assertTrue("expected uniform gaps, got $gaps", gaps.all { it == gaps.first() })
     }
 }

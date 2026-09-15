@@ -50,6 +50,41 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/frequency-chart-axis-labels
+
+**Scope:** PROGRESS.md's S9 — `FrequencyCard` labeled only its first and last bar (not even aligned to their own columns), unreadable once more than two of the chart's 12 bars needed a label. Design decision made interactively via a published Artifact prototype (theme-accurate replicas across Plain/Intense/Bright, light/dark, 320/380dp) rather than guessed at in code: numeric/short labels (Day: bare date number, Week: `M/dd`, Month: short name) at a per-granularity density (Day every bar, Week and Month every 2nd), placed by centering each tick in an equal-width slice of the 12 bars rather than pinning either end bar — an earlier stride-based approach forced both endpoints and produced either an adjacent-label collision or an uneven first gap, both caught and fixed during the prototype iteration before any Kotlin was written. This work started uncommitted on `feat/bulk-delete-logs-by-date` (that branch's own S14 work, below, was already merged before this pass started) and was moved to its own `fix/frequency-chart-axis-labels` branch, cut fresh from `main`, before anything here was committed.
+
+**Changes:**
+
+- **`FrequencyCard`** (`InsightsTab.kt`) restructured from a bar `Row` plus a separate, column-misaligned label `Row` into one `Row` of per-bar `Column`s, each holding its bar and an optional tick `Text` — a label can no longer drift from the bar it names.
+- **`EventTimeFormat.kt`**: `formatFrequencyPeriodLabel` (textual, `Voice`-wrapped) replaced by `formatFrequencyTickLabel` (numeric, no `Voice` input at all); new `frequencyTickIndices(barCount, tickCount)` (the centered/no-pinned-endpoint placement algorithm) and `frequencyTickCount(granularity)` (the Day=12/Week=6/Month=6 density mapping, moved here from a Compose-only private function in `InsightsTab.kt` — found during the coverage check below, since a Compose-file function has no JVM test path).
+- **`Voice.kt`**: `insightsFrequencyWeekAxisLabel` ("Week of …" / "The week of …") removed from the interface and all three implementations — fully replaced by the numeric format, confirmed via `git grep` it had no other caller.
+- New 12-bar preview fixtures for all three granularities (the one existing fixture was WEEK-only and 6 bars, not the real 12) and six new `@Preview`s at 320dp — the narrowest width previewed anywhere in this codebase — across Plain and Intense (Intense's Oswald Bold is the widest of the three themes' tick typefaces; the card had no Intense preview at all before).
+
+**Checklist walk (against the working-tree `git diff`):**
+
+- *Duplication* — no composable/styling repeated; no inline strings (the new format needs no `Voice` string, since it's locale-formatted digits/month-names, not authored copy — same category as every other `EventTimeFormat` helper).
+- *Decoupling* — `formatFrequencyTickLabel`/`frequencyTickIndices`/`frequencyTickCount` are pure Kotlin in the Compose-free `viewmodel` file; `FrequencyCard` itself still takes plain data + lambdas, not a ViewModel.
+- *Complexity & pattern health* — `FrequencyCard` stayed well under the ~150-line split threshold; no new `remember`/`LaunchedEffect` beyond the one `remember(display.bars.size, display.granularity)` wrapping the now slightly-more-expensive tick-index computation, keyed on exactly what changes it.
+- *Dead code & hygiene* — `ktlintCheck` caught one unused import (`fillMaxHeight`, orphaned once the old bar `Box` structure changed) on the first pass, fixed. Caught on self-review (not tooling): a `frequencyTickIndices` KDoc claim that both end bars land exactly on a tick "whenever `tickCount` evenly divides `barCount`" was wrong — 12 bars / 4 ticks divides evenly but lands on neither end (`[1, 4, 7, 10]`); corrected to describe it as a coincidence of parity, not a guarantee, and pinned with a test. Also caught a `@Preview`-group KDoc linking `[widthDp]` as if it were this composable's own parameter rather than the six `@Preview` annotations below it; reworded. No prototype file to clean up — the Artifact lived only in the published page and the session scratchpad, never this repo (`git status` confirmed).
+- *Repo hygiene* — no secrets, no local paths; only the intended files touched. Branch situation resolved (see Scope above) before any commit.
+- *Naming* — new composables (`FrequencyTickPreviewContent`, `FrequencyChart*Preview`) PascalCase, descriptive; no new Voice keys to name (only a removal).
+- *Hardcoded values* — `FREQUENCY_TICK_LABEL_GAP`/`FREQUENCY_TICK_COUNT_DAY`/`_WEEK`/`_MONTH` all named constants, no inline magic numbers.
+- *Accessibility* — net improvement, not just neutral: up to 12 bars now carry a real text label apiece (screen-reader-readable) versus 2 before; no new icon-only targets or tappable elements.
+- *Deprecated APIs* — none; `lintDebug` clean.
+- *Spec review* — `HODITH_SPEC.md` §10's Frequency-over-time paragraph describes the card at the "counts per day/week/month" level, not axis-label formatting, so no divergence.
+- *Tests* — see below.
+
+**Found & fixed (test coverage check, on request):** `frequencyTickCount`'s Day→12/Week→6/Month→6 mapping lived only as a `private` Compose-file function, reachable only through the one instrumented test that happened to toggle to Week — a swapped Week/Month density, or Day silently stopping being "every bar", had no JVM-level guard and only one of three granularities was even exercised at the Compose level. Fixed by moving it to `EventTimeFormat.kt` (pure, JVM-testable) and pinning all three values directly; added a second instrumented test (`frequencyGranularityToggle_month_...`) mirroring the existing Week one, so Week and Month's actual Compose wiring both have independent proof. Day's own wiring is identical code to Week/Month's (same `index in tickIndices` branch), and its "every bar, always" case is already exhaustively pinned at the JVM level (`frequencyTickIndices(12, 12)`); a Day-specific instrumented assertion was skipped deliberately — its bare date-number labels (1–31) share the exact same text space as the heatmap's own day cells on the same tab, so an exact-text assertion would be either collision-prone or would have to fall back to counting, which the existing count-label test (`frequencyCard_showsPerBucketEventCounts`) already sidesteps by using values >31. `EventTimeFormatTest` gained cases for `formatFrequencyTickLabel` (all three granularities), `frequencyTickCount` (the density pin above), and `frequencyTickIndices` (tick-count-equals-bar-count, no-pinned-endpoint centering, and the evenly-spread-gaps property that was the actual prototype bug).
+
+**Deferred:** nothing — the "no label overlap" acceptance criterion (the six new 320dp Previews) was reviewed and accepted, so S9 is struck from PROGRESS.md rather than left open.
+
+**Docs updated:** `PROGRESS.md` — S9 struck in full (all acceptance criteria met). `TESTING.md` — Time formatting row (`formatFrequencyTickLabel`/`frequencyTickCount`/`frequencyTickIndices` replacing the old `formatFrequencyPeriodLabel` mention), Case Detail Insights instrumented-coverage row reworded for the new tick-label behavior.
+
+**Verified:** `ktlintCheck → lintDebug → testDebugUnitTest → assembleDebug` sequential, all green (unit tests run both scoped to `EventTimeFormatTest` and as the full suite). `connectedDebugAndroidTest` scoped to `CaseDetailInsightsTabTest` — 39/39 green on `Pixel_8_API36(AVD)`, including both new/changed cases (`frequencyGranularityToggle_week_labelsTicksWithNumericDates`, `frequencyGranularityToggle_month_labelsTicksWithShortMonthNames`).
+
+---
+
 ## feat/bulk-delete-logs-by-date
 
 **Scope:** PROGRESS.md's S14 (delete logs older than a chosen date), but built as a rework of the existing "Delete all data" row rather than S14's originally-scoped second row next to it — the user asked for one "Delete Data" action that first chooses all-data vs. logs-only, then (for logs-only) a cutoff date defaulting to today, rather than two separate destructive rows. Cascade scope follows S14's own resolved analysis: Events-only — a resolved Hunch's verdict is a stored snapshot (`fix/freeze-resolved-hunch-verdict`, above), not recomputed live, so trimming old Events can't disturb it or orphan a Hunch/Trigger.
@@ -157,26 +192,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `HODITH_SPEC.md` §10 — drill-down tap-target list now includes rhythm cells. `TESTING.md` — Case Detail Insights row now names Rhythm alongside the other three info icons. `PROGRESS.md` — S8 removed (fully resolved, every acceptance criterion met).
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green throughout every round of this pass, including after the `minimumInteractiveComponentSize()` revert, the label-width/font follow-ups, and the info-icon addition (one `lintAnalyzeDebugAndroidTest` run crashed with an internal Kotlin-FIR analyzer exception inside an unrelated, untouched file, `BackupImportIntegrationTest.kt`; a bare retry passed clean, confirming it was a transient analyzer crash rather than anything in this diff). `connectedDebugAndroidTest` scoped to `CaseDetailInsightsTabTest` (38/38) and `ShareCardTemplateTest` (5/5) — both green on `Pixel_8_API36(AVD)`, including all five new Rhythm cases. Two on-device layout issues earlier in this pass (the touch-target-expansion overflow, and the label truncation) were only caught by the user's own device checks, not by any automated gate — a reminder these gates don't cover visual layout; this final device run confirms the current state renders correctly.
-
----
-
-## feat/insights-section-info
-
-**Scope:** PROGRESS.md's S16 — added the existing per-section info affordance (`SectionWithInfo`/`InfoDialog`, already used by Frequency and Gaps & streaks) to the Trend and Duration cards on the Case Detail Insights tab. Rhythm and Tags were shortlisted and declined: their content is already self-explanatory (a heatmap grid, a per-tag count against the case total) without a dedicated explanation.
-
-**Changes:**
-
-- `TrendCard` and `DurationCard` (`InsightsTab.kt`) now wrap their content in `SectionWithInfo`, adding a tappable info icon next to each section label — same shape as the existing `GapsCard`/`FrequencyCard` usage, no other logic touched.
-- Four new `Voice` keys (`insightsTrendInfoTitle`/`Body`, `insightsDurationInfoTitle`/`Body`) added to all three voices. Duration's copy is a static sentence ("still-running events aren't counted until they stop") rather than S16's suggested dynamic "N of M events had a duration" count — declined on sign-off, to avoid extending `DurationStats`/`DurationDisplay` for an edge-case detail. Trend's copy describes the current 30-vs-30-day comparison and gap/streak shift notes directly, rather than waiting on S2 (an unstarted, separate investigation into whether that math itself should change).
-
-**Checklist walk (against the working-tree `git diff`):**
-
-- *Duplication, decoupling, complexity, hardcoded values, accessibility, deprecated APIs, repo hygiene, naming* — no findings; the change reuses the existing shared component and Voice pattern exactly, no new composables and no strings outside Voice.
-- *Dead code & hygiene / tests* — found `CaseDetailInsightsTabTest.gapsCard_infoIcon_opensAndDismissesDefinitions`'s comment ("Frequency and Gaps & streaks are the only two cards with an info icon") had gone stale: it still passed only because that test's fixture (short history, `NONE` duration mode) keeps the new Trend/Duration icons hidden, not because they don't exist. Fixed the comment on sign-off, and added `trendCard_infoIcon_opensAndDismissesDefinitions` / `durationCard_infoIcon_opensAndDismissesDefinitions`, mirroring the existing Gaps coverage — closing the analogous coverage gap the new icons introduced.
-- *Spec review* — `HODITH_SPEC.md` §10 describes what Trend and Duration compute, not the info-icon UI affordance (true for Frequency/Gaps already too), so no divergence.
-
-**Deferred:** nothing — Rhythm and Tags were considered and declined rather than deferred (see Scope above), and S16 is otherwise complete, so it's removed from PROGRESS.md rather than struck.
-
-**Docs updated:** `TESTING.md`'s Case Detail Insights coverage row now names the Trend and Duration info icons alongside Gaps'; PROGRESS.md's S16 item removed (fully resolved).
-
 
