@@ -1,6 +1,8 @@
 package com.secondmonday.hodith.data
 
 import androidx.room.TypeConverter
+import com.secondmonday.hodith.domain.ComparisonBand
+import com.secondmonday.hodith.domain.ConfidenceTier
 
 class Converters {
     @TypeConverter
@@ -44,4 +46,16 @@ class Converters {
 
     @TypeConverter
     fun toTriggerKind(value: String): TriggerKind = TriggerKind.valueOf(value)
+
+    @TypeConverter
+    fun fromConfidenceTier(value: ConfidenceTier?): String? = value?.name
+
+    @TypeConverter
+    fun toConfidenceTier(value: String?): ConfidenceTier? = value?.let { ConfidenceTier.valueOf(it) }
+
+    @TypeConverter
+    fun fromComparisonBand(value: ComparisonBand?): String? = value?.name
+
+    @TypeConverter
+    fun toComparisonBand(value: String?): ComparisonBand? = value?.let { ComparisonBand.valueOf(it) }
 }

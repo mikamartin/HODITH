@@ -2,6 +2,8 @@ package com.secondmonday.hodith.data
 
 import androidx.room.withTransaction
 import com.secondmonday.hodith.data.backup.BackupData
+import com.secondmonday.hodith.domain.computeVerdict
+import com.secondmonday.hodith.domain.withResolvedVerdictSnapshot
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -152,6 +154,20 @@ class RoomHodithRepository
         override suspend fun updateHunch(hunch: HunchEntity) = hunchDao.update(hunch)
 
         override suspend fun deleteHunch(hunch: HunchEntity) = hunchDao.delete(hunch)
+
+        override suspend fun backfillResolvedHunchVerdicts() {
+            val pending = hunchDao.getResolvedHunchesMissingSnapshot()
+            if (pending.isEmpty()) return
+            val casesById = caseDao.getAll().associateBy { it.id }
+            val eventsByCaseId = eventDao.getAll().groupBy { it.caseId }
+            for (hunch in pending) {
+                val case = casesById[hunch.caseId] ?: continue
+                val resolvedAt = hunch.resolvedAt ?: continue
+                val eventsAtResolution = eventsByCaseId[hunch.caseId].orEmpty().filter { it.occurredAt <= resolvedAt }
+                val result = computeVerdict(hunch, eventsAtResolution, case.createdAt, resolvedAt, case.durationMode)
+                hunchDao.update(hunch.withResolvedVerdictSnapshot(result))
+            }
+        }
 
         // Trigger
         override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggerDao.getById(triggerId)

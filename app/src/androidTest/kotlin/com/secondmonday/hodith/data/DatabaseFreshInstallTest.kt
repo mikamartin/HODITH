@@ -132,4 +132,36 @@ class DatabaseFreshInstallTest {
                 }
             }
         }
+
+    /**
+     * v9 → v10 auto-migration: the `hunches` table gains the `resolved*` verdict-snapshot columns
+     * and `resolvedVerdictSnapshotTaken`. The migration is schema-only — it can't run
+     * `computeVerdict` — so a pre-existing resolved Hunch's row survives with the new columns
+     * unset; `HodithApplication`'s startup backfill is what actually populates them.
+     */
+    @Test
+    fun migrationFrom9To10_addsHunchVerdictSnapshotColumns_withSafeDefaults() =
+        runTest {
+            migrationTestHelper.createDatabase(TEST_DB_NAME, 9).use { db ->
+                db.execSQL(
+                    "INSERT INTO cases (id, name, icon, createdAt, logFlow, durationMode, intensityEnabled, " +
+                        "checkInsEnabled, sortOrder, archived) " +
+                        "VALUES (1, 'Coffee', '☕', 0, 'ONE_TAP', 'NONE', 0, 1, 0, 0)",
+                )
+                db.execSQL(
+                    "INSERT INTO hunches (id, caseId, direction, expectedCount, expectedPer, createdAt, " +
+                        "resolvedAt, metric, observationWindow, windowStartDate) " +
+                        "VALUES (1, 1, 'TOO_OFTEN', 3, 'WEEK', 0, 500, 'OCCURRENCE_COUNT', 'SINCE_START', NULL)",
+                )
+            }
+
+            migrationTestHelper.runMigrationsAndValidate(TEST_DB_NAME, 10, true).use { db ->
+                db.query("SELECT * FROM hunches WHERE id = 1").use { cursor ->
+                    assertTrue("the migrated hunch row should survive", cursor.moveToFirst())
+                    assertEquals(500L, cursor.getLong(cursor.getColumnIndexOrThrow("resolvedAt")))
+                    assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("resolvedComparisonBand")))
+                    assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("resolvedVerdictSnapshotTaken")))
+                }
+            }
+        }
 }

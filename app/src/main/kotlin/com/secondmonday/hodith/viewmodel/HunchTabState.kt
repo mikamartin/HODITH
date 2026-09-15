@@ -8,6 +8,7 @@ import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
 import com.secondmonday.hodith.domain.VerdictResult
 import com.secondmonday.hodith.domain.computeVerdict
+import com.secondmonday.hodith.domain.resolvedVerdictSnapshotOrNull
 
 /**
  * What the Case Detail Hunch tab renders (spec §7), derived fresh from raw data on every read —
@@ -43,10 +44,12 @@ sealed interface HunchTabState {
 }
 
 /**
- * A resolved Hunch's verdict, frozen at the moment it was resolved. Verdicts are never stored
- * (spec §8), so a history entry is reconstructed by recomputing [computeVerdict] as of
- * [HunchEntity.resolvedAt] over only the events that existed by then — recomputing it against
- * today's events/`now` would silently change a past verdict as new events keep arriving.
+ * A resolved Hunch's verdict, frozen at the moment it was resolved. An active Hunch's verdict is
+ * never stored (spec §8) and is always recomputed live — but a *resolved* Hunch's verdict is
+ * snapshotted onto [HunchEntity] at resolution time (`CaseDetailViewModel.resolveHunch`), so a
+ * history entry is read straight from those stored fields rather than recomputed. That's what
+ * actually keeps it frozen: recomputing from live Events, even filtered to `occurredAt <=
+ * resolvedAt`, would still drift if an old Event inside that window were later edited or deleted.
  */
 data class HunchHistoryEntry(
     val hunch: HunchEntity,
@@ -80,13 +83,16 @@ private fun HunchEntity.toHistoryEntry(
     case: CaseEntity,
 ): HunchHistoryEntry? {
     val resolvedAt = resolvedAt ?: return null
-    val eventsAtResolution = events.filter { it.occurredAt <= resolvedAt }
-    // now = resolvedAt keeps a resolved Hunch's verdict frozen — a rolling window is measured as
-    // of the resolution instant, not the live clock, so a history entry never drifts.
-    val result = computeVerdict(this, eventsAtResolution, case.createdAt, now = resolvedAt, case.durationMode)
+    val result =
+        resolvedVerdictSnapshotOrNull() ?: run {
+            // Defensive fallback for the brief window right after an upgrade, before
+            // HodithApplication's one-time backfill has snapshotted this row.
+            val eventsAtResolution = events.filter { it.occurredAt <= resolvedAt }
+            computeVerdict(this, eventsAtResolution, case.createdAt, now = resolvedAt, case.durationMode)
+        }
     // A hunch resolved before it ever reached a verdict (comparisonBand == null) has nothing
     // meaningful to show in history — the app's own "Resolve Hunch" button only appears once a
-    // band exists, so this only guards against manually-edited or imported data.
+    // band exists, so this only guards against manually-edited/imported data.
     if (result.comparisonBand == null) return null
     return HunchHistoryEntry(this, result)
 }

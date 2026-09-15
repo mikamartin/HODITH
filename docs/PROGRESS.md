@@ -206,22 +206,22 @@ Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existin
 
 *Branch: `feat/bulk-delete-logs-by-date` · Complexity: M · Priority: Medium · Area: Settings*
 
-🎨 **Design decision** — cascade behavior, plus a spec update.
+🎨 **Design decision** — spec update (cascade behavior is resolved, see below).
 
 Current spec §14 only supports deleting all data outright; there's no partial or date-scoped delete anywhere in spec or code. This is a genuine spec addition, not a bug fix — approving it means adding a new Data-card action to HODITH_SPEC §14.
 
+**Cascade scope resolved: Events-only.** Deleting old Events can't orphan a Hunch or Verdict (neither holds a foreign key to a specific Event row) and can't disturb resolved-Hunch history: a resolved Hunch's verdict is snapshotted at resolution time and read back from storage, not recomputed from live Events (`HunchEntity.resolved*` / `CaseDetailViewModel.resolveHunch` / `HunchTabState.toHistoryEntry`). Live Insights stats (trend/rhythm/frequency) are expected to shift when old logs are trimmed — that's the feature working as intended, not a concern.
+
 **Acceptance criteria**
 
-- [ ] Design decision: does this delete raw Events only, or does it also need to handle Hunches/Verdicts whose window now has missing data? What happens to stats/rhythm/frequency computations for a Case whose oldest data was just trimmed?
-- [ ] A Settings row with a date picker and a destructive confirm dialog, mirroring the existing "delete all data" pattern.
+- [ ] A Settings row with a date picker and a destructive confirm dialog, mirroring the existing "delete all data" pattern. Confirm-dialog copy stays generic (permanent/can't-be-undone), no special mention of stats shifting.
+- [ ] `EventDao.deleteOlderThan(cutoff)` (Events only; cascades to `event_tags` automatically via existing FK, `tags` untouched — same shape as `deleteAllData()`).
 - [ ] HODITH_SPEC §14 updated with the new Data-card action.
-- [ ] Voice ×3 for the new row/dialog.
+- [ ] Voice ×3 for the new row/dialog (confirm body parameterized by the chosen date).
 
-**Plan** — resolve the design decision above first; likely a bounded DAO delete query plus a confirm dialog reusing existing patterns.
+**Plan** — mirror the existing "delete all data" pattern: `EventDao.deleteOlderThan`, a repository/ViewModel pass-through, a date-picker (reuse `HunchCreationSheet.kt`'s `WindowStartDatePickerDialog` pattern, capped at today) into the existing `ConfirmDialog`.
 
-**Tests** — a DAO test for the date-bounded delete; `SettingsScreenTest` for the picker/confirm flow.
-
-**Concern** — don't assume delete-and-move-on is safe for historical data Hunches may reference.
+**Tests** — `EventDaoTest` for the date-bounded delete + cascade; `SettingsScreenTest` for the picker/confirm flow.
 
 ### S15 · Big Picture: year-level filter UX exploration
 

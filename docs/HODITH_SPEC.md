@@ -125,7 +125,7 @@ Optional, many per Case.
 | armed | boolean, defaults true — edge-trigger state: fires (and flips to false) when the condition first becomes true, flips back to true once the condition stops being true. Prevents refiring on every evaluation while the condition remains met. |
 | lastFiredAt | nullable — when it last fired, for notification copy |
 
-Verdicts are **computed, never stored** — the verdict engine is a set of pure functions over `(hunch, events, now)`. Deliberate: it makes the app's riskiest logic its most unit-testable surface.
+Verdicts are **computed, never stored** — the verdict engine is a set of pure functions over `(hunch, events, now)`. Deliberate: it makes the app's riskiest logic its most unit-testable surface. A *resolved* Hunch is the one exception: its result is computed once at resolution time and cached on the Hunch row, so its history entry stays frozen rather than drifting if an Event inside its window is later edited or deleted.
 
 ## 6. Logging flows
 

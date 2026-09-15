@@ -111,6 +111,14 @@ interface HodithRepository {
 
     suspend fun deleteHunch(hunch: HunchEntity)
 
+    /**
+     * One-time-per-row backfill for Hunches resolved before the verdict-snapshot columns existed
+     * (`HunchEntity.resolvedVerdictSnapshotTaken`) — computes and persists each one's snapshot from
+     * whatever Events still exist now. Called from [com.secondmonday.hodith.HodithApplication] on
+     * every launch; a no-op once every resolved Hunch has been snapshotted.
+     */
+    suspend fun backfillResolvedHunchVerdicts()
+
     // Trigger
     suspend fun getTrigger(triggerId: Long): TriggerEntity?
 
