@@ -122,25 +122,6 @@ What it computes today:
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S9 · Frequency-over-time chart: axis labels illegible
-
-*Branch: `fix/frequency-chart-axis-labels` · Complexity: S–M · Priority: Medium · Area: Insights*
-
-🎨 **Design decision** — labeling strategy for a custom (non-charting-library) bar layout.
-
-`FrequencyCard` (`InsightsTab.kt:378-452`) is a hand-built Compose bar layout, not a charting library. It only ever renders two x-axis labels — the first and last bar's period start (lines 438-449) — so every bar in between is unlabeled, which testers read as "labels missing." The two labels shown already use a shortened format (`formatFrequencyPeriodLabel`, `EventTimeFormat.kt:114-124`) but still crowd the chart edges.
-
-**Acceptance criteria**
-
-- [ ] A labeling strategy decided: more ticks (e.g. every Nth bar), rotated labels, or a shorter format still — whichever reads clearly at minimum supported screen width.
-- [ ] Chosen approach implemented in `FrequencyCard`.
-- [ ] Confirmed no label overlap at minimum supported screen width, across the shortest and longest period-count cases the card renders.
-- [ ] `EventTimeFormatTest` updated if the label format itself changes.
-
-**Plan** — prototype two or three label layouts cheaply (Compose Preview) before committing to one, since this reshapes a chart rather than fixing a single value.
-
-**Tests** — `EventTimeFormatTest` for any format changes; Compose Preview/manual check for the chosen layout at narrow widths.
-
 ### S10 · Resolved hunches list: planks, pagination, and a clear-all setting
 
 *Branch: `feat/resolved-hunch-list-redesign` · Complexity: M–L · Priority: Medium · Area: Hunch*

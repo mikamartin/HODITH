@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -99,9 +98,11 @@ import com.secondmonday.hodith.viewmodel.TrendDisplay
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatClockTime
 import com.secondmonday.hodith.viewmodel.formatEventTime
-import com.secondmonday.hodith.viewmodel.formatFrequencyPeriodLabel
+import com.secondmonday.hodith.viewmodel.formatFrequencyTickLabel
 import com.secondmonday.hodith.viewmodel.formatMediumDate
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
+import com.secondmonday.hodith.viewmodel.frequencyTickCount
+import com.secondmonday.hodith.viewmodel.frequencyTickIndices
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -120,6 +121,7 @@ private const val FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.02f
 private const val FREQUENCY_BAR_MAX_HEIGHT_FRACTION = 0.8f
 private const val FREQUENCY_BAR_LABEL_GAP = 2
 private const val FREQUENCY_CHART_TOP_SPACING = 16
+private const val FREQUENCY_TICK_LABEL_GAP = 4
 private const val RHYTHM_CELL_SIZE = 26
 
 /** Meant to fit "Afternoon" — the longest time-of-day label, at [MaterialTheme.typography]'s `bodyMedium` — on one line; falls back to an ellipsis (`TextOverflow.Ellipsis` on the label `Text`) rather than breaking the row's layout if a theme's display font doesn't quite fit it. A fixed width (not `Modifier.weight`) keeps the label snug against the grid instead of stretching to fill the row. */
@@ -416,9 +418,10 @@ private fun FrequencyCard(
     voice: Voice,
 ) {
     val locale = LocalLocale.current.platformLocale
-    val axisLabel = { periodStart: LocalDate ->
-        formatFrequencyPeriodLabel(periodStart, display.granularity, locale, voice::insightsFrequencyWeekAxisLabel)
-    }
+    val tickIndices =
+        remember(display.bars.size, display.granularity) {
+            frequencyTickIndices(display.bars.size, frequencyTickCount(display.granularity)).toSet()
+        }
 
     InsightsCard {
         SectionWithInfo(
@@ -439,27 +442,43 @@ private fun FrequencyCard(
                 onSelect = onGranularityChange,
             )
             val barBrush = frequencyBarBrush(LocalCardDecorationStyle.current)
-            Row(modifier = Modifier.fillMaxWidth().padding(top = FREQUENCY_CHART_TOP_SPACING.dp).height(FREQUENCY_BAR_CHART_HEIGHT.dp)) {
-                display.bars.forEach { bar ->
+            Row(modifier = Modifier.fillMaxWidth().padding(top = FREQUENCY_CHART_TOP_SPACING.dp)) {
+                display.bars.forEachIndexed { index, bar ->
                     val barHeight =
                         FREQUENCY_BAR_CHART_HEIGHT.dp *
                             bar.heightFraction.coerceAtLeast(FREQUENCY_MIN_BAR_HEIGHT_FRACTION) *
                             FREQUENCY_BAR_MAX_HEIGHT_FRACTION
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 1.dp)
-                                    .height(barHeight)
-                                    .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                                    .background(barBrush),
-                        )
-                        if (bar.count > 0) {
+                    // One column per bar holds both the bar and its (optional) tick label, so a
+                    // label can never drift from the bar it names the way the old separate
+                    // space-between row could (spec S9).
+                    Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(modifier = Modifier.fillMaxWidth().height(FREQUENCY_BAR_CHART_HEIGHT.dp)) {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 1.dp)
+                                        .height(barHeight)
+                                        .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                                        .background(barBrush),
+                            )
+                            if (bar.count > 0) {
+                                Text(
+                                    text = bar.count.toString(),
+                                    modifier = Modifier.align(Alignment.BottomCenter).offset(y = -(barHeight + FREQUENCY_BAR_LABEL_GAP.dp)),
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (index in tickIndices) {
                             Text(
-                                text = bar.count.toString(),
-                                modifier = Modifier.align(Alignment.BottomCenter).offset(y = -(barHeight + FREQUENCY_BAR_LABEL_GAP.dp)),
+                                text = formatFrequencyTickLabel(bar.periodStart, display.granularity, locale),
+                                modifier = Modifier.padding(top = FREQUENCY_TICK_LABEL_GAP.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -467,18 +486,6 @@ private fun FrequencyCard(
                         }
                     }
                 }
-            }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    text = axisLabel(display.bars.first().periodStart),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = axisLabel(display.bars.last().periodStart),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }
@@ -883,17 +890,65 @@ internal fun formatDays(days: Double): String {
     return "$label days"
 }
 
-private val previewFrequencyDisplay =
+// 12-bar fixtures (matching the real FREQUENCY_MAX_BUCKETS) for all three granularities, so
+// previews exercise the actual tick-label density instead of the 6-bar stand-in this used to be.
+private val previewFrequencyDisplayDay =
+    FrequencyDisplay(
+        granularity = FrequencyGranularity.DAY,
+        bars =
+            listOf(
+                FrequencyBar(LocalDate.of(2026, 9, 4), 1, 1f / 4),
+                FrequencyBar(LocalDate.of(2026, 9, 5), 0, 0f),
+                FrequencyBar(LocalDate.of(2026, 9, 6), 2, 2f / 4),
+                FrequencyBar(LocalDate.of(2026, 9, 7), 3, 3f / 4),
+                FrequencyBar(LocalDate.of(2026, 9, 8), 1, 1f / 4),
+                FrequencyBar(LocalDate.of(2026, 9, 9), 0, 0f),
+                FrequencyBar(LocalDate.of(2026, 9, 10), 4, 1f),
+                FrequencyBar(LocalDate.of(2026, 9, 11), 2, 2f / 4),
+                FrequencyBar(LocalDate.of(2026, 9, 12), 1, 1f / 4),
+                FrequencyBar(LocalDate.of(2026, 9, 13), 3, 3f / 4),
+                FrequencyBar(LocalDate.of(2026, 9, 14), 2, 2f / 4),
+                FrequencyBar(LocalDate.of(2026, 9, 15), 1, 1f / 4),
+            ),
+    )
+
+private val previewFrequencyDisplayWeek =
     FrequencyDisplay(
         granularity = FrequencyGranularity.WEEK,
         bars =
             listOf(
-                FrequencyBar(LocalDate.of(2026, 6, 1), 2, 0.35f),
-                FrequencyBar(LocalDate.of(2026, 6, 8), 3, 0.55f),
-                FrequencyBar(LocalDate.of(2026, 7, 1), 3, 0.40f),
-                FrequencyBar(LocalDate.of(2026, 7, 8), 5, 0.80f),
-                FrequencyBar(LocalDate.of(2026, 7, 15), 4, 0.60f),
-                FrequencyBar(LocalDate.of(2026, 8, 1), 6, 0.95f),
+                FrequencyBar(LocalDate.of(2026, 6, 29), 3, 3f / 5),
+                FrequencyBar(LocalDate.of(2026, 7, 6), 2, 2f / 5),
+                FrequencyBar(LocalDate.of(2026, 7, 13), 4, 4f / 5),
+                FrequencyBar(LocalDate.of(2026, 7, 20), 1, 1f / 5),
+                FrequencyBar(LocalDate.of(2026, 7, 27), 5, 1f),
+                FrequencyBar(LocalDate.of(2026, 8, 3), 3, 3f / 5),
+                FrequencyBar(LocalDate.of(2026, 8, 10), 2, 2f / 5),
+                FrequencyBar(LocalDate.of(2026, 8, 17), 4, 4f / 5),
+                FrequencyBar(LocalDate.of(2026, 8, 24), 3, 3f / 5),
+                FrequencyBar(LocalDate.of(2026, 8, 31), 1, 1f / 5),
+                FrequencyBar(LocalDate.of(2026, 9, 7), 2, 2f / 5),
+                FrequencyBar(LocalDate.of(2026, 9, 14), 3, 3f / 5),
+            ),
+    )
+
+private val previewFrequencyDisplayMonth =
+    FrequencyDisplay(
+        granularity = FrequencyGranularity.MONTH,
+        bars =
+            listOf(
+                FrequencyBar(LocalDate.of(2025, 10, 1), 5, 5f / 7),
+                FrequencyBar(LocalDate.of(2025, 11, 1), 3, 3f / 7),
+                FrequencyBar(LocalDate.of(2025, 12, 1), 6, 6f / 7),
+                FrequencyBar(LocalDate.of(2026, 1, 1), 4, 4f / 7),
+                FrequencyBar(LocalDate.of(2026, 2, 1), 2, 2f / 7),
+                FrequencyBar(LocalDate.of(2026, 3, 1), 7, 1f),
+                FrequencyBar(LocalDate.of(2026, 4, 1), 5, 5f / 7),
+                FrequencyBar(LocalDate.of(2026, 5, 1), 3, 3f / 7),
+                FrequencyBar(LocalDate.of(2026, 6, 1), 4, 4f / 7),
+                FrequencyBar(LocalDate.of(2026, 7, 1), 6, 6f / 7),
+                FrequencyBar(LocalDate.of(2026, 8, 1), 5, 5f / 7),
+                FrequencyBar(LocalDate.of(2026, 9, 1), 4, 4f / 7),
             ),
     )
 
@@ -915,7 +970,7 @@ private fun InsightsBrightCardsPreviewContent() {
         LocalVoice provides voiceFor(AppTheme.BRIGHT),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            FrequencyCard(previewFrequencyDisplay, null, {}, LocalVoice.current)
+            FrequencyCard(previewFrequencyDisplayWeek, null, {}, LocalVoice.current)
             GapsCard(previewGapsDisplay, LocalVoice.current)
         }
     }
@@ -930,7 +985,7 @@ private fun InsightsPlainCardsPreviewContent() {
     ) {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                FrequencyCard(previewFrequencyDisplay, null, {}, LocalVoice.current)
+                FrequencyCard(previewFrequencyDisplayWeek, null, {}, LocalVoice.current)
                 GapsCard(previewGapsDisplay, LocalVoice.current)
             }
         }
@@ -958,6 +1013,79 @@ private fun InsightsBrightCardsLightPreview() {
 private fun InsightsBrightCardsDarkPreview() {
     HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
         InsightsBrightCardsPreviewContent()
+    }
+}
+
+/**
+ * S9: renders [FrequencyCard] alone, for the six `@Preview`s below at `widthDp` 320 (the narrowest
+ * width previewed anywhere in this codebase, standing in for "minimum supported screen width"
+ * since no exact figure is documented) across Plain and Intense — Oswald Bold, the widest of the
+ * three themes' tick-label typefaces and, until now, a theme this card had no preview coverage in
+ * at all.
+ */
+@Composable
+private fun FrequencyTickPreviewContent(
+    theme: AppTheme,
+    cardStyle: CardDecorationStyle,
+    display: FrequencyDisplay,
+) {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides cardStyle,
+        LocalVoice provides voiceFor(theme),
+    ) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                FrequencyCard(display, null, {}, LocalVoice.current)
+            }
+        }
+    }
+}
+
+@Preview(name = "Frequency chart — Plain Day — 320dp", showBackground = true, widthDp = 320)
+@Composable
+private fun FrequencyChartPlainDayPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        FrequencyTickPreviewContent(AppTheme.PLAIN, CardDecorationStyle.PLAIN, previewFrequencyDisplayDay)
+    }
+}
+
+@Preview(name = "Frequency chart — Plain Week — 320dp", showBackground = true, widthDp = 320)
+@Composable
+private fun FrequencyChartPlainWeekPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        FrequencyTickPreviewContent(AppTheme.PLAIN, CardDecorationStyle.PLAIN, previewFrequencyDisplayWeek)
+    }
+}
+
+@Preview(name = "Frequency chart — Plain Month — 320dp", showBackground = true, widthDp = 320)
+@Composable
+private fun FrequencyChartPlainMonthPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        FrequencyTickPreviewContent(AppTheme.PLAIN, CardDecorationStyle.PLAIN, previewFrequencyDisplayMonth)
+    }
+}
+
+@Preview(name = "Frequency chart — Intense Day — 320dp", showBackground = true, widthDp = 320)
+@Composable
+private fun FrequencyChartIntenseDayPreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) {
+        FrequencyTickPreviewContent(AppTheme.INTENSE, CardDecorationStyle.INTENSE, previewFrequencyDisplayDay)
+    }
+}
+
+@Preview(name = "Frequency chart — Intense Week — 320dp", showBackground = true, widthDp = 320)
+@Composable
+private fun FrequencyChartIntenseWeekPreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) {
+        FrequencyTickPreviewContent(AppTheme.INTENSE, CardDecorationStyle.INTENSE, previewFrequencyDisplayWeek)
+    }
+}
+
+@Preview(name = "Frequency chart — Intense Month — 320dp", showBackground = true, widthDp = 320)
+@Composable
+private fun FrequencyChartIntenseMonthPreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) {
+        FrequencyTickPreviewContent(AppTheme.INTENSE, CardDecorationStyle.INTENSE, previewFrequencyDisplayMonth)
     }
 }
 
