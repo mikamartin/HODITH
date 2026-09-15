@@ -16,6 +16,8 @@ import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.domain.computeVerdict
+import com.secondmonday.hodith.domain.withResolvedVerdictSnapshot
 import com.secondmonday.hodith.ui.voice.Voice
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -173,7 +176,15 @@ class CaseDetailViewModel
         }
 
         fun resolveHunch(hunch: HunchEntity) {
-            viewModelScope.launch { repository.updateHunch(hunch.copy(resolvedAt = clock.nowMillis())) }
+            viewModelScope.launch {
+                // Fetched directly rather than via `uiState.value`, which only reflects live data
+                // while something is actively collecting it (`SharingStarted.WhileSubscribed`).
+                val case = repository.getCase(caseId) ?: return@launch
+                val events = repository.observeEventsWithTagsForCase(caseId).first().map { it.event }
+                val resolvedAt = clock.nowMillis()
+                val result = computeVerdict(hunch, events, case.createdAt, resolvedAt, case.durationMode)
+                repository.updateHunch(hunch.copy(resolvedAt = resolvedAt).withResolvedVerdictSnapshot(result))
+            }
         }
     }
 

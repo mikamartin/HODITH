@@ -14,6 +14,7 @@ import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.domain.computeVerdict
 import com.secondmonday.hodith.testsupport.Fixtures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -262,5 +263,63 @@ class CaseDetailViewModelTest {
                     .single()
                     .resolvedAt,
             )
+        }
+
+    @Test
+    fun `resolveHunch does nothing when the case is missing`() =
+        runTest {
+            // No repository.cases seeded — mirrors a case deleted out from under an in-flight
+            // resolve (e.g. a rapid delete right after tapping Resolve).
+            val hunch =
+                HunchEntity(
+                    id = 1L,
+                    caseId = caseId,
+                    direction = HunchDirection.TOO_OFTEN,
+                    expectedCount = 5,
+                    expectedPer = ExpectedPer.WEEK,
+                    createdAt = 0L,
+                    resolvedAt = null,
+                )
+            repository.hunches.value = listOf(hunch)
+            val vm = viewModel()
+
+            vm.resolveHunch(hunch)
+
+            assertEquals(hunch, repository.hunches.value.single())
+        }
+
+    @Test
+    fun `resolveHunch persists the verdict snapshot alongside resolvedAt`() =
+        runTest {
+            val case = testCase()
+            repository.cases.value = listOf(case)
+            repeat(5) { i -> repository.insertEvent(testEvent(occurredAt = i * 1_000L)) }
+            val hunch =
+                HunchEntity(
+                    id = 1L,
+                    caseId = caseId,
+                    direction = HunchDirection.TOO_OFTEN,
+                    expectedCount = 5,
+                    expectedPer = ExpectedPer.WEEK,
+                    createdAt = 0L,
+                    resolvedAt = null,
+                )
+            repository.hunches.value = listOf(hunch)
+            val vm = viewModel()
+
+            clock.advanceBy(60_000L)
+            vm.resolveHunch(hunch)
+
+            val resolved = repository.hunches.value.single()
+            val expected =
+                computeVerdict(hunch, repository.events.value, case.createdAt, clock.nowMillis(), case.durationMode)
+            assertTrue(resolved.resolvedVerdictSnapshotTaken)
+            assertEquals(expected.tier, resolved.resolvedTier)
+            assertEquals(expected.comparisonBand, resolved.resolvedComparisonBand)
+            assertEquals(expected.eventCount, resolved.resolvedEventCount)
+            assertEquals(expected.activeDayCount, resolved.resolvedActiveDayCount)
+            assertEquals(expected.windowDays, resolved.resolvedWindowDays)
+            assertEquals(expected.observedRate, resolved.resolvedObservedRate)
+            assertEquals(expected.expectedRate, resolved.resolvedExpectedRate)
         }
 }

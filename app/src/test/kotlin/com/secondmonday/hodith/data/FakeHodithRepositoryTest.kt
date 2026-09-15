@@ -379,6 +379,68 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
+    fun `backfillResolvedHunchVerdicts snapshots every pending resolved hunch exactly once`() =
+        runTest {
+            val caseId = repository.insertCase(testCase())
+            repository.insertEvent(testEvent(caseId = caseId, occurredAt = 50L))
+            repository.insertEvent(testEvent(caseId = caseId, occurredAt = 150L)) // after resolvedAt, excluded
+            val resolvedId =
+                repository.insertHunch(
+                    HunchEntity(
+                        caseId = caseId,
+                        direction = HunchDirection.TOO_OFTEN,
+                        expectedCount = 1,
+                        expectedPer = ExpectedPer.WEEK,
+                        createdAt = 0L,
+                        resolvedAt = 100L,
+                    ),
+                )
+            val activeId =
+                repository.insertHunch(
+                    HunchEntity(
+                        caseId = caseId,
+                        direction = HunchDirection.NOT_ENOUGH,
+                        expectedCount = 1,
+                        expectedPer = ExpectedPer.WEEK,
+                        createdAt = 0L,
+                        resolvedAt = null,
+                    ),
+                )
+
+            repository.backfillResolvedHunchVerdicts()
+
+            val snapshot = repository.hunches.value.single { it.id == resolvedId }
+            assertTrue(snapshot.resolvedVerdictSnapshotTaken)
+            assertEquals(1, snapshot.resolvedEventCount) // only the pre-resolvedAt event counts
+            val active = repository.hunches.value.single { it.id == activeId }
+            assertFalse(active.resolvedVerdictSnapshotTaken)
+        }
+
+    @Test
+    fun `backfillResolvedHunchVerdicts is a no-op once every resolved hunch is already snapshotted`() =
+        runTest {
+            val caseId = repository.insertCase(testCase())
+            val hunchId =
+                repository.insertHunch(
+                    HunchEntity(
+                        caseId = caseId,
+                        direction = HunchDirection.TOO_OFTEN,
+                        expectedCount = 1,
+                        expectedPer = ExpectedPer.WEEK,
+                        createdAt = 0L,
+                        resolvedAt = 100L,
+                    ),
+                )
+            repository.backfillResolvedHunchVerdicts()
+            val firstPass = repository.hunches.value.single { it.id == hunchId }
+
+            repository.events.value = repository.events.value + testEvent(caseId = caseId, occurredAt = 10L)
+            repository.backfillResolvedHunchVerdicts()
+
+            assertEquals(firstPass, repository.hunches.value.single { it.id == hunchId })
+        }
+
+    @Test
     fun `getEnabledTriggers filters out disabled triggers across all cases`() =
         runTest {
             repository.insertTrigger(

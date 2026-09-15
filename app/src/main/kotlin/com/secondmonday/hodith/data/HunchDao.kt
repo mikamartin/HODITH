@@ -29,4 +29,8 @@ interface HunchDao {
 
     @Query("SELECT * FROM hunches")
     suspend fun getAll(): List<HunchEntity>
+
+    /** Resolved Hunches whose verdict snapshot (`resolved*` columns) hasn't been backfilled yet — see [com.secondmonday.hodith.HodithApplication]. */
+    @Query("SELECT * FROM hunches WHERE resolvedAt IS NOT NULL AND resolvedVerdictSnapshotTaken = 0")
+    suspend fun getResolvedHunchesMissingSnapshot(): List<HunchEntity>
 }

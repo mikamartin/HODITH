@@ -50,6 +50,14 @@ private fun testHunch(
     createdAt: Long = millisAtDay(0),
     resolvedAt: Long? = null,
     observationWindow: ObservationWindow = ObservationWindow.SINCE_START,
+    resolvedVerdictSnapshotTaken: Boolean = false,
+    resolvedTier: ConfidenceTier? = null,
+    resolvedEventCount: Int? = null,
+    resolvedActiveDayCount: Int? = null,
+    resolvedWindowDays: Long? = null,
+    resolvedObservedRate: Double? = null,
+    resolvedExpectedRate: Double? = null,
+    resolvedComparisonBand: ComparisonBand? = null,
 ) = HunchEntity(
     id = id,
     caseId = 1L,
@@ -61,6 +69,14 @@ private fun testHunch(
     metric = VerdictMetric.OCCURRENCE_COUNT,
     observationWindow = observationWindow,
     windowStartDate = null,
+    resolvedVerdictSnapshotTaken = resolvedVerdictSnapshotTaken,
+    resolvedTier = resolvedTier,
+    resolvedEventCount = resolvedEventCount,
+    resolvedActiveDayCount = resolvedActiveDayCount,
+    resolvedWindowDays = resolvedWindowDays,
+    resolvedObservedRate = resolvedObservedRate,
+    resolvedExpectedRate = resolvedExpectedRate,
+    resolvedComparisonBand = resolvedComparisonBand,
 )
 
 private fun eventsAt(
@@ -242,6 +258,57 @@ class HunchTabStateTest {
         // ~90-day rolling window measured from resolvedAt, not the day-300 live clock (which would
         // see zero events); the fixed 90-day millis span can land a day either side across DST.
         assertTrue(entry.result.windowDays in 89L..91L)
+    }
+
+    // ---- history: reads the persisted snapshot once taken, rather than recomputing ----
+
+    @Test
+    fun `history entry reads the persisted snapshot once taken, ignoring live events entirely`() {
+        val case = testCase()
+        val hunch =
+            testHunch(
+                resolvedAt = millisAtDay(14),
+                resolvedVerdictSnapshotTaken = true,
+                resolvedTier = ConfidenceTier.CONFIDENT,
+                resolvedEventCount = 3,
+                resolvedActiveDayCount = 3,
+                resolvedWindowDays = 14L,
+                resolvedObservedRate = 0.5,
+                resolvedExpectedRate = 5.0,
+                resolvedComparisonBand = ComparisonBand.MUCH_LESS,
+            )
+        // A burst of events that, if the snapshot were ignored and this recomputed live, would
+        // compute a very different result (MUCH_MORE, not MUCH_LESS) — proving the stored snapshot
+        // is what's read, not live events, once an old in-window Event has since been edited/deleted.
+        val events = eventsAt(200, millisAtDay(7))
+
+        val state = hunchTabState(case, activeHunch = null, events = events, history = listOf(hunch), now = millisAtDay(300))
+
+        val entry = (state as HunchTabState.NoActiveHunch).history.single()
+        assertEquals(ComparisonBand.MUCH_LESS, entry.result.comparisonBand)
+        assertEquals(3, entry.result.eventCount)
+        assertEquals(14L, entry.result.windowDays)
+    }
+
+    @Test
+    fun `history omits a snapshotted hunch whose stored comparisonBand is null`() {
+        val case = testCase()
+        val hunch =
+            testHunch(
+                resolvedAt = millisAtDay(1),
+                resolvedVerdictSnapshotTaken = true,
+                resolvedTier = ConfidenceTier.NO_VERDICT,
+                resolvedEventCount = 0,
+                resolvedActiveDayCount = 0,
+                resolvedWindowDays = 1L,
+                resolvedObservedRate = 0.0,
+                resolvedExpectedRate = 5.0,
+                resolvedComparisonBand = null,
+            )
+
+        val state = hunchTabState(case, activeHunch = null, events = emptyList(), history = listOf(hunch), now = millisAtDay(30))
+
+        assertTrue((state as HunchTabState.NoActiveHunch).history.isEmpty())
     }
 
     @Test

@@ -1,6 +1,8 @@
 package com.secondmonday.hodith.data
 
 import com.secondmonday.hodith.data.backup.BackupData
+import com.secondmonday.hodith.domain.computeVerdict
+import com.secondmonday.hodith.domain.withResolvedVerdictSnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -257,6 +259,21 @@ class FakeHodithRepository : HodithRepository {
 
     override suspend fun deleteHunch(hunch: HunchEntity) {
         hunches.update { list -> list.filterNot { it.id == hunch.id } }
+    }
+
+    override suspend fun backfillResolvedHunchVerdicts() {
+        val casesById = cases.value.associateBy { it.id }
+        val eventsByCaseId = events.value.groupBy { it.caseId }
+        hunches.update { list ->
+            list.map { hunch ->
+                val resolvedAt = hunch.resolvedAt
+                if (resolvedAt == null || hunch.resolvedVerdictSnapshotTaken) return@map hunch
+                val case = casesById[hunch.caseId] ?: return@map hunch
+                val eventsAtResolution = eventsByCaseId[hunch.caseId].orEmpty().filter { it.occurredAt <= resolvedAt }
+                val result = computeVerdict(hunch, eventsAtResolution, case.createdAt, resolvedAt, case.durationMode)
+                hunch.withResolvedVerdictSnapshot(result)
+            }
+        }
     }
 
     // Trigger

@@ -14,11 +14,15 @@ import androidx.room.migration.Migration
  * [DropStaleNudgeColumn]); v8 adds the `hunches.metric` / `observationWindow` / `windowStartDate`
  * columns (spec §8), a pure additive auto-migration carrying column defaults; v9 drops the
  * `cases.hunchNudgeDismissed` column (see [DropHunchNudgeDismissedColumn]) now the Hunch-nudge
- * "don't ask again" opt-out is gone. `@Database.version` can't be read back via reflection (Room's
- * annotation uses [AnnotationRetention.BINARY]), so this is the one place migration-guard tests
- * should get the current version from instead of a second hardcoded literal.
+ * "don't ask again" opt-out is gone; v10 adds the `hunches.resolved*` verdict-snapshot columns and
+ * `resolvedVerdictSnapshotTaken`, another pure additive auto-migration — schema-only, since a
+ * migration can't run [com.secondmonday.hodith.domain.computeVerdict]; the one-time backfill that
+ * populates them for pre-existing resolved Hunches runs from `HodithApplication` on next launch
+ * instead. `@Database.version` can't be read back via reflection (Room's annotation uses
+ * [AnnotationRetention.BINARY]), so this is the one place migration-guard tests should get the
+ * current version from instead of a second hardcoded literal.
  */
-const val HODITH_DATABASE_VERSION = 9
+const val HODITH_DATABASE_VERSION = 10
 
 /** Schema versions at or below this shipped without migrations; every version past it needs one. */
 const val SCHEMA_FREEZE_POINT = 6
@@ -45,6 +49,7 @@ class DropHunchNudgeDismissedColumn : AutoMigrationSpec
         AutoMigration(from = 6, to = 7, spec = DropStaleNudgeColumn::class),
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9, spec = DropHunchNudgeDismissedColumn::class),
+        AutoMigration(from = 9, to = 10),
     ],
     exportSchema = true,
 )
@@ -68,6 +73,6 @@ abstract class HodithDatabase : RoomDatabase() {
          * annotation directly), so the schema-coverage guard counts them here. Bump when adding an
          * `AutoMigration` entry above.
          */
-        const val AUTO_MIGRATION_COUNT = 3
+        const val AUTO_MIGRATION_COUNT = 4
     }
 }
