@@ -673,4 +673,59 @@ class CaseDetailScreenTest {
             .onNodeWithText(PlainVoice.hunchHistoryRowStamp(formatEventDate(0L), formatEventDate(resolvedAt)))
             .assertExists()
     }
+
+    private fun resolvedHunchesForWindowingTests() =
+        (1..7).map { index ->
+            HunchEntity(
+                id = index.toLong(),
+                caseId = 1L,
+                direction = HunchDirection.TOO_OFTEN,
+                expectedCount = 1,
+                expectedPer = ExpectedPer.DAY,
+                createdAt = 0L,
+                resolvedAt = (30L - index) * 24 * 60 * 60_000L,
+            )
+        }
+
+    @Test
+    fun hunchTab_history_showsFirstFiveThenRevealsRestOnShowMore() {
+        val resolvedHunches = resolvedHunchesForWindowingTests()
+        setCaseDetailScreenContent(
+            hunchHistory = resolvedHunches,
+            events = eventsAt(6),
+            nowMillis = { 40 * 24 * 60 * 60_000L },
+        )
+        openHunchTab()
+
+        fun stampFor(hunch: HunchEntity) = PlainVoice.hunchHistoryRowStamp(formatEventDate(0L), formatEventDate(hunch.resolvedAt!!))
+
+        resolvedHunches.take(5).forEach { hunch ->
+            composeTestRule.onNodeWithText(stampFor(hunch)).assertExists()
+        }
+        resolvedHunches.drop(5).forEach { hunch ->
+            composeTestRule.onNodeWithText(stampFor(hunch)).assertDoesNotExist()
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryShowMoreAction).performClick()
+
+        resolvedHunches.forEach { hunch ->
+            composeTestRule.onNodeWithText(stampFor(hunch)).assertExists()
+        }
+    }
+
+    @Test
+    fun hunchTab_history_retentionNote_onlyShowsOnceFullyExpanded() {
+        setCaseDetailScreenContent(
+            hunchHistory = resolvedHunchesForWindowingTests(),
+            events = eventsAt(6),
+            nowMillis = { 40 * 24 * 60 * 60_000L },
+        )
+        openHunchTab()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryRetentionNote).assertDoesNotExist()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryShowMoreAction).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryRetentionNote).assertExists()
+    }
 }

@@ -17,6 +17,39 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/resolved-hunch-list-redesign
+
+**Scope:** PROGRESS.md's S10 — plank redesign for the Case Detail Hunch tab's resolved-history list, plus "show more" pagination. Redirected mid-scope after discussion with the user: S10 originally paired pagination with an open "further paging vs. show-all" question and a separate manual "clear all resolved hunches" settings action; landed instead as pagination capped at a 15-item retention ceiling (5 shown + 10 revealed = the entire retained set) that prunes automatically the moment a new Hunch resolves past it, with a footer note on the fully-expanded list stating the cap plainly (so the pruning is transparent, not a silent surprise) and the manual clear-all setting dropped as redundant once the cap exists.
+
+**Changes:**
+
+- `HunchDao.deleteResolvedHunchesBeyondLimit(caseId, keep)` — new `DELETE` query keeping only the `keep` most-recently-resolved rows for a Case (`ORDER BY resolvedAt DESC, id DESC` inside a `NOT IN` subquery), leaving the active (unresolved) Hunch untouched. `HodithRepository.pruneResolvedHunches(caseId)` / `RoomHodithRepository`'s implementation wrap it with the new `HUNCH_HISTORY_RETENTION_LIMIT = 15` constant (`domain/VerdictEngine.kt`, alongside the domain's other named Hunch-tier constants). `CaseDetailViewModel.resolveHunch` calls it right after persisting the resolved verdict snapshot.
+- `CaseDetailScreen.kt`: `HunchHistoryCard`/`HunchHistoryRow` (one shared card, divider-separated rows, unconditionally rendered) replaced with `HunchHistoryList`/`HunchHistoryPlank` — each resolved Hunch is its own plank `Card` (reusing the existing `HunchCard` shell), the restated frequency-claim line dropped (stamp + outcome only), 5 shown by default with a "Show more" `TextButton` revealing the rest via local Compose state, and a footer note once fully expanded.
+- Voice ×3: new `hunchHistoryShowMoreAction`/`hunchHistoryRetentionNote`; removed `hunchHistoryRowText` (was a single shared default implementation on the interface, not per-voice overrides, so its removal was a one-line deletion, not a three-voice hunt).
+- `FakeHodithRepository` gained a matching `pruneResolvedHunches` so `CaseDetailViewModelTest` exercises real prune behavior rather than a stub that silently no-ops.
+
+**Checklist walk (against the working-tree `git diff`):**
+
+- *Duplication* — no inline strings anywhere in the new composables; every one routes through `Voice`. Each plank reuses the existing `HunchCard` shell rather than a new component. `pruneResolvedHunches` doesn't overlap any existing repository method — genuinely new capability, not a case for parameterizing an existing one.
+- *Decoupling* — the "show more" window is plain Compose `remember` state, not threaded through the ViewModel/repository, since the prune already keeps the whole list small (≤15) — no `LIMIT`/`OFFSET`/`hasMore` machinery needed the way the Log tab's unbounded Events list requires. No `System.currentTimeMillis()` (the prune is count-based, not time-based, so it doesn't touch `Clock` at all). No `android.*` import in the `domain/VerdictEngine.kt` constant addition.
+- *Complexity & pattern health* — `shownCount`'s plain `remember(case.id)` matches this same file's existing precedent (`selectedTab`, `showHunchCreationSheet`, `frequencyGranularityOverride` are all plain `remember`, not `rememberSaveable`) rather than introducing a new state-holding convention for this one toggle.
+- *Dead code & hygiene* — removed the now-unused `HorizontalDivider` import; grepped for `hunchHistoryRowText` before deleting it (zero references outside `Voice.kt` itself). Caught one own mistake mid-pass: an unneeded explicit import of `assertDoesNotExist` in the new `CaseDetailScreenTest` cases (it's used unqualified everywhere else in the codebase, as a member function) — only surfaced as a real compile error once `connectedDebugAndroidTest` actually compiled the `androidTest` source set; `lintDebug`'s own `lintAnalyzeDebugAndroidTest` pass had reported success without catching it, worth remembering next time lint-clean is read as compile-clean for that source set.
+- *Repo hygiene* — no secrets, no local paths; `git status` clean throughout (no stray untracked files).
+- *Naming* — new Voice keys join the existing `hunchHistory*` run; `HunchHistoryList`/`HunchHistoryPlank` are descriptive PascalCase replacements for `HunchHistoryCard`/`HunchHistoryRow`.
+- *Hardcoded values* — `HUNCH_HISTORY_RETENTION_LIMIT` (15) is a named domain constant. The "5 shown initially" number stays a private UI-layer constant in `CaseDetailScreen.kt` rather than domain — it's pure presentation windowing, not a product rule, matching the Log tab's own precedent of keeping its pagination-window constants (`LOG_INITIAL_LIMIT`/`LOG_LOAD_MORE_INCREMENT`) outside `domain/`.
+- *Accessibility* — no new icon-only controls; the "Show more" `TextButton` is a standard M3 component at its default touch target.
+- *Deprecated APIs* — none introduced; `lintDebug` clean.
+- *Spec review* — `HODITH_SPEC.md` §7 updated to state the 15-item retention cap in present tense; no stale "further paging vs. show-all" ambiguity left anywhere in the spec or PROGRESS.md.
+- *Tests* — `HunchDaoTest` (2 new cases: keeps exactly the N most-recently-resolved, never touches the active Hunch); `CaseDetailViewModelTest` (1 new case: resolving a Hunch triggers the prune, pinning the ordering the way PROGRESS.md's **D4** already flagged this exact class of side-effect-after-a-repository-call bug matters); `CaseDetailScreenTest` (2 new cases: the show-more reveal count, and the retention note appearing only once fully expanded, not before).
+
+**Deferred:** nothing — every acceptance criterion in the redirected scope was met in this pass, so S10 is removed from PROGRESS.md rather than struck.
+
+**Docs updated:** `PROGRESS.md` — S10 removed (fully resolved; scope redirected mid-item, see Scope above); B2's Voice-key fold-in list gained this branch's `hunchHistoryShowMoreAction`/`hunchHistoryRetentionNote` additions and `hunchHistoryRowText` retirement. `HODITH_SPEC.md` §7 — resolved-hunch history's 15-item retention cap stated. `TESTING.md` — Verdict engine row (prune-on-resolve coverage) and Compose UI row (plank/show-more/retention-note coverage).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (one round-trip: a ktlint import-ordering/line-wrap fix, then the `assertDoesNotExist` import fix above, before all four passed clean together). `connectedDebugAndroidTest` scoped to `HunchDaoTest` and `CaseDetailScreenTest` — 44/44 green on `Pixel_8_API36(AVD)`, including every new case.
+
+---
+
 ## feat/bulk-delete-logs-by-date
 
 **Scope:** PROGRESS.md's S14 (delete logs older than a chosen date), but built as a rework of the existing "Delete all data" row rather than S14's originally-scoped second row next to it — the user asked for one "Delete Data" action that first chooses all-data vs. logs-only, then (for logs-only) a cutoff date defaulting to today, rather than two separate destructive rows. Cascade scope follows S14's own resolved analysis: Events-only — a resolved Hunch's verdict is a stored snapshot (`fix/freeze-resolved-hunch-verdict`, above), not recomputed live, so trimming old Events can't disturb it or orphan a Hunch/Trigger.
@@ -146,32 +179,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Docs updated:** `TESTING.md`'s Case Detail Insights coverage row now names the Trend and Duration info icons alongside Gaps'; PROGRESS.md's S16 item removed (fully resolved).
 
----
-
-## feat/hunch-history-row-redesign
-
-**Scope:** PROGRESS.md's S5. The trigger was a bug — `monthsAgo`/`hunchHistoryRowWhen` reads "0 months ago" for anything resolved inside its first month — but the item called for a full design-and-content pass, prototyped via an Artifact mockup before any Compose changes. The design review itself surfaced a second, unrelated bug: `HunchTabState.EarlyDays`/`Verdict` never carried `history` at all, so a Case's entire resolved-Hunch record disappeared from the screen the moment a new Hunch went active.
-
-**Changes:**
-
-- `HunchTabState`'s `history` moved onto the sealed interface itself (all three subtypes already carried it), so it's read unconditionally in `CaseDetailScreen.kt` rather than only inside the `NoActiveHunch` branch.
-- `HunchHistoryRow` rebuilt to lead with a `Made … · Resolved …` stamp (`hunchHistoryRowStamp`, new Voice key ×3) using absolute dates via the existing `formatEventDate` — no live-clock dependency left in the row at all. Rows are separated by `HorizontalDivider`s inside a card now sitting on `MaterialTheme.colorScheme.surfaceVariant` (via a new `containerColor` param on the shared `HunchCard` shell) instead of default surface, so a closed record reads as visibly distinct from the live active-Hunch card above it. No verdict-tier badge in the row — stays only on the live verdict card.
-- `hunchHistoryRowOutcome` reworded from a binary held-up/off to three severity tiers (`ABOUT_RIGHT` / `LESS`+`MORE` / `MUCH_LESS`+`MUCH_MORE`) — found during the design review, fixed in this same pass on explicit sign-off rather than deferred. `hunchHistorySummary` and `hunchHistoryRowOutcome` also lost their em dashes (×3 voices each), on request.
-- `monthsAgo` (`CaseDetailViewModel.kt`) and `hunchHistoryRowWhen` (×3, `Voice.kt`) deleted outright.
-
-**Checklist walk (against the working-tree `git diff`):**
-
-- *Duplication* — first pass had `HunchHistoryCard` hand-roll its own `Card` + padded `Column` to get a different tone, duplicating `HunchCard`'s existing shell; caught and folded back in via the new `containerColor` param (default unchanged, so every other Hunch-tab card call site is untouched). No inline strings — everything through Voice; `hunchHistoryRowStamp` is the only new key, added to all three voices in this commit.
-- *Decoupling* — `HunchHistoryRow` calls `formatEventDate` directly, same convention `formatEventTime`/`formatRate`/`formatExpectedFrequency` already use in this file. No `System.currentTimeMillis()`; `now` is no longer threaded into the history composables at all now that both dates are absolute. No `android.*` in domain code (untouched).
-- *Complexity & pattern health* — first pass computed `history` via a value-returning `when` with side-effecting composable calls inside each branch; reworked by lifting `history` onto the interface so `HunchTabContent` goes back to a plain dispatch `when`, `state.history` read once afterward.
-- *Dead code & hygiene* — grepped every `monthsAgo`/`hunchHistoryRowWhen` reference; also caught a dangling KDoc mention of `[monthsAgo]` in `TriggersViewModel.kt`'s `triggerRows` doc comment (reworded), and my own new doc-comments citing "(spec S5)" as if it were a stable `HODITH_SPEC.md` section rather than a PROGRESS.md tracker code this same diff struck out — removed from all six spots before they could go stale on merge. The Artifact prototype used to pick the layout lived only in the session scratchpad, never the repo (`git status` confirmed clean).
-- *Repo hygiene, naming, hardcoded values, accessibility, deprecated APIs* — no findings.
-- *Spec review* — `HODITH_SPEC.md` §7's hunch-history paragraph describes resolve → archive → frozen-verdict at an abstract level, not row layout, so it stays accurate; no update needed.
-- *Tests* — `HunchTabStateTest` gained two cases pinning `history` on `EarlyDays`/`Verdict` (the exact visibility bug). `CaseDetailScreenTest` gained a regression guard for the visibility bug and a second case locking the new stamp field's exact rendered text — closing a first-pass gap where the row's actual headline change had no UI coverage at all. `VoiceTest` gained a case pinning the three-severity-tier fix (LESS/MORE now read distinctly from ABOUT_RIGHT and from MUCH_LESS/MUCH_MORE) — the pure-Voice-logic equivalent of a regression test, at the unit level rather than Compose, since `hunchHistoryRowOutcome` has no Android dependency. `CaseDetailFormattingTest`'s two `monthsAgo` cases removed with the function. `VoiceTest`'s existing reflection walk covers every other new/removed key automatically.
-
-**Deferred:** nothing — the one finding from this pass (outcome-text granularity) was fixed in the same branch on explicit sign-off rather than deferred.
-
-**Docs updated:** `PROGRESS.md` — S5 struck in full (all acceptance criteria met), its two cross-references in the Standalone intro and B2's copy-touching list removed.
-
-**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. `connectedDebugAndroidTest` scoped to `CaseDetailScreenTest` — 32/32 green on `Pixel_8_API36(AVD)`, including both new cases.
 

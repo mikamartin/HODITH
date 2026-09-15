@@ -48,7 +48,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too. The `feat/big-picture-overview-detail` branch retired `bigPictureEventNoteEmptyState` (×3) and added `bigPictureDetailDialogTitle` + `bigPictureDetailEditDescription` (×3) plus four shared `get()` field labels — fold those in.
+🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too. The `feat/big-picture-overview-detail` branch retired `bigPictureEventNoteEmptyState` (×3) and added `bigPictureDetailDialogTitle` + `bigPictureDetailEditDescription` (×3) plus four shared `get()` field labels — fold those in. The `feat/resolved-hunch-list-redesign` branch retired the shared `hunchHistoryRowText` default and added `hunchHistoryShowMoreAction` + `hunchHistoryRetentionNote` (drafts in all three voices, no em dashes) — fold those in too.
 
 **Acceptance criteria**
 
@@ -140,30 +140,6 @@ What it computes today:
 **Plan** — prototype two or three label layouts cheaply (Compose Preview) before committing to one, since this reshapes a chart rather than fixing a single value.
 
 **Tests** — `EventTimeFormatTest` for any format changes; Compose Preview/manual check for the chosen layout at narrow widths.
-
-### S10 · Resolved hunches list: planks, pagination, and a clear-all setting
-
-*Branch: `feat/resolved-hunch-list-redesign` · Complexity: M–L · Priority: Medium · Area: Hunch*
-
-🎨 **Design decision** — plank visual style, and the show-more/clear-all copy.
-
-Iterates on the row redesign that just shipped in `a6d70e7` (`feat/hunch-history-row-redesign`), which fixed the created→resolved stamp, reworded outcome tiers, and a history-visibility bug — but kept every resolved Hunch as a divider-separated row inside one shared `HunchCard` (`HunchHistoryCard`/`HunchHistoryRow`, `CaseDetailScreen.kt:560-598`), rendered unconditionally via `forEachIndexed` with no pagination. New user-testing ask: drop the per-item summary line, give each resolved Hunch its own full-width "plank" card — matching the pattern `HomeScreen.kt`'s `PlainPlankHomeCaseListItem` already establishes elsewhere in the app, rather than the shared-card-with-dividers layout — show only the 5 most recent by default with a "Show more" revealing the next 10, and add a settings action to clear all resolved hunches for a Case.
-
-**Acceptance criteria**
-
-- [ ] Each resolved Hunch rendered as its own plank/card, no shared-card dividers.
-- [ ] Per-item summary line removed — decide exactly what stays (the created→resolved stamp and outcome, presumably).
-- [ ] Default view shows the 5 most recent resolved hunches, newest first.
-- [ ] "Show more" reveals the next 10; decide behavior after that (further paging vs. show-all).
-- [ ] A settings/action to permanently clear all resolved hunches for a Case, with a confirm dialog mirroring the existing "delete all data" confirm pattern.
-- [ ] Clear-all copy reviewed against spec §4 non-goals — must not read like a gamification "reset"/"fresh start," even though the action itself isn't gamification.
-- [ ] Voice ×3 for all new/changed strings.
-
-**Plan** — rework `HunchHistoryCard`/`Row` into individually-carded planks with client-side windowing (first 5, then +10 on tap); add a repository method plus a confirm dialog for bulk-clearing a Case's resolved hunches.
-
-**Tests** — `CaseDetailScreen` Compose tests for the plank layout, the show-more reveal count, and the clear-all confirm/cancel flow; a repository/DAO test for the bulk-clear query.
-
-**Concern** — this reopens a screen area that just shipped a redesign; re-read `a6d70e7`'s rationale before changing layout again so nothing already fixed (the visibility bug, the outcome-tier wording) regresses.
 
 ### S12 · Intense/Bright theme: exploratory testing pass
 

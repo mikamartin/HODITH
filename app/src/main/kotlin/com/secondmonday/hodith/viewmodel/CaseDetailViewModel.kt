@@ -184,6 +184,7 @@ class CaseDetailViewModel
                 val resolvedAt = clock.nowMillis()
                 val result = computeVerdict(hunch, events, case.createdAt, resolvedAt, case.durationMode)
                 repository.updateHunch(hunch.copy(resolvedAt = resolvedAt).withResolvedVerdictSnapshot(result))
+                repository.pruneResolvedHunches(caseId)
             }
         }
     }

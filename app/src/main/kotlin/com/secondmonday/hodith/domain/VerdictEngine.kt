@@ -20,6 +20,13 @@ internal const val CONFIDENT_MIN_DAYS = 28L
 internal const val HUNCH_NUDGE_EVENT_THRESHOLD = 5
 
 /**
+ * How many resolved Hunches are kept per Case (5 shown by default + 10 revealed by "show more" =
+ * the entire retained set) — older resolved Hunches are pruned automatically on the next
+ * resolution.
+ */
+internal const val HUNCH_HISTORY_RETENTION_LIMIT = 15
+
+/**
  * Spec §8 comparison-band cutoffs (observed ÷ expected): `<0.5` much less, `0.5–0.8` less,
  * `0.8–1.25` about right, `1.25–2.0` more, `>2.0` much more. Each boundary value itself belongs
  * to the higher band (e.g. exactly 0.8 is "about right", not "less").

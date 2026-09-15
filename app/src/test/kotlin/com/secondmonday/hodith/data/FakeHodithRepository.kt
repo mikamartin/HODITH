@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.data
 
 import com.secondmonday.hodith.data.backup.BackupData
+import com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT
 import com.secondmonday.hodith.domain.computeVerdict
 import com.secondmonday.hodith.domain.withResolvedVerdictSnapshot
 import kotlinx.coroutines.flow.Flow
@@ -269,6 +270,19 @@ class FakeHodithRepository : HodithRepository {
 
     override suspend fun deleteHunch(hunch: HunchEntity) {
         hunches.update { list -> list.filterNot { it.id == hunch.id } }
+    }
+
+    override suspend fun pruneResolvedHunches(caseId: Long) {
+        hunches.update { list ->
+            val resolvedForCase = list.filter { it.caseId == caseId && it.resolvedAt != null }
+            val keepIds =
+                resolvedForCase
+                    .sortedWith(compareByDescending<HunchEntity> { it.resolvedAt }.thenByDescending { it.id })
+                    .take(HUNCH_HISTORY_RETENTION_LIMIT)
+                    .map { it.id }
+                    .toSet()
+            list.filterNot { it.caseId == caseId && it.resolvedAt != null && it.id !in keepIds }
+        }
     }
 
     override suspend fun backfillResolvedHunchVerdicts() {

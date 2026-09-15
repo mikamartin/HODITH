@@ -114,6 +114,9 @@ interface HodithRepository {
 
     suspend fun deleteHunch(hunch: HunchEntity)
 
+    /** Keeps only the most recently resolved Hunches for [caseId], pruning older ones. */
+    suspend fun pruneResolvedHunches(caseId: Long)
+
     /**
      * One-time-per-row backfill for Hunches resolved before the verdict-snapshot columns existed
      * (`HunchEntity.resolvedVerdictSnapshotTaken`) — computes and persists each one's snapshot from

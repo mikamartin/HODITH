@@ -14,6 +14,7 @@ import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT
 import com.secondmonday.hodith.domain.computeVerdict
 import com.secondmonday.hodith.testsupport.Fixtures
 import kotlinx.coroutines.Dispatchers
@@ -321,5 +322,48 @@ class CaseDetailViewModelTest {
             assertEquals(expected.windowDays, resolved.resolvedWindowDays)
             assertEquals(expected.observedRate, resolved.resolvedObservedRate)
             assertEquals(expected.expectedRate, resolved.resolvedExpectedRate)
+        }
+
+    @Test
+    fun `resolveHunch prunes resolved history beyond the retention limit`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val alreadyResolved =
+                (1..HUNCH_HISTORY_RETENTION_LIMIT).map { i ->
+                    HunchEntity(
+                        id = i.toLong(),
+                        caseId = caseId,
+                        direction = HunchDirection.TOO_OFTEN,
+                        expectedCount = 5,
+                        expectedPer = ExpectedPer.WEEK,
+                        createdAt = 0L,
+                        resolvedAt = i.toLong(),
+                    )
+                }
+            val hunchBeingResolved =
+                HunchEntity(
+                    id = HUNCH_HISTORY_RETENTION_LIMIT + 1L,
+                    caseId = caseId,
+                    direction = HunchDirection.TOO_OFTEN,
+                    expectedCount = 5,
+                    expectedPer = ExpectedPer.WEEK,
+                    createdAt = 0L,
+                    resolvedAt = null,
+                )
+            repository.hunches.value = alreadyResolved + hunchBeingResolved
+            val vm = viewModel()
+
+            clock.advanceBy(60_000L)
+            vm.resolveHunch(hunchBeingResolved)
+
+            val resolvedIds =
+                repository.hunches.value
+                    .filter { it.resolvedAt != null }
+                    .map { it.id }
+            assertEquals(HUNCH_HISTORY_RETENTION_LIMIT, resolvedIds.size)
+            // The oldest-resolved of the pre-existing hunches (id 1, resolvedAt 1L) is the one
+            // pruned to make room for the newly resolved hunch.
+            assertFalse(1L in resolvedIds)
+            assertTrue(hunchBeingResolved.id in resolvedIds)
         }
 }
