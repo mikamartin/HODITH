@@ -119,4 +119,11 @@ interface EventDao {
 
     @Query("SELECT * FROM events")
     suspend fun getAll(): List<EventEntity>
+
+    @Query("DELETE FROM events WHERE occurredAt < :cutoff")
+    suspend fun deleteOlderThan(cutoff: Long)
+
+    /** Cases with at least one Event older than [cutoff] — so [deleteOlderThan]'s caller can re-evaluate their triggers/check-ins afterward. */
+    @Query("SELECT DISTINCT caseId FROM events WHERE occurredAt < :cutoff")
+    suspend fun getCaseIdsWithEventsOlderThan(cutoff: Long): List<Long>
 }

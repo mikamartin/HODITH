@@ -58,6 +58,12 @@ class RoomHodithRepository
             tagDao.deleteAll()
         }
 
+        override suspend fun deleteEventsOlderThan(cutoff: Long) {
+            val affectedCaseIds = eventDao.getCaseIdsWithEventsOlderThan(cutoff)
+            eventDao.deleteOlderThan(cutoff)
+            affectedCaseIds.forEach(::evaluateNotificationsForCase)
+        }
+
         // Event
         override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
 

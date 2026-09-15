@@ -19,11 +19,17 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.BackupEvent
 import com.secondmonday.hodith.viewmodel.SettingsUiState
+import com.secondmonday.hodith.viewmodel.formatMediumDate
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
+import java.time.ZoneId
+
+/** A fixed instant [setContent] hands back as "now" — 2026-01-15, arbitrary but deterministic. */
+private const val TEST_NOW_MILLIS = 1_768_435_200_000L
 
 /**
  * First Compose UI instrumented test for [SettingsScreen] (previously covered only at the
@@ -46,6 +52,8 @@ class SettingsScreenTest {
         onCloudBackupToggle: (Boolean) -> Unit = {},
         onLoadDemoData: () -> Unit = {},
         onDeleteAllData: () -> Unit = {},
+        onDeleteEventsOlderThan: (Long) -> Unit = {},
+        nowMillis: () -> Long = { TEST_NOW_MILLIS },
         onExportClick: () -> Unit = {},
         onImportConfirm: () -> Unit = {},
         onOpenAbout: () -> Unit = {},
@@ -63,6 +71,8 @@ class SettingsScreenTest {
                     onCloudBackupToggle = onCloudBackupToggle,
                     onLoadDemoData = onLoadDemoData,
                     onDeleteAllData = onDeleteAllData,
+                    onDeleteEventsOlderThan = onDeleteEventsOlderThan,
+                    nowMillis = nowMillis,
                     onExportClick = onExportClick,
                     onImportConfirm = onImportConfirm,
                     onOpenAbout = onOpenAbout,
@@ -256,15 +266,17 @@ class SettingsScreenTest {
         }
     }
 
-    // The Data plank's Export / Import / Delete-all rows sit near the bottom of the scrolling
+    // The Data plank's Export / Import / Delete-data rows sit near the bottom of the scrolling
     // Column; on shorter test windows (CI's emulator) they're below the fold, so each of these
     // scrolls the row into view first — same reason as loadDemoData_tapInvokesCallback.
     @Test
-    fun deleteAllData_opensConfirmDialog_confirmInvokesCallback() {
+    fun deleteData_defaultsToAllData_confirmInvokesOnDeleteAllData() {
         var deleted = false
         setContent(onDeleteAllData = { deleted = true })
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionsTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionsNextAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmAction).performClick()
 
@@ -272,15 +284,76 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun deleteAllData_cancelDoesNotInvokeCallback() {
+    fun deleteData_cancelAtOptionsStepDoesNotInvokeEitherCallback() {
+        var deletedAll = false
+        var deletedOlder: Long? = null
+        setContent(onDeleteAllData = { deletedAll = true }, onDeleteEventsOlderThan = { deletedOlder = it })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionsCancelAction).performClick()
+
+        assertFalse(deletedAll)
+        assertEquals(null, deletedOlder)
+    }
+
+    @Test
+    fun deleteData_cancelAtConfirmStepDoesNotInvokeCallback() {
         var deleted = false
         setContent(onDeleteAllData = { deleted = true })
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionsNextAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmTitle).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataCancelAction).performClick()
 
         assertFalse(deleted)
+    }
+
+    @Test
+    fun deleteData_logsOnly_dateButtonDefaultsToToday() {
+        setContent(nowMillis = { TEST_NOW_MILLIS })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionLogsOnly).performClick()
+
+        val todayLabel = formatMediumDate(Instant.ofEpochMilli(TEST_NOW_MILLIS).atZone(ZoneId.systemDefault()).toLocalDate())
+        composeTestRule.onNodeWithText(todayLabel).assertExists()
+    }
+
+    @Test
+    fun deleteData_logsOnly_confirmInvokesOnDeleteEventsOlderThanWithTheCutoffDate() {
+        var cutoff: Long? = null
+        setContent(nowMillis = { TEST_NOW_MILLIS }, onDeleteEventsOlderThan = { cutoff = it })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionLogsOnly).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionsNextAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataLogsConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataLogsConfirmAction).performClick()
+
+        assertEquals(TEST_NOW_MILLIS, cutoff)
+    }
+
+    // DeleteDataFlow's remembered mode/date/step state only lives while the flow is composed
+    // (visible == true) — this pins that reopening after a cancel truly starts over rather than
+    // resuming whatever was last selected, which the early-return-on-!visible shape relies on.
+    @Test
+    fun deleteData_reopeningAfterCancelResetsBackToAllDataMode() {
+        var deletedAll = false
+        var deletedOlder: Long? = null
+        setContent(onDeleteAllData = { deletedAll = true }, onDeleteEventsOlderThan = { deletedOlder = it })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionLogsOnly).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionsCancelAction).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionsNextAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataConfirmAction).performClick()
+
+        assertEquals(true, deletedAll)
+        assertEquals(null, deletedOlder)
     }
 
     @Smoke

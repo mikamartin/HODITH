@@ -13,6 +13,7 @@ import com.secondmonday.hodith.data.backup.BACKUP_SCHEMA_VERSION
 import com.secondmonday.hodith.data.backup.BackupFileWriter
 import com.secondmonday.hodith.data.backup.BackupSerializer
 import com.secondmonday.hodith.data.demo.DemoDataSeeder
+import com.secondmonday.hodith.domain.Clock
 import com.squareup.moshi.JsonDataException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -60,6 +61,7 @@ class SettingsViewModel
         private val demoDataSeeder: DemoDataSeeder,
         private val backupSerializer: BackupSerializer,
         private val backupFileWriter: BackupFileWriter,
+        private val clock: Clock,
     ) : ViewModel() {
         val uiState: StateFlow<SettingsUiState> =
             combine(
@@ -112,6 +114,12 @@ class SettingsViewModel
         fun deleteAllData() {
             viewModelScope.launch { hodithRepository.deleteAllData() }
         }
+
+        fun deleteEventsOlderThan(cutoff: Long) {
+            viewModelScope.launch { hodithRepository.deleteEventsOlderThan(cutoff) }
+        }
+
+        fun nowMillis(): Long = clock.nowMillis()
 
         private val _backupEvents = Channel<BackupEvent>(Channel.BUFFERED)
         val backupEvents: Flow<BackupEvent> = _backupEvents.receiveAsFlow()

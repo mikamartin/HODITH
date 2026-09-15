@@ -202,27 +202,6 @@ Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existin
 
 **Concern** — none; per the spec's own note, this is the most self-contained item here.
 
-### S14 · Settings: delete logs older than a chosen date
-
-*Branch: `feat/bulk-delete-logs-by-date` · Complexity: M · Priority: Medium · Area: Settings*
-
-🎨 **Design decision** — spec update (cascade behavior is resolved, see below).
-
-Current spec §14 only supports deleting all data outright; there's no partial or date-scoped delete anywhere in spec or code. This is a genuine spec addition, not a bug fix — approving it means adding a new Data-card action to HODITH_SPEC §14.
-
-**Cascade scope resolved: Events-only.** Deleting old Events can't orphan a Hunch or Verdict (neither holds a foreign key to a specific Event row) and can't disturb resolved-Hunch history: a resolved Hunch's verdict is snapshotted at resolution time and read back from storage, not recomputed from live Events (`HunchEntity.resolved*` / `CaseDetailViewModel.resolveHunch` / `HunchTabState.toHistoryEntry`). Live Insights stats (trend/rhythm/frequency) are expected to shift when old logs are trimmed — that's the feature working as intended, not a concern.
-
-**Acceptance criteria**
-
-- [ ] A Settings row with a date picker and a destructive confirm dialog, mirroring the existing "delete all data" pattern. Confirm-dialog copy stays generic (permanent/can't-be-undone), no special mention of stats shifting.
-- [ ] `EventDao.deleteOlderThan(cutoff)` (Events only; cascades to `event_tags` automatically via existing FK, `tags` untouched — same shape as `deleteAllData()`).
-- [ ] HODITH_SPEC §14 updated with the new Data-card action.
-- [ ] Voice ×3 for the new row/dialog (confirm body parameterized by the chosen date).
-
-**Plan** — mirror the existing "delete all data" pattern: `EventDao.deleteOlderThan`, a repository/ViewModel pass-through, a date-picker (reuse `HunchCreationSheet.kt`'s `WindowStartDatePickerDialog` pattern, capped at today) into the existing `ConfirmDialog`.
-
-**Tests** — `EventDaoTest` for the date-bounded delete + cascade; `SettingsScreenTest` for the picker/confirm flow.
-
 ### S15 · Big Picture: year-level filter UX exploration
 
 *Branch: none yet — design exploration first · Complexity: S–M (investigation) · Priority: Low · Area: Big Picture*
@@ -298,6 +277,29 @@ User testing raised the same underlying question **D1** is deferred pending — 
 **Plan** — probe first, no production code in this item; read alongside D1 before deciding investigation scope, to avoid running two parallel capacity investigations.
 
 **Tests** — none until a follow-up item lands.
+
+### D4 · No repository-level test coverage for the notification-eval scheduling side effect
+
+*Branch: none yet — needs a reusable test double designed first · Complexity: S–M · Priority: Low · Area: Repo*
+
+Surfaced while adding `RoomHodithRepository.deleteEventsOlderThan` (`feat/bulk-delete-logs-by-date`). That method fetches the affected Case ids *before* deleting (`EventDao.getCaseIdsWithEventsOlderThan`), then deletes, then calls `evaluateNotificationsForCase` for each — a real bug (querying after delete instead of before, silently re-evaluating zero Cases) has no test pinning the ordering. Checking for it turned up a wider, pre-existing gap: **`RoomHodithRepository`'s `evaluateNotificationsForCase` → `NotificationEvalScheduler.schedule()` side effect is untested at the repository level for every call site, not just this new one** — `insertEvent`, `updateEvent`, `deleteEvent`, and `deleteEventById` all fire it too, and none are covered. This isn't a guess: `RoomHodithRepositoryBackupTest.kt`'s own doc comment and an inline comment above its one event insert already document the workaround — it inserts via `db.eventDao().insert(...)` directly instead of `repository.insertEvent(...)` specifically "because that wrapper fires notification evaluation as a fire-and-forget side effect, which would invoke this test's intentionally-throwing `NotificationEvaluator` stand-in" (its `unusedScheduler()` helper's `Provider` deliberately errors if ever pulled).
+
+The scheduler/evaluator chain itself *is* testable — `NotificationEvalSchedulerTest` (JVM, `src/test`) already proves the full `NotificationEvalScheduler` → `NotificationEvaluator` → `Notifier` path works, using `FakeHodithRepository`, `FakeSettingsRepository`, `FakeClock`, and `FakeNotifier`, with `backgroundScope`/`advanceTimeBy` driving the debounce deterministically. What's missing is the androidTest-side equivalent: a way to construct that same chain against a *real* `RoomHodithRepository`/`HodithDatabase` (`RoomHodithRepositoryLogEventsTest`'s and `RoomHodithRepositoryBackupTest`'s pattern) without either triggering `unusedScheduler()`'s deliberate error or routing around the repository's own wrapper methods, as `RoomHodithRepositoryBackupTest` currently does. `FakeNotifier` also isn't reachable from `androidTest` today — it's in `src/test`, a separate source set.
+
+Not a known bug and not blocking: every affected path already has a soft failure mode. A stale trigger/check-in evaluation self-heals within roughly six hours via `NotificationEvalWorker`'s periodic `evaluateAll` sweep, which is unaffected by any of this. Priority Low accordingly — this is a coverage gap, not a correctness risk.
+
+**Acceptance criteria**
+
+- [ ] A reusable androidTest double/helper for the notification-eval side effect — real `NotificationEvalScheduler` + `NotificationEvaluator` wired to the `RoomHodithRepository` under test, with a `FakeNotifier`-equivalent double it can actually read from (moved to a shared source set, or reimplemented for `androidTest`).
+- [ ] `RoomHodithRepository.deleteEventsOlderThan`'s affected-Case-id-before-delete ordering pinned by a test using it — the concrete bug that prompted this item.
+- [ ] The same coverage extended to `insertEvent`/`updateEvent`/`deleteEvent`/`deleteEventById`'s `evaluateNotificationsForCase` call, currently untested at the repository level.
+- [ ] `RoomHodithRepositoryBackupTest.kt`'s raw-DAO insert workaround revisited once the double exists — it could go back to calling `repository.insertEvent(...)` directly instead of bypassing the wrapper, if that reads more naturally with the new double in place.
+
+**Plan** — mirror `NotificationEvalSchedulerTest`'s exact successful shape (real `NotificationEvalScheduler`/`NotificationEvaluator`, `backgroundScope`, `advanceTimeBy`) but swap `FakeHodithRepository` for the real `RoomHodithRepository`/in-memory `HodithDatabase` under test, matching `RoomHodithRepositoryLogEventsTest`'s setup. Settle `FakeNotifier`'s reachability first (shared source set vs. an `androidTest`-local reimplementation) since every other piece already has a working precedent to copy.
+
+**Tests** — this item's entire scope is new tests; see acceptance criteria above.
+
+**Concern** — none blocking. Worth a second look if this class of repository-mutation-triggers-a-side-effect pattern grows (e.g. Trigger CRUD notably does *not* call `evaluateNotificationsForCase` today, unlike Event CRUD — noticed in passing while mapping call sites, not evaluated here as correct or a bug; a separate question if it ever comes up).
 
 ## Blocked
 
