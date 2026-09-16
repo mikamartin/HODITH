@@ -66,9 +66,9 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S7** (external content). Pick by appetite.
+No cross-dependencies — pick by appetite. Identified by title, not a number: numbering churned confusingly as items were added and removed, so items here are found by name or by their branch.
 
-### S1 · App-icon handle butts directly against the lens ring with no clearance
+### App-icon handle butts directly against the lens ring with no clearance
 
 *Branch: `fix/icon-handle-clearance` · Complexity: S · Priority: Low · Area: Bug*
 
@@ -85,31 +85,185 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
 
-### S2 · Review the Trend section's calculation and investigate additions
+### Insights: within-case Trends section (design)
 
-*Branch: `chore/trend-calculation-review` · Complexity: S to M · Priority: Low · Area: Insights*
+*Branch: `chore/insights-trends-section-design` · Complexity: XL · Priority: Low · Area: Insights*
 
-🔍 **Investigation** — a review pass, not a known fix. 🎨 **Design decision** — any new trend readout is a product call.
+🎨 **Design decision** — a new Insights section and its detector list are a product call. 🔍 **Investigation** — no single detector here is spec'd enough to build yet.
 
-Scope is the **Trend card specifically** (`InsightsTab.kt` trend section — the ↑/↓/→ arrow, `insightsTrendSentence`, and the optional gap-shift / streak-shift sentences), not the whole Insights screen.
+Closes out the prior "Review the Trend section's calculation" item: its current maths are `domain/StatsEngine.kt` `computeTrendStats` (last-30-days vs prior-30-days event count → UP/DOWN/FLAT, `null` below `TREND_MIN_SPAN_DAYS = 56`) and `domain/InsightsEngine.kt` `computeGapShift`/`computeStreakShift` (first-half vs second-half of gaps/streaks, needs ≥6 samples). Ruling on that item's open questions: the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift — the change-point detector below is an addition, not a replacement; the 56-day cutoff is an acceptable floor for a *rate* comparison specifically (a change-point method may tolerate less data — open question below); UP/DOWN/FLAT stays sufficient for the existing single-arrow card, with nuance moved to the new section instead of overloading the arrow.
 
-What it computes today:
+None of the following compare outcomes by tag, find a real change-point, or look at recurrence shape or seasonality — today's cards are aggregate averages and a binary window. The plan is a new **Trends section** on the Insights tab, shown only when at least one trend is actually detected (mirrors `TagsCard`'s existing `.isNotEmpty()` gate in `InsightsTab.kt`'s `StatsSectionCards`), rather than folding more into the single Trend card.
 
-- `domain/StatsEngine.kt` `computeTrendStats` — last-30-days vs prior-30-days event count → UP / DOWN / FLAT; returns `null` below `TREND_MIN_SPAN_DAYS = 56` (`TREND_WINDOW_DAYS = 30`). `statsSections` also holds the card back below `INSIGHTS_MIN_EVENTS = 2` events, so a lone old event can't render a FLAT arrow.
-- `domain/InsightsEngine.kt` `computeGapShift` / `computeStreakShift` / `shiftDirectionFor` — first half vs second half of past gaps / streak run lengths; "noticeable" gate `SHIFT_MIN_FRACTION = 0.3` and `SHIFT_MIN_ABSOLUTE_DAYS = 1.0`; needs ≥6 samples.
+Candidate detectors to design and rule keep/drop on:
+
+- **Tag → outcome** — compare intensity, duration, and time-to-next-event for events with a tag vs. without it (e.g. "aura migraines last 40% longer").
+- **Tag drift & tag timing** — is a tag's share rising/falling over time (decaf 10%→40%)? Does a tag cluster in a weekday/time-of-day bucket beyond the Case's own base rate?
+- **Recurrence shape (hazard by time since last event)** — plot probability of the next event against days-since-last; an early spike means self-reinforcing ("another often follows within 2 days"), a dead zone means a refractory period ("almost never recurs within 4 days"). More informative than the existing bursts CV flag (`InsightsEngine.kt` `isBursty`).
+- **Real change-points** — CUSUM or a simple Bayesian change-point method instead of the fixed 30-vs-30 window, to catch slow drifts the current window structurally can't see ("since around mid-March, roughly twice as often").
+- **Intensity/duration trend** — a slope over time plus a split by start time ("evening migraines run longer and more severe"), not just the flat averages `computeIntensityStats`/`computeDurationStats` produce today.
+- **Cycles and seasonality** — autocorrelation on daily counts for weekly/monthly/~28-day cycles; month-of-year comparison once a Case has 1+ years of data; an explicit weekday-vs-weekend sentence (easier to read than the Rhythm grid).
 
 **Acceptance criteria**
 
-- [ ] A written overview of the current trend + shift maths: each input, its min-data guard, and the Voice strings it drives.
-- [ ] A ruling on the open questions: is a fixed 30/30-day window right, or should it scale with the observation span? does the hard 56-day cutoff leave newer cases blank too long? are UP/DOWN/FLAT the right states, or is "not enough signal yet" worth showing?
-- [ ] A shortlist of candidate additions (rate change as a percentage, "trending toward / away from your Hunch", whole-history direction, …) with a keep/drop call each.
-- [ ] Anything approved spun out as its own item.
+- [ ] A written overview of each candidate detector: minimum data requirements (event count, span, required fields like `intensity`/`endedAt`), the computation, and a significance approach — note that circular-shift + Benjamini-Hochberg (the framework in the Big Picture cross-case item) is built for *pairs of Cases*; a single Case's own timeline needs its own answer (e.g. permutation by shuffling the Case's own event times) rather than reusing that machinery unmodified.
+- [ ] A keep/drop call on each of the six detectors above.
+- [ ] A ruling on how the new Trends section renders when multiple trends fire at once (a `trends: List<TrendFinding>` field on `StatsSections`/`InsightsTabState`, shown when non-empty) and on tiering vocabulary — reuse `NO_VERDICT`/`PRELIMINARY`/`CONFIDENT` or introduce a distinct Hint/Pattern pair.
+- [ ] Wording rules stated: "often follows," "tends to," never "causes."
+- [ ] Explicit dependency noted on the timezone-offset item wherever a kept detector needs same-day/time-of-day logic (the cycles/seasonality and tag-timing detectors both do).
+- [ ] Anything approved spun out as its own implementation item. No production code in this item.
 
-**Plan** — read the `StatsEngine.kt` / `InsightsEngine.kt` trend paths, write the overview, then a short spike if a candidate needs feasibility-checking. No production code in this item.
+**Plan** — read each detector's feasibility against `StatsEngine.kt`/`InsightsEngine.kt`'s existing helpers (`daysBetween`, `coefficientOfVariation`, the gap/streak collection logic) before ruling on it; spike only where feasibility is genuinely unclear.
 
-**Tests** — none; `StatsEngineTest` / `InsightsEngineTest` gain coverage only when an approved change lands as its own item.
+**Tests** — none; `StatsEngineTest`/`InsightsEngineTest` gain coverage only once an approved detector lands as its own item.
 
-### S7 · Audit the hosted privacy policy and Play data-safety form
+### Case quiet vs. abandoned
+
+*Branch: `chore/case-quiet-vs-abandoned-design` · Complexity: M · Priority: Low · Area: Insights*
+
+🎨 **Design decision** — where this surfaces (an Insights card vs. the existing check-in flow) isn't settled.
+
+Deep-work-style Cases go quiet and the app currently has no way to tell "this Case went quiet" from "the user stopped tracking it." The rule: when the current gap since the last event exceeds the Case's own 99th-percentile historical gap, *and* the user is still actively logging other Cases, ask rather than silently report a trend.
+
+`domain/CheckIn.kt`'s `evaluateCheckIn` is the exact structural precedent, not just a related feature: it already computes `anchor = maxOf(case.createdAt, case.lastCheckInAt ?: case.createdAt, mostRecentEventAt ?: case.createdAt)`, `silentDays = daysBetween(anchor, now)`, and fires `CheckInDecision(due = silentDays >= effectiveDays, ...)` where `effectiveDays` today comes from `effectiveCheckInDays` (the active Hunch's implied gap, or a Settings default). This item is the same shape with a different, data-derived threshold: `effectiveDays` becomes the Case's own 99th-percentile historical gap (sort the gap list `computeGapStats` in `InsightsEngine.kt` already builds and index into it), and a second condition — the user has logged *some* event, any Case, within a recent window — gets ANDed onto `due` before it's treated as "ask," not just reported. Whether that becomes a third branch inside `evaluateCheckIn`'s own check-in cadence, or a wholly new sibling function evaluated alongside it, is exactly the surfacing-mechanism question below (routed through the existing check-in notification path vs. a new Insights card reading `StatsSections`).
+
+**Acceptance criteria**
+
+- [ ] A ruling on surfacing mechanism: new Insights card (reading a new nullable field on `StatsSections`) vs. a new branch in the check-in evaluation path (`CheckIn.kt`/`NotificationEvaluator.kt`) alongside the existing Hunch/Settings-driven `effectiveCheckInDays`.
+- [ ] A percentile helper over the gap list `computeGapStats` (`InsightsEngine.kt:63`) already collects, since no percentile function exists there today.
+- [ ] The two-signal rule implemented as stated: current gap > Case's own 99th-percentile historical gap, AND the user has logged *some* event (any Case) within a recent window.
+- [ ] Voice ×3 for whatever prompt/copy results.
+- [ ] Confirmed this doesn't read as gamification or scolding (spec §4) — framed as a question, not a nudge to resume logging.
+
+**Plan** — settle the surfacing-mechanism question first (cheap to prototype as a static mock of both), then add the percentile helper and the two-signal check as a `domain/` function mirroring `evaluateCheckIn`'s shape.
+
+**Tests** — a domain-level unit test for the two-signal rule (gap-exceeds-99th-percentile AND still-active-elsewhere → ask; either condition false → no prompt), following `CheckInTest`'s existing pattern for `evaluateCheckIn`; Compose/instrumented coverage once the surfacing mechanism is chosen.
+
+### Big Picture: cross-case trend detection (design)
+
+*Branch: `chore/big-picture-cross-case-trends-design` · Complexity: XL · Priority: Low · Area: Big Picture*
+
+🎨 **Design decision** — a new engine and its statistical framework are a product call, not just an implementation detail. 🔍 **Investigation** — nothing here is spec'd enough to build yet.
+
+Expands HODITH_SPEC §17's existing "Computed cross-case co-occurrence" entry, which already notes the data plumbing is in place (`observeActiveCases`, `observeActiveCaseEventDetails`, `observeActiveCaseEventTagNames`) and the real cost is statistical-honesty UX. Every existing Insights card looks at one Case in isolation; Big Picture puts all Cases on one calendar but computes nothing across them — that's where connections and possible causes live.
+
+Candidate cross-Case detectors:
+
+- **Lagged precedence** — for each B event, check whether an A event started within a lag window before it (3h/12h/24h/48h/72h), compare hit rate to baseline, run in reverse too; asymmetric lift suggests A leads (e.g. "late-night noise followed by a migraine the next day").
+- **Suppression** — same computation, lift below 1 ("migraines are less common in the 48 hours after a workout").
+- **Absence as a precursor** — test whether B is more likely when A's *current* gap exceeds A's own typical (75th-percentile) gap, not after A itself.
+- **Dose-response** — bucket A-count in the prior window (0/1/2+) and look for a steady rise in B's probability, intensity, or duration; the strongest causal hint available from observational data, deserving a higher confidence tier.
+- **Cross-case intensity/duration spillover** — does A's intensity/duration predict the severity of the next B?
+- **Shared shifts** — run change-point detection per-Case; if two Cases shift within ~2 weeks of each other, surface it ("workouts dropped and arguments rose around the same time in March").
+
+Architectural framework (applies to all six, and is the reusable piece other detector work should build on):
+
+- **`Finding` interface** — every detector returns effect size, support count, a significance score, sentence-template parameters, and evidence event IDs (for the drill-down the app already has elsewhere).
+- **Pipeline**: eligibility gating (same shape as existing card-visibility gates) → significance via circular shift (shift A's timeline by random offsets, ~200 runs, in whole-week steps to preserve weekday structure) → multiple-comparisons control (Benjamini-Hochberg across all pairs×lags from one run, plus a minimum lift ≥1.5/≤0.67 and support ≥5 hits) → stability check (effect holds in both history halves) → tiering (Hint → passed significance; Pattern → also stable; Strong connection → also directional with dose-response) → persist/dedupe (store `firstSeenAt` and last effect size, re-surface only on tier change, let users dismiss or mark "makes sense" and use that to rank future findings).
+- **Wording rules** — "often follows," "tends to come before," "less common after"; never "causes." The honest route to causation here is directional + dose-response + stable → offer a Hunch → confirm with future data (see the Hunch extensions item).
+- **Run cadence** — cheap within-Case work on event insert/edit; expensive cross-Case shift tests in a daily background job.
+
+Two prerequisites carried in from the raw idea list:
+
+- **Tags are global** — "home" is used by Coffee and Workout both, so any tag-aware detector must key on `(caseId, tagName)`, not tag name alone.
+- **No timezone stored** — see the standalone timezone-offset item below; any same-day/lag/time-of-day detector here is blocked on it.
+- **Logging lag / batch-logging exclusion** — `loggedAt - occurredAt` marks heavily backfilled events as fuzzy-timed; down-weight them in lag/time-of-day detectors, and exclude event pairs from different Cases logged within ~2 minutes of each other (batch logging creates fake co-occurrence).
+
+**Acceptance criteria**
+
+- [ ] A written architecture doc covering the `Finding` interface, the full pipeline, tiering, wording rules, and run cadence above.
+- [ ] A keep/drop call on each of the six detectors, with the pair-count-at-alpha-scale (8 Cases → 56 ordered pairs × 5 lags = 280 tests) sanity-checked against the multiple-comparisons control.
+- [ ] A ruling on where findings surface (a Big Picture section vs. a cross-Case Insights-adjacent screen).
+- [ ] A testing strategy: known patterns planted in `DemoDataSeeder.kt` (e.g. noise → migraine within 24h at 3× lift; a refractory gap after migraines) with a shuffled-null-data check that no detector invents a finding that isn't there.
+- [ ] `HODITH_SPEC.md` §17's "Computed cross-case co-occurrence" entry flagged for an update once any part of this is approved (not done in this item).
+- [ ] Anything approved spun out as its own implementation item. No production code in this item.
+
+**Plan** — write the architecture doc first (it's reusable regardless of which detectors are approved), then rule detector-by-detector; a throwaway JVM spike for the circular-shift significance test specifically, since it's the piece most likely to have a subtle bug (whole-week shifts, not arbitrary offsets).
+
+**Tests** — none; detector-level tests land with each spun-out implementation item, following the planted-pattern strategy above.
+
+### No timezone stored — same-day / time-of-day logic breaks for travelers
+
+*Branch: `fix/event-timezone-offset` · Complexity: M · Priority: Medium · Area: Bug*
+
+🎨 **Design decision** — backfill behavior for existing rows needs a ruling before implementation.
+
+`EventEntity.occurredAt`/`endedAt`/`loggedAt` (`EventEntity.kt:25-29`) store epoch millis with no captured UTC offset. The bug is systemic, not one function: every domain calculation that buckets a timestamp into a calendar day or hour takes a `zone: ZoneId = ZoneId.systemDefault()` parameter, resolved at *compute* time — `StatsEngine.kt:39,82,114` (frequency bucketing, the Rhythm heatmap's `timeOfDayFor` caller, tag/date grouping), `InsightsEngine.kt:66` (`computeGapStats`), `CalendarMath.daysBetween` (`CalendarMath.kt:22`), and `CalendarGrid.kt:36,52` (the shared week/month-grid helper `weeksInGrid` and friends build on, which is also what Big Picture's day-cell placement goes through). `VerdictEngine.kt:57` hardcodes the same call (`val zone = ZoneId.systemDefault()`) rather than taking it as a parameter. `ZoneId.systemDefault()` is the *device's current* timezone at the moment Insights/Verdict/Big Picture are computed, not the timezone the event actually happened in — so a user who travels gets every past event's day/hour reinterpreted in their new location the next time anything reads it. Real correctness bug today, independent of any new analytics work, and a hard prerequisite for the Big Picture cross-case item's same-day/lag detectors.
+
+**Acceptance criteria**
+
+- [ ] A new `EventEntity` column (e.g. `utcOffsetMinutes`) capturing the device's UTC offset at insert time.
+- [ ] A ruling on backfill: existing rows have no captured offset — assume the device's current offset (simplest, wrong for past travel) vs. leave pre-migration rows on the old read-time-timezone behavior. State the tradeoff, pick one.
+- [ ] Room migration + `BACKUP_SCHEMA_VERSION` bump + import validation (three changes, not one, per HODITH_SPEC §17's own note on schema changes).
+- [ ] Every `zone: ZoneId = ZoneId.systemDefault()` call site listed above (`StatsEngine.kt`, `InsightsEngine.kt`, `CalendarMath.kt`, `CalendarGrid.kt`) threaded to read the stored per-event offset instead of the default parameter; `VerdictEngine.kt:57`'s hardcoded call converted to take the same parameter.
+- [ ] Tests reproducing a cross-midnight or cross-timezone scenario via a non-default-offset event/`FakeClock` combination.
+
+**Plan** — add the column and migration first (smallest independent piece), then replace each `zone: ZoneId = ZoneId.systemDefault()` default parameter's *source* with the relevant event's stored offset at the call sites listed above, rather than changing each function's signature (they already correctly take `zone` as a parameter — the caller is what's wrong).
+
+**Tests** — `EventEntity`/Room migration round-trip; `StatsEngineTest`/`InsightsEngineTest`/`CalendarMathTest`/`CalendarGridTest`/`VerdictEngineTest` cases with an event logged at a non-UTC offset crossing a day boundary that only shows up wrong under device-current-timezone logic.
+
+### Notes mining for tag/Case suggestions
+
+*Branch: `feat/notes-mining-suggestions` · Complexity: M · Priority: Low · Area: Insights*
+
+🎨 **Design decision** — must read as an offer, never a nudge (spec §4's no-gamification stance applies directly to anything that reacts to how much a user logs or writes).
+
+Normalize event notes, count repeated phrases, and offer a tag when one repeats 3+ times ("Burnt beans again" → suggested tag). Flag notes that mention another Case's name or a recurring cause word ("wine," "screen time") and offer "want to track this as its own Case?" Turns free text into testable data for the cross-case detectors (feeds the Big Picture item) without being a detector itself.
+
+**Acceptance criteria**
+
+- [ ] Phrase-repetition detection (≥3 occurrences) surfaces a tag suggestion at the point of logging, not a background nag.
+- [ ] Cross-Case-name / cause-word mentions surface a "track this as its own Case?" offer, dismissible with no repeat nagging on decline.
+- [ ] Confirmed against spec §4: no streak-like framing, no "you keep mentioning X" scolding tone — purely an offer.
+- [ ] Voice ×3 for the suggestion/offer copy.
+
+**Plan** — a simple normalize-and-count pass over `EventEntity.note` at logging time (no ML), feeding results into the existing suggestion filtering (`TagInput.kt:26` `filterTagSuggestions`) for the tag case; a new lightweight prompt for the Case-suggestion case.
+
+**Tests** — unit tests for the phrase-repetition threshold and cause-word matching; Compose coverage for the suggestion/offer UI appearing and being dismissible.
+
+### Hunch extensions: confidence projection, belief drift, perception gap
+
+*Branch: `feat/hunch-extensions` · Complexity: M · Priority: Low · Area: Hunch*
+
+🎨 **Design decision** — copy tone for each extension needs settling (avoid anything reading as pressure toward a particular verdict).
+
+Three independent extensions to the Hunch feature:
+
+- **Time-to-confidence projection** — "At the current rate, CONFIDENT in about 9 days," projected off `confidenceTierFor(observationCount: Int, windowDays: Long)` (`VerdictEngine.kt:132-140`)'s existing `PRELIMINARY_MIN_EVENTS`/`CONFIDENT_MIN_EVENTS` and `*_MIN_DAYS` constants: given the Case's current event rate, solve for the day both thresholds clear.
+- **Belief drift across superseded Hunches** — when a Case has more than one Hunch over time on the same question (e.g. coffee: 3/day, then 2/day), say so: "Your expectation dropped, and the data agrees." No new query needed — `HunchDao.observeHunchHistory(caseId)` (`HunchDao.kt:27-28`) already returns every Hunch for a Case ordered `createdAt DESC`, and each resolved one already carries a frozen verdict snapshot (`HunchEntity`'s `resolved*` columns, `Verdict.kt`'s `withResolvedVerdictSnapshot`). The just-shipped resolved-Hunch list (`feat/resolved-hunch-list-redesign` — `CaseDetailScreen.kt`/`HunchTabState.kt`, 15-item retention cap via `HunchDao.deleteResolvedHunchesBeyondLimit`) is the natural surface for a belief-drift sentence between consecutive entries.
+- **Perception-gap framing for `JUST_CURIOUS`** — frame the result as how it felt vs. what the data shows, rather than a verdict against an expectation.
+
+A fourth extension — "when a cross-Case finding appears, offer to turn it into a Hunch" — is **blocked on** the Big Picture cross-case trend detection item shipping first, since it depends on that item's findings existing at all.
+
+**Acceptance criteria**
+
+- [ ] Time-to-confidence projection implemented as a `VerdictEngine` extension over `confidenceTierFor`'s existing thresholds, shown only where a Hunch is already `NO_VERDICT`→`PRELIMINARY` or `PRELIMINARY`→`CONFIDENT` trending.
+- [ ] Belief-drift sentence shown when `observeHunchHistory` returns more than one Hunch on a comparable question, comparing consecutive resolved snapshots' `resolvedExpectedRate`/`resolvedObservedRate`.
+- [ ] Perception-gap framing applied specifically to `HunchDirection.JUST_CURIOUS`.
+- [ ] Voice ×3 for all new copy.
+- [ ] Fourth extension noted as blocked, not attempted, until the Big Picture item lands.
+
+**Plan** — each of the three is a `VerdictEngine`/Hunch-UI addition; implement and ship independently rather than as one bundle, since they don't depend on each other. Belief drift specifically extends the resolved-Hunch history UI that already exists rather than building new plumbing.
+
+**Tests** — `VerdictEngineTest` coverage for the projection math and belief-drift comparison over a fixed `observeHunchHistory` fixture; Compose coverage for the perception-gap framing on `JUST_CURIOUS` Hunches.
+
+### Trigger: suggested threshold from historical percentile + backtest preview
+
+*Branch: `feat/trigger-threshold-suggestions` · Complexity: S–M · Priority: Low · Area: Hunch*
+
+Suggest a `SILENT_FOR` threshold from the Case's own 90th-percentile historical gap. `InsightsEngine.computeGapStats` (`InsightsEngine.kt:63-99`) already builds the past-gap list the Rhythm/Gaps card uses, but there's no percentile helper over it today — this item adds one (sort the gap list, index into the 90th percentile), it isn't reusing existing math wholesale. When a user edits a trigger, show "this would have fired N times in the last year" by replaying the threshold against history: `TriggerEngine.evaluateAtLeast(trigger, events, now)` and `evaluateSilentFor(trigger, mostRecentEventAt, caseCreatedAt, now)` (`TriggerEngine.kt:36-55`) are both pure functions of `now`, so a backtest is a matter of calling them once per day (or per event) over the past year and counting `TriggerDecision`s where the condition newly became true — no new evaluation logic, just a historical loop over the existing ones. Unrelated to the already-parked "Hunch/Trigger relationship" item in HODITH_SPEC §17 (that's about the `AT_LEAST`/Hunch overlap question, deliberately left for alpha testing) — this is purely a threshold-tuning UX affordance and doesn't touch that decision.
+
+**Acceptance criteria**
+
+- [ ] A percentile helper over `computeGapStats`'s gap list; `SILENT_FOR` trigger creation defaults its threshold suggestion to the Case's 90th-percentile result.
+- [ ] Trigger edit screen shows a historical-replay count ("would have fired N times in the last year") for the currently-entered threshold, for both `AT_LEAST` and `SILENT_FOR`, by replaying `evaluateAtLeast`/`evaluateSilentFor` over the past year's events.
+- [ ] Voice ×3 for the suggestion and replay-count copy.
+
+**Plan** — add the percentile helper first (small, testable in isolation); then a `domain/` function that walks a Case's event history day-by-day (or event-by-event) calling the existing `evaluateAtLeast`/`evaluateSilentFor` with a historical `now`, counting rising-edge fires.
+
+**Tests** — unit tests for the percentile helper against a known gap list; a backtest-count test against a fixture event sequence with known fire points for both trigger kinds; Compose coverage for both appearing on the trigger edit screen.
+
+### Audit the hosted privacy policy and Play data-safety form
 
 *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium · Area: Settings*
 
@@ -122,7 +276,7 @@ What it computes today:
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S12 · Intense/Bright theme: exploratory testing pass
+### Intense/Bright theme: exploratory testing pass
 
 *Branch: `chore/intense-bright-theme-audit` · Complexity: S–M · Priority: Low · Area: Settings*
 
@@ -140,7 +294,7 @@ User testing asked for an exploratory pass over the Intense and Bright visual th
 
 **Tests** — none for the audit itself.
 
-### S13 · CSV export of case/event data
+### CSV export of case/event data
 
 *Branch: `feat/csv-export` · Complexity: S · Priority: Medium · Area: Settings*
 
@@ -159,23 +313,131 @@ Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existin
 
 **Concern** — none; per the spec's own note, this is the most self-contained item here.
 
-### S15 · Big Picture: year-level filter UX exploration
+### Big Picture: year filter
 
-*Branch: none yet — design exploration first · Complexity: S–M (investigation) · Priority: Low · Area: Big Picture*
+*Branch: `feature/big-picture-year-filter` · Complexity: M · Priority: Medium · Area: Big Picture*
 
-🎨 **Design decision** — UX approach, before any implementation.
-
-No year-level filter exists in Big Picture today (§9 only has a scrolling multi-month grid with a month quick-jump). User testing asked for design options for a "big picture year filter" — a UX design question before it's an implementation one.
+UX direction settled via a cheap HTML prototype, `docs/mockups/big-picture-year-filter-prototype.html` — a year selector that narrows the grid to one year, chosen over a year rail (pure navigation, no filtering) and a year-summary zoom level (a new bird's-eye view), both considered and dropped. This replaces the exploration item that used to live here; the prototype's dev-panel "Settled so far" list is the acceptance spec below, restated as checkable items.
 
 **Acceptance criteria**
 
-- [ ] 2–3 candidate UX approaches sketched cheaply (mockup or Compose Preview) — e.g. a year selector alongside the existing month quick-jump, a year-summary zoom level, etc.
-- [ ] A recommendation with tradeoffs, reviewed with the user before any production code.
-- [ ] Approved direction spun out as its own implementation item.
+- [ ] A third trigger chip, **Year**, added to `BigPictureGrid.kt`'s `FilterSummaryRow`, alongside the existing Cases/Tags chips (`FilterTriggerChip`), opening an `InfoDialog`-based picker the same way Cases/Tags already do.
+- [ ] The Year chip renders only when `earliestMonth..currentMonth` spans more than one year — same conditional as the existing Tags chip (`if (allTagNames.isNotEmpty())`).
+- [ ] Defaults to "All years" (no filter); picking a year narrows the `LazyColumn`'s `months` to that year only, with an explicit reset back to "All years".
+- [ ] Year dialog lists years current-year-first, oldest-last (matches the grid's own reordering below).
+- [ ] The month grid's order reverses: current month first (top), earliest last (bottom), opening scrolled to the top — a deliberate change from spec §9's documented oldest-top/current-bottom order. **`HODITH_SPEC.md` §9 needs updating to match once this ships** (intentional divergence updates the spec, per the working agreement).
+- [ ] Confirm `weeksInGrid(month).filter { isPastOrToday(week.first(), today) }` (already in the real code) drops whole future weeks rather than blanking their days — the prototype hit exactly this bug once months were reversed: trailing blank weeks read as a stray gap once a month is no longer last-in-list.
+- [ ] Cases/Tags/Year trigger chips each get a visible border/highlight whenever narrowed off their default (not all Cases, not all Tags, or a specific year) — a quick "something is filtered" signal. Needs its own Plain/Intense/Bright treatment alongside the existing chip dispatch (`LocalCardDecorationStyle`), not just the prototype's single flat style.
+- [ ] Cases/Tags trigger chip labels change from "Cases N of M" to "Cases: N" (drop "of total"; "All" when fully selected) — Year follows the same "Year: <value>" shape ("Year: All" / "Year: 2025"). Touches `filterCountLabel` and the chip composables.
+- [ ] Voice ×3 for the Year chip's label and dialog title, following the `bigPictureCasesFilterLabel` / `bigPictureTagsFilterLabel` / `bigPictureMonthPickerTitle` pattern.
+- [ ] `docs/mockups/big-picture-year-filter-prototype.html` deleted once this ships, per the established mockup-lifecycle precedent (`chore/prune-design-mockups`).
 
-**Plan** — cheap prototype/spike only in this item, per the standing rule for anything that starts feeling complicated.
+**Plan** — implement per the prototype's settled behavior. Two bundled changes are worth flagging separately at review: (1) the Year filter itself, and (2) the grid's scroll-direction reversal — a bigger, more visible behavior change than the filter, and not strictly required to ship a year filter. Consider splitting it into its own PR if reviewability is a concern, even though the two were explored together.
 
-**Tests** — none until an approach is approved and implemented.
+**Tests** — Compose/instrumented coverage for: Year chip absent with ≤1 year of data, present with >1; picking a year narrows visible months and "All years" resets; chip label format (`Cases: N` / `All`). Existing Big Picture tests that assume scroll-opens-at-the-bottom need updating for the reversed order.
+
+**Concern** — the scroll-direction reversal touches every existing Big Picture test or assumption built around oldest-top/current-bottom (see spec §9's rationale and the retired row-per-case design note in `BigPictureGrid.kt`'s class KDoc) — worth a dedicated pass through existing tests before assuming only new tests are needed.
+
+### Settings switch rows crowd the label against the switch at large system font sizes
+
+*Branch: `fix/settings-switch-row-label-wrap` · Complexity: S · Priority: Medium · Area: Settings*
+
+Reported from device testing with a larger system font size: the "Include HODITH in device backup" row's label pushes into the `Switch`, leaving no visible gap. The shared `RowWithInfo` composable (`app/src/main/kotlin/com/secondmonday/hodith/ui/common/SectionWithInfo.kt:47-63`) lays out its label content and `trailingContent` in a `Row(Arrangement.SpaceBetween)` with no `Modifier.weight` on either side, so a long label at large font scale grows into the switch instead of wrapping and ceding space to it. Every Settings row built on `RowWithInfo` shares this risk, not just the backup toggle (`SettingsScreen.kt:230-243`, label from `Voice.kt:828`).
+
+**Acceptance criteria**
+
+- [ ] `RowWithInfo`'s label content takes `Modifier.weight(1f, fill = false)` (or equivalent) so it wraps at large font scale instead of crowding `trailingContent`.
+- [ ] Verified at the largest supported system font size that the backup-toggle row's label wraps and the `Switch` stays fully visible with a clear gap.
+- [ ] Spot-checked against every other `RowWithInfo` call site in `SettingsScreen.kt` for the same regression.
+
+**Plan** — add a weight modifier to `RowWithInfo`'s label slot in `SectionWithInfo.kt` so long labels wrap instead of pushing into trailing content; this is a shared-component fix, not a per-row one.
+
+**Tests** — a Compose UI test (or updated `SettingsScreenTest`) at a large font-scale config asserting the switch remains on-screen and the label wraps rather than clipping/overlapping.
+
+### Log entry form: Save button disappears while the tag field is focused
+
+*Branch: `fix/log-detail-save-button-visibility` · Complexity: S–M · Priority: Medium · Area: Bug*
+
+Reported bug: tapping into the tag input while logging or editing an event hides the Save button, so backing out of adding a tag requires tapping elsewhere first just to make Save reappear. Root cause: `LogDetailForm` (`app/src/main/kotlin/com/secondmonday/hodith/ui/logsheet/LogDetailSheet.kt`, lines 142-238) puts the Save `Button` (lines 235-237) as the *last* item inside the same scrollable `Column` as the form fields, and applies `.verticalScroll(...).imePadding()` (lines 163-169) to that whole column. When the tag `OutlinedTextField` (line 656) gains focus and the keyboard opens, `imePadding()` shrinks the viewport but nothing scrolls Save into view — it's pushed below the fold until the keyboard closes. Both `LogDetailScreen.kt` (edit) and `LogDetailSheet.kt` (new) share `LogDetailForm`, so the fix belongs there, not in either wrapper.
+
+**Acceptance criteria**
+
+- [ ] Save button stays visible (or is reachable without deliberately dismissing the keyboard) while the tag field has focus, in both the new-event sheet and the edit-event screen.
+- [ ] No regression to the existing scroll behavior for the rest of the form's fields.
+
+**Plan** — most direct fix is pinning the Save button outside the scrollable region (e.g. a fixed bottom bar) so it's unaffected by `imePadding()`/scroll position; alternative is auto-scrolling the focused field's container so Save stays in the IME-adjusted viewport. Since `LogDetailForm` is shared, fix once and verify both call sites.
+
+**Tests** — Compose UI test asserting the Save button remains visible (or scrolled into view) when the tag field is focused, for both `LogDetailScreen` and `LogDetailSheet`.
+
+### Share button: add a Log Share option alongside the existing Insight Share
+
+*Branch: `feat/share-log-export` · Complexity: L · Priority: Medium · Area: Share*
+
+🎨 **Design decision** — sort options, date-range UI, and column-selection UX need a ruling before implementation.
+
+Requested: the existing share action (`CaseDetailScreen.kt:175-177` → `ShareViewModel.kt` → `SharePreviewScreen.kt`, which renders a `ShareCardTemplate` image via `ShareImageExporter`) should become one of two options — keep it as "Insight Share," and add a new "Log Share" that exports the Case's raw log data as a shareable file rather than an image: configurable sort order, a date range, and toggleable columns (tags, notes, duration, intensity), showing only the columns applicable to that Case. Column applicability should key off `CaseEntity.durationMode`/`intensityEnabled` (`CaseEntity.kt:16-17`), the same way `SharePreviewScreen.kt`'s `availableSections` already gates Insights sections by Case config — that gating logic is directly reusable as a pattern here.
+
+Distinct from two existing/adjacent items: the Settings-level **CSV export** item (`feat/csv-export`) is a bulk, all-cases export with no sort/date-range/column UI; this is a single-Case, share-sheet-triggered, user-configured export. HODITH_SPEC §13's "notes/tags never included on share cards" rule is specific to the *image* share card — it does not apply to Log Share, since raw notes/tags are the explicit point of a data export shared this way. §13 will need a note distinguishing the two once this ships.
+
+**Acceptance criteria**
+
+- [ ] A ruling on Log Share's output format (CSV/text attachment via Android share sheet is the likely default, consistent with the existing CSV export item's format).
+- [ ] A ruling on sort options offered (e.g. date ascending/descending) and date-range picker UX.
+- [ ] Column toggles for tags/notes/duration/intensity, each shown only when applicable to the Case (reusing `availableSections`-style gating against `CaseEntity.durationMode`/`intensityEnabled`).
+- [ ] Share entry point presents both "Insight Share" and "Log Share" as distinct options (e.g. a chooser before `SharePreviewScreen`, or a new sibling screen).
+- [ ] Voice ×3 for all new labels, toggles, and picker copy.
+- [ ] HODITH_SPEC §13 updated to scope the "no notes/tags" rule to the image share card specifically, once Log Share exists.
+
+**Plan** — needs the format/sort/date-range/column-UX decisions above settled first (cheap to mock as a static prototype per the project's standing rule for non-trivial UI). Once settled: a new export path parallel to `ShareViewModel`/`SharePreviewScreen` (or a mode within them) producing the tabular file, reusing `availableSections`'s Case-config gating pattern for column applicability, and a new entry-point chooser between Insight Share and Log Share.
+
+**Tests** — a unit test for the export-row-shaping logic (column gating by Case config, sort, date-range filtering); Compose coverage for the two-option share entry point and the Log Share configuration screen.
+
+### Case description isn't shown anywhere in the app — surface it on Home and Case Detail
+
+*Branch: `feat/case-description-on-home` · Complexity: S–M · Priority: Medium · Area: Home*
+
+Reported as "description only shows on Case Detail" — actually `CaseEntity.description` (`data/CaseEntity.kt:12`) is written on the Case edit screen (`CaseEditScreen.kt:264` / `CaseEditViewModel.kt`) but rendered **nowhere** today, including Case Detail itself (`CaseDetailScreen.kt`'s `TopAppBar` only shows `"${icon} ${name}"`, line 167 — no description reference anywhere in that file). This item covers both: show the description on Case Detail (closing the original gap) and on Home (the new ask).
+
+Home's row model has no field for it yet: `HomeCaseRow` (`viewmodel/HomeViewModel.kt:38-54`) would need a `description` field, populated wherever `HomeViewModel` loads cases, then rendered in `HomeCaseRowBody` (`ui/home/HomeScreen.kt:273-307`, near the name `Text` at line 294) and its Plain/Bright variants (`PlainPlankHomeCaseListItem`, `BrightHomeCaseListItem`).
+
+**Acceptance criteria**
+
+- [ ] A ruling on Home's presentation when a description is long (truncate with ellipsis vs. omit vs. expand) — Home cards are compact, unlike Case Detail.
+- [ ] A ruling on whether an empty/blank description renders nothing on Home/Case Detail or a placeholder (likely nothing, to avoid noise).
+- [ ] `HomeCaseRow` gains a `description` field, sourced from `CaseEntity.description`.
+- [ ] Description rendered on Home in `HomeCaseRowBody` and its Plain/Bright variants.
+- [ ] Description rendered on Case Detail (`CaseDetailScreen.kt`), closing the original gap.
+- [ ] `HODITH_SPEC.md` updated if it documents description as Case-Detail-only anywhere (confirm during implementation).
+
+**Plan** — add `description` to `HomeCaseRow` and its population in `HomeViewModel`, then render it in `HomeCaseRowBody`/Plain/Bright Home variants and in `CaseDetailScreen.kt`, settling truncation/empty-state behavior first since it affects both surfaces.
+
+**Tests** — `HomeViewModelTest` coverage that `HomeCaseRow.description` reflects `CaseEntity.description`; Compose coverage that Home and Case Detail render a non-blank description and render nothing for a blank one.
+
+### Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)
+
+*Branch: `fix/big-picture-filter-pill-consistency` · Complexity: S–M · Priority: Medium · Area: Big Picture*
+
+🎨 **Design decision** — the actual color choices per filter type need a call.
+
+Three related issues reported together against `ui/bigpicture/BigPictureGrid.kt`'s filter chips/pills:
+
+- **Not color-coded by filter type.** In Plain/Intense, `CaseFilterChip` (lines 793-820) already uses `secondaryContainer` and `TagFilterChip` (824-849) uses `tertiaryContainer` — distinct colors. The actual gap is **Bright**: both `BrightCaseFilterChip` (896-909) and `BrightTagFilterChip` (912-924) call the shared `BrightChip` (861-893) with the same `tint = MaterialTheme.colorScheme.primary`, so Bright shows no color distinction at all. (No Year chip exists yet — that's the separate, in-progress "Big Picture: year filter" item — but its color should be decided as part of this pass so the eventual Year chip isn't a fourth ad-hoc choice.)
+- **"0 of 5" should read "None" when nothing is selected.** `filterCountLabel` (lines 445-449) branches only on `selected == total` (→ `bigPictureFilterCountAll`); there's no `selected == 0` branch, so it falls through to the raw `"$selected of $total"` (`Voice.kt:462-465`, `bigPictureFilterCount`, not overridden per-voice). Needs a `bigPictureFilterCountNone`-style key, following the same per-voice-override pattern `bigPictureFilterCountAll` already uses (`Voice.kt:723`, `1303`, `1874`).
+- **Tag pills don't match case pills' size/alignment.** `CaseFilterChip` renders a `Row` (icon + name `Text`s, `Arrangement.spacedBy(4.dp)`, `CenterVertically`) with padding on the `Row`; `TagFilterChip` renders a single bare `Text` with the same padding values but no `Row`/explicit vertical-centering container — same `CHIP_SHAPE`/padding constants, different measurement shape, which is the likely source of the visible height/alignment mismatch in the filter `FlowRow`s (lines 384-388, 403-407) and `FilterLegendRow` (467-505).
+
+**Note on sequencing:** the in-progress "Big Picture: year filter" item also touches these same chip composables (adding a Year chip, a "narrowed" highlight border, and relabeling to "Cases: N"/"All"). Worth landing whichever ships first with the other's planned changes in mind to avoid rework — check that item's status before starting this one.
+
+**Acceptance criteria**
+
+- [ ] A ruling on the three (soon four, with Year) chip colors, applied consistently across Plain, Intense, and Bright.
+- [ ] `BrightCaseFilterChip`/`BrightTagFilterChip` use distinct tints instead of both defaulting to `colorScheme.primary`.
+- [ ] `filterCountLabel` gains a `selected == 0` branch returning a new `bigPictureFilterCountNone` Voice key (Voice ×3) instead of falling through to `"0 of N"`.
+- [ ] `TagFilterChip` (and Bright's tag chip) restructured to match `CaseFilterChip`'s `Row`-based layout so both measure to the same height/alignment in a `FlowRow`.
+- [ ] Verified side-by-side in the Cases/Tags filter dialogs and in `FilterLegendRow` where both chip types can appear together.
+
+**Plan** — settle the color ruling first (affects three files: Plain/Intense chips, Bright chips, and whatever Year chip lands with). Then: add the `bigPictureFilterCountNone` Voice key and wire it into `filterCountLabel`; restructure `TagFilterChip`/Bright tag chip onto `CaseFilterChip`'s `Row` layout for size/alignment parity.
+
+**Tests** — `VoiceTest` coverage for the new key across all three voices; a Compose test asserting tag and case chips render at equal height in a shared `FlowRow`; existing Big Picture filter tests updated if any assert the old "0 of N" label text.
 
 ## Deferred
 
