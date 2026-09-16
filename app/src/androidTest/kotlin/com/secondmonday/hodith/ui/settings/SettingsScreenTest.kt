@@ -382,15 +382,16 @@ class SettingsScreenTest {
     fun cloudBackupRow_atLargeFontScale_labelDoesNotOverlapSwitch() {
         setContent(uiState = SettingsUiState(cloudBackupEnabled = true, isLoading = false), fontScale = LARGE_FONT_SCALE)
 
+        // performScrollTo() first: at this font scale the row can sit below the fold on a small
+        // screen (e.g. CI's pixel_6 profile) — see loadDemoData_tapInvokesCallback for the same
+        // below-the-fold pattern.
+        val switchNode =
+            composeTestRule.onNodeWithContentDescription(PlainVoice.settingsCloudBackupToggleLabel).performScrollTo()
         val labelBounds =
             composeTestRule.onNodeWithText(PlainVoice.settingsCloudBackupToggleLabel).fetchSemanticsNode().boundsInRoot
-        val switchBounds =
-            composeTestRule
-                .onNodeWithContentDescription(PlainVoice.settingsCloudBackupToggleLabel)
-                .fetchSemanticsNode()
-                .boundsInRoot
+        val switchBounds = switchNode.fetchSemanticsNode().boundsInRoot
 
-        composeTestRule.onNodeWithContentDescription(PlainVoice.settingsCloudBackupToggleLabel).assertIsDisplayed()
+        switchNode.assertIsDisplayed()
         assertFalse(labelBounds.overlapsRect(switchBounds))
     }
 

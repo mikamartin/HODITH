@@ -42,6 +42,8 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (`test`'s one failure, `HomeViewModelTest`'s `onQuickLogTap on an ongoing START_STOP case starts a second concurrent event`, reproduced identically on a clean `main` with this branch's changes stashed — confirmed pre-existing and unrelated, not a regression from this diff). `connectedDebugAndroidTest` scoped to `SettingsScreenTest` — 28/28 green on `Pixel_8_API36(AVD)`, run twice (before and after the hygiene fixes above), including the new test both times.
 
+**Post-push follow-up:** CI's `ui` instrumented shard failed the new `cloudBackupRow_atLargeFontScale_labelDoesNotOverlapSwitch` test with `assertIsDisplayed()` reporting the switch not displayed — not one of `FLAKY_TESTS.md`'s known nondeterministic patterns, but a genuine test bug: CI runs on the `pixel_6` emulator profile (`instrumented-tests.yml`), a smaller screen than the local `Pixel_8_API36` this branch was verified against, so at `LARGE_FONT_SCALE` the cloud-backup row falls below the fold before the assertion runs. Fixed by calling `performScrollTo()` on the switch node first, matching this same file's existing below-the-fold pattern (`loadDemoData_tapInvokesCallback`'s comment on the Developer Mode plank). Re-verified locally (28/28 on `Pixel_8_API36(AVD)`); CI re-run pending.
+
 ---
 
 ## feat/resolved-hunch-list-redesign
