@@ -57,7 +57,7 @@ fun RowWithInfo(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LabelWithInfo(label, infoTitle, infoBody, infoDescription, labelStyle)
+        LabelWithInfo(label, infoTitle, infoBody, infoDescription, labelStyle, modifier = Modifier.weight(1f, fill = false))
         trailingContent()
     }
 }
@@ -69,12 +69,13 @@ private fun LabelWithInfo(
     infoBody: String,
     infoDescription: String,
     labelStyle: TextStyle,
+    modifier: Modifier = Modifier,
 ) {
     var showInfo by remember { mutableStateOf(false) }
     if (showInfo) {
         InfoDialog(title = infoTitle, onDismiss = { showInfo = false }) { Text(infoBody) }
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = labelStyle)
         IconButton(onClick = { showInfo = true }) {
             InfoIcon(contentDescription = infoDescription, modifier = Modifier.size(18.dp))

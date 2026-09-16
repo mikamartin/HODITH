@@ -338,22 +338,6 @@ UX direction settled via a cheap HTML prototype, `docs/mockups/big-picture-year-
 
 **Concern** — the scroll-direction reversal touches every existing Big Picture test or assumption built around oldest-top/current-bottom (see spec §9's rationale and the retired row-per-case design note in `BigPictureGrid.kt`'s class KDoc) — worth a dedicated pass through existing tests before assuming only new tests are needed.
 
-### Settings switch rows crowd the label against the switch at large system font sizes
-
-*Branch: `fix/settings-switch-row-label-wrap` · Complexity: S · Priority: Medium · Area: Settings*
-
-Reported from device testing with a larger system font size: the "Include HODITH in device backup" row's label pushes into the `Switch`, leaving no visible gap. The shared `RowWithInfo` composable (`app/src/main/kotlin/com/secondmonday/hodith/ui/common/SectionWithInfo.kt:47-63`) lays out its label content and `trailingContent` in a `Row(Arrangement.SpaceBetween)` with no `Modifier.weight` on either side, so a long label at large font scale grows into the switch instead of wrapping and ceding space to it. Every Settings row built on `RowWithInfo` shares this risk, not just the backup toggle (`SettingsScreen.kt:230-243`, label from `Voice.kt:828`).
-
-**Acceptance criteria**
-
-- [ ] `RowWithInfo`'s label content takes `Modifier.weight(1f, fill = false)` (or equivalent) so it wraps at large font scale instead of crowding `trailingContent`.
-- [ ] Verified at the largest supported system font size that the backup-toggle row's label wraps and the `Switch` stays fully visible with a clear gap.
-- [ ] Spot-checked against every other `RowWithInfo` call site in `SettingsScreen.kt` for the same regression.
-
-**Plan** — add a weight modifier to `RowWithInfo`'s label slot in `SectionWithInfo.kt` so long labels wrap instead of pushing into trailing content; this is a shared-component fix, not a per-row one.
-
-**Tests** — a Compose UI test (or updated `SettingsScreenTest`) at a large font-scale config asserting the switch remains on-screen and the label wraps rather than clipping/overlapping.
-
 ### Log entry form: Save button disappears while the tag field is focused
 
 *Branch: `fix/log-detail-save-button-visibility` · Complexity: S–M · Priority: Medium · Area: Bug*

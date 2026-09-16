@@ -1,6 +1,8 @@
 package com.secondmonday.hodith.ui.settings
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -10,11 +12,13 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.common.overlapsRect
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.BackupEvent
@@ -30,6 +34,9 @@ import java.time.ZoneId
 
 /** A fixed instant [setContent] hands back as "now" — 2026-01-15, arbitrary but deterministic. */
 private const val TEST_NOW_MILLIS = 1_768_435_200_000L
+
+/** Android's largest standard accessibility font-scale step, for testing layout at large text sizes. */
+private const val LARGE_FONT_SCALE = 2f
 
 /**
  * First Compose UI instrumented test for [SettingsScreen] (previously covered only at the
@@ -58,9 +65,13 @@ class SettingsScreenTest {
         onImportConfirm: () -> Unit = {},
         onOpenAbout: () -> Unit = {},
         onContactUs: () -> Unit = {},
+        fontScale: Float = 1f,
     ) {
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+            CompositionLocalProvider(
+                LocalVoice provides PlainVoice,
+                LocalDensity provides Density(density = LocalDensity.current.density, fontScale = fontScale),
+            ) {
                 SettingsScreen(
                     uiState = uiState,
                     demoDataLoaded = demoDataLoaded,
@@ -365,6 +376,23 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithContentDescription(PlainVoice.settingsCloudBackupToggleLabel).performClick()
 
         assertEquals(false, toggledTo)
+    }
+
+    @Test
+    fun cloudBackupRow_atLargeFontScale_labelDoesNotOverlapSwitch() {
+        setContent(uiState = SettingsUiState(cloudBackupEnabled = true, isLoading = false), fontScale = LARGE_FONT_SCALE)
+
+        // performScrollTo() first: at this font scale the row can sit below the fold on a small
+        // screen (e.g. CI's pixel_6 profile) — see loadDemoData_tapInvokesCallback for the same
+        // below-the-fold pattern.
+        val switchNode =
+            composeTestRule.onNodeWithContentDescription(PlainVoice.settingsCloudBackupToggleLabel).performScrollTo()
+        val labelBounds =
+            composeTestRule.onNodeWithText(PlainVoice.settingsCloudBackupToggleLabel).fetchSemanticsNode().boundsInRoot
+        val switchBounds = switchNode.fetchSemanticsNode().boundsInRoot
+
+        switchNode.assertIsDisplayed()
+        assertFalse(labelBounds.overlapsRect(switchBounds))
     }
 
     @Smoke
