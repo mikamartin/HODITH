@@ -338,6 +338,107 @@ UX direction settled via a cheap HTML prototype, `docs/mockups/big-picture-year-
 
 **Concern** — the scroll-direction reversal touches every existing Big Picture test or assumption built around oldest-top/current-bottom (see spec §9's rationale and the retired row-per-case design note in `BigPictureGrid.kt`'s class KDoc) — worth a dedicated pass through existing tests before assuming only new tests are needed.
 
+### Settings switch rows crowd the label against the switch at large system font sizes
+
+*Branch: `fix/settings-switch-row-label-wrap` · Complexity: S · Priority: Medium · Area: Settings*
+
+Reported from device testing with a larger system font size: the "Include HODITH in device backup" row's label pushes into the `Switch`, leaving no visible gap. The shared `RowWithInfo` composable (`app/src/main/kotlin/com/secondmonday/hodith/ui/common/SectionWithInfo.kt:47-63`) lays out its label content and `trailingContent` in a `Row(Arrangement.SpaceBetween)` with no `Modifier.weight` on either side, so a long label at large font scale grows into the switch instead of wrapping and ceding space to it. Every Settings row built on `RowWithInfo` shares this risk, not just the backup toggle (`SettingsScreen.kt:230-243`, label from `Voice.kt:828`).
+
+**Acceptance criteria**
+
+- [ ] `RowWithInfo`'s label content takes `Modifier.weight(1f, fill = false)` (or equivalent) so it wraps at large font scale instead of crowding `trailingContent`.
+- [ ] Verified at the largest supported system font size that the backup-toggle row's label wraps and the `Switch` stays fully visible with a clear gap.
+- [ ] Spot-checked against every other `RowWithInfo` call site in `SettingsScreen.kt` for the same regression.
+
+**Plan** — add a weight modifier to `RowWithInfo`'s label slot in `SectionWithInfo.kt` so long labels wrap instead of pushing into trailing content; this is a shared-component fix, not a per-row one.
+
+**Tests** — a Compose UI test (or updated `SettingsScreenTest`) at a large font-scale config asserting the switch remains on-screen and the label wraps rather than clipping/overlapping.
+
+### Log entry form: Save button disappears while the tag field is focused
+
+*Branch: `fix/log-detail-save-button-visibility` · Complexity: S–M · Priority: Medium · Area: Bug*
+
+Reported bug: tapping into the tag input while logging or editing an event hides the Save button, so backing out of adding a tag requires tapping elsewhere first just to make Save reappear. Root cause: `LogDetailForm` (`app/src/main/kotlin/com/secondmonday/hodith/ui/logsheet/LogDetailSheet.kt`, lines 142-238) puts the Save `Button` (lines 235-237) as the *last* item inside the same scrollable `Column` as the form fields, and applies `.verticalScroll(...).imePadding()` (lines 163-169) to that whole column. When the tag `OutlinedTextField` (line 656) gains focus and the keyboard opens, `imePadding()` shrinks the viewport but nothing scrolls Save into view — it's pushed below the fold until the keyboard closes. Both `LogDetailScreen.kt` (edit) and `LogDetailSheet.kt` (new) share `LogDetailForm`, so the fix belongs there, not in either wrapper.
+
+**Acceptance criteria**
+
+- [ ] Save button stays visible (or is reachable without deliberately dismissing the keyboard) while the tag field has focus, in both the new-event sheet and the edit-event screen.
+- [ ] No regression to the existing scroll behavior for the rest of the form's fields.
+
+**Plan** — most direct fix is pinning the Save button outside the scrollable region (e.g. a fixed bottom bar) so it's unaffected by `imePadding()`/scroll position; alternative is auto-scrolling the focused field's container so Save stays in the IME-adjusted viewport. Since `LogDetailForm` is shared, fix once and verify both call sites.
+
+**Tests** — Compose UI test asserting the Save button remains visible (or scrolled into view) when the tag field is focused, for both `LogDetailScreen` and `LogDetailSheet`.
+
+### Share button: add a Log Share option alongside the existing Insight Share
+
+*Branch: `feat/share-log-export` · Complexity: L · Priority: Medium · Area: Share*
+
+🎨 **Design decision** — sort options, date-range UI, and column-selection UX need a ruling before implementation.
+
+Requested: the existing share action (`CaseDetailScreen.kt:175-177` → `ShareViewModel.kt` → `SharePreviewScreen.kt`, which renders a `ShareCardTemplate` image via `ShareImageExporter`) should become one of two options — keep it as "Insight Share," and add a new "Log Share" that exports the Case's raw log data as a shareable file rather than an image: configurable sort order, a date range, and toggleable columns (tags, notes, duration, intensity), showing only the columns applicable to that Case. Column applicability should key off `CaseEntity.durationMode`/`intensityEnabled` (`CaseEntity.kt:16-17`), the same way `SharePreviewScreen.kt`'s `availableSections` already gates Insights sections by Case config — that gating logic is directly reusable as a pattern here.
+
+Distinct from two existing/adjacent items: the Settings-level **CSV export** item (`feat/csv-export`) is a bulk, all-cases export with no sort/date-range/column UI; this is a single-Case, share-sheet-triggered, user-configured export. HODITH_SPEC §13's "notes/tags never included on share cards" rule is specific to the *image* share card — it does not apply to Log Share, since raw notes/tags are the explicit point of a data export shared this way. §13 will need a note distinguishing the two once this ships.
+
+**Acceptance criteria**
+
+- [ ] A ruling on Log Share's output format (CSV/text attachment via Android share sheet is the likely default, consistent with the existing CSV export item's format).
+- [ ] A ruling on sort options offered (e.g. date ascending/descending) and date-range picker UX.
+- [ ] Column toggles for tags/notes/duration/intensity, each shown only when applicable to the Case (reusing `availableSections`-style gating against `CaseEntity.durationMode`/`intensityEnabled`).
+- [ ] Share entry point presents both "Insight Share" and "Log Share" as distinct options (e.g. a chooser before `SharePreviewScreen`, or a new sibling screen).
+- [ ] Voice ×3 for all new labels, toggles, and picker copy.
+- [ ] HODITH_SPEC §13 updated to scope the "no notes/tags" rule to the image share card specifically, once Log Share exists.
+
+**Plan** — needs the format/sort/date-range/column-UX decisions above settled first (cheap to mock as a static prototype per the project's standing rule for non-trivial UI). Once settled: a new export path parallel to `ShareViewModel`/`SharePreviewScreen` (or a mode within them) producing the tabular file, reusing `availableSections`'s Case-config gating pattern for column applicability, and a new entry-point chooser between Insight Share and Log Share.
+
+**Tests** — a unit test for the export-row-shaping logic (column gating by Case config, sort, date-range filtering); Compose coverage for the two-option share entry point and the Log Share configuration screen.
+
+### Case description isn't shown anywhere in the app — surface it on Home and Case Detail
+
+*Branch: `feat/case-description-on-home` · Complexity: S–M · Priority: Medium · Area: Home*
+
+Reported as "description only shows on Case Detail" — actually `CaseEntity.description` (`data/CaseEntity.kt:12`) is written on the Case edit screen (`CaseEditScreen.kt:264` / `CaseEditViewModel.kt`) but rendered **nowhere** today, including Case Detail itself (`CaseDetailScreen.kt`'s `TopAppBar` only shows `"${icon} ${name}"`, line 167 — no description reference anywhere in that file). This item covers both: show the description on Case Detail (closing the original gap) and on Home (the new ask).
+
+Home's row model has no field for it yet: `HomeCaseRow` (`viewmodel/HomeViewModel.kt:38-54`) would need a `description` field, populated wherever `HomeViewModel` loads cases, then rendered in `HomeCaseRowBody` (`ui/home/HomeScreen.kt:273-307`, near the name `Text` at line 294) and its Plain/Bright variants (`PlainPlankHomeCaseListItem`, `BrightHomeCaseListItem`).
+
+**Acceptance criteria**
+
+- [ ] A ruling on Home's presentation when a description is long (truncate with ellipsis vs. omit vs. expand) — Home cards are compact, unlike Case Detail.
+- [ ] A ruling on whether an empty/blank description renders nothing on Home/Case Detail or a placeholder (likely nothing, to avoid noise).
+- [ ] `HomeCaseRow` gains a `description` field, sourced from `CaseEntity.description`.
+- [ ] Description rendered on Home in `HomeCaseRowBody` and its Plain/Bright variants.
+- [ ] Description rendered on Case Detail (`CaseDetailScreen.kt`), closing the original gap.
+- [ ] `HODITH_SPEC.md` updated if it documents description as Case-Detail-only anywhere (confirm during implementation).
+
+**Plan** — add `description` to `HomeCaseRow` and its population in `HomeViewModel`, then render it in `HomeCaseRowBody`/Plain/Bright Home variants and in `CaseDetailScreen.kt`, settling truncation/empty-state behavior first since it affects both surfaces.
+
+**Tests** — `HomeViewModelTest` coverage that `HomeCaseRow.description` reflects `CaseEntity.description`; Compose coverage that Home and Case Detail render a non-blank description and render nothing for a blank one.
+
+### Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)
+
+*Branch: `fix/big-picture-filter-pill-consistency` · Complexity: S–M · Priority: Medium · Area: Big Picture*
+
+🎨 **Design decision** — the actual color choices per filter type need a call.
+
+Three related issues reported together against `ui/bigpicture/BigPictureGrid.kt`'s filter chips/pills:
+
+- **Not color-coded by filter type.** In Plain/Intense, `CaseFilterChip` (lines 793-820) already uses `secondaryContainer` and `TagFilterChip` (824-849) uses `tertiaryContainer` — distinct colors. The actual gap is **Bright**: both `BrightCaseFilterChip` (896-909) and `BrightTagFilterChip` (912-924) call the shared `BrightChip` (861-893) with the same `tint = MaterialTheme.colorScheme.primary`, so Bright shows no color distinction at all. (No Year chip exists yet — that's the separate, in-progress "Big Picture: year filter" item — but its color should be decided as part of this pass so the eventual Year chip isn't a fourth ad-hoc choice.)
+- **"0 of 5" should read "None" when nothing is selected.** `filterCountLabel` (lines 445-449) branches only on `selected == total` (→ `bigPictureFilterCountAll`); there's no `selected == 0` branch, so it falls through to the raw `"$selected of $total"` (`Voice.kt:462-465`, `bigPictureFilterCount`, not overridden per-voice). Needs a `bigPictureFilterCountNone`-style key, following the same per-voice-override pattern `bigPictureFilterCountAll` already uses (`Voice.kt:723`, `1303`, `1874`).
+- **Tag pills don't match case pills' size/alignment.** `CaseFilterChip` renders a `Row` (icon + name `Text`s, `Arrangement.spacedBy(4.dp)`, `CenterVertically`) with padding on the `Row`; `TagFilterChip` renders a single bare `Text` with the same padding values but no `Row`/explicit vertical-centering container — same `CHIP_SHAPE`/padding constants, different measurement shape, which is the likely source of the visible height/alignment mismatch in the filter `FlowRow`s (lines 384-388, 403-407) and `FilterLegendRow` (467-505).
+
+**Note on sequencing:** the in-progress "Big Picture: year filter" item also touches these same chip composables (adding a Year chip, a "narrowed" highlight border, and relabeling to "Cases: N"/"All"). Worth landing whichever ships first with the other's planned changes in mind to avoid rework — check that item's status before starting this one.
+
+**Acceptance criteria**
+
+- [ ] A ruling on the three (soon four, with Year) chip colors, applied consistently across Plain, Intense, and Bright.
+- [ ] `BrightCaseFilterChip`/`BrightTagFilterChip` use distinct tints instead of both defaulting to `colorScheme.primary`.
+- [ ] `filterCountLabel` gains a `selected == 0` branch returning a new `bigPictureFilterCountNone` Voice key (Voice ×3) instead of falling through to `"0 of N"`.
+- [ ] `TagFilterChip` (and Bright's tag chip) restructured to match `CaseFilterChip`'s `Row`-based layout so both measure to the same height/alignment in a `FlowRow`.
+- [ ] Verified side-by-side in the Cases/Tags filter dialogs and in `FilterLegendRow` where both chip types can appear together.
+
+**Plan** — settle the color ruling first (affects three files: Plain/Intense chips, Bright chips, and whatever Year chip lands with). Then: add the `bigPictureFilterCountNone` Voice key and wire it into `filterCountLabel`; restructure `TagFilterChip`/Bright tag chip onto `CaseFilterChip`'s `Row` layout for size/alignment parity.
+
+**Tests** — `VoiceTest` coverage for the new key across all three voices; a Compose test asserting tag and case chips render at equal height in a shared `FlowRow`; existing Big Picture filter tests updated if any assert the old "0 of N" label text.
+
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
