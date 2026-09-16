@@ -1,0 +1,535 @@
+<title>S15 — Big Picture year filter (prototype)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --bg: #F4F6F8; --surface: #FFFFFF; --on-surface: #1B2126; --on-surface-muted: #5B6670;
+  --outline: #D3DAE0; --outline-variant: #E7ECEE; --primary: #3A6B76; --on-primary: #FFFFFF;
+  --primary-container: #C7E8ED; --on-primary-container: #082024; --surface-variant: #DEE4E7;
+  --surface-container-high: #E9ECEE;
+  --tag-container: #DAE4E9; --on-tag-container: #141E24;
+  --stage-bg: #eef1f3; --devpanel-bg: #ffffff; --devpanel-border: #dde3e6;
+}
+:root[data-theme="dark"] {
+  --bg: #14181B; --surface: #1C2226; --on-surface: #E7ECEF; --on-surface-muted: #96A3AB;
+  --outline: #2A3237; --outline-variant: #3A444A; --primary: #6FA8B5; --on-primary: #0B1416;
+  --primary-container: #1F3A40; --on-primary-container: #C7E8ED; --surface-variant: #232A2E;
+  --surface-container-high: #232A2E;
+  --tag-container: #3F4C51; --on-tag-container: #D4E0E4;
+  --stage-bg: #101315; --devpanel-bg: #181c1f; --devpanel-border: #2a3237;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--stage-bg); color: var(--on-surface); font-family: 'Inter', system-ui, sans-serif; }
+
+.layout {
+  display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, auto);
+  gap: 28px; align-items: start; padding: 28px; max-width: 1200px; margin: 0 auto;
+}
+@media (max-width: 940px) { .layout { grid-template-columns: 1fr; } }
+
+/* ---- dev panel ---- */
+.devpanel { background: var(--devpanel-bg); border: 1px solid var(--devpanel-border); border-radius: 12px; padding: 20px 22px; position: sticky; top: 28px; }
+.devpanel .kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); font-weight: 600; margin: 0 0 10px; }
+.devpanel h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.devpanel p.note { font-size: 12.5px; line-height: 1.55; color: var(--on-surface-muted); margin: 0 0 18px; }
+.field { margin-bottom: 18px; }
+.field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--on-surface-muted); font-weight: 600; margin-bottom: 8px; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--devpanel-border); background: transparent; color: var(--on-surface); cursor: pointer; }
+.seg button:hover { border-color: var(--primary); }
+.seg button.is-active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+
+.decisions { border-top: 1px solid var(--devpanel-border); padding-top: 14px; }
+.decisions h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); margin: 0 0 8px; }
+.decisions ul { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; }
+.decisions li + li { margin-top: 6px; }
+
+/* ---- phone stage ---- */
+.phone { width: 380px; max-width: 100%; background: var(--bg); border-radius: 22px; border: 1px solid var(--outline); overflow: hidden; box-shadow: 0 20px 40px -20px rgba(0,0,0,0.35); }
+.phone-topbar { padding: 14px 16px 10px; border-bottom: 1px solid var(--outline-variant); }
+.phone-topbar .title { font-size: 15px; font-weight: 700; }
+.phone-topbar .subtitle { font-size: 11.5px; color: var(--on-surface-muted); margin-top: 2px; }
+
+/* ---- filter row: Cases / Tags / Year + legend ---- */
+.filter-row { padding: 10px 16px; border-bottom: 1px solid var(--outline-variant); display: flex; flex-direction: column; gap: 7px; }
+.chip-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.trigger-chip { font-family: inherit; font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--outline-variant); background: var(--surface); color: var(--on-surface); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.trigger-chip b { font-weight: 400; color: var(--on-surface-muted); }
+.trigger-chip .car { color: var(--primary); font-weight: 700; }
+.trigger-chip[hidden] { display: none; }
+.trigger-chip.is-filtered { border: 1.5px solid var(--primary); }
+.chip-spacer { flex: 1; }
+.edit-icon { font-size: 13px; color: var(--on-surface-muted); padding: 4px 6px; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.legend-chip { font-size: 11px; font-weight: 600; padding: 5px 9px; border-radius: 999px; background: var(--primary-container); color: var(--on-primary-container); display: inline-flex; align-items: center; gap: 4px; }
+.legend-chip.tag { background: var(--tag-container); color: var(--on-tag-container); }
+.legend-note { font-size: 11px; color: var(--on-surface-muted); }
+
+/* ---- weekday header + grid: day number + each Case's icon, not a heatmap ---- */
+.weekday-header { display: flex; gap: 3px; padding: 8px 16px 2px; }
+.weekday-header .wd-spacer { width: 20px; flex: none; }
+.weekday-header .wd-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; flex: 1; }
+.weekday-header .wd-days span { text-align: center; font-size: 9px; font-weight: 700; color: var(--on-surface-muted); }
+
+.grid-scroll { height: 420px; overflow-y: auto; padding: 4px 16px 16px; }
+.month-block { margin-bottom: 12px; }
+.month-block .m-label { font-size: 12px; font-weight: 700; margin: 6px 0 4px; cursor: pointer; color: var(--primary); }
+.month-block .m-label:hover { text-decoration: underline; }
+.week-line { display: flex; gap: 3px; margin-bottom: 3px; align-items: stretch; }
+.week-chevron { width: 20px; flex: none; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 13px; }
+.week-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; flex: 1; }
+.day-cell { aspect-ratio: 1; border-radius: 6px; background: var(--surface-container-high); padding: 2px 3px; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.day-cell.today { outline: 1.5px solid var(--primary); outline-offset: -1.5px; }
+.day-cell.blank { background: transparent; }
+.day-num { font-size: 7px; line-height: 1; color: var(--on-surface-muted); }
+.day-cell.today .day-num { color: var(--primary); font-weight: 700; }
+.day-icons { display: flex; flex-wrap: wrap; gap: 1px; line-height: 1; }
+.day-icons i { font-style: normal; font-size: 8.5px; }
+
+/* generic dialog, reused for the month picker and the Cases/Tags/Year pickers */
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 10; }
+.dialog-backdrop.is-open { display: flex; }
+.dialog-box { background: var(--surface); border-radius: 12px; width: 300px; max-height: 70vh; display: flex; flex-direction: column; overflow: hidden; }
+.dialog-box .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--outline-variant); }
+.dialog-box h3 { font-size: 13px; margin: 0; }
+.dialog-box .bulk-toggle { font-size: 11.5px; font-weight: 700; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0; }
+.dialog-list { overflow-y: auto; padding: 4px 0; }
+.dialog-year-header { position: sticky; top: 0; background: var(--surface-variant); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 5px 16px; color: var(--on-surface-muted); }
+.dialog-month-item { padding: 9px 16px; font-size: 13px; cursor: pointer; }
+.dialog-month-item:hover { background: var(--outline-variant); }
+.dialog-list.as-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+.dialog-pill { font-size: 12.5px; font-weight: 600; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--outline); background: var(--surface); color: var(--on-surface); cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.dialog-pill.is-selected { background: var(--primary-container); border-color: var(--primary-container); color: var(--on-primary-container); }
+.dialog-pill.tag.is-selected { background: var(--tag-container); border-color: var(--tag-container); color: var(--on-tag-container); }
+</style>
+
+<div class="layout">
+  <aside class="devpanel">
+    <p class="kicker">PROGRESS.md S15 &middot; design exploration, not shipped copy</p>
+    <h1>Big Picture &mdash; year filter</h1>
+    <p class="note">Kept to just the year-filter direction now that it's the one being pursued &mdash; the other two candidates (year rail, year-summary zoom) are dropped from this file to avoid confusion. Shown against a synthetic ~2.75-year, 3-Case dataset (Jan 2024&ndash;Sep 2026), with the existing Cases/Tags filter row and legend reproduced for context since Year has to sit alongside them. All copy here is illustrative, not final Voice-layer strings.</p>
+
+    <div class="field">
+      <label>Appearance</label>
+      <div class="seg" id="mode-switch">
+        <button data-mode="light" class="is-active">Light</button>
+        <button data-mode="dark">Dark</button>
+      </div>
+    </div>
+
+    <div class="decisions">
+      <h2>Settled so far</h2>
+      <ul>
+        <li>A third trigger chip, <strong>Year</strong>, joins Cases/Tags in the existing filter row and opens the same kind of picker dialog.</li>
+        <li>Only appears when there's more than one year of data &mdash; a one-value filter is dead weight, same reasoning as the existing Tags chip's own conditional.</li>
+        <li>Defaults to <strong>All years</strong>; picking one narrows the grid to just that year's months, with an explicit reset back to All.</li>
+        <li>Cases/Tags/Year all get a border on their chip whenever they're off their default (not all selected, or a specific year), so an active filter is visible at a glance.</li>
+        <li>The Year dialog lists current year first, oldest last; the month grid itself now opens on today at the top, scrolling downward into the past &mdash; a deliberate reversal of the shipped app's oldest-top/current-bottom order (spec §9), being tried here, not yet a spec change.</li>
+        <li>Cases/Tags/Year chips read "Label: value" (e.g. "Cases: 2", "Tags: All"), not "N of M".</li>
+      </ul>
+    </div>
+  </aside>
+
+  <div class="phone">
+    <div class="phone-topbar">
+      <div class="title">Big Picture</div>
+      <div class="subtitle">3 Cases &middot; Jan 2024 &ndash; Sep 2026</div>
+    </div>
+
+    <div class="filter-row">
+      <div class="chip-line">
+        <button class="trigger-chip" id="cases-chip">Cases: <b id="cases-count"></b> <span class="car">▸</span></button>
+        <button class="trigger-chip" id="tags-chip">Tags: <b id="tags-count"></b> <span class="car">▸</span></button>
+        <button class="trigger-chip" id="year-chip" hidden>Year: <b id="year-count"></b> <span class="car">▸</span></button>
+        <span class="chip-spacer"></span>
+        <span class="edit-icon" title="Edit which detail the day/week rows show">&#9998;</span>
+      </div>
+      <div class="legend-row" id="legend-row"></div>
+    </div>
+
+    <div class="weekday-header">
+      <span class="wd-spacer"></span>
+      <span class="wd-days">
+        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+      </span>
+    </div>
+
+    <div class="grid-scroll" id="grid-scroll"></div>
+  </div>
+</div>
+
+<div class="dialog-backdrop" id="dialog-backdrop">
+  <div class="dialog-box">
+    <div class="dialog-head">
+      <h3 id="dialog-title">Jump to month</h3>
+      <button class="bulk-toggle" id="dialog-bulk" hidden></button>
+    </div>
+    <div class="dialog-list" id="dialog-list"></div>
+  </div>
+</div>
+
+<script>
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const TODAY = new Date(2026, 8, 16); // mockup dataset ends "today"
+const EARLIEST = { y: 2024, m: 0 };
+const CURRENT = { y: TODAY.getFullYear(), m: TODAY.getMonth() };
+
+const CASES = [
+  { id: 1, icon: '☕', name: 'Perfect coffee', rate: 0.30 },
+  { id: 2, icon: '🏃', name: 'Morning run', rate: 0.20 },
+  { id: 3, icon: '📚', name: 'Reading before bed', rate: 0.22 },
+];
+const TAGS = ['weekend', 'solo', 'travel'];
+
+let visibleCaseIds = new Set([1, 2]); // 2 of 3, so the legend row has something to show
+let visibleTagNames = new Set(TAGS); // all tags
+let yearFilter = null; // null = "All years"
+
+function seededFor(y, m, d, salt) {
+  const x = Math.sin(y * 977 + m * 131 + d * 17.7 + salt * 53.13) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function dayLog(y, m, d) {
+  const entries = [];
+  CASES.forEach(c => {
+    if (seededFor(y, m, d, c.id) < c.rate) {
+      const tag = TAGS[Math.floor(seededFor(y, m, d, c.id + 100) * TAGS.length)];
+      entries.push({ caseId: c.id, tag });
+    }
+  });
+  return entries;
+}
+
+function visibleDayLog(y, m, d) {
+  return dayLog(y, m, d).filter(e => visibleCaseIds.has(e.caseId) && visibleTagNames.has(e.tag));
+}
+
+function isPastOrToday(y, m, d) {
+  return new Date(y, m, d) <= TODAY;
+}
+
+// Descending: current month first, earliest last — today sits at the top of the grid, going
+// downward into the past (a deliberate reversal of the shipped app's oldest-top/current-bottom
+// order, per spec §9; being tried here alongside the year filter, not yet a spec change).
+function monthsRange() {
+  const out = [];
+  let y = CURRENT.y, m = CURRENT.m;
+  while (y > EARLIEST.y || (y === EARLIEST.y && m >= EARLIEST.m)) {
+    out.push({ y, m });
+    m--; if (m < 0) { m = 11; y--; }
+  }
+  return out;
+}
+
+// Each week carries its Monday's real Date (which can fall in the previous month for a leading
+// partial week) so buildGrid can drop a week entirely once it hasn't started yet — matching the
+// real screen's `weeksInGrid(month).filter { isPastOrToday(week.first(), today) }`. Without this,
+// a month like the current one (with whole future weeks still ahead of today) renders trailing
+// all-blank rows, which read as a stray gap once months list newest-first and butt up against
+// the next month's label.
+function weeksInMonth(y, m) {
+  const first = new Date(y, m, 1);
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const startOffset = (first.getDay() + 6) % 7; // Monday-start, matching the real weekday header
+  const weeks = [];
+  let day = 1 - startOffset;
+  while (day <= daysInMonth) {
+    const monday = new Date(y, m, day);
+    const week = [];
+    for (let i = 0; i < 7; i++, day++) {
+      if (day < 1 || day > daysInMonth) { week.push(null); continue; }
+      week.push(day);
+    }
+    weeks.push({ monday, days: week });
+  }
+  return weeks;
+}
+
+// Current year first, oldest last — same top-to-bottom "now, going backward" order as the grid.
+function yearList() {
+  const ys = new Set();
+  monthsRange().forEach(({ y }) => ys.add(y));
+  return Array.from(ys).sort((a, b) => b - a);
+}
+
+function renderDayIcons(cell, y, m, d) {
+  const iconsEl = cell.querySelector('.day-icons');
+  iconsEl.innerHTML = '';
+  visibleDayLog(y, m, d).slice(0, 3).forEach(e => {
+    const i = document.createElement('i');
+    i.textContent = CASES.find(c => c.id === e.caseId).icon;
+    iconsEl.appendChild(i);
+  });
+}
+
+function buildGrid() {
+  const container = document.getElementById('grid-scroll');
+  monthsRange().forEach(({ y, m }) => {
+    const block = document.createElement('div');
+    block.className = 'month-block';
+    block.dataset.year = y;
+    block.id = `month-${y}-${m}`;
+    const label = document.createElement('p');
+    label.className = 'm-label';
+    label.textContent = `${MONTH_NAMES[m]} ${y} ›`;
+    label.addEventListener('click', () => openMonthPicker());
+    block.appendChild(label);
+    weeksInMonth(y, m).forEach(({ monday, days: week }) => {
+      if (monday > TODAY) return; // whole week hasn't started yet — skip it, don't just blank its cells
+      const line = document.createElement('div');
+      line.className = 'week-line';
+      const chevron = document.createElement('div');
+      chevron.className = 'week-chevron';
+      chevron.textContent = '›';
+      line.appendChild(chevron);
+      const days = document.createElement('div');
+      days.className = 'week-days';
+      week.forEach(d => {
+        const cell = document.createElement('div');
+        if (d === null || !isPastOrToday(y, m, d)) {
+          cell.className = 'day-cell blank';
+        } else {
+          const isToday = y === CURRENT.y && m === CURRENT.m && d === TODAY.getDate();
+          cell.className = 'day-cell' + (isToday ? ' today' : '');
+          cell.dataset.y = y; cell.dataset.m = m; cell.dataset.d = d;
+          const num = document.createElement('span');
+          num.className = 'day-num';
+          num.textContent = d;
+          const icons = document.createElement('span');
+          icons.className = 'day-icons';
+          cell.appendChild(num);
+          cell.appendChild(icons);
+          renderDayIcons(cell, y, m, d);
+        }
+        days.appendChild(cell);
+      });
+      line.appendChild(days);
+      block.appendChild(line);
+    });
+    container.appendChild(block);
+  });
+  // Opens already at the top — today's month is now the first block, not the last.
+  requestAnimationFrame(() => { container.scrollTop = 0; });
+}
+
+function refreshDayIcons() {
+  document.querySelectorAll('.day-cell[data-y]').forEach(cell => {
+    renderDayIcons(cell, Number(cell.dataset.y), Number(cell.dataset.m), Number(cell.dataset.d));
+  });
+}
+
+function countLabel(selected, total) {
+  return selected === total ? 'All' : `${selected}`;
+}
+
+// Borders the Cases/Tags/Year trigger chips whenever they're narrowed off their default (all
+// selected / "All years") — a quick at-a-glance "something here is filtered" signal.
+function updateChipState() {
+  document.getElementById('cases-chip').classList.toggle('is-filtered', visibleCaseIds.size !== CASES.length);
+  document.getElementById('tags-chip').classList.toggle('is-filtered', visibleTagNames.size !== TAGS.length);
+  document.getElementById('year-chip').classList.toggle('is-filtered', yearFilter !== null);
+}
+
+function renderLegend() {
+  updateChipState();
+  const row = document.getElementById('legend-row');
+  row.innerHTML = '';
+  document.getElementById('cases-count').textContent = countLabel(visibleCaseIds.size, CASES.length);
+  document.getElementById('tags-count').textContent = countLabel(visibleTagNames.size, TAGS.length);
+
+  if (visibleCaseIds.size === 0) {
+    const note = document.createElement('span');
+    note.className = 'legend-note';
+    note.textContent = 'No Cases selected — nothing to show.';
+    row.appendChild(note);
+    return;
+  }
+  const allCases = visibleCaseIds.size === CASES.length;
+  const allTags = visibleTagNames.size === TAGS.length;
+  if (allCases && allTags) return; // matches the real screen: nothing to show when both are fully open
+
+  if (allCases) {
+    row.appendChild(chip('All Cases', 'case'));
+  } else {
+    CASES.forEach(c => { if (visibleCaseIds.has(c.id)) row.appendChild(chip(`${c.icon} ${c.name}`, 'case')); });
+  }
+  if (allTags) {
+    row.appendChild(chip('All tags', 'tag'));
+  } else if (visibleTagNames.size === 0) {
+    const note = document.createElement('span');
+    note.className = 'legend-note';
+    note.textContent = 'No tags selected.';
+    row.appendChild(note);
+  } else {
+    TAGS.forEach(t => { if (visibleTagNames.has(t)) row.appendChild(chip(t, 'tag')); });
+  }
+}
+
+function chip(text, kind) {
+  const el = document.createElement('span');
+  el.className = 'legend-chip' + (kind === 'tag' ? ' tag' : '');
+  el.textContent = text;
+  return el;
+}
+
+function applyYearFilter(year) {
+  yearFilter = year;
+  document.getElementById('year-count').textContent = year === null ? 'All' : String(year);
+  document.querySelectorAll('.month-block').forEach(block => {
+    block.style.display = (year === null || Number(block.dataset.year) === year) ? '' : 'none';
+  });
+  // Top always shows the most recent thing in view — the current month for "All years", or that
+  // year's latest month once narrowed — since the grid now reads newest-to-oldest either way.
+  document.getElementById('grid-scroll').scrollTop = 0;
+  updateChipState();
+}
+
+/* ---- generic dialog, reused for month-picker (vertical list) and Cases/Tags/Year (chip pickers) ---- */
+function openMonthPicker() {
+  document.getElementById('dialog-title').textContent = 'Jump to month';
+  const bulk = document.getElementById('dialog-bulk');
+  bulk.hidden = true;
+  const list = document.getElementById('dialog-list');
+  list.className = 'dialog-list';
+  list.innerHTML = '';
+  let lastYear = null;
+  monthsRange().forEach(({ y, m }) => {
+    if (y !== lastYear) {
+      const header = document.createElement('div');
+      header.className = 'dialog-year-header';
+      header.textContent = y;
+      list.appendChild(header);
+      lastYear = y;
+    }
+    const item = document.createElement('div');
+    item.className = 'dialog-month-item';
+    item.textContent = MONTH_NAMES[m];
+    item.addEventListener('click', () => {
+      document.getElementById('dialog-backdrop').classList.remove('is-open');
+      const target = document.getElementById(`month-${y}-${m}`);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    list.appendChild(item);
+  });
+  document.getElementById('dialog-backdrop').classList.add('is-open');
+}
+
+function openCasesDialog() {
+  document.getElementById('dialog-title').textContent = 'Cases';
+  const bulk = document.getElementById('dialog-bulk');
+  bulk.hidden = false;
+  const setBulkLabel = () => { bulk.textContent = visibleCaseIds.size === CASES.length ? 'Clear all' : 'Select all'; };
+  setBulkLabel();
+  bulk.onclick = () => {
+    visibleCaseIds = visibleCaseIds.size === CASES.length ? new Set() : new Set(CASES.map(c => c.id));
+    setBulkLabel();
+    renderCasesPills();
+    refreshDayIcons(); renderLegend();
+  };
+  const list = document.getElementById('dialog-list');
+  list.className = 'dialog-list as-chips';
+  list.innerHTML = '';
+  CASES.forEach(c => {
+    const pill = document.createElement('button');
+    pill.className = 'dialog-pill';
+    pill.dataset.caseId = c.id;
+    pill.textContent = `${c.icon} ${c.name}`;
+    pill.addEventListener('click', () => {
+      if (visibleCaseIds.has(c.id)) visibleCaseIds.delete(c.id); else visibleCaseIds.add(c.id);
+      renderCasesPills(); setBulkLabel();
+      refreshDayIcons(); renderLegend();
+    });
+    list.appendChild(pill);
+  });
+  renderCasesPills();
+  document.getElementById('dialog-backdrop').classList.add('is-open');
+}
+function renderCasesPills() {
+  document.querySelectorAll('#dialog-list .dialog-pill[data-case-id]').forEach(pill => {
+    pill.classList.toggle('is-selected', visibleCaseIds.has(Number(pill.dataset.caseId)));
+  });
+}
+
+function openTagsDialog() {
+  document.getElementById('dialog-title').textContent = 'Tags';
+  const bulk = document.getElementById('dialog-bulk');
+  bulk.hidden = false;
+  const setBulkLabel = () => { bulk.textContent = visibleTagNames.size === TAGS.length ? 'Clear all' : 'Select all'; };
+  setBulkLabel();
+  bulk.onclick = () => {
+    visibleTagNames = visibleTagNames.size === TAGS.length ? new Set() : new Set(TAGS);
+    setBulkLabel();
+    renderTagsPills();
+    refreshDayIcons(); renderLegend();
+  };
+  const list = document.getElementById('dialog-list');
+  list.className = 'dialog-list as-chips';
+  list.innerHTML = '';
+  TAGS.forEach(t => {
+    const pill = document.createElement('button');
+    pill.className = 'dialog-pill tag';
+    pill.dataset.tag = t;
+    pill.textContent = t;
+    pill.addEventListener('click', () => {
+      if (visibleTagNames.has(t)) visibleTagNames.delete(t); else visibleTagNames.add(t);
+      renderTagsPills(); setBulkLabel();
+      refreshDayIcons(); renderLegend();
+    });
+    list.appendChild(pill);
+  });
+  renderTagsPills();
+  document.getElementById('dialog-backdrop').classList.add('is-open');
+}
+function renderTagsPills() {
+  document.querySelectorAll('#dialog-list .dialog-pill[data-tag]').forEach(pill => {
+    pill.classList.toggle('is-selected', visibleTagNames.has(pill.dataset.tag));
+  });
+}
+
+function openYearDialog() {
+  document.getElementById('dialog-title').textContent = 'Year';
+  document.getElementById('dialog-bulk').hidden = true;
+  const list = document.getElementById('dialog-list');
+  list.className = 'dialog-list as-chips';
+  list.innerHTML = '';
+  const makePill = (label, value) => {
+    const pill = document.createElement('button');
+    pill.className = 'dialog-pill';
+    pill.textContent = label;
+    pill.classList.toggle('is-selected', yearFilter === value);
+    pill.addEventListener('click', () => {
+      applyYearFilter(value);
+      document.getElementById('dialog-backdrop').classList.remove('is-open');
+    });
+    list.appendChild(pill);
+  };
+  makePill('All years', null);
+  yearList().forEach(y => makePill(String(y), y));
+  document.getElementById('dialog-backdrop').classList.add('is-open');
+}
+
+document.getElementById('cases-chip').addEventListener('click', openCasesDialog);
+document.getElementById('tags-chip').addEventListener('click', openTagsDialog);
+document.getElementById('year-chip').addEventListener('click', openYearDialog);
+document.getElementById('dialog-backdrop').addEventListener('click', e => {
+  if (e.target.id === 'dialog-backdrop') e.target.classList.remove('is-open');
+});
+
+buildGrid();
+renderLegend();
+applyYearFilter(null);
+// Mirrors the real Tags chip's own conditional (`if (allTagNames.isNotEmpty())`) — a filter chip
+// for an axis with only one possible value is dead weight, not a control.
+document.getElementById('year-chip').hidden = yearList().length <= 1;
+
+document.getElementById('mode-switch').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.getElementById('mode-switch').querySelectorAll('button').forEach(el => el.classList.toggle('is-active', el === btn));
+  if (btn.dataset.mode === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+});</script>

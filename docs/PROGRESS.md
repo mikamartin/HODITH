@@ -66,9 +66,9 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Standalone
 
-No cross-dependencies — **S1** (icon vector + Previews), **S2** (Trend-card calculation review), **S7** (external content). Pick by appetite.
+No cross-dependencies — pick by appetite. Identified by title, not a number: numbering churned confusingly as items were added and removed, so items here are found by name or by their branch.
 
-### S1 · App-icon handle butts directly against the lens ring with no clearance
+### App-icon handle butts directly against the lens ring with no clearance
 
 *Branch: `fix/icon-handle-clearance` · Complexity: S · Priority: Low · Area: Bug*
 
@@ -85,7 +85,7 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
 
-### S2 · Review the Trend section's calculation and investigate additions
+### Review the Trend section's calculation and investigate additions
 
 *Branch: `chore/trend-calculation-review` · Complexity: S to M · Priority: Low · Area: Insights*
 
@@ -109,7 +109,7 @@ What it computes today:
 
 **Tests** — none; `StatsEngineTest` / `InsightsEngineTest` gain coverage only when an approved change lands as its own item.
 
-### S7 · Audit the hosted privacy policy and Play data-safety form
+### Audit the hosted privacy policy and Play data-safety form
 
 *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium · Area: Settings*
 
@@ -122,7 +122,7 @@ What it computes today:
 
 **Plan** — read both against the new About copy and update wherever they still claim otherwise.
 
-### S12 · Intense/Bright theme: exploratory testing pass
+### Intense/Bright theme: exploratory testing pass
 
 *Branch: `chore/intense-bright-theme-audit` · Complexity: S–M · Priority: Low · Area: Settings*
 
@@ -140,7 +140,7 @@ User testing asked for an exploratory pass over the Intense and Bright visual th
 
 **Tests** — none for the audit itself.
 
-### S13 · CSV export of case/event data
+### CSV export of case/event data
 
 *Branch: `feat/csv-export` · Complexity: S · Priority: Medium · Area: Settings*
 
@@ -159,23 +159,30 @@ Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existin
 
 **Concern** — none; per the spec's own note, this is the most self-contained item here.
 
-### S15 · Big Picture: year-level filter UX exploration
+### Big Picture: year filter
 
-*Branch: none yet — design exploration first · Complexity: S–M (investigation) · Priority: Low · Area: Big Picture*
+*Branch: `feature/big-picture-year-filter` · Complexity: M · Priority: Medium · Area: Big Picture*
 
-🎨 **Design decision** — UX approach, before any implementation.
-
-No year-level filter exists in Big Picture today (§9 only has a scrolling multi-month grid with a month quick-jump). User testing asked for design options for a "big picture year filter" — a UX design question before it's an implementation one.
+UX direction settled via a cheap HTML prototype, `docs/mockups/big-picture-year-filter-prototype.html` — a year selector that narrows the grid to one year, chosen over a year rail (pure navigation, no filtering) and a year-summary zoom level (a new bird's-eye view), both considered and dropped. This replaces the exploration item that used to live here; the prototype's dev-panel "Settled so far" list is the acceptance spec below, restated as checkable items.
 
 **Acceptance criteria**
 
-- [ ] 2–3 candidate UX approaches sketched cheaply (mockup or Compose Preview) — e.g. a year selector alongside the existing month quick-jump, a year-summary zoom level, etc.
-- [ ] A recommendation with tradeoffs, reviewed with the user before any production code.
-- [ ] Approved direction spun out as its own implementation item.
+- [ ] A third trigger chip, **Year**, added to `BigPictureGrid.kt`'s `FilterSummaryRow`, alongside the existing Cases/Tags chips (`FilterTriggerChip`), opening an `InfoDialog`-based picker the same way Cases/Tags already do.
+- [ ] The Year chip renders only when `earliestMonth..currentMonth` spans more than one year — same conditional as the existing Tags chip (`if (allTagNames.isNotEmpty())`).
+- [ ] Defaults to "All years" (no filter); picking a year narrows the `LazyColumn`'s `months` to that year only, with an explicit reset back to "All years".
+- [ ] Year dialog lists years current-year-first, oldest-last (matches the grid's own reordering below).
+- [ ] The month grid's order reverses: current month first (top), earliest last (bottom), opening scrolled to the top — a deliberate change from spec §9's documented oldest-top/current-bottom order. **`HODITH_SPEC.md` §9 needs updating to match once this ships** (intentional divergence updates the spec, per the working agreement).
+- [ ] Confirm `weeksInGrid(month).filter { isPastOrToday(week.first(), today) }` (already in the real code) drops whole future weeks rather than blanking their days — the prototype hit exactly this bug once months were reversed: trailing blank weeks read as a stray gap once a month is no longer last-in-list.
+- [ ] Cases/Tags/Year trigger chips each get a visible border/highlight whenever narrowed off their default (not all Cases, not all Tags, or a specific year) — a quick "something is filtered" signal. Needs its own Plain/Intense/Bright treatment alongside the existing chip dispatch (`LocalCardDecorationStyle`), not just the prototype's single flat style.
+- [ ] Cases/Tags trigger chip labels change from "Cases N of M" to "Cases: N" (drop "of total"; "All" when fully selected) — Year follows the same "Year: <value>" shape ("Year: All" / "Year: 2025"). Touches `filterCountLabel` and the chip composables.
+- [ ] Voice ×3 for the Year chip's label and dialog title, following the `bigPictureCasesFilterLabel` / `bigPictureTagsFilterLabel` / `bigPictureMonthPickerTitle` pattern.
+- [ ] `docs/mockups/big-picture-year-filter-prototype.html` deleted once this ships, per the established mockup-lifecycle precedent (`chore/prune-design-mockups`).
 
-**Plan** — cheap prototype/spike only in this item, per the standing rule for anything that starts feeling complicated.
+**Plan** — implement per the prototype's settled behavior. Two bundled changes are worth flagging separately at review: (1) the Year filter itself, and (2) the grid's scroll-direction reversal — a bigger, more visible behavior change than the filter, and not strictly required to ship a year filter. Consider splitting it into its own PR if reviewability is a concern, even though the two were explored together.
 
-**Tests** — none until an approach is approved and implemented.
+**Tests** — Compose/instrumented coverage for: Year chip absent with ≤1 year of data, present with >1; picking a year narrows visible months and "All years" resets; chip label format (`Cases: N` / `All`). Existing Big Picture tests that assume scroll-opens-at-the-bottom need updating for the reversed order.
+
+**Concern** — the scroll-direction reversal touches every existing Big Picture test or assumption built around oldest-top/current-bottom (see spec §9's rationale and the retired row-per-case design note in `BigPictureGrid.kt`'s class KDoc) — worth a dedicated pass through existing tests before assuming only new tests are needed.
 
 ## Deferred
 
