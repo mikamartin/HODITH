@@ -113,6 +113,7 @@ fun CaseDetailRoute(
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenTriggers: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
+    onOpenTrends: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CaseDetailViewModel = hiltViewModel(),
 ) {
@@ -124,6 +125,7 @@ fun CaseDetailRoute(
         onEditEvent = onEditEvent,
         onOpenTriggers = onOpenTriggers,
         onOpenShare = onOpenShare,
+        onOpenTrends = onOpenTrends,
         newEventDraft = viewModel::newEventDraft,
         onSaveEvent = viewModel::saveNewEvent,
         onStopEvent = viewModel::stopEvent,
@@ -145,6 +147,7 @@ fun CaseDetailScreen(
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenTriggers: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
+    onOpenTrends: (Long) -> Unit,
     newEventDraft: () -> LogDraft,
     onSaveEvent: (LogDraft) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
@@ -268,6 +271,7 @@ fun CaseDetailScreen(
                             frequencyGranularityOverride = frequencyGranularityOverride,
                             onFrequencyGranularityChange = { frequencyGranularityOverride = it },
                             onEditEvent = { event -> onEditEvent(case.id, event.id) },
+                            onOpenTrends = { onOpenTrends(case.id) },
                         )
                     }
                 HUNCH_TAB ->

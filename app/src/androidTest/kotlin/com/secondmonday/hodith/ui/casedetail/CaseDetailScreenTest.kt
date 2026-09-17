@@ -78,6 +78,7 @@ class CaseDetailScreenTest {
         onEditCase: (Long) -> Unit = {},
         onOpenTriggers: (Long) -> Unit = {},
         onOpenShare: (Long) -> Unit = {},
+        onOpenTrends: (Long) -> Unit = {},
         onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
         onSaveEvent: (LogDraft) -> Unit = {},
         onStopEvent: (EventEntity) -> Unit = {},
@@ -108,6 +109,7 @@ class CaseDetailScreenTest {
                     onEditEvent = onEditEvent,
                     onOpenTriggers = onOpenTriggers,
                     onOpenShare = onOpenShare,
+                    onOpenTrends = onOpenTrends,
                     newEventDraft = {
                         LogDraft(
                             occurredAt = nowMillis(),

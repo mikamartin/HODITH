@@ -141,26 +141,25 @@ private fun consecutiveRunLengths(dates: List<LocalDate>): List<Int> {
 /**
  * Spec §10 Trend card: whether [pastGaps]' average has shifted noticeably between the earlier and
  * more recent half of the Case's history — `null` below [GAP_SHIFT_MIN_SAMPLE_COUNT] gaps, or when
- * the shift doesn't clear [shiftDirectionFor]'s thresholds.
+ * the shift doesn't clear [shiftDirectionFor]'s thresholds. The returned [ShiftResult] carries both
+ * half-averages so a caller can state the shift in real numbers, not direction alone.
  */
-internal fun computeGapShift(pastGaps: List<Long>): ShiftDirection? {
+internal fun computeGapShift(pastGaps: List<Long>): ShiftResult? {
     if (pastGaps.size < GAP_SHIFT_MIN_SAMPLE_COUNT) return null
     val mid = pastGaps.size / 2
-    return shiftDirectionFor(
-        firstAvg = pastGaps.take(mid).average(),
-        secondAvg = pastGaps.takeLast(pastGaps.size - mid).average(),
-    )
+    val priorAverage = pastGaps.take(mid).average()
+    val recentAverage = pastGaps.takeLast(pastGaps.size - mid).average()
+    return shiftDirectionFor(priorAverage, recentAverage)?.let { ShiftResult(it, priorAverage, recentAverage, pastGaps.size) }
 }
 
 /** As [computeGapShift], but over [activeDates]' streak run lengths rather than event-to-event gaps. */
-internal fun computeStreakShift(activeDates: List<LocalDate>): ShiftDirection? {
+internal fun computeStreakShift(activeDates: List<LocalDate>): ShiftResult? {
     val runs = consecutiveRunLengths(activeDates)
     if (runs.size < STREAK_SHIFT_MIN_SAMPLE_COUNT) return null
     val mid = runs.size / 2
-    return shiftDirectionFor(
-        firstAvg = runs.take(mid).map { it.toDouble() }.average(),
-        secondAvg = runs.takeLast(runs.size - mid).map { it.toDouble() }.average(),
-    )
+    val priorAverage = runs.take(mid).map { it.toDouble() }.average()
+    val recentAverage = runs.takeLast(runs.size - mid).map { it.toDouble() }.average()
+    return shiftDirectionFor(priorAverage, recentAverage)?.let { ShiftResult(it, priorAverage, recentAverage, runs.size) }
 }
 
 /** `null` unless the change from [firstAvg] to [secondAvg] clears both [SHIFT_MIN_FRACTION] and [SHIFT_MIN_ABSOLUTE_DAYS]. */

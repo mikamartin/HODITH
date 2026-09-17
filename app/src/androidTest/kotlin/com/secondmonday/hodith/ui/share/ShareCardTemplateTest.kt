@@ -81,7 +81,7 @@ class ShareCardTemplateTest {
                     plottedByStart = false,
                 ),
             gaps = null,
-            trend = TrendDisplay(TrendDirection.UP, 8, 5, gapShiftDirection = null, streakShiftDirection = null),
+            trend = TrendDisplay(TrendDirection.UP, 8, 5),
             duration = null,
             intensity = null,
         )

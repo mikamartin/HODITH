@@ -82,6 +82,7 @@ class CaseDetailInsightsTabTest {
                     onEditEvent = onEditEvent,
                     onOpenTriggers = {},
                     onOpenShare = {},
+                    onOpenTrends = {},
                     newEventDraft = {
                         LogDraft(
                             occurredAt = now,
@@ -152,7 +153,7 @@ class CaseDetailInsightsTabTest {
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelGaps).assertExists()
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
     }
 
     @Smoke
@@ -168,29 +169,31 @@ class CaseDetailInsightsTabTest {
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelGaps).assertExists()
 
         // Short observation span, NONE duration mode, intensity disabled, no tags logged.
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelDuration).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTags).assertDoesNotExist()
     }
 
     @Test
-    fun trendCard_hiddenJustBelowEightWeekSpan() {
-        // spec §10: trend needs >= 8 weeks (56 days) of observation.
+    fun trendsSection_hiddenJustBelowEightWeekSpan() {
+        // spec §10: the frequency-shift finding needs >= 8 weeks (56 days) of observation, same as
+        // the former standalone arrow card did; too few events for gap/streak shift either.
         setInsightsTabContent(caseCreatedAt = daysAgo(55), events = listOf(eventAt(2), eventAt(1)))
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
     }
 
     @Test
-    fun trendCard_shownAtEightWeekSpan_withDirectionAwareSentence() {
-        // 3 events in the last 30 days vs. 1 in the 30 before -> more recently, i.e. UP.
+    fun trendsSection_showsFrequencyShiftFinding_atEightWeekSpan_withDirectionAwareSentence() {
+        // 3 events in the last 30 days vs. 1 in the 30 before -> more recently, i.e. UP. No
+        // separate arrow card any more -- this is one more Trends finding (spec §10, Story C T1).
         setInsightsTabContent(
             caseCreatedAt = daysAgo(56),
             events = listOf(eventAt(5), eventAt(10), eventAt(20), eventAt(45)),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertExists()
         composeTestRule
             .onNodeWithText(PlainVoice.insightsTrendSentence(TrendDirection.UP, recentCount = 3, priorCount = 1))
             .assertExists()
@@ -228,15 +231,17 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
-    fun trendCard_showsGapShiftNote_whenAverageGapWidensNoticeably() {
+    fun trendsCard_showsGapShiftFinding_withRealNumbers_whenAverageGapWidensNoticeably() {
         // Past gaps in chronological order: 4, 4, 4, 20, 20, 20 -- clearly widening in the second half.
         setInsightsTabContent(
             caseCreatedAt = daysAgo(100),
             events = listOf(97L, 93L, 89L, 85L, 65L, 45L, 25L).map { eventAt(it) },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.insightsGapShiftSentence(ShiftDirection.UP)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapShiftSentence(ShiftDirection.UP, "4 days", "20 days")).assertExists()
+        // No reliability tag on the compact card -- only on the full-list screen.
+        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertDoesNotExist()
     }
 
     @Test
@@ -476,27 +481,6 @@ class CaseDetailInsightsTabTest {
 
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.insightsGapsInfoTitle).assertDoesNotExist()
-    }
-
-    @Test
-    fun trendCard_infoIcon_opensAndDismissesDefinitions() {
-        // Same 8-week-span fixture as trendCard_shownAtEightWeekSpan_withDirectionAwareSentence.
-        // NONE duration mode keeps Duration hidden, so Trend is the last node carrying the
-        // shared info-icon description (after Frequency, Rhythm, and Gaps).
-        setInsightsTabContent(
-            caseCreatedAt = daysAgo(56),
-            events = listOf(eventAt(5), eventAt(10), eventAt(20), eventAt(45)),
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrend).performScrollTo()
-        composeTestRule
-            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
-            .onLast()
-            .performClick()
-        composeTestRule.onNodeWithText(PlainVoice.insightsTrendInfoTitle).assertExists()
-
-        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.insightsTrendInfoTitle).assertDoesNotExist()
     }
 
     @Test

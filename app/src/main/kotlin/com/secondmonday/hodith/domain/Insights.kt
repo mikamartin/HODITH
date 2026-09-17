@@ -35,6 +35,19 @@ enum class ShiftDirection {
 }
 
 /**
+ * [computeGapShift]/[computeStreakShift]: a detected shift plus the two half-averages (in days) it
+ * was computed from, so a caller can back the shift's sentence with real numbers rather than
+ * direction alone. [sampleCount] is the total gaps (or streak runs) behind both halves combined —
+ * the same count [GAP_SHIFT_MIN_SAMPLE_COUNT]/[STREAK_SHIFT_MIN_SAMPLE_COUNT] gate on.
+ */
+data class ShiftResult(
+    val direction: ShiftDirection,
+    val priorAverageDays: Double,
+    val recentAverageDays: Double,
+    val sampleCount: Int,
+)
+
+/**
  * Spec §10 heatmap shading: a day's event count bucketed relative to the Case's own busiest day,
  * into 20 shaded tiers (plus [EMPTY]) — ordinal order matters, [heatmapLevelFor] indexes into
  * [entries] directly rather than branching on each one by name. Most consumers (calendar heatmap,

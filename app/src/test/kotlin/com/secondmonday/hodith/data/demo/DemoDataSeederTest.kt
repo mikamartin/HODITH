@@ -4,6 +4,10 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.testsupport.withoutTags
+import com.secondmonday.hodith.viewmodel.InsightsTabState
+import com.secondmonday.hodith.viewmodel.insightsTabState
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -57,18 +61,39 @@ class DemoDataSeederTest {
         }
 
     @Test
-    fun `seed gives Lost my keys a quiet spell long enough to set a new longest-gap record`() =
+    fun `seed gives Nosebleed a quiet spell long enough to set a new longest-gap record`() =
         runTest {
             seeder.seed()
 
-            val lostKeys = repository.cases.value.single { it.name == "Lost my keys" }
+            val nosebleed = repository.cases.value.single { it.name == "Nosebleed" }
             val lastEventAt =
                 repository.events.value
-                    .filter { it.caseId == lostKeys.id }
+                    .filter { it.caseId == nosebleed.id }
                     .maxOf { it.occurredAt }
             val currentGapDays = (NOW_MILLIS - lastEventAt) / MILLIS_PER_DAY
             // SPARSE's own maxGapDays is 45 — a gap safely past that can only be the quiet spell, not luck.
             assertTrue(currentGapDays > 45)
+        }
+
+    @Test
+    fun `seed gives Lost my keys all three Trends findings at once`() =
+        runTest {
+            seeder.seed()
+
+            val lostKeys = repository.cases.value.single { it.name == "Lost my keys" }
+            val events = repository.events.value.filter { it.caseId == lostKeys.id }
+            val state = insightsTabState(lostKeys, events.withoutTags(), NOW_MILLIS) as InsightsTabState.Ready
+
+            // trendingOccurrences (DemoDataSeeder.kt) is deliberately shaped so the isolated,
+            // widely-spaced historic era gives way to tight recent clusters — gap shift (shrinking),
+            // streak shift (lengthening), and frequency shift (more recently) should all clear their
+            // thresholds together, exercising the Trends section's multi-finding/show-more path with
+            // real seed data rather than only synthetic fixtures.
+            val kinds =
+                state.stats.trends
+                    .map { it.kind }
+                    .toSet()
+            assertEquals(setOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.STREAK_SHIFT, TrendFindingKind.FREQUENCY_SHIFT), kinds)
         }
 
     @Test

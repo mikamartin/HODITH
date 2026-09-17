@@ -8,6 +8,8 @@ import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
+import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.durationEvent
 import com.secondmonday.hodith.testsupport.eventAtDay
@@ -415,7 +417,70 @@ class InsightsTabStateTest {
         assertEquals(listOf(TagBreakdownEntry("standup", 2), TagBreakdownEntry("weekend", 1)), state.stats.tags)
     }
 
-    // ---- stats.gaps streak fields / stats.trend shift fields ----
+    // ---- stats.trends (Story C T1) ----
+
+    @Test
+    fun `stats trends contains a gap-shift finding when the average gap widens noticeably`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        // Past gaps in chronological order: 4, 4, 4, 20, 20, 20 -- clearly widening in the second half.
+        val events = listOf(0L, 4L, 8L, 12L, 32L, 52L, 72L).map { eventAtDay(it) }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(90)) as InsightsTabState.Ready
+
+        val finding = state.stats.trends.single { it.kind == TrendFindingKind.GAP_SHIFT }
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(4.0, finding.priorValue, 0.0001)
+        assertEquals(20.0, finding.recentValue, 0.0001)
+    }
+
+    @Test
+    fun `stats trends is empty when nothing has shifted noticeably, including frequency`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        // Evenly spaced every 15 days: equal gaps (no gap shift), no two consecutive days (no
+        // streak shift), and the last-30-vs-prior-30-day windows land on 2 events each (no
+        // frequency shift either) at this exact `now`.
+        val events = (0..7).map { eventAtDay(it * 15L) }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(106)) as InsightsTabState.Ready
+
+        assertEquals(emptyList<Any>(), state.stats.trends)
+    }
+
+    @Test
+    fun `stats trends contains an UP frequency-shift finding absorbing the former standalone arrow card`() {
+        // now = day 100: recent window (70,100] has 3 events (75, 85, 95), prior window (40,70]
+        // has 1 (50) -> more recently, i.e. UP. Only 3 gaps between 4 events, below
+        // GAP_SHIFT_MIN_SAMPLE_COUNT, so this is the only finding.
+        val case = testCase(createdAt = millisAtDay(0))
+        val events = listOf(50L, 75L, 85L, 95L).map { eventAtDay(it) }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(100)) as InsightsTabState.Ready
+
+        val finding = state.stats.trends.single { it.kind == TrendFindingKind.FREQUENCY_SHIFT }
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(1.0, finding.priorValue, 0.0001)
+        assertEquals(3.0, finding.recentValue, 0.0001)
+        // No separate standalone card any more -- the arrow's own signal now lives only in stats.trends.
+        assertEquals(TrendDirection.UP, state.stats.trend?.direction)
+    }
+
+    @Test
+    fun `stats trends still finds a gap shift for a duration-mode Case with multi-day events`() {
+        // Same widening shape as the point-event case above, but every event is a multi-day span
+        // rather than an instant -- proves computeTrendFindings inherits the same duration-aware
+        // gapStats/activeDates the rest of Insights already relies on, with no new gating needed.
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val events =
+            listOf(0L to 1L, 4L to 5L, 8L to 9L, 12L to 13L, 32L to 34L, 52L to 54L, 72L to 74L)
+                .map { (start, end) -> durationEvent(start, end, caseId = 0L) }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(90)) as InsightsTabState.Ready
+
+        val finding = state.stats.trends.singleOrNull { it.kind == TrendFindingKind.GAP_SHIFT }
+        assertEquals(ShiftDirection.UP, finding?.direction)
+    }
+
+    // ---- stats.gaps streak fields / stats.trend gating ----
 
     @Test
     fun `gaps display reports the longest and average streak of consecutive active days`() {
@@ -430,19 +495,7 @@ class InsightsTabStateTest {
     }
 
     @Test
-    fun `trend flags a noticeable widening of the average gap once enough history exists`() {
-        val case = testCase(createdAt = millisAtDay(0))
-        // Past gaps: 4, 4, 4, 20, 20, 20 -> clearly widening in the second half.
-        val events =
-            listOf(0L, 4L, 8L, 12L, 32L, 52L, 72L).map { eventAtDay(it) }
-
-        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(90)) as InsightsTabState.Ready
-
-        assertEquals(ShiftDirection.UP, state.stats.trend?.gapShiftDirection)
-    }
-
-    @Test
-    fun `trend omits gap and streak shift notes below the trend card's own minimum span`() {
+    fun `trend is null below the trend card's own minimum span`() {
         val case = testCase(createdAt = millisAtDay(0))
         val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(4))
 

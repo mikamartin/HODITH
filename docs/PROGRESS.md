@@ -67,7 +67,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Story C — Insights: within-case Trends
 
-Eight items: T1 builds the extensible scaffold, T2–T8 each add or drop exactly one candidate detector. Closes out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement; UP/DOWN/FLAT stays sufficient for the existing single-arrow card, with nuance moved to the new section instead of overloading the arrow) carries forward into T1 below. No single item rules on more than one detector's statistics at once — each of T2–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T1 on appends its own entry to a maintained "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
+Nine items: T1 builds the extensible scaffold, T2–T8 each add or drop exactly one candidate detector, T9 exposes findings through the existing Share flow. Closes out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement; UP/DOWN/FLAT stays sufficient for the existing single-arrow card, with nuance moved to the new section instead of overloading the arrow) carries forward into T1 below. No single item rules on more than one detector's statistics at once — each of T2–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T1 on appends its own entry to a maintained "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
 
 ### T1 · Build the Trends scaffold; migrate gap/streak-shift into it
 
@@ -199,6 +199,29 @@ The existing Trend arrow card's `gapShiftDirection`/`streakShiftDirection` sub-l
 - [ ] Voice ×3 for the new sentence template(s).
 - [ ] Tests: a planted weekly cycle, a planted no-cycle null.
 - [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line per kept signal — or, for any dropped, a short rationale left in this item instead.
+
+### T9 · Replace the share card's old trend arrow with real Trends findings
+
+*Branch: `feat/insights-trends-share` · Complexity: S–M · Priority: Low · Area: Share*
+
+🎨 **Design decision** — whether Trends belongs on Square at all once B1 settles Square's fixed section list, and how many findings a card has room for.
+
+T1 folded the Insights tab's standalone Trend arrow card into the Trends section for good — `TrendFindingKind.FREQUENCY_SHIFT` is now just one more finding in `stats.trends`, and the Insights tab no longer renders a separate arrow anywhere. The Share card is the one place the old arrow still lives: `ShareCardState.trend`/`TrendDisplay`/`ShareCardTemplate.kt`'s `MiniTrendSection` were deliberately left untouched by T1 (a separate, already-shipped feature, not to be broken as a side effect), still sourced from `StatsSections.trend` — the field T1 kept alive *only* for this purpose. This item is that cleanup: swap Share's own trend arrow for real Trends findings, and retire the old path completely rather than running both.
+
+The existing Insight Share flow (`ShareViewModel.kt` → `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` → `ShareCardTemplate.kt`) renders whichever `StatsSections` sections the user picks, the same `.isNotEmpty()`/config-gated pattern `TagsCard` and the other optional cards already use — Trends should slot in as one more toggle, gated on `stats.trends.isNotEmpty()`, the same way. Unlike the Insights tab's own rows, a share card has no room for a tap-revealed detail, so this item renders each selected finding as sentence text only (real prior/recent numbers, no reliability tag, no evidence line) — closer to how the arrow card's own trend sentence already rendered on a share card before this item.
+
+**Acceptance criteria**
+
+- [ ] `availableSections` (`SharePreviewScreen.kt`) gains a Trends entry (replacing the old Trend entry, not adding alongside it), offered only when `stats.trends.isNotEmpty()`.
+- [ ] `ShareCardTemplate.kt` renders the selected Trends findings as sentence-only text (no tag, no evidence line), respecting whatever per-card finding cap this item settles on.
+- [ ] `MiniTrendSection`, `ShareCardState.trend`, `TrendDisplay`, and `StatsSections.trend` all removed — no code path still reads the old single-arrow shape once this ships.
+- [ ] Voice ×3 for the new section-toggle label, if `insightsSectionLabelTrends` doesn't already read correctly in that context; `insightsSectionLabelTrend` (singular) and its now-orphaned Voice keys removed once `MiniTrendSection` no longer needs them.
+- [ ] Confirmed against spec §13's "no notes/tags on share cards" rule: Trends sentences are descriptive stats like every other section already shown, not raw logged text, so no new exception needed.
+- [ ] Tests: `ShareCardStateTest.kt`/`SharePreviewScreenTest.kt` coverage that the Trends toggle appears only when findings exist; `ShareCardTemplateTest.kt` coverage for its rendering; every existing test referencing the old Trend toggle/`MiniTrendSection` updated or removed.
+
+**Plan** — mirror how Tags is already gated and rendered as the closest precedent. Swap the toggle and rendering over to `stats.trends` first, verify Share still round-trips correctly, then delete `MiniTrendSection`/`ShareCardState.trend`/`TrendDisplay`/`StatsSections.trend` and their now-dead Voice keys in the same change — not a follow-up, so the old and new paths never coexist.
+
+**Tests** — see acceptance criteria; no new statistics, so no domain-level tests needed here.
 
 ## Standalone
 

@@ -306,14 +306,19 @@ class InsightsEngineTest {
     fun `computeGapShift reports UP when the second half's average gap grew noticeably`() {
         val pastGaps = listOf(2L, 2L, 2L, 10L, 10L, 10L)
 
-        assertEquals(ShiftDirection.UP, computeGapShift(pastGaps))
+        val result = computeGapShift(pastGaps)
+
+        assertEquals(ShiftDirection.UP, result?.direction)
+        assertEquals(2.0, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(10.0, result?.recentAverageDays ?: -1.0, 0.0001)
+        assertEquals(6, result?.sampleCount)
     }
 
     @Test
     fun `computeGapShift reports DOWN when the second half's average gap shrank noticeably`() {
         val pastGaps = listOf(10L, 10L, 10L, 2L, 2L, 2L)
 
-        assertEquals(ShiftDirection.DOWN, computeGapShift(pastGaps))
+        assertEquals(ShiftDirection.DOWN, computeGapShift(pastGaps)?.direction)
     }
 
     @Test
@@ -340,7 +345,7 @@ class InsightsEngineTest {
         val longRunStarts = listOf(100L, 200L, 300L)
         val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.ofEpochDay(it) }
 
-        assertEquals(ShiftDirection.UP, computeStreakShift(dates))
+        assertEquals(ShiftDirection.UP, computeStreakShift(dates)?.direction)
     }
 
     // ---- heatmapLevelFor ----
