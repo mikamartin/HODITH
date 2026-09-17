@@ -6,13 +6,15 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.testtags.Smoke
@@ -33,6 +35,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 /**
@@ -51,6 +54,17 @@ class BigPictureScreenTest {
     private val currentMonth = YearMonth.from(today)
     private val case = CalendarCase(id = 1L, icon = "☕", name = "Coffee")
     private val monthTitle = "July 2026 ›"
+    private val earlierYearMonth = YearMonth.of(2025, 12)
+    private val earlierMonthTitle = "December 2025 ›"
+
+    // The grid's month order is current-first/earliest-last (spec §9); with the full, unfiltered
+    // range the earliest month is off-screen below the fold until the LazyColumn is scrolled to
+    // it -- this is its index (last, since displayMonths reverses the ascending months list).
+    private val fullRangeEarliestMonthIndex = ChronoUnit.MONTHS.between(earlierYearMonth, currentMonth).toInt()
+
+    private fun scrollToEarliestMonth() {
+        composeTestRule.onNode(hasScrollToIndexAction()).performScrollToIndex(fullRangeEarliestMonthIndex)
+    }
 
     private fun setContent(
         uiState: BigPictureUiState,
@@ -74,10 +88,11 @@ class BigPictureScreenTest {
         cases: List<CalendarCase> = emptyList(),
         events: List<CalendarEvent> = emptyList(),
         detail: BigPictureDetail = BigPictureDetail.DEFAULT,
+        earliestMonth: YearMonth = currentMonth,
     ) = BigPictureUiState(
         cases = cases,
         events = events,
-        earliestMonth = currentMonth,
+        earliestMonth = earliestMonth,
         currentMonth = currentMonth,
         today = today,
         detail = detail,
@@ -166,8 +181,7 @@ class BigPictureScreenTest {
     fun weekChevron_opensWeekDetailDialog_forTodaysWeek() {
         setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday())))
 
-        // Today's week is the last (bottom-most) rendered week row.
-        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
 
         val formattedWeekStart = weekStart.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
         composeTestRule.onNodeWithText(PlainVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertExists()
@@ -372,8 +386,7 @@ class BigPictureScreenTest {
             uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine", tags = listOf("late night")))),
         )
 
-        // Today's week is the last (bottom-most) rendered week row.
-        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
 
         // Midnight (today.atStartOfDay) formats as "12:00 AM"; it's a trailing span in the name line.
         composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
@@ -390,7 +403,7 @@ class BigPictureScreenTest {
             onOpenCase = { openedCaseId = it },
         )
         val formattedWeekStart = weekStart.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
-        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
 
         composeTestRule.onNodeWithText("${case.icon} ${case.name}", substring = true).performClick()
 
@@ -411,7 +424,7 @@ class BigPictureScreenTest {
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
 
-        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
 
         // The week dialog lists the event once per covered day (20th, 21st, 22nd); every row reads
         // the span range (start + end date and time) in place of a bare clock time.
@@ -433,7 +446,7 @@ class BigPictureScreenTest {
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(ongoing)))
 
-        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
 
         // Covered days 21st, 22nd, 23rd (today) all fall in this week; each row reads "ongoing since".
         composeTestRule.onAllNodesWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21, 8:00 AM")).assertCountEquals(3)
@@ -483,13 +496,13 @@ class BigPictureScreenTest {
         val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
         setContent(uiStateWith(cases = listOf(case, secondCase), events = listOf(eventToday())))
 
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureFilterCountAll).assertExists()
+        composeTestRule.onNodeWithText(": " + PlainVoice.bigPictureFilterCountAll).assertExists()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         composeTestRule.onNodeWithText(secondCase.name).performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureFilterCount(1, 2)).assertExists()
+        composeTestRule.onNodeWithText(": " + PlainVoice.bigPictureFilterCount(1)).assertExists()
     }
 
     @Test
@@ -548,7 +561,7 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(secondCase.name).performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureFilterCount(1, 2)).assertExists()
+        composeTestRule.onNodeWithText(": " + PlainVoice.bigPictureFilterCount(1)).assertExists()
         composeTestRule.onNodeWithText(case.name).assertExists()
     }
 
@@ -565,6 +578,130 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureAllCasesLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureUntaggedOnlyLabel).assertExists()
+    }
+
+    // ---- Year filter (spec §9) ----
+
+    @Test
+    fun yearChip_absent_whenDataSpansOnlyOneYear() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday())))
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun yearChip_present_defaultsToAllYears_whenDataSpansMultipleYears() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday()), earliestMonth = earlierYearMonth))
+
+        // The Cases chip also reads ": All" (fully selected) at this point, so anchor on the Year
+        // chip's own "Year" label too -- a bare ": All" match is ambiguous between the two chips.
+        composeTestRule
+            .onNode(hasText(PlainVoice.bigPictureYearFilterLabel) and hasText(": " + PlainVoice.bigPictureFilterCountAll))
+            .assertExists()
+        composeTestRule.onNodeWithText(monthTitle).assertExists()
+        scrollToEarliestMonth()
+        composeTestRule.onNodeWithText(earlierMonthTitle).assertExists()
+    }
+
+    @Test
+    fun yearChip_pickingAYear_narrowsVisibleMonths_andAllYearsResetsTheFullRange() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday()), earliestMonth = earlierYearMonth))
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).performClick()
+        composeTestRule.onNodeWithText(earlierYearMonth.year.toString()).performClick()
+
+        composeTestRule.onNodeWithText(earlierMonthTitle).assertExists()
+        composeTestRule.onNodeWithText(monthTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(": " + earlierYearMonth.year).assertExists()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureFilterCountAll).performClick()
+
+        composeTestRule.onNodeWithText(monthTitle).assertExists()
+        scrollToEarliestMonth()
+        composeTestRule.onNodeWithText(earlierMonthTitle).assertExists()
+    }
+
+    @Test
+    fun monthPickerDialog_scopesToTheActiveYearFilter() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday()), earliestMonth = earlierYearMonth))
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).performClick()
+        composeTestRule.onNodeWithText(earlierYearMonth.year.toString()).performClick()
+
+        composeTestRule.onNodeWithText(earlierMonthTitle).performClick()
+
+        // The month picker lists bare month labels (no trailing "›"); only the filtered year's
+        // month should be offered, not July 2026, which is outside the active Year filter.
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureMonthPickerTitle).assertExists()
+        composeTestRule.onNodeWithText("December 2025").assertExists()
+        composeTestRule.onNodeWithText("July 2026").assertDoesNotExist()
+    }
+
+    @Test
+    fun yearChip_pickingASecondYear_directlyReplacesThePreviousSelection() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday()), earliestMonth = earlierYearMonth))
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).performClick()
+        composeTestRule.onNodeWithText(earlierYearMonth.year.toString()).performClick()
+        composeTestRule.onNodeWithText(earlierMonthTitle).assertExists()
+
+        // Switch straight from one specific year to another, not routed back through "All years"
+        // first -- the single-select dialog must overwrite the prior selection, not toggle it off.
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).performClick()
+        composeTestRule.onNodeWithText(currentMonth.year.toString()).performClick()
+
+        composeTestRule.onNodeWithText(monthTitle).assertExists()
+        composeTestRule.onNodeWithText(earlierMonthTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(": " + currentMonth.year).assertExists()
+    }
+
+    @Test
+    fun yearFilter_composesWithCaseFilter_dayDetailRespectsBothNarrowings() {
+        val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
+        val earlierDay = earlierYearMonth.atDay(15)
+        val coffeeEvent = CalendarEvent(id = 1L, caseId = case.id, occurredAt = millisAt(earlierDay, 9), note = "coffee note")
+        val teaEvent = CalendarEvent(id = 2L, caseId = secondCase.id, occurredAt = millisAt(earlierDay, 10), note = "tea note")
+        setContent(
+            uiStateWith(cases = listOf(case, secondCase), events = listOf(coffeeEvent, teaEvent), earliestMonth = earlierYearMonth),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).performClick()
+        composeTestRule.onNodeWithText(earlierYearMonth.year.toString()).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
+        composeTestRule.onNodeWithText(secondCase.name).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        composeTestRule.onNodeWithText(earlierDay.dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText("coffee note").assertExists()
+        composeTestRule.onNodeWithText("tea note").assertDoesNotExist()
+    }
+
+    @Test
+    fun yearFilterTriggerAndDialogChip_workUnderBrightTheme() {
+        setContent(
+            uiStateWith(cases = listOf(case), events = listOf(eventToday()), earliestMonth = earlierYearMonth),
+            decorationStyle = CardDecorationStyle.BRIGHT,
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).performClick()
+        composeTestRule.onNodeWithText(earlierYearMonth.year.toString()).performClick()
+
+        composeTestRule.onNodeWithText(earlierMonthTitle).assertExists()
+        composeTestRule.onNodeWithText(monthTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun currentMonth_asFirstRenderedMonth_dropsFutureWeekEntirely_notBlank() {
+        // today is Jul 23 2026; July's Monday-starting weeks are Jun29, Jul6, Jul13, Jul20, Jul27.
+        // The Jul27 week starts entirely after today and must be dropped outright -- exactly the
+        // bug the settled prototype hit once the current month became first-in-list instead of
+        // last, where a dropped-vs-blanked trailing week reads as a stray gap.
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday())))
+
+        composeTestRule.onAllNodesWithText("›").assertCountEquals(4)
     }
 
     // ---- overview-detail control (spec §9) ----
@@ -770,7 +907,7 @@ class BigPictureScreenTest {
             ),
         )
 
-        composeTestRule.onAllNodesWithText("›").onLast().performClick()
+        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(4), substring = true).assertExists()
     }

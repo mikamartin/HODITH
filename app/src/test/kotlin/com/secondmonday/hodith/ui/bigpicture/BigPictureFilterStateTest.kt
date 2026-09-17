@@ -4,6 +4,7 @@ import com.secondmonday.hodith.viewmodel.CalendarCase
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
+import java.time.YearMonth
 
 class BigPictureFilterStateTest {
     private val today = LocalDate.of(2026, 3, 15)
@@ -94,5 +95,76 @@ class BigPictureFilterStateTest {
     @Test
     fun `bigPictureTagLegend is AllSelected, never UntaggedOnly, when no tags exist at all`() {
         assertEquals(TagLegendState.AllSelected, bigPictureTagLegend(emptyList(), emptySet()))
+    }
+
+    private val jan2026 = YearMonth.of(2026, 1)
+    private val mar2026 = YearMonth.of(2026, 3)
+    private val dec2025 = YearMonth.of(2025, 12)
+    private val ascendingMonths = listOf(dec2025, jan2026, YearMonth.of(2026, 2), mar2026)
+
+    @Test
+    fun `monthsNewestFirst reverses an ascending list`() {
+        assertEquals(listOf(mar2026, YearMonth.of(2026, 2), jan2026, dec2025), monthsNewestFirst(ascendingMonths))
+    }
+
+    @Test
+    fun `bigPictureYearFilterVisible is false when earliest and current month share a year`() {
+        assertEquals(false, bigPictureYearFilterVisible(jan2026, mar2026))
+    }
+
+    @Test
+    fun `bigPictureYearFilterVisible is true when earliest and current month fall in different years`() {
+        assertEquals(true, bigPictureYearFilterVisible(dec2025, mar2026))
+    }
+
+    @Test
+    fun `bigPictureYearOptions lists distinct years, current year first`() {
+        assertEquals(listOf(2026, 2025), bigPictureYearOptions(ascendingMonths))
+    }
+
+    @Test
+    fun `filterMonthsByYear with a null year returns every month unchanged`() {
+        assertEquals(ascendingMonths, filterMonthsByYear(ascendingMonths, null))
+    }
+
+    @Test
+    fun `filterMonthsByYear narrows to only the given year`() {
+        assertEquals(listOf(dec2025), filterMonthsByYear(ascendingMonths, 2025))
+    }
+
+    @Test
+    fun `filterMonthsByYear narrows to a year with several months`() {
+        assertEquals(listOf(jan2026, YearMonth.of(2026, 2), mar2026), filterMonthsByYear(ascendingMonths, 2026))
+    }
+
+    @Test
+    fun `filterMonthsByYear returns an empty list for a year not present in the data`() {
+        assertEquals(emptyList<YearMonth>(), filterMonthsByYear(ascendingMonths, 2024))
+    }
+
+    @Test
+    fun `filterMonthsByYear returns an empty list unchanged, with or without a year`() {
+        assertEquals(emptyList<YearMonth>(), filterMonthsByYear(emptyList(), null))
+        assertEquals(emptyList<YearMonth>(), filterMonthsByYear(emptyList(), 2026))
+    }
+
+    @Test
+    fun `bigPictureYearOptions is empty for an empty months list`() {
+        assertEquals(emptyList<Int>(), bigPictureYearOptions(emptyList()))
+    }
+
+    @Test
+    fun `monthsNewestFirst is empty for an empty months list`() {
+        assertEquals(emptyList<YearMonth>(), monthsNewestFirst(emptyList()))
+    }
+
+    @Test
+    fun `bigPictureYearOptions returns a single year when every month falls in it`() {
+        assertEquals(listOf(2026), bigPictureYearOptions(listOf(jan2026, YearMonth.of(2026, 2), mar2026)))
+    }
+
+    @Test
+    fun `bigPictureYearFilterVisible is false when earliest and current month are the same month`() {
+        assertEquals(false, bigPictureYearFilterVisible(mar2026, mar2026))
     }
 }

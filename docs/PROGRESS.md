@@ -313,31 +313,6 @@ Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existin
 
 **Concern** — none; per the spec's own note, this is the most self-contained item here.
 
-### Big Picture: year filter
-
-*Branch: `feature/big-picture-year-filter` · Complexity: M · Priority: Medium · Area: Big Picture*
-
-UX direction settled via a cheap HTML prototype, `docs/mockups/big-picture-year-filter-prototype.html` — a year selector that narrows the grid to one year, chosen over a year rail (pure navigation, no filtering) and a year-summary zoom level (a new bird's-eye view), both considered and dropped. This replaces the exploration item that used to live here; the prototype's dev-panel "Settled so far" list is the acceptance spec below, restated as checkable items.
-
-**Acceptance criteria**
-
-- [ ] A third trigger chip, **Year**, added to `BigPictureGrid.kt`'s `FilterSummaryRow`, alongside the existing Cases/Tags chips (`FilterTriggerChip`), opening an `InfoDialog`-based picker the same way Cases/Tags already do.
-- [ ] The Year chip renders only when `earliestMonth..currentMonth` spans more than one year — same conditional as the existing Tags chip (`if (allTagNames.isNotEmpty())`).
-- [ ] Defaults to "All years" (no filter); picking a year narrows the `LazyColumn`'s `months` to that year only, with an explicit reset back to "All years".
-- [ ] Year dialog lists years current-year-first, oldest-last (matches the grid's own reordering below).
-- [ ] The month grid's order reverses: current month first (top), earliest last (bottom), opening scrolled to the top — a deliberate change from spec §9's documented oldest-top/current-bottom order. **`HODITH_SPEC.md` §9 needs updating to match once this ships** (intentional divergence updates the spec, per the working agreement).
-- [ ] Confirm `weeksInGrid(month).filter { isPastOrToday(week.first(), today) }` (already in the real code) drops whole future weeks rather than blanking their days — the prototype hit exactly this bug once months were reversed: trailing blank weeks read as a stray gap once a month is no longer last-in-list.
-- [ ] Cases/Tags/Year trigger chips each get a visible border/highlight whenever narrowed off their default (not all Cases, not all Tags, or a specific year) — a quick "something is filtered" signal. Needs its own Plain/Intense/Bright treatment alongside the existing chip dispatch (`LocalCardDecorationStyle`), not just the prototype's single flat style.
-- [ ] Cases/Tags trigger chip labels change from "Cases N of M" to "Cases: N" (drop "of total"; "All" when fully selected) — Year follows the same "Year: <value>" shape ("Year: All" / "Year: 2025"). Touches `filterCountLabel` and the chip composables.
-- [ ] Voice ×3 for the Year chip's label and dialog title, following the `bigPictureCasesFilterLabel` / `bigPictureTagsFilterLabel` / `bigPictureMonthPickerTitle` pattern.
-- [ ] `docs/mockups/big-picture-year-filter-prototype.html` deleted once this ships, per the established mockup-lifecycle precedent (`chore/prune-design-mockups`).
-
-**Plan** — implement per the prototype's settled behavior. Two bundled changes are worth flagging separately at review: (1) the Year filter itself, and (2) the grid's scroll-direction reversal — a bigger, more visible behavior change than the filter, and not strictly required to ship a year filter. Consider splitting it into its own PR if reviewability is a concern, even though the two were explored together.
-
-**Tests** — Compose/instrumented coverage for: Year chip absent with ≤1 year of data, present with >1; picking a year narrows visible months and "All years" resets; chip label format (`Cases: N` / `All`). Existing Big Picture tests that assume scroll-opens-at-the-bottom need updating for the reversed order.
-
-**Concern** — the scroll-direction reversal touches every existing Big Picture test or assumption built around oldest-top/current-bottom (see spec §9's rationale and the retired row-per-case design note in `BigPictureGrid.kt`'s class KDoc) — worth a dedicated pass through existing tests before assuming only new tests are needed.
-
 ### Log entry form: Save button disappears while the tag field is focused
 
 *Branch: `fix/log-detail-save-button-visibility` · Complexity: S–M · Priority: Medium · Area: Bug*
@@ -405,23 +380,21 @@ Home's row model has no field for it yet: `HomeCaseRow` (`viewmodel/HomeViewMode
 
 Three related issues reported together against `ui/bigpicture/BigPictureGrid.kt`'s filter chips/pills:
 
-- **Not color-coded by filter type.** In Plain/Intense, `CaseFilterChip` (lines 793-820) already uses `secondaryContainer` and `TagFilterChip` (824-849) uses `tertiaryContainer` — distinct colors. The actual gap is **Bright**: both `BrightCaseFilterChip` (896-909) and `BrightTagFilterChip` (912-924) call the shared `BrightChip` (861-893) with the same `tint = MaterialTheme.colorScheme.primary`, so Bright shows no color distinction at all. (No Year chip exists yet — that's the separate, in-progress "Big Picture: year filter" item — but its color should be decided as part of this pass so the eventual Year chip isn't a fourth ad-hoc choice.)
-- **"0 of 5" should read "None" when nothing is selected.** `filterCountLabel` (lines 445-449) branches only on `selected == total` (→ `bigPictureFilterCountAll`); there's no `selected == 0` branch, so it falls through to the raw `"$selected of $total"` (`Voice.kt:462-465`, `bigPictureFilterCount`, not overridden per-voice). Needs a `bigPictureFilterCountNone`-style key, following the same per-voice-override pattern `bigPictureFilterCountAll` already uses (`Voice.kt:723`, `1303`, `1874`).
-- **Tag pills don't match case pills' size/alignment.** `CaseFilterChip` renders a `Row` (icon + name `Text`s, `Arrangement.spacedBy(4.dp)`, `CenterVertically`) with padding on the `Row`; `TagFilterChip` renders a single bare `Text` with the same padding values but no `Row`/explicit vertical-centering container — same `CHIP_SHAPE`/padding constants, different measurement shape, which is the likely source of the visible height/alignment mismatch in the filter `FlowRow`s (lines 384-388, 403-407) and `FilterLegendRow` (467-505).
-
-**Note on sequencing:** the in-progress "Big Picture: year filter" item also touches these same chip composables (adding a Year chip, a "narrowed" highlight border, and relabeling to "Cases: N"/"All"). Worth landing whichever ships first with the other's planned changes in mind to avoid rework — check that item's status before starting this one.
+- **Not color-coded by filter type.** In Plain/Intense, `CaseFilterChip` (lines 865-892) uses `secondaryContainer`, `TagFilterChip` (896-921) uses `tertiaryContainer`, and `YearFilterChip` (930-962, landed with the "Big Picture: year filter" item) uses `primaryContainer` — three distinct colors. The actual gap is **Bright**: `BrightCaseFilterChip` (1009-1022) and `BrightTagFilterChip` (1025-1036) call the shared `BrightChip` (974-1006) with the same `tint = MaterialTheme.colorScheme.primary`, and `YearFilterChip`'s own Bright branch does too — so Bright shows no color distinction across any of the three.
+- **"0 of 5" should read "None" when nothing is selected.** The "Cases: N of M" format this note originally described has since shipped as "Cases: N" ("All" once fully selected, via `filterCountLabel`, lines 509-513). `filterCountLabel` still branches only on `selected == total` (→ `bigPictureFilterCountAll`); there's no `selected == 0` branch, so it falls through to the bare `"$selected"` (`Voice.kt`, `bigPictureFilterCount(selected: Int)`, not overridden per-voice) and reads "Cases: 0" instead of a "None" wording. Needs a `bigPictureFilterCountNone`-style key, following the same per-voice-override pattern `bigPictureFilterCountAll` already uses.
+- **Tag pills don't match case pills' size/alignment.** `CaseFilterChip` renders a `Row` (icon + name `Text`s, `Arrangement.spacedBy(4.dp)`, `CenterVertically`) with padding on the `Row`; `TagFilterChip` renders a single bare `Text` with the same padding values but no `Row`/explicit vertical-centering container — same `CHIP_SHAPE`/padding constants, different measurement shape, which is the likely source of the visible height/alignment mismatch in the filter `FlowRow`s (lines 419, 438, 452) and `FilterLegendRow` (538-574).
 
 **Acceptance criteria**
 
-- [ ] A ruling on the three (soon four, with Year) chip colors, applied consistently across Plain, Intense, and Bright.
-- [ ] `BrightCaseFilterChip`/`BrightTagFilterChip` use distinct tints instead of both defaulting to `colorScheme.primary`.
-- [ ] `filterCountLabel` gains a `selected == 0` branch returning a new `bigPictureFilterCountNone` Voice key (Voice ×3) instead of falling through to `"0 of N"`.
+- [ ] A ruling on the four chip colors (Cases/Tags/Year trigger chips, plus each dialog's own pills), applied consistently across Plain, Intense, and Bright.
+- [ ] `BrightCaseFilterChip`/`BrightTagFilterChip`/`YearFilterChip`'s Bright branch use distinct tints instead of all defaulting to `colorScheme.primary`.
+- [ ] `filterCountLabel` gains a `selected == 0` branch returning a new `bigPictureFilterCountNone` Voice key (Voice ×3) instead of falling through to a bare "0".
 - [ ] `TagFilterChip` (and Bright's tag chip) restructured to match `CaseFilterChip`'s `Row`-based layout so both measure to the same height/alignment in a `FlowRow`.
-- [ ] Verified side-by-side in the Cases/Tags filter dialogs and in `FilterLegendRow` where both chip types can appear together.
+- [ ] Verified side-by-side in the Cases/Tags/Year filter dialogs and in `FilterLegendRow` where Case and Tag chips can appear together.
 
-**Plan** — settle the color ruling first (affects three files: Plain/Intense chips, Bright chips, and whatever Year chip lands with). Then: add the `bigPictureFilterCountNone` Voice key and wire it into `filterCountLabel`; restructure `TagFilterChip`/Bright tag chip onto `CaseFilterChip`'s `Row` layout for size/alignment parity.
+**Plan** — settle the color ruling first (affects Plain/Intense chips, Bright chips, and `YearFilterChip`'s own PLAIN/INTENSE branch, which already uses `primaryContainer` and may need to move once the ruling lands). Then: add the `bigPictureFilterCountNone` Voice key and wire it into `filterCountLabel`; restructure `TagFilterChip`/Bright tag chip onto `CaseFilterChip`'s `Row` layout for size/alignment parity.
 
-**Tests** — `VoiceTest` coverage for the new key across all three voices; a Compose test asserting tag and case chips render at equal height in a shared `FlowRow`; existing Big Picture filter tests updated if any assert the old "0 of N" label text.
+**Tests** — `VoiceTest` coverage for the new key across all three voices; a Compose test asserting tag and case chips render at equal height in a shared `FlowRow`; existing Big Picture filter tests updated if any assert the old bare "0" label text.
 
 ## Deferred
 

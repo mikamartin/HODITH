@@ -108,9 +108,12 @@ import java.time.ZoneId
  * intensity) follows the user's [BigPictureDetail] preference, edited from the filter row's edit
  * icon.
  *
- * Scroll range is [earliestMonth]..[currentMonth] inclusive, opening at the bottom (current
- * month). Replaces an earlier row-per-case/shared-horizontal-time-axis/pinch-zoom design, retired
- * after on-device testing showed it didn't read clearly (see PROGRESS.md for the build history).
+ * Scroll range is [earliestMonth]..[currentMonth] inclusive, opening at the top (current month
+ * first, earliest last) — a deliberate divergence from this view's earlier oldest-top/current-
+ * bottom order, matching the Year filter dialog's own current-year-first listing once a Case's
+ * data spans more than one year. Replaces an earlier row-per-case/shared-horizontal-time-axis/
+ * pinch-zoom design, retired after on-device testing showed it didn't read clearly (see
+ * PROGRESS.md for the build history).
  */
 private const val MAX_ICONS_PER_CELL = 3
 private val WEEK_CHEVRON_TOUCH_TARGET = 48.dp
@@ -187,6 +190,7 @@ fun BigPictureGrid(
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
     var selectedWeek by remember { mutableStateOf<List<LocalDate>?>(null) }
     var showMonthPicker by remember { mutableStateOf(false) }
+    var selectedYear by remember(earliestMonth, currentMonth) { mutableStateOf<Int?>(null) }
 
     val isEventVisible: (CalendarEvent) -> Boolean = { event ->
         event.caseId in visibleCaseIds && isTagVisible(event.tags, visibleTagNames, allTagNames.size)
@@ -216,10 +220,16 @@ fun BigPictureGrid(
         remember(earliestMonth, currentMonth) {
             generateSequence(earliestMonth) { it.plusMonths(1) }.takeWhile { !it.isAfter(currentMonth) }.toList()
         }
+    val yearOptions = remember(months) { bigPictureYearOptions(months) }
+    val filteredMonths = remember(months, selectedYear) { filterMonthsByYear(months, selectedYear) }
+    // Current month first/top, earliest last/bottom (spec §9) — a deliberate divergence from the
+    // grid's old oldest-top/current-bottom order, matching the Year dialog's own current-year-first
+    // listing above.
+    val displayMonths = remember(filteredMonths) { monthsNewestFirst(filteredMonths) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(months.size) {
-        if (months.isNotEmpty()) listState.scrollToItem(months.lastIndex)
+    LaunchedEffect(displayMonths) {
+        if (displayMonths.isNotEmpty()) listState.scrollToItem(0)
     }
 
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
@@ -237,12 +247,17 @@ fun BigPictureGrid(
                     visibleTagNames = if (tag in visibleTagNames) visibleTagNames - tag else visibleTagNames + tag
                 },
                 onSetVisibleTagNames = { visibleTagNames = it },
+                earliestMonth = earliestMonth,
+                currentMonth = currentMonth,
+                yearOptions = yearOptions,
+                selectedYear = selectedYear,
+                onSelectYear = { selectedYear = it },
                 detail = detail,
                 onToggleDetail = onToggleDetail,
             )
             WeekdayHeader(modifier = Modifier.padding(horizontal = 12.dp))
             LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
-                items(months) { month ->
+                items(displayMonths) { month ->
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text(
                             text = "${month.monthLabel()} ›",
@@ -277,10 +292,12 @@ fun BigPictureGrid(
 
     if (showMonthPicker) {
         MonthPickerDialog(
-            months = months,
+            // Scoped to the active year filter, not the full months range, so a jump always lands
+            // on a month actually visible in the grid.
+            months = filteredMonths,
             onMonthPicked = { picked ->
                 showMonthPicker = false
-                scope.launch { listState.scrollToItem(months.indexOf(picked)) }
+                scope.launch { listState.scrollToItem(displayMonths.indexOf(picked)) }
             },
             onDismiss = { showMonthPicker = false },
         )
@@ -313,10 +330,12 @@ fun BigPictureGrid(
 }
 
 /**
- * Two small trigger chips ("Cases N of M ▸" / "Tags N of M ▸") open the full picker in an
- * [InfoDialog] each; a combined read-only legend row below summarizes the current selection
- * (spec §9). The tag trigger and its dialog are omitted entirely when no event carries a tag,
- * same as the old always-expanded tag row.
+ * Small trigger chips ("Cases: N ▸" / "Tags: N ▸" / "Year: N ▸") open the full picker in an
+ * [InfoDialog] each; a combined read-only legend row below summarizes the current Case/Tag
+ * selection (spec §9) — Year has no legend entry, since its trigger chip's own label already
+ * states the whole selection ("Year: 2025" vs. "Year: All"). The tag trigger and its dialog are
+ * omitted entirely when no event carries a tag; the year trigger and its dialog are omitted
+ * entirely when the data spans only one year — same "nothing to filter" reasoning.
  */
 @Composable
 private fun FilterSummaryRow(
@@ -328,12 +347,18 @@ private fun FilterSummaryRow(
     visibleTagNames: Set<String>,
     onToggleTag: (String) -> Unit,
     onSetVisibleTagNames: (Set<String>) -> Unit,
+    earliestMonth: YearMonth,
+    currentMonth: YearMonth,
+    yearOptions: List<Int>,
+    selectedYear: Int?,
+    onSelectYear: (Int?) -> Unit,
     detail: BigPictureDetail,
     onToggleDetail: (BigPictureDetailField, Boolean) -> Unit,
 ) {
     val voice = LocalVoice.current
     var showCasesDialog by remember { mutableStateOf(false) }
     var showTagsDialog by remember { mutableStateOf(false) }
+    var showYearDialog by remember { mutableStateOf(false) }
     var showDetailDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
@@ -346,12 +371,22 @@ private fun FilterSummaryRow(
                 label = voice.bigPictureCasesFilterLabel,
                 count = filterCountLabel(voice, visibleCaseIds.size, cases.size),
                 onClick = { showCasesDialog = true },
+                isFiltered = visibleCaseIds.size != cases.size,
             )
             if (allTagNames.isNotEmpty()) {
                 FilterTriggerChip(
                     label = voice.bigPictureTagsFilterLabel,
                     count = filterCountLabel(voice, visibleTagNames.size, allTagNames.size),
                     onClick = { showTagsDialog = true },
+                    isFiltered = visibleTagNames.size != allTagNames.size,
+                )
+            }
+            if (bigPictureYearFilterVisible(earliestMonth, currentMonth)) {
+                FilterTriggerChip(
+                    label = voice.bigPictureYearFilterLabel,
+                    count = selectedYear?.toString() ?: voice.bigPictureFilterCountAll,
+                    onClick = { showYearDialog = true },
+                    isFiltered = selectedYear != null,
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
@@ -407,6 +442,35 @@ private fun FilterSummaryRow(
             }
         }
     }
+    if (showYearDialog) {
+        InfoDialog(
+            title = voice.bigPictureYearFilterLabel,
+            onDismiss = { showYearDialog = false },
+        ) {
+            // Year is single-select, unlike Cases/Tags — picking a value applies and closes
+            // immediately rather than leaving the dialog open for further toggling.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                YearFilterChip(
+                    label = voice.bigPictureFilterCountAll,
+                    selected = selectedYear == null,
+                    onToggle = {
+                        onSelectYear(null)
+                        showYearDialog = false
+                    },
+                )
+                yearOptions.forEach { year ->
+                    YearFilterChip(
+                        label = year.toString(),
+                        selected = selectedYear == year,
+                        onToggle = {
+                            onSelectYear(year)
+                            showYearDialog = false
+                        },
+                    )
+                }
+            }
+        }
+    }
     if (showDetailDialog) {
         InfoDialog(
             title = voice.bigPictureDetailDialogTitle,
@@ -446,10 +510,17 @@ private fun filterCountLabel(
     voice: Voice,
     selected: Int,
     total: Int,
-) = if (selected == total) voice.bigPictureFilterCountAll else voice.bigPictureFilterCount(selected, total)
+) = if (selected == total) voice.bigPictureFilterCountAll else voice.bigPictureFilterCount(selected)
 
 /** Test hook — the same field label also appears in the row behind the open dialog. */
 internal const val BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX = "bp_detail_toggle_"
+
+/**
+ * Test hook — the week-chevron `Box` carrying [today] is tagged with this so multi-month tests can
+ * find "today's week" directly instead of relying on its position (first/last) in the rendered
+ * list, which is no longer a sound heuristic now that month order is current-first.
+ */
+internal const val BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG = "bp_today_week_chevron"
 
 private fun detailFieldLabel(
     field: BigPictureDetailField,
@@ -565,6 +636,7 @@ private fun WeekRow(
             modifier =
                 Modifier
                     .size(WEEK_CHEVRON_TOUCH_TARGET)
+                    .then(if (week.contains(today)) Modifier.testTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG) else Modifier)
                     .clickable(onClickLabel = voice.bigPictureWeekViewDescription, onClick = onWeekTap),
             contentAlignment = Alignment.Center,
         ) {
@@ -849,6 +921,47 @@ private fun TagFilterChip(
 }
 
 /**
+ * Year picker pill. Unlike [CaseFilterChip]/[TagFilterChip] this is always used single-select (one
+ * value chosen at a time, dialog dismisses on tap) — [onToggle] is never null here. Uses
+ * `primaryContainer` so it reads as its own chip family distinct from Cases' `secondaryContainer`
+ * and Tags' `tertiaryContainer`.
+ */
+@Composable
+private fun YearFilterChip(
+    label: String,
+    selected: Boolean,
+    onToggle: () -> Unit,
+) {
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.BRIGHT ->
+            BrightChip(selected = selected, onToggle = onToggle) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
+            val background = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+            val border = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.outlineVariant
+            val content = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = content,
+                modifier =
+                    Modifier
+                        .clip(CHIP_SHAPE)
+                        .background(background)
+                        .border(1.dp, border, CHIP_SHAPE)
+                        .clickable(onClick = onToggle)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+/**
  * Shared Bright chip pill: tint-wash background + hairline border when selected, plain surface
  * otherwise. Bright's selected-state ring was specced as a zero-blur `0 0 0 3px` spread, which
  * Compose has no direct primitive for; it's approximated here as an outer [Modifier.border] on a
@@ -923,16 +1036,23 @@ private fun BrightTagFilterChip(
     }
 }
 
-/** Small trigger chip ("Cases N of M ▸") opening the full picker dialog; always the neutral/unselected pill look — the label+count communicate state, not the chip's own selection styling. */
+/**
+ * Small trigger chip ("Cases: N ▸") opening the full picker dialog. [isFiltered] draws a highlight
+ * border/ring when this dimension is narrowed off its default (not all selected, or a specific
+ * year) — a quick "something is filtered" signal (spec §9); otherwise the chip stays the neutral/
+ * unselected pill look, since the label+count communicate state, not the chip's own selection
+ * styling.
+ */
 @Composable
 private fun FilterTriggerChip(
     label: String,
     count: String,
     onClick: () -> Unit,
+    isFiltered: Boolean = false,
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
-            BrightChip(selected = false, onToggle = onClick) {
+            BrightChip(selected = isFiltered, onToggle = onClick) {
                 FilterTriggerChipContent(label, count)
             }
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
@@ -941,8 +1061,11 @@ private fun FilterTriggerChip(
                     Modifier
                         .clip(CHIP_SHAPE)
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CHIP_SHAPE)
-                        .clickable(onClick = onClick)
+                        .border(
+                            width = if (isFiltered) 1.5.dp else 1.dp,
+                            color = if (isFiltered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                            shape = CHIP_SHAPE,
+                        ).clickable(onClick = onClick)
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -952,13 +1075,14 @@ private fun FilterTriggerChip(
     }
 }
 
+/** [label] stays its own text node (unmodified, no colon) so existing exact-text chip lookups keep working; the colon lands on [count] instead. */
 @Composable
 private fun RowScope.FilterTriggerChipContent(
     label: String,
     count: String,
 ) {
     Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-    Text(count, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(": $count", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text("▸", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
 }
 

@@ -28,6 +28,7 @@ interface Voice {
     val bigPictureWeekViewDescription: String
     val bigPictureCasesFilterLabel: String get() = "Cases"
     val bigPictureTagsFilterLabel: String get() = "Tags"
+    val bigPictureYearFilterLabel: String get() = "Year"
 
     /** Big Picture's day/week detail-row field toggles (spec §9). Field labels are shared across voices. */
     val bigPictureDetailDialogTitle: String
@@ -459,10 +460,7 @@ interface Voice {
         end: String,
     ): String
 
-    fun bigPictureFilterCount(
-        selected: Int,
-        total: Int,
-    ): String = "$selected of $total"
+    fun bigPictureFilterCount(selected: Int): String = "$selected"
 
     /** [eventCount] is the Case's real, current event count — never a fixed threshold restated as if it were the count. */
     fun hunchNudgeBody(
