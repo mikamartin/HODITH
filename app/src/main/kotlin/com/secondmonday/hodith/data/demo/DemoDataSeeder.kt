@@ -50,6 +50,7 @@ private data class CaseSeed(
     val density: SeedDensity,
     val notes: List<String>,
     val tags: List<String>,
+    val description: String? = null,
     val recentSurge: Boolean = false,
     val quietSpell: Boolean = false,
     // Extra events left open (endedAt == null) at the end of the span. START_STOP Cases only —
@@ -73,6 +74,7 @@ private val CASE_SEEDS =
             density = SeedDensity.DENSE,
             notes = listOf("Perfectly balanced", "A bit weak", "Extra hot", "Oat milk today", "Burnt beans again"),
             tags = listOf("home", "cafe", "oat-milk", "decaf"),
+            description = "Any cup counted, home-brewed or bought",
             recentSurge = true,
         ),
         CaseSeed(
@@ -83,6 +85,7 @@ private val CASE_SEEDS =
             density = SeedDensity.BURSTY,
             notes = listOf("Started after screen time", "Woke up with it", "Triggered by wine", "Light sensitivity bad"),
             tags = listOf("aura", "light-sensitive", "medicated", "no-relief"),
+            description = "From first twinge to when it fully lifts, not just the worst of it",
             ongoingEventCount = 1,
         ),
         CaseSeed(
@@ -156,6 +159,7 @@ class DemoDataSeeder
                     repository.insertCase(
                         CaseEntity(
                             name = caseSeed.name,
+                            description = caseSeed.description,
                             icon = caseSeed.icon,
                             createdAt = spanStart,
                             logFlow = LogFlow.ONE_TAP,

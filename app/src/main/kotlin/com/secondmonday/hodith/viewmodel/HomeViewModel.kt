@@ -44,6 +44,7 @@ data class HomeCaseRow(
     val logFlow: LogFlow,
     val durationMode: DurationMode,
     val intensityEnabled: Boolean,
+    val description: String? = null,
     /**
      * The earliest-started open event for a `START_STOP` case, or null. Drives the single
      * elapsed-time display; past one running event the row shows [runningCount] instead.
@@ -248,6 +249,7 @@ internal fun homeCaseRows(
             logFlow = case.logFlow,
             durationMode = case.durationMode,
             intensityEnabled = case.intensityEnabled,
+            description = case.description,
             ongoingEvent = open.firstOrNull(),
             runningCount = open.size,
         )

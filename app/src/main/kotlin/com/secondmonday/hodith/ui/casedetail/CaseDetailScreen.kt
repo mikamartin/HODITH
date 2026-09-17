@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.ui.casedetail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,8 +30,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -95,6 +98,10 @@ import com.secondmonday.hodith.viewmodel.ongoingEventsIn
 private const val LOG_TAB = 0
 private const val INSIGHTS_TAB = 1
 private const val HUNCH_TAB = 2
+
+// Deliberately not colorScheme.outlineVariant: that hue shifts per theme (blue on Plain, warm on
+// Bright), which read as inconsistent. A single fixed neutral gray reads the same everywhere.
+private val CaseDescriptionBorderColor = Color(0x66828282)
 
 /** Resolved-hunch history starts collapsed to this many; "show more" reveals the rest (capped at [HUNCH_HISTORY_RETENTION_LIMIT]). */
 private const val HUNCH_HISTORY_SHOWN_INITIAL = 5
@@ -196,6 +203,22 @@ fun CaseDetailScreen(
         },
     ) { contentPadding ->
         Column(modifier = Modifier.padding(contentPadding).fillMaxSize()) {
+            if (case?.description != null) {
+                Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 8.dp),
+                        colors = CardDefaults.outlinedCardColors(containerColor = Color.Transparent),
+                        border = BorderStroke(1.dp, CaseDescriptionBorderColor),
+                    ) {
+                        Text(
+                            text = case.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
             SecondaryTabRow(selectedTabIndex = selectedTab) {
                 Tab(selected = selectedTab == LOG_TAB, onClick = { selectedTab = LOG_TAB }, text = { Text(voice.caseDetailLogTabLabel) })
                 Tab(

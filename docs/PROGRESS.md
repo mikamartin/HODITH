@@ -351,27 +351,6 @@ Distinct from two existing/adjacent items: the Settings-level **CSV export** ite
 
 **Tests** — a unit test for the export-row-shaping logic (column gating by Case config, sort, date-range filtering); Compose coverage for the two-option share entry point and the Log Share configuration screen.
 
-### Case description isn't shown anywhere in the app — surface it on Home and Case Detail
-
-*Branch: `feat/case-description-on-home` · Complexity: S–M · Priority: Medium · Area: Home*
-
-Reported as "description only shows on Case Detail" — actually `CaseEntity.description` (`data/CaseEntity.kt:12`) is written on the Case edit screen (`CaseEditScreen.kt:264` / `CaseEditViewModel.kt`) but rendered **nowhere** today, including Case Detail itself (`CaseDetailScreen.kt`'s `TopAppBar` only shows `"${icon} ${name}"`, line 167 — no description reference anywhere in that file). This item covers both: show the description on Case Detail (closing the original gap) and on Home (the new ask).
-
-Home's row model has no field for it yet: `HomeCaseRow` (`viewmodel/HomeViewModel.kt:38-54`) would need a `description` field, populated wherever `HomeViewModel` loads cases, then rendered in `HomeCaseRowBody` (`ui/home/HomeScreen.kt:273-307`, near the name `Text` at line 294) and its Plain/Bright variants (`PlainPlankHomeCaseListItem`, `BrightHomeCaseListItem`).
-
-**Acceptance criteria**
-
-- [ ] A ruling on Home's presentation when a description is long (truncate with ellipsis vs. omit vs. expand) — Home cards are compact, unlike Case Detail.
-- [ ] A ruling on whether an empty/blank description renders nothing on Home/Case Detail or a placeholder (likely nothing, to avoid noise).
-- [ ] `HomeCaseRow` gains a `description` field, sourced from `CaseEntity.description`.
-- [ ] Description rendered on Home in `HomeCaseRowBody` and its Plain/Bright variants.
-- [ ] Description rendered on Case Detail (`CaseDetailScreen.kt`), closing the original gap.
-- [ ] `HODITH_SPEC.md` updated if it documents description as Case-Detail-only anywhere (confirm during implementation).
-
-**Plan** — add `description` to `HomeCaseRow` and its population in `HomeViewModel`, then render it in `HomeCaseRowBody`/Plain/Bright Home variants and in `CaseDetailScreen.kt`, settling truncation/empty-state behavior first since it affects both surfaces.
-
-**Tests** — `HomeViewModelTest` coverage that `HomeCaseRow.description` reflects `CaseEntity.description`; Compose coverage that Home and Case Detail render a non-blank description and render nothing for a blank one.
-
 ### Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)
 
 *Branch: `fix/big-picture-filter-pill-consistency` · Complexity: S–M · Priority: Medium · Area: Big Picture*
