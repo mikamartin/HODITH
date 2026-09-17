@@ -23,7 +23,7 @@ import javax.inject.Inject
 
 private const val NO_CASE_ID = -1L
 internal const val CASE_NAME_MAX_LENGTH = 60
-internal const val CASE_DESCRIPTION_MAX_LENGTH = 280
+internal const val CASE_DESCRIPTION_MAX_LENGTH = 90
 
 data class CaseEditUiState(
     val isEditing: Boolean = false,

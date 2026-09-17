@@ -133,6 +133,21 @@ class CaseDetailScreenTest {
     }
 
     @Test
+    fun description_showsText_whenCaseHasOne() {
+        val describedCase = startStopCase.copy(description = "From first twinge to when it fully lifts")
+        setCaseDetailScreenContent(case = describedCase)
+
+        composeTestRule.onNodeWithText("From first twinge to when it fully lifts").assertExists()
+    }
+
+    @Test
+    fun description_showsNothing_whenCaseHasNone() {
+        setCaseDetailScreenContent(case = startStopCase.copy(description = null))
+
+        composeTestRule.onNodeWithText("From first twinge to when it fully lifts").assertDoesNotExist()
+    }
+
+    @Test
     fun headerActions_editTriggersAndShareIcons_invokeCallbacksWithCaseId() {
         var editedCaseId: Long? = null
         var triggersCaseId: Long? = null

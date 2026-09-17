@@ -110,6 +110,21 @@ class HomeScreenTest {
     }
 
     @Test
+    fun caseRow_showsDescription_whenSet() {
+        val describedRow = oneTapRow.copy(description = "Any cup counted")
+        setHomeScreenContent(uiState = HomeUiState(cases = listOf(describedRow), isLoading = false))
+
+        composeTestRule.onNodeWithText("Any cup counted").assertExists()
+    }
+
+    @Test
+    fun caseRow_showsNoDescriptionText_whenUnset() {
+        setHomeScreenContent()
+
+        composeTestRule.onNodeWithText("Any cup counted").assertDoesNotExist()
+    }
+
+    @Test
     fun rowTap_opensCaseDetail_notQuickLog() {
         var quickLogTapped: HomeCaseRow? = null
         var openedCaseId: Long? = null

@@ -223,7 +223,15 @@ class HomeViewModelMappingTest {
     fun `maps case identity fields through`() {
         val rows =
             homeRows(
-                listOf(caseWithEvents(caseId = 7L, icon = "☕️", name = "Coffee", events = emptyList())),
+                listOf(
+                    caseWithEvents(
+                        caseId = 7L,
+                        icon = "☕️",
+                        name = "Coffee",
+                        description = "Any cup counted",
+                        events = emptyList(),
+                    ),
+                ),
                 now.toInstant().toEpochMilli(),
             )
 
@@ -231,6 +239,14 @@ class HomeViewModelMappingTest {
         assertEquals(7L, row.caseId)
         assertEquals("☕️", row.icon)
         assertEquals("Coffee", row.name)
+        assertEquals("Any cup counted", row.description)
+    }
+
+    @Test
+    fun `description is null when the case has none`() {
+        val rows = homeRows(listOf(caseWithEvents(events = emptyList())), now.toInstant().toEpochMilli())
+
+        assertNull(rows.single().description)
     }
 
     @Test
@@ -340,6 +356,7 @@ class HomeViewModelMappingTest {
         caseId: Long = 1L,
         icon: String = "🐛",
         name: String = "Test Case",
+        description: String? = null,
         events: List<EventEntity>,
         logFlow: LogFlow = LogFlow.ONE_TAP,
         durationMode: DurationMode = DurationMode.NONE,
@@ -349,6 +366,7 @@ class HomeViewModelMappingTest {
             Fixtures.case(
                 id = caseId,
                 name = name,
+                description = description,
                 icon = icon,
                 logFlow = logFlow,
                 durationMode = durationMode,

@@ -120,6 +120,17 @@ class DemoDataSeederTest {
         }
 
     @Test
+    fun `seed gives Coffee and Migraine a description, and leaves the rest without one`() =
+        runTest {
+            seeder.seed()
+
+            val cases = repository.cases.value
+            val described = setOf("Coffee", "Migraine")
+            cases.filter { it.name in described }.forEach { assertTrue(!it.description.isNullOrBlank()) }
+            cases.filterNot { it.name in described }.forEach { assertTrue(it.description == null) }
+        }
+
+    @Test
     fun `seed gives Coffee's recent surge a genuine multi-day streak`() =
         runTest {
             seeder.seed()

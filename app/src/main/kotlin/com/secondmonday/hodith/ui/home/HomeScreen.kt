@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -292,6 +293,15 @@ private fun HomeCaseRowBody(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = row.name, style = MaterialTheme.typography.titleMedium)
+            if (row.description != null) {
+                Text(
+                    text = row.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             when {
                 row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
                 ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
@@ -335,6 +345,15 @@ private fun BrightHomeCaseListItem(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = row.name, style = nameStyle)
+                if (row.description != null) {
+                    Text(
+                        text = row.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 when {
                     row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
                     ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
@@ -356,6 +375,7 @@ private val previewRows =
             caseId = 1,
             icon = "🏃",
             name = "Went for a run",
+            description = "Any jog, walk, or run counted with intention, even a short one around the block",
             todayCount = 1,
             weekCount = 4,
             logFlow = LogFlow.ONE_TAP,
