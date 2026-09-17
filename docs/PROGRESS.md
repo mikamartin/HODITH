@@ -7,6 +7,7 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 Items are grouped by how they connect, not by feature area:
 
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
+- **Story C — Insights: within-case Trends** — a sequenced set of within-case trend detectors sharing one extensible scaffold; later items add or drop one detector each and must not change the scaffold's shape.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
 - **Blocked** — gated on something external; not startable now.
@@ -64,6 +65,141 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 **Concern** — the audit will change hundreds of lines in one file. Anything else touching `Voice.kt` must land first.
 
+## Story C — Insights: within-case Trends
+
+Eight items: T1 builds the extensible scaffold, T2–T8 each add or drop exactly one candidate detector. Closes out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement; UP/DOWN/FLAT stays sufficient for the existing single-arrow card, with nuance moved to the new section instead of overloading the arrow) carries forward into T1 below. No single item rules on more than one detector's statistics at once — each of T2–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T1 on appends its own entry to a maintained "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
+
+### T1 · Build the Trends scaffold; migrate gap/streak-shift into it
+
+*Branch: `feat/insights-trends-scaffold` · Complexity: M · Priority: Low · Area: Insights*
+
+🎨 **Design decision** — the `TrendFinding` field shape, the exact cap/reveal numbers, and the `Hint`/`Pattern` reliability vocabulary are decided here, scoped only to the scaffold itself — not to any candidate detector's own feasibility, which is each of T2–T8's own job.
+
+New Insights section, shown only when at least one trend is actually detected — mirrors `TagsCard`'s existing `.isNotEmpty()` gate in `InsightsTab.kt`'s `StatsSectionCards` (`if (stats.tags.isNotEmpty()) TagsCard(...)`), rather than folding more into the single Trend card. Reliability is disclosed per finding, on tap, reusing the app's one existing "(i) icon → `InfoDialog`" affordance (`ui/common/SectionWithInfo.kt`, already used by `TrendCard` and every other Insights card except Tags/Intensity) — not a single section-level icon. When more findings clear their bar than the section shows by default, a "show more" reveal exposes the rest up to a stated ceiling, the same shape as the calendar heatmap's show-more/fewer months and Hunch history's retention note — never a silent cap that hides that more was found.
+
+The existing Trend arrow card's `gapShiftDirection`/`streakShiftDirection` sub-lines move out of `TrendDisplay`/`TrendCard` and become this section's first two findings, with zero new statistics — `computeGapShift`/`computeStreakShift` themselves don't change, only what consumes their output. This validates the scaffold end-to-end (rendering, per-finding info-tap, the guardrail with a real but small finding count) before any new detector math is trusted to plug into it, and matches the prior design item's own ruling that nuance moves to the new section rather than overloading the arrow.
+
+**Acceptance criteria**
+
+- [ ] `TrendFinding` domain type + guardrail constants added (new `TrendsEngine.kt` or added to `InsightsEngine.kt`, following the file's existing doc-comment-cites-spec convention).
+- [ ] Non-nullable `StatsSections.trends: List<TrendFinding>`; section renders only when non-empty.
+- [ ] Cap + "show more" mechanism implemented with a stated default-visible count and total ceiling.
+- [ ] `Hint`/`Pattern` reliability tiers defined and documented, kept distinct from `ConfidenceTier` (`NO_VERDICT`/`PRELIMINARY`/`CONFIDENT`) — Hunch's tiers measure sample-size adequacy for an average, a Trends finding's tier measures effect significance.
+- [ ] Each finding row independently tappable to its own info dialog (methodology + evidence size), phrased like `voice.verdictMeta`'s "Based on $eventCount events over $windowDays days."
+- [ ] `gapShiftDirection`/`streakShiftDirection` removed from `TrendDisplay`/`TrendCard`; the arrow card shows only direction/recentCount/priorCount.
+- [ ] New Voice key `insightsSectionLabelTrends` (plural) added and audited against the existing singular `insightsSectionLabelTrend` (arrow card) so the two read unambiguously in all three voices.
+- [ ] Wording rule stated as a written constraint for every future detector sentence: "often follows," "tends to," never "causes" (spec §4) — not yet a mechanical `VoiceTest` check, since no real detector sentence exists yet.
+- [ ] `HODITH_SPEC.md` §10 gains a new "Trends detectors" subsection, seeded with its first two entries (gap shift, streak shift).
+
+**Plan** — thread `TrendFinding` from `InsightsEngine`/`StatsEngine` through `insightsTabState()`'s `statsSections()` the same way `tags` already is; add the new composable next to `TagsCard` in `InsightsTab.kt`.
+
+**Tests** — `InsightsEngineTest`/`InsightsTabStateTest` coverage that the two migrated findings appear/disappear exactly as `gapShiftDirection`/`streakShiftDirection` did before the move; a guardrail test with more eligible findings than the default cap.
+
+### T2 · Detector: tag drift (share rising/falling)
+
+*Branch: `feat/insights-trends-tag-drift` · Complexity: M · Priority: Low · Area: Insights*
+
+🎨 **Design decision (this detector only)** — feasibility, minimum sample size, and keep/drop, checked against `shiftDirectionFor`'s existing dual-threshold pattern (`InsightsEngine.kt`) applied to a tag's share of events instead of a gap/streak average. Is a tag's share of a Case's events rising or falling over time (decaf 10%→40%)? No permutation test, no timezone dependency — the simplest detector to rule on first.
+
+**Acceptance criteria**
+
+- [ ] Feasibility ruling stated before any code; closes as "dropped" with rationale if the tag-share signal turns out too noisy at realistic sample sizes.
+- [ ] If kept: a tag-share-shift function gated by its own `MIN_SAMPLE_COUNT`-style constant, returning zero or more `TrendFinding`s (one per tag clearing the bar), tiered `Hint`/`Pattern` per T1's vocabulary.
+- [ ] Sentence template follows "tends to," never "causes."
+- [ ] Voice ×3 for the new sentence template.
+- [ ] Tests: a rising tag, a falling one, a stable one (no finding), and below-minimum-sample (no finding).
+- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line — or, if dropped, a short rationale left in this item instead.
+
+### T3 · Detector: recurrence shape (hazard by time-since-last-event)
+
+*Branch: `feat/insights-trends-recurrence-hazard` · Complexity: M · Priority: Low · Area: Insights*
+
+🎨 **Design decision (this detector only)** — bins `computeGapStats`'s existing `pastGaps` (`InsightsEngine.kt`) into days-since-last-event buckets and rules on early-spike ("often follows within N days") vs. dead-zone ("almost never recurs within N days") thresholds as its own constants. A heavier, more informative sibling to the existing bursts CV flag (`isBursty`), but still descriptive arithmetic — no permutation test needed for a first pass.
+
+**Acceptance criteria**
+
+- [ ] Feasibility ruling stated before any code; closes as "dropped" with rationale if the hazard shape doesn't separate cleanly from noise at realistic sample sizes.
+- [ ] If kept: hazard-bucket computation over `pastGaps`, gated by a minimum sample count, with early-spike/dead-zone thresholds documented as `internal const val`s in the same doc-comment style as `GAP_BURST_MIN_COEFFICIENT_OF_VARIATION`.
+- [ ] At most one `TrendFinding` per Case from this detector (can't be both a spike and a dead zone).
+- [ ] Voice ×3 for the new sentence template.
+- [ ] Tests: a clear spike, a clear dead zone, and a flat hazard (no finding).
+- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line — or, if dropped, a short rationale left in this item instead.
+
+### T4 · Detector: tag → outcome, plus the shuffle-significance helper
+
+*Branch: `feat/insights-trends-tag-outcome` · Complexity: L · Priority: Low · Area: Insights*
+
+🎨 **Design decision (this detector only)** · 🔍 **Investigation** — the significance approach needs a spike before it's knowable. Compares intensity, duration, and time-to-next-event for events with a tag vs. without it (e.g. "aura migraines last 40% longer"). Introduces the first real permutation test for a single Case: shuffle which events carry the tag (label permutation, not a timeline shuffle), recompute the difference many times, and see how extreme the observed difference is. The natural first home for the generic "permutation by shuffling the Case's own data" helper the prior design item's own reasoning called for — simpler than a timeline shuffle, so it lands before T5 rather than after. Whether T5 goes on to reuse this same helper is T5's call, not decided here.
+
+**Acceptance criteria**
+
+- [ ] Feasibility ruling stated before any code, including the permutation iteration count and seed handling (a deterministic seed keyed off the Case/detector/event-count, not real randomness, so a finding doesn't flicker in/out across app opens with unchanged data).
+- [ ] If kept: a reusable permutation-significance helper in `domain/`, generic enough for label-shuffle here and a timeline-shuffle variant later; tag→outcome computation for intensity, duration, and time-to-next-event, each independently gated by minimum in-tag/out-of-tag sample sizes.
+- [ ] Findings carry a `Hint`/`Pattern` tier from T1's vocabulary, not a raw p-value, in the UI.
+- [ ] Voice ×3 for the new sentence template(s).
+- [ ] Tests: a planted strong tag effect, a planted null (shuffled data), and below-minimum-sample.
+- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line per kept outcome (intensity/duration/time-to-next) — or, for any dropped, a short rationale left in this item instead.
+
+### T5 · Detector: real change-points
+
+*Branch: `feat/insights-trends-change-points` · Complexity: L · Priority: Low · Area: Insights*
+
+🎨 **Design decision (this detector only)** · 🔍 **Investigation** — CUSUM vs. a simple Bayesian change-point method is still open; spike both cheaply before committing. Catches slow drift the fixed 30-vs-30 `computeTrendStats` window structurally can't see ("since around mid-March, roughly twice as often"), additive to the arrow card, not a replacement, per the prior design item's ruling. Circular-shift + Benjamini-Hochberg (the framework proposed for the separate Big Picture cross-case item) is built for pairs of Cases; this item needs its own answer for a single Case's own timeline — most likely permutation by shuffling the Case's own event times, possibly reusing T4's helper with a timeline-shuffle variant, but that reuse is this item's own call to make.
+
+**Acceptance criteria**
+
+- [ ] Method chosen (CUSUM or simple Bayesian) and documented with a rationale; closes as "dropped" with rationale if neither clears a reasonable false-positive rate at realistic sample sizes.
+- [ ] If kept: minimum-data floor for a change-point specifically decided — may be lower than `TREND_MIN_SPAN_DAYS = 56`.
+- [ ] Significance approach stated explicitly (reusing T4's helper with a timeline-shuffle variant, or a separate method, with rationale either way).
+- [ ] Sentence template gives an approximate date ("since around mid-March").
+- [ ] Voice ×3 for the new sentence template.
+- [ ] Tests: a planted single change-point in synthetic data, a planted no-change-point null.
+- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line — or, if dropped, a short rationale left in this item instead.
+
+### T6 · Detector: intensity/duration trend
+
+*Branch: `feat/insights-trends-intensity-duration-trend` · Complexity: M · Priority: Low · Area: Insights*
+
+🎨 **Design decision (this detector only)** — a slope over time for `computeIntensityStats`/`computeDurationStats`'s existing flat averages, plus a split by start time ("evening events run longer and more severe"). Rules on whether to reuse a significance helper already built by T4/T5 rather than shipping a third bespoke test. The start-time split reuses `timeOfDayFor` as-is, inheriting Rhythm's existing device-current-timezone accuracy — not a new dependency, so not blocked on the timezone item.
+
+**Acceptance criteria**
+
+- [ ] Feasibility ruling stated before any code, including which existing significance helper (if any) this reuses.
+- [ ] If kept: slope computation + significance for intensity and duration, only for Cases where each stat's card is already shown; start-time split via `timeOfDayFor`.
+- [ ] Voice ×3 for the new sentence template(s).
+- [ ] Tests: a planted upward/downward slope, a planted evening-vs-day split, both nulls.
+- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line per kept signal — or, for any dropped, a short rationale left in this item instead.
+
+### T7 · Detector: tag timing (weekday/time-of-day clustering)
+
+*Branch: `feat/insights-trends-tag-timing` · Complexity: M · Priority: Low · Area: Insights*
+
+🎨 **Design decision (this detector only)** — blocked on `fix/event-timezone-offset` landing first, since any same-day/time-of-day detector needs it. Tests whether a tag clusters in a weekday/time-of-day bucket beyond the Case's own base rate, comparing `computeRhythmStats`-shaped per-tag counts against the Case's overall rhythm.
+
+**Acceptance criteria**
+
+- [ ] Explicit gate: this item does not start implementation until `fix/event-timezone-offset` has landed.
+- [ ] Feasibility ruling stated before any code, once unblocked.
+- [ ] If kept: per-tag rhythm comparison against the Case's own base rate, significance via whichever helper T4/T5 established.
+- [ ] Voice ×3 for the new sentence template.
+- [ ] Tests: a planted weekday clustering for one tag, a planted no-clustering null.
+- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line — or, if dropped, a short rationale left in this item instead.
+
+### T8 · Detector: cycles and seasonality
+
+*Branch: `feat/insights-trends-cycles-seasonality` · Complexity: L · Priority: Low · Area: Insights*
+
+🎨 **Design decision (this detector only)** · 🔍 **Investigation** — autocorrelation on daily counts for weekly/monthly/~28-day cycles; month-of-year comparison once a Case has 1+ years of data; an explicit weekday-vs-weekend sentence as a simpler fallback when full seasonality doesn't clear its bar. Also blocked on `fix/event-timezone-offset`, for the same day-bucketing reason as T7. Sequenced last: needs the most data of any detector here and is the heaviest single computation.
+
+**Acceptance criteria**
+
+- [ ] Explicit gate: this item does not start implementation until `fix/event-timezone-offset` has landed.
+- [ ] Autocorrelation method + lag set chosen and documented, once unblocked.
+- [ ] If kept: weekly/~28-day cycle detection gated by a minimum span; month-of-year comparison only offered once ≥1 year of data exists; weekday-vs-weekend sentence as a fallback finding.
+- [ ] Voice ×3 for the new sentence template(s).
+- [ ] Tests: a planted weekly cycle, a planted no-cycle null.
+- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line per kept signal — or, for any dropped, a short rationale left in this item instead.
+
 ## Standalone
 
 No cross-dependencies — pick by appetite. Identified by title, not a number: numbering churned confusingly as items were added and removed, so items here are found by name or by their branch.
@@ -84,38 +220,6 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 **Plan** — push the handle's two inner points (`58.818,65.182` and `65.182,58.818`) outward along the (1,1) diagonal; mirror the change in `ic_launcher_monochrome.xml`. The handle tip is already near the 66dp adaptive-icon safe zone, so this may also mean shortening the handle or nudging the enclosing `group` scale (0.9).
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
-
-### Insights: within-case Trends section (design)
-
-*Branch: `chore/insights-trends-section-design` · Complexity: XL · Priority: Low · Area: Insights*
-
-🎨 **Design decision** — a new Insights section and its detector list are a product call. 🔍 **Investigation** — no single detector here is spec'd enough to build yet.
-
-Closes out the prior "Review the Trend section's calculation" item: its current maths are `domain/StatsEngine.kt` `computeTrendStats` (last-30-days vs prior-30-days event count → UP/DOWN/FLAT, `null` below `TREND_MIN_SPAN_DAYS = 56`) and `domain/InsightsEngine.kt` `computeGapShift`/`computeStreakShift` (first-half vs second-half of gaps/streaks, needs ≥6 samples). Ruling on that item's open questions: the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift — the change-point detector below is an addition, not a replacement; the 56-day cutoff is an acceptable floor for a *rate* comparison specifically (a change-point method may tolerate less data — open question below); UP/DOWN/FLAT stays sufficient for the existing single-arrow card, with nuance moved to the new section instead of overloading the arrow.
-
-None of the following compare outcomes by tag, find a real change-point, or look at recurrence shape or seasonality — today's cards are aggregate averages and a binary window. The plan is a new **Trends section** on the Insights tab, shown only when at least one trend is actually detected (mirrors `TagsCard`'s existing `.isNotEmpty()` gate in `InsightsTab.kt`'s `StatsSectionCards`), rather than folding more into the single Trend card.
-
-Candidate detectors to design and rule keep/drop on:
-
-- **Tag → outcome** — compare intensity, duration, and time-to-next-event for events with a tag vs. without it (e.g. "aura migraines last 40% longer").
-- **Tag drift & tag timing** — is a tag's share rising/falling over time (decaf 10%→40%)? Does a tag cluster in a weekday/time-of-day bucket beyond the Case's own base rate?
-- **Recurrence shape (hazard by time since last event)** — plot probability of the next event against days-since-last; an early spike means self-reinforcing ("another often follows within 2 days"), a dead zone means a refractory period ("almost never recurs within 4 days"). More informative than the existing bursts CV flag (`InsightsEngine.kt` `isBursty`).
-- **Real change-points** — CUSUM or a simple Bayesian change-point method instead of the fixed 30-vs-30 window, to catch slow drifts the current window structurally can't see ("since around mid-March, roughly twice as often").
-- **Intensity/duration trend** — a slope over time plus a split by start time ("evening migraines run longer and more severe"), not just the flat averages `computeIntensityStats`/`computeDurationStats` produce today.
-- **Cycles and seasonality** — autocorrelation on daily counts for weekly/monthly/~28-day cycles; month-of-year comparison once a Case has 1+ years of data; an explicit weekday-vs-weekend sentence (easier to read than the Rhythm grid).
-
-**Acceptance criteria**
-
-- [ ] A written overview of each candidate detector: minimum data requirements (event count, span, required fields like `intensity`/`endedAt`), the computation, and a significance approach — note that circular-shift + Benjamini-Hochberg (the framework in the Big Picture cross-case item) is built for *pairs of Cases*; a single Case's own timeline needs its own answer (e.g. permutation by shuffling the Case's own event times) rather than reusing that machinery unmodified.
-- [ ] A keep/drop call on each of the six detectors above.
-- [ ] A ruling on how the new Trends section renders when multiple trends fire at once (a `trends: List<TrendFinding>` field on `StatsSections`/`InsightsTabState`, shown when non-empty) and on tiering vocabulary — reuse `NO_VERDICT`/`PRELIMINARY`/`CONFIDENT` or introduce a distinct Hint/Pattern pair.
-- [ ] Wording rules stated: "often follows," "tends to," never "causes."
-- [ ] Explicit dependency noted on the timezone-offset item wherever a kept detector needs same-day/time-of-day logic (the cycles/seasonality and tag-timing detectors both do).
-- [ ] Anything approved spun out as its own implementation item. No production code in this item.
-
-**Plan** — read each detector's feasibility against `StatsEngine.kt`/`InsightsEngine.kt`'s existing helpers (`daysBetween`, `coefficientOfVariation`, the gap/streak collection logic) before ruling on it; spike only where feasibility is genuinely unclear.
-
-**Tests** — none; `StatsEngineTest`/`InsightsEngineTest` gain coverage only once an approved detector lands as its own item.
 
 ### Case quiet vs. abandoned
 
