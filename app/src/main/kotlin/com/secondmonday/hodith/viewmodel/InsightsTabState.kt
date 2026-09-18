@@ -9,20 +9,19 @@ import com.secondmonday.hodith.domain.GapStats
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
-import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.computeDurationStats
 import com.secondmonday.hodith.domain.computeFrequencyStats
-import com.secondmonday.hodith.domain.computeGapShift
 import com.secondmonday.hodith.domain.computeGapStats
 import com.secondmonday.hodith.domain.computeIntensityStats
 import com.secondmonday.hodith.domain.computeRhythmStats
-import com.secondmonday.hodith.domain.computeStreakShift
 import com.secondmonday.hodith.domain.computeStreakStats
 import com.secondmonday.hodith.domain.computeTagBreakdown
+import com.secondmonday.hodith.domain.computeTrendFindings
 import com.secondmonday.hodith.domain.computeTrendStats
 import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
@@ -59,13 +58,18 @@ sealed interface InsightsTabState {
 }
 
 /**
- * Spec §10's seven stat sections. [frequency], [trend], [duration], and [intensity] are absent
- * when not applicable — [frequency] when the Case has a multi-day event (spec §9), since a
- * per-day/week/month count can't say "how often" without double-counting a long event, and both
- * [frequency] and [trend] below [INSIGHTS_MIN_EVENTS] events, where a single bar or a
- * 30-vs-30-day comparison would read as a pattern that isn't there yet.
- * [totalEventCount] gives the tag breakdown a denominator, so an individual tag's count reads
- * against the Case's whole history rather than floating on its own.
+ * Spec §10's stat sections, plus Story C T1's Trends section. [frequency], [duration], and
+ * [intensity] are absent when not applicable — [frequency] when the Case has a multi-day event
+ * (spec §9), since a per-day/week/month count can't say "how often" without double-counting a long
+ * event. [totalEventCount] gives the tag breakdown a denominator, so an individual tag's count
+ * reads against the Case's whole history rather than floating on its own. [trends], like [tags], is
+ * always a non-null `List` — empty (not null) means nothing was found, not "not yet computed."
+ *
+ * [trend] is no longer read by the Insights tab itself — the former standalone Trend arrow card is
+ * gone, its 30-vs-30-day comparison now one more [trends] finding
+ * ([com.secondmonday.hodith.domain.TrendFindingKind.FREQUENCY_SHIFT]). The field stays only because
+ * `ShareCardState` still sources its own mini trend arrow from it (PROGRESS.md T9 retires this
+ * field once Share moves to [trends] too).
  */
 data class StatsSections(
     val frequency: FrequencyDisplay?,
@@ -76,6 +80,7 @@ data class StatsSections(
     val intensity: IntensityDisplay?,
     val tags: List<TagBreakdownEntry>,
     val totalEventCount: Int,
+    val trends: List<TrendFinding>,
 )
 
 /** One bar of the frequency-over-time chart. [heightFraction] is relative to the busiest bucket shown. */
@@ -122,13 +127,10 @@ data class GapsDisplay(
     val averageStreakDays: Double,
 )
 
-/** [gapShiftDirection]/[streakShiftDirection] are `null` when no noticeable shift was found (or gated off, same as [direction]). */
 data class TrendDisplay(
     val direction: TrendDirection,
     val recentCount: Int,
     val priorCount: Int,
-    val gapShiftDirection: ShiftDirection?,
-    val streakShiftDirection: ShiftDirection?,
 )
 
 data class DurationDisplay(
@@ -268,19 +270,16 @@ private fun statsSections(
             averageStreakDays = streakStats.averageStreakDays,
         )
 
+    // Computed once, shared by `trend` (Share's own mini arrow, StatsSections' doc comment) and
+    // `trends`' FREQUENCY_SHIFT finding below.
+    val trendStatsResult = if (belowStatsMinimum) null else computeTrendStats(events, now, spanDays)
     val trend =
-        if (belowStatsMinimum) {
-            null
-        } else {
-            computeTrendStats(events, now, spanDays)?.let {
-                TrendDisplay(
-                    direction = it.direction,
-                    recentCount = it.recentCount,
-                    priorCount = it.priorCount,
-                    gapShiftDirection = computeGapShift(gapStats.pastGaps),
-                    streakShiftDirection = computeStreakShift(activeDates),
-                )
-            }
+        trendStatsResult?.let {
+            TrendDisplay(
+                direction = it.direction,
+                recentCount = it.recentCount,
+                priorCount = it.priorCount,
+            )
         }
 
     val duration =
@@ -308,6 +307,7 @@ private fun statsSections(
         intensity = intensity,
         tags = computeTagBreakdown(eventsWithTags),
         totalEventCount = events.size,
+        trends = computeTrendFindings(gapStats, activeDates, trendStatsResult),
     )
 }
 

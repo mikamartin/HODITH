@@ -224,17 +224,25 @@ The heatmap renders from the **first** event, alongside a one-line event-count n
 
 ## 10. Stats (descriptive)
 
-On the case detail Insights tab, in this order. Rhythm and Gaps & streaks appear from the first event; Frequency over time and the Trend arrow are held back until there are at least two events, where a single bar or a 30-vs-30-day comparison would read as a pattern that isn't there yet:
+On the case detail Insights tab, in this order. Trends is shown only when at least one finding exists; Rhythm and Gaps & streaks appear from the first event; Frequency over time is held back until there are at least two events, where a single bar would read as a pattern that isn't there yet:
 
+- **Trends** (Story C) — the first card, shown only when at least one finding exists across every detector in the roster below. There is no separate Trend arrow card any more — the former standalone 30-vs-30-day comparison is one of these findings (frequency shift, below), not a distinct feature. Each finding states its shift in real numbers (e.g. "the average gap has grown from 3 days to 6 days"), not just a direction; shows the first 3 by default, with a link to the full (capped) list as its own screen rather than expanding in place. Reliability (Hint/Pattern) and the evidence count are shown per finding — inline on the full list, disclosed via a single shared explanation (not per-row) on the compact card.
 - **Frequency over time** — counts per day/week/month (granularity auto-picked from data density, user-overridable). Hidden entirely for a Case with any multi-day event (§9): a per-bucket count would double-count a long event, and the calendar heatmap already shows the shape honestly.
 - **Rhythm heatmap** — day-of-week × time-of-day grid, cell shade = count, shaded on a finer 20-tier scale than the calendar heatmap or intensity stats for more visible contrast between nearby counts. Always plots each event's start; retitled "Start times" for a Case with any multi-day event (§9), so a span that began late one night doesn't read as "only happens at night".
 - **Gaps & streaks** — longest gap, current gap (silence since the last event *ended* — its start for a point event, and for every event on a Case that no longer tracks duration; reads 0 while *any* event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days each covered by at least one event's active span, §9); "tends to come in bursts" flag when gap variance is high. `SILENT_FOR` triggers and check-ins count silence from the same point.
-- **Trend arrow** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise hidden); when shown, also notes a noticeable shift in average gap or streak length between the earlier and more recent half of the Case's history, if present
 - **Event duration** (if durationMode ≠ NONE) — average, longest, total time; still-running events are excluded until they stop
 - **Intensity stats** (if enabled) — average, distribution mini-bars
 - **Tag breakdown** — counts per tag, shown against the Case's total event count so an individual tag's count reads in proportion rather than in isolation
 
 The calendar heatmap (§9) follows the tag breakdown as the tab's final section.
+
+### Trends detectors
+
+The Trends section's current roster of detectors — every one shares the "often follows"/"tends to," never "causes" wording rule, and a `Hint`/`Pattern` reliability tier distinct from Hunch's `ConfidenceTier` (that measures sample-size adequacy for an average; this measures whether the effect itself has been tested for significance).
+
+- **Gap shift** — whether the average gap between events has shifted noticeably between the earlier and more recent half of the Case's history (by gap count, not a fixed day window). Always `Hint`: a descriptive dual-threshold check, no significance test behind it.
+- **Streak shift** — as gap shift, over streak-run lengths rather than event-to-event gaps.
+- **Frequency shift** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise absent), the former standalone Trend arrow's own comparison. Absent (not shown as "flat") when the two counts are equal — the same "silent when nothing moved" rule as gap/streak shift, rather than reporting a non-finding. Always `Hint`: no significance test, just a direct count comparison.
 
 Tapping an intensity square, a tag row, or a rhythm cell opens the matching logged events for this Case, same shared result surface as the calendar heatmap's day-tap (§9) — a rhythm cell's match is every event whose start falls in that day-of-week/time-of-day bucket. A zero-count intensity square or rhythm cell is inert (no tap target); every tag row is tappable, since a tag only appears in the breakdown once it has counted at least one event.
 

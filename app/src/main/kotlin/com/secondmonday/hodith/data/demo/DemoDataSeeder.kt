@@ -34,6 +34,13 @@ private const val RECENT_SURGE_PER_DAY = 3
 // Gaps & streaks card's "longest stretch since it started" note instead of the plain one.
 private const val QUIET_SPELL_DAYS = 60L
 
+// "Lost my keys"' trending-shift shape (see [trendingOccurrences]): the most recent this many days
+// of the span switch from isolated, widely-spaced events to tight 2-3-day clusters, so all three
+// of Story C T1's detectors fire on one Case at once for a real demo of the Trends section's
+// cap/reveal and multi-finding rendering — not just one finding in isolation. Long enough to clear
+// TREND_MIN_SPAN_DAYS (56, domain-internal) for the frequency-shift finding too.
+private const val TRENDING_RECENT_PHASE_DAYS = 120L
+
 // A couple of START_STOP demo Cases end with an event still running (endedAt == null) so the
 // ongoing indicator, the Insights "current gap reads 0 while an event is active" rule (spec §10),
 // and the multiple-running-events path all have live data on a fresh "Load demo data". Ages are
@@ -53,6 +60,10 @@ private data class CaseSeed(
     val description: String? = null,
     val recentSurge: Boolean = false,
     val quietSpell: Boolean = false,
+    // Replaces the normal density-driven occurrence generator with [trendingOccurrences] — a
+    // widely-spaced, isolated-days history that turns into tight recent clusters, so gap shift,
+    // streak shift, and frequency shift all fire together (see [TRENDING_RECENT_PHASE_DAYS]).
+    val trendingShift: Boolean = false,
     // Extra events left open (endedAt == null) at the end of the span. START_STOP Cases only —
     // a null endedAt on a NONE/MANUAL Case would be a data bug, not an ongoing state.
     val ongoingEventCount: Int = 0,
@@ -93,10 +104,11 @@ private val CASE_SEEDS =
             icon = "🔑",
             durationMode = DurationMode.NONE,
             intensityEnabled = false,
+            // Unused — trendingShift replaces the density-driven generator entirely.
             density = SeedDensity.SPARSE,
             notes = listOf("Found them in the fridge", "Under the couch again", "Left at the office", "In yesterday's jacket"),
             tags = listOf("morning-rush", "found-fast", "still-missing"),
-            quietSpell = true,
+            trendingShift = true,
         ),
         CaseSeed(
             name = "Argument",
@@ -124,6 +136,7 @@ private val CASE_SEEDS =
             density = SeedDensity.SPARSE,
             notes = listOf("Dry air, probably", "Right after a sneeze", "Out of nowhere"),
             tags = listOf("dry-weather", "minor", "prolonged"),
+            quietSpell = true,
         ),
         CaseSeed(
             name = "Noisy neighbours",
@@ -174,7 +187,12 @@ class DemoDataSeeder
 
                 val random = Random(SEED_RANDOM_SEED + index)
                 val occurrenceSpanEnd = if (caseSeed.quietSpell) now - QUIET_SPELL_DAYS * MILLIS_PER_DAY else now
-                val occurrences = occurrencesFor(caseSeed.density, spanStart, occurrenceSpanEnd, random)
+                val occurrences =
+                    if (caseSeed.trendingShift) {
+                        trendingOccurrences(spanStart, occurrenceSpanEnd, random)
+                    } else {
+                        occurrencesFor(caseSeed.density, spanStart, occurrenceSpanEnd, random)
+                    }
                 val withSurge = if (caseSeed.recentSurge) occurrences + recentSurgeOccurrences(now, random) else occurrences
                 withSurge.sorted().forEach { occurredAt ->
                     insertSeedEvent(caseId, occurredAt, endedAtFor(caseSeed.durationMode, occurredAt, now, random), caseSeed, random)
@@ -256,6 +274,41 @@ private fun burstyOccurrences(
         clusterStart += gapDays * MILLIS_PER_DAY
     }
     return occurrences.sorted()
+}
+
+/**
+ * Widely-spaced isolated days for most of the span, switching to tight 2-3-day-in-a-row clusters
+ * for the most recent [TRENDING_RECENT_PHASE_DAYS] — deliberately shaped so all three of Story C
+ * T1's detectors clear their thresholds on the same Case: the average gap between occurrences
+ * shrinks (gap shift), the runs get longer (streak shift), and there are more occurrences in the
+ * last 30 days than the 30 before (frequency shift). Verified against `computeGapShift`/
+ * `computeStreakShift`/`computeTrendStats` directly, not just eyeballed — see this constant's own
+ * doc comment for the margins each threshold needs clearing by.
+ */
+private fun trendingOccurrences(
+    spanStart: Long,
+    spanEnd: Long,
+    random: Random,
+): List<Long> {
+    val recentPhaseStart = spanEnd - TRENDING_RECENT_PHASE_DAYS * MILLIS_PER_DAY
+    val historic = spacedOccurrences(spanStart, recentPhaseStart, random, minGapDays = 30, maxGapDays = 38)
+
+    val recent = mutableListOf<Long>()
+    var cursor = recentPhaseStart + random.nextLong(MILLIS_PER_DAY)
+    var clusterIndex = 0
+    while (cursor < spanEnd) {
+        // Alternates 2-day/3-day clusters (never a lone day) so the recent era's runs average
+        // noticeably longer than the historic era's isolated ones, clearing computeStreakShift's
+        // minimum-absolute-days floor with margin rather than landing just short of it.
+        val clusterLength = (clusterIndex % 2) + 2
+        repeat(clusterLength) { dayOffset ->
+            val occurredAt = cursor + dayOffset * MILLIS_PER_DAY + random.nextLong(MILLIS_PER_DAY / 2)
+            if (occurredAt < spanEnd) recent += occurredAt
+        }
+        cursor += (clusterLength + random.nextInt(8, 13)) * MILLIS_PER_DAY
+        clusterIndex++
+    }
+    return historic + recent
 }
 
 /** [RECENT_SURGE_DAYS] × [RECENT_SURGE_PER_DAY] events packed into the days immediately before [now]. */

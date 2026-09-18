@@ -32,6 +32,7 @@ import com.secondmonday.hodith.ui.archivedcases.ArchivedCasesRoute
 import com.secondmonday.hodith.ui.bigpicture.BigPictureRoute
 import com.secondmonday.hodith.ui.case.CaseEditRoute
 import com.secondmonday.hodith.ui.casedetail.CaseDetailRoute
+import com.secondmonday.hodith.ui.casedetail.trends.TrendsListRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
 import com.secondmonday.hodith.ui.logsheet.LogDetailRoute
 import com.secondmonday.hodith.ui.settings.SettingsRoute
@@ -49,6 +50,7 @@ private const val LOG_EDIT_ROUTE = "log_edit"
 private const val ARCHIVED_CASES_ROUTE = "archived_cases"
 private const val TRIGGERS_ROUTE = "triggers"
 private const val SHARE_ROUTE = "share"
+private const val TRENDS_ROUTE = "trends"
 private const val ABOUT_ROUTE = "about"
 private const val CASE_ID_ARG = "caseId"
 private const val EVENT_ID_ARG = "eventId"
@@ -86,6 +88,7 @@ fun HodithNavHost(
                     currentRoute?.startsWith(LOG_EDIT_ROUTE) == true ||
                     currentRoute?.startsWith(TRIGGERS_ROUTE) == true ||
                     currentRoute?.startsWith(SHARE_ROUTE) == true ||
+                    currentRoute?.startsWith(TRENDS_ROUTE) == true ||
                     currentRoute == ARCHIVED_CASES_ROUTE ||
                     currentRoute == ABOUT_ROUTE
             if (!onDetailScreen) {
@@ -180,6 +183,7 @@ fun HodithNavHost(
                     onEditEvent = { caseId, eventId -> navController.navigate("$LOG_EDIT_ROUTE/$caseId/$eventId") },
                     onOpenTriggers = { caseId -> navController.navigate("$TRIGGERS_ROUTE/$caseId") },
                     onOpenShare = { caseId -> navController.navigate("$SHARE_ROUTE/$caseId") },
+                    onOpenTrends = { caseId -> navController.navigate("$TRENDS_ROUTE/$caseId") },
                 )
             }
             composable(
@@ -206,6 +210,12 @@ fun HodithNavHost(
                 arguments = listOf(navArgument(CASE_ID_ARG) { type = NavType.LongType }),
             ) {
                 SharePreviewRoute(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = "$TRENDS_ROUTE/{$CASE_ID_ARG}",
+                arguments = listOf(navArgument(CASE_ID_ARG) { type = NavType.LongType }),
+            ) {
+                TrendsListRoute(onBack = { navController.popBackStack() })
             }
             composable(ABOUT_ROUTE) {
                 AboutRoute(onBack = { navController.popBackStack() })

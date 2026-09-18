@@ -11,6 +11,7 @@ import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.TrendReliability
 
 /**
  * One user-visible string per key, in three personalities (spec §12). Composables read
@@ -357,15 +358,64 @@ interface Voice {
         priorCount: Int,
     ): String
 
-    /** Spec §10 Trend card: an optional extra line noting the average gap has shifted noticeably across the Case's history — descriptive only, absent when [com.secondmonday.hodith.domain.computeGapShift] finds nothing noticeable. */
-    fun insightsGapShiftSentence(direction: ShiftDirection): String
+    /**
+     * Spec §10 Trend card: an optional extra line noting the average gap has shifted noticeably
+     * across the Case's history — descriptive only, absent when
+     * [com.secondmonday.hodith.domain.computeGapShift] finds nothing noticeable. [priorAverageLabel]/
+     * [recentAverageLabel] are the two half-averages (already formatted, e.g. via `formatDays`) so
+     * the sentence states the shift in real numbers, not direction alone.
+     */
+    fun insightsGapShiftSentence(
+        direction: ShiftDirection,
+        priorAverageLabel: String,
+        recentAverageLabel: String,
+    ): String
 
     /** As [insightsGapShiftSentence], for streak length rather than gap length. */
-    fun insightsStreakShiftSentence(direction: ShiftDirection): String
+    fun insightsStreakShiftSentence(
+        direction: ShiftDirection,
+        priorAverageLabel: String,
+        recentAverageLabel: String,
+    ): String
 
-    /** Trend's info icon: what the arrow compares, when it's held back, and what the gap/streak shift lines mean. */
-    val insightsTrendInfoTitle: String
-    val insightsTrendInfoBody: String
+    /**
+     * Spec §10 Trends section header — plural, structural like [insightsSectionLabelTrend] (still
+     * used by the Share card's own mini trend arrow, `ShareCardTemplate.kt`'s `MiniTrendSection`
+     * — the Insights tab itself no longer has a standalone arrow card, so the two labels don't
+     * appear side by side there any more, but should still read unambiguously if they ever do).
+     */
+    val insightsSectionLabelTrends: String get() = "Trends"
+
+    /** Trends section "show more": navigates to the full findings list, unlike the in-place reveal verbs of [insightsHeatmapShowMoreAction]/[hunchHistoryShowMoreAction]. */
+    val insightsTrendsShowMoreAction: String
+
+    /**
+     * Trends section's one shared info icon (spec §10) — what a finding is, and what
+     * [TrendReliability.HINT] vs [TrendReliability.PATTERN] means. One dialog for the whole
+     * section rather than one per finding row: with only three possible kinds today the same
+     * explanation would otherwise repeat verbatim on every row: reliability itself is shown
+     * inline as a tag ([trendReliabilityHintLabel]/[trendReliabilityPatternLabel]), so the tap
+     * target only needs to carry the *meaning* of that tag, once.
+     */
+    val insightsTrendsInfoTitle: String
+    val insightsTrendsInfoBody: String
+
+    /** Trends finding row: the visible reliability tag next to the sentence — structural, identical across all three voices like the stat-row labels above. */
+    val trendReliabilityHintLabel: String get() = "Hint"
+    val trendReliabilityPatternLabel: String get() = "Pattern"
+
+    /** Gap-shift finding row's evidence line, shown inline (not behind a tap) — phrased like [verdictMeta] but keyed on [sampleCount] (gaps compared) rather than an event-count/day-window pair. */
+    fun insightsGapShiftEvidenceLabel(sampleCount: Int): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the streak-shift finding row. */
+    fun insightsStreakShiftEvidenceLabel(sampleCount: Int): String
+
+    /**
+     * Frequency-shift finding row's evidence line — states the fixed comparison window rather
+     * than a variable count, since [insightsTrendSentence] (its main sentence) already states
+     * both counts directly; absorbs the former standalone Trend arrow card, spec §10.
+     */
+    fun insightsFrequencyShiftEvidenceLabel(): String
 
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
@@ -946,17 +996,23 @@ object PlainVoice : Voice {
         TrendDirection.FLAT -> "$recentCount events in the last 30 days — the same as the 30 days before."
     }
 
-    override fun insightsGapShiftSentence(direction: ShiftDirection) =
-        when (direction) {
-            ShiftDirection.UP -> "Gaps have been getting longer lately."
-            ShiftDirection.DOWN -> "Gaps have been getting shorter lately."
-        }
+    override fun insightsGapShiftSentence(
+        direction: ShiftDirection,
+        priorAverageLabel: String,
+        recentAverageLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "The average gap has grown from $priorAverageLabel to $recentAverageLabel."
+        ShiftDirection.DOWN -> "The average gap has shrunk from $priorAverageLabel to $recentAverageLabel."
+    }
 
-    override fun insightsStreakShiftSentence(direction: ShiftDirection) =
-        when (direction) {
-            ShiftDirection.UP -> "Streaks have been getting longer lately."
-            ShiftDirection.DOWN -> "Streaks have been getting shorter lately."
-        }
+    override fun insightsStreakShiftSentence(
+        direction: ShiftDirection,
+        priorAverageLabel: String,
+        recentAverageLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "The average streak has grown from $priorAverageLabel to $recentAverageLabel."
+        ShiftDirection.DOWN -> "The average streak has shrunk from $priorAverageLabel to $recentAverageLabel."
+    }
 
     override val insightsFrequencyInfoTitle = "About this chart"
 
@@ -981,11 +1037,19 @@ object PlainVoice : Voice {
             "A duration event counts on every day it was active, so a single long event can carry a streak on its own. " +
             "\"Tends to come in bursts\" shows when the gaps vary a lot."
 
-    override val insightsTrendInfoTitle = "About the trend arrow"
-    override val insightsTrendInfoBody =
-        "Compares the last 30 days to the 30 days before that: more events recently is ↑, fewer is ↓, about the same is →.\n\n" +
-            "Only shown once there's enough history to compare fairly. When the average gap or streak length has shifted " +
-            "noticeably between the earlier and more recent half of this case's history, that's noted below the arrow too."
+    override val insightsTrendsShowMoreAction = "See all trends"
+
+    override val insightsTrendsInfoTitle = "About trends"
+    override val insightsTrendsInfoBody =
+        "Each row is a shift spotted somewhere in this case's own history — not a prediction, just a description of what changed.\n\n" +
+            "Hint means the shift crossed a basic threshold but hasn't been checked for statistical significance yet. " +
+            "Pattern means it has been checked and holds up."
+
+    override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
+
+    override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks."
+
+    override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before."
 
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
@@ -1526,17 +1590,23 @@ object IntenseVoice : Voice {
         TrendDirection.FLAT -> "$recentCount marks in the last thirty days — unchanged from what came before. Steady, as ever."
     }
 
-    override fun insightsGapShiftSentence(direction: ShiftDirection) =
-        when (direction) {
-            ShiftDirection.UP -> "The silences grow longer than they used to be."
-            ShiftDirection.DOWN -> "The silences have been shortening."
-        }
+    override fun insightsGapShiftSentence(
+        direction: ShiftDirection,
+        priorAverageLabel: String,
+        recentAverageLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "The silences have lengthened, from $priorAverageLabel to $recentAverageLabel."
+        ShiftDirection.DOWN -> "The silences have shortened, from $priorAverageLabel to $recentAverageLabel."
+    }
 
-    override fun insightsStreakShiftSentence(direction: ShiftDirection) =
-        when (direction) {
-            ShiftDirection.UP -> "The waking spells run longer than they used to."
-            ShiftDirection.DOWN -> "The waking spells have been growing shorter."
-        }
+    override fun insightsStreakShiftSentence(
+        direction: ShiftDirection,
+        priorAverageLabel: String,
+        recentAverageLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "The waking spells now run from $priorAverageLabel to $recentAverageLabel."
+        ShiftDirection.DOWN -> "The waking spells have shrunk from $priorAverageLabel to $recentAverageLabel."
+    }
 
     override val insightsFrequencyInfoTitle = "On the shape of this record"
 
@@ -1561,11 +1631,18 @@ object IntenseVoice : Voice {
             "An event with duration marks every day it was active, so one long event can hold a streak alone. " +
             "\"It comes in waves, not a rhythm\" appears when the gaps are wildly uneven."
 
-    override val insightsTrendInfoTitle = "On the arrow's meaning"
-    override val insightsTrendInfoBody =
-        "It weighs the last thirty days against the thirty before: more lately points up, less points down, unchanged points onward.\n\n" +
-            "It only speaks once there is history enough to judge. When the gaps or spells have shifted noticeably between " +
-            "the earlier and later half of this case's past, that shift is named beneath the arrow."
+    override val insightsTrendsShowMoreAction = "Read the full record"
+
+    override val insightsTrendsInfoTitle = "On what these mean"
+    override val insightsTrendsInfoBody =
+        "Each line names a shift found somewhere in this case's own past. It is a description, not a forecast.\n\n" +
+            "A hint has crossed a threshold, nothing more. A pattern has been tested, and holds."
+
+    override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+
+    override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount waking spells."
+
+    override fun insightsFrequencyShiftEvidenceLabel() = "Weighed against the thirty days before."
 
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
@@ -2091,17 +2168,23 @@ object BrightVoice : Voice {
         TrendDirection.FLAT -> "$recentCount logs in the last 30 days — same as before. Steady as she goes!"
     }
 
-    override fun insightsGapShiftSentence(direction: ShiftDirection) =
-        when (direction) {
-            ShiftDirection.UP -> "The gaps have been stretching out lately!"
-            ShiftDirection.DOWN -> "The gaps have been shrinking lately!"
-        }
+    override fun insightsGapShiftSentence(
+        direction: ShiftDirection,
+        priorAverageLabel: String,
+        recentAverageLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "Gaps have grown from $priorAverageLabel to $recentAverageLabel!"
+        ShiftDirection.DOWN -> "Gaps have shrunk from $priorAverageLabel to $recentAverageLabel!"
+    }
 
-    override fun insightsStreakShiftSentence(direction: ShiftDirection) =
-        when (direction) {
-            ShiftDirection.UP -> "The streaks have been running longer lately!"
-            ShiftDirection.DOWN -> "The streaks have been running shorter lately!"
-        }
+    override fun insightsStreakShiftSentence(
+        direction: ShiftDirection,
+        priorAverageLabel: String,
+        recentAverageLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "Streaks have grown from $priorAverageLabel to $recentAverageLabel!"
+        ShiftDirection.DOWN -> "Streaks have shrunk from $priorAverageLabel to $recentAverageLabel!"
+    }
 
     override val insightsFrequencyInfoTitle = "What am I looking at?"
 
@@ -2126,11 +2209,18 @@ object BrightVoice : Voice {
             "Heads up: a duration event counts on every day it was active, so one long event can fill a whole streak by itself! " +
             "\"Comes in bursts!\" pops up when the gaps are all over the place."
 
-    override val insightsTrendInfoTitle = "What the arrow means!"
-    override val insightsTrendInfoBody =
-        "It compares the last 30 days to the 30 days before that — more events lately means ↑, fewer means ↓, about the same means →.\n\n" +
-            "It only shows up once there's enough history to compare fairly. If the average gap or streak length has shifted " +
-            "noticeably between the earlier and later half of this case's history, you'll see a note about that too!"
+    override val insightsTrendsShowMoreAction = "See them all!"
+
+    override val insightsTrendsInfoTitle = "What these mean!"
+    override val insightsTrendsInfoBody =
+        "Each row is a shift we spotted somewhere in this case's own history, just describing what changed, not what's next.\n\n" +
+            "Hint means it crossed a basic threshold, nothing fancier yet. Pattern means we checked it, and it holds up!"
+
+    override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
+
+    override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks!"
+
+    override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before!"
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =

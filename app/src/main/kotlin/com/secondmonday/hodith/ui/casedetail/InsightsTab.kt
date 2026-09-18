@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,9 +63,13 @@ import com.secondmonday.hodith.domain.INTENSITY_MIN
 import com.secondmonday.hodith.domain.MORNING_START_HOUR
 import com.secondmonday.hodith.domain.NIGHT_START_HOUR
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
@@ -94,7 +99,6 @@ import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
-import com.secondmonday.hodith.viewmodel.TrendDisplay
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatClockTime
 import com.secondmonday.hodith.viewmodel.formatEventTime
@@ -114,6 +118,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 private const val HEATMAP_DEFAULT_MONTH_COUNT = 3
+private const val TRENDS_DEFAULT_VISIBLE_COUNT = 3
 private const val FREQUENCY_BAR_CHART_HEIGHT = 80
 private const val FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.02f
 
@@ -151,6 +156,7 @@ internal fun InsightsTabContent(
     frequencyGranularityOverride: FrequencyGranularity?,
     onFrequencyGranularityChange: (FrequencyGranularity?) -> Unit,
     onEditEvent: (EventEntity) -> Unit,
+    onOpenTrends: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
@@ -189,6 +195,7 @@ internal fun InsightsTabContent(
                     onRhythmCellTap = { day, timeOfDay -> selectedRhythmCell = day to timeOfDay },
                     onIntensityTap = { selectedIntensity = it },
                     onTagTap = { selectedTag = it },
+                    onOpenTrends = onOpenTrends,
                 )
                 CalendarHeatmapCard(state.heatmapMonths, voice, onDayTap = { selectedDay = it })
             }
@@ -265,11 +272,12 @@ private fun StatsSectionCards(
     onRhythmCellTap: (DayOfWeek, TimeOfDay) -> Unit,
     onIntensityTap: (Int) -> Unit,
     onTagTap: (String) -> Unit,
+    onOpenTrends: () -> Unit,
 ) {
+    if (stats.trends.isNotEmpty()) TrendsCard(stats.trends, voice, onOpenTrends)
     stats.frequency?.let { FrequencyCard(it, frequencyGranularityOverride, onFrequencyGranularityChange, voice) }
     RhythmCard(stats.rhythm, voice, onRhythmCellTap)
     GapsCard(stats.gaps, voice)
-    stats.trend?.let { TrendCard(it, voice) }
     stats.duration?.let { DurationCard(it, voice) }
     stats.intensity?.let { IntensityCard(it, voice, onIntensityTap) }
     if (stats.tags.isNotEmpty()) TagsCard(stats.tags, stats.totalEventCount, voice, onTagTap)
@@ -634,51 +642,131 @@ private fun GapsCard(
     }
 }
 
-/** Spec §10 trend arrow: last 30 days vs. the 30 before — descriptive only, never a value judgement. Gap/streak shift notes are shown only when noticeable. */
+/**
+ * Spec §10 Trends section (Story C T1's scaffold): the first Insights card, shown only when at
+ * least one [TrendFinding] exists — mirrors [TagsCard]'s `.isNotEmpty()` gate at the call site. No
+ * info icon and no Hint/Pattern tags here — at this level of detail (sentence with real numbers)
+ * neither earns its screen space; both live one tap away on the full-list screen
+ * ([com.secondmonday.hodith.ui.casedetail.trends.TrendsListScreen] via [onShowMore]) instead. Shows
+ * the first [TRENDS_DEFAULT_VISIBLE_COUNT] findings; "show more" is right-aligned under them,
+ * matching a trailing/secondary action rather than a primary one.
+ */
 @Composable
-private fun TrendCard(
-    display: TrendDisplay,
+private fun TrendsCard(
+    findings: List<TrendFinding>,
     voice: Voice,
+    onShowMore: () -> Unit,
 ) {
     InsightsCard {
-        SectionWithInfo(
-            label = voice.insightsSectionLabelTrend,
-            infoTitle = voice.insightsTrendInfoTitle,
-            infoBody = voice.insightsTrendInfoBody,
-            infoDescription = voice.caseSectionInfoDescription,
-            labelStyle = MaterialTheme.typography.titleSmall,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text =
-                        when (display.direction) {
-                            TrendDirection.UP -> "↑"
-                            TrendDirection.DOWN -> "↓"
-                            TrendDirection.FLAT -> "→"
-                        },
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = voice.insightsTrendSentence(display.direction, display.recentCount, display.priorCount),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            display.gapShiftDirection?.let {
-                Text(
-                    text = voice.insightsGapShiftSentence(it),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            display.streakShiftDirection?.let {
-                Text(
-                    text = voice.insightsStreakShiftSentence(it),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Text(voice.insightsSectionLabelTrends, style = MaterialTheme.typography.titleSmall)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            findings.take(TRENDS_DEFAULT_VISIBLE_COUNT).forEach { finding -> TrendFindingRow(finding, voice) }
+        }
+        if (findings.size > TRENDS_DEFAULT_VISIBLE_COUNT) {
+            TextButton(onClick = onShowMore, modifier = Modifier.align(Alignment.End)) {
+                Text(voice.insightsTrendsShowMoreAction)
             }
         }
+    }
+}
+
+/** [TrendFinding]'s reliability tag — plain colored text, the same "flag" idiom [insightsBurstFlagLabel] already uses on the Gaps card, not a filled chip. Pattern reads more prominent than Hint, matching that it carries more statistical weight. Shown only on the full-list screen ([TrendFindingPlank]), not the compact card. */
+@Composable
+private fun TrendReliabilityTag(
+    reliability: TrendReliability,
+    voice: Voice,
+) {
+    val (label, color) =
+        when (reliability) {
+            TrendReliability.HINT -> voice.trendReliabilityHintLabel to MaterialTheme.colorScheme.onSurfaceVariant
+            TrendReliability.PATTERN -> voice.trendReliabilityPatternLabel to MaterialTheme.colorScheme.primary
+        }
+    Text(text = label, style = MaterialTheme.typography.labelSmall, color = color)
+}
+
+/**
+ * One [TrendFinding]'s content: its sentence (with the real prior/recent averages) and its
+ * evidence count on the line below, always visible without a tap. [showReliabilityTag] adds the
+ * Hint/Pattern tag alongside the sentence — off for [TrendFindingRow] (compact card, keeps that
+ * surface to sentence + numbers only), on for [TrendFindingPlank] (full-list screen, more room and
+ * more reason to want the tier at a glance).
+ */
+@Composable
+private fun TrendFindingContent(
+    finding: TrendFinding,
+    voice: Voice,
+    showReliabilityTag: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val sentence: String
+    val evidenceLabel: String
+    when (finding.kind) {
+        TrendFindingKind.GAP_SHIFT -> {
+            sentence = voice.insightsGapShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
+            evidenceLabel = voice.insightsGapShiftEvidenceLabel(finding.sampleCount)
+        }
+        TrendFindingKind.STREAK_SHIFT -> {
+            sentence =
+                voice.insightsStreakShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
+            evidenceLabel = voice.insightsStreakShiftEvidenceLabel(finding.sampleCount)
+        }
+        TrendFindingKind.FREQUENCY_SHIFT -> {
+            // FLAT never reaches here -- computeTrendFindings excludes it, the same "silent when
+            // nothing moved" rule gap/streak shift already follow (spec §10, Story C T1).
+            val trendDirection = if (finding.direction == ShiftDirection.UP) TrendDirection.UP else TrendDirection.DOWN
+            sentence = voice.insightsTrendSentence(trendDirection, finding.recentValue.roundToInt(), finding.priorValue.roundToInt())
+            evidenceLabel = voice.insightsFrequencyShiftEvidenceLabel()
+        }
+    }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text = sentence, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            if (showReliabilityTag) TrendReliabilityTag(finding.reliability, voice)
+        }
+        Text(text = evidenceLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** One Trends finding inside the compact [TrendsCard] — no reliability tag (see [TrendFindingContent]). */
+@Composable
+private fun TrendFindingRow(
+    finding: TrendFinding,
+    voice: Voice,
+) {
+    TrendFindingContent(finding, voice, showReliabilityTag = false, modifier = Modifier.fillMaxWidth())
+}
+
+/**
+ * One Trends finding on the full-list screen, with its reliability tag (see [TrendFindingContent]).
+ * Plain wraps it in its own white plank [Card] on the tinted screen background, matching
+ * [EventRow]'s Log-tab convention; Intense and Bright keep a flat row, same split as [EventRow].
+ * Internal so [com.secondmonday.hodith.ui.casedetail.trends.TrendsListScreen] can render it.
+ */
+@Composable
+internal fun TrendFindingPlank(
+    finding: TrendFinding,
+    voice: Voice,
+) {
+    when (LocalCardDecorationStyle.current) {
+        CardDecorationStyle.PLAIN ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                TrendFindingContent(
+                    finding,
+                    voice,
+                    showReliabilityTag = true,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
+        CardDecorationStyle.INTENSE, CardDecorationStyle.BRIGHT ->
+            TrendFindingContent(
+                finding,
+                voice,
+                showReliabilityTag = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            )
     }
 }
 
@@ -962,7 +1050,15 @@ private val previewGapsDisplay =
         averageStreakDays = 1.8,
     )
 
-/** Exercises [InsightsCard]'s Bright branch (via [FrequencyCard]/[GapsCard]) and [FrequencyCard]'s gradient bars together. */
+/** One realistic Trends finding set — a compact card sitting first in the stack, not an isolated showcase of every count scenario (guardrail/cap behavior is covered by tests, not by eyeballing variants here). Includes a frequency-shift finding since that now absorbs the former standalone arrow card. */
+private val previewTrendsFindings =
+    listOf(
+        TrendFinding(TrendFindingKind.FREQUENCY_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 20, 8.0, 12.0),
+        TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 9, 3.2, 5.8),
+        TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.HINT, 7, 4.0, 2.0),
+    )
+
+/** Exercises [InsightsCard]'s Bright branch (via [TrendsCard]/[FrequencyCard]/[GapsCard]) and [FrequencyCard]'s gradient bars together. */
 @Composable
 private fun InsightsBrightCardsPreviewContent() {
     CompositionLocalProvider(
@@ -970,6 +1066,7 @@ private fun InsightsBrightCardsPreviewContent() {
         LocalVoice provides voiceFor(AppTheme.BRIGHT),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            TrendsCard(previewTrendsFindings, LocalVoice.current, onShowMore = {})
             FrequencyCard(previewFrequencyDisplayWeek, null, {}, LocalVoice.current)
             GapsCard(previewGapsDisplay, LocalVoice.current)
         }
@@ -985,6 +1082,24 @@ private fun InsightsPlainCardsPreviewContent() {
     ) {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                TrendsCard(previewTrendsFindings, LocalVoice.current, onShowMore = {})
+                FrequencyCard(previewFrequencyDisplayWeek, null, {}, LocalVoice.current)
+                GapsCard(previewGapsDisplay, LocalVoice.current)
+            }
+        }
+    }
+}
+
+/** As [InsightsPlainCardsPreviewContent], for Intense — this card stack previously had no Intense coverage at all. */
+@Composable
+private fun InsightsIntenseCardsPreviewContent() {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides CardDecorationStyle.INTENSE,
+        LocalVoice provides voiceFor(AppTheme.INTENSE),
+    ) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                TrendsCard(previewTrendsFindings, LocalVoice.current, onShowMore = {})
                 FrequencyCard(previewFrequencyDisplayWeek, null, {}, LocalVoice.current)
                 GapsCard(previewGapsDisplay, LocalVoice.current)
             }
@@ -997,6 +1112,14 @@ private fun InsightsPlainCardsPreviewContent() {
 private fun InsightsPlainCardsLightPreview() {
     HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
         InsightsPlainCardsPreviewContent()
+    }
+}
+
+@Preview(name = "Insights cards — Intense light", showBackground = true, widthDp = 380)
+@Composable
+private fun InsightsIntenseCardsLightPreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) {
+        InsightsIntenseCardsPreviewContent()
     }
 }
 
@@ -1013,6 +1136,55 @@ private fun InsightsBrightCardsLightPreview() {
 private fun InsightsBrightCardsDarkPreview() {
     HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
         InsightsBrightCardsPreviewContent()
+    }
+}
+
+/** More than [TRENDS_DEFAULT_VISIBLE_COUNT] findings — exercises the "show more" link on its own, as a single card rather than stacked next to other scenarios. */
+private val previewTrendsFindingsOverCap =
+    previewTrendsFindings +
+        listOf(
+            TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.UP, TrendReliability.PATTERN, 11, 2.0, 4.5),
+            TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 6, 6.0, 8.5),
+        )
+
+@Composable
+private fun TrendsCardShowMorePreviewContent(
+    theme: AppTheme,
+    cardStyle: CardDecorationStyle,
+) {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides cardStyle,
+        LocalVoice provides voiceFor(theme),
+    ) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Box(modifier = Modifier.padding(16.dp)) {
+                TrendsCard(previewTrendsFindingsOverCap, LocalVoice.current, onShowMore = {})
+            }
+        }
+    }
+}
+
+@Preview(name = "Trends card — show more — Plain light", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardShowMorePlainPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        TrendsCardShowMorePreviewContent(AppTheme.PLAIN, CardDecorationStyle.PLAIN)
+    }
+}
+
+@Preview(name = "Trends card — show more — Intense light", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardShowMoreIntensePreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) {
+        TrendsCardShowMorePreviewContent(AppTheme.INTENSE, CardDecorationStyle.INTENSE)
+    }
+}
+
+@Preview(name = "Trends card — show more — Bright light", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardShowMoreBrightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        TrendsCardShowMorePreviewContent(AppTheme.BRIGHT, CardDecorationStyle.BRIGHT)
     }
 }
 

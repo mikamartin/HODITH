@@ -17,6 +17,37 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/insights-trends-scaffold
+
+**Scope:** A retroactive checklist walk + test-coverage audit against T1's already-merged diff (`bae8aed`, PROGRESS.md Story C T1 — the Trends section scaffold and gap/streak-shift migration), run on request rather than alongside the feature's own authoring.
+
+**Found & fixed:**
+
+- `TrendsListViewModel` had no unit test, unlike every other `ViewModel` in the app (`TriggersViewModel`, `ShareViewModel`, etc., each with a matching `FakeHodithRepository`/`FakeClock`/Turbine test). Added `TrendsListViewModelTest.kt`: case icon/name mapping, findings mirroring `stats.trends` from `insightsTabState()`, and the null-case (deleted Case) path.
+- T1's own acceptance-criteria checklist in `PROGRESS.md` was never struck even though this diff ships it end-to-end — left as open work indefinitely. Removed the whole T1 entry (matching how other fully-resolved items are retired here, e.g. `feat/case-description-on-home`'s entry) and reworded the Story C intro to state T1 shipped rather than describing it as upcoming. One acceptance criterion ("each finding row independently tappable to its own info dialog") shipped differently than planned — a single shared dialog on the compact card instead — but that's already the accurate, intentional description in `HODITH_SPEC.md` §10, so no further doc fix was needed there.
+- `InsightsTabTrendsCardTest`'s synthetic `InsightsTabState.Ready` fixture passed `RhythmDisplay(cells = emptyList())`, violating `RhythmDisplay.cells`' documented "always all 28 day-of-week × time-of-day cells" invariant. Never caught by `./gradlew test` (JVM-only) or code review, only by actually running the class on a device: `RhythmCard`'s `display.cells.first { ... }` (`InsightsTab.kt:589`) throws `NoSuchElementException` on an empty grid, so all three of its tests crashed instead of asserting anything. Fixed by building the real full 28-cell grid (`HeatmapLevel.EMPTY`, count 0) in the fixture instead of an empty list — a test-fixture bug, not a production one, since `computeRhythmStats()` never actually produces a short list.
+
+**Checklist walk (against the merged diff `main...feat/insights-trends-scaffold`):**
+
+- *Duplication* — no inline strings; new Voice keys (`insightsSectionLabelTrends`, `insightsTrendsShowMoreAction`, `insightsTrendsInfoTitle`/`Body`, `trendReliabilityHintLabel`/`PatternLabel`, `insights*ShiftEvidenceLabel`) all added to Serious/Goth/Quirky in the same commit (compiler-enforced via the `Voice` interface).
+- *Decoupling* — `TrendsEngine.kt`/`Trends.kt` stay pure Kotlin, no `android.*` imports; `TrendsListViewModel` takes the injected `Clock`, not `System.currentTimeMillis()`.
+- *Complexity & pattern health* — the old monolithic `TrendCard` was split into small, single-purpose composables (`TrendsCard`, `TrendReliabilityTag`, `TrendFindingContent`, `TrendFindingRow`, `TrendFindingPlank`), each reused across the compact card and the new full-list screen rather than duplicated.
+- *Dead code & hygiene* — old `TrendCard`/its info-icon test correctly removed rather than left dead; no stray untracked files.
+- *Repo hygiene* — `git status` clean; no secrets, no local paths.
+- *Naming* — new files (`Trends.kt`, `TrendsEngine.kt`, `TrendsListViewModel.kt`, `TrendsListScreen.kt`) match existing package/suffix conventions.
+- *Hardcoded values* — `TRENDS_MAX_FINDINGS`/`TRENDS_DEFAULT_VISIBLE_COUNT` are named constants, not inline numbers.
+- *Accessibility* — icon-only actions keep non-empty `contentDescription`s; verified via the instrumented run below.
+- *Deprecated APIs* — none; `lintDebug` clean.
+- *Spec review* — `HODITH_SPEC.md` §10 updated with the new Trends section and its "Trends detectors" subsection, correctly documenting the shared-dialog divergence noted above.
+
+**Deferred:** nothing — both findings were fixed in this pass.
+
+**Docs updated:** `PROGRESS.md` — Story C T1 struck in full (shipped); Story C intro reworded accordingly.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. `connectedDebugAndroidTest` scoped to the branch's touched instrumented classes (`CaseDetailInsightsTabTest`, `CaseDetailScreenTest`, `InsightsTabTrendsCardTest`, `TrendsListScreenTest`, `ShareCardTemplateTest`) — first run caught the `InsightsTabTrendsCardTest` fixture bug above (3/87 failed); 87/87 green on `Pixel_8_API36(AVD)` after the fix.
+
+---
+
 ## feature/big-picture-year-filter
 
 **Scope:** PROGRESS.md's "Big Picture: year filter" — UX settled via a throwaway HTML prototype (`docs/mockups/big-picture-year-filter-prototype.html`). Adds a third **Year** trigger chip narrowing the grid's month range, bundled with the grid's month order reversing to current-first/top (the reversal's own rationale — matching the Year dialog's current-year-first listing — only makes sense alongside the filter, so the two shipped together rather than split across two PRs, per discussion with the user).
@@ -145,38 +176,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `PROGRESS.md` — S10 removed (fully resolved; scope redirected mid-item, see Scope above); B2's Voice-key fold-in list gained this branch's `hunchHistoryShowMoreAction`/`hunchHistoryRetentionNote` additions and `hunchHistoryRowText` retirement. `HODITH_SPEC.md` §7 — resolved-hunch history's 15-item retention cap stated. `TESTING.md` — Verdict engine row (prune-on-resolve coverage) and Compose UI row (plank/show-more/retention-note coverage).
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (one round-trip: a ktlint import-ordering/line-wrap fix, then the `assertDoesNotExist` import fix above, before all four passed clean together). `connectedDebugAndroidTest` scoped to `HunchDaoTest` and `CaseDetailScreenTest` — 44/44 green on `Pixel_8_API36(AVD)`, including every new case.
-
----
-
-## fix/frequency-chart-axis-labels
-
-**Scope:** PROGRESS.md's S9 — `FrequencyCard` labeled only its first and last bar (not even aligned to their own columns), unreadable once more than two of the chart's 12 bars needed a label. Design decision made interactively via a published Artifact prototype (theme-accurate replicas across Plain/Intense/Bright, light/dark, 320/380dp) rather than guessed at in code: numeric/short labels (Day: bare date number, Week: `M/dd`, Month: short name) at a per-granularity density (Day every bar, Week and Month every 2nd), placed by centering each tick in an equal-width slice of the 12 bars rather than pinning either end bar — an earlier stride-based approach forced both endpoints and produced either an adjacent-label collision or an uneven first gap, both caught and fixed during the prototype iteration before any Kotlin was written. This work started uncommitted on `feat/bulk-delete-logs-by-date` (that branch's own S14 work, below, was already merged before this pass started) and was moved to its own `fix/frequency-chart-axis-labels` branch, cut fresh from `main`, before anything here was committed.
-
-**Changes:**
-
-- **`FrequencyCard`** (`InsightsTab.kt`) restructured from a bar `Row` plus a separate, column-misaligned label `Row` into one `Row` of per-bar `Column`s, each holding its bar and an optional tick `Text` — a label can no longer drift from the bar it names.
-- **`EventTimeFormat.kt`**: `formatFrequencyPeriodLabel` (textual, `Voice`-wrapped) replaced by `formatFrequencyTickLabel` (numeric, no `Voice` input at all); new `frequencyTickIndices(barCount, tickCount)` (the centered/no-pinned-endpoint placement algorithm) and `frequencyTickCount(granularity)` (the Day=12/Week=6/Month=6 density mapping, moved here from a Compose-only private function in `InsightsTab.kt` — found during the coverage check below, since a Compose-file function has no JVM test path).
-- **`Voice.kt`**: `insightsFrequencyWeekAxisLabel` ("Week of …" / "The week of …") removed from the interface and all three implementations — fully replaced by the numeric format, confirmed via `git grep` it had no other caller.
-- New 12-bar preview fixtures for all three granularities (the one existing fixture was WEEK-only and 6 bars, not the real 12) and six new `@Preview`s at 320dp — the narrowest width previewed anywhere in this codebase — across Plain and Intense (Intense's Oswald Bold is the widest of the three themes' tick typefaces; the card had no Intense preview at all before).
-
-**Checklist walk (against the working-tree `git diff`):**
-
-- *Duplication* — no composable/styling repeated; no inline strings (the new format needs no `Voice` string, since it's locale-formatted digits/month-names, not authored copy — same category as every other `EventTimeFormat` helper).
-- *Decoupling* — `formatFrequencyTickLabel`/`frequencyTickIndices`/`frequencyTickCount` are pure Kotlin in the Compose-free `viewmodel` file; `FrequencyCard` itself still takes plain data + lambdas, not a ViewModel.
-- *Complexity & pattern health* — `FrequencyCard` stayed well under the ~150-line split threshold; no new `remember`/`LaunchedEffect` beyond the one `remember(display.bars.size, display.granularity)` wrapping the now slightly-more-expensive tick-index computation, keyed on exactly what changes it.
-- *Dead code & hygiene* — `ktlintCheck` caught one unused import (`fillMaxHeight`, orphaned once the old bar `Box` structure changed) on the first pass, fixed. Caught on self-review (not tooling): a `frequencyTickIndices` KDoc claim that both end bars land exactly on a tick "whenever `tickCount` evenly divides `barCount`" was wrong — 12 bars / 4 ticks divides evenly but lands on neither end (`[1, 4, 7, 10]`); corrected to describe it as a coincidence of parity, not a guarantee, and pinned with a test. Also caught a `@Preview`-group KDoc linking `[widthDp]` as if it were this composable's own parameter rather than the six `@Preview` annotations below it; reworded. No prototype file to clean up — the Artifact lived only in the published page and the session scratchpad, never this repo (`git status` confirmed).
-- *Repo hygiene* — no secrets, no local paths; only the intended files touched. Branch situation resolved (see Scope above) before any commit.
-- *Naming* — new composables (`FrequencyTickPreviewContent`, `FrequencyChart*Preview`) PascalCase, descriptive; no new Voice keys to name (only a removal).
-- *Hardcoded values* — `FREQUENCY_TICK_LABEL_GAP`/`FREQUENCY_TICK_COUNT_DAY`/`_WEEK`/`_MONTH` all named constants, no inline magic numbers.
-- *Accessibility* — net improvement, not just neutral: up to 12 bars now carry a real text label apiece (screen-reader-readable) versus 2 before; no new icon-only targets or tappable elements.
-- *Deprecated APIs* — none; `lintDebug` clean.
-- *Spec review* — `HODITH_SPEC.md` §10's Frequency-over-time paragraph describes the card at the "counts per day/week/month" level, not axis-label formatting, so no divergence.
-- *Tests* — see below.
-
-**Found & fixed (test coverage check, on request):** `frequencyTickCount`'s Day→12/Week→6/Month→6 mapping lived only as a `private` Compose-file function, reachable only through the one instrumented test that happened to toggle to Week — a swapped Week/Month density, or Day silently stopping being "every bar", had no JVM-level guard and only one of three granularities was even exercised at the Compose level. Fixed by moving it to `EventTimeFormat.kt` (pure, JVM-testable) and pinning all three values directly; added a second instrumented test (`frequencyGranularityToggle_month_...`) mirroring the existing Week one, so Week and Month's actual Compose wiring both have independent proof. Day's own wiring is identical code to Week/Month's (same `index in tickIndices` branch), and its "every bar, always" case is already exhaustively pinned at the JVM level (`frequencyTickIndices(12, 12)`); a Day-specific instrumented assertion was skipped deliberately — its bare date-number labels (1–31) share the exact same text space as the heatmap's own day cells on the same tab, so an exact-text assertion would be either collision-prone or would have to fall back to counting, which the existing count-label test (`frequencyCard_showsPerBucketEventCounts`) already sidesteps by using values >31. `EventTimeFormatTest` gained cases for `formatFrequencyTickLabel` (all three granularities), `frequencyTickCount` (the density pin above), and `frequencyTickIndices` (tick-count-equals-bar-count, no-pinned-endpoint centering, and the evenly-spread-gaps property that was the actual prototype bug).
-
-**Deferred:** nothing — the "no label overlap" acceptance criterion (the six new 320dp Previews) was reviewed and accepted, so S9 is struck from PROGRESS.md rather than left open.
-
-**Docs updated:** `PROGRESS.md` — S9 struck in full (all acceptance criteria met). `TESTING.md` — Time formatting row (`formatFrequencyTickLabel`/`frequencyTickCount`/`frequencyTickIndices` replacing the old `formatFrequencyPeriodLabel` mention), Case Detail Insights instrumented-coverage row reworded for the new tick-label behavior.
-
-**Verified:** `ktlintCheck → lintDebug → testDebugUnitTest → assembleDebug` sequential, all green (unit tests run both scoped to `EventTimeFormatTest` and as the full suite). `connectedDebugAndroidTest` scoped to `CaseDetailInsightsTabTest` — 39/39 green on `Pixel_8_API36(AVD)`, including both new/changed cases (`frequencyGranularityToggle_week_labelsTicksWithNumericDates`, `frequencyGranularityToggle_month_labelsTicksWithShortMonthNames`).
