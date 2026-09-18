@@ -10,7 +10,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 private val ZONE = TEST_ZONE
 
@@ -101,6 +104,21 @@ class StatsEngineTest {
         assertEquals(1, result.buckets.last().count)
     }
 
+    @Test
+    fun `computeFrequencyStats buckets an event by its own captured offset, not the device's current zone`() {
+        // 2026-01-05T23:30Z: still Jan 5 under UTC, but already Jan 6 under a +9h offset (Tokyo).
+        val eventInstant = Instant.parse("2026-01-05T23:30:00Z").toEpochMilli()
+        val event = eventAt(eventInstant).copy(utcOffsetMinutes = 9 * 60)
+        val now = Instant.parse("2026-01-06T01:00:00Z").toEpochMilli()
+
+        val result =
+            computeFrequencyStats(listOf(event), now = now, spanDays = 10L, granularity = FrequencyGranularity.DAY, zone = ZoneOffset.UTC)
+
+        assertEquals(LocalDate.of(2026, 1, 6), result.buckets.last().periodStart)
+        assertEquals(1, result.buckets.last().count)
+        assertEquals(0, result.buckets[result.buckets.size - 2].count)
+    }
+
     // ---- timeOfDayFor ----
 
     @Test
@@ -163,6 +181,20 @@ class StatsEngineTest {
         assertEquals(2, mondayMorning.count)
         assertEquals(1, mondayEvening.count)
         assertEquals(2, result.maxCount)
+    }
+
+    @Test
+    fun `computeRhythmStats resolves an event's day-of-week and time-of-day via its own captured offset`() {
+        // 2026-01-05T23:30Z is Monday night under UTC, but already Tuesday morning under a +9h offset.
+        val eventInstant = Instant.parse("2026-01-05T23:30:00Z").toEpochMilli()
+        val event = eventAt(eventInstant).copy(utcOffsetMinutes = 9 * 60)
+
+        val result = computeRhythmStats(listOf(event))
+
+        val tuesdayMorning = result.cells.single { it.dayOfWeek == DayOfWeek.TUESDAY && it.timeOfDay == TimeOfDay.MORNING }
+        val mondayNight = result.cells.single { it.dayOfWeek == DayOfWeek.MONDAY && it.timeOfDay == TimeOfDay.NIGHT }
+        assertEquals(1, tuesdayMorning.count)
+        assertEquals(0, mondayNight.count)
     }
 
     // ---- computeTrendStats ----

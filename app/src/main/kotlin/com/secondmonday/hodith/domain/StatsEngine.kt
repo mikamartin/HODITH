@@ -2,6 +2,7 @@ package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.loggedZone
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -30,7 +31,10 @@ internal const val INTENSITY_MAX = 5
 /**
  * A Case's full observation span in days, from the earlier of its creation or earliest (possibly
  * retro-logged) event through [now] — mirrors [computeVerdict]'s window-start rule, since frequency
- * granularity and the trend arrow both need "how long has this Case actually been observed".
+ * granularity and the trend arrow both need "how long has this Case actually been observed". This
+ * stays on the passed-in [zone] rather than the earliest event's own captured offset: it's a
+ * start-point-vs-now comparison, not one event vs. another, so it follows the same now-side rule
+ * [computeGapStats] documents.
  */
 internal fun observationSpanDays(
     events: List<EventEntity>,
@@ -86,7 +90,7 @@ internal fun computeFrequencyStats(
 
     val countsByBucket =
         events
-            .groupingBy { bucketStartFor(Instant.ofEpochMilli(it.occurredAt).atZone(zone).toLocalDate(), granularity) }
+            .groupingBy { bucketStartFor(Instant.ofEpochMilli(it.occurredAt).atZone(it.loggedZone()).toLocalDate(), granularity) }
             .eachCount()
 
     val buckets =
@@ -108,14 +112,16 @@ internal fun timeOfDayFor(hour: Int): TimeOfDay =
         else -> TimeOfDay.NIGHT
     }
 
-/** Spec §10 rhythm heatmap: day-of-week × time-of-day counts, zero-filled across all 28 combinations. */
-internal fun computeRhythmStats(
-    events: List<EventEntity>,
-    zone: ZoneId = ZoneId.systemDefault(),
-): RhythmStats {
+/**
+ * Spec §10 rhythm heatmap: day-of-week × time-of-day counts, zero-filled across all 28 combinations.
+ * Every date here is per-event with no "now" reference, so each event resolves via its own captured
+ * offset ([EventEntity.loggedZone]) rather than a shared zone — a traveler's events bucket by wherever they
+ * actually happened, not the device's current zone.
+ */
+internal fun computeRhythmStats(events: List<EventEntity>): RhythmStats {
     val counts = mutableMapOf<Pair<DayOfWeek, TimeOfDay>, Int>()
     events.forEach { event ->
-        val dateTime = Instant.ofEpochMilli(event.occurredAt).atZone(zone)
+        val dateTime = Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone())
         val key = dateTime.dayOfWeek to timeOfDayFor(dateTime.hour)
         counts[key] = (counts[key] ?: 0) + 1
     }

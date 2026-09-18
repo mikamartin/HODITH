@@ -11,6 +11,7 @@ import com.secondmonday.hodith.data.EventTagName
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.tracksDuration
+import com.secondmonday.hodith.data.zoneOffsetFromMinutes
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.ZoneOffset
 import javax.inject.Inject
 
 /** One case's icon/name as shown in the Big Picture grid and its filter chips (spec §9). */
@@ -54,7 +56,11 @@ data class CalendarEvent(
     val note: String? = null,
     val intensity: Int? = null,
     val tags: List<String> = emptyList(),
+    val utcOffsetMinutes: Int = 0,
 )
+
+/** This event's own captured offset, for bucketing its timestamps into the calendar day/hour they actually occurred in. */
+internal fun CalendarEvent.loggedZone(): ZoneOffset = zoneOffsetFromMinutes(utcOffsetMinutes)
 
 data class BigPictureUiState(
     val cases: List<CalendarCase> = emptyList(),
@@ -154,6 +160,7 @@ internal fun bigPictureUiState(
                         // Case has intensity enabled, same gate the Insights row uses.
                         intensity = if (case.intensityEnabled) it.intensity else null,
                         tags = tagsByEvent[it.id].orEmpty(),
+                        utcOffsetMinutes = it.utcOffsetMinutes,
                     )
                 }
             },

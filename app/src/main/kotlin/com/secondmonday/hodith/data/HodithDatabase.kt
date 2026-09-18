@@ -18,11 +18,13 @@ import androidx.room.migration.Migration
  * `resolvedVerdictSnapshotTaken`, another pure additive auto-migration — schema-only, since a
  * migration can't run [com.secondmonday.hodith.domain.computeVerdict]; the one-time backfill that
  * populates them for pre-existing resolved Hunches runs from `HodithApplication` on next launch
- * instead. `@Database.version` can't be read back via reflection (Room's annotation uses
- * [AnnotationRetention.BINARY]), so this is the one place migration-guard tests should get the
- * current version from instead of a second hardcoded literal.
+ * instead. v11 adds `events.utcOffsetMinutes`, another pure additive auto-migration with a static
+ * `0` column default — no production installs exist yet to backfill correctly, so old rows simply
+ * read as UTC until re-logged. `@Database.version` can't be read back via reflection (Room's
+ * annotation uses [AnnotationRetention.BINARY]), so this is the one place migration-guard tests
+ * should get the current version from instead of a second hardcoded literal.
  */
-const val HODITH_DATABASE_VERSION = 10
+const val HODITH_DATABASE_VERSION = 11
 
 /** Schema versions at or below this shipped without migrations; every version past it needs one. */
 const val SCHEMA_FREEZE_POINT = 6
@@ -50,6 +52,7 @@ class DropHunchNudgeDismissedColumn : AutoMigrationSpec
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9, spec = DropHunchNudgeDismissedColumn::class),
         AutoMigration(from = 9, to = 10),
+        AutoMigration(from = 10, to = 11),
     ],
     exportSchema = true,
 )
@@ -73,6 +76,6 @@ abstract class HodithDatabase : RoomDatabase() {
          * annotation directly), so the schema-coverage guard counts them here. Bump when adding an
          * `AutoMigration` entry above.
          */
-        const val AUTO_MIGRATION_COUNT = 4
+        const val AUTO_MIGRATION_COUNT = 5
     }
 }

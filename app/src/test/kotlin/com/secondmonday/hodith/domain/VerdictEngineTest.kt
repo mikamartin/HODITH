@@ -13,9 +13,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.TimeZone
+import java.time.ZoneOffset
 
 private const val DELTA = 0.0001
 
@@ -260,31 +261,25 @@ class VerdictEngineTest {
 
     @Test
     fun `computeVerdict window-day math is unaffected by a spring-forward DST transition`() {
-        val originalDefault = TimeZone.getDefault()
-        TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"))
-        try {
-            // 2026-03-08 is America/New_York's spring-forward day, inside this 14-day window;
-            // a raw-millis ÷ 86_400_000 computation would undercount by the missing hour.
-            val zone = ZoneId.systemDefault()
-            val caseCreatedAt =
-                LocalDate
-                    .of(2026, 3, 1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli()
-            val now =
-                LocalDate
-                    .of(2026, 3, 15)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli()
+        // 2026-03-08 is America/New_York's spring-forward day, inside this 14-day window;
+        // a raw-millis ÷ 86_400_000 computation would undercount by the missing hour.
+        val zone = ZoneId.of("America/New_York")
+        val caseCreatedAt =
+            LocalDate
+                .of(2026, 3, 1)
+                .atStartOfDay(zone)
+                .toInstant()
+                .toEpochMilli()
+        val now =
+            LocalDate
+                .of(2026, 3, 15)
+                .atStartOfDay(zone)
+                .toInstant()
+                .toEpochMilli()
 
-            val result = computeVerdict(hunch(), emptyList(), caseCreatedAt, now, DurationMode.NONE)
+        val result = computeVerdict(hunch(), emptyList(), caseCreatedAt, now, DurationMode.NONE, zone)
 
-            assertEquals(14L, result.windowDays)
-        } finally {
-            TimeZone.setDefault(originalDefault)
-        }
+        assertEquals(14L, result.windowDays)
     }
 
     // ---- days-active metric ----
@@ -310,6 +305,22 @@ class VerdictEngineTest {
         // occurrence count would report.
         assertEquals(24.0, result.observedRate, DELTA)
         assertEquals(VerdictMetric.DAYS_ACTIVE, result.metric)
+    }
+
+    @Test
+    fun `distinctActiveDays resolves a still-running event's open end via the live current zone, not its own stale captured offset`() {
+        // The event's own captured offset (-10h, e.g. logged while traveling) is far from the
+        // passed-in zone (UTC, the device's current zone). If the still-open end used that stale
+        // offset instead of the live zone, "today" would resolve a day early and go uncounted.
+        val start = Instant.parse("2026-01-05T22:00:00Z").toEpochMilli()
+        val now = Instant.parse("2026-01-06T02:00:00Z").toEpochMilli()
+        val event = testEvent(occurredAt = start, endedAt = null).copy(utcOffsetMinutes = -600)
+
+        val days = distinctActiveDays(listOf(event), DurationMode.START_STOP, windowStartMillis = start, now = now, zone = ZoneOffset.UTC)
+
+        // Jan 5 (the event's own start date, under its -10h offset) and Jan 6 (today, under the
+        // live UTC zone) — two distinct days, not one.
+        assertEquals(2, days)
     }
 
     @Test

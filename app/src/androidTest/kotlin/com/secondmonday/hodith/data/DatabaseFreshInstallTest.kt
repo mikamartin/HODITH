@@ -164,4 +164,33 @@ class DatabaseFreshInstallTest {
                 }
             }
         }
+
+    /**
+     * v10 → v11 auto-migration: the `events` table gains `utcOffsetMinutes`. No production installs
+     * exist to backfill correctly, so existing rows simply default to `0` (UTC) until re-logged —
+     * see [com.secondmonday.hodith.data.EventEntity]'s doc comment.
+     */
+    @Test
+    fun migrationFrom10To11_addsEventUtcOffsetColumn_defaultingToZero() =
+        runTest {
+            migrationTestHelper.createDatabase(TEST_DB_NAME, 10).use { db ->
+                db.execSQL(
+                    "INSERT INTO cases (id, name, icon, createdAt, logFlow, durationMode, intensityEnabled, " +
+                        "checkInsEnabled, sortOrder, archived) " +
+                        "VALUES (1, 'Coffee', '☕', 0, 'ONE_TAP', 'NONE', 0, 1, 0, 0)",
+                )
+                db.execSQL(
+                    "INSERT INTO events (id, caseId, occurredAt, endedAt, intensity, note, loggedAt) " +
+                        "VALUES (1, 1, 100, NULL, NULL, NULL, 100)",
+                )
+            }
+
+            migrationTestHelper.runMigrationsAndValidate(TEST_DB_NAME, 11, true).use { db ->
+                db.query("SELECT * FROM events WHERE id = 1").use { cursor ->
+                    assertTrue("the migrated event row should survive", cursor.moveToFirst())
+                    assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("utcOffsetMinutes")))
+                    assertEquals(100L, cursor.getLong(cursor.getColumnIndexOrThrow("occurredAt")))
+                }
+            }
+        }
 }

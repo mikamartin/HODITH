@@ -22,4 +22,5 @@ data class CaseEventDetail(
     val endedAt: Long?,
     val intensity: Int?,
     val note: String?,
+    val utcOffsetMinutes: Int = 0,
 )

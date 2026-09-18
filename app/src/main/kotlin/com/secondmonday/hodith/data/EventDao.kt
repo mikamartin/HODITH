@@ -114,7 +114,7 @@ interface EventDao {
      */
     @Query(
         "SELECT e.id AS id, e.caseId AS caseId, e.occurredAt AS occurredAt, e.endedAt AS endedAt, " +
-            "e.intensity AS intensity, e.note AS note " +
+            "e.intensity AS intensity, e.note AS note, e.utcOffsetMinutes AS utcOffsetMinutes " +
             "FROM events e JOIN cases c ON c.id = e.caseId WHERE c.archived = 0",
     )
     fun observeActiveCaseEventDetails(): Flow<List<CaseEventDetail>>

@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.loggedZone
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -53,8 +54,8 @@ internal fun computeVerdict(
     caseCreatedAt: Long,
     now: Long,
     durationMode: DurationMode,
+    zone: ZoneId = ZoneId.systemDefault(),
 ): VerdictResult {
-    val zone = ZoneId.systemDefault()
     val windowStartMillis = windowStartFor(hunch, events, caseCreatedAt, now)
     val windowDays = daysBetween(windowStartMillis, now, zone)
 
@@ -108,8 +109,14 @@ internal fun windowStartFor(
 
 /**
  * Distinct calendar days in [[windowStartMillis], [now]] that any of [events]' active spans
- * touched, in [zone]. Days a span covers outside the window don't count — a duration event that
- * began before the window still only contributes its in-window days.
+ * touched. The window boundaries resolve in [zone] (the device's current zone by default — neither
+ * boundary has a captured offset of its own), and each event's own span resolves in that event's
+ * own captured offset, so a traveler's logged days land on the day they actually happened. Days a
+ * span covers outside the window don't count — a duration event that began before the window still
+ * only contributes its in-window days. A still-running event is the one exception: its open end is
+ * "now," not a captured instant, so it resolves via the live current [zone] rather than the event's
+ * own (possibly stale, pre-travel) offset — matching `BigPictureGrid`'s private `coveredDates`,
+ * which makes the same call for the same reason.
  */
 internal fun distinctActiveDays(
     events: List<EventEntity>,
@@ -122,7 +129,9 @@ internal fun distinctActiveDays(
     val windowEndDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
     val days = mutableSetOf<LocalDate>()
     for (event in events) {
-        for (date in datesCovered(event.occurredAt, activeSpanEnd(event, durationMode, now), zone)) {
+        val isOngoing = durationMode == DurationMode.START_STOP && event.endedAt == null
+        val endZone = if (isOngoing) zone else event.loggedZone()
+        for (date in datesCovered(event.occurredAt, activeSpanEnd(event, durationMode, now), event.loggedZone(), endZone)) {
             if (!date.isBefore(windowStartDate) && !date.isAfter(windowEndDate)) days += date
         }
     }

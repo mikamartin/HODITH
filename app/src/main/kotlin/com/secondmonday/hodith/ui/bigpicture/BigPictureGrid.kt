@@ -78,6 +78,7 @@ import com.secondmonday.hodith.viewmodel.formatClockTime
 import com.secondmonday.hodith.viewmodel.formatMediumDate
 import com.secondmonday.hodith.viewmodel.formatSpanDateTime
 import com.secondmonday.hodith.viewmodel.formatWeekdayDayDate
+import com.secondmonday.hodith.viewmodel.loggedZone
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
@@ -141,18 +142,20 @@ private data class DayCellIcon(
 
 /**
  * The local dates [event] covers on the grid: its single day unless a finished event runs past
- * midnight (`occurredAt … endedAt`) or a still-running one does (`occurredAt … today`).
+ * midnight (`occurredAt … endedAt`) or a still-running one does (`occurredAt … today`). Resolves via
+ * the event's own captured offset ([CalendarEvent.loggedZone]), not the device's current zone, so a
+ * traveler's events land on the day they actually happened; [today] is already the live
+ * current-device date, needed only for the still-ongoing branch.
  */
 private fun coveredDates(
     event: CalendarEvent,
     today: LocalDate,
-    zone: ZoneId,
 ): List<LocalDate> {
-    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(zone).toLocalDate()
+    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone()).toLocalDate()
     val endDate =
         when {
             event.isOngoing -> today
-            event.endedAt != null -> Instant.ofEpochMilli(event.endedAt).atZone(zone).toLocalDate()
+            event.endedAt != null -> Instant.ofEpochMilli(event.endedAt).atZone(event.loggedZone()).toLocalDate()
             else -> startDate
         }
     if (!endDate.isAfter(startDate)) return listOf(startDate)
@@ -170,7 +173,6 @@ fun BigPictureGrid(
     modifier: Modifier = Modifier,
     detail: BigPictureDetail = BigPictureDetail.DEFAULT,
     onToggleDetail: (BigPictureDetailField, Boolean) -> Unit = { _, _ -> },
-    zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     var visibleCaseIds by remember(cases) { mutableStateOf(cases.map { it.id }.toSet()) }
     // Scoped to visibleCaseIds, not every Case's events: a tag only offered by a currently-hidden
@@ -197,10 +199,10 @@ fun BigPictureGrid(
     }
 
     val eventsByDay =
-        remember(events, zoneId, today) {
+        remember(events, today) {
             buildMap<LocalDate, MutableList<DayEvent>> {
                 events.forEach { event ->
-                    val dates = coveredDates(event, today, zoneId)
+                    val dates = coveredDates(event, today)
                     val multiDay = dates.size > 1
                     dates.forEachIndexed { index, date ->
                         getOrPut(date) { mutableListOf() }
@@ -309,7 +311,6 @@ fun BigPictureGrid(
             today = today,
             caseById = caseById,
             detail = detail,
-            zoneId = zoneId,
             onOpenCase = onOpenCase,
             onDismiss = { selectedDay = null },
         )
@@ -322,7 +323,6 @@ fun BigPictureGrid(
             caseById = caseById,
             isEventVisible = isEventVisible,
             detail = detail,
-            zoneId = zoneId,
             onOpenCase = onOpenCase,
             onDismiss = { selectedWeek = null },
         )
@@ -679,7 +679,6 @@ private fun DayDetailDialog(
     today: LocalDate,
     caseById: Map<Long, CalendarCase>,
     detail: BigPictureDetail,
-    zoneId: ZoneId,
     onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -695,7 +694,7 @@ private fun DayDetailDialog(
             // dialog's window just clips silently rather than scrolling.
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 dayEvents.forEach { dayEvent ->
-                    EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, detail, zoneId, onOpenCase, onDismiss, voice)
+                    EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, detail, onOpenCase, onDismiss, voice)
                 }
             }
         }
@@ -710,7 +709,6 @@ private fun WeekDetailDialog(
     caseById: Map<Long, CalendarCase>,
     isEventVisible: (CalendarEvent) -> Boolean,
     detail: BigPictureDetail,
-    zoneId: ZoneId,
     onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -732,7 +730,7 @@ private fun WeekDetailDialog(
                         modifier = Modifier.padding(top = 6.dp),
                     )
                     dayEvents.forEach { dayEvent ->
-                        EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, detail, zoneId, onOpenCase, onDismiss, voice)
+                        EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, detail, onOpenCase, onDismiss, voice)
                     }
                 }
             }
@@ -749,17 +747,16 @@ private fun EventDetailRow(
     case: CalendarCase?,
     today: LocalDate,
     detail: BigPictureDetail,
-    zoneId: ZoneId,
     onOpenCase: (Long) -> Unit,
     onDismiss: () -> Unit,
     voice: Voice,
 ) {
     val event = dayEvent.event
     val use24Hour = LocalTimeFormat.current.is24Hour
-    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(zoneId).toLocalDate()
+    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone()).toLocalDate()
     val startTime =
         formatClockTime(
-            Instant.ofEpochMilli(event.occurredAt).atZone(zoneId).toLocalTime(),
+            Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone()).toLocalTime(),
             use24Hour,
         )
     val timeLabel =
@@ -768,12 +765,12 @@ private fun EventDetailRow(
                 voice.bigPictureEventOngoingSince(
                     // Started today → just the time (the dialog title already carries the date).
                     // Started earlier → date + time, so a carried-day row keeps the real start time.
-                    if (startDate == today) startTime else formatSpanDateTime(event.occurredAt, use24Hour, zoneId),
+                    if (startDate == today) startTime else formatSpanDateTime(event.occurredAt, use24Hour, event.loggedZone()),
                 )
             dayEvent.isSpanStart || dayEvent.isSpanCarried ->
                 voice.bigPictureEventSpanRange(
-                    formatSpanDateTime(event.occurredAt, use24Hour, zoneId),
-                    formatSpanDateTime(event.endedAt!!, use24Hour, zoneId),
+                    formatSpanDateTime(event.occurredAt, use24Hour, event.loggedZone()),
+                    formatSpanDateTime(event.endedAt!!, use24Hour, event.loggedZone()),
                 )
             else -> startTime
         }
@@ -1657,7 +1654,7 @@ private fun EventDetailRowsPreviewContent(detail: BigPictureDetail) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(modifier = Modifier.padding(16.dp)) {
             rows.forEach { row ->
-                EventDetailRow(row, caseById[row.event.caseId], today, detail, zone, {}, {}, LocalVoice.current)
+                EventDetailRow(row, caseById[row.event.caseId], today, detail, {}, {}, LocalVoice.current)
             }
         }
     }
