@@ -54,7 +54,7 @@ The case → evidence → hunch → verdict framing is deliberate: it gives all 
 
 ## 5. Core concepts & data model
 
-Room (SQLite), local only. Timestamps stored as epoch millis UTC; displayed in device timezone.
+Room (SQLite), local only. Timestamps stored as epoch millis UTC; each Event also captures the device's UTC offset at log time, so day/hour bucketing reflects where the event actually happened rather than wherever the device is when stats are later computed. Anything with no captured offset of its own (a Case's `createdAt`, "now") resolves in the device's current timezone.
 
 ### Case
 
@@ -95,6 +95,7 @@ cascade delete, same as `Event.caseId` below).
 | note | nullable String |
 | tags | tag strings via join table (`EventTag` / `Tag`) for reuse & autocomplete per case |
 | loggedAt | when it was recorded (audit; distinguishes retro-logs) |
+| utcOffsetMinutes | the device's UTC offset captured at `occurredAt` (not save time), so a retro-logged entry gets its own historical offset |
 
 ### Hunch
 
@@ -190,7 +191,7 @@ The part of the app that makes occurrences *visible at a glance*. All custom Com
 
 ### Active span
 
-The active span applies only while the Case tracks duration (`durationMode ≠ NONE`). A Case set to `NONE` renders **every** event as a point at `occurredAt` on every day-counting surface — the heatmap, the streak count, the Big Picture grid, and the gaps & streaks "silence since it ended" anchor (§10) — whatever `endedAt` is stored. That stored value is never mutated, so switching the mode back on restores every span. For a Case that does track duration, an event covers every calendar day from its start to its end, inclusive, in the device time zone:
+The active span applies only while the Case tracks duration (`durationMode ≠ NONE`). A Case set to `NONE` renders **every** event as a point at `occurredAt` on every day-counting surface — the heatmap, the streak count, the Big Picture grid, and the gaps & streaks "silence since it ended" anchor (§10) — whatever `endedAt` is stored. That stored value is never mutated, so switching the mode back on restores every span. For a Case that does track duration, an event covers every calendar day from its start to its end, inclusive, resolved in the event's own captured offset (§5) — so a traveler's logged days land on the day they actually happened, not wherever the device is when stats are computed. A still-running event's open end is the one exception: it resolves in the device's current timezone, since "now" has no captured offset of its own:
 
 - **finished** event — `occurredAt … endedAt`
 - **still-running** event (`START_STOP`, no `endedAt`) — `occurredAt … now`

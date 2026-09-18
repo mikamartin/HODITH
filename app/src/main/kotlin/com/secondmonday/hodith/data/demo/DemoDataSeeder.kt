@@ -5,10 +5,12 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -224,6 +226,7 @@ class DemoDataSeeder
                         intensity = intensityFor(caseSeed.intensityEnabled, random),
                         note = noteFor(caseSeed.notes, random),
                         loggedAt = occurredAt,
+                        utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(occurredAt),
                     ),
                 )
             tagsFor(caseSeed.tags, random).forEach { tagName -> repository.addTagToEvent(eventId, tagName) }

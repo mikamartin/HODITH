@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.loggedZone
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.abs
@@ -86,11 +87,15 @@ internal fun computeGapStats(
     // invent a gap the longer event was still filling. A start that predates the reach floors to 0.
     // A stored endedAt earlier than its own occurredAt (a bad value from an old round-trip, spec §6)
     // is floored to the start, matching how datesCovered / spansMultipleDays treat a reversed span.
+    // Event-to-event gaps resolve in the newer event's own offset (the silence *before* an event is
+    // naturally described in the zone that event itself happened in); the final gap to "now" has no
+    // event on that side, so it keeps resolving via the passed-in [zone] (the device's current zone
+    // by default) — "now" has no captured offset by definition.
     val pastGaps = mutableListOf<Long>()
     var reachedSoFar = Long.MIN_VALUE
     for ((index, event) in sorted.withIndex()) {
         if (index > 0) {
-            pastGaps += daysBetween(reachedSoFar, event.occurredAt, zone).coerceAtLeast(0L)
+            pastGaps += daysBetween(reachedSoFar, event.occurredAt, event.loggedZone()).coerceAtLeast(0L)
         }
         reachedSoFar = maxOf(reachedSoFar, event.occurredAt, event.endedAt ?: event.occurredAt)
     }

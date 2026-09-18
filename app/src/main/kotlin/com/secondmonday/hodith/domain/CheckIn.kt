@@ -67,6 +67,9 @@ fun evaluateCheckIn(
             ?: return CheckInDecision(due = false, silentDays = 0)
 
     val anchor = maxOf(case.createdAt, case.lastCheckInAt ?: case.createdAt, mostRecentEventAt ?: case.createdAt)
+    // anchor-vs-now: "now" has no captured offset by definition, so daysBetween's default
+    // device-current-zone resolution is already correct here — see computeGapStats's doc comment
+    // for the general per-event-vs-now rule this follows.
     val silentDays = daysBetween(anchor, now)
     return CheckInDecision(due = silentDays >= effectiveDays, silentDays = silentDays)
 }

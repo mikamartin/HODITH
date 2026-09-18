@@ -70,6 +70,7 @@ class BigPictureViewModelTest {
             endedAt = event.endedAt,
             intensity = event.intensity,
             note = event.note,
+            utcOffsetMinutes = event.utcOffsetMinutes,
         )
 
     @Test

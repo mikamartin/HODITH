@@ -148,11 +148,11 @@ Eight items remain now that T1 has shipped the extensible scaffold (gap shift an
 
 *Branch: `feat/insights-trends-tag-timing` · Complexity: M · Priority: Low · Area: Insights*
 
-🎨 **Design decision (this detector only)** — blocked on `fix/event-timezone-offset` landing first, since any same-day/time-of-day detector needs it. Tests whether a tag clusters in a weekday/time-of-day bucket beyond the Case's own base rate, comparing `computeRhythmStats`-shaped per-tag counts against the Case's overall rhythm.
+🎨 **Design decision (this detector only)** — `fix/event-timezone-offset` has landed (events now carry their own captured UTC offset, so `computeRhythmStats`-shaped per-tag bucketing resolves per event rather than the device's current zone), clearing this item's prerequisite. Tests whether a tag clusters in a weekday/time-of-day bucket beyond the Case's own base rate, comparing `computeRhythmStats`-shaped per-tag counts against the Case's overall rhythm.
 
 **Acceptance criteria**
 
-- [ ] Explicit gate: this item does not start implementation until `fix/event-timezone-offset` has landed.
+- [x] Explicit gate: this item does not start implementation until `fix/event-timezone-offset` has landed. — landed; this item is unblocked, feasibility ruling still open.
 - [ ] Feasibility ruling stated before any code, once unblocked.
 - [ ] If kept: per-tag rhythm comparison against the Case's own base rate, significance via whichever helper T4/T5 established.
 - [ ] Voice ×3 for the new sentence template.
@@ -163,11 +163,11 @@ Eight items remain now that T1 has shipped the extensible scaffold (gap shift an
 
 *Branch: `feat/insights-trends-cycles-seasonality` · Complexity: L · Priority: Low · Area: Insights*
 
-🎨 **Design decision (this detector only)** · 🔍 **Investigation** — autocorrelation on daily counts for weekly/monthly/~28-day cycles; month-of-year comparison once a Case has 1+ years of data; an explicit weekday-vs-weekend sentence as a simpler fallback when full seasonality doesn't clear its bar. Also blocked on `fix/event-timezone-offset`, for the same day-bucketing reason as T7. Sequenced last: needs the most data of any detector here and is the heaviest single computation.
+🎨 **Design decision (this detector only)** · 🔍 **Investigation** — autocorrelation on daily counts for weekly/monthly/~28-day cycles; month-of-year comparison once a Case has 1+ years of data; an explicit weekday-vs-weekend sentence as a simpler fallback when full seasonality doesn't clear its bar. `fix/event-timezone-offset` has landed, clearing this item's prerequisite for the same day-bucketing reason as T7. Sequenced last: needs the most data of any detector here and is the heaviest single computation.
 
 **Acceptance criteria**
 
-- [ ] Explicit gate: this item does not start implementation until `fix/event-timezone-offset` has landed.
+- [x] Explicit gate: this item does not start implementation until `fix/event-timezone-offset` has landed. — landed; this item is unblocked, autocorrelation method still open.
 - [ ] Autocorrelation method + lag set chosen and documented, once unblocked.
 - [ ] If kept: weekly/~28-day cycle detection gated by a minimum span; month-of-year comparison only offered once ≥1 year of data exists; weekday-vs-weekend sentence as a fallback finding.
 - [ ] Voice ×3 for the new sentence template(s).
@@ -245,7 +245,7 @@ Architectural framework (applies to all six, and is the reusable piece other det
 Two prerequisites carried in from the raw idea list:
 
 - **Tags are global** — "home" is used by Coffee and Workout both, so any tag-aware detector must key on `(caseId, tagName)`, not tag name alone.
-- **No timezone stored** — see the standalone timezone-offset item below; any same-day/lag/time-of-day detector here is blocked on it.
+- **No timezone stored** — resolved by `fix/event-timezone-offset` (events now carry their own captured UTC offset); any same-day/lag/time-of-day detector here can build on it.
 - **Logging lag / batch-logging exclusion** — `loggedAt - occurredAt` marks heavily backfilled events as fuzzy-timed; down-weight them in lag/time-of-day detectors, and exclude event pairs from different Cases logged within ~2 minutes of each other (batch logging creates fake co-occurrence).
 
 **Acceptance criteria**
@@ -260,26 +260,6 @@ Two prerequisites carried in from the raw idea list:
 **Plan** — write the architecture doc first (it's reusable regardless of which detectors are approved), then rule detector-by-detector; a throwaway JVM spike for the circular-shift significance test specifically, since it's the piece most likely to have a subtle bug (whole-week shifts, not arbitrary offsets).
 
 **Tests** — none; detector-level tests land with each spun-out implementation item, following the planted-pattern strategy above.
-
-### No timezone stored — same-day / time-of-day logic breaks for travelers
-
-*Branch: `fix/event-timezone-offset` · Complexity: M · Priority: Medium · Area: Bug*
-
-🎨 **Design decision** — backfill behavior for existing rows needs a ruling before implementation.
-
-`EventEntity.occurredAt`/`endedAt`/`loggedAt` (`EventEntity.kt:25-29`) store epoch millis with no captured UTC offset. The bug is systemic, not one function: every domain calculation that buckets a timestamp into a calendar day or hour takes a `zone: ZoneId = ZoneId.systemDefault()` parameter, resolved at *compute* time — `StatsEngine.kt:39,82,114` (frequency bucketing, the Rhythm heatmap's `timeOfDayFor` caller, tag/date grouping), `InsightsEngine.kt:66` (`computeGapStats`), `CalendarMath.daysBetween` (`CalendarMath.kt:22`), and `CalendarGrid.kt:36,52` (the shared week/month-grid helper `weeksInGrid` and friends build on, which is also what Big Picture's day-cell placement goes through). `VerdictEngine.kt:57` hardcodes the same call (`val zone = ZoneId.systemDefault()`) rather than taking it as a parameter. `ZoneId.systemDefault()` is the *device's current* timezone at the moment Insights/Verdict/Big Picture are computed, not the timezone the event actually happened in — so a user who travels gets every past event's day/hour reinterpreted in their new location the next time anything reads it. Real correctness bug today, independent of any new analytics work, and a hard prerequisite for the Big Picture cross-case item's same-day/lag detectors.
-
-**Acceptance criteria**
-
-- [ ] A new `EventEntity` column (e.g. `utcOffsetMinutes`) capturing the device's UTC offset at insert time.
-- [ ] A ruling on backfill: existing rows have no captured offset — assume the device's current offset (simplest, wrong for past travel) vs. leave pre-migration rows on the old read-time-timezone behavior. State the tradeoff, pick one.
-- [ ] Room migration + `BACKUP_SCHEMA_VERSION` bump + import validation (three changes, not one, per HODITH_SPEC §17's own note on schema changes).
-- [ ] Every `zone: ZoneId = ZoneId.systemDefault()` call site listed above (`StatsEngine.kt`, `InsightsEngine.kt`, `CalendarMath.kt`, `CalendarGrid.kt`) threaded to read the stored per-event offset instead of the default parameter; `VerdictEngine.kt:57`'s hardcoded call converted to take the same parameter.
-- [ ] Tests reproducing a cross-midnight or cross-timezone scenario via a non-default-offset event/`FakeClock` combination.
-
-**Plan** — add the column and migration first (smallest independent piece), then replace each `zone: ZoneId = ZoneId.systemDefault()` default parameter's *source* with the relevant event's stored offset at the call sites listed above, rather than changing each function's signature (they already correctly take `zone` as a parameter — the caller is what's wrong).
-
-**Tests** — `EventEntity`/Room migration round-trip; `StatsEngineTest`/`InsightsEngineTest`/`CalendarMathTest`/`CalendarGridTest`/`VerdictEngineTest` cases with an event logged at a non-UTC offset crossing a day boundary that only shows up wrong under device-current-timezone logic.
 
 ### Notes mining for tag/Case suggestions
 

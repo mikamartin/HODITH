@@ -45,7 +45,17 @@ private fun testEvent(
     id: Long = 1L,
     caseId: Long = 1L,
     note: String? = null,
-) = EventEntity(id = id, caseId = caseId, occurredAt = 0L, endedAt = null, intensity = null, note = note, loggedAt = 0L)
+    utcOffsetMinutes: Int = 0,
+) = EventEntity(
+    id = id,
+    caseId = caseId,
+    occurredAt = 0L,
+    endedAt = null,
+    intensity = null,
+    note = note,
+    loggedAt = 0L,
+    utcOffsetMinutes = utcOffsetMinutes,
+)
 
 private fun testHunch(
     id: Long = 1L,
@@ -160,6 +170,18 @@ class BackupValidationResultTest {
     @Test
     fun `an event with a dangling caseId is rejected`() {
         val backup = validBackup().copy(events = listOf(testEvent(caseId = 999L)))
+        assertTrue(!validateBackup(backup).isValid)
+    }
+
+    @Test
+    fun `an event with a utcOffsetMinutes within real-world bounds is accepted`() {
+        val backup = validBackup().copy(events = listOf(testEvent(utcOffsetMinutes = -420)))
+        assertTrue(validateBackup(backup).isValid)
+    }
+
+    @Test
+    fun `an event with a utcOffsetMinutes outside real-world bounds is rejected`() {
+        val backup = validBackup().copy(events = listOf(testEvent(utcOffsetMinutes = 900)))
         assertTrue(!validateBackup(backup).isValid)
     }
 

@@ -17,6 +17,46 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/event-timezone-offset
+
+**Scope:** PROGRESS.md's "No timezone stored — same-day / time-of-day logic breaks for travelers" — every domain calculation bucketing a timestamp into a calendar day/hour resolved via the device's *current* zone at compute time, not the zone the event actually happened in, so a traveler got every past event's day/hour silently reinterpreted.
+
+**Changes:**
+
+- `EventEntity.kt`: new `utcOffsetMinutes: Int` column (`@ColumnInfo(defaultValue = "0")` paired with a matching Kotlin default, the same pattern `HunchEntity`'s additive columns use); `loggedZone()`/`zoneOffsetFromMinutes()`/`offsetMinutesAt()` helpers.
+- `HodithDatabase.kt`: plain `AutoMigration(10, 11)` — no hand-written `Migration`; no production installs exist yet, so a static `0` default needs no runtime backfill.
+- `StatsEngine.kt`/`InsightsEngine.kt`/`VerdictEngine.kt`: per-event bucketing (`computeFrequencyStats`, `computeRhythmStats`, `computeGapStats`'s event-to-event gaps, `distinctActiveDays`) resolves via each event's own `loggedZone()` instead of a shared device-current zone; anything compared against "now" (which has no captured offset) is unchanged. `computeRhythmStats` dropped its `zone` parameter entirely — every date in it is per-event with no "now" reference, so the parameter was dead weight once the fix landed.
+- `CalendarGrid.kt`: `datesCovered`/`spansMultipleDays` gained an optional `endZone: ZoneId = zone` parameter (default preserves every existing caller's behavior) so a still-running event's open end can resolve via the live current zone rather than the event's own stale captured offset — `VerdictEngine.distinctActiveDays` and `InsightsTabState.insightsTabState` now special-case an ongoing event exactly like `BigPictureGrid`'s private `coveredDates` already did, closing an inconsistency between the two that a second review pass caught (see below).
+- `CheckIn.kt`/`TriggerEngine.kt`: no functional change — both are always anchor-vs-`now`, which is already correct under the rule above; added a comment so a future reader doesn't assume this was missed.
+- `BigPictureGrid.kt`: `EventDetailRow`/`DayDetailDialog`/`WeekDetailDialog`/`coveredDates` all resolve per-event now, so the composable's own `zoneId` parameter became entirely unused — removed rather than left dead.
+- `LogDetailViewModel.kt`/`DemoDataSeeder.kt`: capture the offset at construction (`toEventEntity` at the chosen `occurredAt`, not save-time `now`, so a retro-logged entry gets its own historical offset).
+- `BigPictureViewModel.kt`/`CaseEventDetail.kt`/`EventDao.kt`: threaded the column through Big Picture's flat `CaseEventDetail`/`CalendarEvent` projections, which don't get new `EventEntity` columns automatically (raw `@Query` projections, not `@Embedded`).
+- `BackupValidationResult.kt`: range check on `utcOffsetMinutes` (`-720..840`, real-world UTC offset bounds).
+
+**Deviations from the item's originally-written acceptance criteria (discussed and agreed with the user, not a unilateral call):**
+
+- The item posed backfill as a choice between "assume the device's current offset" or "leave pre-migration rows on old behavior." Neither was used: since no production installs exist, a plain `AutoMigration` (static `0` default) was simpler than either, and the one real test dataset's rows were hand-corrected via an export → manual per-event offset fix (`America/Vancouver`, `-420` for every event in that file, verified against real PDT/PST rules) → reimport round-trip, outside the app entirely.
+- `BACKUP_SCHEMA_VERSION` was **not** bumped, contrary to the item's "three changes, not one" framing. `EventEntity.utcOffsetMinutes`'s Kotlin default already makes an old export missing the field parse successfully via Moshi's codegen (`moshi-kotlin-codegen` respects constructor defaults for absent JSON keys), so nothing became unreadable — bumping would have contradicted `BackupData.kt`'s own documented policy ("bumped only if a future change makes an older export unreadable"). No new `BackupSerializerTest`/upgrade-step coverage was added as a result — there's no new upgrade path to test.
+
+**Checklist walk (against the working-tree diff):**
+
+- *Duplication* — `EventEntity.loggedZone()`/`CalendarEvent.loggedZone()` both converted minutes to a `ZoneOffset` independently at first; consolidated into one shared `zoneOffsetFromMinutes()`. The inline `durationMode == START_STOP && endedAt == null` "is this event ongoing" check appears in three of this diff's files (`VerdictEngine.kt`, `InsightsTab.kt`) — checked against the rest of the codebase before treating it as a new violation: `CaseDetailScreen.kt` and `InsightsTab.kt` already had this exact inline pattern before this branch, so it's an established convention for a single-event check (the `ongoingEventsIn`/`ongoingEventIn` helpers exist for filtering a list, which `InsightsTabState.kt` correctly uses instead). Not a new duplication to fix.
+- *Decoupling* — no `android.*` import added to any `domain/` file; `VerdictEngine.kt`'s ongoing-event check is inlined rather than importing the `viewmodel`-layer `ongoingEventsIn` helper, keeping domain → viewmodel dependency direction intact.
+- *Complexity & pattern health* — `zoneOffsetFromMinutes`/`endZoneFor` (local function in `InsightsTabState.kt`) both have 2+ call sites, earning their extraction.
+- *Dead code & hygiene* — real finding: `ktlintFormat` (run to fix import-ordering/line-length violations from the rename pass) silently rewrote three files — `CaseDetailScreen.kt`, `InsightsTab.kt`, `InsightsTabState.kt` — with LF-only line endings against the repo's CRLF convention (`file` confirmed; every other touched file still had CRLF). Restored via a targeted PowerShell LF→CRLF pass on just those three files, verified the diff's line counts didn't change and the build stayed green. `git status` otherwise clean aside from the pre-existing untracked `merged_branches.txt` (not part of this work, left alone) and the new `app/schemas/.../11.json` (expected migration artifact).
+- *Naming* — `EventEntity.zone()`/`CalendarEvent.zone()` renamed to `loggedZone()` on request: `zone: ZoneId` (device-current) and a `.zone()` extension returning the event's *captured* offset read as the same concept under grep even though they mean opposite things; `loggedZone()` disambiguates.
+- *Hardcoded values* — `VALID_UTC_OFFSET_MINUTES_RANGE` is a named constant, not an inline range.
+- *Spec review* — `HODITH_SPEC.md` §5 (storage line), the Event field table (new `utcOffsetMinutes` row), and §9 (active-span zone rule) all still described the pre-fix "displayed in device timezone" behavior — updated to state the actual per-event-offset rule and the still-running-event exception. `TESTING.md`'s Stats & visual data prep, Export/import, and Room migrations rows updated with the new coverage.
+- *Tests* — a second review pass (prompted by the user asking about simplifications and stability concerns) found a real inconsistency this branch had initially left in place: `BigPictureGrid`'s private `coveredDates` already special-cased a still-running event's open end to resolve via the live current zone, but `VerdictEngine.distinctActiveDays`/`InsightsTabState.insightsTabState` didn't, so a currently-open event could silently misplace "today" by a day if the device's zone had changed since the event started. Fixed (see Changes) and covered with regression tests in `VerdictEngineTest`/`InsightsTabStateTest`/`CalendarGridTest`, each verified to actually fail without the fix (temporarily reverted, confirmed the failure, restored). The first draft of the `InsightsTabStateTest` case had a math error — the chosen offset skew shifted the event's *start* date too, not just "now" as intended — caught by the test failing for the wrong reason, not by rechecking the arithmetic up front.
+
+**Deferred:** nothing — the one open item (new instrumented coverage hadn't run on a device yet) was resolved by running it once an emulator became available, not deferred.
+
+**Docs updated:** `HODITH_SPEC.md` §5, Event table, §9. `TESTING.md` — Stats & visual data prep, Export/import, Room migrations rows. `PROGRESS.md` — item struck; T7/T8's explicit gate checkboxes ticked with a note that their own feasibility/method rulings are still open; the Big Picture cross-case item's "no timezone stored" prerequisite bullet updated from blocked to resolved.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (727 unit tests). `connectedDebugAndroidTest` scoped to `DatabaseFreshInstallTest` (6/6, including the new v10→v11 migration case) and `BigPictureQueriesTest` (4/4) on `Pixel_8_API36(AVD)`.
+
+---
+
 ## feat/insights-trends-went-quiet
 
 **Scope:** PROGRESS.md's "Case quiet vs. abandoned" item — resolved its open 🎨 design decision with the user (surfacing mechanism, threshold logic, relationship to check-ins/`SILENT_FOR` triggers) and implemented it in the same branch as a new Trends finding, rather than leaving the design ruling as a separate pass ahead of a later implementation item.
@@ -150,32 +190,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `HODITH_SPEC.md` — Home row, Case Detail row, New/edit Case cap. `TESTING.md` — ViewModels row (`HomeCaseRow.description` clause) and Compose UI row (Home/Case Detail description rendering clause).
 
 **Verified:** `ktlintCheck → lintDebug → test → compileDebugAndroidTestKotlin → assembleDebug` sequential, all green after every round, confirmed again on the final implementation. Manually checked live in the app by the user (Plain, per the specific concerns raised) — approved. `connectedDebugAndroidTest` run scoped to `HomeScreenTest`/`CaseDetailScreenTest` on `Pixel_8_API36(AVD)` — 50/50 green, including all four new description cases (`caseRow_showsDescription_whenSet`, `caseRow_showsNoDescriptionText_whenUnset`, `description_showsText_whenCaseHasOne`, `description_showsNothing_whenCaseHasNone`).
-
----
-
-## fix/settings-switch-row-label-wrap
-
-**Scope:** PROGRESS.md's "Settings switch rows crowd the label against the switch at large system font sizes" — the shared `RowWithInfo` composable laid out its label and trailing control in a `Row(Arrangement.SpaceBetween)` with no weight on either side, so a long label at large system font scale grew into the trailing `Switch` instead of wrapping.
-
-**Changes:**
-
-- `SectionWithInfo.kt`: `LabelWithInfo` gained a `modifier: Modifier = Modifier` parameter, applied to its own `Row`; `RowWithInfo` passes `Modifier.weight(1f, fill = false)` at that call site so the label's `Row` is capped to the space `SpaceBetween` would otherwise let it consume, letting `Text`'s existing default wrapping kick in. `SectionWithInfo`'s own call to `LabelWithInfo` (no trailing content to balance against) is left on the default `Modifier`.
-- `SettingsScreenTest.kt`: `setContent` gained a `fontScale` parameter (default `1f`), applied via `CompositionLocalProvider(LocalDensity provides Density(...))`; new test `cloudBackupRow_atLargeFontScale_labelDoesNotOverlapSwitch` asserts the label and switch bounds don't overlap at `LARGE_FONT_SCALE` (2x, Android's largest standard accessibility step), reusing the existing `overlapsRect` test helper (`ui/common/RectOverlap.kt`) already used by `TriggersScreenTest`/`HomeScreenTest`/`CaseDetailScreenTest` for the same class of check.
-
-**Checklist walk (against the working-tree `git diff`):**
-
-- *Duplication, Decoupling* — no findings; no Voice strings, ViewModel, or domain code touched. This is a shared-component fix (`RowWithInfo` has exactly two call sites app-wide — the reported cloud-backup toggle in `SettingsScreen.kt` and the check-in toggle in `CaseEditScreen.kt` — both fixed by the one change).
-- *Complexity & pattern health* — no new state, no new composables; `LabelWithInfo`'s existing `remember { mutableStateOf(false) }` untouched.
-- *Dead code & hygiene* — a first attempt imported `androidx.compose.foundation.layout.weight` explicitly, which shadowed `RowScope.weight`'s member-function resolution with an internal `RowColumnParentData` property of the same name and failed to compile (`compileDebugKotlin`, not caught by `ktlintCheck`); removed the import once traced — `RowScope.weight()` needs no import at all, being a member of the implicit `RowScope` receiver. Caught two more findings on the walkthrough itself, both fixed with sign-off: the new test's `fontScale = 2f` was a bare magic literal with no prior pattern in the codebase to point to (extracted `LARGE_FONT_SCALE` with an explanatory comment, mirroring the file's existing `TEST_NOW_MILLIS` precedent); and TESTING.md's Compose UI coverage row didn't mention the new font-scale check (added a clause to the existing Data-actions coverage description).
-- *Repo hygiene* — no secrets, no stray files; `git status` clean throughout.
-- *Naming, hardcoded values, accessibility, deprecated APIs* — no findings.
-- *Spec review* — not spec-level behavior (`RowWithInfo`'s exact wrap point isn't documented in HODITH_SPEC.md); nothing to update.
-- *Tests* — regression test added for the exact reported bug; ran on-device both before and after the `LARGE_FONT_SCALE` extraction.
-
-**Deferred:** nothing.
-
-**Docs updated:** `TESTING.md` — Compose UI coverage row's Data-actions clause now names the font-scale label/switch overlap check. `PROGRESS.md` — item struck.
-
-**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (`test`'s one failure, `HomeViewModelTest`'s `onQuickLogTap on an ongoing START_STOP case starts a second concurrent event`, reproduced identically on a clean `main` with this branch's changes stashed — confirmed pre-existing and unrelated, not a regression from this diff). `connectedDebugAndroidTest` scoped to `SettingsScreenTest` — 28/28 green on `Pixel_8_API36(AVD)`, run twice (before and after the hygiene fixes above), including the new test both times.
-
-**Post-push follow-up:** CI's `ui` instrumented shard failed the new `cloudBackupRow_atLargeFontScale_labelDoesNotOverlapSwitch` test with `assertIsDisplayed()` reporting the switch not displayed — not one of `FLAKY_TESTS.md`'s known nondeterministic patterns, but a genuine test bug: CI runs on the `pixel_6` emulator profile (`instrumented-tests.yml`), a smaller screen than the local `Pixel_8_API36` this branch was verified against, so at `LARGE_FONT_SCALE` the cloud-backup row falls below the fold before the assertion runs. Fixed by calling `performScrollTo()` on the switch node first, matching this same file's existing below-the-fold pattern (`loadDemoData_tapInvokesCallback`'s comment on the Developer Mode plank). Re-verified locally (28/28 on `Pixel_8_API36(AVD)`); CI re-run pending.

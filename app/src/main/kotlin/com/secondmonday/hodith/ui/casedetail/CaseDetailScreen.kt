@@ -61,6 +61,7 @@ import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -713,7 +714,7 @@ private fun EventRowContent(
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour),
+                text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour, zone = event.loggedZone()),
                 style = MaterialTheme.typography.bodyLarge,
             )
             // A running event carries its own live elapsed time and Stop, so each of a Case's

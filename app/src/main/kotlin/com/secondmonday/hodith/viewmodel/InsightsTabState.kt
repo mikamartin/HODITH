@@ -3,6 +3,7 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.GapStats
@@ -182,18 +183,27 @@ internal fun insightsTabState(
 
     fun spanEnd(event: EventEntity) = activeSpanEnd(event, case.durationMode, now)
 
+    // A still-running event's open end is "now," not a captured instant, so it resolves via the
+    // live current zone rather than the event's own (possibly stale, pre-travel) offset — matching
+    // BigPictureGrid's private coveredDates, which makes the same call for the same reason. Every
+    // other event's span resolves in its own captured offset, so it places on the calendar day it
+    // actually happened, not wherever the device currently is.
+    val ongoingEvents = ongoingEventsIn(case, events).toSet()
+
+    fun endZoneFor(event: EventEntity) = if (event in ongoingEvents) zone else event.loggedZone()
+
     val countsByDay =
         events
-            .flatMap { event -> datesCovered(event.occurredAt, spanEnd(event), zone) }
+            .flatMap { event -> datesCovered(event.occurredAt, spanEnd(event), event.loggedZone(), endZoneFor(event)) }
             .groupingBy { it }
             .eachCount()
     val maxDailyCount = countsByDay.values.maxOrNull() ?: 0
-    val gapStats = computeGapStats(events, now, zone, eventActiveNow = ongoingEventIn(case, events) != null)
+    val gapStats = computeGapStats(events, now, zone, eventActiveNow = ongoingEvents.isNotEmpty())
 
     // Any event whose active span crosses a calendar-day boundary makes "how often" ambiguous:
     // frequency-over-time is hidden and the rhythm grid is relabelled to "Start times" (spec §9).
     // A same-day duration event doesn't trip this.
-    val hasMultiDayEvent = events.any { spansMultipleDays(it.occurredAt, spanEnd(it), zone) }
+    val hasMultiDayEvent = events.any { spansMultipleDays(it.occurredAt, spanEnd(it), it.loggedZone(), endZoneFor(it)) }
 
     return InsightsTabState.Ready(
         heatmapMonths = heatmapMonths(case, countsByDay, maxDailyCount, now, zone),
@@ -253,7 +263,7 @@ private fun statsSections(
             )
         }
 
-    val rhythmStats = computeRhythmStats(events, zone)
+    val rhythmStats = computeRhythmStats(events)
     val rhythm =
         RhythmDisplay(
             cells =

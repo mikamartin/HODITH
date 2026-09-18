@@ -7,6 +7,9 @@ import com.secondmonday.hodith.ui.casedetail.EXPECTED_COUNT_RANGE
 import com.secondmonday.hodith.ui.logsheet.TAG_NAME_MAX_LENGTH
 import com.secondmonday.hodith.ui.triggers.THRESHOLD_RANGE
 
+/** Real-world UTC offsets run from UTC-12:00 to UTC+14:00 — a little headroom past the extremes. */
+internal val VALID_UTC_OFFSET_MINUTES_RANGE = -720..840
+
 /**
  * Pure, so it's unit-testable on the JVM without a repository or Hilt — same pattern as
  * [CaseEditValidation]. Uses the same length/range constants the in-app editors enforce while
@@ -60,6 +63,9 @@ fun validateBackup(backup: BackupData): BackupValidationResult {
         val note = event.note
         if (note != null && note.length > EVENT_NOTE_MAX_LENGTH) {
             violations += "Event ${event.id}: note exceeds $EVENT_NOTE_MAX_LENGTH chars"
+        }
+        if (event.utcOffsetMinutes !in VALID_UTC_OFFSET_MINUTES_RANGE) {
+            violations += "Event ${event.id}: utcOffsetMinutes out of range"
         }
     }
 

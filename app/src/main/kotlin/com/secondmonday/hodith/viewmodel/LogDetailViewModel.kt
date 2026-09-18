@@ -3,6 +3,7 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
@@ -153,6 +154,9 @@ internal fun LogDraft.toEventEntity(
         intensity = intensity,
         note = note.trim().take(EVENT_NOTE_MAX_LENGTH).takeIf { it.isNotEmpty() },
         loggedAt = loggedAt,
+        // Captured at the chosen occurredAt, not save-time now, so a retro-logged entry gets the
+        // DST-correct historical offset for its actual date rather than today's.
+        utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(clampedOccurredAt),
     )
 }
 

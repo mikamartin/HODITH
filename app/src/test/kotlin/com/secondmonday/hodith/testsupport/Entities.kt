@@ -5,6 +5,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.offsetMinutesAt
 
 /**
  * Full-literal builders for the two entities every JVM test needs. Namespaced in an object so a
@@ -47,6 +48,10 @@ object Fixtures {
     /**
      * A neutral [EventEntity] — a point event (`endedAt == null`) at [occurredAt], no
      * intensity/note, logged when it occurred. [loggedAt] defaults to [occurredAt].
+     * [utcOffsetMinutes] defaults to [TEST_ZONE]'s own offset at [occurredAt] — the same zone
+     * every domain function's `zone` parameter falls back to — so a test that doesn't care about
+     * offsets keeps behaving exactly as it did before per-event bucketing existed; a test that
+     * does care overrides it with `.copy(utcOffsetMinutes = ...)`.
      */
     fun event(
         id: Long = 0L,
@@ -56,6 +61,7 @@ object Fixtures {
         intensity: Int? = null,
         note: String? = null,
         loggedAt: Long = occurredAt,
+        utcOffsetMinutes: Int = TEST_ZONE.offsetMinutesAt(occurredAt),
     ) = EventEntity(
         id = id,
         caseId = caseId,
@@ -64,6 +70,7 @@ object Fixtures {
         intensity = intensity,
         note = note,
         loggedAt = loggedAt,
+        utcOffsetMinutes = utcOffsetMinutes,
     )
 }
 

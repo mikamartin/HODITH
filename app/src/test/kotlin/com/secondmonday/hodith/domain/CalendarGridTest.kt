@@ -113,6 +113,19 @@ class CalendarGridTest {
     }
 
     @Test
+    fun `datesCovered resolves the end in a separately supplied endZone, not the start zone`() {
+        // A still-open span: the start resolves in the event's own captured offset (UTC here),
+        // the open end resolves in a live current zone 10 hours west of it — enough to roll the
+        // end's calendar date back a day if endZone were ignored in favor of the start zone.
+        val start = utcMillis(LocalDate.of(2026, 2, 1), 22)
+        val end = utcMillis(LocalDate.of(2026, 2, 2), 2)
+
+        val covered = datesCovered(start, end, ZoneOffset.UTC, endZone = ZoneOffset.ofHours(-10))
+
+        assertEquals(listOf(LocalDate.of(2026, 2, 1)), covered)
+    }
+
+    @Test
     fun `datesCovered resolves each end in the supplied zone`() {
         val newYork = ZoneId.of("America/New_York")
         // 02:00 UTC on Feb 2 is 21:00 EST on Feb 1.
@@ -174,6 +187,14 @@ class CalendarGridTest {
                 ZoneOffset.UTC,
             ),
         )
+    }
+
+    @Test
+    fun `spansMultipleDays resolves the end in a separately supplied endZone, not the start zone`() {
+        val start = utcMillis(LocalDate.of(2026, 2, 1), 22)
+        val end = utcMillis(LocalDate.of(2026, 2, 2), 2)
+
+        assertEquals(false, spansMultipleDays(start, end, ZoneOffset.UTC, endZone = ZoneOffset.ofHours(-10)))
     }
 
     @Test

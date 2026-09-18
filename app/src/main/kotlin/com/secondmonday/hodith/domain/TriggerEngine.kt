@@ -50,6 +50,9 @@ fun evaluateSilentFor(
     caseCreatedAt: Long,
     now: Long,
 ): TriggerDecision {
+    // anchor-vs-now: "now" has no captured offset by definition, so daysBetween's default
+    // device-current-zone resolution is already correct here — see computeGapStats's doc comment
+    // for the general per-event-vs-now rule this follows.
     val silentDays = daysBetween(mostRecentEventAt ?: caseCreatedAt, now)
     return evaluateTrigger(trigger, conditionMet = silentDays >= trigger.threshold, now = now)
 }

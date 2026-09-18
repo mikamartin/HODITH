@@ -1,9 +1,9 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
@@ -117,7 +117,7 @@ class InsightsTabStateTest {
                 .atStartOfDay(ZONE)
                 .toInstant()
                 .toEpochMilli()
-        val events = listOf(EventEntity(0, 1, createdAt, null, null, null, createdAt), EventEntity(0, 1, now, null, null, null, now))
+        val events = listOf(testEvent(occurredAt = createdAt), testEvent(occurredAt = now))
 
         val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
@@ -142,7 +142,7 @@ class InsightsTabStateTest {
                 .atStartOfDay(ZONE)
                 .toInstant()
                 .toEpochMilli()
-        val events = listOf(eventAtDay(eventDate.toEpochDay()), EventEntity(0, 1, now, null, null, null, now))
+        val events = listOf(eventAtDay(eventDate.toEpochDay()), testEvent(occurredAt = now))
 
         val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
@@ -172,7 +172,7 @@ class InsightsTabStateTest {
                 .atStartOfDay(ZONE)
                 .toInstant()
                 .toEpochMilli()
-        val events = listOf(EventEntity(0, 1, createdAt, null, null, null, createdAt), EventEntity(0, 1, now, null, null, null, now))
+        val events = listOf(testEvent(occurredAt = createdAt), testEvent(occurredAt = now))
 
         val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
@@ -224,6 +224,29 @@ class InsightsTabStateTest {
     }
 
     @Test
+    fun `a still-running event's open end shades through today via the live current zone, not its own stale captured offset`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        // Started at noon on day 3 so a 10h-earlier offset reading still lands on day 3 (2am), not
+        // the day before — isolating the skew's effect to the "now" side, which is what this test
+        // is actually about. The running event's own captured offset is 10 hours further west than
+        // TEST_ZONE (as if logged while traveling) — "today" must still resolve in the live current
+        // zone (insightsTabState's own `zone` default), not this stale offset.
+        val runningStart = millisAt(3, hour = 12)
+        val staleOffset = TEST_ZONE.offsetMinutesAt(runningStart) - 10 * 60
+        val runningEvent = testEvent(occurredAt = runningStart, endedAt = null).copy(utcOffsetMinutes = staleOffset)
+        val events = listOf(finishedPoint(0), runningEvent)
+        val now = millisAt(9, hour = 1) // just after midnight on day 9, in TEST_ZONE
+
+        val state = insightsTabState(case, events.withoutTags(), now = now) as InsightsTabState.Ready
+
+        // Day 9 must still be shaded — the stale -10h offset would otherwise roll "today" back to day 8.
+        assertEquals(
+            (listOf(0L) + (3L..9L)).map { LocalDate.ofEpochDay(it) }.toSet(),
+            state.shadedDates(),
+        )
+    }
+
+    @Test
     fun `streak counts every day a multi-day event covered as one consecutive run`() {
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         // A lone point event (run of 1) plus a 4-day span (days 10..13).
@@ -238,13 +261,10 @@ class InsightsTabStateTest {
     fun `an event that crosses midnight marks both calendar days`() {
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         val crossMidnight =
-            EventEntity(
-                id = 0,
+            testEvent(
                 caseId = 1,
                 occurredAt = millisAtDay(5) + 23 * 3_600_000L,
                 endedAt = millisAtDay(6) + 1 * 3_600_000L,
-                intensity = null,
-                note = null,
                 loggedAt = millisAtDay(5),
             )
         val events = listOf(eventAtDay(0), crossMidnight)

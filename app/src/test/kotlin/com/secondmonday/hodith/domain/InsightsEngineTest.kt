@@ -7,8 +7,10 @@ import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 
 class InsightsEngineTest {
     // ---- computeGapStats ----
@@ -242,16 +244,38 @@ class InsightsEngineTest {
                 .toEpochMilli()
         }
         // Two events a week apart around the 2026-03-08 spring-forward (a 23-hour local day).
+        // The event-to-event gap resolves via the newer event's own captured offset (EventEntity.loggedZone()
+        // is a fixed ZoneOffset, not a DST-aware ZoneId), so each event carries America/New_York's
+        // real historical offset for its own date rather than relying on `newYork`'s own DST rules.
         val events =
             listOf(
-                testEvent(occurredAt = noonMillis(LocalDate.of(2026, 3, 6))),
-                testEvent(occurredAt = noonMillis(LocalDate.of(2026, 3, 13))),
+                testEvent(occurredAt = noonMillis(LocalDate.of(2026, 3, 6))).copy(utcOffsetMinutes = -300), // EST
+                testEvent(occurredAt = noonMillis(LocalDate.of(2026, 3, 13))).copy(utcOffsetMinutes = -240), // EDT
             )
 
         val result = computeGapStats(events, now = noonMillis(LocalDate.of(2026, 3, 13)), zone = newYork)
 
         // Seven calendar days — the missing spring-forward hour must not shave it to 6.
         assertEquals(listOf(7L), result.pastGaps)
+    }
+
+    @Test
+    fun `computeGapStats resolves an event-to-event gap via the newer event's own captured offset`() {
+        // 2026-01-05T23:30Z is Jan 5 under UTC but already Jan 6 under a +9h offset — the newer
+        // event's own offset decides which calendar day it lands on, not the device's current zone.
+        val firstOccurredAt = Instant.parse("2026-01-01T12:00:00Z").toEpochMilli()
+        val secondOccurredAt = Instant.parse("2026-01-05T23:30:00Z").toEpochMilli()
+        val events =
+            listOf(
+                testEvent(occurredAt = firstOccurredAt).copy(utcOffsetMinutes = 0),
+                testEvent(occurredAt = secondOccurredAt).copy(utcOffsetMinutes = 9 * 60),
+            )
+
+        val result = computeGapStats(events, now = Instant.parse("2026-01-10T00:00:00Z").toEpochMilli(), zone = ZoneOffset.UTC)
+
+        // Jan 1 to Jan 6 (the second event's own local date) is 5 days, not the 4 days a UTC reading
+        // of the same instant (Jan 5) would give.
+        assertEquals(listOf(5L), result.pastGaps)
     }
 
     // ---- computeStreakStats ----

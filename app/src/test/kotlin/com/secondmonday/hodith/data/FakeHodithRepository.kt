@@ -155,7 +155,7 @@ class FakeHodithRepository : HodithRepository {
             val activeIds = caseList.filterNot { it.archived }.map { it.id }.toSet()
             eventList
                 .filter { it.caseId in activeIds }
-                .map { CaseEventDetail(it.id, it.caseId, it.occurredAt, it.endedAt, it.intensity, it.note) }
+                .map { CaseEventDetail(it.id, it.caseId, it.occurredAt, it.endedAt, it.intensity, it.note, it.utcOffsetMinutes) }
         }
 
     override fun observeOpenEvents(): Flow<List<EventEntity>> =

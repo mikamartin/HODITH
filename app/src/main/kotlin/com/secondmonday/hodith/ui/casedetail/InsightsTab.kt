@@ -52,6 +52,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.AFTERNOON_START_HOUR
 import com.secondmonday.hodith.domain.EVENING_START_HOUR
@@ -206,8 +207,20 @@ internal fun InsightsTabContent(
             title = formatMediumDate(day),
             events =
                 events
-                    .filter { day in datesCovered(it.event.occurredAt, activeSpanEnd(it.event, case.durationMode, now), zone) }
-                    .sortedBy { it.event.occurredAt },
+                    .filter { ew ->
+                        // A still-running event's open end is "now," not a captured instant, so it
+                        // resolves via the live current zone rather than the event's own (possibly
+                        // stale, pre-travel) offset — matching BigPictureGrid's private coveredDates.
+                        val isOngoing = case.durationMode == DurationMode.START_STOP && ew.event.endedAt == null
+                        val endZone = if (isOngoing) zone else ew.event.loggedZone()
+                        day in
+                            datesCovered(
+                                ew.event.occurredAt,
+                                activeSpanEnd(ew.event, case.durationMode, now),
+                                ew.event.loggedZone(),
+                                endZone,
+                            )
+                    }.sortedBy { it.event.occurredAt },
             now = now,
             durationMode = case.durationMode,
             voice = voice,
@@ -250,7 +263,7 @@ internal fun InsightsTabContent(
             events =
                 events
                     .filter { ew ->
-                        val dateTime = Instant.ofEpochMilli(ew.event.occurredAt).atZone(zone)
+                        val dateTime = Instant.ofEpochMilli(ew.event.occurredAt).atZone(ew.event.loggedZone())
                         dateTime.dayOfWeek == day && timeOfDayFor(dateTime.hour) == timeOfDay
                     }.sortedByDescending { it.event.occurredAt },
             now = now,
@@ -955,7 +968,7 @@ private fun InsightsDrillDownEventRow(
 
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp)) {
         Text(
-            text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour),
+            text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour, zone = event.loggedZone()),
             style = MaterialTheme.typography.bodyLarge,
         )
         if (isOngoing) {
