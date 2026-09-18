@@ -117,4 +117,14 @@ class InsightsTabTrendsCardTest {
 
         assert(opened) { "onOpenTrends was not invoked by the show-more link" }
     }
+
+    @Test
+    fun trendsCard_rendersWentQuietSentence() {
+        val wentQuiet = TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)
+        setContent(trends = listOf(wentQuiet))
+
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsWentQuietSentence(currentGapLabel = "20 days", longestPastGapLabel = "5 days"))
+            .assertExists()
+    }
 }

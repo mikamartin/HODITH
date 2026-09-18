@@ -15,7 +15,58 @@ private fun gapStatsOf(pastGaps: List<Long>) =
         pastGaps = pastGaps,
     )
 
+private fun wentQuietGapStatsOf(
+    pastGaps: List<Long>,
+    currentGapDays: Long,
+) = GapStats(
+    currentGapDays = currentGapDays,
+    longestGapDays = maxOf(pastGaps.maxOrNull() ?: 0L, currentGapDays),
+    isCurrentGapLongest = currentGapDays >= (pastGaps.maxOrNull() ?: 0L),
+    averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
+    isBursty = false,
+    pastGaps = pastGaps,
+)
+
 class TrendsEngineTest {
+    // ---- computeTrendFindings: went quiet ----
+
+    @Test
+    fun `computeTrendFindings reports a went-quiet finding when the current gap is a record and the user is active elsewhere`() {
+        val gapStats = wentQuietGapStatsOf(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 20L)
+
+        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, recentlyActiveElsewhere = true)
+
+        assertEquals(1, findings.size)
+        val finding = findings.single()
+        assertEquals(TrendFindingKind.WENT_QUIET, finding.kind)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.HINT, finding.reliability)
+        assertEquals(QUIET_SIGNAL_MIN_SAMPLE_COUNT, finding.sampleCount)
+        assertEquals(5.0, finding.priorValue, 0.0001)
+        assertEquals(20.0, finding.recentValue, 0.0001)
+    }
+
+    @Test
+    fun `computeTrendFindings omits the went-quiet finding when recentlyActiveElsewhere is omitted`() {
+        val gapStats = wentQuietGapStatsOf(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 20L)
+
+        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null)
+
+        assertEquals(emptyList<TrendFinding>(), findings)
+    }
+
+    @Test
+    fun `computeTrendFindings puts the went-quiet finding first when combined with a gap-shift finding`() {
+        // Gap history shaped to trigger both: computeGapShift sees the widening 2,2,2 -> 10,10,10
+        // split, and the current gap (15) beats every past gap, so isCurrentGapLongest is also true.
+        val pastGaps = listOf(2L, 2L, 2L, 10L, 10L, 10L)
+        val gapStats = wentQuietGapStatsOf(pastGaps = pastGaps, currentGapDays = 15L)
+
+        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, recentlyActiveElsewhere = true)
+
+        assertEquals(listOf(TrendFindingKind.WENT_QUIET, TrendFindingKind.GAP_SHIFT), findings.map { it.kind })
+    }
+
     // ---- computeTrendFindings: gap/streak shift ----
 
     @Test
@@ -148,5 +199,16 @@ class TrendsEngineTest {
 
         assertEquals(findings, capTrendFindings(findings))
         assertTrue(capTrendFindings(findings).size < TRENDS_MAX_FINDINGS)
+    }
+
+    @Test
+    fun `capTrendFindings keeps a went-quiet finding when it's first, even over the cap`() {
+        val wentQuiet = syntheticFinding().copy(kind = TrendFindingKind.WENT_QUIET)
+        val findings = listOf(wentQuiet) + List(TRENDS_MAX_FINDINGS) { syntheticFinding() }
+
+        val capped = capTrendFindings(findings)
+
+        assertEquals(TRENDS_MAX_FINDINGS, capped.size)
+        assertEquals(TrendFindingKind.WENT_QUIET, capped.first().kind)
     }
 }

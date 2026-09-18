@@ -480,6 +480,60 @@ class InsightsTabStateTest {
         assertEquals(ShiftDirection.UP, finding?.direction)
     }
 
+    @Test
+    fun `stats trends contains a went-quiet finding when the current gap is a record and the user is active elsewhere`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        // Six steady 4-day gaps (days 0,4,...,24, so no gap/streak shift -- everything's flat),
+        // then a long silence: a current gap of 50 days beats every one of them.
+        val events = (0..6).map { eventAtDay(it * 4L) }
+
+        val state =
+            insightsTabState(
+                case,
+                events.withoutTags(),
+                now = millisAtDay(74),
+                mostRecentActivityAcrossCasesAt = millisAtDay(71),
+            ) as InsightsTabState.Ready
+
+        val finding = state.stats.trends.single { it.kind == TrendFindingKind.WENT_QUIET }
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(4.0, finding.priorValue, 0.0001)
+        assertEquals(50.0, finding.recentValue, 0.0001)
+    }
+
+    @Test
+    fun `stats trends omits the went-quiet finding when the cross-Case activity signal is too old`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val events = (0..6).map { eventAtDay(it * 4L) }
+
+        val state =
+            insightsTabState(
+                case,
+                events.withoutTags(),
+                now = millisAtDay(74),
+                // 14 days before `now` -- past QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS (7).
+                mostRecentActivityAcrossCasesAt = millisAtDay(60),
+            ) as InsightsTabState.Ready
+
+        assertTrue(state.stats.trends.none { it.kind == TrendFindingKind.WENT_QUIET })
+    }
+
+    @Test
+    fun `stats trends omits the went-quiet finding when there is no cross-Case activity signal at all`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val events = (0..6).map { eventAtDay(it * 4L) }
+
+        val state =
+            insightsTabState(
+                case,
+                events.withoutTags(),
+                now = millisAtDay(74),
+                mostRecentActivityAcrossCasesAt = null,
+            ) as InsightsTabState.Ready
+
+        assertTrue(state.stats.trends.none { it.kind == TrendFindingKind.WENT_QUIET })
+    }
+
     // ---- stats.gaps streak fields / stats.trend gating ----
 
     @Test

@@ -7,8 +7,17 @@ package com.secondmonday.hodith.domain
  * decision that this was one finding among the section's others all along, not a distinct feature.
  * Unlike [GAP_SHIFT]/[STREAK_SHIFT], a flat (no real change) frequency comparison produces no
  * finding at all, the same "silent when nothing moved" rule the other two already follow.
+ *
+ * [WENT_QUIET] is the one kind not about a shift between two halves of completed history — it's
+ * whether the Case's current, still-open silence is a record for that Case, while the user is
+ * still active elsewhere (spec's "Case quiet vs. abandoned" resolution: a Trends finding, not a
+ * notification, so it never touches check-ins or [com.secondmonday.hodith.data.TriggerKind]).
+ * `priorValue`/`recentValue` hold the longest-past-gap/current-gap pair (days), the same
+ * days-based convention [GAP_SHIFT] uses, and [TrendFinding.direction] is always [ShiftDirection.UP]
+ * (silence only ever grows until a new event closes it).
  */
 enum class TrendFindingKind {
+    WENT_QUIET,
     GAP_SHIFT,
     STREAK_SHIFT,
     FREQUENCY_SHIFT,

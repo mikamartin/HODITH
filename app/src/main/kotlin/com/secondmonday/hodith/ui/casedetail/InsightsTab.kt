@@ -701,6 +701,10 @@ private fun TrendFindingContent(
     val sentence: String
     val evidenceLabel: String
     when (finding.kind) {
+        TrendFindingKind.WENT_QUIET -> {
+            sentence = voice.insightsWentQuietSentence(formatDays(finding.recentValue), formatDays(finding.priorValue))
+            evidenceLabel = voice.insightsWentQuietEvidenceLabel(finding.sampleCount)
+        }
         TrendFindingKind.GAP_SHIFT -> {
             sentence = voice.insightsGapShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
             evidenceLabel = voice.insightsGapShiftEvidenceLabel(finding.sampleCount)

@@ -47,6 +47,13 @@ data class ShiftResult(
     val sampleCount: Int,
 )
 
+/** [computeQuietSignal]: the Case's still-open current gap, next to the longest past gap it beat, plus [sampleCount] past gaps behind that record. */
+data class QuietSignalResult(
+    val currentGapDays: Long,
+    val longestPastGapDays: Long,
+    val sampleCount: Int,
+)
+
 /**
  * Spec §10 heatmap shading: a day's event count bucketed relative to the Case's own busiest day,
  * into 20 shaded tiers (plus [EMPTY]) — ordinal order matters, [heatmapLevelFor] indexes into

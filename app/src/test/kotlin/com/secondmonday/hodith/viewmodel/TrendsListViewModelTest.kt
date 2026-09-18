@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.testsupport.durationEvent
 import com.secondmonday.hodith.testsupport.eventAtDay
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testCase
@@ -65,6 +66,29 @@ class TrendsListViewModelTest {
                 assertEquals(ShiftDirection.UP, finding.direction)
                 assertEquals(4.0, finding.priorValue, 0.0001)
                 assertEquals(20.0, finding.recentValue, 0.0001)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `uiState findings include a went-quiet finding sourced from cross-Case activity`() =
+        runTest {
+            val otherCaseId = 2L
+            repository.cases.value =
+                listOf(
+                    testCase(id = caseId, createdAt = millisAtDay(0)),
+                    testCase(id = otherCaseId, name = "Other", createdAt = millisAtDay(0)),
+                )
+            // Six steady 4-day gaps on the Case under test, then a long silence -- a current gap of
+            // 50 days beats every one of them. The other Case's recent event supplies the cross-Case
+            // "still logging elsewhere" signal observeMostRecentLoggedAtAcrossActiveCases reads.
+            repository.events.value =
+                (0..6).map { durationEvent(startDay = it * 4L, endDay = null, caseId = caseId) } +
+                durationEvent(startDay = 71L, endDay = null, caseId = otherCaseId)
+
+            viewModel(FakeClock(millisAtDay(74))).uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertTrue(state.findings.any { it.kind == TrendFindingKind.WENT_QUIET })
                 cancelAndIgnoreRemainingEvents()
             }
         }

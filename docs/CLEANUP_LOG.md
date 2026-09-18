@@ -17,6 +17,42 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/insights-trends-went-quiet
+
+**Scope:** PROGRESS.md's "Case quiet vs. abandoned" item — resolved its open 🎨 design decision with the user (surfacing mechanism, threshold logic, relationship to check-ins/`SILENT_FOR` triggers) and implemented it in the same branch as a new Trends finding, rather than leaving the design ruling as a separate pass ahead of a later implementation item.
+
+**Changes:**
+
+- `domain/Insights.kt`/`InsightsEngine.kt`: new `QuietSignalResult`, `QUIET_SIGNAL_MIN_SAMPLE_COUNT`/`QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS`, `computeQuietSignal`. Reuses the already-computed `GapStats.isCurrentGapLongest` rather than building a new percentile helper — numerically identical to the item's originally-specified 99th-percentile threshold at realistic Case sizes (they only diverge past ~100 historical gaps), so the simpler existing field was reused instead.
+- `domain/Trends.kt`/`TrendsEngine.kt`: new `TrendFindingKind.WENT_QUIET`, prepended first in `computeTrendFindings`'s output when it fires (ahead of gap/streak/frequency shift), gated by a new `recentlyActiveElsewhere: Boolean = false` parameter — defaults preserve every existing 3-arg call site.
+- `data/EventDao.kt`/`HodithRepository.kt`/`RoomHodithRepository.kt` (+ `FakeHodithRepository`): new `observeMostRecentLoggedAtAcrossActiveCases()`, a lean `MAX(loggedAt)` scalar query across active Cases — the cross-Case "still logging elsewhere" signal the finding's second condition needs. No schema change.
+- `viewmodel/InsightsTabState.kt`/`CaseDetailViewModel.kt`/`CaseDetailScreen.kt`/`TrendsListViewModel.kt`: threaded the new signal from the repository through to `computeTrendFindings`, converting it to a recency boolean at the `statsSections` boundary rather than passing raw timestamps into the domain layer.
+- `ui/casedetail/InsightsTab.kt`/`ui/voice/Voice.kt`: new `WENT_QUIET` rendering branch and `insightsWentQuietSentence`/`insightsWentQuietEvidenceLabel` Voice keys ×3, framed as an open question ("still happening, or has it wound down?") per spec §4's "ask rather than silently report" rule — never a statement that the user did something wrong.
+- `data/demo/DemoDataSeeder.kt`: doc-comment only. The existing "Nosebleed" `quietSpell` seed already deterministically sets a new longest-gap record (it was built for the Gaps card's own note); confirmed by test that it exercises `WENT_QUIET` for free, no seed-data changes needed.
+
+**Found & fixed:**
+
+- The first implementation pass covered domain/ViewModel/DAO logic thoroughly but shipped no Compose UI test for the new `WENT_QUIET` render branch in `InsightsTab.kt`'s `TrendFindingContent` — caught only when the user asked directly whether UI tests had run. Added `trendsCard_rendersWentQuietSentence` (`InsightsTabTrendsCardTest.kt`, the compact card `CaseDetailScreen` actually renders) and `wentQuietFinding_rendersItsOwnPlank` (`TrendsListScreenTest.kt`, the full-list screen), both asserting the real Voice sentence text renders on screen, not just that the domain layer produces the right `TrendFinding`.
+
+**Checklist walk (against the working-tree diff):**
+
+- *Duplication* — checked against every existing/planned Trends detector and the Gaps card before designing: none of `GAP_SHIFT`/`STREAK_SHIFT`/`FREQUENCY_SHIFT` ever reads the live/current gap (only completed history), and `isCurrentGapLongest` was computed but never rendered anywhere before this — not a restatement of an existing signal. New Voice keys added to all three voices in this same pass. `observeMostRecentLoggedAtAcrossActiveCases` doesn't overlap any existing repository query.
+- *Decoupling* — `computeQuietSignal`/`computeTrendFindings` take plain data (`GapStats`, a `Boolean`), no `Clock`/`System.currentTimeMillis()` call in `domain/`; the one `now`/`zone`-dependent computation (the recency window check) stays in `InsightsTabState.kt`, outside `domain/`. No `android.*` import added to any touched `domain/` file.
+- *Complexity & pattern health* — no new composables; one new `when` branch in the existing `TrendFindingContent` dispatch, matching `GAP_SHIFT`'s shape exactly.
+- *Dead code & hygiene* — found and fixed one issue in this pass: the first draft of `HODITH_SPEC.md`'s new `WENT_QUIET` bullet read as historical narration ("Resolves the former 'Case quiet vs. abandoned' design question…") rather than stating current fact, which the checklist's own "current-state docs" item flags explicitly — reworded to a plain present-tense rule instead. `git status` clean aside from a pre-existing untracked `merged_branches.txt` (not part of this work, left alone).
+- *Naming* — `QUIET_SIGNAL_*` constants and `WENT_QUIET` follow the existing `GAP_SHIFT_MIN_SAMPLE_COUNT`/`TrendFindingKind` conventions; no new files.
+- *Hardcoded values* — both new thresholds are named `domain/` constants, not inline numbers.
+- *Spec review* — `HODITH_SPEC.md` §10 updated (new detector line, plus a note that it always leads the Trends list); confirmed no other section still described the old design-only framing.
+- *Tests* — happy path plus boundary/negative cases at every layer (`InsightsEngineTest`, `TrendsEngineTest`, `InsightsTabStateTest`, `CaseDetailViewModelTest`, `EventDaoTest`, `DemoDataSeederTest`, `InsightsTabTrendsCardTest`, `TrendsListScreenTest`) rather than one representative case per function, per explicit request.
+
+**Deferred:** nothing.
+
+**Docs updated:** `HODITH_SPEC.md` §10 — new `WENT_QUIET` entry in the Trends detectors list, plus the list-ordering note. `PROGRESS.md` — "Case quiet vs. abandoned" removed from Standalone (fully resolved and shipped as a Trends detector, not left as a separate design-only item); Story C's intro reworded to note this third already-shipped finding kind; T3's design-decision note gained a cross-reference to reconcile its "dead zone" wording against `WENT_QUIET`; T9's design-decision note gained an open question about whether `WENT_QUIET` belongs on a share card at all, plus a consideration (raised by the user) that the card may need a generation timestamp given `WENT_QUIET`'s live-state sentence stops being accurate the moment new data arrives, unlike the Insights tab's always-fresh recompute.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (one `ktlintFormat` round-trip: fixed three `Voice.kt` expression-body line-length violations and one `CaseDetailViewModel.kt` chained-call wrap). `connectedDebugAndroidTest` run twice as the emulator became available mid-session: first scoped to `EventDaoTest` (36/36, including the three new `observeMostRecentLoggedAtAcrossActiveCases` cases), then again scoped to `InsightsTabTrendsCardTest`/`TrendsListScreenTest`/`CaseDetailScreenTest` after adding the Compose UI coverage above (46/46, all on `Pixel_8_API36(AVD)`).
+
+---
+
 ## feat/insights-trends-scaffold
 
 **Scope:** A retroactive checklist walk + test-coverage audit against T1's already-merged diff (`bae8aed`, PROGRESS.md Story C T1 — the Trends section scaffold and gap/streak-shift migration), run on request rather than alongside the feature's own authoring.
@@ -143,36 +179,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (`test`'s one failure, `HomeViewModelTest`'s `onQuickLogTap on an ongoing START_STOP case starts a second concurrent event`, reproduced identically on a clean `main` with this branch's changes stashed — confirmed pre-existing and unrelated, not a regression from this diff). `connectedDebugAndroidTest` scoped to `SettingsScreenTest` — 28/28 green on `Pixel_8_API36(AVD)`, run twice (before and after the hygiene fixes above), including the new test both times.
 
 **Post-push follow-up:** CI's `ui` instrumented shard failed the new `cloudBackupRow_atLargeFontScale_labelDoesNotOverlapSwitch` test with `assertIsDisplayed()` reporting the switch not displayed — not one of `FLAKY_TESTS.md`'s known nondeterministic patterns, but a genuine test bug: CI runs on the `pixel_6` emulator profile (`instrumented-tests.yml`), a smaller screen than the local `Pixel_8_API36` this branch was verified against, so at `LARGE_FONT_SCALE` the cloud-backup row falls below the fold before the assertion runs. Fixed by calling `performScrollTo()` on the switch node first, matching this same file's existing below-the-fold pattern (`loadDemoData_tapInvokesCallback`'s comment on the Developer Mode plank). Re-verified locally (28/28 on `Pixel_8_API36(AVD)`); CI re-run pending.
-
----
-
-## feat/resolved-hunch-list-redesign
-
-**Scope:** PROGRESS.md's S10 — plank redesign for the Case Detail Hunch tab's resolved-history list, plus "show more" pagination. Redirected mid-scope after discussion with the user: S10 originally paired pagination with an open "further paging vs. show-all" question and a separate manual "clear all resolved hunches" settings action; landed instead as pagination capped at a 15-item retention ceiling (5 shown + 10 revealed = the entire retained set) that prunes automatically the moment a new Hunch resolves past it, with a footer note on the fully-expanded list stating the cap plainly (so the pruning is transparent, not a silent surprise) and the manual clear-all setting dropped as redundant once the cap exists.
-
-**Changes:**
-
-- `HunchDao.deleteResolvedHunchesBeyondLimit(caseId, keep)` — new `DELETE` query keeping only the `keep` most-recently-resolved rows for a Case (`ORDER BY resolvedAt DESC, id DESC` inside a `NOT IN` subquery), leaving the active (unresolved) Hunch untouched. `HodithRepository.pruneResolvedHunches(caseId)` / `RoomHodithRepository`'s implementation wrap it with the new `HUNCH_HISTORY_RETENTION_LIMIT = 15` constant (`domain/VerdictEngine.kt`, alongside the domain's other named Hunch-tier constants). `CaseDetailViewModel.resolveHunch` calls it right after persisting the resolved verdict snapshot.
-- `CaseDetailScreen.kt`: `HunchHistoryCard`/`HunchHistoryRow` (one shared card, divider-separated rows, unconditionally rendered) replaced with `HunchHistoryList`/`HunchHistoryPlank` — each resolved Hunch is its own plank `Card` (reusing the existing `HunchCard` shell), the restated frequency-claim line dropped (stamp + outcome only), 5 shown by default with a "Show more" `TextButton` revealing the rest via local Compose state, and a footer note once fully expanded.
-- Voice ×3: new `hunchHistoryShowMoreAction`/`hunchHistoryRetentionNote`; removed `hunchHistoryRowText` (was a single shared default implementation on the interface, not per-voice overrides, so its removal was a one-line deletion, not a three-voice hunt).
-- `FakeHodithRepository` gained a matching `pruneResolvedHunches` so `CaseDetailViewModelTest` exercises real prune behavior rather than a stub that silently no-ops.
-
-**Checklist walk (against the working-tree `git diff`):**
-
-- *Duplication* — no inline strings anywhere in the new composables; every one routes through `Voice`. Each plank reuses the existing `HunchCard` shell rather than a new component. `pruneResolvedHunches` doesn't overlap any existing repository method — genuinely new capability, not a case for parameterizing an existing one.
-- *Decoupling* — the "show more" window is plain Compose `remember` state, not threaded through the ViewModel/repository, since the prune already keeps the whole list small (≤15) — no `LIMIT`/`OFFSET`/`hasMore` machinery needed the way the Log tab's unbounded Events list requires. No `System.currentTimeMillis()` (the prune is count-based, not time-based, so it doesn't touch `Clock` at all). No `android.*` import in the `domain/VerdictEngine.kt` constant addition.
-- *Complexity & pattern health* — `shownCount`'s plain `remember(case.id)` matches this same file's existing precedent (`selectedTab`, `showHunchCreationSheet`, `frequencyGranularityOverride` are all plain `remember`, not `rememberSaveable`) rather than introducing a new state-holding convention for this one toggle.
-- *Dead code & hygiene* — removed the now-unused `HorizontalDivider` import; grepped for `hunchHistoryRowText` before deleting it (zero references outside `Voice.kt` itself). Caught one own mistake mid-pass: an unneeded explicit import of `assertDoesNotExist` in the new `CaseDetailScreenTest` cases (it's used unqualified everywhere else in the codebase, as a member function) — only surfaced as a real compile error once `connectedDebugAndroidTest` actually compiled the `androidTest` source set; `lintDebug`'s own `lintAnalyzeDebugAndroidTest` pass had reported success without catching it, worth remembering next time lint-clean is read as compile-clean for that source set.
-- *Repo hygiene* — no secrets, no local paths; `git status` clean throughout (no stray untracked files).
-- *Naming* — new Voice keys join the existing `hunchHistory*` run; `HunchHistoryList`/`HunchHistoryPlank` are descriptive PascalCase replacements for `HunchHistoryCard`/`HunchHistoryRow`.
-- *Hardcoded values* — `HUNCH_HISTORY_RETENTION_LIMIT` (15) is a named domain constant. The "5 shown initially" number stays a private UI-layer constant in `CaseDetailScreen.kt` rather than domain — it's pure presentation windowing, not a product rule, matching the Log tab's own precedent of keeping its pagination-window constants (`LOG_INITIAL_LIMIT`/`LOG_LOAD_MORE_INCREMENT`) outside `domain/`.
-- *Accessibility* — no new icon-only controls; the "Show more" `TextButton` is a standard M3 component at its default touch target.
-- *Deprecated APIs* — none introduced; `lintDebug` clean.
-- *Spec review* — `HODITH_SPEC.md` §7 updated to state the 15-item retention cap in present tense; no stale "further paging vs. show-all" ambiguity left anywhere in the spec or PROGRESS.md.
-- *Tests* — `HunchDaoTest` (2 new cases: keeps exactly the N most-recently-resolved, never touches the active Hunch); `CaseDetailViewModelTest` (1 new case: resolving a Hunch triggers the prune, pinning the ordering the way PROGRESS.md's **D4** already flagged this exact class of side-effect-after-a-repository-call bug matters); `CaseDetailScreenTest` (2 new cases: the show-more reveal count, and the retention note appearing only once fully expanded, not before).
-
-**Deferred:** nothing — every acceptance criterion in the redirected scope was met in this pass, so S10 is removed from PROGRESS.md rather than struck.
-
-**Docs updated:** `PROGRESS.md` — S10 removed (fully resolved; scope redirected mid-item, see Scope above); B2's Voice-key fold-in list gained this branch's `hunchHistoryShowMoreAction`/`hunchHistoryRetentionNote` additions and `hunchHistoryRowText` retirement. `HODITH_SPEC.md` §7 — resolved-hunch history's 15-item retention cap stated. `TESTING.md` — Verdict engine row (prune-on-resolve coverage) and Compose UI row (plank/show-more/retention-note coverage).
-
-**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (one round-trip: a ktlint import-ordering/line-wrap fix, then the `assertDoesNotExist` import fix above, before all four passed clean together). `connectedDebugAndroidTest` scoped to `HunchDaoTest` and `CaseDetailScreenTest` — 44/44 green on `Pixel_8_API36(AVD)`, including every new case.

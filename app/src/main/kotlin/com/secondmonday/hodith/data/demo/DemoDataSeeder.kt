@@ -31,7 +31,9 @@ private const val RECENT_SURGE_PER_DAY = 3
 
 // Comfortably longer than any density's maxGapDays, so the silence this produces is guaranteed
 // to exceed every gap in the Case's own history — the only way to deterministically exercise the
-// Gaps & streaks card's "longest stretch since it started" note instead of the plain one.
+// Gaps & streaks card's "longest stretch since it started" note instead of the plain one. Doubles
+// as the Trends WENT_QUIET finding's demo sample for the same reason: a record-setting current gap
+// is exactly what computeQuietSignal's isCurrentGapLongest condition needs (DemoDataSeederTest.kt).
 private const val QUIET_SPELL_DAYS = 60L
 
 // "Lost my keys"' trending-shift shape (see [trendingOccurrences]): the most recent this many days

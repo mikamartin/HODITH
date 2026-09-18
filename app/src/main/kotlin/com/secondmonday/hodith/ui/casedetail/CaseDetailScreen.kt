@@ -254,12 +254,13 @@ fun CaseDetailScreen(
                         // Derived state — memoize so the many-pass aggregation recomputes only on a
                         // real input change, not on every unrelated recomposition of this screen.
                         val insightsState =
-                            remember(case, uiState.events, now, frequencyGranularityOverride) {
+                            remember(case, uiState.events, now, frequencyGranularityOverride, uiState.mostRecentActivityAcrossCasesAt) {
                                 insightsTabState(
                                     case,
                                     uiState.events,
                                     now,
                                     frequencyGranularityOverride = frequencyGranularityOverride,
+                                    mostRecentActivityAcrossCasesAt = uiState.mostRecentActivityAcrossCasesAt,
                                 )
                             }
                         InsightsTabContent(

@@ -10,24 +10,40 @@ import java.time.LocalDate
 internal const val TRENDS_MAX_FINDINGS = 8
 
 /**
- * Spec §10 Trends section: every eligible finding across all detectors — gap shift, streak shift,
- * and frequency shift (the former standalone Trend arrow, absorbed here rather than kept as its
- * own section) for now (Story C T1). [computeGapShift]/[computeStreakShift]/[trendStats] themselves
- * are unchanged; this only wraps their output into [TrendFinding]s and applies [capTrendFindings].
- * All three are always [TrendReliability.HINT] today — none runs a significance test, just a
- * descriptive dual-threshold check ([GAP_SHIFT_MIN_SAMPLE_COUNT]/[STREAK_SHIFT_MIN_SAMPLE_COUNT]
- * and [SHIFT_MIN_FRACTION]/[SHIFT_MIN_ABSOLUTE_DAYS] for the first two; a flat comparison producing
- * no finding at all for the third) — [TrendReliability.PATTERN] is reserved for a future detector
- * (T4+) that adds a significance test. [trendStats] is the same value the caller separately keeps
- * on `StatsSections.trend` for Share's own mini trend arrow (PROGRESS.md T9 retires that once Share
- * moves to these findings too) — passed in rather than recomputed here.
+ * Spec §10 Trends section: every eligible finding across all detectors — went-quiet, gap shift,
+ * streak shift, and frequency shift (the former standalone Trend arrow, absorbed here rather than
+ * kept as its own section) for now (Story C T1, plus the "Case quiet vs. abandoned" resolution).
+ * [computeQuietSignal]/[computeGapShift]/[computeStreakShift]/[trendStats] themselves are
+ * unchanged; this only wraps their output into [TrendFinding]s and applies [capTrendFindings].
+ * [TrendFindingKind.WENT_QUIET] is prepended first (when it fires) rather than appended, so it
+ * leads the list — the one finding about the Case's live, still-unresolved state, ahead of every
+ * other finding's report on settled history. All four are always [TrendReliability.HINT] today —
+ * none runs a significance test, just a descriptive threshold check
+ * ([QUIET_SIGNAL_MIN_SAMPLE_COUNT]/[GAP_SHIFT_MIN_SAMPLE_COUNT]/[STREAK_SHIFT_MIN_SAMPLE_COUNT] and
+ * [SHIFT_MIN_FRACTION]/[SHIFT_MIN_ABSOLUTE_DAYS] for the shift pair; a flat comparison producing no
+ * finding at all for frequency shift) — [TrendReliability.PATTERN] is reserved for a future
+ * detector (T4+) that adds a significance test. [trendStats] is the same value the caller
+ * separately keeps on `StatsSections.trend` for Share's own mini trend arrow (PROGRESS.md T9
+ * retires that once Share moves to these findings too) — passed in rather than recomputed here.
  */
 internal fun computeTrendFindings(
     gapStats: GapStats,
     activeDates: List<LocalDate>,
     trendStats: TrendStats?,
+    recentlyActiveElsewhere: Boolean = false,
 ): List<TrendFinding> {
     val findings = mutableListOf<TrendFinding>()
+    computeQuietSignal(gapStats, recentlyActiveElsewhere)?.let {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.WENT_QUIET,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.HINT,
+                sampleCount = it.sampleCount,
+                priorValue = it.longestPastGapDays.toDouble(),
+                recentValue = it.currentGapDays.toDouble(),
+            )
+    }
     computeGapShift(gapStats.pastGaps)?.let {
         findings +=
             TrendFinding(

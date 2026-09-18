@@ -37,11 +37,18 @@ class TrendsListViewModel
             combine(
                 repository.observeCase(caseId),
                 repository.observeEventsWithTagsForCase(caseId),
-            ) { case, events ->
+                repository.observeMostRecentLoggedAtAcrossActiveCases(),
+            ) { case, events, mostRecentActivityAcrossCasesAt ->
                 if (case == null) {
                     TrendsListUiState(isLoading = false)
                 } else {
-                    val state = insightsTabState(case, events, clock.nowMillis())
+                    val state =
+                        insightsTabState(
+                            case,
+                            events,
+                            clock.nowMillis(),
+                            mostRecentActivityAcrossCasesAt = mostRecentActivityAcrossCasesAt,
+                        )
                     val findings = (state as? InsightsTabState.Ready)?.stats?.trends.orEmpty()
                     TrendsListUiState(caseIcon = case.icon, caseName = case.name, findings = findings, isLoading = false)
                 }
