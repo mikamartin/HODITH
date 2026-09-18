@@ -67,33 +67,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Story C — Insights: within-case Trends
 
-Nine items: T1 builds the extensible scaffold, T2–T8 each add or drop exactly one candidate detector, T9 exposes findings through the existing Share flow. Closes out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement; UP/DOWN/FLAT stays sufficient for the existing single-arrow card, with nuance moved to the new section instead of overloading the arrow) carries forward into T1 below. No single item rules on more than one detector's statistics at once — each of T2–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T1 on appends its own entry to a maintained "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
-
-### T1 · Build the Trends scaffold; migrate gap/streak-shift into it
-
-*Branch: `feat/insights-trends-scaffold` · Complexity: M · Priority: Low · Area: Insights*
-
-🎨 **Design decision** — the `TrendFinding` field shape, the exact cap/reveal numbers, and the `Hint`/`Pattern` reliability vocabulary are decided here, scoped only to the scaffold itself — not to any candidate detector's own feasibility, which is each of T2–T8's own job.
-
-New Insights section, shown only when at least one trend is actually detected — mirrors `TagsCard`'s existing `.isNotEmpty()` gate in `InsightsTab.kt`'s `StatsSectionCards` (`if (stats.tags.isNotEmpty()) TagsCard(...)`), rather than folding more into the single Trend card. Reliability is disclosed per finding, on tap, reusing the app's one existing "(i) icon → `InfoDialog`" affordance (`ui/common/SectionWithInfo.kt`, already used by `TrendCard` and every other Insights card except Tags/Intensity) — not a single section-level icon. When more findings clear their bar than the section shows by default, a "show more" reveal exposes the rest up to a stated ceiling, the same shape as the calendar heatmap's show-more/fewer months and Hunch history's retention note — never a silent cap that hides that more was found.
-
-The existing Trend arrow card's `gapShiftDirection`/`streakShiftDirection` sub-lines move out of `TrendDisplay`/`TrendCard` and become this section's first two findings, with zero new statistics — `computeGapShift`/`computeStreakShift` themselves don't change, only what consumes their output. This validates the scaffold end-to-end (rendering, per-finding info-tap, the guardrail with a real but small finding count) before any new detector math is trusted to plug into it, and matches the prior design item's own ruling that nuance moves to the new section rather than overloading the arrow.
-
-**Acceptance criteria**
-
-- [ ] `TrendFinding` domain type + guardrail constants added (new `TrendsEngine.kt` or added to `InsightsEngine.kt`, following the file's existing doc-comment-cites-spec convention).
-- [ ] Non-nullable `StatsSections.trends: List<TrendFinding>`; section renders only when non-empty.
-- [ ] Cap + "show more" mechanism implemented with a stated default-visible count and total ceiling.
-- [ ] `Hint`/`Pattern` reliability tiers defined and documented, kept distinct from `ConfidenceTier` (`NO_VERDICT`/`PRELIMINARY`/`CONFIDENT`) — Hunch's tiers measure sample-size adequacy for an average, a Trends finding's tier measures effect significance.
-- [ ] Each finding row independently tappable to its own info dialog (methodology + evidence size), phrased like `voice.verdictMeta`'s "Based on $eventCount events over $windowDays days."
-- [ ] `gapShiftDirection`/`streakShiftDirection` removed from `TrendDisplay`/`TrendCard`; the arrow card shows only direction/recentCount/priorCount.
-- [ ] New Voice key `insightsSectionLabelTrends` (plural) added and audited against the existing singular `insightsSectionLabelTrend` (arrow card) so the two read unambiguously in all three voices.
-- [ ] Wording rule stated as a written constraint for every future detector sentence: "often follows," "tends to," never "causes" (spec §4) — not yet a mechanical `VoiceTest` check, since no real detector sentence exists yet.
-- [ ] `HODITH_SPEC.md` §10 gains a new "Trends detectors" subsection, seeded with its first two entries (gap shift, streak shift).
-
-**Plan** — thread `TrendFinding` from `InsightsEngine`/`StatsEngine` through `insightsTabState()`'s `statsSections()` the same way `tags` already is; add the new composable next to `TagsCard` in `InsightsTab.kt`.
-
-**Tests** — `InsightsEngineTest`/`InsightsTabStateTest` coverage that the two migrated findings appear/disappear exactly as `gapShiftDirection`/`streakShiftDirection` did before the move; a guardrail test with more eligible findings than the default cap.
+Eight items remain now that T1 has shipped the extensible scaffold (gap shift and streak shift migrated in as its first two findings, replacing the old standalone Trend arrow card): T2–T8 each add or drop exactly one candidate detector, T9 exposes findings through the existing Share flow. This closed out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement) carries forward into every detector below. No single item rules on more than one detector's statistics at once — each of T2–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T2 on appends its own entry to the "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
 
 ### T2 · Detector: tag drift (share rising/falling)
 

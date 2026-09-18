@@ -5,7 +5,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.testCase
+import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
@@ -14,10 +16,12 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.GapsDisplay
 import com.secondmonday.hodith.viewmodel.InsightsTabState
+import com.secondmonday.hodith.viewmodel.RhythmCellDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
 import org.junit.Rule
 import org.junit.Test
+import java.time.DayOfWeek
 
 /**
  * Drives the Trends section's cap/reveal guardrail directly against a synthetic
@@ -43,13 +47,21 @@ class InsightsTabTrendsCardTest {
             recentValue = 5.0,
         )
 
+    // RhythmDisplay.cells is documented as always all 28 day-of-week x time-of-day cells --
+    // RhythmCard indexes into it with a plain `.first { }`, so a synthetic Ready state below still
+    // needs the full grid, not an empty list.
+    private val emptyRhythmCells =
+        DayOfWeek.entries.flatMap { day ->
+            TimeOfDay.entries.map { timeOfDay -> RhythmCellDisplay(day, timeOfDay, HeatmapLevel.EMPTY, count = 0) }
+        }
+
     private fun readyState(trends: List<TrendFinding>) =
         InsightsTabState.Ready(
             heatmapMonths = emptyList(),
             stats =
                 StatsSections(
                     frequency = null,
-                    rhythm = RhythmDisplay(cells = emptyList(), plottedByStart = false),
+                    rhythm = RhythmDisplay(cells = emptyRhythmCells, plottedByStart = false),
                     gaps = GapsDisplay(0, 0, 0.0, false, 0, 0.0),
                     trend = null,
                     duration = null,
