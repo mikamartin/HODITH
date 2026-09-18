@@ -8,6 +8,7 @@ import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.GapStats
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
+import com.secondmonday.hodith.domain.QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
@@ -24,6 +25,7 @@ import com.secondmonday.hodith.domain.computeTagBreakdown
 import com.secondmonday.hodith.domain.computeTrendFindings
 import com.secondmonday.hodith.domain.computeTrendStats
 import com.secondmonday.hodith.domain.datesCovered
+import com.secondmonday.hodith.domain.daysBetween
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.domain.pickFrequencyGranularity
@@ -163,6 +165,7 @@ internal fun insightsTabState(
     now: Long,
     zone: ZoneId = ZoneId.systemDefault(),
     frequencyGranularityOverride: FrequencyGranularity? = null,
+    mostRecentActivityAcrossCasesAt: Long? = null,
 ): InsightsTabState {
     // Spec §9 active span: each event counts on every calendar day it was active, not just its start
     // day. A finished event runs occurredAt..endedAt; a still-running START_STOP event runs to now
@@ -205,6 +208,7 @@ internal fun insightsTabState(
                 now,
                 zone,
                 frequencyGranularityOverride,
+                mostRecentActivityAcrossCasesAt,
             ),
     )
 }
@@ -220,6 +224,7 @@ private fun statsSections(
     now: Long,
     zone: ZoneId,
     frequencyGranularityOverride: FrequencyGranularity?,
+    mostRecentActivityAcrossCasesAt: Long?,
 ): StatsSections {
     val spanDays = observationSpanDays(events, case.createdAt, now, zone)
     // A single event has no bucket-to-bucket shape and no earlier half to compare against, so
@@ -307,7 +312,15 @@ private fun statsSections(
         intensity = intensity,
         tags = computeTagBreakdown(eventsWithTags),
         totalEventCount = events.size,
-        trends = computeTrendFindings(gapStats, activeDates, trendStatsResult),
+        trends =
+            computeTrendFindings(
+                gapStats,
+                activeDates,
+                trendStatsResult,
+                recentlyActiveElsewhere =
+                    mostRecentActivityAcrossCasesAt != null &&
+                        daysBetween(mostRecentActivityAcrossCasesAt, now, zone) <= QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS,
+            ),
     )
 }
 

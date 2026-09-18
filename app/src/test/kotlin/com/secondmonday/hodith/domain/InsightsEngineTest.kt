@@ -328,6 +328,86 @@ class InsightsEngineTest {
         assertEquals(null, computeGapShift(pastGaps))
     }
 
+    // ---- computeQuietSignal ----
+
+    /** [pastGaps] never includes [currentGapDays] -- mirrors how [computeGapStats] keeps the two separate. */
+    private fun gapStats(
+        pastGaps: List<Long>,
+        currentGapDays: Long,
+        eventActiveNow: Boolean = false,
+    ): GapStats {
+        val longestPastGap = pastGaps.maxOrNull() ?: 0L
+        val effectiveCurrentGapDays = if (eventActiveNow) 0L else currentGapDays
+        return GapStats(
+            currentGapDays = effectiveCurrentGapDays,
+            longestGapDays = maxOf(longestPastGap, effectiveCurrentGapDays),
+            isCurrentGapLongest = !eventActiveNow && currentGapDays >= longestPastGap,
+            averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
+            isBursty = false,
+            pastGaps = pastGaps,
+        )
+    }
+
+    @Test
+    fun `computeQuietSignal fires when the current gap is a record and the user is active elsewhere`() {
+        val stats = gapStats(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 20L)
+
+        val result = computeQuietSignal(stats, recentlyActiveElsewhere = true)
+
+        assertEquals(20L, result?.currentGapDays)
+        assertEquals(5L, result?.longestPastGapDays)
+        assertEquals(QUIET_SIGNAL_MIN_SAMPLE_COUNT, result?.sampleCount)
+    }
+
+    @Test
+    fun `computeQuietSignal is null below the minimum sample count`() {
+        val stats = gapStats(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT - 1) { 5L }, currentGapDays = 20L)
+
+        assertEquals(null, computeQuietSignal(stats, recentlyActiveElsewhere = true))
+    }
+
+    @Test
+    fun `computeQuietSignal fires at exactly the minimum sample count`() {
+        val stats = gapStats(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 20L)
+
+        assertTrue(computeQuietSignal(stats, recentlyActiveElsewhere = true) != null)
+    }
+
+    @Test
+    fun `computeQuietSignal fires on a tie with the longest past gap, not just when it's exceeded`() {
+        val stats = gapStats(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 5L)
+
+        assertTrue(computeQuietSignal(stats, recentlyActiveElsewhere = true) != null)
+    }
+
+    @Test
+    fun `computeQuietSignal is null when the current gap is not a record`() {
+        val stats = gapStats(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L } + 30L, currentGapDays = 20L)
+
+        assertEquals(null, computeQuietSignal(stats, recentlyActiveElsewhere = true))
+    }
+
+    @Test
+    fun `computeQuietSignal is null when the current gap is a record but the user hasn't been active elsewhere`() {
+        val stats = gapStats(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 20L)
+
+        assertEquals(null, computeQuietSignal(stats, recentlyActiveElsewhere = false))
+    }
+
+    @Test
+    fun `computeQuietSignal is null while an event is active on the Case`() {
+        val stats = gapStats(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 20L, eventActiveNow = true)
+
+        assertEquals(null, computeQuietSignal(stats, recentlyActiveElsewhere = true))
+    }
+
+    @Test
+    fun `computeQuietSignal is null for a Case with no past gaps`() {
+        val stats = gapStats(pastGaps = emptyList(), currentGapDays = 20L)
+
+        assertEquals(null, computeQuietSignal(stats, recentlyActiveElsewhere = true))
+    }
+
     // ---- computeStreakShift ----
 
     @Test

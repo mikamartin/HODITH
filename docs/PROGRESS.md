@@ -67,7 +67,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Story C — Insights: within-case Trends
 
-Eight items remain now that T1 has shipped the extensible scaffold (gap shift and streak shift migrated in as its first two findings, replacing the old standalone Trend arrow card): T2–T8 each add or drop exactly one candidate detector, T9 exposes findings through the existing Share flow. This closed out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement) carries forward into every detector below. No single item rules on more than one detector's statistics at once — each of T2–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T2 on appends its own entry to the "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
+Eight items remain now that T1 has shipped the extensible scaffold (gap shift and streak shift migrated in as its first two findings, replacing the old standalone Trend arrow card) and the former "Case quiet vs. abandoned" item has shipped a third, unusual one — `WENT_QUIET`, keyed on the Case's live state rather than a shift across completed history, always leading the list when present: T2–T8 each add or drop exactly one candidate detector, T9 exposes findings through the existing Share flow. This closed out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement) carries forward into every detector below. No single item rules on more than one detector's statistics at once — each of T2–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T2 on appends its own entry to the "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
 
 ### T2 · Detector: tag drift (share rising/falling)
 
@@ -88,7 +88,7 @@ Eight items remain now that T1 has shipped the extensible scaffold (gap shift an
 
 *Branch: `feat/insights-trends-recurrence-hazard` · Complexity: M · Priority: Low · Area: Insights*
 
-🎨 **Design decision (this detector only)** — bins `computeGapStats`'s existing `pastGaps` (`InsightsEngine.kt`) into days-since-last-event buckets and rules on early-spike ("often follows within N days") vs. dead-zone ("almost never recurs within N days") thresholds as its own constants. A heavier, more informative sibling to the existing bursts CV flag (`isBursty`), but still descriptive arithmetic — no permutation test needed for a first pass.
+🎨 **Design decision (this detector only)** — bins `computeGapStats`'s existing `pastGaps` (`InsightsEngine.kt`) into days-since-last-event buckets and rules on early-spike ("often follows within N days") vs. dead-zone ("almost never recurs within N days") thresholds as its own constants. A heavier, more informative sibling to the existing bursts CV flag (`isBursty`), but still descriptive arithmetic — no permutation test needed for a first pass. Reconcile the dead-zone wording against the already-shipped `WENT_QUIET` finding (`HODITH_SPEC.md` §10) before drafting Voice copy: dead-zone is a distribution-shape claim ("this Case rarely recurs within N days," true regardless of whether it's currently quiet), `WENT_QUIET` a live-instance claim ("it's quiet right now, longer than ever") — a Case can trigger both at once, so their sentences need to read as complementary, not repetitive.
 
 **Acceptance criteria**
 
@@ -178,7 +178,7 @@ Eight items remain now that T1 has shipped the extensible scaffold (gap shift an
 
 *Branch: `feat/insights-trends-share` · Complexity: S–M · Priority: Low · Area: Share*
 
-🎨 **Design decision** — whether Trends belongs on Square at all once B1 settles Square's fixed section list, and how many findings a card has room for.
+🎨 **Design decision** — whether Trends belongs on Square at all once B1 settles Square's fixed section list, and how many findings a card has room for. Also settle whether `WENT_QUIET` specifically belongs on a share card at all — unlike the other detectors, it's a live-state observation about the Case right now ("still happening, or has it wound down?"), which may read oddly once shared out of context on a card someone else sees later. If it's kept, consider whether the card needs a generation timestamp ("as of [date]") somewhere on it: a `WENT_QUIET` sentence is only true at the moment the card was made, and a share card can be viewed, forwarded, or resurfaced well after that moment, unlike the Insights tab itself which always recomputes fresh. Worth weighing for the card generally, not just this one finding, since every other section is also a snapshot of whenever the card was generated.
 
 T1 folded the Insights tab's standalone Trend arrow card into the Trends section for good — `TrendFindingKind.FREQUENCY_SHIFT` is now just one more finding in `stats.trends`, and the Insights tab no longer renders a separate arrow anywhere. The Share card is the one place the old arrow still lives: `ShareCardState.trend`/`TrendDisplay`/`ShareCardTemplate.kt`'s `MiniTrendSection` were deliberately left untouched by T1 (a separate, already-shipped feature, not to be broken as a side effect), still sourced from `StatsSections.trend` — the field T1 kept alive *only* for this purpose. This item is that cleanup: swap Share's own trend arrow for real Trends findings, and retire the old path completely rather than running both.
 
@@ -217,28 +217,6 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 **Plan** — push the handle's two inner points (`58.818,65.182` and `65.182,58.818`) outward along the (1,1) diagonal; mirror the change in `ic_launcher_monochrome.xml`. The handle tip is already near the 66dp adaptive-icon safe zone, so this may also mean shortening the handle or nudging the enclosing `group` scale (0.9).
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
-
-### Case quiet vs. abandoned
-
-*Branch: `chore/case-quiet-vs-abandoned-design` · Complexity: M · Priority: Low · Area: Insights*
-
-🎨 **Design decision** — where this surfaces (an Insights card vs. the existing check-in flow) isn't settled.
-
-Deep-work-style Cases go quiet and the app currently has no way to tell "this Case went quiet" from "the user stopped tracking it." The rule: when the current gap since the last event exceeds the Case's own 99th-percentile historical gap, *and* the user is still actively logging other Cases, ask rather than silently report a trend.
-
-`domain/CheckIn.kt`'s `evaluateCheckIn` is the exact structural precedent, not just a related feature: it already computes `anchor = maxOf(case.createdAt, case.lastCheckInAt ?: case.createdAt, mostRecentEventAt ?: case.createdAt)`, `silentDays = daysBetween(anchor, now)`, and fires `CheckInDecision(due = silentDays >= effectiveDays, ...)` where `effectiveDays` today comes from `effectiveCheckInDays` (the active Hunch's implied gap, or a Settings default). This item is the same shape with a different, data-derived threshold: `effectiveDays` becomes the Case's own 99th-percentile historical gap (sort the gap list `computeGapStats` in `InsightsEngine.kt` already builds and index into it), and a second condition — the user has logged *some* event, any Case, within a recent window — gets ANDed onto `due` before it's treated as "ask," not just reported. Whether that becomes a third branch inside `evaluateCheckIn`'s own check-in cadence, or a wholly new sibling function evaluated alongside it, is exactly the surfacing-mechanism question below (routed through the existing check-in notification path vs. a new Insights card reading `StatsSections`).
-
-**Acceptance criteria**
-
-- [ ] A ruling on surfacing mechanism: new Insights card (reading a new nullable field on `StatsSections`) vs. a new branch in the check-in evaluation path (`CheckIn.kt`/`NotificationEvaluator.kt`) alongside the existing Hunch/Settings-driven `effectiveCheckInDays`.
-- [ ] A percentile helper over the gap list `computeGapStats` (`InsightsEngine.kt:63`) already collects, since no percentile function exists there today.
-- [ ] The two-signal rule implemented as stated: current gap > Case's own 99th-percentile historical gap, AND the user has logged *some* event (any Case) within a recent window.
-- [ ] Voice ×3 for whatever prompt/copy results.
-- [ ] Confirmed this doesn't read as gamification or scolding (spec §4) — framed as a question, not a nudge to resume logging.
-
-**Plan** — settle the surfacing-mechanism question first (cheap to prototype as a static mock of both), then add the percentile helper and the two-signal check as a `domain/` function mirroring `evaluateCheckIn`'s shape.
-
-**Tests** — a domain-level unit test for the two-signal rule (gap-exceeds-99th-percentile AND still-active-elsewhere → ask; either condition false → no prompt), following `CheckInTest`'s existing pattern for `evaluateCheckIn`; Compose/instrumented coverage once the surfacing mechanism is chosen.
 
 ### Big Picture: cross-case trend detection (design)
 

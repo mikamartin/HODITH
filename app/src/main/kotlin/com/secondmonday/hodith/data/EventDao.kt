@@ -99,6 +99,15 @@ interface EventDao {
     fun observeOpenEvents(): Flow<List<EventEntity>>
 
     /**
+     * Most recent moment any active Case's event was actually logged — `loggedAt`, the real
+     * interaction timestamp, not `occurredAt` (which may be backfilled well after the fact). Feeds
+     * the Trends `WENT_QUIET` finding's "still actively using the app elsewhere" signal
+     * (`InsightsTabState.kt`); an archived Case's activity doesn't count toward it.
+     */
+    @Query("SELECT MAX(loggedAt) FROM events e JOIN cases c ON c.id = e.caseId WHERE c.archived = 0")
+    fun observeMostRecentLoggedAtAcrossActiveCases(): Flow<Long?>
+
+    /**
      * Lean per-event projection for the Big Picture grid (see [CaseEventDetail]) — `id`, `caseId`,
      * timing, intensity, and note, for every active Case's events. One flat JOIN, no `@Relation`,
      * no tag junction.

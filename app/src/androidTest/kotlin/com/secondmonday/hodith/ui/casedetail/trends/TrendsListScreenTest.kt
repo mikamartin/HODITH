@@ -87,4 +87,14 @@ class TrendsListScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.insightsTrendsInfoTitle).assertExists()
     }
+
+    @Test
+    fun wentQuietFinding_rendersItsOwnPlank() {
+        val wentQuiet = TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)
+        setContent(findings = listOf(wentQuiet))
+
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsWentQuietSentence(currentGapLabel = "20 days", longestPastGapLabel = "5 days"))
+            .assertExists()
+    }
 }

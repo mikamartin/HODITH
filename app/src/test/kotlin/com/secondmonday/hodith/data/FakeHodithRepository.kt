@@ -161,6 +161,12 @@ class FakeHodithRepository : HodithRepository {
     override fun observeOpenEvents(): Flow<List<EventEntity>> =
         events.map { list -> list.filter { it.endedAt == null }.sortedBy { it.occurredAt } }
 
+    override fun observeMostRecentLoggedAtAcrossActiveCases(): Flow<Long?> =
+        combine(cases, events) { caseList, eventList ->
+            val activeIds = caseList.filterNot { it.archived }.map { it.id }.toSet()
+            eventList.filter { it.caseId in activeIds }.maxOfOrNull { it.loggedAt }
+        }
+
     override suspend fun getEvent(eventId: Long): EventEntity? = events.value.find { it.id == eventId }
 
     override suspend fun eventsInWindow(

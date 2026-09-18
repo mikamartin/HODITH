@@ -43,6 +43,17 @@ internal const val SHIFT_MIN_FRACTION = 0.3
 internal const val SHIFT_MIN_ABSOLUTE_DAYS = 1.0
 
 /**
+ * Spec §10 Trends "went quiet" finding: needs at least this many past gaps before "longer than
+ * this Case has ever gone before" means anything — same reasoning as [GAP_SHIFT_MIN_SAMPLE_COUNT],
+ * kept as its own named constant since the two detectors ask different questions even though they
+ * share a value today.
+ */
+internal const val QUIET_SIGNAL_MIN_SAMPLE_COUNT = 6
+
+/** How recently the user must have logged *something*, on any Case, for a long current gap to read as "this Case specifically went quiet" rather than "the user stopped using the app." */
+internal const val QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS = 7
+
+/**
  * Current gap vs. the longest gap ever observed across the Case's full history — the "current gap
  * annotated" rule (spec §10's gaps & streaks card): "how long since the last event ended" compared
  * against "the longest stretch since it started".
@@ -160,6 +171,30 @@ internal fun computeStreakShift(activeDates: List<LocalDate>): ShiftResult? {
     val priorAverage = runs.take(mid).map { it.toDouble() }.average()
     val recentAverage = runs.takeLast(runs.size - mid).map { it.toDouble() }.average()
     return shiftDirectionFor(priorAverage, recentAverage)?.let { ShiftResult(it, priorAverage, recentAverage, runs.size) }
+}
+
+/**
+ * Spec §10 Trends "went quiet" finding: unlike [computeGapShift]/[computeStreakShift], this isn't a
+ * shift between two halves of history — it's whether the Case's *current, still-open* silence
+ * ([GapStats.isCurrentGapLongest]) is a record, while the user is demonstrably still using the app
+ * elsewhere ([recentlyActiveElsewhere]). `null` below [QUIET_SIGNAL_MIN_SAMPLE_COUNT] past gaps (too
+ * little history for "longest ever" to mean anything), when the current gap isn't the record (the
+ * ordinary case), or when the user hasn't logged anything else recently (reads as "stopped using
+ * the app," not "this Case specifically went quiet"). [GapStats.isCurrentGapLongest] is already
+ * `false` while an event is actively running, so no separate guard is needed for that here.
+ */
+internal fun computeQuietSignal(
+    gapStats: GapStats,
+    recentlyActiveElsewhere: Boolean,
+): QuietSignalResult? {
+    if (gapStats.pastGaps.size < QUIET_SIGNAL_MIN_SAMPLE_COUNT) return null
+    if (!gapStats.isCurrentGapLongest) return null
+    if (!recentlyActiveElsewhere) return null
+    return QuietSignalResult(
+        currentGapDays = gapStats.currentGapDays,
+        longestPastGapDays = gapStats.pastGaps.max(),
+        sampleCount = gapStats.pastGaps.size,
+    )
 }
 
 /** `null` unless the change from [firstAvg] to [secondAvg] clears both [SHIFT_MIN_FRACTION] and [SHIFT_MIN_ABSOLUTE_DAYS]. */

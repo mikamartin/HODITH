@@ -76,6 +76,28 @@ class DemoDataSeederTest {
         }
 
     @Test
+    fun `seed gives Nosebleed the Trends went-quiet finding too, not just the Gaps card record`() =
+        runTest {
+            seeder.seed()
+
+            val nosebleed = repository.cases.value.single { it.name == "Nosebleed" }
+            val events = repository.events.value.filter { it.caseId == nosebleed.id }
+            // Matches what EventDao.observeMostRecentLoggedAtAcrossActiveCases would return for the
+            // full seeded set -- other Cases (Coffee's recent surge, Migraine/Noisy neighbours'
+            // ongoing events) keep this well within QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS of now.
+            val mostRecentActivityAcrossCasesAt = repository.events.value.maxOf { it.loggedAt }
+            val state =
+                insightsTabState(
+                    nosebleed,
+                    events.withoutTags(),
+                    NOW_MILLIS,
+                    mostRecentActivityAcrossCasesAt = mostRecentActivityAcrossCasesAt,
+                ) as InsightsTabState.Ready
+
+            assertTrue(state.stats.trends.any { it.kind == TrendFindingKind.WENT_QUIET })
+        }
+
+    @Test
     fun `seed gives Lost my keys all three Trends findings at once`() =
         runTest {
             seeder.seed()

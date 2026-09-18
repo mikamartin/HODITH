@@ -57,6 +57,9 @@ interface HodithRepository {
     /** Every open-ended event across all Cases, earliest first — Home / widget ongoing indicators (spec §6). */
     fun observeOpenEvents(): Flow<List<EventEntity>>
 
+    /** Most recent moment any active Case's event was actually logged — feeds the Trends `WENT_QUIET` finding's cross-Case "still using the app" signal. */
+    fun observeMostRecentLoggedAtAcrossActiveCases(): Flow<Long?>
+
     suspend fun getEvent(eventId: Long): EventEntity?
 
     suspend fun eventsInWindow(

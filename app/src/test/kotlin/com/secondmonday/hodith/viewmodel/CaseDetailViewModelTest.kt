@@ -74,6 +74,41 @@ class CaseDetailViewModelTest {
         }
 
     @Test
+    fun `uiState mostRecentActivityAcrossCasesAt reflects the latest logged event across active cases`() =
+        runTest {
+            val otherCaseId = 2L
+            repository.cases.value =
+                listOf(testCase(), Fixtures.case(id = otherCaseId, name = "Workout", icon = "🏋️", logFlow = LogFlow.DETAIL_SHEET))
+            repository.insertEvent(testEvent(occurredAt = 100L, endedAt = 100L))
+            repository.insertEvent(Fixtures.event(caseId = otherCaseId, occurredAt = 500L, endedAt = 500L))
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(500L, state.mostRecentActivityAcrossCasesAt)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `uiState mostRecentActivityAcrossCasesAt ignores events on an archived case`() =
+        runTest {
+            val archivedCaseId = 2L
+            repository.cases.value =
+                listOf(
+                    testCase(),
+                    Fixtures.case(id = archivedCaseId, name = "Old thing", icon = "🗄️", logFlow = LogFlow.DETAIL_SHEET, archived = true),
+                )
+            repository.insertEvent(testEvent(occurredAt = 100L, endedAt = 100L))
+            repository.insertEvent(Fixtures.event(caseId = archivedCaseId, occurredAt = 500L, endedAt = 500L))
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(100L, state.mostRecentActivityAcrossCasesAt)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `uiState logEvents caps at the initial 30-event window`() =
         runTest {
             repository.cases.value = listOf(testCase())

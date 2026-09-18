@@ -359,6 +359,22 @@ interface Voice {
     ): String
 
     /**
+     * Spec §10 Trends "went quiet" finding: the Case's current, still-open silence
+     * ([currentGapLabel]) has outlasted every past gap it's ever had ([longestPastGapLabel],
+     * already formatted, e.g. via `formatDays`) — framed as an open question per spec §4 ("ask
+     * rather than silently report a trend"), never as a statement that the user did something
+     * wrong. No `direction` parameter, unlike [insightsGapShiftSentence] — this finding only ever
+     * means the silence grew to a record, there's no shrinking case.
+     */
+    fun insightsWentQuietSentence(
+        currentGapLabel: String,
+        longestPastGapLabel: String,
+    ): String
+
+    /** Went-quiet finding row's evidence line, shown inline (not behind a tap) — phrased like [insightsGapShiftEvidenceLabel] but keyed on the past gaps the record beat. */
+    fun insightsWentQuietEvidenceLabel(sampleCount: Int): String
+
+    /**
      * Spec §10 Trend card: an optional extra line noting the average gap has shifted noticeably
      * across the Case's history — descriptive only, absent when
      * [com.secondmonday.hodith.domain.computeGapShift] finds nothing noticeable. [priorAverageLabel]/
@@ -996,6 +1012,14 @@ object PlainVoice : Voice {
         TrendDirection.FLAT -> "$recentCount events in the last 30 days — the same as the 30 days before."
     }
 
+    override fun insightsWentQuietSentence(
+        currentGapLabel: String,
+        longestPastGapLabel: String,
+    ) =
+        "Nothing logged in $currentGapLabel, past this Case's previous longest gap of $longestPastGapLabel. Still happening, or has it wound down?"
+
+    override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
+
     override fun insightsGapShiftSentence(
         direction: ShiftDirection,
         priorAverageLabel: String,
@@ -1590,6 +1614,14 @@ object IntenseVoice : Voice {
         TrendDirection.FLAT -> "$recentCount marks in the last thirty days — unchanged from what came before. Steady, as ever."
     }
 
+    override fun insightsWentQuietSentence(
+        currentGapLabel: String,
+        longestPastGapLabel: String,
+    ) =
+        "Silence for $currentGapLabel now, longer than this Case has ever gone quiet before ($longestPastGapLabel was the old record). Still unfolding, or has it already ended?"
+
+    override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+
     override fun insightsGapShiftSentence(
         direction: ShiftDirection,
         priorAverageLabel: String,
@@ -2167,6 +2199,14 @@ object BrightVoice : Voice {
         TrendDirection.DOWN -> "$recentCount logs in the last 30 days — down from $priorCount! Quieter lately."
         TrendDirection.FLAT -> "$recentCount logs in the last 30 days — same as before. Steady as she goes!"
     }
+
+    override fun insightsWentQuietSentence(
+        currentGapLabel: String,
+        longestPastGapLabel: String,
+    ) =
+        "Nothing logged in $currentGapLabel. That beats this Case's old record of $longestPastGapLabel! Still going, or has it quietly wrapped up?"
+
+    override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
 
     override fun insightsGapShiftSentence(
         direction: ShiftDirection,

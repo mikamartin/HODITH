@@ -93,6 +93,8 @@ class RoomHodithRepository
 
         override fun observeOpenEvents(): Flow<List<EventEntity>> = eventDao.observeOpenEvents()
 
+        override fun observeMostRecentLoggedAtAcrossActiveCases(): Flow<Long?> = eventDao.observeMostRecentLoggedAtAcrossActiveCases()
+
         override suspend fun getEvent(eventId: Long): EventEntity? = eventDao.getById(eventId)
 
         override suspend fun eventsInWindow(

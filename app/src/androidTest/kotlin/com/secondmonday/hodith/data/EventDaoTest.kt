@@ -420,4 +420,36 @@ class EventDaoTest {
 
             assertEquals(listOf(laterId, earlierId), page.map { it.event.id })
         }
+
+    @Test
+    fun observeMostRecentLoggedAtAcrossActiveCases_returnsTheMaxLoggedAtAcrossCases() =
+        runTest {
+            val otherCaseId = db.caseDao().insert(testCase(name = "Other"))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, loggedAt = 150L))
+            eventDao.insert(testEvent(caseId = otherCaseId, occurredAt = 50L, loggedAt = 400L))
+
+            val mostRecent = eventDao.observeMostRecentLoggedAtAcrossActiveCases().first()
+
+            assertEquals(400L, mostRecent)
+        }
+
+    @Test
+    fun observeMostRecentLoggedAtAcrossActiveCases_excludesAnArchivedCasesEvents() =
+        runTest {
+            val archivedCaseId = db.caseDao().insert(testCase(name = "Archived", archived = true))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, loggedAt = 150L))
+            eventDao.insert(testEvent(caseId = archivedCaseId, occurredAt = 900L, loggedAt = 900L))
+
+            val mostRecent = eventDao.observeMostRecentLoggedAtAcrossActiveCases().first()
+
+            assertEquals(150L, mostRecent)
+        }
+
+    @Test
+    fun observeMostRecentLoggedAtAcrossActiveCases_isNullWithNoEvents() =
+        runTest {
+            val mostRecent = eventDao.observeMostRecentLoggedAtAcrossActiveCases().first()
+
+            assertNull(mostRecent)
+        }
 }

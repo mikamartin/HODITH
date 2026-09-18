@@ -43,6 +43,7 @@ data class CaseDetailUiState(
     val tagSuggestions: List<TagEntity> = emptyList(),
     val activeHunch: HunchEntity? = null,
     val hunchHistory: List<HunchEntity> = emptyList(),
+    val mostRecentActivityAcrossCasesAt: Long? = null,
     val isLoading: Boolean = true,
 )
 
@@ -99,7 +100,9 @@ class CaseDetailViewModel
                 )
             }.combine(logPage) { partial, page -> partial.copy(logEvents = page.events, logHasMore = page.hasMore) }
                 .combine(logSortOrder) { partial, order -> partial.copy(logSortOrder = order) }
-                .stateIn(
+                .combine(repository.observeMostRecentLoggedAtAcrossActiveCases()) { partial, mostRecentActivityAcrossCasesAt ->
+                    partial.copy(mostRecentActivityAcrossCasesAt = mostRecentActivityAcrossCasesAt)
+                }.stateIn(
                     scope = viewModelScope,
                     started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
                     initialValue = CaseDetailUiState(),
