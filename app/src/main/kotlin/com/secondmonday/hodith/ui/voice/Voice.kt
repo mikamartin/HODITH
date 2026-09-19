@@ -433,6 +433,24 @@ interface Voice {
      */
     fun insightsFrequencyShiftEvidenceLabel(): String
 
+    /**
+     * Spec §10 Trends "tag share shift" finding (Story C T2): [tagName]'s share of the Case's own
+     * events has shifted noticeably between the earlier and more recent half of its history —
+     * [priorShareLabel]/[recentShareLabel] are the two half-shares (already formatted, e.g. via
+     * `formatPercent`) so the sentence states the shift in real numbers, not direction alone. Like
+     * every Trends sentence, this describes a correlation the user can investigate, never a cause —
+     * "tends to," not "causes."
+     */
+    fun insightsTagShareShiftSentence(
+        tagName: String,
+        direction: ShiftDirection,
+        priorShareLabel: String,
+        recentShareLabel: String,
+    ): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the tag-share-shift finding row — keyed on the events behind the half/half split, not the tag's own occurrence count. */
+    fun insightsTagShareShiftEvidenceLabel(sampleCount: Int): String
+
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
     val insightsDurationLongestLabel: String get() = "Longest"
@@ -1075,6 +1093,18 @@ object PlainVoice : Voice {
 
     override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before."
 
+    override fun insightsTagShareShiftSentence(
+        tagName: String,
+        direction: ShiftDirection,
+        priorShareLabel: String,
+        recentShareLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "\"$tagName\" tends to show up more lately, $recentShareLabel of events now, up from $priorShareLabel."
+        ShiftDirection.DOWN -> "\"$tagName\" tends to show up less lately, $recentShareLabel of events now, down from $priorShareLabel."
+    }
+
+    override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
+
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
         "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
@@ -1676,6 +1706,18 @@ object IntenseVoice : Voice {
 
     override fun insightsFrequencyShiftEvidenceLabel() = "Weighed against the thirty days before."
 
+    override fun insightsTagShareShiftSentence(
+        tagName: String,
+        direction: ShiftDirection,
+        priorShareLabel: String,
+        recentShareLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "\"$tagName\" claims more of the record now, $recentShareLabel of entries, up from $priorShareLabel."
+        ShiftDirection.DOWN -> "\"$tagName\" claims less of the record now, $recentShareLabel of entries, down from $priorShareLabel."
+    }
+
+    override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
         "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
@@ -2261,6 +2303,18 @@ object BrightVoice : Voice {
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks!"
 
     override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before!"
+
+    override fun insightsTagShareShiftSentence(
+        tagName: String,
+        direction: ShiftDirection,
+        priorShareLabel: String,
+        recentShareLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "\"$tagName\" is popping up more lately, now $recentShareLabel of events, up from $priorShareLabel!"
+        ShiftDirection.DOWN -> "\"$tagName\" is popping up less lately, now $recentShareLabel of events, down from $priorShareLabel!"
+    }
+
+    override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =

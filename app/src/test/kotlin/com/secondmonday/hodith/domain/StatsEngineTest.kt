@@ -328,4 +328,103 @@ class StatsEngineTest {
 
         assertTrue(computeTagBreakdown(eventsWithTags).isEmpty())
     }
+
+    // ---- computeTagShareShift ----
+
+    @Test
+    fun `computeTagShareShift detects a tag rising between the earlier and more recent half`() {
+        val decaf = TagEntity(id = 1, name = "decaf")
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                val tagged = day == 4 || day in 5..8 // prior 1 of 5, recent 4 of 5
+                EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(decaf) else emptyList())
+            }
+
+        val result = computeTagShareShift(eventsWithTags)
+
+        assertEquals(1, result.size)
+        val finding = result.single()
+        assertEquals("decaf", finding.tagName)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(0.2, finding.priorShare, 0.0001)
+        assertEquals(0.8, finding.recentShare, 0.0001)
+        assertEquals(10, finding.sampleCount)
+    }
+
+    @Test
+    fun `computeTagShareShift detects a tag falling between the earlier and more recent half`() {
+        val soda = TagEntity(id = 2, name = "soda")
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                val tagged = day in 0..3 || day == 5 // prior 4 of 5, recent 1 of 5
+                EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(soda) else emptyList())
+            }
+
+        val result = computeTagShareShift(eventsWithTags)
+
+        assertEquals(1, result.size)
+        val finding = result.single()
+        assertEquals("soda", finding.tagName)
+        assertEquals(ShiftDirection.DOWN, finding.direction)
+        assertEquals(0.8, finding.priorShare, 0.0001)
+        assertEquals(0.2, finding.recentShare, 0.0001)
+    }
+
+    @Test
+    fun `computeTagShareShift finds nothing for a tag whose share hasn't moved`() {
+        val standup = TagEntity(id = 3, name = "standup")
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                val tagged = day in setOf(0, 1, 5, 6) // 2 of 5 in each half
+                EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(standup) else emptyList())
+            }
+
+        assertTrue(computeTagShareShift(eventsWithTags).isEmpty())
+    }
+
+    @Test
+    fun `computeTagShareShift is empty below the minimum sample count`() {
+        val decaf = TagEntity(id = 1, name = "decaf")
+        val eventsWithTags =
+            (0 until TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT - 1).map { day ->
+                EventWithTags(eventAtDay(day.toLong()), listOf(decaf))
+            }
+
+        assertTrue(computeTagShareShift(eventsWithTags).isEmpty())
+    }
+
+    @Test
+    fun `computeTagShareShift skips a tag with too few total occurrences even if its share swings sharply`() {
+        val rare = TagEntity(id = 4, name = "rare")
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                val tagged = day == 5 || day == 6 // recent-only, but only 2 total -- below TAG_SHARE_SHIFT_MIN_TAG_COUNT
+                EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(rare) else emptyList())
+            }
+
+        assertTrue(computeTagShareShift(eventsWithTags).isEmpty())
+    }
+
+    @Test
+    fun `computeTagShareShift caps findings and orders them by effect size, strongest first`() {
+        val tagA = TagEntity(id = 1, name = "tagA")
+        val tagB = TagEntity(id = 2, name = "tagB")
+        val tagC = TagEntity(id = 3, name = "tagC")
+        val tagD = TagEntity(id = 4, name = "tagD")
+
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                val tags = mutableListOf<TagEntity>()
+                if (day in 5..9) tags += tagA // prior 0 of 5, recent 5 of 5 -- delta 1.0
+                if (day == 4 || day in 5..8) tags += tagB // prior 1 of 5, recent 4 of 5 -- delta 0.6
+                if (day == 3 || day in 5..7) tags += tagC // prior 1 of 5, recent 3 of 5 -- delta 0.4
+                if (day == 2 || day in 5..6) tags += tagD // prior 1 of 5, recent 2 of 5 -- delta 0.2
+                EventWithTags(eventAtDay(day.toLong()), tags)
+            }
+
+        val result = computeTagShareShift(eventsWithTags)
+
+        assertEquals(TAG_SHARE_SHIFT_MAX_FINDINGS, result.size)
+        assertEquals(listOf("tagA", "tagB", "tagC"), result.map { it.tagName })
+    }
 }

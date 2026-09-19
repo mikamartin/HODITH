@@ -67,22 +67,7 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 ## Story C — Insights: within-case Trends
 
-Eight items remain now that T1 has shipped the extensible scaffold (gap shift and streak shift migrated in as its first two findings, replacing the old standalone Trend arrow card) and the former "Case quiet vs. abandoned" item has shipped a third, unusual one — `WENT_QUIET`, keyed on the Case's live state rather than a shift across completed history, always leading the list when present: T2–T8 each add or drop exactly one candidate detector, T9 exposes findings through the existing Share flow. This closed out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement) carries forward into every detector below. No single item rules on more than one detector's statistics at once — each of T2–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T2 on appends its own entry to the "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
-
-### T2 · Detector: tag drift (share rising/falling)
-
-*Branch: `feat/insights-trends-tag-drift` · Complexity: M · Priority: Low · Area: Insights*
-
-🎨 **Design decision (this detector only)** — feasibility, minimum sample size, and keep/drop, checked against `shiftDirectionFor`'s existing dual-threshold pattern (`InsightsEngine.kt`) applied to a tag's share of events instead of a gap/streak average. Is a tag's share of a Case's events rising or falling over time (decaf 10%→40%)? No permutation test, no timezone dependency — the simplest detector to rule on first.
-
-**Acceptance criteria**
-
-- [ ] Feasibility ruling stated before any code; closes as "dropped" with rationale if the tag-share signal turns out too noisy at realistic sample sizes.
-- [ ] If kept: a tag-share-shift function gated by its own `MIN_SAMPLE_COUNT`-style constant, returning zero or more `TrendFinding`s (one per tag clearing the bar), tiered `Hint`/`Pattern` per T1's vocabulary.
-- [ ] Sentence template follows "tends to," never "causes."
-- [ ] Voice ×3 for the new sentence template.
-- [ ] Tests: a rising tag, a falling one, a stable one (no finding), and below-minimum-sample (no finding).
-- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line — or, if dropped, a short rationale left in this item instead.
+Seven items remain now that T1 has shipped the extensible scaffold (gap shift and streak shift migrated in as its first two findings, replacing the old standalone Trend arrow card), the former "Case quiet vs. abandoned" item has shipped a third, unusual one — `WENT_QUIET`, keyed on the Case's live state rather than a shift across completed history, always leading the list when present — and T2 has shipped a fourth, `TAG_SHARE_SHIFT`, the one detector that can surface more than one finding per Case: T3–T8 each add or drop exactly one candidate detector, T9 exposes findings through the existing Share flow. This closed out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement) carries forward into every detector below. No single item rules on more than one detector's statistics at once — each of T3–T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T3 on appends its own entry to the "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
 
 ### T3 · Detector: recurrence shape (hazard by time-since-last-event)
 
