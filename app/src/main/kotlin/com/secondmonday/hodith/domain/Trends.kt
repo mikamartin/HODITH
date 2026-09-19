@@ -15,12 +15,18 @@ package com.secondmonday.hodith.domain
  * `priorValue`/`recentValue` hold the longest-past-gap/current-gap pair (days), the same
  * days-based convention [GAP_SHIFT] uses, and [TrendFinding.direction] is always [ShiftDirection.UP]
  * (silence only ever grows until a new event closes it).
+ *
+ * [TAG_SHARE_SHIFT] is the one kind that can produce more than one finding per Case — one per tag
+ * whose share of the Case's events shifted noticeably (Story C T2) — so [TrendFinding.tagName] is
+ * set (every other kind leaves it `null`), and `priorValue`/`recentValue` hold the tag's share as a
+ * fraction (0.0–1.0), not days or a count.
  */
 enum class TrendFindingKind {
     WENT_QUIET,
     GAP_SHIFT,
     STREAK_SHIFT,
     FREQUENCY_SHIFT,
+    TAG_SHARE_SHIFT,
 }
 
 /**
@@ -43,8 +49,11 @@ enum class TrendReliability {
  * being compared, carried through so the row's own sentence states the shift in real numbers
  * rather than direction alone — days for [TrendFindingKind.GAP_SHIFT]/[TrendFindingKind.STREAK_SHIFT]
  * (from [ShiftResult]'s two half-averages), event counts for [TrendFindingKind.FREQUENCY_SHIFT]
- * (from `TrendStats`' `recentCount`/`priorCount`). The UI already dispatches on [kind] to pick the
- * matching Voice sentence, so it also knows which unit these two values are in.
+ * (from `TrendStats`' `recentCount`/`priorCount`), a share fraction for
+ * [TrendFindingKind.TAG_SHARE_SHIFT] (from [TagShareShiftResult]'s `priorShare`/`recentShare`). The
+ * UI already dispatches on [kind] to pick the matching Voice sentence, so it also knows which unit
+ * these two values are in. [tagName] is only set for [TrendFindingKind.TAG_SHARE_SHIFT] — `null`
+ * for every other kind, which isn't about one specific tag.
  */
 data class TrendFinding(
     val kind: TrendFindingKind,
@@ -53,4 +62,5 @@ data class TrendFinding(
     val sampleCount: Int,
     val priorValue: Double,
     val recentValue: Double,
+    val tagName: String? = null,
 )

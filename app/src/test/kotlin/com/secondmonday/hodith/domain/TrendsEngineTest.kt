@@ -1,5 +1,9 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.testsupport.millisAtDay
+import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -172,6 +176,45 @@ class TrendsEngineTest {
         val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats)
 
         assertEquals(setOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.FREQUENCY_SHIFT), findings.map { it.kind }.toSet())
+    }
+
+    // ---- computeTrendFindings: tag share shift ----
+
+    private fun risingTagEventsWithTags(tagName: String = "decaf"): List<EventWithTags> {
+        val tag = TagEntity(id = 1, name = tagName)
+        return (0 until 10).map { day ->
+            val tagged = day == 4 || day in 5..8 // prior 1 of 5, recent 4 of 5
+            EventWithTags(testEvent(occurredAt = millisAtDay(day.toLong())), if (tagged) listOf(tag) else emptyList())
+        }
+    }
+
+    @Test
+    fun `computeTrendFindings reports a tag-share-shift finding with the tag name attached`() {
+        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = risingTagEventsWithTags())
+
+        assertEquals(1, findings.size)
+        val finding = findings.single()
+        assertEquals(TrendFindingKind.TAG_SHARE_SHIFT, finding.kind)
+        assertEquals("decaf", finding.tagName)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.HINT, finding.reliability)
+    }
+
+    @Test
+    fun `computeTrendFindings is empty when no tag's share shifts and nothing else does either`() {
+        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = emptyList())
+
+        assertEquals(emptyList<TrendFinding>(), findings)
+    }
+
+    @Test
+    fun `computeTrendFindings places tag-share-shift findings after gap shift`() {
+        val gapStats = gapStatsOf(listOf(2L, 2L, 2L, 10L, 10L, 10L))
+
+        val findings =
+            computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = risingTagEventsWithTags())
+
+        assertEquals(listOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT), findings.map { it.kind })
     }
 
     // ---- capTrendFindings ----
