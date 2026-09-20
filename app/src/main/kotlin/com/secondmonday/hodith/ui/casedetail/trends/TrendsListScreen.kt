@@ -128,6 +128,7 @@ private val previewTrendsListFindings =
         TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 9, 3.2, 5.8),
         TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.HINT, 7, 4.0, 2.0),
         TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.DOWN, TrendReliability.PATTERN, 14, 9.5, 4.0),
+        TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.73),
     )
 
 @Composable

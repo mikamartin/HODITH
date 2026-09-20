@@ -217,6 +217,51 @@ class TrendsEngineTest {
         assertEquals(listOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT), findings.map { it.kind })
     }
 
+    // ---- computeTrendFindings: recurrence shape ----
+
+    // Ten short gaps at 2, two long ones at 20 -- one long gap in each literal half so
+    // computeGapShift's first-half/second-half averages tie (5.0 vs 5.0) and stay silent, isolating
+    // the recurrence-shape finding. Mean 5.0, threshold 2.5, 10 of 12 gaps landed early.
+    private val recurrenceSpikePastGaps = List(5) { 2L } + 20L + List(5) { 2L } + 20L
+
+    @Test
+    fun `computeTrendFindings reports a recurrence-shape finding with real numbers`() {
+        val gapStats = gapStatsOf(recurrenceSpikePastGaps)
+
+        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null)
+
+        assertEquals(1, findings.size)
+        val finding = findings.single()
+        assertEquals(TrendFindingKind.RECURRENCE_SHAPE, finding.kind)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.HINT, finding.reliability)
+        assertEquals(12, finding.sampleCount)
+        assertEquals(2.5, finding.priorValue, 0.0001)
+        assertEquals(10.0 / 12.0, finding.recentValue, 0.0001)
+    }
+
+    @Test
+    fun `computeTrendFindings places the recurrence-shape finding after tag share shift`() {
+        val gapStats = gapStatsOf(recurrenceSpikePastGaps)
+
+        val findings =
+            computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = risingTagEventsWithTags())
+
+        assertEquals(listOf(TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.RECURRENCE_SHAPE), findings.map { it.kind })
+    }
+
+    @Test
+    fun `computeTrendFindings can report a recurrence-shape finding alongside went-quiet`() {
+        // Current gap set as a fresh record on top of recurrenceSpikePastGaps, so went-quiet also
+        // fires -- the two are independent claims and can appear on the same Case together.
+        val gapStats = wentQuietGapStatsOf(pastGaps = recurrenceSpikePastGaps, currentGapDays = 25L)
+
+        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, recentlyActiveElsewhere = true)
+
+        assertEquals(setOf(TrendFindingKind.WENT_QUIET, TrendFindingKind.RECURRENCE_SHAPE), findings.map { it.kind }.toSet())
+        assertEquals(TrendFindingKind.WENT_QUIET, findings.first().kind)
+    }
+
     // ---- capTrendFindings ----
 
     private fun syntheticFinding() =

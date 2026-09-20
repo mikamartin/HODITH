@@ -20,6 +20,15 @@ package com.secondmonday.hodith.domain
  * whose share of the Case's events shifted noticeably (Story C T2) — so [TrendFinding.tagName] is
  * set (every other kind leaves it `null`), and `priorValue`/`recentValue` hold the tag's share as a
  * fraction (0.0–1.0), not days or a count.
+ *
+ * [RECURRENCE_SHAPE] (Story C T3) is a distribution-shape claim over the Case's full past-gap
+ * history, not a shift between two halves of it — `priorValue` holds the self-relative early-gap day
+ * boundary this Case's own average gap produced ([RECURRENCE_SHAPE_EARLY_FRACTION_OF_MEAN] of it),
+ * `recentValue` the observed share of past gaps that landed at or under it (0.0–1.0).
+ * [TrendFinding.direction] is [ShiftDirection.UP] for an early-spike pattern (recurrence usually
+ * follows quickly) and [ShiftDirection.DOWN] for a dead-zone pattern (it almost never does). Distinct
+ * from [WENT_QUIET]: that's a live-instance claim about right now, this is a pattern true regardless
+ * of current state, and a Case can trigger both at once.
  */
 enum class TrendFindingKind {
     WENT_QUIET,
@@ -27,6 +36,7 @@ enum class TrendFindingKind {
     STREAK_SHIFT,
     FREQUENCY_SHIFT,
     TAG_SHARE_SHIFT,
+    RECURRENCE_SHAPE,
 }
 
 /**

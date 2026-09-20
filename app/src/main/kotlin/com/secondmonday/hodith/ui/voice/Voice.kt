@@ -451,6 +451,26 @@ interface Voice {
     /** As [insightsGapShiftEvidenceLabel], for the tag-share-shift finding row — keyed on the events behind the half/half split, not the tag's own occurrence count. */
     fun insightsTagShareShiftEvidenceLabel(sampleCount: Int): String
 
+    /**
+     * Spec §10 Trends "recurrence shape" finding (Story C T3): whether this Case's past gaps form
+     * an early-spike pattern ([direction] [ShiftDirection.UP] — recurrence usually follows within
+     * [thresholdLabel], already formatted e.g. via `formatDays`) or a dead-zone pattern ([direction]
+     * [ShiftDirection.DOWN] — it almost never does). [shareLabel] is the observed share of gaps that
+     * landed at or under [thresholdLabel] (already formatted, e.g. via `formatPercent`). Unlike
+     * [insightsWentQuietSentence] (a claim about the Case's current, still-open silence), this is a
+     * distribution-shape claim true regardless of current state — the two can both appear on the
+     * same Case at once, so the dead-zone wording here describes the *pattern* ("tends to take a
+     * while") rather than echoing went-quiet's "still happening?" framing.
+     */
+    fun insightsRecurrenceShapeSentence(
+        direction: ShiftDirection,
+        thresholdLabel: String,
+        shareLabel: String,
+    ): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the recurrence-shape finding row. */
+    fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int): String
+
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
     val insightsDurationLongestLabel: String get() = "Longest"
@@ -1105,6 +1125,17 @@ object PlainVoice : Voice {
 
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
 
+    override fun insightsRecurrenceShapeSentence(
+        direction: ShiftDirection,
+        thresholdLabel: String,
+        shareLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "This tends to follow quickly, $shareLabel of past gaps landing within $thresholdLabel."
+        ShiftDirection.DOWN -> "This rarely follows quickly, only $shareLabel of past gaps landed within $thresholdLabel."
+    }
+
+    override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
+
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
         "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
@@ -1718,6 +1749,17 @@ object IntenseVoice : Voice {
 
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
 
+    override fun insightsRecurrenceShapeSentence(
+        direction: ShiftDirection,
+        thresholdLabel: String,
+        shareLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "It returns quickly more often than not, $shareLabel of past silences ending within $thresholdLabel."
+        ShiftDirection.DOWN -> "It rarely returns quickly, only $shareLabel of past silences ended within $thresholdLabel."
+    }
+
+    override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
         "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
@@ -2315,6 +2357,17 @@ object BrightVoice : Voice {
     }
 
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
+
+    override fun insightsRecurrenceShapeSentence(
+        direction: ShiftDirection,
+        thresholdLabel: String,
+        shareLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "This tends to come back fast, $shareLabel of past gaps landed within $thresholdLabel!"
+        ShiftDirection.DOWN -> "This rarely comes back fast, only $shareLabel of past gaps landed within $thresholdLabel!"
+    }
+
+    override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =

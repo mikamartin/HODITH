@@ -70,6 +70,18 @@ data class TagShareShiftResult(
 )
 
 /**
+ * [computeRecurrenceShape]: whether this Case's past gaps form an early-spike or dead-zone pattern.
+ * [thresholdDays] is the self-relative early-gap boundary this Case's own average gap produced;
+ * [earlyShare] the fraction of [sampleCount] past gaps that landed at or under it.
+ */
+data class RecurrenceShapeResult(
+    val direction: ShiftDirection,
+    val thresholdDays: Double,
+    val earlyShare: Double,
+    val sampleCount: Int,
+)
+
+/**
  * Spec §10 heatmap shading: a day's event count bucketed relative to the Case's own busiest day,
  * into 20 shaded tiers (plus [EMPTY]) — ordinal order matters, [heatmapLevelFor] indexes into
  * [entries] directly rather than branching on each one by name. Most consumers (calendar heatmap,

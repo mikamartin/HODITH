@@ -127,4 +127,14 @@ class InsightsTabTrendsCardTest {
             .onNodeWithText(PlainVoice.insightsWentQuietSentence(currentGapLabel = "20 days", longestPastGapLabel = "5 days"))
             .assertExists()
     }
+
+    @Test
+    fun trendsCard_rendersRecurrenceShapeSentence() {
+        val recurrenceShape = TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.8)
+        setContent(trends = listOf(recurrenceShape))
+
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsRecurrenceShapeSentence(ShiftDirection.UP, thresholdLabel = "3 days", shareLabel = "80%"))
+            .assertExists()
+    }
 }

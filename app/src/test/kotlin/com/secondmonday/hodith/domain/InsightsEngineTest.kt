@@ -452,6 +452,151 @@ class InsightsEngineTest {
         assertEquals(ShiftDirection.UP, computeStreakShift(dates)?.direction)
     }
 
+    // ---- computeRecurrenceShape ----
+
+    @Test
+    fun `computeRecurrenceShape is null below the minimum sample count`() {
+        val stats = gapStats(pastGaps = listOf(2L, 2L, 2L, 2L, 20L), currentGapDays = 0L)
+
+        assertEquals(null, computeRecurrenceShape(stats))
+    }
+
+    @Test
+    fun `computeRecurrenceShape reports an early-spike finding at exactly the minimum sample count`() {
+        // Five short gaps clustered well under half the mean, one long one -- 5 of 6 landed early.
+        val stats = gapStats(pastGaps = listOf(2L, 2L, 2L, 2L, 2L, 20L), currentGapDays = 0L)
+
+        val result = computeRecurrenceShape(stats)
+
+        assertEquals(ShiftDirection.UP, result?.direction)
+        assertEquals(RECURRENCE_SHAPE_MIN_SAMPLE_COUNT, result?.sampleCount)
+    }
+
+    @Test
+    fun `computeRecurrenceShape reports an early-spike finding with the threshold and share it used`() {
+        // Eight short gaps at 2, one long at 20 -- mean 4.0, threshold 2.0, 8 of 9 gaps landed early.
+        val pastGaps = List(8) { 2L } + 20L
+        val stats = gapStats(pastGaps = pastGaps, currentGapDays = 0L)
+
+        val result = computeRecurrenceShape(stats)
+
+        assertEquals(ShiftDirection.UP, result?.direction)
+        assertEquals(2.0, result?.thresholdDays ?: -1.0, 0.0001)
+        assertEquals(8.0 / 9.0, result?.earlyShare ?: -1.0, 0.0001)
+        assertEquals(9, result?.sampleCount)
+    }
+
+    @Test
+    fun `computeRecurrenceShape fires spike right at the share boundary`() {
+        // Six gaps at 1, four at 10 -- mean 4.6, threshold 2.3, exactly 6 of 10 landed early.
+        val pastGaps = List(6) { 1L } + List(4) { 10L }
+        val stats = gapStats(pastGaps = pastGaps, currentGapDays = 0L)
+
+        val result = computeRecurrenceShape(stats)
+
+        assertEquals(ShiftDirection.UP, result?.direction)
+        assertEquals(0.6, result?.earlyShare ?: -1.0, 0.0001)
+    }
+
+    @Test
+    fun `computeRecurrenceShape reports a dead-zone finding with real spread`() {
+        // Nine gaps at 10, one at 50 -- mean 14, threshold 7, none of the ten landed early.
+        val pastGaps = List(9) { 10L } + 50L
+        val stats = gapStats(pastGaps = pastGaps, currentGapDays = 0L)
+
+        val result = computeRecurrenceShape(stats)
+
+        assertEquals(ShiftDirection.DOWN, result?.direction)
+        assertEquals(7.0, result?.thresholdDays ?: -1.0, 0.0001)
+        assertEquals(0.0, result?.earlyShare ?: -1.0, 0.0001)
+        assertEquals(10, result?.sampleCount)
+    }
+
+    @Test
+    fun `computeRecurrenceShape fires dead zone right at the share boundary, given real spread`() {
+        // One gap at 1, nine at 30 -- mean 27.1, threshold 13.55, exactly 1 of 10 landed early.
+        val pastGaps = listOf(1L) + List(9) { 30L }
+        val stats = gapStats(pastGaps = pastGaps, currentGapDays = 0L)
+
+        val result = computeRecurrenceShape(stats)
+
+        assertEquals(ShiftDirection.DOWN, result?.direction)
+        assertEquals(0.1, result?.earlyShare ?: -1.0, 0.0001)
+    }
+
+    @Test
+    fun `computeRecurrenceShape is null just below the spike share boundary`() {
+        // 59 of 100 gaps land early (0.59) -- one short of RECURRENCE_SHAPE_SPIKE_MIN_SHARE (0.6).
+        val pastGaps = List(59) { 2L } + List(41) { 20L }
+        val stats = gapStats(pastGaps = pastGaps, currentGapDays = 0L)
+
+        assertEquals(null, computeRecurrenceShape(stats))
+    }
+
+    @Test
+    fun `computeRecurrenceShape is null just below the dead-zone coefficient-of-variation gate, even though the share alone qualifies`() {
+        // Nine gaps at 10, one at 20 -- earlyShare is 0 (clears the dead-zone share bar on its own),
+        // but coefficient of variation is 0.2727, just short of RECURRENCE_SHAPE_DEAD_ZONE_MIN_COEFFICIENT_OF_VARIATION
+        // (0.3) -- distinct from the all-identical steady-rhythm case below, this pins the gate's own
+        // boundary with real (if modest) spread in the data.
+        val pastGaps = List(9) { 10L } + 20L
+        val stats = gapStats(pastGaps = pastGaps, currentGapDays = 0L)
+
+        assertEquals(null, computeRecurrenceShape(stats))
+    }
+
+    @Test
+    fun `computeRecurrenceShape fires dead zone exactly at the coefficient-of-variation gate boundary`() {
+        // Nine gaps at 9, one at 19 -- mean 10, coefficient of variation exactly 0.3.
+        val pastGaps = List(9) { 9L } + 19L
+        val stats = gapStats(pastGaps = pastGaps, currentGapDays = 0L)
+
+        val result = computeRecurrenceShape(stats)
+
+        assertEquals(ShiftDirection.DOWN, result?.direction)
+        assertEquals(0.0, result?.earlyShare ?: -1.0, 0.0001)
+    }
+
+    @Test
+    fun `computeRecurrenceShape is null for a steady rhythm even though no gap is ever early`() {
+        // Every gap identical -- earlyShare is 0, which alone would clear the dead-zone share bar,
+        // but there's no real spread (coefficient of variation 0), so this must not fire.
+        val stats = gapStats(pastGaps = List(RECURRENCE_SHAPE_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 0L)
+
+        assertEquals(null, computeRecurrenceShape(stats))
+    }
+
+    @Test
+    fun `computeRecurrenceShape is null for a flat hazard that clears neither bar`() {
+        val stats = gapStats(pastGaps = listOf(3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L), currentGapDays = 0L)
+
+        assertEquals(null, computeRecurrenceShape(stats))
+    }
+
+    @Test
+    fun `computeRecurrenceShape is null when the average gap is zero`() {
+        // Every past gap 0 days apart -- nothing to be "early" relative to.
+        val stats = gapStats(pastGaps = List(RECURRENCE_SHAPE_MIN_SAMPLE_COUNT) { 0L }, currentGapDays = 0L)
+
+        assertEquals(null, computeRecurrenceShape(stats))
+    }
+
+    @Test
+    fun `computeRecurrenceShape and isBursty are independent -- a bursty Case can still land in the flat middle`() {
+        // Gaps 2,3,4,5,6,7,8,9,10,40 -- coefficient of variation 1.12 clears isBursty's own bar (a
+        // fact this test pins using the real computeGapStats, not the synthetic gapStats() helper
+        // above, which always hardcodes isBursty false), but the early-gap share (0.3) clears
+        // neither recurrence-shape bar. The two flags describe different things about the same
+        // distribution and can disagree.
+        val days = listOf(0L, 2L, 5L, 9L, 14L, 20L, 27L, 35L, 44L, 54L, 94L)
+        val events = days.map { eventAtDay(it) }
+
+        val stats = computeGapStats(events, now = millisAtDay(96))
+
+        assertTrue(stats.isBursty)
+        assertEquals(null, computeRecurrenceShape(stats))
+    }
+
     // ---- heatmapLevelFor ----
 
     @Test
