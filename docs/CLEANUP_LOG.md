@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/flaky-home-bigpicture-uistate-tests
+
+**Scope:** Root-caused and fixed a JVM-unit-test flake that had hit `HomeViewModelTest.onQuickLogTap on an ongoing START_STOP case starts a second concurrent event` four times in CI (PRs #102, #108, a `main` push after #114, #117), always the same assertion, always on diffs that touched none of the files involved.
+
+**Found & fixed:**
+
+- Confirmed root cause: `HomeViewModel.uiState`/`BigPictureViewModel.uiState` both hardcoded `.flowOn(Dispatchers.Default)` on their `combine` chain — a real, load-bearing production fix (commits `670b605`/`fe6b9b9`) for a rapid-logging-burst ANR, but a real OS thread pool that JVM tests never redirect (`Dispatchers.setMain(UnconfinedTestDispatcher())` only touches `Dispatchers.Main`). The `combine` re-map ran on that unsynchronized real thread, racing `runTest`'s virtual scheduler and turbine's `awaitItem()`.
+- Fix: injected the `flowOn` dispatcher as a Hilt-qualified `CoroutineDispatcher` (`di/DefaultDispatcher.kt`, `di/DispatcherModule.kt`), following the existing `Clock`/`FakeClock` seam pattern rather than introducing a new one. Production binds to the real `Dispatchers.Default` (ANR fix fully preserved); both JVM test files now pass `UnconfinedTestDispatcher()` directly to the ViewModel constructor (no Hilt in JVM unit tests), removing the real thread hop entirely.
+- `BigPictureViewModelTest.kt`'s `uiState keeps the current detail across a repository change` had the identical mutate-then-`awaitItem()` shape and was equally susceptible, though it hadn't flaked in CI yet — fixed by the same constructor change.
+
+**Checklist walk (against the working-tree diff):**
+
+- *Duplication* — no inline strings, no composables; the new `di/` module mirrors `CoroutineScopeModule`'s existing `object` + `@Provides` shape rather than inventing a new DI pattern.
+- *Decoupling* — no `domain/` files touched; no `android.*` import added anywhere.
+- *Complexity & pattern health* — no composables, no `remember`/`LaunchedEffect` touched. The injected dispatcher is consumed at the same layer `Clock` already is (constructor parameter), provided at the same layer `ClockModule`/`CoroutineScopeModule` already are (`SingletonComponent`) — no new layering introduced. Considered reusing `CoroutineScopeModule`'s existing hardcoded `Dispatchers.Default` and declined: it binds a `CoroutineScope` for an unrelated singleton (`NotificationEvalScheduler`'s fire-and-forget scope), not a swappable `CoroutineDispatcher`, so there was nothing to reuse.
+- *Dead code & hygiene* — `import kotlinx.coroutines.Dispatchers` removed from both ViewModels (no longer referenced) in favor of `import kotlinx.coroutines.CoroutineDispatcher`; `ktlintFormat` fixed one line-wrap violation in the new `HomeViewModelTest` assertion.
+- *Repo hygiene* — `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, left alone); no secret-shaped content; no `.gitignore` gaps; the three new files (`di/DefaultDispatcher.kt`, `di/DispatcherModule.kt`, `di/DispatcherModuleTest.kt`) are real source, not local tooling/config, and belong in the repo.
+- *Naming* — `DefaultDispatcher.kt`/`DispatcherModule.kt` sit in `di/` alongside `ClockModule.kt`/`CoroutineScopeModule.kt`, same naming shape.
+- *Hardcoded values* — not applicable; this change removes the last hardcoded `Dispatchers.Default` reference from both ViewModels in favor of injection and adds no new numeric/color constants.
+- *Accessibility* — not applicable; no UI touched.
+- *Deprecated APIs* — one new compiler warning surfaced (`@DefaultDispatcher` on a constructor `val` is ambiguous between the parameter and the generated property under a future Kotlin default). Resolved with an explicit `@param:DefaultDispatcher` site target rather than left as a warning; `BigPictureViewModel`'s equivalent parameter isn't a property (no `private val`), so it wasn't ambiguous and needed no change.
+- *Spec review* — not applicable; this is internal test infrastructure, not user-visible or spec'd behavior.
+- *Tests* — new `DispatcherModuleTest` pins the production binding to the real `Dispatchers.Default` (nothing else exercises `DispatcherModule`, since both JVM test files bypass Hilt). New proof tests in `HomeViewModelTest`/`BigPictureViewModelTest` assert `uiState.value` reflects a mutation with no `awaitItem()` at all — demonstrating the recombination is now synchronous under the injected test dispatcher, not just a rerun of the previously-flaky assertion.
+
+**Deferred:** nothing.
+
+**Docs updated:** none (`HODITH_SPEC.md`/`TESTING.md` don't describe this internal seam).
+
+**Verified:** `ktlintCheck → lintDebug → test (scoped, then full) → assembleDebug` sequential, all green. The previously-flaking test plus both new proof tests reran clean 5/5 with `--rerun` (forcing re-execution rather than Gradle's cache) — the proof tests no longer depend on a real thread at all, so this is stronger evidence than the rerun count alone.
+
+---
+
 ## feat/insights-trends-recurrence-hazard
 
 **Scope:** PROGRESS.md's Story C T3 — a Trends detector for whether a Case's past gaps form an early-spike pattern (it usually recurs quickly) or a dead-zone pattern (it almost never does), the fifth detector in the Trends roster T1 scaffolded, and a heavier sibling to the existing bursts CV flag.
@@ -166,34 +198,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `HODITH_SPEC.md` §10 — new `WENT_QUIET` entry in the Trends detectors list, plus the list-ordering note. `PROGRESS.md` — "Case quiet vs. abandoned" removed from Standalone (fully resolved and shipped as a Trends detector, not left as a separate design-only item); Story C's intro reworded to note this third already-shipped finding kind; T3's design-decision note gained a cross-reference to reconcile its "dead zone" wording against `WENT_QUIET`; T9's design-decision note gained an open question about whether `WENT_QUIET` belongs on a share card at all, plus a consideration (raised by the user) that the card may need a generation timestamp given `WENT_QUIET`'s live-state sentence stops being accurate the moment new data arrives, unlike the Insights tab's always-fresh recompute.
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (one `ktlintFormat` round-trip: fixed three `Voice.kt` expression-body line-length violations and one `CaseDetailViewModel.kt` chained-call wrap). `connectedDebugAndroidTest` run twice as the emulator became available mid-session: first scoped to `EventDaoTest` (36/36, including the three new `observeMostRecentLoggedAtAcrossActiveCases` cases), then again scoped to `InsightsTabTrendsCardTest`/`TrendsListScreenTest`/`CaseDetailScreenTest` after adding the Compose UI coverage above (46/46, all on `Pixel_8_API36(AVD)`).
-
----
-
-## feat/insights-trends-scaffold
-
-**Scope:** A retroactive checklist walk + test-coverage audit against T1's already-merged diff (`bae8aed`, PROGRESS.md Story C T1 — the Trends section scaffold and gap/streak-shift migration), run on request rather than alongside the feature's own authoring.
-
-**Found & fixed:**
-
-- `TrendsListViewModel` had no unit test, unlike every other `ViewModel` in the app (`TriggersViewModel`, `ShareViewModel`, etc., each with a matching `FakeHodithRepository`/`FakeClock`/Turbine test). Added `TrendsListViewModelTest.kt`: case icon/name mapping, findings mirroring `stats.trends` from `insightsTabState()`, and the null-case (deleted Case) path.
-- T1's own acceptance-criteria checklist in `PROGRESS.md` was never struck even though this diff ships it end-to-end — left as open work indefinitely. Removed the whole T1 entry (matching how other fully-resolved items are retired here, e.g. `feat/case-description-on-home`'s entry) and reworded the Story C intro to state T1 shipped rather than describing it as upcoming. One acceptance criterion ("each finding row independently tappable to its own info dialog") shipped differently than planned — a single shared dialog on the compact card instead — but that's already the accurate, intentional description in `HODITH_SPEC.md` §10, so no further doc fix was needed there.
-- `InsightsTabTrendsCardTest`'s synthetic `InsightsTabState.Ready` fixture passed `RhythmDisplay(cells = emptyList())`, violating `RhythmDisplay.cells`' documented "always all 28 day-of-week × time-of-day cells" invariant. Never caught by `./gradlew test` (JVM-only) or code review, only by actually running the class on a device: `RhythmCard`'s `display.cells.first { ... }` (`InsightsTab.kt:589`) throws `NoSuchElementException` on an empty grid, so all three of its tests crashed instead of asserting anything. Fixed by building the real full 28-cell grid (`HeatmapLevel.EMPTY`, count 0) in the fixture instead of an empty list — a test-fixture bug, not a production one, since `computeRhythmStats()` never actually produces a short list.
-
-**Checklist walk (against the merged diff `main...feat/insights-trends-scaffold`):**
-
-- *Duplication* — no inline strings; new Voice keys (`insightsSectionLabelTrends`, `insightsTrendsShowMoreAction`, `insightsTrendsInfoTitle`/`Body`, `trendReliabilityHintLabel`/`PatternLabel`, `insights*ShiftEvidenceLabel`) all added to Serious/Goth/Quirky in the same commit (compiler-enforced via the `Voice` interface).
-- *Decoupling* — `TrendsEngine.kt`/`Trends.kt` stay pure Kotlin, no `android.*` imports; `TrendsListViewModel` takes the injected `Clock`, not `System.currentTimeMillis()`.
-- *Complexity & pattern health* — the old monolithic `TrendCard` was split into small, single-purpose composables (`TrendsCard`, `TrendReliabilityTag`, `TrendFindingContent`, `TrendFindingRow`, `TrendFindingPlank`), each reused across the compact card and the new full-list screen rather than duplicated.
-- *Dead code & hygiene* — old `TrendCard`/its info-icon test correctly removed rather than left dead; no stray untracked files.
-- *Repo hygiene* — `git status` clean; no secrets, no local paths.
-- *Naming* — new files (`Trends.kt`, `TrendsEngine.kt`, `TrendsListViewModel.kt`, `TrendsListScreen.kt`) match existing package/suffix conventions.
-- *Hardcoded values* — `TRENDS_MAX_FINDINGS`/`TRENDS_DEFAULT_VISIBLE_COUNT` are named constants, not inline numbers.
-- *Accessibility* — icon-only actions keep non-empty `contentDescription`s; verified via the instrumented run below.
-- *Deprecated APIs* — none; `lintDebug` clean.
-- *Spec review* — `HODITH_SPEC.md` §10 updated with the new Trends section and its "Trends detectors" subsection, correctly documenting the shared-dialog divergence noted above.
-
-**Deferred:** nothing — both findings were fixed in this pass.
-
-**Docs updated:** `PROGRESS.md` — Story C T1 struck in full (shipped); Story C intro reworded accordingly.
-
-**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. `connectedDebugAndroidTest` scoped to the branch's touched instrumented classes (`CaseDetailInsightsTabTest`, `CaseDetailScreenTest`, `InsightsTabTrendsCardTest`, `TrendsListScreenTest`, `ShareCardTemplateTest`) — first run caught the `InsightsTabTrendsCardTest` fixture bug above (3/87 failed); 87/87 green on `Pixel_8_API36(AVD)` after the fix.

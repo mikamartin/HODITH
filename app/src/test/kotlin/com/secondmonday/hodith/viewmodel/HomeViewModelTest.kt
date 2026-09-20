@@ -28,6 +28,7 @@ class HomeViewModelTest {
     private val repository = FakeHodithRepository()
     private val settingsRepository = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
+    private val defaultDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setUp() {
@@ -57,7 +58,7 @@ class HomeViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase(), testCase(id = 2L, name = "Archived").copy(archived = true))
             repository.events.value = listOf(testEvent())
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
 
             viewModel.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
@@ -73,7 +74,7 @@ class HomeViewModelTest {
     fun `onQuickLogTap on a ONE_TAP case inserts an event and signals undo`() =
         runTest {
             repository.cases.value = listOf(testCase(logFlow = LogFlow.ONE_TAP))
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
 
             viewModel.uiState.test {
                 val row = awaitLoadedItem { it.isLoading }.cases.single()
@@ -97,7 +98,7 @@ class HomeViewModelTest {
     fun `a rapid one-tap burst never blocks and leaves only the latest undo actionable`() =
         runTest {
             repository.cases.value = listOf(testCase(logFlow = LogFlow.ONE_TAP))
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
 
             viewModel.uiState.test {
                 val row = awaitLoadedItem { it.isLoading }.cases.single()
@@ -120,7 +121,7 @@ class HomeViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
             repository.events.value = listOf(testEvent(endedAt = null))
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
 
             viewModel.uiState.test {
                 val row = awaitLoadedItem { it.isLoading }.cases.single()
@@ -137,13 +138,41 @@ class HomeViewModelTest {
         }
 
     @Test
+    fun `onQuickLogTap recombination happens synchronously under the injected test dispatcher`() =
+        runTest {
+            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.events.value = listOf(testEvent(endedAt = null))
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
+
+            viewModel.uiState.test {
+                val row = awaitLoadedItem { it.isLoading }.cases.single()
+                clock.advanceBy(60_000L)
+                viewModel.onQuickLogTap(row)
+
+                // No awaitItem() needed: with defaultDispatcher standing in for Dispatchers.Default,
+                // the combine's flowOn stage re-runs eagerly on this thread the instant the fake
+                // repository's backing StateFlow updates. Under real Dispatchers.Default this read
+                // would be racy (the mapping runs on a worker thread unsynchronized with this
+                // assertion) — this is the direct proof the DI swap removes the real thread hop from
+                // the JVM test, not just a rerun of the original flaky assertion.
+                assertEquals(
+                    2,
+                    viewModel.uiState.value.cases
+                        .single()
+                        .runningCount,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `onQuickLogTap on a DETAIL_SHEET case opens the log sheet with tag suggestions`() =
         runTest {
             repository.cases.value = listOf(testCase(logFlow = LogFlow.DETAIL_SHEET))
             val eventId = repository.insertEvent(testEvent())
             repository.tags.value = listOf(TagEntity(id = 1L, name = "focus"))
             repository.eventTags.value = listOf(EventTagCrossRef(eventId = eventId, tagId = 1L))
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
 
             viewModel.uiState.test {
                 val row = awaitLoadedItem { it.isLoading }.cases.single()
@@ -161,7 +190,7 @@ class HomeViewModelTest {
     fun `dismissLogSheet clears the open sheet`() =
         runTest {
             repository.cases.value = listOf(testCase(logFlow = LogFlow.DETAIL_SHEET))
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
             viewModel.uiState.test {
                 val row = awaitLoadedItem { it.isLoading }.cases.single()
                 viewModel.onQuickLogTap(row)
@@ -178,7 +207,7 @@ class HomeViewModelTest {
     fun `saveLogSheetEvent inserts a new event with tags and clears the sheet`() =
         runTest {
             repository.cases.value = listOf(testCase(logFlow = LogFlow.DETAIL_SHEET, durationMode = DurationMode.NONE))
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
             viewModel.uiState.test {
                 val row = awaitLoadedItem { it.isLoading }.cases.single()
                 viewModel.onQuickLogTap(row)
@@ -208,7 +237,7 @@ class HomeViewModelTest {
             repository.cases.value =
                 listOf(testCase(logFlow = LogFlow.DETAIL_SHEET, durationMode = DurationMode.START_STOP))
             repository.events.value = listOf(testEvent(endedAt = null))
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
             viewModel.uiState.test {
                 val row = awaitLoadedItem { it.isLoading }.cases.single()
                 viewModel.onQuickLogTap(row)
@@ -225,7 +254,7 @@ class HomeViewModelTest {
     @Test
     fun `undoQuickLog deletes the just-inserted event`() =
         runTest {
-            val viewModel = HomeViewModel(repository, settingsRepository, clock)
+            val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
             val eventId = repository.insertEvent(testEvent())
             assertTrue(repository.events.value.isNotEmpty())
 
