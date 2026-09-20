@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -164,72 +166,82 @@ fun LogDetailForm(
         modifier =
             modifier
                 .padding(contentPadding)
-                .verticalScroll(rememberScrollState())
                 .imePadding(),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        header()
+        // fill = false normally: the field area wraps its own content, so a short form still
+        // sizes the ModalBottomSheet compactly instead of stretching it to full height. Once the
+        // IME opens, fill = true instead — the field area is forced to occupy the whole
+        // (IME-shrunk) space, docking Save to the bottom of what's visible above the keyboard
+        // rather than leaving it floating right after a short field list with dead space below.
+        val imeVisible = WindowInsets.isImeVisible
+        Column(
+            modifier = Modifier.weight(1f, fill = imeVisible).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            header()
 
-        TimeSection(
-            occurredAt = draft.occurredAt,
-            zone = zone,
-            label = voice.logSheetTimeLabel,
-            onDateClick = { showDatePicker = true },
-            onTimeClick = { showTimePicker = true },
-        )
-
-        if (durationMode == DurationMode.START_STOP) {
-            EndTimeSection(
-                endedAt = draft.endedAt,
+            TimeSection(
+                occurredAt = draft.occurredAt,
                 zone = zone,
+                label = voice.logSheetTimeLabel,
+                onDateClick = { showDatePicker = true },
+                onTimeClick = { showTimePicker = true },
+            )
+
+            if (durationMode == DurationMode.START_STOP) {
+                EndTimeSection(
+                    endedAt = draft.endedAt,
+                    zone = zone,
+                    voice = voice,
+                    onStopNowClick = { draft = draft.copy(endedAt = now) },
+                    onBackToOngoingClick = { draft = draft.copy(endedAt = null) },
+                    onDateClick = { showEndDatePicker = true },
+                    onTimeClick = { showEndTimePicker = true },
+                )
+            }
+
+            if (intensityEnabled) {
+                IntensitySection(
+                    label = voice.logSheetIntensityLabel,
+                    selected = draft.intensity,
+                    onSelect = { value -> draft = draft.copy(intensity = if (draft.intensity == value) null else value) },
+                )
+            }
+
+            if (durationMode == DurationMode.MANUAL) {
+                DurationSection(
+                    amount = draft.durationAmount,
+                    unit = draft.durationUnit,
+                    onAmountChange = { draft = draft.copy(durationAmount = filterDigitInput(it, maxDigits = DURATION_AMOUNT_MAX_DIGITS)) },
+                    onUnitChange = { draft = draft.copy(durationUnit = it) },
+                    voice = voice,
+                )
+            }
+
+            OutlinedTextField(
+                value = draft.note,
+                onValueChange = { draft = draft.copy(note = it) },
+                label = { Text(voice.logSheetNoteLabel) },
+                placeholder = { Text(voice.logSheetNoteHint) },
+                minLines = 2,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            TagsSection(
+                label = voice.logSheetTagsLabel,
+                selectedTags = draft.tags,
+                suggestions = tagSuggestions.map { it.name },
+                tagInput = tagInput,
+                onTagInputChange = { tagInput = it },
+                onAddTag = { name ->
+                    tagToAdd(name, draft.tags)?.let { tag -> draft = draft.copy(tags = draft.tags + tag) }
+                    tagInput = ""
+                },
+                onRemoveTag = { name -> draft = draft.copy(tags = draft.tags - name) },
                 voice = voice,
-                onStopNowClick = { draft = draft.copy(endedAt = now) },
-                onBackToOngoingClick = { draft = draft.copy(endedAt = null) },
-                onDateClick = { showEndDatePicker = true },
-                onTimeClick = { showEndTimePicker = true },
             )
         }
-
-        if (intensityEnabled) {
-            IntensitySection(
-                label = voice.logSheetIntensityLabel,
-                selected = draft.intensity,
-                onSelect = { value -> draft = draft.copy(intensity = if (draft.intensity == value) null else value) },
-            )
-        }
-
-        if (durationMode == DurationMode.MANUAL) {
-            DurationSection(
-                amount = draft.durationAmount,
-                unit = draft.durationUnit,
-                onAmountChange = { draft = draft.copy(durationAmount = filterDigitInput(it, maxDigits = DURATION_AMOUNT_MAX_DIGITS)) },
-                onUnitChange = { draft = draft.copy(durationUnit = it) },
-                voice = voice,
-            )
-        }
-
-        OutlinedTextField(
-            value = draft.note,
-            onValueChange = { draft = draft.copy(note = it) },
-            label = { Text(voice.logSheetNoteLabel) },
-            placeholder = { Text(voice.logSheetNoteHint) },
-            minLines = 2,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        TagsSection(
-            label = voice.logSheetTagsLabel,
-            selectedTags = draft.tags,
-            suggestions = tagSuggestions.map { it.name },
-            tagInput = tagInput,
-            onTagInputChange = { tagInput = it },
-            onAddTag = { name ->
-                tagToAdd(name, draft.tags)?.let { tag -> draft = draft.copy(tags = draft.tags + tag) }
-                tagInput = ""
-            },
-            onRemoveTag = { name -> draft = draft.copy(tags = draft.tags - name) },
-            voice = voice,
-        )
 
         val isStarting = durationMode == DurationMode.START_STOP && !isEditing && draft.endedAt == null
         Button(onClick = { onSave(draft) }, modifier = Modifier.fillMaxWidth()) {

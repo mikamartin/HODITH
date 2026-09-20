@@ -17,6 +17,36 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/log-detail-save-button-visibility
+
+**Scope:** PROGRESS.md bug — the Save button in the log entry form (`LogDetailForm`, shared by the new-event `LogDetailSheet` and the edit-event `LogDetailScreen`) got pushed below the fold and unreachable while the tag field had focus and the keyboard was open.
+
+**Found & fixed:**
+
+- Root cause: `LogDetailForm`'s Save `Button` was the last item in the same single `Column` that had both `.verticalScroll(...)` and `.imePadding()` applied — when the IME opened, it shrank the viewport but nothing scrolled Save into view. Fix: split into an outer `Column` (padding + `imePadding()`) with two children — an inner `Modifier.weight(1f, fill = ...).verticalScroll(...)` `Column` holding the fields, and the Save button pinned after it, outside the scroll region.
+- First pass hardcoded `fill = false` (keeps a short form, e.g. `DurationMode.NONE`, sizing the `ModalBottomSheet` compactly). The user caught a real problem in manual testing: with the keyboard open on a short form, `fill = false` let the field area shrink to just its content height, leaving Save floating right after it with dead space down to the keyboard instead of docked at the visible bottom edge. Fixed by making `fill` track `WindowInsets.isImeVisible` — `false` when the keyboard is closed (unchanged compact behavior), `true` while it's open (field area fills the IME-shrunk space, docking Save at its bottom).
+- Added an unnecessary `import androidx.compose.foundation.layout.weight` that broke compilation (`weight` is a `ColumnScope` member, not a top-level import — Kotlin resolved the import to an unrelated internal `RowColumnParentData` property instead). Removed; confirmed via `grep` that no other file in the codebase imports it either.
+
+**Checklist walk (against the working-tree diff):**
+
+- *Duplication* — no new user-visible strings (no Voice changes needed); no composable/ViewModel/Repository/Dao duplication.
+- *Decoupling* — no `domain/` files touched; the change is contained to `LogDetailForm`'s layout.
+- *Complexity & pattern health* — `LogDetailForm` grew from ~123 to ~132 lines (nesting indentation), still under the ~150-line guideline; the one added nesting level has an explanatory comment on why `fill = false` matters.
+- *Dead code & hygiene* — the bad `weight` import (see above) was caught by `compileDebugKotlin` failing, not silently left in.
+- *Repo hygiene* — `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated to this work, flagged in prior passes too, left alone); no secret-shaped content; new test file is real source, belongs in the repo.
+- *Naming* — `LogDetailSheetTest.kt` follows the existing `*Test.kt` pattern and sits alongside `LogDetailScreenTest.kt`.
+- *Hardcoded values / accessibility / deprecated APIs* — not applicable; no new colors, tap targets, or deprecation warnings.
+- *Spec review* — `HODITH_SPEC.md` has no mention of this layout at this level of detail; nothing to update.
+- *Tests* — regression test added to both wrappers: `LogDetailScreenTest.tagFieldFocused_saveButtonStaysReachable` (existing file) and a new `LogDetailSheetTest` (there was previously no instrumented test file for `LogDetailSheet` itself), tagged `@UiTest`/`@Smoke`. `TESTING.md`'s Compose UI row updated to describe the new coverage.
+
+**Deferred:** nothing — the one open item (new instrumented coverage hadn't run on a device yet) was resolved by running it once an emulator became available, not deferred.
+
+**Docs updated:** `TESTING.md` — Compose UI row. `PROGRESS.md` — item struck (removed entirely, per this doc's outstanding-only convention).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. `connectedDebugAndroidTest` scoped to `LogDetailScreenTest` + `LogDetailSheetTest` run twice — once before the `isImeVisible` refinement (6/6), once after (6/6, on `Pixel_8_API36(AVD)` specifically — a second physical device was connected mid-session with its screen locked, which made every instrumented test fail with a misleading "no compose hierarchy found" error until the run was scoped to the emulator via `ANDROID_SERIAL`, an environment issue rather than a code regression).
+
+---
+
 ## fix/flaky-home-bigpicture-uistate-tests
 
 **Scope:** Root-caused and fixed a JVM-unit-test flake that had hit `HomeViewModelTest.onQuickLogTap on an ongoing START_STOP case starts a second concurrent event` four times in CI (PRs #102, #108, a `main` push after #114, #117), always the same assertion, always on diffs that touched none of the files involved.
@@ -163,38 +193,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (727 unit tests). `connectedDebugAndroidTest` scoped to `DatabaseFreshInstallTest` (6/6, including the new v10→v11 migration case) and `BigPictureQueriesTest` (4/4) on `Pixel_8_API36(AVD)`.
 
----
-
-## feat/insights-trends-went-quiet
-
-**Scope:** PROGRESS.md's "Case quiet vs. abandoned" item — resolved its open 🎨 design decision with the user (surfacing mechanism, threshold logic, relationship to check-ins/`SILENT_FOR` triggers) and implemented it in the same branch as a new Trends finding, rather than leaving the design ruling as a separate pass ahead of a later implementation item.
-
-**Changes:**
-
-- `domain/Insights.kt`/`InsightsEngine.kt`: new `QuietSignalResult`, `QUIET_SIGNAL_MIN_SAMPLE_COUNT`/`QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS`, `computeQuietSignal`. Reuses the already-computed `GapStats.isCurrentGapLongest` rather than building a new percentile helper — numerically identical to the item's originally-specified 99th-percentile threshold at realistic Case sizes (they only diverge past ~100 historical gaps), so the simpler existing field was reused instead.
-- `domain/Trends.kt`/`TrendsEngine.kt`: new `TrendFindingKind.WENT_QUIET`, prepended first in `computeTrendFindings`'s output when it fires (ahead of gap/streak/frequency shift), gated by a new `recentlyActiveElsewhere: Boolean = false` parameter — defaults preserve every existing 3-arg call site.
-- `data/EventDao.kt`/`HodithRepository.kt`/`RoomHodithRepository.kt` (+ `FakeHodithRepository`): new `observeMostRecentLoggedAtAcrossActiveCases()`, a lean `MAX(loggedAt)` scalar query across active Cases — the cross-Case "still logging elsewhere" signal the finding's second condition needs. No schema change.
-- `viewmodel/InsightsTabState.kt`/`CaseDetailViewModel.kt`/`CaseDetailScreen.kt`/`TrendsListViewModel.kt`: threaded the new signal from the repository through to `computeTrendFindings`, converting it to a recency boolean at the `statsSections` boundary rather than passing raw timestamps into the domain layer.
-- `ui/casedetail/InsightsTab.kt`/`ui/voice/Voice.kt`: new `WENT_QUIET` rendering branch and `insightsWentQuietSentence`/`insightsWentQuietEvidenceLabel` Voice keys ×3, framed as an open question ("still happening, or has it wound down?") per spec §4's "ask rather than silently report" rule — never a statement that the user did something wrong.
-- `data/demo/DemoDataSeeder.kt`: doc-comment only. The existing "Nosebleed" `quietSpell` seed already deterministically sets a new longest-gap record (it was built for the Gaps card's own note); confirmed by test that it exercises `WENT_QUIET` for free, no seed-data changes needed.
-
-**Found & fixed:**
-
-- The first implementation pass covered domain/ViewModel/DAO logic thoroughly but shipped no Compose UI test for the new `WENT_QUIET` render branch in `InsightsTab.kt`'s `TrendFindingContent` — caught only when the user asked directly whether UI tests had run. Added `trendsCard_rendersWentQuietSentence` (`InsightsTabTrendsCardTest.kt`, the compact card `CaseDetailScreen` actually renders) and `wentQuietFinding_rendersItsOwnPlank` (`TrendsListScreenTest.kt`, the full-list screen), both asserting the real Voice sentence text renders on screen, not just that the domain layer produces the right `TrendFinding`.
-
-**Checklist walk (against the working-tree diff):**
-
-- *Duplication* — checked against every existing/planned Trends detector and the Gaps card before designing: none of `GAP_SHIFT`/`STREAK_SHIFT`/`FREQUENCY_SHIFT` ever reads the live/current gap (only completed history), and `isCurrentGapLongest` was computed but never rendered anywhere before this — not a restatement of an existing signal. New Voice keys added to all three voices in this same pass. `observeMostRecentLoggedAtAcrossActiveCases` doesn't overlap any existing repository query.
-- *Decoupling* — `computeQuietSignal`/`computeTrendFindings` take plain data (`GapStats`, a `Boolean`), no `Clock`/`System.currentTimeMillis()` call in `domain/`; the one `now`/`zone`-dependent computation (the recency window check) stays in `InsightsTabState.kt`, outside `domain/`. No `android.*` import added to any touched `domain/` file.
-- *Complexity & pattern health* — no new composables; one new `when` branch in the existing `TrendFindingContent` dispatch, matching `GAP_SHIFT`'s shape exactly.
-- *Dead code & hygiene* — found and fixed one issue in this pass: the first draft of `HODITH_SPEC.md`'s new `WENT_QUIET` bullet read as historical narration ("Resolves the former 'Case quiet vs. abandoned' design question…") rather than stating current fact, which the checklist's own "current-state docs" item flags explicitly — reworded to a plain present-tense rule instead. `git status` clean aside from a pre-existing untracked `merged_branches.txt` (not part of this work, left alone).
-- *Naming* — `QUIET_SIGNAL_*` constants and `WENT_QUIET` follow the existing `GAP_SHIFT_MIN_SAMPLE_COUNT`/`TrendFindingKind` conventions; no new files.
-- *Hardcoded values* — both new thresholds are named `domain/` constants, not inline numbers.
-- *Spec review* — `HODITH_SPEC.md` §10 updated (new detector line, plus a note that it always leads the Trends list); confirmed no other section still described the old design-only framing.
-- *Tests* — happy path plus boundary/negative cases at every layer (`InsightsEngineTest`, `TrendsEngineTest`, `InsightsTabStateTest`, `CaseDetailViewModelTest`, `EventDaoTest`, `DemoDataSeederTest`, `InsightsTabTrendsCardTest`, `TrendsListScreenTest`) rather than one representative case per function, per explicit request.
-
-**Deferred:** nothing.
-
-**Docs updated:** `HODITH_SPEC.md` §10 — new `WENT_QUIET` entry in the Trends detectors list, plus the list-ordering note. `PROGRESS.md` — "Case quiet vs. abandoned" removed from Standalone (fully resolved and shipped as a Trends detector, not left as a separate design-only item); Story C's intro reworded to note this third already-shipped finding kind; T3's design-decision note gained a cross-reference to reconcile its "dead zone" wording against `WENT_QUIET`; T9's design-decision note gained an open question about whether `WENT_QUIET` belongs on a share card at all, plus a consideration (raised by the user) that the card may need a generation timestamp given `WENT_QUIET`'s live-state sentence stops being accurate the moment new data arrives, unlike the Insights tab's always-fresh recompute.
-
-**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (one `ktlintFormat` round-trip: fixed three `Voice.kt` expression-body line-length violations and one `CaseDetailViewModel.kt` chained-call wrap). `connectedDebugAndroidTest` run twice as the emulator became available mid-session: first scoped to `EventDaoTest` (36/36, including the three new `observeMostRecentLoggedAtAcrossActiveCases` cases), then again scoped to `InsightsTabTrendsCardTest`/`TrendsListScreenTest`/`CaseDetailScreenTest` after adding the Compose UI coverage above (46/46, all on `Pixel_8_API36(AVD)`).

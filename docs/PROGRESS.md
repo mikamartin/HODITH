@@ -342,21 +342,6 @@ Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existin
 
 **Concern** — none; per the spec's own note, this is the most self-contained item here.
 
-### Log entry form: Save button disappears while the tag field is focused
-
-*Branch: `fix/log-detail-save-button-visibility` · Complexity: S–M · Priority: Medium · Area: Bug*
-
-Reported bug: tapping into the tag input while logging or editing an event hides the Save button, so backing out of adding a tag requires tapping elsewhere first just to make Save reappear. Root cause: `LogDetailForm` (`app/src/main/kotlin/com/secondmonday/hodith/ui/logsheet/LogDetailSheet.kt`, lines 142-238) puts the Save `Button` (lines 235-237) as the *last* item inside the same scrollable `Column` as the form fields, and applies `.verticalScroll(...).imePadding()` (lines 163-169) to that whole column. When the tag `OutlinedTextField` (line 656) gains focus and the keyboard opens, `imePadding()` shrinks the viewport but nothing scrolls Save into view — it's pushed below the fold until the keyboard closes. Both `LogDetailScreen.kt` (edit) and `LogDetailSheet.kt` (new) share `LogDetailForm`, so the fix belongs there, not in either wrapper.
-
-**Acceptance criteria**
-
-- [ ] Save button stays visible (or is reachable without deliberately dismissing the keyboard) while the tag field has focus, in both the new-event sheet and the edit-event screen.
-- [ ] No regression to the existing scroll behavior for the rest of the form's fields.
-
-**Plan** — most direct fix is pinning the Save button outside the scrollable region (e.g. a fixed bottom bar) so it's unaffected by `imePadding()`/scroll position; alternative is auto-scrolling the focused field's container so Save stays in the IME-adjusted viewport. Since `LogDetailForm` is shared, fix once and verify both call sites.
-
-**Tests** — Compose UI test asserting the Save button remains visible (or scrolled into view) when the tag field is focused, for both `LogDetailScreen` and `LogDetailSheet`.
-
 ### Share button: add a Log Share option alongside the existing Insight Share
 
 *Branch: `feat/share-log-export` · Complexity: L · Priority: Medium · Area: Share*

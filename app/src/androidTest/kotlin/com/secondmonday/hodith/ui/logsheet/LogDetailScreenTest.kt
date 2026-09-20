@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.testtags.Smoke
@@ -108,5 +109,16 @@ class LogDetailScreenTest {
 
         assertNotNull(savedDraft)
         assertNull(savedDraft?.endedAt)
+    }
+
+    @Test
+    fun tagFieldFocused_saveButtonStaysReachable() {
+        var savedDraft: LogDraft? = null
+        setContent(onSave = { savedDraft = it })
+
+        composeTestRule.onNodeWithText(PlainVoice.logSheetAddTagHint).performTextInput("focus")
+        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+
+        assertNotNull(savedDraft)
     }
 }
