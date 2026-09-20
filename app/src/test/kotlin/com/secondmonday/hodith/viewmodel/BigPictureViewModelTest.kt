@@ -33,9 +33,10 @@ class BigPictureViewModelTest {
     private val repository = FakeHodithRepository()
     private val settings = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
+    private val defaultDispatcher = UnconfinedTestDispatcher()
     private val zoneId = ZoneId.systemDefault()
 
-    private fun viewModel() = BigPictureViewModel(repository, settings, clock)
+    private fun viewModel() = BigPictureViewModel(repository, settings, clock, defaultDispatcher)
 
     @Before
     fun setUp() {
@@ -291,6 +292,22 @@ class BigPictureViewModelTest {
                 val state = awaitItem()
                 assertEquals(1, state.cases.size)
                 assertTrue(state.detail.intensity)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a repository update is applied to uiState synchronously under the injected test dispatcher`() =
+        runTest {
+            val vm = viewModel()
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+                repository.cases.value = listOf(testCase())
+
+                // No awaitItem() needed: defaultDispatcher standing in for Dispatchers.Default means
+                // the combine's flowOn stage re-runs eagerly on this thread, not a real worker
+                // thread unsynchronized with runTest's virtual scheduler.
+                assertEquals(1, vm.uiState.value.cases.size)
                 cancelAndIgnoreRemainingEvents()
             }
         }

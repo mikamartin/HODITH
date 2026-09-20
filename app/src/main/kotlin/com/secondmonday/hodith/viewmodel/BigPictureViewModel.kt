@@ -12,9 +12,10 @@ import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.data.zoneOffsetFromMinutes
+import com.secondmonday.hodith.di.DefaultDispatcher
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -81,12 +82,15 @@ class BigPictureViewModel
         repository: HodithRepository,
         private val settingsRepository: SettingsRepository,
         clock: Clock,
+        @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         // Cases, event details, and tag names come from three lean projections (see
         // `CaseEventDetail`/`EventTagName`), not the events-per-Case `@Relation` graph. The mapping
-        // runs on `Dispatchers.Default` so a rapid-logging burst never touches the main thread;
-        // `clock.nowMillis()` is read per emission, so day-boundary rollover lands on the next
-        // upstream emission or resubscribe.
+        // runs on `defaultDispatcher` (`Dispatchers.Default` in production, injected so a
+        // rapid-logging burst never touches the main thread; a deterministic test dispatcher in JVM
+        // unit tests, so the recombination stays inside `runTest`'s virtual scheduler instead of
+        // racing a real thread); `clock.nowMillis()` is read per emission, so day-boundary rollover
+        // lands on the next upstream emission or resubscribe.
         val uiState: StateFlow<BigPictureUiState> =
             combine(
                 repository.observeActiveCases(),
@@ -95,7 +99,7 @@ class BigPictureViewModel
                 settingsRepository.observeBigPictureDetail(),
             ) { cases, eventDetails, tagNames, detail ->
                 bigPictureUiState(cases, eventDetails, tagNames, clock.nowMillis(), detail = detail)
-            }.flowOn(Dispatchers.Default)
+            }.flowOn(defaultDispatcher)
                 .conflate()
                 .stateIn(
                     scope = viewModelScope,

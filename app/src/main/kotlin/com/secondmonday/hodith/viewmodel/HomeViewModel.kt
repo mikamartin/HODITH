@@ -11,10 +11,11 @@ import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.quickLogEvent
+import com.secondmonday.hodith.di.DefaultDispatcher
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.activeSpanEnd
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -93,11 +94,14 @@ class HomeViewModel
         private val repository: HodithRepository,
         private val settingsRepository: SettingsRepository,
         private val clock: Clock,
+        @param:DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         // Rows come from [homeCaseRowsFlow]'s three lean projections (shared with the widgets), not
-        // the events-per-Case `@Relation` graph. The mapping runs on `Dispatchers.Default` so a
-        // rapid-logging burst never touches the main thread; `clock::nowMillis` is read per emission,
-        // so day-boundary rollover lands on the next emission or resubscribe.
+        // the events-per-Case `@Relation` graph. The mapping runs on `defaultDispatcher`
+        // (`Dispatchers.Default` in production, injected so a rapid-logging burst never touches the
+        // main thread; a deterministic test dispatcher in JVM unit tests, so the recombination stays
+        // inside `runTest`'s virtual scheduler instead of racing a real thread) — `clock::nowMillis`
+        // is read per emission, so day-boundary rollover lands on the next emission or resubscribe.
         val uiState: StateFlow<HomeUiState> =
             combine(
                 homeCaseRowsFlow(repository, clock::nowMillis),
@@ -110,7 +114,7 @@ class HomeViewModel
                     isLoading = false,
                     notificationPermissionRequested = notificationPermissionRequested,
                 )
-            }.flowOn(Dispatchers.Default)
+            }.flowOn(defaultDispatcher)
                 .conflate()
                 .stateIn(
                     scope = viewModelScope,
