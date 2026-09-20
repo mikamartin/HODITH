@@ -55,6 +55,21 @@ data class QuietSignalResult(
 )
 
 /**
+ * [computeTagShareShift]: one tag's share of the Case's own events (fraction 0.0–1.0) in the
+ * earlier vs. more recent half of its history. Unlike [ShiftResult], this is one of *several*
+ * results a single call can return — one per tag that clears the bar — so [sampleCount] is the
+ * total events behind the half/half split (the same for every tag from one call), not the tag's
+ * own occurrence count.
+ */
+data class TagShareShiftResult(
+    val tagName: String,
+    val direction: ShiftDirection,
+    val priorShare: Double,
+    val recentShare: Double,
+    val sampleCount: Int,
+)
+
+/**
  * Spec §10 heatmap shading: a day's event count bucketed relative to the Case's own busiest day,
  * into 20 shaded tiers (plus [EMPTY]) — ordinal order matters, [heatmapLevelFor] indexes into
  * [entries] directly rather than branching on each one by name. Most consumers (calendar heatmap,

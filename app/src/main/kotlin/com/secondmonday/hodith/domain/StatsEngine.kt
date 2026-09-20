@@ -7,6 +7,7 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.math.abs
 
 /** Spec §10 frequency/trend: below this span, a Case hasn't been running long enough to bucket by week/month or trend at all. */
 internal const val STATS_SHORT_SPAN_MAX_DAYS = 56L // 8 weeks
@@ -27,6 +28,28 @@ internal const val NIGHT_START_HOUR = 21
 
 internal const val INTENSITY_MIN = 1
 internal const val INTENSITY_MAX = 5
+
+/**
+ * Spec §10 Trends "tag share shift" finding: needs at least this many events on the Case before a
+ * first-half-vs-second-half tag-share comparison runs at all — higher than [GAP_SHIFT_MIN_SAMPLE_COUNT]
+ * since each half needs enough events for a percentage to mean anything, not just an average.
+ */
+internal const val TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT = 8
+
+/** A tag must appear at least this many times total (both halves combined) before its share is considered — a tag seen once or twice can't support a share claim regardless of how big the swing looks, the same reasoning [GAP_BURST_MIN_GAP_COUNT] applies to gap variance. */
+internal const val TAG_SHARE_SHIFT_MIN_TAG_COUNT = 3
+
+/**
+ * A tag's share shift only counts as "noticeable" once it clears both a relative and an absolute
+ * floor — the same dual-threshold shape [SHIFT_MIN_FRACTION]/[SHIFT_MIN_ABSOLUTE_DAYS] use for
+ * gap/streak shift, but stricter: a share of a small event count swings more easily by chance than
+ * a day-average does, so a plain 30%-relative/1-day-absolute floor would fire too often here.
+ */
+internal const val TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION = 0.15
+internal const val TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION = 0.5
+
+/** Per-detector cap on [computeTagShareShift]'s own findings — independent of the shared [TRENDS_MAX_FINDINGS], so a Case with many tags can't crowd out every other detector's finding. */
+internal const val TAG_SHARE_SHIFT_MAX_FINDINGS = 3
 
 /**
  * A Case's full observation span in days, from the earlier of its creation or earliest (possibly
@@ -189,3 +212,48 @@ internal fun computeTagBreakdown(eventsWithTags: List<EventWithTags>): List<TagB
         .eachCount()
         .map { (name, count) -> TagBreakdownEntry(tagName = name, count = count) }
         .sortedByDescending { it.count }
+
+/**
+ * Spec §10 Trends "tag share shift" finding: whether a tag's share of the Case's own events has
+ * shifted noticeably between the earlier and more recent half of its history (split by event
+ * count, the same shape [computeGapShift]/[computeStreakShift] use, not a fixed day window).
+ * Empty below [TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT] events; a tag with fewer than
+ * [TAG_SHARE_SHIFT_MIN_TAG_COUNT] total occurrences is skipped entirely rather than reported as
+ * stable. Results are ordered by effect size (largest share change first) and capped at
+ * [TAG_SHARE_SHIFT_MAX_FINDINGS], since this is the one Trends detector that can produce more than
+ * one finding per Case.
+ */
+internal fun computeTagShareShift(eventsWithTags: List<EventWithTags>): List<TagShareShiftResult> {
+    if (eventsWithTags.size < TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT) return emptyList()
+
+    val sorted = eventsWithTags.sortedBy { it.event.occurredAt }
+    val mid = sorted.size / 2
+    val priorHalf = sorted.take(mid)
+    val recentHalf = sorted.takeLast(sorted.size - mid)
+    val tagNames = sorted.flatMap { it.tags }.map { it.name }.distinct()
+
+    return tagNames
+        .mapNotNull { tagName ->
+            val priorCount = priorHalf.count { entry -> entry.tags.any { it.name == tagName } }
+            val recentCount = recentHalf.count { entry -> entry.tags.any { it.name == tagName } }
+            if (priorCount + recentCount < TAG_SHARE_SHIFT_MIN_TAG_COUNT) return@mapNotNull null
+
+            val priorShare = priorCount.toDouble() / priorHalf.size
+            val recentShare = recentCount.toDouble() / recentHalf.size
+            tagShareShiftDirectionFor(priorShare, recentShare)?.let { direction ->
+                TagShareShiftResult(tagName, direction, priorShare, recentShare, sorted.size)
+            }
+        }.sortedByDescending { abs(it.recentShare - it.priorShare) }
+        .take(TAG_SHARE_SHIFT_MAX_FINDINGS)
+}
+
+/** `null` unless the change from [priorShare] to [recentShare] clears both [TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION] and [TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION]. */
+private fun tagShareShiftDirectionFor(
+    priorShare: Double,
+    recentShare: Double,
+): ShiftDirection? {
+    val delta = recentShare - priorShare
+    val fraction = if (priorShare == 0.0) Double.POSITIVE_INFINITY else abs(delta) / priorShare
+    if (abs(delta) < TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION || fraction < TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION) return null
+    return if (delta > 0) ShiftDirection.UP else ShiftDirection.DOWN
+}

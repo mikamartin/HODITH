@@ -734,6 +734,17 @@ private fun TrendFindingContent(
             sentence = voice.insightsTrendSentence(trendDirection, finding.recentValue.roundToInt(), finding.priorValue.roundToInt())
             evidenceLabel = voice.insightsFrequencyShiftEvidenceLabel()
         }
+        TrendFindingKind.TAG_SHARE_SHIFT -> {
+            // tagName is always set for this kind -- see TrendFinding's doc comment.
+            sentence =
+                voice.insightsTagShareShiftSentence(
+                    finding.tagName.orEmpty(),
+                    finding.direction,
+                    formatPercent(finding.priorValue),
+                    formatPercent(finding.recentValue),
+                )
+            evidenceLabel = voice.insightsTagShareShiftEvidenceLabel(finding.sampleCount)
+        }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -994,6 +1005,9 @@ internal fun formatDays(days: Double): String {
     val label = if (days == days.roundToInt().toDouble()) days.roundToInt().toString() else String.format(Locale.US, "%.1f", days)
     return "$label days"
 }
+
+/** A share fraction (0.0–1.0) as a whole-number percentage, e.g. "40%". */
+internal fun formatPercent(share: Double): String = "${(share * 100).roundToInt()}%"
 
 // 12-bar fixtures (matching the real FREQUENCY_MAX_BUCKETS) for all three granularities, so
 // previews exercise the actual tick-label density instead of the 6-bar stand-in this used to be.

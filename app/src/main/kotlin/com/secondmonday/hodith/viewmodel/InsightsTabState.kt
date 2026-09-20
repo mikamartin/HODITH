@@ -327,6 +327,7 @@ private fun statsSections(
                 gapStats,
                 activeDates,
                 trendStatsResult,
+                eventsWithTags,
                 recentlyActiveElsewhere =
                     mostRecentActivityAcrossCasesAt != null &&
                         daysBetween(mostRecentActivityAcrossCasesAt, now, zone) <= QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS,

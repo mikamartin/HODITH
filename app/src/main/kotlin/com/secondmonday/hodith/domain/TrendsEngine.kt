@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.data.EventWithTags
 import java.time.LocalDate
 
 /**
@@ -25,11 +26,14 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * detector (T4+) that adds a significance test. [trendStats] is the same value the caller
  * separately keeps on `StatsSections.trend` for Share's own mini trend arrow (PROGRESS.md T9
  * retires that once Share moves to these findings too) — passed in rather than recomputed here.
+ * [eventsWithTags] backs [computeTagShareShift] (Story C T2), appended last since it's the one
+ * detector that can contribute more than one finding — every other kind above is capped at 0..1.
  */
 internal fun computeTrendFindings(
     gapStats: GapStats,
     activeDates: List<LocalDate>,
     trendStats: TrendStats?,
+    eventsWithTags: List<EventWithTags> = emptyList(),
     recentlyActiveElsewhere: Boolean = false,
 ): List<TrendFinding> {
     val findings = mutableListOf<TrendFinding>()
@@ -84,6 +88,18 @@ internal fun computeTrendFindings(
                     recentValue = it.recentCount.toDouble(),
                 )
         }
+    }
+    computeTagShareShift(eventsWithTags).forEach {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.TAG_SHARE_SHIFT,
+                direction = it.direction,
+                reliability = TrendReliability.HINT,
+                sampleCount = it.sampleCount,
+                priorValue = it.priorShare,
+                recentValue = it.recentShare,
+                tagName = it.tagName,
+            )
     }
     return capTrendFindings(findings)
 }

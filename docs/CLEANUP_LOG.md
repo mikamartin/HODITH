@@ -17,6 +17,43 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/insights-trends-tag-drift
+
+**Scope:** PROGRESS.md's Story C T2 — a Trends detector for whether a tag's share of a Case's own events is rising or falling over time (e.g. a tag going from 10% to 40% of events), the fourth detector in the Trends roster T1 scaffolded.
+
+**Feasibility ruling (stated before any code, per the item's own gate):** kept. Splits a Case's events into two chronological halves by event count (mirroring `computeGapShift`/`computeStreakShift`, not a fixed day window — sidesteps both a data-volume requirement and any per-event timezone handling), computes each qualifying tag's share in each half, and applies a dual-threshold check in the same shape `shiftDirectionFor` already uses for gap/streak shift, just in share units and with stricter floors (a share of a small event count swings more easily by chance than a day-average does). Two gates keep small samples from producing noise: a minimum total-event count before any comparison runs, and a minimum total tag-occurrence count before a specific tag is considered at all.
+
+**Changes:**
+
+- `Insights.kt`: new `TagShareShiftResult` model.
+- `StatsEngine.kt`: `computeTagShareShift` (the detector) + `tagShareShiftDirectionFor` (its private dual-threshold helper) + five new named constants (`TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT`, `TAG_SHARE_SHIFT_MIN_TAG_COUNT`, `TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION`, `TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION`, `TAG_SHARE_SHIFT_MAX_FINDINGS`).
+- `Trends.kt`: new `TrendFindingKind.TAG_SHARE_SHIFT`; `TrendFinding` gained `tagName: String? = null` (only this kind sets it — it's the one kind that can produce more than one finding per Case, so results are ordered by effect size and capped independently of the shared `TRENDS_MAX_FINDINGS`).
+- `TrendsEngine.kt`: `computeTrendFindings` gained an `eventsWithTags` parameter (defaulted to `emptyList()` so every existing call site kept working unmodified) and appends `computeTagShareShift`'s results last.
+- `InsightsTabState.kt`: threads `eventsWithTags` (already in scope for `computeTagBreakdown`) into the `computeTrendFindings` call.
+- `InsightsTab.kt`: new `formatPercent` helper beside `formatDays`; new `TAG_SHARE_SHIFT` branch in `TrendFindingContent`'s dispatch.
+- `Voice.kt`: `insightsTagShareShiftSentence`/`insightsTagShareShiftEvidenceLabel`, implemented in all three voices in this same commit — "tends to" framing (Plain literally; Intense/Bright idiomatically non-causal, matching how the existing shift sentences already diverge in wording per voice), no em dashes in any of the three new strings.
+
+**Checklist walk (against the working-tree diff):**
+
+- *Duplication* — no inline strings; both new sentence/evidence-label calls go through `Voice`. No ViewModel/Repository/Dao logic touched.
+- *Decoupling* — `computeTagShareShift` takes no `now`/`Clock` at all (the count-based split needs no time reference), and no `android.*` import was added to `StatsEngine.kt`/`Insights.kt`/`Trends.kt`/`TrendsEngine.kt`.
+- *Complexity & pattern health* — `tagShareShiftDirectionFor` is single-caller, same as its precedent `shiftDirectionFor`; no new composables.
+- *Dead code & hygiene* — no unused imports (ktlint's check covers this and passed); no prototype to clean up — this design was reasoned analytically against existing precedent, not spiked. Pre-existing untracked `merged_branches.txt` in `git status` predates this branch, not part of this work, left alone.
+- *Repo hygiene* — `git status` clean aside from the pre-existing file above; no secrets, no local paths, no new tooling/config files.
+- *Naming* — new `Voice` keys follow the established `insightsXShiftSentence`/`insightsXShiftEvidenceLabel` pattern exactly, added to all three voices in this commit.
+- *Hardcoded values* — all five new thresholds are named `internal const val`s with doc comments, no magic numbers inline.
+- *Accessibility* — no new tap targets; the new finding reuses the existing Trends row/plank tap surface.
+- *Spec review* — `HODITH_SPEC.md` §10's "Trends detectors" list gained the "Tag share shift" bullet, matching the existing four bullets' format.
+- *Tests* — `StatsEngineTest.kt`: rising tag, falling tag, stable tag (no finding), below-minimum-sample, a tag below its own occurrence-count floor despite a sharp swing, and the per-detector cap keeping the three strongest shifts in order when more tags qualify. `TrendsEngineTest.kt`: wiring (tag name attached, reliability HINT), empty when nothing shifts, ordering after gap shift. `VoiceTest`'s existing reflection walk covers the two new keys automatically. No new Compose/instrumented test — `TrendFindingContent`'s `when` was the only exhaustiveness-sensitive call site and is covered by the new branch; the two androidTest files referencing `TrendFindingKind` only construct fixtures positionally, no exhaustive `when` to update.
+
+**Deferred:** nothing raised and declined.
+
+**Docs updated:** `HODITH_SPEC.md` §10 — new "Tag share shift" bullet. `TESTING.md` — Stats & visual data prep row gained a tag-share-shift clause. `PROGRESS.md` — T2 struck entirely; Story C's intro paragraph count and T-range updated (T2–T8 → T3–T8, "Eight items remain" → "Seven").
+
+**Verified:** `ktlintCheck → test (scoped, then full) → lintDebug → assembleDebug` sequential, all green (735 unit tests). No instrumented run — this item's acceptance criteria only calls for domain + Voice ×3 + spec coverage, and no Compose/instrumented test needed updating (see Tests above).
+
+---
+
 ## fix/event-timezone-offset
 
 **Scope:** PROGRESS.md's "No timezone stored — same-day / time-of-day logic breaks for travelers" — every domain calculation bucketing a timestamp into a calendar day/hour resolved via the device's *current* zone at compute time, not the zone the event actually happened in, so a traveler got every past event's day/hour silently reinterpreted.
@@ -155,38 +192,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `HODITH_SPEC.md` §9 — scroll order, chip label format, new Year-chip bullet. `TESTING.md` — Compose UI — Big Picture row gained the Year filter coverage clause. `PROGRESS.md` — item struck; the separate filter-pill-consistency item's stale cross-reference and line numbers corrected.
 
 **Verified:** `ktlintCheck → lintDebug → testDebugUnitTest (scoped, then full) → compileDebugAndroidTestKotlin → assembleDebug` sequential, all green. `connectedDebugAndroidTest` scoped to `BigPictureScreenTest` on `Pixel_8_API36(AVD)` — 52/52 green on a clean run, after fixing the two test bugs the first on-device run surfaced (see Tests, third look) and recovering the emulator from an unrelated adb hang mid-session.
-
----
-
-## feat/case-description-on-home
-
-**Scope:** PROGRESS.md's "Case description isn't shown anywhere in the app" — `CaseEntity.description` was writable on Case Edit but rendered nowhere, not even on Case Detail (the original bug report's assumption). Closes that gap and adds it to Home. The Case Detail treatment specifically went through many rounds of visual feedback once seen live in the app, each a small, deliberate correction rather than rework: `bodyMedium` → `bodySmall`; a "Description" label dropped (redundant with the card's own position); a solid `surfaceVariant` fill (too visually loud, competing with the tab row below it) → an `OutlinedCard` on `colorScheme.background` with an `outlineVariant` border; that border's hue still shifted per theme (blue on Plain, warm on Bright) and its `background` fill still coincided with the Log tab's own tinted screen color, so a comparison prototype was built (see Tooling note) to settle it rather than continuing to guess — landed on wrapping the whole strip between the header and the tab row in the theme's own `colorScheme.surface` (both bars already render on `surface` via stock M3 defaults, so this closes what had been a tinted gap between two already-white bars) with the card itself borderless-filled down to a fixed cross-theme neutral outline, and padding tightened throughout once the first attempt at "tighter" wasn't a noticeable enough change.
-
-**Tooling note:** the border/background comparison was prototyped as an interactive Artifact (Design-canvas type) before touching real code — 7 fill/border options × Plain/Intense/Bright × light/dark, built from the exact hex values in `Color.kt`, including the real Log tab's own note-row and summary-line styles alongside each option so the description card could be checked against every existing muted-text treatment on that screen, not just one. Not committed to the repo (unlike `docs/mockups/*.html` prototypes elsewhere in this log) since the Artifact tool itself hosted it end to end.
-
-**Changes:**
-
-- `CaseEditViewModel.kt`: `CASE_DESCRIPTION_MAX_LENGTH` 280 → 120 → 90 across rounds. Referenced symbolically everywhere else (`BackupValidationResult.kt`, both `CaseEditViewModelTest`/`BackupValidationResultTest`), so no other code change needed at any step.
-- `HomeViewModel.kt`: `HomeCaseRow` gained `description: String? = null`; `homeCaseRows`' mapping passes `case.description` through.
-- `HomeScreen.kt`: `HomeCaseRowBody` and `BrightHomeCaseListItem` each gained an identical conditional description `Text` (`bodySmall`, `onSurfaceVariant`, `maxLines = 2`, `TextOverflow.Ellipsis`) between the name and the existing counts/ongoing `when` block. One `previewRows` entry given a description for Preview visibility.
-- `CaseDetailScreen.kt`: the description now renders inside a full-width `Surface(color = colorScheme.surface)` sitting between the `TopAppBar` and `SecondaryTabRow`, containing an `OutlinedCard` (`containerColor = Color.Transparent`, `border = BorderStroke(1.dp, CaseDescriptionBorderColor)`) wrapping the description `Text` (`bodySmall`, `onSurfaceVariant`). New top-level `private val CaseDescriptionBorderColor = Color(0x66828282)` — deliberately not theme-derived (see Scope). Shown once regardless of selected tab, guarded on `case?.description != null`.
-- `DemoDataSeeder.kt`: `CaseSeed` gained `description: String? = null`, threaded into the seeded `CaseEntity`; set on two of the seven seeds (Coffee, Migraine) and left `null` on the rest, following this file's existing convention of populating optional fields "on only some, not all, not none" so both rendering paths stay exercised after a fresh seed.
-
-**Checklist walk (against the working-tree `git diff`):**
-
-- *Duplication* — the description `Text` block is near-identical between `HomeCaseRowBody` and `BrightHomeCaseListItem`; considered extracting a shared composable, but the existing counts/ongoing `when` block in those same two composables is already duplicated the same way without extraction, so this follows established (if imperfect) precedent rather than introducing a new pattern. No inline strings — the description's own text is user-authored case data, same status as notes/tags, correctly not `Voice`-routed; no UI-chrome label remained to route through `Voice` once the label itself was dropped.
-- *Decoupling* — no business logic in the touched composables beyond a null check; no `System.currentTimeMillis()`, no `android.*` import; `CaseDetailScreen` reads `description` off the `CaseEntity` it already had in scope, no new `CaseDetailUiState`/ViewModel plumbing.
-- *Complexity & pattern health* — no new component reimplementing M3; the final `Surface`-band treatment is new to this screen (no existing precedent to reuse), but composed entirely from stock M3 pieces (`Surface`, `OutlinedCard`) rather than a bespoke one.
-- *Dead code & hygiene* — `TextOverflow`, `BorderStroke`, `OutlinedCard`, `Surface` imports all added and used; no unused imports, no commented-out code. No prototype to clean up in-repo — the comparison Artifact lived entirely in the Artifact tool, not as a tracked file.
-- *Repo hygiene* — `git status` clean throughout; no secrets, no local paths; only the intended files touched.
-- *Naming* — no new files/composables; `CaseDescriptionBorderColor` sits alongside this file's other top-level constants (`LOG_TAB`, `HUNCH_HISTORY_SHOWN_INITIAL`) by location, but as a non-const `Color` its PascalCase matches `Color.kt`'s own convention for named color values (`PlainLightPrimary`, `BrightLightHeadingInk`) rather than those `SCREAMING_SNAKE_CASE` `Int` constants.
-- *Hardcoded values* — `maxLines = 2` is a UI layout constant, not a product constant (confidence tiers/nudge thresholds/etc.), consistent with inline `maxLines`/`overflow` literals elsewhere in the codebase (`InsightsTab.kt`, `ShareCardTemplate.kt`). `CaseDescriptionBorderColor = Color(0x66828282)` is a deliberate fixed literal, not a case of "should use a theme value instead" — the whole point of the final round was that the theme-derived `outlineVariant` border read as inconsistent across the three voices; named as a top-level `private val` with a comment stating why, rather than left as a bare literal inline.
-- *Accessibility* — no new icon-only controls or tappable targets; the description block is plain, non-interactive text.
-- *Spec review* — `HODITH_SPEC.md` updated: Home row's contents line, Case Detail row's header description, and the New/edit Case cap (280 → 90).
-- *Tests* — `HomeViewModelMappingTest` (the file `HomeViewModel.kt`'s own KDoc points to for `homeCaseRows`' field-mapping coverage, not the StateFlow-level `HomeViewModelTest`): `maps case identity fields through` now also asserts `description`, plus a new `description is null when the case has none` case, both against the pure `homeCaseRows` function. `DemoDataSeederTest` — which exists specifically to pin each seed's distinguishing characteristic (Coffee's surge, Migraine's ongoing event, etc.) — gained `seed gives Coffee and Migraine a description, and leaves the rest without one`, closing a real gap where the new `CaseSeed.description` field had no coverage at all. `HomeScreenTest`: description renders when set, renders nothing (that string doesn't appear) when unset. `CaseDetailScreenTest`: description text renders when the Case has one, doesn't when it doesn't (rewritten from an earlier label-based assertion once the label was dropped). `CaseEditViewModelTest`'s existing `CASE_DESCRIPTION_MAX_LENGTH` boundary test re-verified green against each cap value across rounds (references the constant symbolically, no edit ever needed). None of the later `CaseDetailScreen.kt` visual-treatment changes (fill/border/padding swaps) needed test changes — `CaseDetailScreenTest` asserts on the description text itself, never the container.
-
-**Deferred:** nothing raised and declined.
-
-**Docs updated:** `HODITH_SPEC.md` — Home row, Case Detail row, New/edit Case cap. `TESTING.md` — ViewModels row (`HomeCaseRow.description` clause) and Compose UI row (Home/Case Detail description rendering clause).
-
-**Verified:** `ktlintCheck → lintDebug → test → compileDebugAndroidTestKotlin → assembleDebug` sequential, all green after every round, confirmed again on the final implementation. Manually checked live in the app by the user (Plain, per the specific concerns raised) — approved. `connectedDebugAndroidTest` run scoped to `HomeScreenTest`/`CaseDetailScreenTest` on `Pixel_8_API36(AVD)` — 50/50 green, including all four new description cases (`caseRow_showsDescription_whenSet`, `caseRow_showsNoDescriptionText_whenUnset`, `description_showsText_whenCaseHasOne`, `description_showsNothing_whenCaseHasNone`).
