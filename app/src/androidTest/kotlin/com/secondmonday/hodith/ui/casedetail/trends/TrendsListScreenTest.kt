@@ -97,4 +97,14 @@ class TrendsListScreenTest {
             .onNodeWithText(PlainVoice.insightsWentQuietSentence(currentGapLabel = "20 days", longestPastGapLabel = "5 days"))
             .assertExists()
     }
+
+    @Test
+    fun recurrenceShapeFinding_rendersItsOwnPlank() {
+        val recurrenceShape = TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.DOWN, TrendReliability.HINT, 10, 7.0, 0.0)
+        setContent(findings = listOf(recurrenceShape))
+
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsRecurrenceShapeSentence(ShiftDirection.DOWN, thresholdLabel = "7 days", shareLabel = "0%"))
+            .assertExists()
+    }
 }

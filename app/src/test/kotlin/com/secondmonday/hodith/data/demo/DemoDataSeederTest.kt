@@ -4,6 +4,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.testsupport.withoutTags
 import com.secondmonday.hodith.viewmodel.InsightsTabState
@@ -116,6 +117,24 @@ class DemoDataSeederTest {
                     .map { it.kind }
                     .toSet()
             assertEquals(setOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.STREAK_SHIFT, TrendFindingKind.FREQUENCY_SHIFT), kinds)
+        }
+
+    @Test
+    fun `seed gives Noisy neighbours the Trends recurrence-shape early-spike finding`() =
+        runTest {
+            seeder.seed()
+
+            // BURSTY density (tight clusters separated by long quiet stretches) already produces an
+            // early-spike recurrence shape on its own -- Story C T3 needed no new demo Case, unlike
+            // T1's dedicated trendingShift Case. Noisy neighbours shows it as its one and only Trends
+            // finding, the cleanest single-finding showcase among the three BURSTY Cases that qualify.
+            val neighbours = repository.cases.value.single { it.name == "Noisy neighbours" }
+            val events = repository.events.value.filter { it.caseId == neighbours.id }
+            val state = insightsTabState(neighbours, events.withoutTags(), NOW_MILLIS) as InsightsTabState.Ready
+            val finding = state.stats.trends.single()
+
+            assertEquals(TrendFindingKind.RECURRENCE_SHAPE, finding.kind)
+            assertEquals(ShiftDirection.UP, finding.direction)
         }
 
     @Test

@@ -745,6 +745,11 @@ private fun TrendFindingContent(
                 )
             evidenceLabel = voice.insightsTagShareShiftEvidenceLabel(finding.sampleCount)
         }
+        TrendFindingKind.RECURRENCE_SHAPE -> {
+            sentence =
+                voice.insightsRecurrenceShapeSentence(finding.direction, formatDays(finding.priorValue), formatPercent(finding.recentValue))
+            evidenceLabel = voice.insightsRecurrenceShapeEvidenceLabel(finding.sampleCount)
+        }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

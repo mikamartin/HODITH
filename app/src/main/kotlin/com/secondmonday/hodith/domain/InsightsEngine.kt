@@ -55,6 +55,28 @@ internal const val QUIET_SIGNAL_MIN_SAMPLE_COUNT = 6
 internal const val QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS = 7
 
 /**
+ * Spec §10 Trends "recurrence shape" finding (Story C T3): a heavier sibling to
+ * [GAP_BURST_MIN_COEFFICIENT_OF_VARIATION]'s bursts flag — also self-relative to a Case's own
+ * [GapStats.averageGapDays] rather than a fixed day count, since a Case logged daily and one logged
+ * every few months need entirely different "recurs quickly" thresholds. A past gap counts as
+ * "early" once it's at or under [RECURRENCE_SHAPE_EARLY_FRACTION_OF_MEAN] of the Case's own average
+ * gap. Early-spike fires once [RECURRENCE_SHAPE_SPIKE_MIN_SHARE] or more of past gaps are early —
+ * recurrence usually follows quickly. Dead-zone fires once [RECURRENCE_SHAPE_DEAD_ZONE_MAX_SHARE] or
+ * fewer are — recurrence within half the average almost never happens — but only once the gaps also
+ * clear [RECURRENCE_SHAPE_DEAD_ZONE_MIN_COEFFICIENT_OF_VARIATION]: without that second gate, a Case
+ * with a simply *steady* rhythm (every gap close to the mean, near-zero variance) would trigger
+ * dead-zone on every call, since a steady Case trivially has no early gaps either — the gate keeps
+ * this finding to Cases with real spread in their gaps but a hard floor below which recurrence
+ * doesn't happen, not every Case whose rhythm just happens to be regular. The two directions can
+ * never both fire from one call: a share can't clear a ≥0.6 and a ≤0.1 bar at once.
+ */
+internal const val RECURRENCE_SHAPE_MIN_SAMPLE_COUNT = 6
+internal const val RECURRENCE_SHAPE_EARLY_FRACTION_OF_MEAN = 0.5
+internal const val RECURRENCE_SHAPE_SPIKE_MIN_SHARE = 0.6
+internal const val RECURRENCE_SHAPE_DEAD_ZONE_MAX_SHARE = 0.1
+internal const val RECURRENCE_SHAPE_DEAD_ZONE_MIN_COEFFICIENT_OF_VARIATION = 0.3
+
+/**
  * Current gap vs. the longest gap ever observed across the Case's full history — the "current gap
  * annotated" rule (spec §10's gaps & streaks card): "how long since the last event ended" compared
  * against "the longest stretch since it started".
@@ -199,6 +221,39 @@ internal fun computeQuietSignal(
         currentGapDays = gapStats.currentGapDays,
         longestPastGapDays = gapStats.pastGaps.max(),
         sampleCount = gapStats.pastGaps.size,
+    )
+}
+
+/**
+ * Spec §10 Trends "recurrence shape" finding (Story C T3): whether this Case's past gaps cluster
+ * into an early-spike pattern (usually recurs within [RECURRENCE_SHAPE_EARLY_FRACTION_OF_MEAN] of
+ * its own average gap) or a dead-zone pattern (almost never does, and the gaps have real spread
+ * rather than just being steady) — `null` below [RECURRENCE_SHAPE_MIN_SAMPLE_COUNT] past gaps, when
+ * the average gap is `0` (nothing to be "early" relative to), or when neither direction's bar is
+ * cleared. Distinct from [GapStats.isBursty] (one coefficient-of-variation flag on the whole
+ * distribution's spread): this asks specifically about the *short* end of that distribution and
+ * states it as a share plus a real day boundary, not a single unitless number.
+ */
+internal fun computeRecurrenceShape(gapStats: GapStats): RecurrenceShapeResult? {
+    val pastGaps = gapStats.pastGaps
+    if (pastGaps.size < RECURRENCE_SHAPE_MIN_SAMPLE_COUNT) return null
+    val mean = gapStats.averageGapDays
+    if (mean <= 0.0) return null
+
+    val thresholdDays = mean * RECURRENCE_SHAPE_EARLY_FRACTION_OF_MEAN
+    val earlyShare = pastGaps.count { it <= thresholdDays }.toDouble() / pastGaps.size
+    val direction =
+        when {
+            earlyShare >= RECURRENCE_SHAPE_SPIKE_MIN_SHARE -> ShiftDirection.UP
+            earlyShare <= RECURRENCE_SHAPE_DEAD_ZONE_MAX_SHARE &&
+                coefficientOfVariation(pastGaps) >= RECURRENCE_SHAPE_DEAD_ZONE_MIN_COEFFICIENT_OF_VARIATION -> ShiftDirection.DOWN
+            else -> return null
+        }
+    return RecurrenceShapeResult(
+        direction = direction,
+        thresholdDays = thresholdDays,
+        earlyShare = earlyShare,
+        sampleCount = pastGaps.size,
     )
 }
 
