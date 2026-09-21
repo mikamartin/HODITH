@@ -5,10 +5,13 @@ import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.testsupport.withoutTags
 import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -135,6 +138,38 @@ class DemoDataSeederTest {
 
             assertEquals(TrendFindingKind.RECURRENCE_SHAPE, finding.kind)
             assertEquals(ShiftDirection.UP, finding.direction)
+        }
+
+    @Test
+    fun `seed gives Migraine at least the minimum aura-tagged and non-aura sample sizes`() =
+        runTest {
+            seeder.seed()
+
+            val migraine = repository.cases.value.single { it.name == "Migraine" }
+            val eventsWithTags = repository.observeEventsWithTagsForCase(migraine.id).first()
+            val withDuration = eventsWithTags.filter { it.event.endedAt != null }
+            val auraTagged = withDuration.count { entry -> entry.tags.any { it.name == "aura" } }
+
+            // TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT/...MIN_UNTAGGED_SAMPLE_COUNT (domain, internal) are
+            // 15/30 -- asserted as literals here since this test lives outside the domain module's
+            // own package and shouldn't need to import detector internals to state its own contract.
+            assertTrue(auraTagged >= 15)
+            assertTrue(withDuration.size - auraTagged >= 30)
+        }
+
+    @Test
+    fun `seed gives Migraine the Trends tag-outcome finding for aura`() =
+        runTest {
+            seeder.seed()
+
+            val migraine = repository.cases.value.single { it.name == "Migraine" }
+            val eventsWithTags = repository.observeEventsWithTagsForCase(migraine.id).first()
+            val state = insightsTabState(migraine, eventsWithTags, NOW_MILLIS) as InsightsTabState.Ready
+            val finding = state.stats.trends.single { it.kind == TrendFindingKind.TAG_OUTCOME && it.tagName == "aura" }
+
+            assertEquals(TagOutcome.DURATION, finding.outcome)
+            assertEquals(ShiftDirection.UP, finding.direction)
+            assertEquals(TrendReliability.PATTERN, finding.reliability)
         }
 
     @Test
