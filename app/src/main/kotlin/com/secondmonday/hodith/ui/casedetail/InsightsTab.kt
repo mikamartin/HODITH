@@ -66,6 +66,7 @@ import com.secondmonday.hodith.domain.NIGHT_START_HOUR
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
+import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFinding
@@ -116,7 +117,9 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 private const val HEATMAP_DEFAULT_MONTH_COUNT = 3
 private const val TRENDS_DEFAULT_VISIBLE_COUNT = 3
@@ -750,6 +753,27 @@ private fun TrendFindingContent(
                 voice.insightsRecurrenceShapeSentence(finding.direction, formatDays(finding.priorValue), formatPercent(finding.recentValue))
             evidenceLabel = voice.insightsRecurrenceShapeEvidenceLabel(finding.sampleCount)
         }
+        TrendFindingKind.TAG_OUTCOME -> {
+            // tagName and outcome are always set for this kind -- see TrendFinding's KDoc.
+            val outcome = finding.outcome ?: TagOutcome.INTENSITY
+            val (withoutTagLabel, withTagLabel) =
+                when (outcome) {
+                    TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
+                    TagOutcome.DURATION ->
+                        formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
+                }
+            val relativeDifferenceLabel = formatPercent(abs((finding.recentValue - finding.priorValue) / finding.priorValue))
+            sentence =
+                voice.insightsTagOutcomeSentence(
+                    finding.tagName.orEmpty(),
+                    outcome,
+                    finding.direction,
+                    relativeDifferenceLabel,
+                    withoutTagLabel,
+                    withTagLabel,
+                )
+            evidenceLabel = voice.insightsTagOutcomeEvidenceLabel(finding.sampleCount)
+        }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -837,7 +861,7 @@ private fun IntensityCard(
 ) {
     InsightsCard {
         Text(voice.insightsSectionLabelIntensity, style = MaterialTheme.typography.titleSmall)
-        StatRow(voice.insightsIntensityAverageLabel, String.format(Locale.US, "%.1f", display.averageIntensity))
+        StatRow(voice.insightsIntensityAverageLabel, formatIntensity(display.averageIntensity))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
                 val count = display.distribution[value] ?: 0
@@ -1013,6 +1037,9 @@ internal fun formatDays(days: Double): String {
 
 /** A share fraction (0.0–1.0) as a whole-number percentage, e.g. "40%". */
 internal fun formatPercent(share: Double): String = "${(share * 100).roundToInt()}%"
+
+/** An average intensity score to one decimal place, e.g. "3.2". */
+internal fun formatIntensity(value: Double): String = String.format(Locale.US, "%.1f", value)
 
 // 12-bar fixtures (matching the real FREQUENCY_MAX_BUCKETS) for all three granularities, so
 // previews exercise the actual tick-label density instead of the 6-bar stand-in this used to be.

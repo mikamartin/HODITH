@@ -10,6 +10,7 @@ import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendReliability
 
@@ -470,6 +471,28 @@ interface Voice {
 
     /** As [insightsGapShiftEvidenceLabel], for the recurrence-shape finding row. */
     fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int): String
+
+    /**
+     * Spec §10 Trends "tag → outcome" finding (Story C T4): [tagName]'s events differ from the
+     * Case's other events on [outcome] (intensity or duration) — [direction] [ShiftDirection.UP]
+     * means events with the tag run higher/longer, [ShiftDirection.DOWN] means lower/shorter.
+     * [relativeDifferenceLabel] is the relative difference between the two groups (already formatted,
+     * e.g. via `formatPercent`); [withoutTagLabel]/[withTagLabel] are the two group means, already
+     * formatted in [outcome]'s own unit. Unlike every other Trends sentence, this one describes an
+     * effect that has actually been tested for significance, not just a threshold crossing — still
+     * "tends to," never "causes."
+     */
+    fun insightsTagOutcomeSentence(
+        tagName: String,
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        relativeDifferenceLabel: String,
+        withoutTagLabel: String,
+        withTagLabel: String,
+    ): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the tag-outcome finding row. */
+    fun insightsTagOutcomeEvidenceLabel(sampleCount: Int): String
 
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
@@ -1136,6 +1159,36 @@ object PlainVoice : Voice {
 
     override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
 
+    override fun insightsTagOutcomeSentence(
+        tagName: String,
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        relativeDifferenceLabel: String,
+        withoutTagLabel: String,
+        withTagLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP ->
+                    "\"$tagName\" tends to run more intense, averaging $withTagLabel vs $withoutTagLabel without it, " +
+                        "up $relativeDifferenceLabel."
+                ShiftDirection.DOWN ->
+                    "\"$tagName\" tends to run less intense, averaging $withTagLabel vs $withoutTagLabel without it, " +
+                        "down $relativeDifferenceLabel."
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP ->
+                    "\"$tagName\" tends to last longer, averaging $withTagLabel vs $withoutTagLabel without it, " +
+                        "up $relativeDifferenceLabel."
+                ShiftDirection.DOWN ->
+                    "\"$tagName\" tends to last shorter, averaging $withTagLabel vs $withoutTagLabel without it, " +
+                        "down $relativeDifferenceLabel."
+            }
+    }
+
+    override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
+
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
         "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
@@ -1760,6 +1813,32 @@ object IntenseVoice : Voice {
 
     override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
 
+    override fun insightsTagOutcomeSentence(
+        tagName: String,
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        relativeDifferenceLabel: String,
+        withoutTagLabel: String,
+        withTagLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP ->
+                    "\"$tagName\" cuts deeper, $withTagLabel against $withoutTagLabel without it, up $relativeDifferenceLabel."
+                ShiftDirection.DOWN ->
+                    "\"$tagName\" cuts less deep, $withTagLabel against $withoutTagLabel without it, down $relativeDifferenceLabel."
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP ->
+                    "\"$tagName\" lingers longer, $withTagLabel against $withoutTagLabel without it, up $relativeDifferenceLabel."
+                ShiftDirection.DOWN ->
+                    "\"$tagName\" passes quicker, $withTagLabel against $withoutTagLabel without it, down $relativeDifferenceLabel."
+            }
+    }
+
+    override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
         "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
@@ -2368,6 +2447,33 @@ object BrightVoice : Voice {
     }
 
     override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
+
+    override fun insightsTagOutcomeSentence(
+        tagName: String,
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        relativeDifferenceLabel: String,
+        withoutTagLabel: String,
+        withTagLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP ->
+                    "\"$tagName\" hits harder, averaging $withTagLabel vs $withoutTagLabel without it, up $relativeDifferenceLabel!"
+                ShiftDirection.DOWN ->
+                    "\"$tagName\" hits softer, averaging $withTagLabel vs $withoutTagLabel without it, down $relativeDifferenceLabel!"
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP ->
+                    "\"$tagName\" sticks around longer, averaging $withTagLabel vs $withoutTagLabel without it, " +
+                        "up $relativeDifferenceLabel!"
+                ShiftDirection.DOWN ->
+                    "\"$tagName\" wraps up faster, averaging $withTagLabel vs $withoutTagLabel without it, down $relativeDifferenceLabel!"
+            }
+    }
+
+    override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =

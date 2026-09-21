@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
@@ -106,5 +107,34 @@ class TrendsListScreenTest {
         composeTestRule
             .onNodeWithText(PlainVoice.insightsRecurrenceShapeSentence(ShiftDirection.DOWN, thresholdLabel = "7 days", shareLabel = "0%"))
             .assertExists()
+    }
+
+    @Test
+    fun tagOutcomeFinding_rendersItsOwnPlank_withPatternTag() {
+        val tagOutcome =
+            TrendFinding(
+                kind = TrendFindingKind.TAG_OUTCOME,
+                direction = ShiftDirection.DOWN,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 50,
+                priorValue = 90.0,
+                recentValue = 45.0,
+                tagName = "decaf",
+                outcome = TagOutcome.DURATION,
+            )
+        setContent(findings = listOf(tagOutcome))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTagOutcomeSentence(
+                    "decaf",
+                    TagOutcome.DURATION,
+                    ShiftDirection.DOWN,
+                    relativeDifferenceLabel = "50%",
+                    withoutTagLabel = "1h 30m",
+                    withTagLabel = "45m",
+                ),
+            ).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityPatternLabel).assertExists()
     }
 }

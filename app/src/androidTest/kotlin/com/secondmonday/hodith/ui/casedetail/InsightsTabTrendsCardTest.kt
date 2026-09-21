@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
@@ -136,5 +137,64 @@ class InsightsTabTrendsCardTest {
         composeTestRule
             .onNodeWithText(PlainVoice.insightsRecurrenceShapeSentence(ShiftDirection.UP, thresholdLabel = "3 days", shareLabel = "80%"))
             .assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersTagOutcomeSentence_forIntensity() {
+        val tagOutcome =
+            TrendFinding(
+                kind = TrendFindingKind.TAG_OUTCOME,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 40,
+                priorValue = 3.0,
+                recentValue = 4.5,
+                tagName = "aura",
+                outcome = TagOutcome.INTENSITY,
+            )
+        setContent(trends = listOf(tagOutcome))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTagOutcomeSentence(
+                    "aura",
+                    TagOutcome.INTENSITY,
+                    ShiftDirection.UP,
+                    relativeDifferenceLabel = "50%",
+                    withoutTagLabel = "3.0",
+                    withTagLabel = "4.5",
+                ),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersTagOutcomeSentence_forDuration() {
+        // Distinct from the intensity case above specifically to catch a swapped formatter (minutes
+        // vs. a 1-decimal score) or a swapped Voice argument -- same direction/relative-difference
+        // shape, different unit, so only the label text distinguishes them.
+        val tagOutcome =
+            TrendFinding(
+                kind = TrendFindingKind.TAG_OUTCOME,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 40,
+                priorValue = 30.0,
+                recentValue = 45.0,
+                tagName = "aura",
+                outcome = TagOutcome.DURATION,
+            )
+        setContent(trends = listOf(tagOutcome))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTagOutcomeSentence(
+                    "aura",
+                    TagOutcome.DURATION,
+                    ShiftDirection.UP,
+                    relativeDifferenceLabel = "50%",
+                    withoutTagLabel = "30m",
+                    withTagLabel = "45m",
+                ),
+            ).assertExists()
     }
 }
