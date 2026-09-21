@@ -17,6 +17,28 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## chore/qa-audit
+
+**Scope:** Second run of [QA_AUDIT_RULES.md](QA_AUDIT_RULES.md)'s whole-suite test-quality audit (sections 1–7), in the ruleset's "inline-fix mode" — every finding resolved directly on the audit branch itself rather than written up as separate follow-up branches, since none rose above quick-fix size. No emulator/device was attached, so the instrumented/DAO tier of the mutation spot check (section 2) didn't run; the mutation sample leaned on pure-domain and Fake-backed logic instead.
+
+**Found & fixed:**
+- `QA_AUDIT_BACKLOG.md` pointed to `PROGRESS.md` for the first pass's mutation-check item (`chore/qa-audit-mutation-checks`), which had already landed (PR #59) and been struck from `PROGRESS.md` — the backlog's pointer was never updated to say so. Resolved by this pass's rewrite.
+- Two source comments (`OngoingIndicator.kt`, `SectionWithInfo.kt`) cited a `CLEANUP_LOG.md` entry (`material-icons-extended`) that had rolled off this file's 5-entry retention window. Pointer removed from both — each comment's rationale already stood on its own without it.
+- Mutation spot check found a real gap: `StatsEngine.kt`'s `tagShareShiftDirectionFor` dual-threshold gate (mutating its `||` to `&&`) passed the full `StatsEngineTest` suite unmodified — no existing test isolated crossing exactly one of its two floors (absolute, relative) while missing the other. Added a case that does (priorShare 0.6 → recentShare 0.8: clears the absolute floor, not the relative one); confirmed it fails against the mutation, reverted the mutation. Checked the identical-shaped `shiftDirectionFor` (`InsightsEngine.kt`, gap/streak shift) for the same gap — already caught by an existing test (`computeGapShift is null when the change is too small to be noticeable`, whose 10/10/10/11/11/11 fixture happens to isolate the same one-floor case), confirmed directly by applying and reverting the same mutation there. No new test needed for that one.
+- Mutation spot check found a second real gap: `StatsEngine.kt`'s `tagOutcomeResultFor` significance-alpha comparison (mutating `>=` to `>`) also passed the suite unmodified — no test landed on a permutation p-value of exactly `TAG_OUTCOME_SIGNIFICANCE_ALPHA` (0.05, the 50th-most-extreme of 1000 shuffles). Found a duration-outcome composition (9 high/6 low minutes tagged vs. 9 high/21 low minutes untagged) whose fixed permutation seed lands exactly on that boundary, via a throwaway probe test (deleted after use, not committed); pinned it as a real `StatsEngineTest` case, confirmed it fails against the mutation, reverted the mutation.
+- `LogDetailScreenTest.kt` and `LogDetailSheetTest.kt` each hand-built a near-identical minimal `draft()` `LogDraft` fixture. Extracted into a new `ui/logsheet/LogDetailTestFixtures.kt`, mirroring `WidgetConfigureTestFixtures.kt`'s existing shared-helper precedent; both files' private copies (and the now-unused `DurationUnit` import each pulled in only for it) removed.
+
+**Held up under scrutiny:** verdict engine boundaries, trigger evaluation, the check-in clamp, and every Trends detector's named constants all matched `HODITH_SPEC.md` §8/§10/§11's stated numbers exactly, each pinned at its exact boundary value rather than just an interior point — no mismatches found in the spec cross-reference. Structural assertion review of the largest/newest instrumented files (`BigPictureScreenTest.kt`, `CaseDetailInsightsTabTest.kt`, `LogDetailSheetTest.kt`) found every multi-step flow asserting after each state-changing action, and every test whose name claims multiple things verifying all of them, not a subset. UI-logic-extraction review found the `BigPictureFilterState`/`AcronymText`/`DigitInput` precedent already applied everywhere it should be, with no duplicated inline transformation left in any composable. Seven of the nine sampled mutations (verdict engine, trigger evaluation, two Trends detectors, the permutation-significance helper, notification evaluation, a ViewModel side effect) were caught cleanly by the existing suite with no weak passes. `TESTING.md`'s aggregate descriptions and "Known environment issues" entries both checked out as current.
+
+**Deferred:**
+- The instrumented/DAO tier of the mutation spot check (`EventDaoTest`, `HunchDaoTest`, `RoomHodithRepositoryLogEventsTest`, `CaseDaoTest`, `NotificationEvalWorkerTest`) — no emulator/device was attached this pass. Worth a follow-up pass once one's available; nothing in this pass should be read as those files having been checked.
+
+**Docs updated:** `QA_AUDIT_BACKLOG.md` emptied back to its shell now that every finding from this pass is resolved (see this entry for the detail, per the backlog's own convention) — no `SPEC`/`TESTING` changes needed this pass, both reviewed and found current.
+
+**Verified:** `ktlintCheck → test (scoped, then full) → compileDebugAndroidTestKotlin` sequential, all green. No `connectedDebugAndroidTest` run — no device attached this pass (see Deferred above).
+
+---
+
 ## feat/insights-trends-tag-outcome
 
 **Scope:** PROGRESS.md's Story C T4 — a Trends detector comparing a tag's events against a Case's other events on intensity and duration, backed by a real permutation-significance test rather than a descriptive threshold; the sixth detector in the Trends roster, and the first able to report `Pattern`. Also builds the reusable label-shuffle permutation-significance helper T5's future timeline-shuffle variant will build on.
@@ -164,40 +186,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `HODITH_SPEC.md` §10 — new "Recurrence shape" bullet. `TESTING.md` — Stats & visual data prep row gained a recurrence-shape clause. `PROGRESS.md` — T3 struck entirely; Story C's intro paragraph and T-range updated (T3–T8 → T4–T8, "Seven items remain" → "Six").
 
 **Verified:** `ktlintCheck → test (scoped, then full) → lintDebug → connectedDebugAndroidTest (scoped to the two touched instrumented classes) → assembleDebug` sequential, all green — re-run in full after the coverage re-check above, not just the first pass: 752/752 unit tests, 11/11 instrumented on `Pixel_8_API36(AVD)`, no unused-import/unused-variable warnings in a forced recompile of main/test/androidTest source sets, no `android.*` import or direct `System.currentTimeMillis()` call in any touched domain file (grepped directly, not inferred).
-
----
-
-## feat/insights-trends-tag-drift
-
-**Scope:** PROGRESS.md's Story C T2 — a Trends detector for whether a tag's share of a Case's own events is rising or falling over time (e.g. a tag going from 10% to 40% of events), the fourth detector in the Trends roster T1 scaffolded.
-
-**Feasibility ruling (stated before any code, per the item's own gate):** kept. Splits a Case's events into two chronological halves by event count (mirroring `computeGapShift`/`computeStreakShift`, not a fixed day window — sidesteps both a data-volume requirement and any per-event timezone handling), computes each qualifying tag's share in each half, and applies a dual-threshold check in the same shape `shiftDirectionFor` already uses for gap/streak shift, just in share units and with stricter floors (a share of a small event count swings more easily by chance than a day-average does). Two gates keep small samples from producing noise: a minimum total-event count before any comparison runs, and a minimum total tag-occurrence count before a specific tag is considered at all.
-
-**Changes:**
-
-- `Insights.kt`: new `TagShareShiftResult` model.
-- `StatsEngine.kt`: `computeTagShareShift` (the detector) + `tagShareShiftDirectionFor` (its private dual-threshold helper) + five new named constants (`TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT`, `TAG_SHARE_SHIFT_MIN_TAG_COUNT`, `TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION`, `TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION`, `TAG_SHARE_SHIFT_MAX_FINDINGS`).
-- `Trends.kt`: new `TrendFindingKind.TAG_SHARE_SHIFT`; `TrendFinding` gained `tagName: String? = null` (only this kind sets it — it's the one kind that can produce more than one finding per Case, so results are ordered by effect size and capped independently of the shared `TRENDS_MAX_FINDINGS`).
-- `TrendsEngine.kt`: `computeTrendFindings` gained an `eventsWithTags` parameter (defaulted to `emptyList()` so every existing call site kept working unmodified) and appends `computeTagShareShift`'s results last.
-- `InsightsTabState.kt`: threads `eventsWithTags` (already in scope for `computeTagBreakdown`) into the `computeTrendFindings` call.
-- `InsightsTab.kt`: new `formatPercent` helper beside `formatDays`; new `TAG_SHARE_SHIFT` branch in `TrendFindingContent`'s dispatch.
-- `Voice.kt`: `insightsTagShareShiftSentence`/`insightsTagShareShiftEvidenceLabel`, implemented in all three voices in this same commit — "tends to" framing (Plain literally; Intense/Bright idiomatically non-causal, matching how the existing shift sentences already diverge in wording per voice), no em dashes in any of the three new strings.
-
-**Checklist walk (against the working-tree diff):**
-
-- *Duplication* — no inline strings; both new sentence/evidence-label calls go through `Voice`. No ViewModel/Repository/Dao logic touched.
-- *Decoupling* — `computeTagShareShift` takes no `now`/`Clock` at all (the count-based split needs no time reference), and no `android.*` import was added to `StatsEngine.kt`/`Insights.kt`/`Trends.kt`/`TrendsEngine.kt`.
-- *Complexity & pattern health* — `tagShareShiftDirectionFor` is single-caller, same as its precedent `shiftDirectionFor`; no new composables.
-- *Dead code & hygiene* — no unused imports (ktlint's check covers this and passed); no prototype to clean up — this design was reasoned analytically against existing precedent, not spiked. Pre-existing untracked `merged_branches.txt` in `git status` predates this branch, not part of this work, left alone.
-- *Repo hygiene* — `git status` clean aside from the pre-existing file above; no secrets, no local paths, no new tooling/config files.
-- *Naming* — new `Voice` keys follow the established `insightsXShiftSentence`/`insightsXShiftEvidenceLabel` pattern exactly, added to all three voices in this commit.
-- *Hardcoded values* — all five new thresholds are named `internal const val`s with doc comments, no magic numbers inline.
-- *Accessibility* — no new tap targets; the new finding reuses the existing Trends row/plank tap surface.
-- *Spec review* — `HODITH_SPEC.md` §10's "Trends detectors" list gained the "Tag share shift" bullet, matching the existing four bullets' format.
-- *Tests* — `StatsEngineTest.kt`: rising tag, falling tag, stable tag (no finding), below-minimum-sample, a tag below its own occurrence-count floor despite a sharp swing, and the per-detector cap keeping the three strongest shifts in order when more tags qualify. `TrendsEngineTest.kt`: wiring (tag name attached, reliability HINT), empty when nothing shifts, ordering after gap shift. `VoiceTest`'s existing reflection walk covers the two new keys automatically. No new Compose/instrumented test — `TrendFindingContent`'s `when` was the only exhaustiveness-sensitive call site and is covered by the new branch; the two androidTest files referencing `TrendFindingKind` only construct fixtures positionally, no exhaustive `when` to update.
-
-**Deferred:** nothing raised and declined.
-
-**Docs updated:** `HODITH_SPEC.md` §10 — new "Tag share shift" bullet. `TESTING.md` — Stats & visual data prep row gained a tag-share-shift clause. `PROGRESS.md` — T2 struck entirely; Story C's intro paragraph count and T-range updated (T2–T8 → T3–T8, "Eight items remain" → "Seven").
-
-**Verified:** `ktlintCheck → test (scoped, then full) → lintDebug → assembleDebug` sequential, all green (735 unit tests). No instrumented run — this item's acceptance criteria only calls for domain + Voice ×3 + spec coverage, and no Compose/instrumented test needed updating (see Tests above).
