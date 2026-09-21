@@ -10,7 +10,6 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -26,18 +25,6 @@ import org.junit.Test
 class LogDetailSheetTest {
     @get:Rule
     val composeTestRule = createComposeRule()
-
-    private fun draft() =
-        LogDraft(
-            occurredAt = 0L,
-            intensity = null,
-            durationAmount = "",
-            durationUnit = DurationUnit.MINUTES,
-            note = "",
-            tags = emptyList(),
-            endedAt = null,
-            existingEndedAt = null,
-        )
 
     @Smoke
     @Test

@@ -383,6 +383,21 @@ class StatsEngineTest {
     }
 
     @Test
+    fun `computeTagShareShift finds nothing when only one of the two threshold floors is cleared`() {
+        // prior 3 of 5 (0.6), recent 4 of 5 (0.8): delta 0.2 clears TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION
+        // (0.15), but the relative move (0.2 / 0.6 = 0.33) doesn't clear TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION
+        // (0.5) -- both floors must clear, not just one.
+        val standing = TagEntity(id = 5, name = "standing")
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                val tagged = day in setOf(0, 1, 2) || day in 5..8
+                EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(standing) else emptyList())
+            }
+
+        assertTrue(computeTagShareShift(eventsWithTags).isEmpty())
+    }
+
+    @Test
     fun `computeTagShareShift is empty below the minimum sample count`() {
         val decaf = TagEntity(id = 1, name = "decaf")
         val eventsWithTags =
@@ -534,6 +549,29 @@ class StatsEngineTest {
                 }
 
         assertTrue(computeTagOutcomeFindings(eventsWithTags).none { it.tagName == "aura" })
+    }
+
+    @Test
+    fun `computeTagOutcomeFindings excludes a duration effect landing exactly at the significance boundary`() {
+        // A permutation p-value of exactly TAG_OUTCOME_SIGNIFICANCE_ALPHA (0.05, the 50th-most-extreme
+        // of 1000 shuffles) is excluded, not included -- the `>=` in tagOutcomeResultFor treats the
+        // boundary itself as "not significant". This exact composition (9 high/6 low minutes tagged,
+        // 9 high/21 low minutes untagged, both duration) was found empirically to land exactly on that
+        // boundary for this fixed (caseId 1, "aura", DURATION, 45-sample) permutation seed.
+        val highMinutes = 101L
+        val lowMinutes = 1L
+        val tagged =
+            (List(9) { highMinutes } + List(6) { lowMinutes }).mapIndexed { index, minutes ->
+                val occurredAt = millisAtDay(index.toLong())
+                EventWithTags(eventAt(occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE), listOf(aura))
+            }
+        val untagged =
+            (List(9) { highMinutes } + List(21) { lowMinutes }).mapIndexed { index, minutes ->
+                val occurredAt = millisAtDay((index + 100).toLong())
+                EventWithTags(eventAt(occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE), emptyList())
+            }
+
+        assertTrue(computeTagOutcomeFindings(tagged + untagged).none { it.tagName == "aura" })
     }
 
     @Test
