@@ -104,9 +104,9 @@ private const val STOP_SQUARE_CORNER_FRACTION = 0.16f
 
 /**
  * A stop-shaped glyph drawn with [Canvas] primitives — the project deliberately doesn't depend on
- * `material-icons-extended` (docs/CLEANUP_LOG.md), where a filled-square "stop" icon would
- * otherwise come from, and the default set's `Icons.Filled.Done` (a ✓) reads as "confirm", not
- * "stop". Same approach as [com.secondmonday.hodith.ui.common.InfoIcon].
+ * `material-icons-extended`, where a filled-square "stop" icon would otherwise come from, and the
+ * default set's `Icons.Filled.Done` (a ✓) reads as "confirm", not "stop". Same approach as
+ * [com.secondmonday.hodith.ui.common.InfoIcon].
  */
 @Composable
 private fun StopSquare(

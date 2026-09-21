@@ -93,8 +93,8 @@ private const val INFO_ICON_STEM_BOTTOM_FRACTION = 0.73f
  * A lighter, outlined stand-in for [androidx.compose.material.icons.filled.Info]'s solid filled
  * dot — more legible at 18dp than a filled Material icon. Drawn with [Canvas] primitives rather
  * than a hand-built [androidx.compose.ui.graphics.vector.ImageVector] path, since the project
- * deliberately doesn't depend on `material-icons-extended` (docs/CLEANUP_LOG.md), which is
- * where a ready-made outlined info icon would otherwise come from. Internal (not private) so a
+ * deliberately doesn't depend on `material-icons-extended`, which is where a ready-made outlined
+ * info icon would otherwise come from. Internal (not private) so a
  * screen needing a single standalone info action outside [SectionWithInfo]/[RowWithInfo] — e.g.
  * the Trends list screen's shared info action — still uses the same glyph as every other info
  * affordance in the app.
