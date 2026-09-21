@@ -9,9 +9,9 @@ import kotlin.random.Random
  * real effect the caller already computed; [iterations] repeated calls to [permutedStatistic] (each
  * handed the same seeded [Random], so the sequence is reproducible) generate the null distribution.
  * The result is a two-tailed p-value: the share of permuted statistics at least as extreme (by
- * absolute value) as the observed one. Label-shuffle ([labelShufflePValue], Story C T4) and a future
- * timeline-shuffle (T5) differ only in what [permutedStatistic] does with the [Random] it's given —
- * this function doesn't know or care which.
+ * absolute value) as the observed one. Label-shuffle ([labelShufflePValue], Story C T4) and
+ * timeline-shuffle ([timelineShufflePValue], Story C T5) differ only in what [permutedStatistic]
+ * does with the [Random] it's given — this function doesn't know or care which.
  */
 internal fun permutationPValue(
     observedStatistic: Double,
@@ -80,5 +80,38 @@ internal fun permutationSeedFor(
     hash = hash * 31 + tagName.hashCode()
     hash = hash * 31 + outcome.ordinal
     hash = hash * 31 + eventCount
+    return hash
+}
+
+/**
+ * Timeline-shuffle permutation test (Story C T5's change-point detector, the future this file's own
+ * doc comment anticipated): repeatedly reshuffles the *order* of [values] (a Case's own past gaps,
+ * not a cross-sectional group split) and recomputes [statistic] each time. Since [statistic] is
+ * expected to re-run its own search for the best-supported split (as [cusumStatistic] does), the
+ * resulting null distribution already accounts for the observed statistic being a maximum over many
+ * candidate split points, not one fixed test — the standard fix for a change-point statistic's own
+ * multiple-comparisons ("look-elsewhere") problem.
+ */
+internal fun timelineShufflePValue(
+    values: List<Long>,
+    iterations: Int,
+    seed: Long,
+    statistic: (List<Long>) -> Double,
+): Double {
+    val observed = statistic(values)
+    return permutationPValue(observed, iterations, seed) { random -> statistic(values.shuffled(random)) }
+}
+
+/**
+ * Deterministic seed for [timelineShufflePValue], the same rolling-hash shape [permutationSeedFor]
+ * uses — keyed on [caseId] and [gapCount] (the past-gap count actually behind this computation),
+ * since a change-point candidate has no tag or outcome to key on.
+ */
+internal fun timelineShuffleSeedFor(
+    caseId: Long,
+    gapCount: Int,
+): Long {
+    var hash = caseId
+    hash = hash * 31 + gapCount
     return hash
 }

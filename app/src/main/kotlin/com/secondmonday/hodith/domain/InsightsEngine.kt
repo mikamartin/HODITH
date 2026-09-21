@@ -1,11 +1,14 @@
 package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.loggedZone
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
@@ -75,6 +78,30 @@ internal const val RECURRENCE_SHAPE_EARLY_FRACTION_OF_MEAN = 0.5
 internal const val RECURRENCE_SHAPE_SPIKE_MIN_SHARE = 0.6
 internal const val RECURRENCE_SHAPE_DEAD_ZONE_MAX_SHARE = 0.1
 internal const val RECURRENCE_SHAPE_DEAD_ZONE_MIN_COEFFICIENT_OF_VARIATION = 0.3
+
+/**
+ * Spec §10 Trends "change point" finding (Story C T5): needs roughly twice
+ * [GAP_SHIFT_MIN_SAMPLE_COUNT] past gaps before running at all — unlike [computeGapShift]'s trusted
+ * midpoint split, a CUSUM walk searches for the best-supported split itself, which is inherently
+ * more overfitting-prone at small sample sizes even though the permutation test downstream corrects
+ * the statistics; this floor is a cheap first line of defense, not the only one.
+ * [CHANGE_POINT_MIN_SEGMENT_COUNT] is the same "3 is the floor before variance means anything" bar
+ * [GAP_BURST_MIN_GAP_COUNT]/[TAG_SHARE_SHIFT_MIN_TAG_COUNT] already use, applied here to each side of
+ * a candidate split via the edge margin ([computeChangePoint]'s `margin = max(3, n / 5)`).
+ * [CHANGE_POINT_MIN_RELATIVE_DIFFERENCE] is its own named constant rather than a reuse of
+ * [SHIFT_MIN_FRACTION] — an argmax-selected split's relative difference is systematically inflated
+ * versus a fixed-midpoint split for the same underlying noise (searching many candidates finds the
+ * most favorable one), so [GAP_SHIFT]'s 0.3 bar would let too much through to the (comparatively
+ * expensive) permutation stage; higher here since the permutation test is this detector's real
+ * statistical backstop, not this descriptive floor. [CHANGE_POINT_SIGNIFICANCE_ALPHA] and
+ * [CHANGE_POINT_PERMUTATION_ITERATIONS] match [TAG_OUTCOME_SIGNIFICANCE_ALPHA]/
+ * [TAG_OUTCOME_PERMUTATION_ITERATIONS] — no reason to diverge from the roster's existing precedent.
+ */
+internal const val CHANGE_POINT_MIN_SAMPLE_COUNT = 12
+internal const val CHANGE_POINT_MIN_SEGMENT_COUNT = 3
+internal const val CHANGE_POINT_MIN_RELATIVE_DIFFERENCE = 0.4
+internal const val CHANGE_POINT_SIGNIFICANCE_ALPHA = 0.05
+internal const val CHANGE_POINT_PERMUTATION_ITERATIONS = 1000
 
 /**
  * Current gap vs. the longest gap ever observed across the Case's full history — the "current gap
@@ -255,6 +282,100 @@ internal fun computeRecurrenceShape(gapStats: GapStats): RecurrenceShapeResult? 
         earlyShare = earlyShare,
         sampleCount = pastGaps.size,
     )
+}
+
+/**
+ * Spec §10 Trends "change point" finding (Story C T5): where in [GapStats.pastGaps] a real shift
+ * happened, found by a CUSUM walk rather than assumed at the midpoint the way [computeGapShift] does
+ * — the cumulative sum of each gap's deviation from the series mean, [cusumStatistic], is walked
+ * across every candidate split inside the edge margin (each side needs at least
+ * [CHANGE_POINT_MIN_SEGMENT_COUNT] gaps), and the split with the largest absolute cumulative
+ * deviation is kept. That split only becomes a finding once its two segments clear a descriptive
+ * floor ([CHANGE_POINT_MIN_RELATIVE_DIFFERENCE], via [relativeDifferenceInMeans] — cheap, checked
+ * before the comparatively expensive permutation run) and [timelineShufflePValue]'s significance
+ * test, which reshuffles the gap sequence's own order and re-walks the same CUSUM search each time —
+ * so the resulting null distribution already accounts for the observed statistic being a maximum
+ * over many candidate splits, not one fixed test (the standard fix for a change-point statistic's own
+ * "look-elsewhere" multiple-comparisons problem).
+ *
+ * [eventsWithTags] is needed only for its event dates, to resolve the split's calendar date — every
+ * other input here comes from [gapStats] alone. [gapStats] and [eventsWithTags] are independent
+ * parameters that happen to always be derived from the same event list at the one real call site;
+ * this function defends against a mismatched pair (its date lookup would otherwise misread) by
+ * checking [GapStats.pastGaps]' size against the sorted event list's before indexing into it.
+ */
+internal fun computeChangePoint(
+    gapStats: GapStats,
+    eventsWithTags: List<EventWithTags>,
+): ChangePointResult? {
+    val pastGaps = gapStats.pastGaps
+    if (pastGaps.size < CHANGE_POINT_MIN_SAMPLE_COUNT) return null
+
+    val sorted = eventsWithTags.sortedBy { it.event.occurredAt }
+    if (pastGaps.size != sorted.size - 1) return null
+
+    val mean = pastGaps.average()
+    if (mean <= 0.0) return null
+
+    val margin = max(CHANGE_POINT_MIN_SEGMENT_COUNT, pastGaps.size / 5)
+    if (margin * 2 > pastGaps.size) return null
+
+    val (_, splitIndex) = cusumStatistic(pastGaps, margin)
+
+    val priorGaps = pastGaps.take(splitIndex).map { it.toDouble() }
+    val recentGaps = pastGaps.drop(splitIndex).map { it.toDouble() }
+    val relativeDifference = relativeDifferenceInMeans(priorGaps, recentGaps)
+    if (abs(relativeDifference) < CHANGE_POINT_MIN_RELATIVE_DIFFERENCE) return null
+
+    val caseId = sorted.firstOrNull()?.event?.caseId ?: return null
+    val seed = timelineShuffleSeedFor(caseId, pastGaps.size)
+    val pValue =
+        timelineShufflePValue(pastGaps, CHANGE_POINT_PERMUTATION_ITERATIONS, seed) { shuffled ->
+            cusumStatistic(shuffled, margin).first
+        }
+    if (pValue >= CHANGE_POINT_SIGNIFICANCE_ALPHA) return null
+
+    val priorAverage = priorGaps.average()
+    val recentAverage = recentGaps.average()
+    val splitEvent = sorted[splitIndex].event
+    val changePointDate = Instant.ofEpochMilli(splitEvent.occurredAt).atZone(splitEvent.loggedZone()).toLocalDate()
+
+    return ChangePointResult(
+        direction = if (recentAverage > priorAverage) ShiftDirection.UP else ShiftDirection.DOWN,
+        changePointDate = changePointDate,
+        priorAverageDays = priorAverage,
+        recentAverageDays = recentAverage,
+        sampleCount = pastGaps.size,
+    )
+}
+
+/**
+ * The CUSUM statistic behind [computeChangePoint]: walks the cumulative sum of each of [gaps]'
+ * deviations from their own mean, restricted to split points at least [margin] gaps from either end
+ * (so both segments have real support), and returns the largest absolute cumulative deviation
+ * reached plus the 1-indexed gap count where it was reached (`gaps[0 until splitIndex]` is the prior
+ * segment, `gaps[splitIndex until size]` the recent one). Ties keep the first index reached, since
+ * Kotlin's iteration order here is a plain left-to-right walk — a deliberate, deterministic choice,
+ * not an arbitrary one: it's the earliest point the evidence for a split becomes maximal.
+ */
+private fun cusumStatistic(
+    gaps: List<Long>,
+    margin: Int,
+): Pair<Double, Int> {
+    val mean = gaps.average()
+    var cumulative = 0.0
+    var bestStatistic = 0.0
+    var bestSplitIndex = margin
+    for (index in gaps.indices) {
+        cumulative += gaps[index] - mean
+        val k = index + 1
+        if (k < margin || k > gaps.size - margin) continue
+        if (abs(cumulative) > bestStatistic) {
+            bestStatistic = abs(cumulative)
+            bestSplitIndex = k
+        }
+    }
+    return bestStatistic to bestSplitIndex
 }
 
 /** `null` unless the change from [firstAvg] to [secondAvg] clears both [SHIFT_MIN_FRACTION] and [SHIFT_MIN_ABSOLUTE_DAYS]. */

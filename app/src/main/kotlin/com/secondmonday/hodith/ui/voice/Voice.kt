@@ -494,6 +494,26 @@ interface Voice {
     /** As [insightsGapShiftEvidenceLabel], for the tag-outcome finding row. */
     fun insightsTagOutcomeEvidenceLabel(sampleCount: Int): String
 
+    /**
+     * Spec §10 Trends "change point" finding (Story C T5): the typical gap between events has
+     * shifted since a best-supported split point in the Case's own history — [direction]
+     * [ShiftDirection.UP] means the gap grew (happening less often), [ShiftDirection.DOWN] means it
+     * shrank (happening more often). [dateLabel] is the split's approximate date (already formatted
+     * via `formatApproximateMonth`, e.g. "mid-March" — a best-supported estimate, not an exact day);
+     * [priorLabel]/[recentLabel] are the two segments' average gap length (already formatted via
+     * `formatDays`). Like [insightsTagOutcomeSentence], this describes an effect already tested for
+     * significance, not just a threshold crossing — "tends to," never "causes."
+     */
+    fun insightsChangePointSentence(
+        direction: ShiftDirection,
+        dateLabel: String,
+        priorLabel: String,
+        recentLabel: String,
+    ): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the change-point finding row. */
+    fun insightsChangePointEvidenceLabel(sampleCount: Int): String
+
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
     val insightsDurationLongestLabel: String get() = "Longest"
@@ -1189,6 +1209,18 @@ object PlainVoice : Voice {
 
     override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
 
+    override fun insightsChangePointSentence(
+        direction: ShiftDirection,
+        dateLabel: String,
+        priorLabel: String,
+        recentLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "The gap between events has grown, from $priorLabel to $recentLabel, since around $dateLabel."
+        ShiftDirection.DOWN -> "The gap between events has shrunk, from $priorLabel to $recentLabel, since around $dateLabel."
+    }
+
+    override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
+
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
         "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
@@ -1839,6 +1871,18 @@ object IntenseVoice : Voice {
 
     override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
 
+    override fun insightsChangePointSentence(
+        direction: ShiftDirection,
+        dateLabel: String,
+        priorLabel: String,
+        recentLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "The silence between them has stretched, from $priorLabel to $recentLabel, since around $dateLabel."
+        ShiftDirection.DOWN -> "The silence between them has drawn tighter, from $priorLabel to $recentLabel, since around $dateLabel."
+    }
+
+    override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount gaps."
+
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
         "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
@@ -2474,6 +2518,18 @@ object BrightVoice : Voice {
     }
 
     override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
+
+    override fun insightsChangePointSentence(
+        direction: ShiftDirection,
+        dateLabel: String,
+        priorLabel: String,
+        recentLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "The gap between events has stretched out, from $priorLabel to $recentLabel, since around $dateLabel!"
+        ShiftDirection.DOWN -> "The gap between events has tightened up, from $priorLabel to $recentLabel, since around $dateLabel!"
+    }
+
+    override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =

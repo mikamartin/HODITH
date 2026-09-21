@@ -23,6 +23,7 @@ import com.secondmonday.hodith.viewmodel.StatsSections
 import org.junit.Rule
 import org.junit.Test
 import java.time.DayOfWeek
+import java.time.LocalDate
 
 /**
  * Drives the Trends section's cap/reveal guardrail directly against a synthetic
@@ -194,6 +195,31 @@ class InsightsTabTrendsCardTest {
                     relativeDifferenceLabel = "50%",
                     withoutTagLabel = "30m",
                     withTagLabel = "45m",
+                ),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersChangePointSentence() {
+        val changePoint =
+            TrendFinding(
+                kind = TrendFindingKind.CHANGE_POINT,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 20,
+                priorValue = 3.0,
+                recentValue = 9.0,
+                changePointDate = LocalDate.of(2026, 3, 14),
+            )
+        setContent(trends = listOf(changePoint))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsChangePointSentence(
+                    ShiftDirection.UP,
+                    dateLabel = "mid-March",
+                    priorLabel = "3 days",
+                    recentLabel = "9 days",
                 ),
             ).assertExists()
     }

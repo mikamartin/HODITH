@@ -39,6 +39,7 @@ import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.TrendsListViewModel
+import java.time.LocalDate
 
 @Composable
 fun TrendsListRoute(
@@ -129,6 +130,15 @@ private val previewTrendsListFindings =
         TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.HINT, 7, 4.0, 2.0),
         TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.DOWN, TrendReliability.PATTERN, 14, 9.5, 4.0),
         TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.73),
+        TrendFinding(
+            kind = TrendFindingKind.CHANGE_POINT,
+            direction = ShiftDirection.UP,
+            reliability = TrendReliability.PATTERN,
+            sampleCount = 20,
+            priorValue = 3.0,
+            recentValue = 9.0,
+            changePointDate = LocalDate.of(2026, 3, 14),
+        ),
     )
 
 @Composable

@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.domain
 
+import java.time.LocalDate
+
 /**
  * Spec §10 "gaps & streaks" stat card: how long since the last event, compared against the
  * longest gap ever seen across the Case's full history. [averageGapDays] and [isBursty] serve the
@@ -102,6 +104,22 @@ data class TagOutcomeResult(
     val direction: ShiftDirection,
     val withoutTagMean: Double,
     val withTagMean: Double,
+    val sampleCount: Int,
+)
+
+/**
+ * [computeChangePoint]: the best-supported split point a CUSUM walk over [GapStats.pastGaps] found,
+ * once it's cleared a timeline-shuffle permutation test — unlike [ShiftResult] (a fixed-midpoint
+ * split), the split location itself is part of what was computed, so [changePointDate] carries the
+ * calendar date of the event that starts the recent segment. [priorAverageDays]/[recentAverageDays]
+ * are the two segments' own average gap length, the same unit [ShiftResult] uses. [sampleCount] is
+ * the total past gaps behind both segments combined.
+ */
+data class ChangePointResult(
+    val direction: ShiftDirection,
+    val changePointDate: LocalDate,
+    val priorAverageDays: Double,
+    val recentAverageDays: Double,
     val sampleCount: Int,
 )
 

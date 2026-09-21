@@ -774,6 +774,17 @@ private fun TrendFindingContent(
                 )
             evidenceLabel = voice.insightsTagOutcomeEvidenceLabel(finding.sampleCount)
         }
+        TrendFindingKind.CHANGE_POINT -> {
+            // changePointDate is always set for this kind -- see TrendFinding's KDoc.
+            sentence =
+                voice.insightsChangePointSentence(
+                    finding.direction,
+                    formatApproximateMonth(finding.changePointDate ?: LocalDate.now()),
+                    formatDays(finding.priorValue),
+                    formatDays(finding.recentValue),
+                )
+            evidenceLabel = voice.insightsChangePointEvidenceLabel(finding.sampleCount)
+        }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1040,6 +1051,23 @@ internal fun formatPercent(share: Double): String = "${(share * 100).roundToInt(
 
 /** An average intensity score to one decimal place, e.g. "3.2". */
 internal fun formatIntensity(value: Double): String = String.format(Locale.US, "%.1f", value)
+
+/**
+ * A calendar date bucketed to a third of its month against the month's own name, e.g. "early March",
+ * "mid-March", "late March" — [TrendFindingKind.CHANGE_POINT]'s change-point date is a
+ * best-supported estimate, not a claim of the exact day, so its sentence states it at this coarser
+ * grain on purpose.
+ */
+internal fun formatApproximateMonth(date: LocalDate): String {
+    val monthName = date.month.getDisplayName(TextStyle.FULL, Locale.US)
+    val partOfMonth =
+        when {
+            date.dayOfMonth <= 10 -> "early"
+            date.dayOfMonth <= 20 -> "mid-"
+            else -> "late"
+        }
+    return if (partOfMonth == "mid-") "$partOfMonth$monthName" else "$partOfMonth $monthName"
+}
 
 // 12-bar fixtures (matching the real FREQUENCY_MAX_BUCKETS) for all three granularities, so
 // previews exercise the actual tick-label density instead of the 6-bar stand-in this used to be.

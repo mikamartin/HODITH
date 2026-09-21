@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.testsupport.durationEvent
 import com.secondmonday.hodith.testsupport.eventAtDay
 import com.secondmonday.hodith.testsupport.millisAtDay
@@ -595,6 +596,147 @@ class InsightsEngineTest {
 
         assertTrue(stats.isBursty)
         assertEquals(null, computeRecurrenceShape(stats))
+    }
+
+    // ---- computeChangePoint ----
+
+    private fun changePointEventsWithTags(days: List<Long>): List<EventWithTags> = days.map { EventWithTags(eventAtDay(it), emptyList()) }
+
+    @Test
+    fun `computeChangePoint finds a planted change point where the typical gap triples partway through`() {
+        // Ten 3-day gaps, then ten 9-day gaps -- events at day 0,3,...,30, then 39,48,...,120.
+        // mean = 6.0; the cumulative sum of (gap - mean) reaches its extreme (-30) after the tenth
+        // gap, right at the boundary between the two segments.
+        val priorDays = (0L..30L step 3L).toList()
+        val recentDays = (39L..120L step 9L).toList()
+        val eventsWithTags = changePointEventsWithTags(priorDays + recentDays)
+        val gapStats = computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(130))
+
+        val result = computeChangePoint(gapStats, eventsWithTags)
+
+        assertEquals(ShiftDirection.UP, result?.direction)
+        assertEquals(3.0, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(9.0, result?.recentAverageDays ?: -1.0, 0.0001)
+        assertEquals(20, result?.sampleCount)
+        assertEquals(LocalDate.ofEpochDay(30), result?.changePointDate)
+    }
+
+    @Test
+    fun `computeChangePoint reports a DOWN direction when the typical gap shrinks`() {
+        // Eleven 9-day gaps (including the one bridging into the faster stretch), then six 3-day
+        // gaps -- events at day 0,9,...,90, then 99,102,...,117.
+        val priorDays = (0L..90L step 9L).toList()
+        val recentDays = (99L..117L step 3L).toList()
+        val eventsWithTags = changePointEventsWithTags(priorDays + recentDays)
+        val gapStats = computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(125))
+
+        val result = computeChangePoint(gapStats, eventsWithTags)
+
+        assertEquals(ShiftDirection.DOWN, result?.direction)
+        assertEquals(9.0, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(3.0, result?.recentAverageDays ?: -1.0, 0.0001)
+        assertEquals(17, result?.sampleCount)
+    }
+
+    @Test
+    fun `computeChangePoint keeps the earlier of two exactly tied split points, not the later one`() {
+        // Mean solved to land exactly on the plateau value: nine gaps of 9, two of 5 (= mean,
+        // deviation 0), nine of 1 -- 9*9 + 2*5 + 9*1 = 100 over 20 gaps, mean 5.0 exactly. The
+        // cumulative sum reaches the same peak (36.0) at k=9, k=10, and k=11 (the two zero-deviation
+        // plateau gaps hold it flat) -- only a strict `>` comparison keeps k=9, the earliest point
+        // the evidence became maximal; a `>=` mutation would drift the split to k=11 instead, and
+        // report different segment averages/date.
+        val days = mutableListOf(0L)
+        repeat(9) { days += days.last() + 9L }
+        repeat(2) { days += days.last() + 5L }
+        repeat(9) { days += days.last() + 1L }
+        val eventsWithTags = changePointEventsWithTags(days)
+        val gapStats = computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(days.last() + 10))
+
+        val result = computeChangePoint(gapStats, eventsWithTags)
+
+        assertEquals(ShiftDirection.DOWN, result?.direction)
+        assertEquals(9.0, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(19.0 / 11.0, result?.recentAverageDays ?: -1.0, 0.0001)
+        assertEquals(LocalDate.ofEpochDay(days[9]), result?.changePointDate)
+    }
+
+    @Test
+    fun `computeChangePoint clamps the split inside the edge margin, away from a bigger but too-close-to-the-edge swing`() {
+        // A 3-gap burst of 50, then seventeen flat 5s. Unconstrained, the cumulative sum peaks at
+        // k=3 (114.75) -- inside the excluded margin (margin=4 at n=20). The margin correctly
+        // clamps the reported split to the first valid point, k=4 (108.0), rather than reporting a
+        // split inside the excluded zone.
+        val days = mutableListOf(0L)
+        repeat(3) { days += days.last() + 50L }
+        repeat(17) { days += days.last() + 5L }
+        val eventsWithTags = changePointEventsWithTags(days)
+        val gapStats = computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(days.last() + 10))
+
+        val result = computeChangePoint(gapStats, eventsWithTags)
+
+        assertEquals(ShiftDirection.DOWN, result?.direction)
+        assertEquals(38.75, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(5.0, result?.recentAverageDays ?: -1.0, 0.0001)
+        assertEquals(LocalDate.ofEpochDay(days[4]), result?.changePointDate)
+    }
+
+    @Test
+    fun `computeChangePoint is null when the split doesn't clear the descriptive floor, before any permutation runs`() {
+        // Nine gaps of 5, then ten gaps of 6 -- relative difference 0.2, under
+        // CHANGE_POINT_MIN_RELATIVE_DIFFERENCE (0.4). Isolates the cheap pre-filter from the
+        // permutation test below it: this fixture never reaches timelineShufflePValue at all.
+        val days = mutableListOf(0L)
+        repeat(9) { days += days.last() + 5L }
+        repeat(10) { days += days.last() + 6L }
+        val eventsWithTags = changePointEventsWithTags(days)
+        val gapStats = computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(days.last() + 10))
+
+        assertEquals(null, computeChangePoint(gapStats, eventsWithTags))
+    }
+
+    @Test
+    fun `computeChangePoint finds nothing for a split that clears the descriptive floor but isn't significant`() {
+        // A pool of small (2,3,4), mid (8, repeated), and large (12,13,14) gaps arranged so the
+        // best split (relative difference 0.47, clearing the 0.4 floor) is still just a plausible
+        // partition of mostly-similar values, not a real regime change -- isolates the permutation
+        // test itself, distinct from the floor-only rejection above (which never reaches it).
+        val gapPool = listOf(2L, 3L, 4L) + List(6) { 8L } + listOf(12L, 13L, 14L) + List(6) { 8L } + listOf(2L, 3L, 4L)
+        val days = gapPool.runningFold(0L) { acc, gap -> acc + gap }
+        val eventsWithTags = changePointEventsWithTags(days)
+        val gapStats = computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(days.last() + 10))
+
+        assertEquals(null, computeChangePoint(gapStats, eventsWithTags))
+    }
+
+    @Test
+    fun `computeChangePoint is null when every gap is zero`() {
+        // 13 events all on the same day -- mean 0, nothing for a cumulative sum to deviate from.
+        val eventsWithTags = changePointEventsWithTags(List(13) { 5L })
+        val gapStats = computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(15))
+
+        assertEquals(null, computeChangePoint(gapStats, eventsWithTags))
+    }
+
+    @Test
+    fun `computeChangePoint is null below the minimum sample count, even with a stark effect`() {
+        val priorDays = (0L..9L step 3L).toList() // 4 events, 3 gaps of 3
+        val recentDays = (18L..36L step 9L).toList() // 3 more events, 2 more gaps of 9
+        val eventsWithTags = changePointEventsWithTags(priorDays + recentDays)
+        val gapStats = computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(40))
+
+        assertEquals(null, computeChangePoint(gapStats, eventsWithTags))
+    }
+
+    @Test
+    fun `computeChangePoint is null when pastGaps and eventsWithTags don't correspond`() {
+        // A mismatched pair -- gapStats built from twice as many events as eventsWithTags carries.
+        val fullDays = (0L..60L step 3L).toList()
+        val fullEvents = fullDays.map { eventAtDay(it) }
+        val gapStats = computeGapStats(fullEvents, now = millisAtDay(65))
+        val eventsWithTags = changePointEventsWithTags(fullDays.take(5))
+
+        assertEquals(null, computeChangePoint(gapStats, eventsWithTags))
     }
 
     // ---- heatmapLevelFor ----

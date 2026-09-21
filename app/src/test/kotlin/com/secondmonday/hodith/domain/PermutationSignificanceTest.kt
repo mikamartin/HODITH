@@ -183,4 +183,77 @@ class PermutationSignificanceTest {
 
         assertNotEquals(first, second)
     }
+
+    // ---- timelineShufflePValue ----
+
+    @Test
+    fun `timelineShufflePValue preserves the value list's size across every shuffle`() {
+        // A statistic that reports the shuffled list's size: since shuffling never changes how many
+        // values there are, every permuted call must reproduce the original size -- a structural
+        // guarantee, not a statistical one.
+        val values = List(15) { it.toLong() }
+
+        val pValue = timelineShufflePValue(values, iterations = 500, seed = 1L, statistic = { it.size.toDouble() })
+
+        assertEquals(1.0, pValue, 0.0001)
+    }
+
+    @Test
+    fun `timelineShufflePValue is high for a statistic no reordering can beat`() {
+        // Every permutation of the same multiset has the same sum, so a sum-based statistic is
+        // identical before and after any shuffle -- nothing can look more extreme than observed.
+        val values = listOf(1L, 2L, 3L, 4L, 5L)
+
+        val pValue = timelineShufflePValue(values, iterations = 200, seed = 1L, statistic = { it.sum().toDouble() })
+
+        assertEquals(1.0, pValue, 0.0001)
+    }
+
+    @Test
+    fun `timelineShufflePValue is low when only the original order achieves an extreme statistic`() {
+        // A statistic that's only extreme for the exact original (sorted) order -- almost every
+        // shuffle scrambles it, so only a vanishing share of permutations should match or beat it.
+        val values = listOf(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L)
+        val sortedStatistic: (List<Long>) -> Double = { list -> if (list == list.sorted()) 100.0 else 0.0 }
+
+        val pValue = timelineShufflePValue(values, iterations = 1000, seed = 1L, statistic = sortedStatistic)
+
+        assertTrue(pValue < 0.05)
+    }
+
+    @Test
+    fun `timelineShufflePValue is deterministic for the same seed`() {
+        val values = listOf(1L, 2L, 3L, 4L, 5L)
+
+        val first = timelineShufflePValue(values, iterations = 200, seed = 7L, statistic = { it.sum().toDouble() })
+        val second = timelineShufflePValue(values, iterations = 200, seed = 7L, statistic = { it.sum().toDouble() })
+
+        assertEquals(first, second, 0.0)
+    }
+
+    // ---- timelineShuffleSeedFor ----
+
+    @Test
+    fun `timelineShuffleSeedFor is deterministic for the same inputs`() {
+        val first = timelineShuffleSeedFor(caseId = 1L, gapCount = 20)
+        val second = timelineShuffleSeedFor(caseId = 1L, gapCount = 20)
+
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `timelineShuffleSeedFor differs when caseId differs`() {
+        val first = timelineShuffleSeedFor(caseId = 1L, gapCount = 20)
+        val second = timelineShuffleSeedFor(caseId = 2L, gapCount = 20)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `timelineShuffleSeedFor differs when gapCount differs`() {
+        val first = timelineShuffleSeedFor(caseId = 1L, gapCount = 20)
+        val second = timelineShuffleSeedFor(caseId = 1L, gapCount = 21)
+
+        assertNotEquals(first, second)
+    }
 }
