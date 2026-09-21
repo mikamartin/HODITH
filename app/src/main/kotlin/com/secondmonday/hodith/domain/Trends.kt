@@ -29,6 +29,16 @@ package com.secondmonday.hodith.domain
  * follows quickly) and [ShiftDirection.DOWN] for a dead-zone pattern (it almost never does). Distinct
  * from [WENT_QUIET]: that's a live-instance claim about right now, this is a pattern true regardless
  * of current state, and a Case can trigger both at once.
+ *
+ * [TAG_OUTCOME] (Story C T4) compares a tag's events against the Case's other events on one outcome
+ * ([TrendFinding.outcome] — intensity or duration), backed by a label-shuffle permutation test rather
+ * than a descriptive threshold — the roster's first kind able to report [TrendReliability.PATTERN].
+ * A pair that misses significance produces no finding at all, never [TrendReliability.HINT], so every
+ * [TAG_OUTCOME] finding that exists is already [TrendReliability.PATTERN]. Like [TAG_SHARE_SHIFT],
+ * [TrendFinding.tagName] is set (every other kind leaves it `null`); `priorValue`/`recentValue` hold
+ * the without-tag/with-tag group means in the outcome's own unit (a 1–5 intensity score, or minutes),
+ * not a shift over time. Also like [TAG_SHARE_SHIFT], one Case can surface more than one [TAG_OUTCOME]
+ * finding (one per qualifying tag/outcome pair).
  */
 enum class TrendFindingKind {
     WENT_QUIET,
@@ -37,6 +47,7 @@ enum class TrendFindingKind {
     FREQUENCY_SHIFT,
     TAG_SHARE_SHIFT,
     RECURRENCE_SHAPE,
+    TAG_OUTCOME,
 }
 
 /**
@@ -62,8 +73,10 @@ enum class TrendReliability {
  * (from `TrendStats`' `recentCount`/`priorCount`), a share fraction for
  * [TrendFindingKind.TAG_SHARE_SHIFT] (from [TagShareShiftResult]'s `priorShare`/`recentShare`). The
  * UI already dispatches on [kind] to pick the matching Voice sentence, so it also knows which unit
- * these two values are in. [tagName] is only set for [TrendFindingKind.TAG_SHARE_SHIFT] — `null`
- * for every other kind, which isn't about one specific tag.
+ * these two values are in. For [TrendFindingKind.TAG_OUTCOME], they hold the without-tag/with-tag
+ * group means in [outcome]'s own unit instead. [tagName] is set for [TrendFindingKind.TAG_SHARE_SHIFT]
+ * and [TrendFindingKind.TAG_OUTCOME] — `null` for every other kind, which isn't about one specific
+ * tag. [outcome] is only set for [TrendFindingKind.TAG_OUTCOME] — `null` for every other kind.
  */
 data class TrendFinding(
     val kind: TrendFindingKind,
@@ -73,4 +86,5 @@ data class TrendFinding(
     val priorValue: Double,
     val recentValue: Double,
     val tagName: String? = null,
+    val outcome: TagOutcome? = null,
 )

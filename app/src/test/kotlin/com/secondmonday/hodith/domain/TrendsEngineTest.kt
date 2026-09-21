@@ -262,6 +262,68 @@ class TrendsEngineTest {
         assertEquals(TrendFindingKind.WENT_QUIET, findings.first().kind)
     }
 
+    // ---- computeTrendFindings: tag outcome ----
+
+    // Interleaved across the same day range (rather than tagged-early/untagged-late) so this doesn't
+    // also read as a TAG_SHARE_SHIFT -- a tag confined to one half of a Case's history would trip
+    // that detector too, which isn't what this fixture is meant to isolate.
+    private fun strongTagOutcomeEventsWithTags(tagName: String = "aura"): List<EventWithTags> {
+        val tag = TagEntity(id = 1, name = tagName)
+        val taggedCount = TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + 5
+        val untaggedCount = TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT + 10
+        val totalCount = taggedCount + untaggedCount
+        return (0 until totalCount).map { day ->
+            val tagged = day % 3 == 0 // roughly taggedCount of totalCount, evenly spread across the span
+            val event = testEvent(occurredAt = millisAtDay(day.toLong()), intensity = if (tagged) 5 else 1)
+            EventWithTags(event, if (tagged) listOf(tag) else emptyList())
+        }
+    }
+
+    @Test
+    fun `computeTrendFindings reports a tag-outcome finding as PATTERN with the tag name and outcome attached`() {
+        val findings =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = strongTagOutcomeEventsWithTags())
+
+        val finding = findings.single { it.kind == TrendFindingKind.TAG_OUTCOME }
+        assertEquals("aura", finding.tagName)
+        assertEquals(TagOutcome.INTENSITY, finding.outcome)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.PATTERN, finding.reliability)
+    }
+
+    @Test
+    fun `computeTrendFindings places the tag-outcome finding after recurrence shape`() {
+        val gapStats = gapStatsOf(recurrenceSpikePastGaps)
+
+        val findings =
+            computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = strongTagOutcomeEventsWithTags())
+
+        assertEquals(listOf(TrendFindingKind.RECURRENCE_SHAPE, TrendFindingKind.TAG_OUTCOME), findings.map { it.kind })
+    }
+
+    @Test
+    fun `computeTrendFindings reports a DURATION tag-outcome finding, not just intensity`() {
+        val tag = TagEntity(id = 1, name = "aura")
+        val taggedCount = TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + 5
+        val untaggedCount = TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT + 10
+        val totalCount = taggedCount + untaggedCount
+        val eventsWithTags =
+            (0 until totalCount).map { day ->
+                val tagged = day % 3 == 0
+                val occurredAt = millisAtDay(day.toLong())
+                val minutes = if (tagged) 90L else 30L
+                val event = testEvent(occurredAt = occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE)
+                EventWithTags(event, if (tagged) listOf(tag) else emptyList())
+            }
+
+        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = eventsWithTags)
+
+        val finding = findings.single { it.kind == TrendFindingKind.TAG_OUTCOME }
+        assertEquals(TagOutcome.DURATION, finding.outcome)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.PATTERN, finding.reliability)
+    }
+
     // ---- capTrendFindings ----
 
     private fun syntheticFinding() =

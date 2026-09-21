@@ -257,3 +257,89 @@ private fun tagShareShiftDirectionFor(
     if (abs(delta) < TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION || fraction < TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION) return null
     return if (delta > 0) ShiftDirection.UP else ShiftDirection.DOWN
 }
+
+/**
+ * Spec §10 Trends "tag → outcome" finding (Story C T4): sample-size floors, gated independently per
+ * outcome on events carrying that outcome's value ([TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT] with the
+ * tag, [TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT] without) — a tag can qualify for intensity but not
+ * duration, or vice versa. [TAG_OUTCOME_MIN_RELATIVE_DIFFERENCE] is a descriptive floor checked
+ * before the (comparatively expensive) permutation test runs at all;
+ * [TAG_OUTCOME_SIGNIFICANCE_ALPHA] is the permutation p-value bar a candidate must then clear.
+ * [TAG_OUTCOME_PERMUTATION_ITERATIONS] is the shuffle count behind that test.
+ * [TAG_OUTCOME_MAX_FINDINGS] caps this detector's own findings across both outcomes combined, the
+ * same way [TAG_SHARE_SHIFT_MAX_FINDINGS] caps its.
+ */
+internal const val TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT = 15
+internal const val TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT = 30
+internal const val TAG_OUTCOME_MIN_RELATIVE_DIFFERENCE = 0.2
+internal const val TAG_OUTCOME_SIGNIFICANCE_ALPHA = 0.05
+internal const val TAG_OUTCOME_PERMUTATION_ITERATIONS = 1000
+internal const val TAG_OUTCOME_MAX_FINDINGS = 3
+
+/**
+ * Spec §10 Trends "tag → outcome" finding (Story C T4): whether a tag's events differ from the
+ * Case's other events on intensity or duration, backed by a real permutation-significance test
+ * rather than a threshold check — the roster's first `Pattern`-capable detector. A (tag, outcome)
+ * pair that clears the descriptive floor but not significance is dropped entirely, never reported —
+ * the feasibility ruling's "suppressed, not shown as Hint" rule, since every kept result here already
+ * carries a real test behind it, unlike every threshold-only detector above it. Results across both
+ * outcomes are pooled, ordered by effect size (as [computeTagShareShift] orders its own results), and
+ * capped at [TAG_OUTCOME_MAX_FINDINGS] — the second detector able to produce more than one finding
+ * per Case.
+ */
+internal fun computeTagOutcomeFindings(eventsWithTags: List<EventWithTags>): List<TagOutcomeResult> {
+    val caseId = eventsWithTags.firstOrNull()?.event?.caseId ?: return emptyList()
+    val tagNames = eventsWithTags.flatMap { it.tags }.map { it.name }.distinct()
+
+    return tagNames
+        .flatMap { tagName -> TagOutcome.entries.mapNotNull { outcome -> tagOutcomeResultFor(eventsWithTags, caseId, tagName, outcome) } }
+        .sortedByDescending { abs(it.withTagMean - it.withoutTagMean) / it.withoutTagMean }
+        .take(TAG_OUTCOME_MAX_FINDINGS)
+}
+
+/** One (tagName, outcome) candidate: `null` below the sample-size or descriptive-floor gates, or when the permutation test isn't significant. */
+private fun tagOutcomeResultFor(
+    eventsWithTags: List<EventWithTags>,
+    caseId: Long,
+    tagName: String,
+    outcome: TagOutcome,
+): TagOutcomeResult? {
+    val tagged = mutableListOf<Double>()
+    val untagged = mutableListOf<Double>()
+    eventsWithTags.forEach { entry ->
+        val value = outcomeValueFor(entry.event, outcome) ?: return@forEach
+        if (entry.tags.any { it.name == tagName }) tagged += value else untagged += value
+    }
+    if (tagged.size < TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT || untagged.size < TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT) return null
+
+    val relativeDifference = relativeDifferenceInMeans(untagged, tagged)
+    if (abs(relativeDifference) < TAG_OUTCOME_MIN_RELATIVE_DIFFERENCE) return null
+
+    val sampleCount = tagged.size + untagged.size
+    val seed = permutationSeedFor(caseId, tagName, outcome, sampleCount)
+    val pValue = labelShufflePValue(untagged, tagged, TAG_OUTCOME_PERMUTATION_ITERATIONS, seed)
+    if (pValue >= TAG_OUTCOME_SIGNIFICANCE_ALPHA) return null
+
+    return TagOutcomeResult(
+        tagName = tagName,
+        outcome = outcome,
+        direction = if (relativeDifference > 0) ShiftDirection.UP else ShiftDirection.DOWN,
+        withoutTagMean = untagged.average(),
+        withTagMean = tagged.average(),
+        sampleCount = sampleCount,
+    )
+}
+
+/** [event]'s value for [outcome], or `null` when it doesn't carry one — no recorded intensity, or no recorded (positive) duration, the same filter [computeDurationStats] uses. */
+private fun outcomeValueFor(
+    event: EventEntity,
+    outcome: TagOutcome,
+): Double? =
+    when (outcome) {
+        TagOutcome.INTENSITY -> event.intensity?.toDouble()
+        TagOutcome.DURATION ->
+            event.endedAt
+                ?.let { it - event.occurredAt }
+                ?.takeIf { it > 0 }
+                ?.let { it.toDouble() / MILLIS_PER_MINUTE }
+    }

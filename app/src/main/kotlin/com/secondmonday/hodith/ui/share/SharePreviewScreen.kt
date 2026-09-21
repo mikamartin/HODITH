@@ -23,6 +23,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,8 @@ import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.shareCardState
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
 
 private const val SHARE_MIME_TYPE = "image/png"
 
@@ -130,7 +133,13 @@ fun SharePreviewScreen(
         if (uiState.isLoading || case == null) return@Scaffold
 
         val events = uiState.events.map { it.event }
-        val insightsState = insightsTabState(case, uiState.events, now)
+        // insightsTabState only cares about "now" down to the calendar day (see CaseDetailScreen.kt's
+        // matching comment) -- memoizing on that day, not the raw value `now` returns fresh on every
+        // recomposition, keeps this screen's own recomposition (e.g. every keystroke while editing the
+        // display name, every section toggle) from re-running the full stats/Trends computation, now
+        // including Story C T4's permutation test.
+        val today = remember(now) { Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate() }
+        val insightsState = remember(case, uiState.events, today) { insightsTabState(case, uiState.events, now) }
         val hunchState = hunchTabState(case, uiState.activeHunch, events, history = emptyList(), now = now)
         val selection = uiState.selection
         val displayName = selection.displayNameOverride ?: case.name

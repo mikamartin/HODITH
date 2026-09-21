@@ -95,6 +95,8 @@ import com.secondmonday.hodith.viewmodel.hunchProgressFraction
 import com.secondmonday.hodith.viewmodel.hunchTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
+import java.time.Instant
+import java.time.ZoneId
 
 private const val LOG_TAB = 0
 private const val INSIGHTS_TAB = 1
@@ -252,10 +254,16 @@ fun CaseDetailScreen(
                     )
                 INSIGHTS_TAB ->
                     if (case != null) {
+                        // Every computation inside insightsTabState that reads "now" only cares about
+                        // the calendar day (CalendarMath.kt's daysBetween), so keying on the day rather
+                        // than the raw, minute-ticking `now` (Ticker.kt) skips identical recomputation
+                        // on every tick -- worth doing now that Story C T4's tag-outcome detector makes
+                        // that recomputation a real (permutation-test) cost, not just a cheap no-op.
+                        val today = remember(now) { Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate() }
                         // Derived state — memoize so the many-pass aggregation recomputes only on a
                         // real input change, not on every unrelated recomposition of this screen.
                         val insightsState =
-                            remember(case, uiState.events, now, frequencyGranularityOverride, uiState.mostRecentActivityAcrossCasesAt) {
+                            remember(case, uiState.events, today, frequencyGranularityOverride, uiState.mostRecentActivityAcrossCasesAt) {
                                 insightsTabState(
                                     case,
                                     uiState.events,

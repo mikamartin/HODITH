@@ -46,6 +46,7 @@ import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.ui.casedetail.formatDays
+import com.secondmonday.hodith.ui.casedetail.formatIntensity
 import com.secondmonday.hodith.ui.common.toCellColor
 import com.secondmonday.hodith.ui.common.toTextColor
 import com.secondmonday.hodith.ui.theme.HodithTheme
@@ -72,7 +73,6 @@ import com.secondmonday.hodith.viewmodel.formatRate
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
-import java.util.Locale
 import kotlin.math.roundToInt
 
 /** Matches the render-pipeline spike's fixed capture width — see PROGRESS.md's Phase 10 share-cards width decision. */
@@ -519,7 +519,7 @@ private fun MiniIntensitySection(
 ) {
     MiniInsightsCard {
         MiniSectionTitle(voice.insightsSectionLabelIntensity, skin)
-        MiniStatRow(voice.insightsIntensityAverageLabel, String.format(Locale.US, "%.1f", display.averageIntensity))
+        MiniStatRow(voice.insightsIntensityAverageLabel, formatIntensity(display.averageIntensity))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
                 val count = display.distribution[value] ?: 0

@@ -24,6 +24,12 @@ private const val NOTE_CHANCE_PERCENT = 45
 private const val TAG_CHANCE_PERCENT = 50
 private const val MAX_TAGS_PER_EVENT = 2
 
+// Story C T4 showcase (Migraine's "aura" tag, see [TagOutcomeShiftSeed]): the fraction of a Case's
+// events forced to carry the showcase tag, deterministically and exclusively of the normal tagsFor
+// draw -- comfortably over both TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT and ...MIN_UNTAGGED_SAMPLE_COUNT
+// (domain, internal) at Migraine's BURSTY event count (~85 events over the full span).
+private const val TAG_OUTCOME_SHOWCASE_CHANCE_PERCENT = 40
+
 // Dense enough that at least one demo Case shows a clear recent uptick — exercises the Trend
 // card's UP direction and gives the calendar heatmap/Rhythm grid a busy recent stretch to shade.
 // One event on every one of these consecutive days also doubles as the Gaps & streaks card's
@@ -53,6 +59,18 @@ private val ONGOING_EVENT_AGES_MILLIS = listOf(2L * MILLIS_PER_HOUR, 26L * MILLI
 
 private enum class SeedDensity { SPARSE, BURSTY, DENSE }
 
+/**
+ * Story C T4 showcase: forces [tagName] onto [TAG_OUTCOME_SHOWCASE_CHANCE_PERCENT] of a Case's
+ * events (bypassing the normal random [tagsFor] draw for this tag specifically, the same way
+ * [CaseSeed.trendingShift]/[CaseSeed.recentSurge] bypass the normal occurrence generator for their
+ * own Cases) and multiplies those events' duration by [durationBoostFactor] — giving the demo Case a
+ * real, deliberate tag→outcome effect so `computeTagOutcomeFindings` has something to find.
+ */
+private data class TagOutcomeShiftSeed(
+    val tagName: String,
+    val durationBoostFactor: Double,
+)
+
 private data class CaseSeed(
     val name: String,
     val icon: String,
@@ -71,6 +89,7 @@ private data class CaseSeed(
     // Extra events left open (endedAt == null) at the end of the span. START_STOP Cases only —
     // a null endedAt on a NONE/MANUAL Case would be a data bug, not an ongoing state.
     val ongoingEventCount: Int = 0,
+    val tagOutcomeShift: TagOutcomeShiftSeed? = null,
 )
 
 // Deliberately varied on every axis Big Picture and Case Detail's Insights tab need to exercise:
@@ -99,9 +118,16 @@ private val CASE_SEEDS =
             intensityEnabled = true,
             density = SeedDensity.BURSTY,
             notes = listOf("Started after screen time", "Woke up with it", "Triggered by wine", "Light sensitivity bad"),
-            tags = listOf("aura", "light-sensitive", "medicated", "no-relief"),
+            // "aura" is deliberately not in this general pool -- it's assigned exclusively via
+            // tagOutcomeShift below, so the tagged/untagged split behind the Story C T4 showcase
+            // stays clean rather than also picking up random hits from the normal tagsFor draw.
+            tags = listOf("light-sensitive", "medicated", "no-relief"),
             description = "From first twinge to when it fully lifts, not just the worst of it",
             ongoingEventCount = 1,
+            // Story C T4 showcase (see HODITH_SPEC.md §10's own "aura migraines last 40% longer"
+            // example): a 60% duration boost gives real margin over both the 20% descriptive floor
+            // and the permutation test's significance bar, not a result sitting right at the edge.
+            tagOutcomeShift = TagOutcomeShiftSeed(tagName = "aura", durationBoostFactor = 1.6),
         ),
         CaseSeed(
             name = "Lost my keys",
@@ -199,7 +225,17 @@ class DemoDataSeeder
                     }
                 val withSurge = if (caseSeed.recentSurge) occurrences + recentSurgeOccurrences(now, random) else occurrences
                 withSurge.sorted().forEach { occurredAt ->
-                    insertSeedEvent(caseId, occurredAt, endedAtFor(caseSeed.durationMode, occurredAt, now, random), caseSeed, random)
+                    val showcaseTag = caseSeed.tagOutcomeShift?.takeIf { random.nextInt(100) < TAG_OUTCOME_SHOWCASE_CHANCE_PERCENT }
+                    val endedAt =
+                        endedAtFor(
+                            caseSeed.durationMode,
+                            occurredAt,
+                            now,
+                            random,
+                            durationBoostFactor =
+                                showcaseTag?.durationBoostFactor ?: 1.0,
+                        )
+                    insertSeedEvent(caseId, occurredAt, endedAt, caseSeed, random, forcedTag = showcaseTag?.tagName)
                 }
 
                 repeat(caseSeed.ongoingEventCount) { ongoingIndex ->
@@ -209,13 +245,18 @@ class DemoDataSeeder
             }
         }
 
-        /** One synthetic event with this Case's intensity/note/tag mix, [endedAt] `null` for an ongoing one. */
+        /**
+         * One synthetic event with this Case's intensity/note/tag mix, [endedAt] `null` for an
+         * ongoing one. [forcedTag] (Story C T4 showcase) replaces the normal random [tagsFor] draw
+         * entirely for this event, keeping the showcase tag's tagged/untagged split clean.
+         */
         private suspend fun insertSeedEvent(
             caseId: Long,
             occurredAt: Long,
             endedAt: Long?,
             caseSeed: CaseSeed,
             random: Random,
+            forcedTag: String? = null,
         ) {
             val eventId =
                 repository.insertEvent(
@@ -229,7 +270,8 @@ class DemoDataSeeder
                         utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(occurredAt),
                     ),
                 )
-            tagsFor(caseSeed.tags, random).forEach { tagName -> repository.addTagToEvent(eventId, tagName) }
+            val tags = if (forcedTag != null) listOf(forcedTag) else tagsFor(caseSeed.tags, random)
+            tags.forEach { tagName -> repository.addTagToEvent(eventId, tagName) }
         }
     }
 
@@ -331,9 +373,10 @@ private fun endedAtFor(
     occurredAt: Long,
     spanEnd: Long,
     random: Random,
+    durationBoostFactor: Double = 1.0,
 ): Long? {
     if (durationMode != DurationMode.START_STOP) return null
-    val duration = random.nextLong(MIN_DURATION_MILLIS, MAX_DURATION_MILLIS)
+    val duration = (random.nextLong(MIN_DURATION_MILLIS, MAX_DURATION_MILLIS) * durationBoostFactor).toLong()
     return (occurredAt + duration).coerceAtMost(spanEnd)
 }
 

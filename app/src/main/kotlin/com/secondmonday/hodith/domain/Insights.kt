@@ -81,6 +81,30 @@ data class RecurrenceShapeResult(
     val sampleCount: Int,
 )
 
+/** Spec §10 Trends "tag → outcome" finding (Story C T4): which per-event measure a tag is compared against. */
+enum class TagOutcome {
+    INTENSITY,
+    DURATION,
+}
+
+/**
+ * [computeTagOutcomeFindings]: whether a tag's presence shifts one outcome's mean, backed by a
+ * label-shuffle permutation test rather than a threshold check — the reason [TagOutcomeResult],
+ * unlike every other result here, carries no `Hint`-only guarantee: a result only exists once it has
+ * already cleared the permutation test's significance bar, so every one becomes a `Pattern` finding.
+ * [withoutTagMean]/[withTagMean] are the two group means being compared (in [outcome]'s own unit —
+ * a 1–5 intensity score, or minutes for duration), not a shift over time. [sampleCount] is the total
+ * events behind both groups combined.
+ */
+data class TagOutcomeResult(
+    val tagName: String,
+    val outcome: TagOutcome,
+    val direction: ShiftDirection,
+    val withoutTagMean: Double,
+    val withTagMean: Double,
+    val sampleCount: Int,
+)
+
 /**
  * Spec §10 heatmap shading: a day's event count bucketed relative to the Case's own busiest day,
  * into 20 shaded tiers (plus [EMPTY]) — ordinal order matters, [heatmapLevelFor] indexes into
