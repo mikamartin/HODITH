@@ -28,9 +28,12 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * retires that once Share moves to these findings too) — passed in rather than recomputed here.
  * [eventsWithTags] backs [computeTagShareShift] (Story C T2), placed after gap/streak/frequency
  * shift since it's the one detector that can contribute more than one finding — every other kind is
- * capped at 0..1. [computeRecurrenceShape] (Story C T3) is appended last, also always
+ * capped at 0..1. [computeRecurrenceShape] (Story C T3) is always
  * [TrendReliability.HINT] — a self-relative descriptive threshold check
  * ([RECURRENCE_SHAPE_MIN_SAMPLE_COUNT] and the spike/dead-zone share bars), no significance test.
+ * [computeTagOutcomeFindings] (Story C T4) is appended last — the first detector able to report
+ * [TrendReliability.PATTERN], since a result only exists here once it's already cleared a real
+ * permutation-significance test; a non-significant candidate never reaches this function at all.
  */
 internal fun computeTrendFindings(
     gapStats: GapStats,
@@ -113,6 +116,19 @@ internal fun computeTrendFindings(
                 sampleCount = it.sampleCount,
                 priorValue = it.thresholdDays,
                 recentValue = it.earlyShare,
+            )
+    }
+    computeTagOutcomeFindings(eventsWithTags).forEach {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.TAG_OUTCOME,
+                direction = it.direction,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = it.sampleCount,
+                priorValue = it.withoutTagMean,
+                recentValue = it.withTagMean,
+                tagName = it.tagName,
+                outcome = it.outcome,
             )
     }
     return capTrendFindings(findings)
