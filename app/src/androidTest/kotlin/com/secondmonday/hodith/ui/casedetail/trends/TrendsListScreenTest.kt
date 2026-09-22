@@ -16,6 +16,7 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.time.LocalDate
 
 /**
  * [TrendsListScreen] is a stateless composable driven by plain data + callbacks, same pattern as
@@ -136,5 +137,30 @@ class TrendsListScreenTest {
                 ),
             ).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityPatternLabel).assertExists()
+    }
+
+    @Test
+    fun changePointFinding_rendersItsOwnPlank() {
+        val changePoint =
+            TrendFinding(
+                kind = TrendFindingKind.CHANGE_POINT,
+                direction = ShiftDirection.DOWN,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 18,
+                priorValue = 10.0,
+                recentValue = 4.0,
+                changePointDate = LocalDate.of(2026, 7, 22),
+            )
+        setContent(findings = listOf(changePoint))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsChangePointSentence(
+                    ShiftDirection.DOWN,
+                    dateLabel = "late July",
+                    priorLabel = "10 days",
+                    recentLabel = "4 days",
+                ),
+            ).assertExists()
     }
 }

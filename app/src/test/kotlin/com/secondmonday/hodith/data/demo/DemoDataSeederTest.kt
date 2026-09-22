@@ -65,6 +65,27 @@ class DemoDataSeederTest {
         }
 
     @Test
+    fun `seed gives Coffee the Trends change-point finding too, not just the frequency shift`() =
+        runTest {
+            seeder.seed()
+
+            val coffee = repository.cases.value.single { it.name == "Coffee" }
+            val events = repository.events.value.filter { it.caseId == coffee.id }
+            val state = insightsTabState(coffee, events.withoutTags(), NOW_MILLIS) as InsightsTabState.Ready
+
+            // Coffee's recent surge is, honestly, also a real change point -- a clean two-finding
+            // showcase (frequency shift and change-point agreeing on the same shift from two angles)
+            // rather than "Lost my keys"'s busier four-finding case; deliberately not given its own
+            // isolated demo Case the way recurrence shape (Noisy neighbours) and tag → outcome
+            // (Migraine) were, since this pairing already reads clearly.
+            val kinds =
+                state.stats.trends
+                    .map { it.kind }
+                    .toSet()
+            assertEquals(setOf(TrendFindingKind.FREQUENCY_SHIFT, TrendFindingKind.CHANGE_POINT), kinds)
+        }
+
+    @Test
     fun `seed gives Nosebleed a quiet spell long enough to set a new longest-gap record`() =
         runTest {
             seeder.seed()
@@ -102,7 +123,7 @@ class DemoDataSeederTest {
         }
 
     @Test
-    fun `seed gives Lost my keys all three Trends findings at once`() =
+    fun `seed gives Lost my keys four Trends findings at once`() =
         runTest {
             seeder.seed()
 
@@ -114,12 +135,22 @@ class DemoDataSeederTest {
             // widely-spaced historic era gives way to tight recent clusters — gap shift (shrinking),
             // streak shift (lengthening), and frequency shift (more recently) should all clear their
             // thresholds together, exercising the Trends section's multi-finding/show-more path with
-            // real seed data rather than only synthetic fixtures.
+            // real seed data rather than only synthetic fixtures. The same shape is, honestly, also a
+            // real change point (Story C T5) — CUSUM finds the same widely-spaced-to-clustered split
+            // gap shift's own fixed midpoint comparison already sees.
             val kinds =
                 state.stats.trends
                     .map { it.kind }
                     .toSet()
-            assertEquals(setOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.STREAK_SHIFT, TrendFindingKind.FREQUENCY_SHIFT), kinds)
+            assertEquals(
+                setOf(
+                    TrendFindingKind.GAP_SHIFT,
+                    TrendFindingKind.STREAK_SHIFT,
+                    TrendFindingKind.FREQUENCY_SHIFT,
+                    TrendFindingKind.CHANGE_POINT,
+                ),
+                kinds,
+            )
         }
 
     @Test

@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.domain
 
+import java.time.LocalDate
+
 /**
  * Spec §10 Trends section: which detector produced a [TrendFinding] — the UI keys its sentence and
  * info dialog off this. [FREQUENCY_SHIFT] absorbs the former standalone Trend arrow card's own
@@ -39,6 +41,19 @@ package com.secondmonday.hodith.domain
  * the without-tag/with-tag group means in the outcome's own unit (a 1–5 intensity score, or minutes),
  * not a shift over time. Also like [TAG_SHARE_SHIFT], one Case can surface more than one [TAG_OUTCOME]
  * finding (one per qualifying tag/outcome pair).
+ *
+ * [CHANGE_POINT] (Story C T5) finds *where* in the Case's own gap history ([GapStats.pastGaps]) a
+ * real shift happened, rather than assuming it split at the midpoint the way [GAP_SHIFT] does — a
+ * CUSUM walk over the gap sequence picks the best-supported split point, backed by a timeline-shuffle
+ * permutation test (a sibling of [TAG_OUTCOME]'s label-shuffle one), so like [TAG_OUTCOME] a
+ * candidate that misses significance produces no finding at all and every kept [CHANGE_POINT]
+ * finding is already [TrendReliability.PATTERN]. `priorValue`/`recentValue` hold the two segments'
+ * average gap length in days, the same convention [GAP_SHIFT] uses; unlike every other kind, the
+ * calendar date of the split itself matters for the sentence ("since around mid-March"), which is
+ * why [TrendFinding.changePointDate] exists — `null` for every other kind. Additive to
+ * [FREQUENCY_SHIFT], not a replacement: this measures whether the *typical gap* has shifted, catching
+ * slow drift a fixed 30-vs-30-day window can't see, while [FREQUENCY_SHIFT] stays the simple
+ * immediate-window signal.
  */
 enum class TrendFindingKind {
     WENT_QUIET,
@@ -48,6 +63,7 @@ enum class TrendFindingKind {
     TAG_SHARE_SHIFT,
     RECURRENCE_SHAPE,
     TAG_OUTCOME,
+    CHANGE_POINT,
 }
 
 /**
@@ -77,6 +93,8 @@ enum class TrendReliability {
  * group means in [outcome]'s own unit instead. [tagName] is set for [TrendFindingKind.TAG_SHARE_SHIFT]
  * and [TrendFindingKind.TAG_OUTCOME] — `null` for every other kind, which isn't about one specific
  * tag. [outcome] is only set for [TrendFindingKind.TAG_OUTCOME] — `null` for every other kind.
+ * [changePointDate] is only set for [TrendFindingKind.CHANGE_POINT] — `null` for every other kind,
+ * none of which need a specific calendar date to state their sentence.
  */
 data class TrendFinding(
     val kind: TrendFindingKind,
@@ -87,4 +105,5 @@ data class TrendFinding(
     val recentValue: Double,
     val tagName: String? = null,
     val outcome: TagOutcome? = null,
+    val changePointDate: LocalDate? = null,
 )

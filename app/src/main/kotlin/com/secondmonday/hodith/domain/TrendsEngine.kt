@@ -31,9 +31,12 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * capped at 0..1. [computeRecurrenceShape] (Story C T3) is always
  * [TrendReliability.HINT] — a self-relative descriptive threshold check
  * ([RECURRENCE_SHAPE_MIN_SAMPLE_COUNT] and the spike/dead-zone share bars), no significance test.
- * [computeTagOutcomeFindings] (Story C T4) is appended last — the first detector able to report
+ * [computeTagOutcomeFindings] (Story C T4) is the first detector able to report
  * [TrendReliability.PATTERN], since a result only exists here once it's already cleared a real
  * permutation-significance test; a non-significant candidate never reaches this function at all.
+ * [computeChangePoint] (Story C T5) is appended last, the second [TrendReliability.PATTERN]-only
+ * detector — same "suppressed, not shown as Hint" rule as tag → outcome, backed by its own
+ * timeline-shuffle permutation test rather than tag → outcome's label-shuffle one.
  */
 internal fun computeTrendFindings(
     gapStats: GapStats,
@@ -129,6 +132,18 @@ internal fun computeTrendFindings(
                 recentValue = it.withTagMean,
                 tagName = it.tagName,
                 outcome = it.outcome,
+            )
+    }
+    computeChangePoint(gapStats, eventsWithTags)?.let {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.CHANGE_POINT,
+                direction = it.direction,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = it.sampleCount,
+                priorValue = it.priorAverageDays,
+                recentValue = it.recentAverageDays,
+                changePointDate = it.changePointDate,
             )
     }
     return capTrendFindings(findings)

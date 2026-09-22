@@ -324,6 +324,54 @@ class TrendsEngineTest {
         assertEquals(TrendReliability.PATTERN, finding.reliability)
     }
 
+    // ---- computeTrendFindings: change point ----
+
+    // Ten 3-day gaps, then ten 9-day gaps -- the same planted shift InsightsEngineTest's
+    // computeChangePoint tests use. gapStats here comes from a real computeGapStats call over the
+    // same events, not gapStatsOf -- this detector is the first one where the two parameters must
+    // actually correspond (see computeChangePoint's own KDoc).
+    private val changePointDays = (0L..30L step 3L).toList() + (39L..120L step 9L).toList()
+
+    private fun changePointGapStats(eventsWithTags: List<EventWithTags>) =
+        computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(changePointDays.last() + 10))
+
+    @Test
+    fun `computeTrendFindings reports a change-point finding as PATTERN with the split date attached`() {
+        // This fixture's split lands exactly at the midpoint (10 of 20 gaps each side), so
+        // computeGapShift's own fixed-midpoint comparison fires too -- expected, since the two
+        // detectors are looking at the same real shift from two different angles; isolate the one
+        // this test cares about by kind, the same way the tag-outcome finding test above does.
+        val eventsWithTags = changePointDays.map { day -> EventWithTags(testEvent(occurredAt = millisAtDay(day)), emptyList()) }
+        val gapStats = changePointGapStats(eventsWithTags)
+
+        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = eventsWithTags)
+
+        val finding = findings.single { it.kind == TrendFindingKind.CHANGE_POINT }
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.PATTERN, finding.reliability)
+        assertEquals(LocalDate.ofEpochDay(30), finding.changePointDate)
+    }
+
+    @Test
+    fun `computeTrendFindings places the change-point finding after tag share shift`() {
+        // The same first-half-tagged pattern risingTagEventsWithTags uses, laid over the planted
+        // change-point's own event dates so both detectors fire from one self-consistent gapStats.
+        // Also trips gap shift, for the same fixed-midpoint reason as the test above.
+        val tag = TagEntity(id = 1, name = "decaf")
+        val eventsWithTags =
+            changePointDays.mapIndexed { index, day ->
+                EventWithTags(testEvent(occurredAt = millisAtDay(day)), if (index < 15) listOf(tag) else emptyList())
+            }
+        val gapStats = changePointGapStats(eventsWithTags)
+
+        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = eventsWithTags)
+
+        assertEquals(
+            listOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.CHANGE_POINT),
+            findings.map { it.kind },
+        )
+    }
+
     // ---- capTrendFindings ----
 
     private fun syntheticFinding() =
