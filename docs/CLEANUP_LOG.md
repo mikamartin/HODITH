@@ -17,6 +17,54 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/insights-trends-intensity-duration-trend
+
+**Scope:** PROGRESS.md's Story C T6 — two new Trends detectors: a real slope over time in intensity/duration's own per-event values (`TREND_SLOPE`), and a day-vs-evening split on the same two outcomes (`TIME_OF_DAY_SPLIT`). The eighth and ninth detectors in the Trends roster, both `Pattern`-only from the start.
+
+**Feasibility ruling (this item's own design decision, resolved in plan mode before implementation):** neither signal needed a third bespoke Monte Carlo loop. `TREND_SLOPE` calls the shared `permutationPValue` core directly (not `timelineShufflePValue`, whose `List<Long>`-single-reordered-series shape doesn't fit "shuffle y-values against fixed time-x-positions, recompute a slope" — the standard permutation test for regression-slope significance) with its own OLS-slope statistic. `TIME_OF_DAY_SPLIT` reuses `labelShufflePValue` completely as-is — day/evening standing in for untagged/tagged, the exact shape tag → outcome already uses. Confirmed with the user (a plan-mode question) which of two day/evening boundary options to use: day = MORNING + AFTERNOON, evening = EVENING + NIGHT (folding NIGHT into evening rather than leaving it its own narrow bucket) — chosen for a more balanced sample against the significance floor, and because late-night hours read naturally as "evening" for this domain.
+
+**Changes:**
+
+- `domain/PermutationSignificance.kt`: `trendSlopeSeedFor`/`timeOfDaySplitSeedFor` — same rolling-hash shape as `permutationSeedFor`/`timelineShuffleSeedFor`, keyed on (caseId, outcome, sampleCount) since neither signal has a tag to key on.
+- `domain/StatsEngine.kt`: `computeTrendSlopeFindings`/`trendSlopeResultFor`/`olsSlope` and `computeTimeOfDaySplitFindings`/`timeOfDaySplitResultFor` (the two detectors) + eight new named constants, placed alongside `computeTagOutcomeFindings`/`outcomeValueFor`/`timeOfDayFor` since both new detectors reuse them directly.
+- `domain/Insights.kt`: new `TrendSlopeResult`/`TimeOfDaySplitResult` models.
+- `domain/Trends.kt`: new `TrendFindingKind.TREND_SLOPE`/`TIME_OF_DAY_SPLIT`; no new `TrendFinding` fields needed — both reuse the existing `outcome: TagOutcome?` field `TAG_OUTCOME` already established.
+- `domain/TrendsEngine.kt`: `computeTrendFindings` gained a new `statsShownOutcomes: Set<TagOutcome> = emptySet()` parameter (defaulted so every existing call site keeps compiling), appends both detectors' results last, always `PATTERN`.
+- `viewmodel/InsightsTabState.kt`: `statsSections()`'s call site builds `statsShownOutcomes` from the already-computed `duration`/`intensity` locals (`setOfNotNull(INTENSITY.takeIf { intensity != null }, DURATION.takeIf { duration != null })`) — no re-derivation of `case.durationMode.tracksDuration`/`case.intensityEnabled`, reusing exactly the same gate the stat cards themselves already render from.
+- `ui/voice/Voice.kt`: `insightsTrendSlopeSentence`/`insightsTrendSlopeEvidenceLabel`/`insightsTimeOfDaySplitSentence`/`insightsTimeOfDaySplitEvidenceLabel`, implemented in all three voices in this same commit — `TIME_OF_DAY_SPLIT`'s sentence explicitly handles both directions (evening-higher and day-higher), not just the item text's anticipated "evenings are worse" framing.
+- `ui/casedetail/InsightsTab.kt`: two new branches in `TrendFindingContent`'s dispatch, reusing the existing `formatIntensity`/`formatMinutesDuration` per-outcome formatter split `TAG_OUTCOME`'s branch already established.
+- `docs/HODITH_SPEC.md` §10: two new paragraphs ("Trend slope", "Time-of-day split"), following tag → outcome/change point's precedent (full paragraph, not a bullet, since both are `Pattern`-capable and need to explain method choice).
+- `docs/PROGRESS.md`: T6's whole section struck entirely (not just its checkboxes); Story C's intro paragraph updated to name both new kinds as the eighth/ninth shipped detectors and its item count ("Four items remain" → "Three").
+- `docs/TESTING.md`: Stats & visual data prep row gained trend-slope and time-of-day-split clauses.
+
+**Checklist walk (against the working-tree diff):**
+
+- *Duplication* — no inline strings; all four new sentence/evidence-label calls go through `Voice`. `TrendFindingContent`'s two new branches reuse `formatIntensity`/`formatMinutesDuration` rather than introducing a third formatter.
+- *Decoupling* — confirmed by direct grep, not assumption: no `android.*` import in any touched `domain/` file. Neither detector reads `now`/`Clock` — both operate purely on already-time-ordered `EventWithTags`.
+- *Complexity & pattern health* — `olsSlope`/`trendSlopeResultFor`/`timeOfDaySplitResultFor` are single-caller private helpers, the same "kept as its own function so the wrapper has something to call from both the observed pass and every shuffle" shape `cusumStatistic`/`tagOutcomeResultFor` already established. `TrendFindingContent` grew from ~90 to ~110 lines — still comfortably under the ~150-line guideline.
+- *Dead code & hygiene* — no unused imports (`ktlintCheck` passed). No throwaway spike files created or left behind this pass. `ktlintFormat` was run once (to fix argument-wrapping violations in the new test file); checked every touched file's line endings directly (counting `\r\n` vs. total lines) rather than trusting `git diff`'s CRLF-normalization warning — all 14 touched files came back fully CRLF, no corruption.
+- *Repo hygiene* — `git status` clean aside from the pre-existing untracked `merged_branches.txt` (flagged unrelated in every prior entry, still left alone). No secrets, no local paths, no new tooling/config files.
+- *Naming* — `insightsTrendSlopeSentence`/`insightsTrendSlopeEvidenceLabel`/`insightsTimeOfDaySplitSentence`/`insightsTimeOfDaySplitEvidenceLabel` follow the established `insightsXSentence`/`insightsXEvidenceLabel` pattern exactly, added to all three voices in this commit, no em dashes in any of the new strings. `computeTrendSlopeFindings`/`computeTimeOfDaySplitFindings`/`TrendSlopeResult`/`TimeOfDaySplitResult` all match the domain layer's existing detector-naming shape.
+- *Hardcoded values* — all eight new constants are named `internal const val`s with doc comments explaining each against neighboring detectors' floors, no magic numbers inline.
+- *Accessibility* — no new tap targets; both new findings reuse the existing Trends row/plank tap surface.
+- *Deprecated APIs* — none introduced; build output showed only the pre-existing Moshi Kapt deprecation warning.
+- *Spec review* — `HODITH_SPEC.md` §10 gained the two paragraphs described above. `PROGRESS.md`/`TESTING.md` updated per Changes above.
+- *Tests* — see below.
+
+**Tests:**
+
+- `StatsEngineTest.kt`: `computeTrendSlopeFindings` — a planted upward and downward intensity slope (both confirmed significant), below the minimum sample count even with a stark slope, a flat-series null, outcome-eligibility gating, both an intensity and a duration slope reported at once, and events with no recorded intensity excluded from the series. `computeTimeOfDaySplitFindings` — a planted evening-higher and day-higher intensity split, NIGHT hours confirmed folding into the evening group rather than the day group (pins the day = MORNING+AFTERNOON / evening = EVENING+NIGHT ruling directly, not just indirectly through a passing test), below the minimum per-group sample count, a no-difference null, and outcome-eligibility gating.
+- `TrendsEngineTest.kt`: a `PATTERN` trend-slope finding with the outcome attached when eligible, suppressed when its outcome isn't in `statsShownOutcomes`, omitted entirely when the parameter is left at its default (proves existing call sites/tests aren't silently affected), a `PATTERN` time-of-day-split finding, and both kinds' ordering after change point (reusing `changePointDays`' own planted gap-shift shape with an added intensity split layered onto the same events, so `computeChangePoint`'s `gapStats`/`eventsWithTags` correspondence check still holds — an early draft mixed two independently-built event lists and broke that check, caught before committing).
+- `InsightsTabTrendsCardTest.kt` (instrumented, new methods): a rendered sentence for each new kind × both outcomes, and `TIME_OF_DAY_SPLIT` specifically for both directions (evening-higher and day-higher) — so the sentence can't silently hardcode "evenings are worse" regardless of the actual finding.
+
+**Deferred:** nothing raised and declined.
+
+**Docs updated:** `HODITH_SPEC.md` §10 — two new paragraphs. `TESTING.md` — Stats & visual data prep row gained trend-slope/time-of-day-split clauses. `PROGRESS.md` — T6 struck entirely; Story C's intro paragraph and item count updated.
+
+**Verified:** `ktlintCheck → lintDebug → test (scoped, then full) → assembleDebug` sequential, all green; `compileDebugAndroidTestKotlin` also green. No `connectedDebugAndroidTest` run — no emulator/device attached this session, so the new `InsightsTabTrendsCardTest` methods are compiled and reviewed but not yet run on a device; flagging this explicitly rather than claiming instrumented coverage that hasn't executed. Should run before merge.
+
+---
+
 ## feat/insights-trends-change-points
 
 **Scope:** PROGRESS.md's Story C T5 — a Trends detector finding *where* in a Case's own gap history a real shift happened (a CUSUM walk over `GapStats.pastGaps`), catching the slow drift the fixed 30-vs-30-day frequency shift structurally can't see; additive to it, not a replacement. The seventh detector in the Trends roster, and the second (after tag → outcome) backed by a real permutation-significance test rather than a descriptive threshold.
@@ -163,35 +211,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `TESTING.md` — Compose UI row. `PROGRESS.md` — item struck (removed entirely, per this doc's outstanding-only convention).
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. `connectedDebugAndroidTest` scoped to `LogDetailScreenTest` + `LogDetailSheetTest` run twice — once before the `isImeVisible` refinement (6/6), once after (6/6, on `Pixel_8_API36(AVD)` specifically — a second physical device was connected mid-session with its screen locked, which made every instrumented test fail with a misleading "no compose hierarchy found" error until the run was scoped to the emulator via `ANDROID_SERIAL`, an environment issue rather than a code regression).
-
----
-
-## fix/flaky-home-bigpicture-uistate-tests
-
-**Scope:** Root-caused and fixed a JVM-unit-test flake that had hit `HomeViewModelTest.onQuickLogTap on an ongoing START_STOP case starts a second concurrent event` four times in CI (PRs #102, #108, a `main` push after #114, #117), always the same assertion, always on diffs that touched none of the files involved.
-
-**Found & fixed:**
-
-- Confirmed root cause: `HomeViewModel.uiState`/`BigPictureViewModel.uiState` both hardcoded `.flowOn(Dispatchers.Default)` on their `combine` chain — a real, load-bearing production fix (commits `670b605`/`fe6b9b9`) for a rapid-logging-burst ANR, but a real OS thread pool that JVM tests never redirect (`Dispatchers.setMain(UnconfinedTestDispatcher())` only touches `Dispatchers.Main`). The `combine` re-map ran on that unsynchronized real thread, racing `runTest`'s virtual scheduler and turbine's `awaitItem()`.
-- Fix: injected the `flowOn` dispatcher as a Hilt-qualified `CoroutineDispatcher` (`di/DefaultDispatcher.kt`, `di/DispatcherModule.kt`), following the existing `Clock`/`FakeClock` seam pattern rather than introducing a new one. Production binds to the real `Dispatchers.Default` (ANR fix fully preserved); both JVM test files now pass `UnconfinedTestDispatcher()` directly to the ViewModel constructor (no Hilt in JVM unit tests), removing the real thread hop entirely.
-- `BigPictureViewModelTest.kt`'s `uiState keeps the current detail across a repository change` had the identical mutate-then-`awaitItem()` shape and was equally susceptible, though it hadn't flaked in CI yet — fixed by the same constructor change.
-
-**Checklist walk (against the working-tree diff):**
-
-- *Duplication* — no inline strings, no composables; the new `di/` module mirrors `CoroutineScopeModule`'s existing `object` + `@Provides` shape rather than inventing a new DI pattern.
-- *Decoupling* — no `domain/` files touched; no `android.*` import added anywhere.
-- *Complexity & pattern health* — no composables, no `remember`/`LaunchedEffect` touched. The injected dispatcher is consumed at the same layer `Clock` already is (constructor parameter), provided at the same layer `ClockModule`/`CoroutineScopeModule` already are (`SingletonComponent`) — no new layering introduced. Considered reusing `CoroutineScopeModule`'s existing hardcoded `Dispatchers.Default` and declined: it binds a `CoroutineScope` for an unrelated singleton (`NotificationEvalScheduler`'s fire-and-forget scope), not a swappable `CoroutineDispatcher`, so there was nothing to reuse.
-- *Dead code & hygiene* — `import kotlinx.coroutines.Dispatchers` removed from both ViewModels (no longer referenced) in favor of `import kotlinx.coroutines.CoroutineDispatcher`; `ktlintFormat` fixed one line-wrap violation in the new `HomeViewModelTest` assertion.
-- *Repo hygiene* — `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, left alone); no secret-shaped content; no `.gitignore` gaps; the three new files (`di/DefaultDispatcher.kt`, `di/DispatcherModule.kt`, `di/DispatcherModuleTest.kt`) are real source, not local tooling/config, and belong in the repo.
-- *Naming* — `DefaultDispatcher.kt`/`DispatcherModule.kt` sit in `di/` alongside `ClockModule.kt`/`CoroutineScopeModule.kt`, same naming shape.
-- *Hardcoded values* — not applicable; this change removes the last hardcoded `Dispatchers.Default` reference from both ViewModels in favor of injection and adds no new numeric/color constants.
-- *Accessibility* — not applicable; no UI touched.
-- *Deprecated APIs* — one new compiler warning surfaced (`@DefaultDispatcher` on a constructor `val` is ambiguous between the parameter and the generated property under a future Kotlin default). Resolved with an explicit `@param:DefaultDispatcher` site target rather than left as a warning; `BigPictureViewModel`'s equivalent parameter isn't a property (no `private val`), so it wasn't ambiguous and needed no change.
-- *Spec review* — not applicable; this is internal test infrastructure, not user-visible or spec'd behavior.
-- *Tests* — new `DispatcherModuleTest` pins the production binding to the real `Dispatchers.Default` (nothing else exercises `DispatcherModule`, since both JVM test files bypass Hilt). New proof tests in `HomeViewModelTest`/`BigPictureViewModelTest` assert `uiState.value` reflects a mutation with no `awaitItem()` at all — demonstrating the recombination is now synchronous under the injected test dispatcher, not just a rerun of the previously-flaky assertion.
-
-**Deferred:** nothing.
-
-**Docs updated:** none (`HODITH_SPEC.md`/`TESTING.md` don't describe this internal seam).
-
-**Verified:** `ktlintCheck → lintDebug → test (scoped, then full) → assembleDebug` sequential, all green. The previously-flaking test plus both new proof tests reran clean 5/5 with `--rerun` (forcing re-execution rather than Gradle's cache) — the proof tests no longer depend on a real thread at all, so this is stronger evidence than the rerun count alone.

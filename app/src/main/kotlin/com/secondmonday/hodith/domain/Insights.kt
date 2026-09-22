@@ -124,6 +124,40 @@ data class ChangePointResult(
 )
 
 /**
+ * [computeTrendSlopeFindings] (Story C T6): a real slope over time in one outcome's per-event
+ * values, backed by a permutation test on an OLS-slope statistic rather than a threshold check —
+ * like [TagOutcomeResult], a result only exists once it's already cleared significance, so every one
+ * is a `Pattern` finding. [priorValue]/[recentValue] are the time-ordered first-half/second-half
+ * averages the slope was computed from (real observed numbers, not a fitted-line extrapolation), in
+ * [outcome]'s own unit. [sampleCount] is the total events behind both halves combined.
+ */
+data class TrendSlopeResult(
+    val outcome: TagOutcome,
+    val direction: ShiftDirection,
+    val priorValue: Double,
+    val recentValue: Double,
+    val sampleCount: Int,
+)
+
+/**
+ * [computeTimeOfDaySplitFindings] (Story C T6): whether one outcome's per-event values differ
+ * between day ([TimeOfDay.MORNING]/[TimeOfDay.AFTERNOON]) and evening
+ * ([TimeOfDay.EVENING]/[TimeOfDay.NIGHT]) events, backed by the same label-shuffle permutation test
+ * [TagOutcomeResult] uses (day/evening standing in for untagged/tagged) — a result only exists once
+ * it's already cleared significance, so every one is a `Pattern` finding. [direction]
+ * [ShiftDirection.UP] means the evening mean is higher, [ShiftDirection.DOWN] means the day mean is.
+ * [dayMean]/[eveningMean] are in [outcome]'s own unit. [sampleCount] is the day-group and
+ * evening-group counts combined.
+ */
+data class TimeOfDaySplitResult(
+    val outcome: TagOutcome,
+    val direction: ShiftDirection,
+    val dayMean: Double,
+    val eveningMean: Double,
+    val sampleCount: Int,
+)
+
+/**
  * Spec §10 heatmap shading: a day's event count bucketed relative to the Case's own busiest day,
  * into 20 shaded tiers (plus [EMPTY]) — ordinal order matters, [heatmapLevelFor] indexes into
  * [entries] directly rather than branching on each one by name. Most consumers (calendar heatmap,

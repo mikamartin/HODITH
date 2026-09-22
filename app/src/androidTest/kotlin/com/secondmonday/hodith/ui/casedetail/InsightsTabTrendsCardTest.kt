@@ -223,4 +223,88 @@ class InsightsTabTrendsCardTest {
                 ),
             ).assertExists()
     }
+
+    @Test
+    fun trendsCard_rendersTrendSlopeSentence_forIntensity() {
+        val trendSlope =
+            TrendFinding(
+                kind = TrendFindingKind.TREND_SLOPE,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 20,
+                priorValue = 2.0,
+                recentValue = 4.5,
+                outcome = TagOutcome.INTENSITY,
+            )
+        setContent(trends = listOf(trendSlope))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTrendSlopeSentence(TagOutcome.INTENSITY, ShiftDirection.UP, priorLabel = "2.0", recentLabel = "4.5"),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersTrendSlopeSentence_forDuration() {
+        // Distinct from the intensity case above specifically to catch a swapped formatter (minutes
+        // vs. a 1-decimal score) or a swapped Voice argument.
+        val trendSlope =
+            TrendFinding(
+                kind = TrendFindingKind.TREND_SLOPE,
+                direction = ShiftDirection.DOWN,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 20,
+                priorValue = 50.0,
+                recentValue = 20.0,
+                outcome = TagOutcome.DURATION,
+            )
+        setContent(trends = listOf(trendSlope))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTrendSlopeSentence(TagOutcome.DURATION, ShiftDirection.DOWN, priorLabel = "50m", recentLabel = "20m"),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersTimeOfDaySplitSentence_eveningHigher() {
+        val timeOfDaySplit =
+            TrendFinding(
+                kind = TrendFindingKind.TIME_OF_DAY_SPLIT,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 40,
+                priorValue = 2.0,
+                recentValue = 4.0,
+                outcome = TagOutcome.INTENSITY,
+            )
+        setContent(trends = listOf(timeOfDaySplit))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTimeOfDaySplitSentence(TagOutcome.INTENSITY, ShiftDirection.UP, dayLabel = "2.0", eveningLabel = "4.0"),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersTimeOfDaySplitSentence_dayHigher() {
+        // The other direction, so the sentence doesn't just hardcode "evening worse" regardless of
+        // the actual finding.
+        val timeOfDaySplit =
+            TrendFinding(
+                kind = TrendFindingKind.TIME_OF_DAY_SPLIT,
+                direction = ShiftDirection.DOWN,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 40,
+                priorValue = 45.0,
+                recentValue = 15.0,
+                outcome = TagOutcome.DURATION,
+            )
+        setContent(trends = listOf(timeOfDaySplit))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTimeOfDaySplitSentence(TagOutcome.DURATION, ShiftDirection.DOWN, dayLabel = "45m", eveningLabel = "15m"),
+            ).assertExists()
+    }
 }

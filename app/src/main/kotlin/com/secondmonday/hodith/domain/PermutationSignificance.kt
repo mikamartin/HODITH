@@ -115,3 +115,35 @@ internal fun timelineShuffleSeedFor(
     hash = hash * 31 + gapCount
     return hash
 }
+
+/**
+ * Deterministic seed for [computeTrendSlopeFindings]' own direct [permutationPValue] call (Story C
+ * T6): the same rolling-hash shape [permutationSeedFor] uses, keyed on [caseId], [outcome], and
+ * [sampleCount] — a slope candidate has no tag to key on, but is still per-outcome like tag → outcome.
+ */
+internal fun trendSlopeSeedFor(
+    caseId: Long,
+    outcome: TagOutcome,
+    sampleCount: Int,
+): Long {
+    var hash = caseId
+    hash = hash * 31 + outcome.ordinal
+    hash = hash * 31 + sampleCount
+    return hash
+}
+
+/**
+ * Deterministic seed for [computeTimeOfDaySplitFindings]' [labelShufflePValue] call (Story C T6),
+ * the same shape as [trendSlopeSeedFor] — day/evening split has no tag either, just [caseId],
+ * [outcome], and [sampleCount].
+ */
+internal fun timeOfDaySplitSeedFor(
+    caseId: Long,
+    outcome: TagOutcome,
+    sampleCount: Int,
+): Long {
+    var hash = caseId
+    hash = hash * 31 + outcome.ordinal
+    hash = hash * 31 + sampleCount
+    return hash
+}

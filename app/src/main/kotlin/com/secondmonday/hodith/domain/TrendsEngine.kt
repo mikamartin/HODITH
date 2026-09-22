@@ -34,9 +34,14 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * [computeTagOutcomeFindings] (Story C T4) is the first detector able to report
  * [TrendReliability.PATTERN], since a result only exists here once it's already cleared a real
  * permutation-significance test; a non-significant candidate never reaches this function at all.
- * [computeChangePoint] (Story C T5) is appended last, the second [TrendReliability.PATTERN]-only
- * detector — same "suppressed, not shown as Hint" rule as tag → outcome, backed by its own
- * timeline-shuffle permutation test rather than tag → outcome's label-shuffle one.
+ * [computeChangePoint] (Story C T5) is appended after tag → outcome, the second
+ * [TrendReliability.PATTERN]-only detector — same "suppressed, not shown as Hint" rule as tag →
+ * outcome, backed by its own timeline-shuffle permutation test rather than tag → outcome's
+ * label-shuffle one. [computeTrendSlopeFindings]/[computeTimeOfDaySplitFindings] (Story C T6) are
+ * appended last, gated per outcome on [statsShownOutcomes] (only outcomes whose stat card the caller
+ * already shows) — both are also always [TrendReliability.PATTERN], the first reusing the shared
+ * permutation engine directly with its own OLS-slope statistic, the second reusing
+ * [labelShufflePValue] as-is with day/evening groups standing in for untagged/tagged.
  */
 internal fun computeTrendFindings(
     gapStats: GapStats,
@@ -44,6 +49,7 @@ internal fun computeTrendFindings(
     trendStats: TrendStats?,
     eventsWithTags: List<EventWithTags> = emptyList(),
     recentlyActiveElsewhere: Boolean = false,
+    statsShownOutcomes: Set<TagOutcome> = emptySet(),
 ): List<TrendFinding> {
     val findings = mutableListOf<TrendFinding>()
     computeQuietSignal(gapStats, recentlyActiveElsewhere)?.let {
@@ -144,6 +150,30 @@ internal fun computeTrendFindings(
                 priorValue = it.priorAverageDays,
                 recentValue = it.recentAverageDays,
                 changePointDate = it.changePointDate,
+            )
+    }
+    computeTrendSlopeFindings(eventsWithTags, statsShownOutcomes).forEach {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.TREND_SLOPE,
+                direction = it.direction,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = it.sampleCount,
+                priorValue = it.priorValue,
+                recentValue = it.recentValue,
+                outcome = it.outcome,
+            )
+    }
+    computeTimeOfDaySplitFindings(eventsWithTags, statsShownOutcomes).forEach {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.TIME_OF_DAY_SPLIT,
+                direction = it.direction,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = it.sampleCount,
+                priorValue = it.dayMean,
+                recentValue = it.eveningMean,
+                outcome = it.outcome,
             )
     }
     return capTrendFindings(findings)

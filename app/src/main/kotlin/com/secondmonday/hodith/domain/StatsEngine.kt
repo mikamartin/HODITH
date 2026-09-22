@@ -277,6 +277,43 @@ internal const val TAG_OUTCOME_PERMUTATION_ITERATIONS = 1000
 internal const val TAG_OUTCOME_MAX_FINDINGS = 3
 
 /**
+ * Spec §10 Trends "trend slope" finding (Story C T6): a real slope over time in intensity or
+ * duration's own per-event values, gated per outcome — only for Cases where that outcome's stat
+ * card is already shown (the call site's `eligibleOutcomes`), so this never reports on data the
+ * user can't already see summarized elsewhere. [TREND_SLOPE_MIN_SAMPLE_COUNT] matches
+ * [CHANGE_POINT_MIN_SAMPLE_COUNT] — a full time-ordered series, not a two-average comparison, so
+ * the higher floor applies, same reasoning as change point's own doc comment.
+ * [TREND_SLOPE_MIN_RELATIVE_DIFFERENCE] is a cheap descriptive floor (the two time-ordered halves'
+ * relative difference, via [relativeDifferenceInMeans]) checked before the permutation run, matching
+ * [TAG_OUTCOME_MIN_RELATIVE_DIFFERENCE]'s bar. The feasibility ruling's ship decision: this reuses
+ * the shared [permutationPValue] engine directly rather than [timelineShufflePValue] (typed to a
+ * single reordered `Long` series, built for CUSUM's re-search — it doesn't fit "shuffle y-values
+ * against fixed time-x-positions, recompute a slope," the standard permutation test for regression
+ * significance) — [TREND_SLOPE_SIGNIFICANCE_ALPHA]/[TREND_SLOPE_PERMUTATION_ITERATIONS] still match
+ * the roster's existing precedent.
+ */
+internal const val TREND_SLOPE_MIN_SAMPLE_COUNT = 12
+internal const val TREND_SLOPE_MIN_RELATIVE_DIFFERENCE = 0.2
+internal const val TREND_SLOPE_SIGNIFICANCE_ALPHA = 0.05
+internal const val TREND_SLOPE_PERMUTATION_ITERATIONS = 1000
+
+/**
+ * Spec §10 Trends "time-of-day split" finding (Story C T6): whether intensity or duration differs
+ * between day ([timeOfDayFor]'s [TimeOfDay.MORNING]/[TimeOfDay.AFTERNOON]) and evening
+ * ([TimeOfDay.EVENING]/[TimeOfDay.NIGHT]) events — the feasibility ruling's other T6 signal, sharing
+ * the same per-outcome gating as [TREND_SLOPE_MIN_SAMPLE_COUNT]'s detector. Reuses
+ * [labelShufflePValue] as-is: two fixed-size groups (day values, evening values), exactly
+ * [TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT]'s own shape with day/evening standing in for
+ * untagged/tagged, so [TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT] matches that floor for both groups
+ * (day/evening aren't inherently imbalanced the way tag-presence is, unlike
+ * [TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT]'s higher untagged-side bar).
+ */
+internal const val TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT = 15
+internal const val TIME_OF_DAY_SPLIT_MIN_RELATIVE_DIFFERENCE = 0.2
+internal const val TIME_OF_DAY_SPLIT_SIGNIFICANCE_ALPHA = 0.05
+internal const val TIME_OF_DAY_SPLIT_PERMUTATION_ITERATIONS = 1000
+
+/**
  * Spec §10 Trends "tag → outcome" finding (Story C T4): whether a tag's events differ from the
  * Case's other events on intensity or duration, backed by a real permutation-significance test
  * rather than a threshold check — the roster's first `Pattern`-capable detector. A (tag, outcome)
@@ -343,3 +380,139 @@ private fun outcomeValueFor(
                 ?.takeIf { it > 0 }
                 ?.let { it.toDouble() / MILLIS_PER_MINUTE }
     }
+
+/**
+ * Spec §10 Trends "trend slope" finding (Story C T6): one [TrendSlopeResult] per outcome in
+ * [eligibleOutcomes] whose events show a real, significant slope over time — see
+ * [TREND_SLOPE_MIN_SAMPLE_COUNT]'s doc comment for the feasibility ruling behind this shape.
+ */
+internal fun computeTrendSlopeFindings(
+    eventsWithTags: List<EventWithTags>,
+    eligibleOutcomes: Set<TagOutcome>,
+): List<TrendSlopeResult> {
+    val caseId = eventsWithTags.firstOrNull()?.event?.caseId ?: return emptyList()
+    return TagOutcome.entries
+        .filter { it in eligibleOutcomes }
+        .mapNotNull { outcome -> trendSlopeResultFor(eventsWithTags, caseId, outcome) }
+}
+
+/**
+ * One outcome's slope candidate: `null` below [TREND_SLOPE_MIN_SAMPLE_COUNT] events carrying
+ * [outcome]'s value, below [TREND_SLOPE_MIN_RELATIVE_DIFFERENCE]'s descriptive floor (checked before
+ * the permutation run), or when the permutation test isn't significant. [x] is each qualifying
+ * event's day offset from the earliest one (time-ordered, fixed across every shuffle); only [y] (the
+ * outcome's values) is reshuffled — the standard permutation test for regression-slope significance.
+ */
+private fun trendSlopeResultFor(
+    eventsWithTags: List<EventWithTags>,
+    caseId: Long,
+    outcome: TagOutcome,
+): TrendSlopeResult? {
+    val sorted = eventsWithTags.sortedBy { it.event.occurredAt }
+    val firstOccurredAt = sorted.firstOrNull()?.event?.occurredAt ?: return null
+    val pairs =
+        sorted.mapNotNull { entry ->
+            outcomeValueFor(entry.event, outcome)?.let { value ->
+                (entry.event.occurredAt - firstOccurredAt).toDouble() / MILLIS_PER_DAY to value
+            }
+        }
+    if (pairs.size < TREND_SLOPE_MIN_SAMPLE_COUNT) return null
+
+    val mid = pairs.size / 2
+    val firstHalf = pairs.take(mid).map { it.second }
+    val secondHalf = pairs.takeLast(pairs.size - mid).map { it.second }
+    val relativeDifference = relativeDifferenceInMeans(firstHalf, secondHalf)
+    if (abs(relativeDifference) < TREND_SLOPE_MIN_RELATIVE_DIFFERENCE) return null
+
+    val x = pairs.map { it.first }
+    val y = pairs.map { it.second }
+    val slope = olsSlope(x, y)
+    val seed = trendSlopeSeedFor(caseId, outcome, pairs.size)
+    val pValue =
+        permutationPValue(slope, TREND_SLOPE_PERMUTATION_ITERATIONS, seed) { random ->
+            olsSlope(x, y.shuffled(random))
+        }
+    if (pValue >= TREND_SLOPE_SIGNIFICANCE_ALPHA) return null
+
+    return TrendSlopeResult(
+        outcome = outcome,
+        direction = if (slope > 0) ShiftDirection.UP else ShiftDirection.DOWN,
+        priorValue = firstHalf.average(),
+        recentValue = secondHalf.average(),
+        sampleCount = pairs.size,
+    )
+}
+
+/** Ordinary-least-squares slope of [y] on [x] (equal-length, index-paired). `0.0` when [x] has zero variance — a defensive edge no real caller here should actually hit, since every [x] is a distinct day offset. */
+private fun olsSlope(
+    x: List<Double>,
+    y: List<Double>,
+): Double {
+    val meanX = x.average()
+    val meanY = y.average()
+    val numerator = x.indices.sumOf { (x[it] - meanX) * (y[it] - meanY) }
+    val denominator = x.sumOf { (it - meanX) * (it - meanX) }
+    return if (denominator == 0.0) 0.0 else numerator / denominator
+}
+
+/**
+ * Spec §10 Trends "time-of-day split" finding (Story C T6): one [TimeOfDaySplitResult] per outcome
+ * in [eligibleOutcomes] whose events show a real, significant day-vs-evening difference — see
+ * [TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT]'s doc comment for the feasibility ruling behind this
+ * shape.
+ */
+internal fun computeTimeOfDaySplitFindings(
+    eventsWithTags: List<EventWithTags>,
+    eligibleOutcomes: Set<TagOutcome>,
+): List<TimeOfDaySplitResult> {
+    val caseId = eventsWithTags.firstOrNull()?.event?.caseId ?: return emptyList()
+    return TagOutcome.entries
+        .filter { it in eligibleOutcomes }
+        .mapNotNull { outcome -> timeOfDaySplitResultFor(eventsWithTags, caseId, outcome) }
+}
+
+/**
+ * One outcome's day-vs-evening candidate: `null` when either group is below
+ * [TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT], below [TIME_OF_DAY_SPLIT_MIN_RELATIVE_DIFFERENCE]'s
+ * descriptive floor, or when the permutation test isn't significant. Each qualifying event's hour
+ * resolves via its own captured offset ([EventEntity.loggedZone]), the same per-event rule
+ * [computeRhythmStats] already uses, then buckets via [timeOfDayFor] collapsed to two groups: day
+ * ([TimeOfDay.MORNING]/[TimeOfDay.AFTERNOON]) and evening ([TimeOfDay.EVENING]/[TimeOfDay.NIGHT]).
+ */
+private fun timeOfDaySplitResultFor(
+    eventsWithTags: List<EventWithTags>,
+    caseId: Long,
+    outcome: TagOutcome,
+): TimeOfDaySplitResult? {
+    val dayGroup = mutableListOf<Double>()
+    val eveningGroup = mutableListOf<Double>()
+    eventsWithTags.forEach { entry ->
+        val value = outcomeValueFor(entry.event, outcome) ?: return@forEach
+        val hour = Instant.ofEpochMilli(entry.event.occurredAt).atZone(entry.event.loggedZone()).hour
+        when (timeOfDayFor(hour)) {
+            TimeOfDay.MORNING, TimeOfDay.AFTERNOON -> dayGroup += value
+            TimeOfDay.EVENING, TimeOfDay.NIGHT -> eveningGroup += value
+        }
+    }
+    if (dayGroup.size < TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT ||
+        eveningGroup.size < TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT
+    ) {
+        return null
+    }
+
+    val relativeDifference = relativeDifferenceInMeans(dayGroup, eveningGroup)
+    if (abs(relativeDifference) < TIME_OF_DAY_SPLIT_MIN_RELATIVE_DIFFERENCE) return null
+
+    val sampleCount = dayGroup.size + eveningGroup.size
+    val seed = timeOfDaySplitSeedFor(caseId, outcome, sampleCount)
+    val pValue = labelShufflePValue(dayGroup, eveningGroup, TIME_OF_DAY_SPLIT_PERMUTATION_ITERATIONS, seed)
+    if (pValue >= TIME_OF_DAY_SPLIT_SIGNIFICANCE_ALPHA) return null
+
+    return TimeOfDaySplitResult(
+        outcome = outcome,
+        direction = if (relativeDifference > 0) ShiftDirection.UP else ShiftDirection.DOWN,
+        dayMean = dayGroup.average(),
+        eveningMean = eveningGroup.average(),
+        sampleCount = sampleCount,
+    )
+}
