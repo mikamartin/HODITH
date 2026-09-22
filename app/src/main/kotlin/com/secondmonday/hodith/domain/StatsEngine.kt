@@ -678,3 +678,83 @@ private fun clearsShareFloor(
     val fraction = if (baselineShare == 0.0) Double.POSITIVE_INFINITY else delta / baselineShare
     return delta >= TAG_TIMING_MIN_ABSOLUTE_SHARE_DIFFERENCE && fraction >= TAG_TIMING_MIN_RELATIVE_SHARE_DIFFERENCE
 }
+
+/**
+ * Spec §10 Trends "weekday vs weekend" finding (Story C T8, the scoped fallback from that item's
+ * cycles/seasonality investigation): whether a Case's own events land on a weekend day (Saturday or
+ * Sunday) more, or less, often than [WEEKDAY_WEEKEND_BASELINE_SHARE] — the fixed 2/7 calendar
+ * fraction, not a baseline derived from the Case's own observation window. HODITH Cases are
+ * open-ended, ongoing logs, so an odd start/end date washes out as events accumulate, the same
+ * reasoning that already lets [TAG_TIMING_MIN_CASE_SAMPLE_COUNT_TIME_OF_DAY] trust a flat per-bucket
+ * baseline. [WEEKDAY_WEEKEND_MIN_SAMPLE_COUNT] is reasoned from the expected weekend-event count at
+ * the floor (40 × 2/7 ≈ 11.4), matching tag timing's own ~11-events-per-bucket density target.
+ * [WEEKDAY_WEEKEND_MIN_ABSOLUTE_SHARE_DIFFERENCE]/[WEEKDAY_WEEKEND_MIN_RELATIVE_SHARE_DIFFERENCE]
+ * mirror [TAG_TIMING_MIN_ABSOLUTE_SHARE_DIFFERENCE]/[TAG_TIMING_MIN_RELATIVE_SHARE_DIFFERENCE]'s own
+ * dual floor, but unlike tag timing's own per-bucket (and per-tag) baseline, this detector's baseline
+ * is fixed at 2/7 for every Case, so the two floors' relationship is fixed too: 0.15 already exceeds
+ * 0.5 × 2/7 (≈0.1429), so the absolute floor is always at least as strict as the relative one here —
+ * a candidate clearing the absolute floor always clears the relative floor too, though the reverse
+ * isn't true (see [clearsWeekdayWeekendFloor]'s own tests for the one direction that's reachable).
+ * Kept as a dual check anyway, for the same structural consistency with the rest of the roster's
+ * share-comparison floors, not because both directions bind here. Unlike tag timing, this is a fixed
+ * 2-bucket comparison with no bucket search, so
+ * neither [labelShufflePValue] (not two equal-size cross-sectional groups) nor tag timing's
+ * look-elsewhere correction (no "which bucket" search — weekend is fixed in advance) applies; the
+ * permutation test is a direct Monte Carlo binomial null instead (see [computeWeekdayWeekendFindings]).
+ * Also two-directional, unlike tag timing's always-over-concentration convention — a Case's overall
+ * rhythm has no default lean the way a single tag's clustering does.
+ */
+internal const val WEEKDAY_WEEKEND_BASELINE_SHARE = 2.0 / 7.0
+internal const val WEEKDAY_WEEKEND_MIN_SAMPLE_COUNT = 40
+internal const val WEEKDAY_WEEKEND_MIN_ABSOLUTE_SHARE_DIFFERENCE = 0.15
+internal const val WEEKDAY_WEEKEND_MIN_RELATIVE_SHARE_DIFFERENCE = 0.5
+internal const val WEEKDAY_WEEKEND_SIGNIFICANCE_ALPHA = 0.05
+internal const val WEEKDAY_WEEKEND_PERMUTATION_ITERATIONS = 1000
+
+/**
+ * `null` below [WEEKDAY_WEEKEND_MIN_SAMPLE_COUNT] events, below the descriptive share floor, or when
+ * the permutation test isn't significant. Each shuffle draws every event's weekend/weekday
+ * membership independently as a Bernoulli([WEEKDAY_WEEKEND_BASELINE_SHARE]) trial and recomputes the
+ * same signed share-minus-baseline statistic — the standard Monte Carlo stand-in for an exact
+ * binomial test, consistent with every other detector here being simulation-based rather than
+ * analytic. At these particular constants, clearing the descriptive floor at or above
+ * [WEEKDAY_WEEKEND_MIN_SAMPLE_COUNT] already puts a candidate comfortably past the permutation
+ * test's own 5% bar too (checked empirically across a range of sample counts) — unlike tag timing,
+ * where the look-elsewhere correction across several buckets leaves real room between the
+ * descriptive floor and significance, this detector's fixed single comparison doesn't leave that gap.
+ */
+internal fun computeWeekdayWeekendFindings(eventsWithTags: List<EventWithTags>): WeekdayWeekendResult? {
+    val caseId = eventsWithTags.firstOrNull()?.event?.caseId ?: return null
+    val sampleCount = eventsWithTags.size
+    if (sampleCount < WEEKDAY_WEEKEND_MIN_SAMPLE_COUNT) return null
+
+    val weekendCount =
+        eventsWithTags.count { entry ->
+            val dayOfWeek = Instant.ofEpochMilli(entry.event.occurredAt).atZone(entry.event.loggedZone()).dayOfWeek
+            dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY
+        }
+    val observedShare = weekendCount.toDouble() / sampleCount
+    val delta = observedShare - WEEKDAY_WEEKEND_BASELINE_SHARE
+    if (!clearsWeekdayWeekendFloor(delta)) return null
+
+    val seed = weekdayWeekendSeedFor(caseId, sampleCount)
+    val pValue =
+        permutationPValue(delta, WEEKDAY_WEEKEND_PERMUTATION_ITERATIONS, seed) { random ->
+            val simulatedWeekendCount = (0 until sampleCount).count { random.nextDouble() < WEEKDAY_WEEKEND_BASELINE_SHARE }
+            simulatedWeekendCount.toDouble() / sampleCount - WEEKDAY_WEEKEND_BASELINE_SHARE
+        }
+    if (pValue >= WEEKDAY_WEEKEND_SIGNIFICANCE_ALPHA) return null
+
+    return WeekdayWeekendResult(
+        direction = if (delta > 0) ShiftDirection.UP else ShiftDirection.DOWN,
+        baselineShare = WEEKDAY_WEEKEND_BASELINE_SHARE,
+        observedShare = observedShare,
+        sampleCount = sampleCount,
+    )
+}
+
+/** Mirrors [clearsShareFloor], checked against the signed [delta]'s absolute value since weekday vs weekend is two-directional. */
+private fun clearsWeekdayWeekendFloor(delta: Double): Boolean {
+    val fraction = abs(delta) / WEEKDAY_WEEKEND_BASELINE_SHARE
+    return abs(delta) >= WEEKDAY_WEEKEND_MIN_ABSOLUTE_SHARE_DIFFERENCE && fraction >= WEEKDAY_WEEKEND_MIN_RELATIVE_SHARE_DIFFERENCE
+}

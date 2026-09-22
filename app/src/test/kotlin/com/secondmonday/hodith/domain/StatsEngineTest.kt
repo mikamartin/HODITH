@@ -1168,4 +1168,85 @@ class StatsEngineTest {
 
         assertEquals(TAG_TIMING_MAX_FINDINGS, result.size)
     }
+
+    // ---- computeWeekdayWeekendFindings ----
+
+    /** epochDay 0 (1970-01-01) is a Thursday, so residues 2/3 land on Saturday/Sunday, 0/1/4/5/6 on a weekday. */
+    private fun weekdayWeekendEvents(
+        weekendCount: Int,
+        weekdayCount: Int,
+    ): List<EventWithTags> {
+        val weekendResidues = listOf(2L, 3L)
+        val weekdayResidues = listOf(0L, 1L, 4L, 5L, 6L)
+        val weekendEvents =
+            (0 until weekendCount).map { i ->
+                EventWithTags(eventAtDay(weekendResidues[i % weekendResidues.size] + 7L * i), emptyList())
+            }
+        val weekdayEvents =
+            (0 until weekdayCount).map { i ->
+                EventWithTags(eventAtDay(weekdayResidues[i % weekdayResidues.size] + 7L * (i + 10_000)), emptyList())
+            }
+        return weekendEvents + weekdayEvents
+    }
+
+    @Test
+    fun `computeWeekdayWeekendFindings reports a Case whose events cluster on weekends`() {
+        val eventsWithTags = weekdayWeekendEvents(weekendCount = 60, weekdayCount = 40)
+
+        val finding = computeWeekdayWeekendFindings(eventsWithTags)
+
+        assertEquals(ShiftDirection.UP, finding?.direction)
+        assertEquals(WEEKDAY_WEEKEND_BASELINE_SHARE, finding?.baselineShare ?: 0.0, 0.0001)
+        assertEquals(0.60, finding?.observedShare ?: 0.0, 0.0001)
+        assertEquals(100, finding?.sampleCount)
+    }
+
+    @Test
+    fun `computeWeekdayWeekendFindings reports a Case whose events cluster on weekdays`() {
+        val eventsWithTags = weekdayWeekendEvents(weekendCount = 5, weekdayCount = 95)
+
+        val finding = computeWeekdayWeekendFindings(eventsWithTags)
+
+        assertEquals(ShiftDirection.DOWN, finding?.direction)
+        assertEquals(0.05, finding?.observedShare ?: 0.0, 0.0001)
+        assertEquals(100, finding?.sampleCount)
+    }
+
+    @Test
+    fun `computeWeekdayWeekendFindings is null when the weekend share matches the calendar baseline`() {
+        // 40 of 140 events on a weekend is exactly 2/7 -- zero deviation from the fixed baseline.
+        val eventsWithTags = weekdayWeekendEvents(weekendCount = 40, weekdayCount = 100)
+
+        assertNull(computeWeekdayWeekendFindings(eventsWithTags))
+    }
+
+    @Test
+    fun `computeWeekdayWeekendFindings is null below the minimum sample count, even with a stark effect`() {
+        val eventsWithTags = weekdayWeekendEvents(weekendCount = WEEKDAY_WEEKEND_MIN_SAMPLE_COUNT - 1, weekdayCount = 0)
+
+        assertNull(computeWeekdayWeekendFindings(eventsWithTags))
+    }
+
+    @Test
+    fun `computeWeekdayWeekendFindings is null when the deviation doesn't clear the descriptive floor`() {
+        // 35 of 100 events on a weekend (0.35) is only ~0.064 above the 2/7 (~0.286) baseline --
+        // under WEEKDAY_WEEKEND_MIN_ABSOLUTE_SHARE_DIFFERENCE's 15-point floor.
+        val eventsWithTags = weekdayWeekendEvents(weekendCount = 35, weekdayCount = 65)
+
+        assertNull(computeWeekdayWeekendFindings(eventsWithTags))
+    }
+
+    @Test
+    fun `computeWeekdayWeekendFindings is null when the deviation clears the relative floor but not the absolute one`() {
+        // 432 of 1000 events on a weekend (0.432) is ~0.146 above the 2/7 (~0.2857) baseline --
+        // that's ~51% relative (clearing WEEKDAY_WEEKEND_MIN_RELATIVE_SHARE_DIFFERENCE's 50% floor),
+        // but the raw point gain stays under WEEKDAY_WEEKEND_MIN_ABSOLUTE_SHARE_DIFFERENCE's 15-point
+        // floor. Unlike tag timing's own per-bucket baseline, this detector's baseline is fixed
+        // (2/7), so the reverse split -- clearing the absolute floor but not the relative one -- is
+        // structurally unreachable here: 0.15 already exceeds 0.5 * 2/7 (~0.1429), so clearing the
+        // absolute floor always clears the relative one too.
+        val eventsWithTags = weekdayWeekendEvents(weekendCount = 432, weekdayCount = 568)
+
+        assertNull(computeWeekdayWeekendFindings(eventsWithTags))
+    }
 }

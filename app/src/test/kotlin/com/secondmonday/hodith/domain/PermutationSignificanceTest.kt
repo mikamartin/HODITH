@@ -391,4 +391,45 @@ class PermutationSignificanceTest {
         assertNotEquals(tagTiming, trendSlope)
         assertNotEquals(tagTiming, timeOfDaySplit)
     }
+
+    // ---- weekdayWeekendSeedFor ----
+
+    @Test
+    fun `weekdayWeekendSeedFor is deterministic for the same inputs`() {
+        val first = weekdayWeekendSeedFor(caseId = 1L, sampleCount = 40)
+        val second = weekdayWeekendSeedFor(caseId = 1L, sampleCount = 40)
+
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `weekdayWeekendSeedFor differs when caseId differs`() {
+        val first = weekdayWeekendSeedFor(caseId = 1L, sampleCount = 40)
+        val second = weekdayWeekendSeedFor(caseId = 2L, sampleCount = 40)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `weekdayWeekendSeedFor differs when sampleCount differs`() {
+        val first = weekdayWeekendSeedFor(caseId = 1L, sampleCount = 40)
+        val second = weekdayWeekendSeedFor(caseId = 1L, sampleCount = 41)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `weekdayWeekendSeedFor differs from trendSlopeSeedFor, timeOfDaySplitSeedFor, and tagTimingSeedFor for a colliding shape`() {
+        // weekdayWeekendSeedFor has no outcome or tag to key on, but shares the same caseId/sampleCount
+        // shape with the other three -- confirms its own trailing +3 discriminator keeps it from
+        // colliding with trendSlopeSeedFor's +0 / timeOfDaySplitSeedFor's +1 / tagTimingSeedFor's +2.
+        val weekdayWeekend = weekdayWeekendSeedFor(caseId = 1L, sampleCount = 20)
+        val trendSlope = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+        val timeOfDaySplit = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+        val tagTiming = tagTimingSeedFor(caseId = 1L, tagName = "x", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+
+        assertNotEquals(weekdayWeekend, trendSlope)
+        assertNotEquals(weekdayWeekend, timeOfDaySplit)
+        assertNotEquals(weekdayWeekend, tagTiming)
+    }
 }

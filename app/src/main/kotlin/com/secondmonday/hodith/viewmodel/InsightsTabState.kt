@@ -72,8 +72,9 @@ sealed interface InsightsTabState {
  * [trend] is no longer read by the Insights tab itself — the former standalone Trend arrow card is
  * gone, its 30-vs-30-day comparison now one more [trends] finding
  * ([com.secondmonday.hodith.domain.TrendFindingKind.FREQUENCY_SHIFT]). The field stays only because
- * `ShareCardState` still sources its own mini trend arrow from it (PROGRESS.md T9 retires this
- * field once Share moves to [trends] too).
+ * `ShareCardState` still sources its own mini trend arrow from it (PROGRESS.md's "Replace the share
+ * card's old trend arrow with real Trends findings" item retires this field once Share moves to
+ * [trends] too).
  */
 data class StatsSections(
     val frequency: FrequencyDisplay?,

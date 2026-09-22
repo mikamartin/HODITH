@@ -24,8 +24,9 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * [SHIFT_MIN_FRACTION]/[SHIFT_MIN_ABSOLUTE_DAYS] for the shift pair; a flat comparison producing no
  * finding at all for frequency shift) — [TrendReliability.PATTERN] is reserved for a future
  * detector (T4+) that adds a significance test. [trendStats] is the same value the caller
- * separately keeps on `StatsSections.trend` for Share's own mini trend arrow (PROGRESS.md T9
- * retires that once Share moves to these findings too) — passed in rather than recomputed here.
+ * separately keeps on `StatsSections.trend` for Share's own mini trend arrow (PROGRESS.md's
+ * "Replace the share card's old trend arrow with real Trends findings" item retires that once
+ * Share moves to these findings too) — passed in rather than recomputed here.
  * [eventsWithTags] backs [computeTagShareShift] (Story C T2), placed after gap/streak/frequency
  * shift since it's the one detector that can contribute more than one finding — every other kind is
  * capped at 0..1. [computeRecurrenceShape] (Story C T3) is always
@@ -42,11 +43,17 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * already shows) — both are also always [TrendReliability.PATTERN], the first reusing the shared
  * permutation engine directly with its own OLS-slope statistic, the second reusing
  * [labelShufflePValue] as-is with day/evening groups standing in for untagged/tagged.
- * [computeTagTimingFindings] (Story C T7) is appended last — a categorical clustering test rather
- * than a difference-in-means one, so like trend slope it calls the shared permutation engine
- * directly with its own statistic rather than [labelShufflePValue]; not gated on
+ * [computeTagTimingFindings] (Story C T7) is appended after tag → outcome — a categorical clustering
+ * test rather than a difference-in-means one, so like trend slope it calls the shared permutation
+ * engine directly with its own statistic rather than [labelShufflePValue]; not gated on
  * [statsShownOutcomes], since it's not outcome-typed. Always [TrendReliability.PATTERN] for the same
  * "suppressed, not shown as Hint" reason as every other permutation-backed detector.
+ * [computeWeekdayWeekendFindings] (Story C T8, the scoped fallback from that item's cycles/
+ * seasonality investigation) is appended last — case-wide like change point, not per-tag or
+ * per-outcome, so it's not gated on [statsShownOutcomes] either. Also calls the shared permutation
+ * engine directly with its own Monte Carlo binomial statistic, the same "no third bespoke test"
+ * precedent tag timing and trend slope both set. Always [TrendReliability.PATTERN] for the same
+ * reason as every other permutation-backed detector.
  */
 internal fun computeTrendFindings(
     gapStats: GapStats,
@@ -193,6 +200,17 @@ internal fun computeTrendFindings(
                 tagName = it.tagName,
                 weekday = it.weekday,
                 timeOfDay = it.timeOfDay,
+            )
+    }
+    computeWeekdayWeekendFindings(eventsWithTags)?.let {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.WEEKDAY_WEEKEND_SPLIT,
+                direction = it.direction,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = it.sampleCount,
+                priorValue = it.baselineShare,
+                recentValue = it.observedShare,
             )
     }
     return capTrendFindings(findings)

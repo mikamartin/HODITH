@@ -180,6 +180,23 @@ data class TagTimingResult(
 )
 
 /**
+ * [computeWeekdayWeekendFindings] (Story C T8, the scoped fallback from that item's cycles/
+ * seasonality investigation): whether a Case's events cluster on weekend days (Saturday/Sunday)
+ * more, or less, than the fixed 2/7 calendar baseline — case-wide, not per-tag, unlike
+ * [TagTimingResult]. [direction] [ShiftDirection.UP] means weekend-heavy, [ShiftDirection.DOWN]
+ * means weekday-heavy. [baselineShare] is always the fixed 2/7 constant; [observedShare] is this
+ * Case's own weekend event share (fractions, 0.0-1.0) — like [TagTimingResult], a result only
+ * exists once it's already cleared a permutation significance test, so every one is a `Pattern`
+ * finding. [sampleCount] is the Case's total event count the share was computed from.
+ */
+data class WeekdayWeekendResult(
+    val direction: ShiftDirection,
+    val baselineShare: Double,
+    val observedShare: Double,
+    val sampleCount: Int,
+)
+
+/**
  * Spec §10 heatmap shading: a day's event count bucketed relative to the Case's own busiest day,
  * into 20 shaded tiers (plus [EMPTY]) — ordinal order matters, [heatmapLevelFor] indexes into
  * [entries] directly rather than branching on each one by name. Most consumers (calendar heatmap,

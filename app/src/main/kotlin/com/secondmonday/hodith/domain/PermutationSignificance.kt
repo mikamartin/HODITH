@@ -176,3 +176,21 @@ internal fun tagTimingSeedFor(
     hash = hash * 31 + 2
     return hash
 }
+
+/**
+ * Deterministic seed for [computeWeekdayWeekendFindings]' own direct [permutationPValue] call (Story
+ * C T8): the same minimal shape [timelineShuffleSeedFor] uses — just [caseId] and [sampleCount],
+ * since a weekday-vs-weekend candidate is case-wide, with no tag/outcome/dimension to key on. The
+ * trailing `+ 3` discriminator (matching [trendSlopeSeedFor]'s `+ 0`, [timeOfDaySplitSeedFor]'s
+ * `+ 1`, and [tagTimingSeedFor]'s `+ 2`) keeps this from colliding with any of those for a Case that
+ * happens to share a sample count across detectors.
+ */
+internal fun weekdayWeekendSeedFor(
+    caseId: Long,
+    sampleCount: Int,
+): Long {
+    var hash = caseId
+    hash = hash * 31 + sampleCount
+    hash = hash * 31 + 3
+    return hash
+}

@@ -265,6 +265,33 @@ class DemoDataSeederTest {
         }
 
     @Test
+    fun `seed gives Argument at least the minimum sample size for weekday vs weekend`() =
+        runTest {
+            seeder.seed()
+
+            val argument = repository.cases.value.single { it.name == "Argument" }
+            val eventsWithTags = repository.observeEventsWithTagsForCase(argument.id).first()
+
+            // WEEKDAY_WEEKEND_MIN_SAMPLE_COUNT (domain, internal) is 40 -- asserted as a literal
+            // here, the same reasoning Heartburn's own sample-size test above uses.
+            assertTrue(eventsWithTags.size >= 40)
+        }
+
+    @Test
+    fun `seed gives Argument the Trends weekday-weekend-split finding, weekend-heavy`() =
+        runTest {
+            seeder.seed()
+
+            val argument = repository.cases.value.single { it.name == "Argument" }
+            val eventsWithTags = repository.observeEventsWithTagsForCase(argument.id).first()
+            val state = insightsTabState(argument, eventsWithTags, NOW_MILLIS) as InsightsTabState.Ready
+            val finding = state.stats.trends.single { it.kind == TrendFindingKind.WEEKDAY_WEEKEND_SPLIT }
+
+            assertEquals(ShiftDirection.UP, finding.direction)
+            assertEquals(TrendReliability.PATTERN, finding.reliability)
+        }
+
+    @Test
     fun `seed leaves one Migraine event running now`() =
         runTest {
             seeder.seed()

@@ -824,6 +824,15 @@ private fun TrendFindingContent(
                 )
             evidenceLabel = voice.insightsTagTimingEvidenceLabel(finding.sampleCount)
         }
+        TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> {
+            sentence =
+                voice.insightsWeekdayWeekendSentence(
+                    finding.direction,
+                    weekdayLabel = formatPercent(1 - finding.recentValue),
+                    weekendLabel = formatPercent(finding.recentValue),
+                )
+            evidenceLabel = voice.insightsWeekdayWeekendEvidenceLabel(finding.sampleCount)
+        }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -6,6 +6,7 @@ import com.secondmonday.hodith.testsupport.millisAt
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.DayOfWeek
@@ -548,6 +549,57 @@ class TrendsEngineTest {
         val timeOfDaySplitIndex = findings.indexOfFirst { it.kind == TrendFindingKind.TIME_OF_DAY_SPLIT }
         val tagTimingIndex = findings.indexOfFirst { it.kind == TrendFindingKind.TAG_TIMING }
         assertTrue(timeOfDaySplitIndex >= 0 && tagTimingIndex > timeOfDaySplitIndex)
+    }
+
+    /** epochDay 0 (1970-01-01) is a Thursday, so residues 2/3 land on Saturday/Sunday, 0/1/4/5/6 on a weekday. */
+    private fun weekdayWeekendEventsWithTags(
+        weekendCount: Int,
+        weekdayCount: Int,
+    ): List<EventWithTags> {
+        val weekendResidues = listOf(2L, 3L)
+        val weekdayResidues = listOf(0L, 1L, 4L, 5L, 6L)
+        val weekendEvents =
+            (0 until weekendCount).map { i ->
+                EventWithTags(testEvent(occurredAt = millisAtDay(weekendResidues[i % weekendResidues.size] + 7L * i)), emptyList())
+            }
+        val weekdayEvents =
+            (0 until weekdayCount).map { i ->
+                EventWithTags(
+                    testEvent(occurredAt = millisAtDay(weekdayResidues[i % weekdayResidues.size] + 7L * (i + 10_000))),
+                    emptyList(),
+                )
+            }
+        return weekendEvents + weekdayEvents
+    }
+
+    @Test
+    fun `computeTrendFindings reports a weekday-weekend-split finding as PATTERN with tag, outcome, and date fields all null`() {
+        val eventsWithTags = weekdayWeekendEventsWithTags(weekendCount = 60, weekdayCount = 40)
+
+        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = eventsWithTags)
+
+        val finding = findings.single { it.kind == TrendFindingKind.WEEKDAY_WEEKEND_SPLIT }
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.PATTERN, finding.reliability)
+        assertNull(finding.tagName)
+        assertNull(finding.outcome)
+        assertNull(finding.weekday)
+        assertNull(finding.timeOfDay)
+        assertNull(finding.changePointDate)
+    }
+
+    @Test
+    fun `computeTrendFindings places the weekday-weekend-split finding after tag timing`() {
+        // Combines tag timing's own weekday showcase (a roughly weekend-neutral 100 events on its
+        // own -- 20 of 100 land on a weekend, under the descriptive floor by itself) with a
+        // deliberately weekend-heavy 100 more, so both detectors fire on the same combined pool.
+        val eventsWithTags = tagTimingWeekdayEventsWithTags() + weekdayWeekendEventsWithTags(weekendCount = 80, weekdayCount = 20)
+
+        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = eventsWithTags)
+
+        val tagTimingIndex = findings.indexOfFirst { it.kind == TrendFindingKind.TAG_TIMING }
+        val weekdayWeekendIndex = findings.indexOfFirst { it.kind == TrendFindingKind.WEEKDAY_WEEKEND_SPLIT }
+        assertTrue(tagTimingIndex >= 0 && weekdayWeekendIndex > tagTimingIndex)
     }
 
     // ---- capTrendFindings ----
