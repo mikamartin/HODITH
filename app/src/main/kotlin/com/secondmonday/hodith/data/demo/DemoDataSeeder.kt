@@ -12,6 +12,7 @@ import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.domain.MORNING_START_HOUR
+import com.secondmonday.hodith.domain.NIGHT_START_HOUR
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
@@ -48,6 +49,16 @@ private const val TAG_OUTCOME_SHOWCASE_CHANCE_PERCENT = 40
 private const val TANTRUM_DURATION_EARLY_FACTOR = 0.7
 private const val TANTRUM_DURATION_LATE_FACTOR = 1.4
 private const val TANTRUM_EVENING_DURATION_FACTOR = 1.5
+
+// Story C T7 showcase (Heartburn's "late-dinner" tag, see [TagTimingShiftSeed]): the fraction of a
+// Case's events forced to carry the showcase tag AND pinned into TimeOfDay.EVENING's hour window
+// (see [eveningHourFor]) -- comfortably over TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_TIME_OF_DAY's 15
+// (domain, internal) at Heartburn's BURSTY event count (~85 events over the full span, the same
+// density Migraine's own T4 showcase uses). Every non-showcase event's hour is otherwise a uniform
+// random draw across the full day (see occurrencesFor/spacedOccurrences/burstyOccurrences — none of
+// them shape hour-of-day at all), so the showcase tag's peak-bucket share comes out far above the
+// Case's own baseline there regardless of the exact random density roll.
+private const val TAG_TIMING_SHOWCASE_CHANCE_PERCENT = 25
 
 // Dense enough that at least one demo Case shows a clear recent uptick — exercises the Trend
 // card's UP direction and gives the calendar heatmap/Rhythm grid a busy recent stretch to shade.
@@ -90,6 +101,17 @@ private data class TagOutcomeShiftSeed(
     val durationBoostFactor: Double,
 )
 
+/**
+ * Story C T7 showcase: forces [tagName] onto [TAG_TIMING_SHOWCASE_CHANCE_PERCENT] of a Case's
+ * events (the same "bypass the normal random draw for this tag" shape [TagOutcomeShiftSeed] uses)
+ * and pins those events' hour-of-day into `TimeOfDay.EVENING`'s window (see [eveningHourFor]) —
+ * every other event's hour stays a uniform random draw across the full day, so this gives the demo
+ * Case a real, deliberate time-of-day clustering for `computeTagTimingFindings` to find.
+ */
+private data class TagTimingShiftSeed(
+    val tagName: String,
+)
+
 private data class CaseSeed(
     val name: String,
     val icon: String,
@@ -113,6 +135,7 @@ private data class CaseSeed(
     // and TANTRUM_EVENING_DURATION_FACTOR's evening bump to this Case's durations (see endedAtFor).
     // START_STOP Cases only — a NONE/MANUAL Case never reaches endedAtFor's duration branch at all.
     val durationTrendShift: Boolean = false,
+    val tagTimingShift: TagTimingShiftSeed? = null,
 )
 
 // Deliberately varied on every axis Big Picture and Case Detail's Insights tab need to exercise:
@@ -204,6 +227,20 @@ private val CASE_SEEDS =
             // at once, and old enough on the second to trip the stale-ongoing prompt.
             ongoingEventCount = 2,
         ),
+        CaseSeed(
+            name = "Heartburn",
+            icon = "🔥",
+            durationMode = DurationMode.NONE,
+            intensityEnabled = true,
+            density = SeedDensity.BURSTY,
+            notes = listOf("After a big dinner", "Spicy food, worth it", "Woke me up", "Lying down made it worse"),
+            // "late-dinner" is deliberately not in this general pool -- it's assigned exclusively via
+            // tagTimingShift below, so the Story C T7 showcase's evening clustering stays clean rather
+            // than also picking up random hits (at random hours) from the normal tagsFor draw.
+            tags = listOf("spicy-food", "large-meal", "lying-down"),
+            description = "Burning or discomfort behind the breastbone, however brief",
+            tagTimingShift = TagTimingShiftSeed(tagName = "late-dinner"),
+        ),
     )
 
 /**
@@ -248,8 +285,15 @@ class DemoDataSeeder
                         occurrencesFor(caseSeed.density, spanStart, occurrenceSpanEnd, random)
                     }
                 val withSurge = if (caseSeed.recentSurge) occurrences + recentSurgeOccurrences(now, random) else occurrences
-                withSurge.sorted().forEach { occurredAt ->
+                withSurge.sorted().forEach { rawOccurredAt ->
                     val showcaseTag = caseSeed.tagOutcomeShift?.takeIf { random.nextInt(100) < TAG_OUTCOME_SHOWCASE_CHANCE_PERCENT }
+                    val showcaseTimingTag = caseSeed.tagTimingShift?.takeIf { random.nextInt(100) < TAG_TIMING_SHOWCASE_CHANCE_PERCENT }
+                    val occurredAt =
+                        if (showcaseTimingTag != null) {
+                            eveningHourFor(rawOccurredAt, random, spanStart, occurrenceSpanEnd)
+                        } else {
+                            rawOccurredAt
+                        }
                     val endedAt =
                         endedAtFor(
                             caseSeed.durationMode,
@@ -260,7 +304,14 @@ class DemoDataSeeder
                             durationTrendShift = caseSeed.durationTrendShift,
                             spanStart = spanStart,
                         )
-                    insertSeedEvent(caseId, occurredAt, endedAt, caseSeed, random, forcedTag = showcaseTag?.tagName)
+                    insertSeedEvent(
+                        caseId,
+                        occurredAt,
+                        endedAt,
+                        caseSeed,
+                        random,
+                        forcedTag = showcaseTag?.tagName ?: showcaseTimingTag?.tagName,
+                    )
                 }
 
                 repeat(caseSeed.ongoingEventCount) { ongoingIndex ->
@@ -272,7 +323,8 @@ class DemoDataSeeder
 
         /**
          * One synthetic event with this Case's intensity/note/tag mix, [endedAt] `null` for an
-         * ongoing one. [forcedTag] (Story C T4 showcase) replaces the normal random [tagsFor] draw
+         * ongoing one. [forcedTag] (Story C T4's tag→outcome showcase, or Story C T7's tag-timing
+         * showcase — never both on the same Case today) replaces the normal random [tagsFor] draw
          * entirely for this event, keeping the showcase tag's tagged/untagged split clean.
          */
         private suspend fun insertSeedEvent(
@@ -430,6 +482,37 @@ private fun durationTrendMultiplierFor(
     val isEvening = hour < MORNING_START_HOUR || hour >= EVENING_START_HOUR
     val eveningFactor = if (isEvening) TANTRUM_EVENING_DURATION_FACTOR else 1.0
     return trendFactor * eveningFactor
+}
+
+/**
+ * Story C T7 showcase (Heartburn, [CaseSeed.tagTimingShift]): replaces [occurredAt]'s hour-of-day
+ * with a random hour inside [EVENING_START_HOUR]..[NIGHT_START_HOUR)'s window — `TimeOfDay.EVENING`
+ * exactly, matching the domain's own `timeOfDayFor` boundaries — while keeping [occurredAt]'s own
+ * calendar day unchanged, so the showcase tag's occurrences still scatter across the full span the
+ * same as every other event, just always in the evening. Coerced into [spanStart]..[spanEnd]
+ * afterwards: reassigning the hour on [occurredAt]'s own calendar day can otherwise land just
+ * outside that range for an occurrence generated near either edge of the span (e.g. an event a few
+ * hours after [spanStart] whose own day, re-stamped to a later evening hour, would fall before
+ * [spanStart] once evening is earlier in the day than the original draw) — a handful of
+ * edge-clamped showcase events landing on a non-evening hour doesn't threaten the aggregate
+ * clustering signal the rest deliver.
+ */
+private fun eveningHourFor(
+    occurredAt: Long,
+    random: Random,
+    spanStart: Long,
+    spanEnd: Long,
+): Long {
+    val zone = ZoneId.systemDefault()
+    val date = Instant.ofEpochMilli(occurredAt).atZone(zone).toLocalDate()
+    val hour = random.nextInt(EVENING_START_HOUR, NIGHT_START_HOUR)
+    val minute = random.nextInt(60)
+    return date
+        .atTime(hour, minute)
+        .atZone(zone)
+        .toInstant()
+        .toEpochMilli()
+        .coerceIn(spanStart, spanEnd)
 }
 
 private fun intensityFor(

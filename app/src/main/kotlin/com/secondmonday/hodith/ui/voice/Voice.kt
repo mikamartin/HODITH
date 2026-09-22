@@ -550,6 +550,26 @@ interface Voice {
     /** As [insightsGapShiftEvidenceLabel], for the time-of-day-split finding row. */
     fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int): String
 
+    /**
+     * Spec §10 Trends "tag timing" finding (Story C T7): [tagName]'s own events cluster into
+     * [bucketPhrase] (already formatted and phrase-ready, e.g. "on Tuesdays" or "in the evening")
+     * beyond the Case's overall rhythm there. No `direction` parameter, unlike
+     * [insightsGapShiftSentence] — this finding only ever means the tag concentrates there, never
+     * that it avoids somewhere (T7's feasibility ruling). [baselineLabel]/[taggedLabel] are that
+     * bucket's share of the Case's own events overall vs. the tag's own events (already formatted
+     * via `formatPercent`). Like [insightsTagOutcomeSentence], this describes an effect already
+     * tested for significance — "tends to," never "causes."
+     */
+    fun insightsTagTimingSentence(
+        tagName: String,
+        bucketPhrase: String,
+        baselineLabel: String,
+        taggedLabel: String,
+    ): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the tag-timing finding row. */
+    fun insightsTagTimingEvidenceLabel(sampleCount: Int): String
+
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
     val insightsDurationLongestLabel: String get() = "Longest"
@@ -1297,6 +1317,15 @@ object PlainVoice : Voice {
 
     override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
 
+    override fun insightsTagTimingSentence(
+        tagName: String,
+        bucketPhrase: String,
+        baselineLabel: String,
+        taggedLabel: String,
+    ) = "\"$tagName\" tends to cluster $bucketPhrase, $taggedLabel of its events there vs $baselineLabel case-wide."
+
+    override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount tagged events."
+
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
         "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
@@ -1999,6 +2028,15 @@ object IntenseVoice : Voice {
 
     override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
 
+    override fun insightsTagTimingSentence(
+        tagName: String,
+        bucketPhrase: String,
+        baselineLabel: String,
+        taggedLabel: String,
+    ) = "\"$tagName\" gathers $bucketPhrase, $taggedLabel there against $baselineLabel case-wide."
+
+    override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount tagged entries."
+
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
         "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
@@ -2686,6 +2724,15 @@ object BrightVoice : Voice {
     }
 
     override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
+
+    override fun insightsTagTimingSentence(
+        tagName: String,
+        bucketPhrase: String,
+        baselineLabel: String,
+        taggedLabel: String,
+    ) = "\"$tagName\" loves $bucketPhrase, $taggedLabel of its events land there vs $baselineLabel case-wide!"
+
+    override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount tagged events!"
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =

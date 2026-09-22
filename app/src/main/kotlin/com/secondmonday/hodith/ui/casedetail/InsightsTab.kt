@@ -809,6 +809,21 @@ private fun TrendFindingContent(
             sentence = voice.insightsTimeOfDaySplitSentence(outcome, finding.direction, dayLabel, eveningLabel)
             evidenceLabel = voice.insightsTimeOfDaySplitEvidenceLabel(finding.sampleCount)
         }
+        TrendFindingKind.TAG_TIMING -> {
+            // tagName is always set; exactly one of weekday/timeOfDay is set -- see TrendFinding's KDoc.
+            val locale = LocalLocale.current.platformLocale
+            val bucketPhrase =
+                finding.weekday?.let { "on ${it.getDisplayName(TextStyle.FULL, locale)}s" }
+                    ?: "in the ${rhythmTimeOfDayLabel(voice, finding.timeOfDay ?: TimeOfDay.MORNING).lowercase()}"
+            sentence =
+                voice.insightsTagTimingSentence(
+                    finding.tagName.orEmpty(),
+                    bucketPhrase,
+                    formatPercent(finding.priorValue),
+                    formatPercent(finding.recentValue),
+                )
+            evidenceLabel = voice.insightsTagTimingEvidenceLabel(finding.sampleCount)
+        }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

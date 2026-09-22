@@ -6,6 +6,7 @@ import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagOutcome
+import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.testsupport.withoutTags
@@ -29,12 +30,12 @@ class DemoDataSeederTest {
     private val seeder = DemoDataSeeder(repository, clock)
 
     @Test
-    fun `seed inserts seven cases with distinct names and events within the seed span`() =
+    fun `seed inserts eight cases with distinct names and events within the seed span`() =
         runTest {
             seeder.seed()
 
             val cases = repository.cases.value
-            assertEquals(7, cases.size)
+            assertEquals(8, cases.size)
             assertEquals(cases.size, cases.map { it.name }.toSet().size)
 
             val spanStart = NOW_MILLIS - SEED_SPAN_DAYS * MILLIS_PER_DAY
@@ -50,7 +51,7 @@ class DemoDataSeederTest {
             seeder.seed()
             seeder.seed()
 
-            assertEquals(14, repository.cases.value.size)
+            assertEquals(16, repository.cases.value.size)
         }
 
     @Test
@@ -232,6 +233,38 @@ class DemoDataSeederTest {
         }
 
     @Test
+    fun `seed gives Heartburn at least the minimum late-dinner-tagged sample size for time-of-day`() =
+        runTest {
+            seeder.seed()
+
+            val heartburn = repository.cases.value.single { it.name == "Heartburn" }
+            val eventsWithTags = repository.observeEventsWithTagsForCase(heartburn.id).first()
+            val lateDinnerTagged = eventsWithTags.count { entry -> entry.tags.any { it.name == "late-dinner" } }
+
+            // TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_TIME_OF_DAY/...MIN_CASE_SAMPLE_COUNT_TIME_OF_DAY
+            // (domain, internal) are 15/45 -- asserted as literals here since this test lives outside
+            // the domain module's own package and shouldn't need to import detector internals to
+            // state its own contract.
+            assertTrue(lateDinnerTagged >= 15)
+            assertTrue(eventsWithTags.size >= 45)
+        }
+
+    @Test
+    fun `seed gives Heartburn the Trends tag-timing finding for late-dinner`() =
+        runTest {
+            seeder.seed()
+
+            val heartburn = repository.cases.value.single { it.name == "Heartburn" }
+            val eventsWithTags = repository.observeEventsWithTagsForCase(heartburn.id).first()
+            val state = insightsTabState(heartburn, eventsWithTags, NOW_MILLIS) as InsightsTabState.Ready
+            val finding = state.stats.trends.single { it.kind == TrendFindingKind.TAG_TIMING && it.tagName == "late-dinner" }
+
+            assertEquals(TimeOfDay.EVENING, finding.timeOfDay)
+            assertEquals(ShiftDirection.UP, finding.direction)
+            assertEquals(TrendReliability.PATTERN, finding.reliability)
+        }
+
+    @Test
     fun `seed leaves one Migraine event running now`() =
         runTest {
             seeder.seed()
@@ -280,12 +313,12 @@ class DemoDataSeederTest {
         }
 
     @Test
-    fun `seed gives Coffee and Migraine a description, and leaves the rest without one`() =
+    fun `seed gives Coffee, Migraine and Heartburn a description, and leaves the rest without one`() =
         runTest {
             seeder.seed()
 
             val cases = repository.cases.value
-            val described = setOf("Coffee", "Migraine")
+            val described = setOf("Coffee", "Migraine", "Heartburn")
             cases.filter { it.name in described }.forEach { assertTrue(!it.description.isNullOrBlank()) }
             cases.filterNot { it.name in described }.forEach { assertTrue(it.description == null) }
         }
