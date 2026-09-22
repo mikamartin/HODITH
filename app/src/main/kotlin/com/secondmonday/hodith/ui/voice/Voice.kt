@@ -570,6 +570,25 @@ interface Voice {
     /** As [insightsGapShiftEvidenceLabel], for the tag-timing finding row. */
     fun insightsTagTimingEvidenceLabel(sampleCount: Int): String
 
+    /**
+     * Spec §10 Trends "weekday vs weekend" finding (Story C T8, the scoped fallback from that
+     * item's cycles/seasonality investigation): the Case's own events lean toward weekends
+     * ([direction] [ShiftDirection.UP]) or weekdays ([ShiftDirection.DOWN]) more than the roughly
+     * 2-in-7-day calendar baseline. [weekdayLabel]/[weekendLabel] are the Case's own observed shares
+     * (already formatted via `formatPercent`) — the fixed baseline is a literal in the sentence
+     * text, not a parameter, since it never varies per Case. Both directions need their own
+     * wording, the same [insightsTimeOfDaySplitSentence] rule. Like [insightsTagTimingSentence],
+     * this describes an effect already tested for significance — "tends to," never "causes."
+     */
+    fun insightsWeekdayWeekendSentence(
+        direction: ShiftDirection,
+        weekdayLabel: String,
+        weekendLabel: String,
+    ): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the weekday-vs-weekend finding row. */
+    fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int): String
+
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
     val insightsDurationLongestLabel: String get() = "Longest"
@@ -1326,6 +1345,19 @@ object PlainVoice : Voice {
 
     override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount tagged events."
 
+    override fun insightsWeekdayWeekendSentence(
+        direction: ShiftDirection,
+        weekdayLabel: String,
+        weekendLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP ->
+            "This Case's events lean toward weekends: $weekendLabel of them land on Saturday or Sunday, more than the roughly 2-in-7 days you'd expect by chance."
+        ShiftDirection.DOWN ->
+            "This Case's events lean toward weekdays: $weekdayLabel of them land Monday through Friday, more than you'd expect by chance."
+    }
+
+    override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
+
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
         "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
@@ -2037,6 +2069,17 @@ object IntenseVoice : Voice {
 
     override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount tagged entries."
 
+    override fun insightsWeekdayWeekendSentence(
+        direction: ShiftDirection,
+        weekdayLabel: String,
+        weekendLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "The weekend pulls harder, $weekendLabel of its events landing there against what chance alone allows."
+        ShiftDirection.DOWN -> "The week itself pulls harder, $weekdayLabel of its events landing on a weekday, more than chance allows."
+    }
+
+    override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
         "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
@@ -2733,6 +2776,17 @@ object BrightVoice : Voice {
     ) = "\"$tagName\" loves $bucketPhrase, $taggedLabel of its events land there vs $baselineLabel case-wide!"
 
     override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount tagged events!"
+
+    override fun insightsWeekdayWeekendSentence(
+        direction: ShiftDirection,
+        weekdayLabel: String,
+        weekendLabel: String,
+    ) = when (direction) {
+        ShiftDirection.UP -> "This Case loves a weekend: $weekendLabel of its events land on Saturday or Sunday, more than you'd expect!"
+        ShiftDirection.DOWN -> "This Case is a weekday devotee: $weekdayLabel of its events land Monday through Friday!"
+    }
+
+    override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =

@@ -13,8 +13,10 @@ import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.domain.MORNING_START_HOUR
 import com.secondmonday.hodith.domain.NIGHT_START_HOUR
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -59,6 +61,15 @@ private const val TANTRUM_EVENING_DURATION_FACTOR = 1.5
 // them shape hour-of-day at all), so the showcase tag's peak-bucket share comes out far above the
 // Case's own baseline there regardless of the exact random density roll.
 private const val TAG_TIMING_SHOWCASE_CHANCE_PERCENT = 25
+
+// Story C T8 showcase (Argument's weekday-vs-weekend shift, see [CaseSeed.weekdayWeekendShift]): the
+// fraction of a Case's occurrences forced onto a Saturday or Sunday date (see [weekendDateFor]) --
+// comfortably over WEEKDAY_WEEKEND_MIN_SAMPLE_COUNT's 40-event floor at Argument's BURSTY event
+// count (~85 events over the full span, the same density Migraine/Heartburn's own showcases use),
+// and comfortably over the descriptive floor: 60% observed vs. the fixed 2/7 (~28.6%) baseline is a
+// 31-percentage-point/109%-relative gap, both well past WEEKDAY_WEEKEND_MIN_ABSOLUTE_SHARE_DIFFERENCE
+// and ...MIN_RELATIVE_SHARE_DIFFERENCE (domain, internal).
+private const val WEEKDAY_WEEKEND_SHOWCASE_CHANCE_PERCENT = 60
 
 // Dense enough that at least one demo Case shows a clear recent uptick — exercises the Trend
 // card's UP direction and gives the calendar heatmap/Rhythm grid a busy recent stretch to shade.
@@ -136,6 +147,10 @@ private data class CaseSeed(
     // START_STOP Cases only — a NONE/MANUAL Case never reaches endedAtFor's duration branch at all.
     val durationTrendShift: Boolean = false,
     val tagTimingShift: TagTimingShiftSeed? = null,
+    // Story C T8 showcase: forces WEEKDAY_WEEKEND_SHOWCASE_CHANCE_PERCENT of this Case's occurrences
+    // onto a Saturday or Sunday date (see weekendDateFor), giving the demo Case a real, deliberate
+    // weekend clustering for computeWeekdayWeekendFindings to find.
+    val weekdayWeekendShift: Boolean = false,
 )
 
 // Deliberately varied on every axis Big Picture and Case Detail's Insights tab need to exercise:
@@ -194,6 +209,7 @@ private val CASE_SEEDS =
             density = SeedDensity.BURSTY,
             notes = listOf("About chores", "Over the phone", "Blew over quickly", "Still tense after"),
             tags = listOf("at-dinner", "on-the-phone", "resolved", "unresolved"),
+            weekdayWeekendShift = true,
         ),
         CaseSeed(
             name = "Tantrum",
@@ -288,11 +304,13 @@ class DemoDataSeeder
                 withSurge.sorted().forEach { rawOccurredAt ->
                     val showcaseTag = caseSeed.tagOutcomeShift?.takeIf { random.nextInt(100) < TAG_OUTCOME_SHOWCASE_CHANCE_PERCENT }
                     val showcaseTimingTag = caseSeed.tagTimingShift?.takeIf { random.nextInt(100) < TAG_TIMING_SHOWCASE_CHANCE_PERCENT }
+                    val showcaseWeekend =
+                        caseSeed.weekdayWeekendShift && random.nextInt(100) < WEEKDAY_WEEKEND_SHOWCASE_CHANCE_PERCENT
                     val occurredAt =
-                        if (showcaseTimingTag != null) {
-                            eveningHourFor(rawOccurredAt, random, spanStart, occurrenceSpanEnd)
-                        } else {
-                            rawOccurredAt
+                        when {
+                            showcaseTimingTag != null -> eveningHourFor(rawOccurredAt, random, spanStart, occurrenceSpanEnd)
+                            showcaseWeekend -> weekendDateFor(rawOccurredAt, random, spanStart, occurrenceSpanEnd)
+                            else -> rawOccurredAt
                         }
                     val endedAt =
                         endedAtFor(
@@ -509,6 +527,32 @@ private fun eveningHourFor(
     val minute = random.nextInt(60)
     return date
         .atTime(hour, minute)
+        .atZone(zone)
+        .toInstant()
+        .toEpochMilli()
+        .coerceIn(spanStart, spanEnd)
+}
+
+/**
+ * Story C T8 showcase (Argument, [CaseSeed.weekdayWeekendShift]): replaces [occurredAt]'s calendar
+ * date with the next Saturday or Sunday on or after it (a random choice between the two each call,
+ * so the showcase scatters across both weekend days rather than piling onto just one), keeping
+ * [occurredAt]'s own local time-of-day unchanged. Coerced into [spanStart]..[spanEnd] afterwards, the
+ * same edge-clamping [eveningHourFor] uses, since shifting a date forward by up to six days can push
+ * an occurrence generated near the end of the span past it.
+ */
+private fun weekendDateFor(
+    occurredAt: Long,
+    random: Random,
+    spanStart: Long,
+    spanEnd: Long,
+): Long {
+    val zone = ZoneId.systemDefault()
+    val zonedDateTime = Instant.ofEpochMilli(occurredAt).atZone(zone)
+    val targetDayOfWeek = if (random.nextBoolean()) DayOfWeek.SATURDAY else DayOfWeek.SUNDAY
+    val weekendDate = zonedDateTime.toLocalDate().with(TemporalAdjusters.nextOrSame(targetDayOfWeek))
+    return weekendDate
+        .atTime(zonedDateTime.toLocalTime())
         .atZone(zone)
         .toInstant()
         .toEpochMilli()

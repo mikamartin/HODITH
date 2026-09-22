@@ -86,6 +86,16 @@ import java.time.LocalDate
  * ever tests over-concentration, never under-representation, the same one-directional convention
  * [WENT_QUIET] uses. Like [TAG_SHARE_SHIFT]/[TAG_OUTCOME], one Case can surface more than one
  * [TAG_TIMING] finding (one per qualifying tag/dimension pair).
+ *
+ * [WEEKDAY_WEEKEND_SPLIT] (Story C T8, the scoped fallback from that item's cycles/seasonality
+ * investigation — full autocorrelation and month-of-year comparisons stay deferred) tests whether a
+ * Case's own events land on a weekend day more, or less, than the fixed 2/7 calendar baseline —
+ * case-wide, not per-tag, so [TrendFinding.tagName]/[weekday]/[timeOfDay] all stay `null`.
+ * `priorValue`/`recentValue` hold the fixed baseline share and the Case's own observed weekend
+ * share (fractions, 0.0-1.0). Unlike [TAG_TIMING], this is two-directional: [ShiftDirection.UP]
+ * means weekend-heavy, [ShiftDirection.DOWN] means weekday-heavy — a Case's overall rhythm has no
+ * default lean the way a single tag's clustering does. A candidate that misses significance produces
+ * no finding at all, so every kept finding is already [TrendReliability.PATTERN].
  */
 enum class TrendFindingKind {
     WENT_QUIET,
@@ -99,6 +109,7 @@ enum class TrendFindingKind {
     TREND_SLOPE,
     TIME_OF_DAY_SPLIT,
     TAG_TIMING,
+    WEEKDAY_WEEKEND_SPLIT,
 }
 
 /**
@@ -129,7 +140,8 @@ enum class TrendReliability {
  * first-half/second-half averages, also in [outcome]'s own unit; for
  * [TrendFindingKind.TIME_OF_DAY_SPLIT], the day-group/evening-group means, same unit convention. For
  * [TrendFindingKind.TAG_TIMING], the fired bucket's Case-wide share and the tag's own share of it
- * (fractions, 0.0-1.0).
+ * (fractions, 0.0-1.0); for [TrendFindingKind.WEEKDAY_WEEKEND_SPLIT], the fixed 2/7 baseline share
+ * and the Case's own observed weekend share, same fraction convention.
  * [tagName] is set for [TrendFindingKind.TAG_SHARE_SHIFT], [TrendFindingKind.TAG_OUTCOME], and
  * [TrendFindingKind.TAG_TIMING] — `null` for every other kind, which isn't about one specific tag.
  * [outcome] is set for [TrendFindingKind.TAG_OUTCOME], [TrendFindingKind.TREND_SLOPE], and

@@ -357,4 +357,42 @@ class InsightsTabTrendsCardTest {
                 PlainVoice.insightsTagTimingSentence("focus", bucketPhrase = "in the evening", baselineLabel = "25%", taggedLabel = "80%"),
             ).assertExists()
     }
+
+    @Test
+    fun trendsCard_rendersWeekdayWeekendSentence_weekendHeavy() {
+        val weekdayWeekend =
+            TrendFinding(
+                kind = TrendFindingKind.WEEKDAY_WEEKEND_SPLIT,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 100,
+                priorValue = 2.0 / 7.0,
+                recentValue = 0.60,
+            )
+        setContent(trends = listOf(weekdayWeekend))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsWeekdayWeekendSentence(ShiftDirection.UP, weekdayLabel = "40%", weekendLabel = "60%"),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersWeekdayWeekendSentence_weekdayHeavy() {
+        val weekdayWeekend =
+            TrendFinding(
+                kind = TrendFindingKind.WEEKDAY_WEEKEND_SPLIT,
+                direction = ShiftDirection.DOWN,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 100,
+                priorValue = 2.0 / 7.0,
+                recentValue = 0.05,
+            )
+        setContent(trends = listOf(weekdayWeekend))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsWeekdayWeekendSentence(ShiftDirection.DOWN, weekdayLabel = "95%", weekendLabel = "5%"),
+            ).assertExists()
+    }
 }

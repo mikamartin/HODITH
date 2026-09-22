@@ -7,7 +7,6 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 Items are grouped by how they connect, not by feature area:
 
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
-- **Story C — Insights: within-case Trends** — a sequenced set of within-case trend detectors sharing one extensible scaffold; later items add or drop one detector each and must not change the scaffold's shape.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
 - **Blocked** — gated on something external; not startable now.
@@ -65,32 +64,17 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 
 **Concern** — the audit will change hundreds of lines in one file. Anything else touching `Voice.kt` must land first.
 
-## Story C — Insights: within-case Trends
+## Standalone
 
-Two items remain now that T1 has shipped the extensible scaffold (gap shift and streak shift migrated in as its first two findings, replacing the old standalone Trend arrow card), the former "Case quiet vs. abandoned" item has shipped a third, unusual one — `WENT_QUIET`, keyed on the Case's live state rather than a shift across completed history, always leading the list when present — T2 has shipped a fourth, `TAG_SHARE_SHIFT`, the one detector that can surface more than one finding per Case, T3 has shipped a fifth, `RECURRENCE_SHAPE`, a self-relative early-spike/dead-zone read on the same `pastGaps` history `WENT_QUIET`/`isBursty` already use, T4 has shipped a sixth, `TAG_OUTCOME`, the first detector backed by a real permutation-significance test rather than a descriptive threshold, and the second (after `TAG_SHARE_SHIFT`) able to surface more than one finding per Case, T5 has shipped a seventh, `CHANGE_POINT`, a CUSUM walk over the Case's own past gaps finding the best-supported split point rather than assuming it at the midpoint the way gap shift does, backed by its own timeline-shuffle permutation test (a sibling of tag → outcome's label-shuffle one), T6 has shipped an eighth and ninth, `TREND_SLOPE` and `TIME_OF_DAY_SPLIT`, a real slope over time in intensity/duration and a day-vs-evening split on the same two outcomes, the feasibility ruling settling on reusing the shared permutation engine directly (for the slope) and tag → outcome's label-shuffle test as-is (for the split) rather than shipping a third bespoke test, and T7 has shipped a tenth, `TAG_TIMING`, a per-tag weekday/time-of-day clustering test against the Case's own overall rhythm, backed by its own max-bucket-deviation permutation statistic (the shared engine again, not a third typed wrapper) and, unlike T4–T6's binary/two-group detectors, gated with per-dimension sample-size floors so both the four-bucket time-of-day split and the seven-bucket weekday split can fire on real data rather than dropping the thinner dimension outright: T8 adds or drops one more candidate detector, T9 exposes findings through the existing Share flow. This closed out the prior "Insights: within-case Trends section (design)" item — its reasoning (the fixed 30-vs-30 window stays as the simple immediate-shift signal but structurally can't see slow drift; the change-point detector is an addition, not a replacement) carries forward into every detector below. No single item rules on more than one detector's statistics at once — T8 opens with its own scoped design decision and may close as "dropped" rather than shipping code. Every item from T4 on appends its own entry to the "Trends detectors" list in `HODITH_SPEC.md` §10, so the spec always shows the current full roster in one place rather than scattering it across item-specific prose.
+No cross-dependencies — pick by appetite. Identified by title, not a number: numbering churned confusingly as items were added and removed, so items here are found by name or by their branch.
 
-### T8 · Detector: cycles and seasonality
-
-*Branch: `feat/insights-trends-cycles-seasonality` · Complexity: L · Priority: Low · Area: Insights*
-
-🎨 **Design decision (this detector only)** · 🔍 **Investigation** — autocorrelation on daily counts for weekly/monthly/~28-day cycles; month-of-year comparison once a Case has 1+ years of data; an explicit weekday-vs-weekend sentence as a simpler fallback when full seasonality doesn't clear its bar. `fix/event-timezone-offset` has landed, clearing this item's prerequisite for the same day-bucketing reason as T7. Sequenced last: needs the most data of any detector here and is the heaviest single computation.
-
-**Acceptance criteria**
-
-- [x] Explicit gate: this item does not start implementation until `fix/event-timezone-offset` has landed. — landed; this item is unblocked, autocorrelation method still open.
-- [ ] Autocorrelation method + lag set chosen and documented, once unblocked.
-- [ ] If kept: weekly/~28-day cycle detection gated by a minimum span; month-of-year comparison only offered once ≥1 year of data exists; weekday-vs-weekend sentence as a fallback finding.
-- [ ] Voice ×3 for the new sentence template(s).
-- [ ] Tests: a planted weekly cycle, a planted no-cycle null.
-- [ ] `HODITH_SPEC.md` §10's "Trends detectors" list gains one line per kept signal — or, for any dropped, a short rationale left in this item instead.
-
-### T9 · Replace the share card's old trend arrow with real Trends findings
+### Replace the share card's old trend arrow with real Trends findings
 
 *Branch: `feat/insights-trends-share` · Complexity: S–M · Priority: Low · Area: Share*
 
 🎨 **Design decision** — whether Trends belongs on Square at all once B1 settles Square's fixed section list, and how many findings a card has room for. Also settle whether `WENT_QUIET` specifically belongs on a share card at all — unlike the other detectors, it's a live-state observation about the Case right now ("still happening, or has it wound down?"), which may read oddly once shared out of context on a card someone else sees later. If it's kept, consider whether the card needs a generation timestamp ("as of [date]") somewhere on it: a `WENT_QUIET` sentence is only true at the moment the card was made, and a share card can be viewed, forwarded, or resurfaced well after that moment, unlike the Insights tab itself which always recomputes fresh. Worth weighing for the card generally, not just this one finding, since every other section is also a snapshot of whenever the card was generated.
 
-T1 folded the Insights tab's standalone Trend arrow card into the Trends section for good — `TrendFindingKind.FREQUENCY_SHIFT` is now just one more finding in `stats.trends`, and the Insights tab no longer renders a separate arrow anywhere. The Share card is the one place the old arrow still lives: `ShareCardState.trend`/`TrendDisplay`/`ShareCardTemplate.kt`'s `MiniTrendSection` were deliberately left untouched by T1 (a separate, already-shipped feature, not to be broken as a side effect), still sourced from `StatsSections.trend` — the field T1 kept alive *only* for this purpose. This item is that cleanup: swap Share's own trend arrow for real Trends findings, and retire the old path completely rather than running both.
+The Insights tab folded its standalone Trend arrow card into the Trends section for good — `TrendFindingKind.FREQUENCY_SHIFT` is now just one more finding in `stats.trends`, and the Insights tab no longer renders a separate arrow anywhere. The Share card is the one place the old arrow still lives: `ShareCardState.trend`/`TrendDisplay`/`ShareCardTemplate.kt`'s `MiniTrendSection` were deliberately left untouched by that migration (a separate, already-shipped feature, not to be broken as a side effect), still sourced from `StatsSections.trend` — the field kept alive *only* for this purpose. This item is that cleanup: swap Share's own trend arrow for real Trends findings, and retire the old path completely rather than running both.
 
 The existing Insight Share flow (`ShareViewModel.kt` → `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` → `ShareCardTemplate.kt`) renders whichever `StatsSections` sections the user picks, the same `.isNotEmpty()`/config-gated pattern `TagsCard` and the other optional cards already use — Trends should slot in as one more toggle, gated on `stats.trends.isNotEmpty()`, the same way. Unlike the Insights tab's own rows, a share card has no room for a tap-revealed detail, so this item renders each selected finding as sentence text only (real prior/recent numbers, no reliability tag, no evidence line) — closer to how the arrow card's own trend sentence already rendered on a share card before this item.
 
@@ -106,10 +90,6 @@ The existing Insight Share flow (`ShareViewModel.kt` → `SharePreviewScreen.kt`
 **Plan** — mirror how Tags is already gated and rendered as the closest precedent. Swap the toggle and rendering over to `stats.trends` first, verify Share still round-trips correctly, then delete `MiniTrendSection`/`ShareCardState.trend`/`TrendDisplay`/`StatsSections.trend` and their now-dead Voice keys in the same change — not a follow-up, so the old and new paths never coexist.
 
 **Tests** — see acceptance criteria; no new statistics, so no domain-level tests needed here.
-
-## Standalone
-
-No cross-dependencies — pick by appetite. Identified by title, not a number: numbering churned confusingly as items were added and removed, so items here are found by name or by their branch.
 
 ### App-icon handle butts directly against the lens ring with no clearance
 
@@ -409,6 +389,29 @@ Not a known bug and not blocking: every affected path already has a soft failure
 **Tests** — this item's entire scope is new tests; see acceptance criteria above.
 
 **Concern** — none blocking. Worth a second look if this class of repository-mutation-triggers-a-side-effect pattern grows (e.g. Trigger CRUD notably does *not* call `evaluateNotificationsForCase` today, unlike Event CRUD — noticed in passing while mapping call sites, not evaluated here as correct or a bug; a separate question if it ever comes up).
+
+### D5 · Detector: cycles and seasonality (autocorrelation + month-of-year)
+
+*Branch: none yet — deferred, scope narrowed · Complexity: L · Priority: Low · Area: Insights*
+
+🔍 **Investigation, deferred** · 🎨 **Design decision**
+
+The former "cycles and seasonality" item originally scoped three sub-features: autocorrelation on daily event counts for weekly/~28-day cycles, a month-of-year comparison once a Case has 1+ years of data, and a weekday-vs-weekend fallback sentence for when full seasonality doesn't clear its bar. The fallback shipped on its own (`HODITH_SPEC.md` §10's "Weekday vs weekend" entry) — cheap, reused the existing permutation engine, needed no new statistical technique. The other two pieces are deferred: autocorrelation over a daily-count series is a genuinely new technique (not a reuse of the bucket-share/label-shuffle/timeline-shuffle machinery every other detector sits on), needs the most data of any detector considered here to even fire reliably, and month-of-year specifically needs a full year of a Case's history before it can offer anything at all.
+
+**Deferred rather than pursued next** — building this before knowing whether users' logged Cases actually run long enough, and have real weekly/monthly structure worth surfacing, is speculative complexity; real alpha usage (Cases with a year-plus of history) is a better trigger than building the heaviest computation in the roster on spec.
+
+**Acceptance criteria**
+
+- [ ] Revisit once alpha usage shows Cases commonly reach 1+ years of history (or a deliberate decision to build it sooner).
+- [ ] Autocorrelation method + lag set chosen and documented (weekly ~7-day, ~28-day, and any others).
+- [ ] Weekly/~28-day cycle detection gated by a minimum span; month-of-year comparison gated on ≥1 year of data.
+- [ ] Voice ×3 for the new sentence template(s).
+- [ ] Tests: a planted weekly cycle, a planted no-cycle null.
+- [ ] `HODITH_SPEC.md` §10 gains one line per kept signal, or a rationale note here for any dropped.
+
+**Plan** — none yet; revisit scope when picked back up, since the weekday-vs-weekend fallback already covers the cheapest, most immediately useful signal from the original three.
+
+**Tests** — none until picked back up.
 
 ## Blocked
 
