@@ -86,6 +86,34 @@ class DemoDataSeederTest {
         }
 
     @Test
+    fun `seed gives Tantrum the Trends trend-slope and time-of-day-split findings too, not just the frequency shift`() =
+        runTest {
+            seeder.seed()
+
+            val tantrum = repository.cases.value.single { it.name == "Tantrum" }
+            val events = repository.events.value.filter { it.caseId == tantrum.id }
+            val state = insightsTabState(tantrum, events.withoutTags(), NOW_MILLIS) as InsightsTabState.Ready
+
+            // Tantrum's duration-trend showcase (see DemoDataSeeder.kt's durationTrendMultiplierFor)
+            // gives Story C T6's two new detectors a real Case to fire on: a duration that roughly
+            // doubles from the early to the late half of the span, and evening tantrums running
+            // noticeably longer than day ones (the "witching hour" pattern) -- both DURATION findings
+            // since Tantrum tracks no intensity, matching frequency shift's own already-established
+            // showcase on this Case.
+            val kinds =
+                state.stats.trends
+                    .map { it.kind }
+                    .toSet()
+            assertEquals(setOf(TrendFindingKind.FREQUENCY_SHIFT, TrendFindingKind.TREND_SLOPE, TrendFindingKind.TIME_OF_DAY_SPLIT), kinds)
+            val trendSlope = state.stats.trends.single { it.kind == TrendFindingKind.TREND_SLOPE }
+            assertEquals(TagOutcome.DURATION, trendSlope.outcome)
+            assertEquals(ShiftDirection.UP, trendSlope.direction)
+            val timeOfDaySplit = state.stats.trends.single { it.kind == TrendFindingKind.TIME_OF_DAY_SPLIT }
+            assertEquals(TagOutcome.DURATION, timeOfDaySplit.outcome)
+            assertEquals(ShiftDirection.UP, timeOfDaySplit.direction)
+        }
+
+    @Test
     fun `seed gives Nosebleed a quiet spell long enough to set a new longest-gap record`() =
         runTest {
             seeder.seed()
@@ -224,14 +252,14 @@ class DemoDataSeederTest {
         }
 
     @Test
-    fun `seed closes every Workout event since that case has no ongoing seed`() =
+    fun `seed closes every Tantrum event since that case has no ongoing seed`() =
         runTest {
             seeder.seed()
 
-            // Workout is START_STOP with ongoingEventCount 0, so nothing on it should be left open
+            // Tantrum is START_STOP with ongoingEventCount 0, so nothing on it should be left open
             // — a guard that regular START_STOP events still get a real endedAt.
-            val workout = repository.cases.value.single { it.name == "Workout" }
-            assertTrue(repository.events.value.none { it.caseId == workout.id && it.endedAt == null })
+            val tantrum = repository.cases.value.single { it.name == "Tantrum" }
+            assertTrue(repository.events.value.none { it.caseId == tantrum.id && it.endedAt == null })
         }
 
     @Test
