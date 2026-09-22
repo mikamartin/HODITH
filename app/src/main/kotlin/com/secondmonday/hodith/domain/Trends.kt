@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.domain
 
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
@@ -72,6 +73,19 @@ import java.time.LocalDate
  * [TrendReliability.PATTERN] for the same "suppressed, not shown as Hint" reason.
  * [TrendFinding.direction] [ShiftDirection.UP] means the evening mean is higher, `DOWN` means the day
  * mean is; `priorValue`/`recentValue` hold the day-group mean and evening-group mean.
+ *
+ * [TAG_TIMING] (Story C T7) tests whether a tag's own events cluster into one bucket of either the
+ * Rhythm heatmap's [TimeOfDay] dimension or its [DayOfWeek] dimension, beyond the Case's own overall
+ * rhythm there — a categorical clustering question, not a difference-in-means one, so unlike every
+ * other [TrendReliability.PATTERN] kind it doesn't reuse [labelShufflePValue]; it calls
+ * [permutationPValue] directly with its own max-bucket-deviation statistic, the same "no third
+ * bespoke test" precedent [TREND_SLOPE] set for reusing the shared engine with a custom statistic.
+ * Exactly one of [TrendFinding.weekday]/[TrendFinding.timeOfDay] is set, matching which dimension
+ * fired; `priorValue`/`recentValue` hold that one bucket's Case-wide share and the tag's own share
+ * of it (fractions, 0.0-1.0). [TrendFinding.direction] is always [ShiftDirection.UP] — this only
+ * ever tests over-concentration, never under-representation, the same one-directional convention
+ * [WENT_QUIET] uses. Like [TAG_SHARE_SHIFT]/[TAG_OUTCOME], one Case can surface more than one
+ * [TAG_TIMING] finding (one per qualifying tag/dimension pair).
  */
 enum class TrendFindingKind {
     WENT_QUIET,
@@ -84,6 +98,7 @@ enum class TrendFindingKind {
     CHANGE_POINT,
     TREND_SLOPE,
     TIME_OF_DAY_SPLIT,
+    TAG_TIMING,
 }
 
 /**
@@ -112,13 +127,17 @@ enum class TrendReliability {
  * these two values are in. For [TrendFindingKind.TAG_OUTCOME], they hold the without-tag/with-tag
  * group means in [outcome]'s own unit instead; for [TrendFindingKind.TREND_SLOPE], the time-ordered
  * first-half/second-half averages, also in [outcome]'s own unit; for
- * [TrendFindingKind.TIME_OF_DAY_SPLIT], the day-group/evening-group means, same unit convention.
- * [tagName] is set for [TrendFindingKind.TAG_SHARE_SHIFT] and [TrendFindingKind.TAG_OUTCOME] —
- * `null` for every other kind, which isn't about one specific tag. [outcome] is set for
- * [TrendFindingKind.TAG_OUTCOME], [TrendFindingKind.TREND_SLOPE], and
+ * [TrendFindingKind.TIME_OF_DAY_SPLIT], the day-group/evening-group means, same unit convention. For
+ * [TrendFindingKind.TAG_TIMING], the fired bucket's Case-wide share and the tag's own share of it
+ * (fractions, 0.0-1.0).
+ * [tagName] is set for [TrendFindingKind.TAG_SHARE_SHIFT], [TrendFindingKind.TAG_OUTCOME], and
+ * [TrendFindingKind.TAG_TIMING] — `null` for every other kind, which isn't about one specific tag.
+ * [outcome] is set for [TrendFindingKind.TAG_OUTCOME], [TrendFindingKind.TREND_SLOPE], and
  * [TrendFindingKind.TIME_OF_DAY_SPLIT] — `null` for every other kind. [changePointDate] is only set
  * for [TrendFindingKind.CHANGE_POINT] — `null` for every other kind, none of which need a specific
- * calendar date to state their sentence.
+ * calendar date to state their sentence. [weekday]/[timeOfDay] are only set for
+ * [TrendFindingKind.TAG_TIMING] — exactly one of the two, matching which dimension fired; `null` for
+ * every other kind.
  */
 data class TrendFinding(
     val kind: TrendFindingKind,
@@ -130,4 +149,6 @@ data class TrendFinding(
     val tagName: String? = null,
     val outcome: TagOutcome? = null,
     val changePointDate: LocalDate? = null,
+    val weekday: DayOfWeek? = null,
+    val timeOfDay: TimeOfDay? = null,
 )

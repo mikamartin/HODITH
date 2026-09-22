@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.domain
 
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
@@ -154,6 +155,27 @@ data class TimeOfDaySplitResult(
     val direction: ShiftDirection,
     val dayMean: Double,
     val eveningMean: Double,
+    val sampleCount: Int,
+)
+
+/** Spec §10 Trends "tag timing" finding (Story C T7): which calendar dimension a tag's events are tested for clustering in. */
+enum class TagTimingDimension { WEEKDAY, TIME_OF_DAY }
+
+/**
+ * [computeTagTimingFindings]: whether a tag's own events cluster into one bucket of [dimension]
+ * beyond the Case's overall rhythm there. Exactly one of [weekday]/[timeOfDay] is set, matching
+ * [dimension]. [baselineShare]/[taggedShare] are that one bucket's share of the Case's own events
+ * overall vs. the tag's own events (fractions, 0.0-1.0) — like [TagOutcomeResult], a result only
+ * exists once it's already cleared a permutation significance test, so every one is a `Pattern`
+ * finding. [sampleCount] is the tagged-event count the peak bucket was computed from.
+ */
+data class TagTimingResult(
+    val tagName: String,
+    val dimension: TagTimingDimension,
+    val weekday: DayOfWeek? = null,
+    val timeOfDay: TimeOfDay? = null,
+    val baselineShare: Double,
+    val taggedShare: Double,
     val sampleCount: Int,
 )
 

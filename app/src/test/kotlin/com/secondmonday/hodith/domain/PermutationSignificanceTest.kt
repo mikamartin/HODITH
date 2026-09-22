@@ -334,4 +334,61 @@ class PermutationSignificanceTest {
 
         assertNotEquals(trendSlope, timeOfDaySplit)
     }
+
+    // ---- tagTimingSeedFor ----
+
+    @Test
+    fun `tagTimingSeedFor is deterministic for the same inputs`() {
+        val first = tagTimingSeedFor(caseId = 1L, tagName = "focus", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+        val second = tagTimingSeedFor(caseId = 1L, tagName = "focus", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `tagTimingSeedFor differs when caseId differs`() {
+        val first = tagTimingSeedFor(caseId = 1L, tagName = "focus", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+        val second = tagTimingSeedFor(caseId = 2L, tagName = "focus", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `tagTimingSeedFor differs when tagName differs`() {
+        val first = tagTimingSeedFor(caseId = 1L, tagName = "focus", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+        val second = tagTimingSeedFor(caseId = 1L, tagName = "chore", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `tagTimingSeedFor differs when dimension differs`() {
+        val first = tagTimingSeedFor(caseId = 1L, tagName = "focus", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+        val second = tagTimingSeedFor(caseId = 1L, tagName = "focus", dimension = TagTimingDimension.WEEKDAY, sampleCount = 20)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `tagTimingSeedFor differs when sampleCount differs`() {
+        val first = tagTimingSeedFor(caseId = 1L, tagName = "focus", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+        val second = tagTimingSeedFor(caseId = 1L, tagName = "focus", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 21)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `tagTimingSeedFor differs from trendSlopeSeedFor and timeOfDaySplitSeedFor for a colliding shape`() {
+        // tagTimingSeedFor has no outcome to key on, but shares the same caseId/sampleCount shape
+        // with the outcome-keyed seeds -- confirms its own trailing +2 discriminator keeps it from
+        // colliding with trendSlopeSeedFor's +0 / timeOfDaySplitSeedFor's +1 (PermutationSignificance.kt's
+        // own doc comment on the discriminator convention), the same collision class T6's own
+        // trendSlopeSeedFor/timeOfDaySplitSeedFor tests were added to catch.
+        val tagTiming = tagTimingSeedFor(caseId = 1L, tagName = "x", dimension = TagTimingDimension.TIME_OF_DAY, sampleCount = 20)
+        val trendSlope = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+        val timeOfDaySplit = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+
+        assertNotEquals(tagTiming, trendSlope)
+        assertNotEquals(tagTiming, timeOfDaySplit)
+    }
 }

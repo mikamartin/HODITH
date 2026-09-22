@@ -8,6 +8,7 @@ import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 private fun gapStatsOf(pastGaps: List<Long>) =
@@ -481,6 +482,72 @@ class TrendsEngineTest {
         val changePointIndex = findings.indexOfFirst { it.kind == TrendFindingKind.CHANGE_POINT }
         val trendSlopeIndex = findings.indexOfFirst { it.kind == TrendFindingKind.TREND_SLOPE }
         assertTrue(changePointIndex >= 0 && trendSlopeIndex > changePointIndex)
+    }
+
+    private fun tagTimingWeekdayEventsWithTags(): List<EventWithTags> {
+        // epochDay 0 (1970-01-01) is a Thursday; residues of 7 keep every event in a group on the same weekday.
+        val tag = TagEntity(id = 1, name = "focus")
+        val untagged =
+            (0 until 7).flatMap { residue ->
+                (0 until 10).map { i -> EventWithTags(testEvent(occurredAt = millisAt(residue + 7L * i, hour = 12)), emptyList()) }
+            }
+        val tagged =
+            (0 until 30).map { i -> EventWithTags(testEvent(occurredAt = millisAt(7L * (i + 1000), hour = 12)), listOf(tag)) }
+        return untagged + tagged
+    }
+
+    @Test
+    fun `computeTrendFindings reports a tag-timing finding as PATTERN with the tag name and weekday attached`() {
+        val findings =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = tagTimingWeekdayEventsWithTags())
+
+        val finding = findings.single { it.kind == TrendFindingKind.TAG_TIMING }
+        assertEquals("focus", finding.tagName)
+        assertEquals(DayOfWeek.THURSDAY, finding.weekday)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.PATTERN, finding.reliability)
+    }
+
+    private fun tagTimingTimeOfDayEventsWithTags(): List<EventWithTags> {
+        val tag = TagEntity(id = 1, name = "focus")
+        val hours = listOf(9, 14, 19, 1)
+        val untagged =
+            hours.flatMap { hour ->
+                (0 until 20).map { i -> EventWithTags(testEvent(occurredAt = millisAt((i * 4).toLong(), hour = hour)), emptyList()) }
+            }
+        val tagged =
+            (0 until 20).map { i -> EventWithTags(testEvent(occurredAt = millisAt((i * 4 + 1000).toLong(), hour = 19)), listOf(tag)) }
+        return untagged + tagged
+    }
+
+    @Test
+    fun `computeTrendFindings reports a tag-timing finding as PATTERN with the tag name and time-of-day attached`() {
+        val findings =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = tagTimingTimeOfDayEventsWithTags())
+
+        val finding = findings.single { it.kind == TrendFindingKind.TAG_TIMING }
+        assertEquals("focus", finding.tagName)
+        assertEquals(TimeOfDay.EVENING, finding.timeOfDay)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.PATTERN, finding.reliability)
+    }
+
+    @Test
+    fun `computeTrendFindings places the tag-timing finding after time-of-day split`() {
+        val eventsWithTags = timeOfDaySplitEventsWithTags() + tagTimingWeekdayEventsWithTags()
+
+        val findings =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = eventsWithTags,
+                statsShownOutcomes = setOf(TagOutcome.INTENSITY),
+            )
+
+        val timeOfDaySplitIndex = findings.indexOfFirst { it.kind == TrendFindingKind.TIME_OF_DAY_SPLIT }
+        val tagTimingIndex = findings.indexOfFirst { it.kind == TrendFindingKind.TAG_TIMING }
+        assertTrue(timeOfDaySplitIndex >= 0 && tagTimingIndex > timeOfDaySplitIndex)
     }
 
     // ---- capTrendFindings ----

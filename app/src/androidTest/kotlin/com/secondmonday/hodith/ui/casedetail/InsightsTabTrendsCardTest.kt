@@ -24,6 +24,8 @@ import org.junit.Rule
 import org.junit.Test
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
  * Drives the Trends section's cap/reveal guardrail directly against a synthetic
@@ -305,6 +307,54 @@ class InsightsTabTrendsCardTest {
         composeTestRule
             .onNodeWithText(
                 PlainVoice.insightsTimeOfDaySplitSentence(TagOutcome.DURATION, ShiftDirection.DOWN, dayLabel = "45m", eveningLabel = "15m"),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersTagTimingSentence_weekday() {
+        val tagTiming =
+            TrendFinding(
+                kind = TrendFindingKind.TAG_TIMING,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 30,
+                priorValue = 0.40,
+                recentValue = 1.0,
+                tagName = "focus",
+                weekday = DayOfWeek.TUESDAY,
+            )
+        setContent(trends = listOf(tagTiming))
+
+        // Mirrors TrendFindingContent's own bucketPhrase construction (DayOfWeek.getDisplayName(TextStyle.FULL, locale) + "s").
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTagTimingSentence(
+                    "focus",
+                    bucketPhrase = "on ${DayOfWeek.TUESDAY.getDisplayName(TextStyle.FULL, Locale.US)}s",
+                    baselineLabel = "40%",
+                    taggedLabel = "100%",
+                ),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersTagTimingSentence_timeOfDay() {
+        val tagTiming =
+            TrendFinding(
+                kind = TrendFindingKind.TAG_TIMING,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = 20,
+                priorValue = 0.25,
+                recentValue = 0.80,
+                tagName = "focus",
+                timeOfDay = TimeOfDay.EVENING,
+            )
+        setContent(trends = listOf(tagTiming))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTagTimingSentence("focus", bucketPhrase = "in the evening", baselineLabel = "25%", taggedLabel = "80%"),
             ).assertExists()
     }
 }

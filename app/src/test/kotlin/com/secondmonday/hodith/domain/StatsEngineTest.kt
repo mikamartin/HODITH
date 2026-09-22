@@ -933,4 +933,239 @@ class StatsEngineTest {
 
         assertTrue(computeTimeOfDaySplitFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.DURATION)).isEmpty())
     }
+
+    // ---- computeTagTimingFindings ----
+
+    private val focus = TagEntity(id = 2, name = "focus")
+
+    @Test
+    fun `computeTagTimingFindings reports a tag clustering in one time-of-day bucket`() {
+        val hours = listOf(9, 14, 19, 1) // MORNING, AFTERNOON, EVENING, NIGHT
+        val untagged =
+            hours.flatMap { hour ->
+                (0 until 20).map { i -> EventWithTags(eventAtHour((i * 4).toLong(), hour = hour), emptyList()) }
+            }
+        val tagged = (0 until 20).map { i -> EventWithTags(eventAtHour((i * 4 + 1000).toLong(), hour = 19), listOf(focus)) }
+
+        val result = computeTagTimingFindings(untagged + tagged)
+
+        assertEquals(1, result.size)
+        val finding = result.single()
+        assertEquals("focus", finding.tagName)
+        assertEquals(TagTimingDimension.TIME_OF_DAY, finding.dimension)
+        assertEquals(TimeOfDay.EVENING, finding.timeOfDay)
+        assertEquals(0.40, finding.baselineShare, 0.0001)
+        assertEquals(1.0, finding.taggedShare, 0.0001)
+        assertEquals(20, finding.sampleCount)
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty when a tag's time-of-day distribution matches the Case's own rhythm`() {
+        val hours = listOf(9, 14, 19, 1)
+        val untagged =
+            hours.flatMap { hour ->
+                (0 until 20).map { i -> EventWithTags(eventAtHour((i * 4).toLong(), hour = hour), emptyList()) }
+            }
+        val tagged =
+            hours.flatMap { hour ->
+                (0 until 5).map { i -> EventWithTags(eventAtHour((i * 4 + 1000).toLong(), hour = hour), listOf(focus)) }
+            }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).none { it.tagName == "focus" })
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty when the peak deviation doesn't clear the descriptive floor`() {
+        val hours = listOf(9, 14, 19, 1)
+        val untagged =
+            hours.flatMap { hour ->
+                (0 until 20).map { i -> EventWithTags(eventAtHour((i * 4).toLong(), hour = hour), emptyList()) }
+            }
+        val tagged =
+            listOf(19 to 6, 9 to 3, 14 to 3, 1 to 3).flatMap { (hour, count) ->
+                (0 until count).map { i -> EventWithTags(eventAtHour((i * 4 + 1000).toLong(), hour = hour), listOf(focus)) }
+            }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).none { it.tagName == "focus" })
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty when the peak deviation clears the absolute floor but not the relative one`() {
+        // EVENING is already the pool's dominant bucket (baseline share ~0.392) before any tag
+        // involvement; tagging nudges it further (delta ~0.158, clearing TAG_TIMING_MIN_ABSOLUTE_SHARE_DIFFERENCE
+        // on its own), but that's still under 50% relative to the already-high baseline (~0.404
+        // relative), so the dual floor correctly rejects it even though the absolute half alone would pass.
+        val untagged =
+            listOf(9 to 21, 14 to 21, 1 to 22, 19 to 36).flatMap { (hour, count) ->
+                (0 until count).map { i -> EventWithTags(eventAtHour((i * 4).toLong(), hour = hour), emptyList()) }
+            }
+        val tagged =
+            listOf(9 to 3, 14 to 3, 1 to 3, 19 to 11).flatMap { (hour, count) ->
+                (0 until count).map { i -> EventWithTags(eventAtHour((i * 4 + 1000).toLong(), hour = hour), listOf(focus)) }
+            }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).none { it.tagName == "focus" })
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty when the peak deviation clears the relative floor but not the absolute one`() {
+        // EVENING starts as the pool's least-common bucket (baseline share 0.10); tagging doubles the
+        // tag's own share there (relative 1.0, clearing TAG_TIMING_MIN_RELATIVE_SHARE_DIFFERENCE), but
+        // the raw point gain (delta 0.10) stays under TAG_TIMING_MIN_ABSOLUTE_SHARE_DIFFERENCE's 15-point floor.
+        val untagged =
+            listOf(9 to 31, 14 to 31, 1 to 30, 19 to 8).flatMap { (hour, count) ->
+                (0 until count).map { i -> EventWithTags(eventAtHour((i * 4).toLong(), hour = hour), emptyList()) }
+            }
+        val tagged =
+            listOf(9 to 5, 14 to 5, 1 to 6, 19 to 4).flatMap { (hour, count) ->
+                (0 until count).map { i -> EventWithTags(eventAtHour((i * 4 + 1000).toLong(), hour = hour), listOf(focus)) }
+            }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).none { it.tagName == "focus" })
+    }
+
+    @Test
+    fun `computeTagTimingFindings finds nothing for a real but insignificant time-of-day skew`() {
+        // EVENING is already the pool's busiest bucket before any tag involvement (25 of 80 events,
+        // 31% vs a uniform 25%) -- a tagged subset moderately concentrated there (10 of 20, clearing
+        // both descriptive floors on its own) is still the kind of skew random 20-of-80 draws against
+        // this same lopsided pool turn up somewhat often, unlike the single-bucket, ~100%-concentration
+        // planted-clustering test above. Exercises the permutation gate itself, not just the
+        // descriptive floor -- every other null test here fails the floor before permutation runs at all.
+        val hours = listOf(9, 14, 19, 1)
+        val untagged =
+            hours.flatMap { hour ->
+                (0 until 15).map { i -> EventWithTags(eventAtHour((i * 4).toLong(), hour = hour), emptyList()) }
+            }
+        val tagged =
+            listOf(19 to 10, 9 to 4, 14 to 3, 1 to 3).flatMap { (hour, count) ->
+                (0 until count).map { i -> EventWithTags(eventAtHour((i * 4 + 1000).toLong(), hour = hour), listOf(focus)) }
+            }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).none { it.tagName == "focus" })
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty below the minimum tagged sample count for time-of-day, even with a stark effect`() {
+        val hours = listOf(9, 14, 19, 1)
+        val untagged =
+            hours.flatMap { hour ->
+                (0 until 20).map { i -> EventWithTags(eventAtHour((i * 4).toLong(), hour = hour), emptyList()) }
+            }
+        val tagged =
+            (0 until TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_TIME_OF_DAY - 1).map { i ->
+                EventWithTags(eventAtHour((i * 4 + 1000).toLong(), hour = 19), listOf(focus))
+            }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).isEmpty())
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty below the minimum case sample count for time-of-day, even with a stark effect`() {
+        val hours = listOf(9, 14, 19, 1)
+        val untagged =
+            hours.flatMap { hour ->
+                (0 until 2).map { i -> EventWithTags(eventAtHour((i * 4).toLong(), hour = hour), emptyList()) }
+            }
+        val tagged = (0 until 20).map { i -> EventWithTags(eventAtHour((i * 4 + 1000).toLong(), hour = 19), listOf(focus)) }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).isEmpty())
+    }
+
+    @Test
+    fun `computeTagTimingFindings reports a tag clustering on one weekday`() {
+        // epochDay 0 (1970-01-01) is a Thursday; residues of 7 keep every event in a group on the same weekday.
+        val untagged =
+            (0 until 7).flatMap { residue ->
+                (0 until 10).map { i -> EventWithTags(eventAtHour(residue + 7L * i, hour = 12), emptyList()) }
+            }
+        val tagged = (0 until 30).map { i -> EventWithTags(eventAtHour(7L * (i + 1000), hour = 12), listOf(focus)) }
+
+        val result = computeTagTimingFindings(untagged + tagged)
+
+        assertEquals(1, result.size)
+        val finding = result.single()
+        assertEquals("focus", finding.tagName)
+        assertEquals(TagTimingDimension.WEEKDAY, finding.dimension)
+        assertEquals(DayOfWeek.THURSDAY, finding.weekday)
+        assertEquals(0.40, finding.baselineShare, 0.0001)
+        assertEquals(1.0, finding.taggedShare, 0.0001)
+        assertEquals(30, finding.sampleCount)
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty when a tag's weekday distribution matches the Case's own rhythm`() {
+        val untagged =
+            (0 until 7).flatMap { residue ->
+                (0 until 10).map { i -> EventWithTags(eventAtHour(residue + 7L * i, hour = 12), emptyList()) }
+            }
+        val tagged =
+            (0 until 7).flatMap { residue ->
+                (0 until 5).map { i -> EventWithTags(eventAtHour(residue + 7L * (i + 1000), hour = 12), listOf(focus)) }
+            }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).none { it.tagName == "focus" })
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty below the minimum tagged sample count for weekday, even with a stark effect`() {
+        val untagged =
+            (0 until 7).flatMap { residue ->
+                (0 until 10).map { i -> EventWithTags(eventAtHour(residue + 7L * i, hour = 12), emptyList()) }
+            }
+        val tagged =
+            (0 until TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_WEEKDAY - 1).map { i ->
+                EventWithTags(eventAtHour(7L * (i + 1000), hour = 12), listOf(focus))
+            }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).isEmpty())
+    }
+
+    @Test
+    fun `computeTagTimingFindings is empty below the minimum case sample count for weekday, even with a stark effect`() {
+        val untagged =
+            (0 until 7).flatMap { residue ->
+                (0 until 2).map { i -> EventWithTags(eventAtHour(residue + 7L * i, hour = 12), emptyList()) }
+            }
+        val tagged = (0 until 30).map { i -> EventWithTags(eventAtHour(7L * (i + 1000), hour = 12), listOf(focus)) }
+
+        assertTrue(computeTagTimingFindings(untagged + tagged).isEmpty())
+    }
+
+    @Test
+    fun `computeTagTimingFindings orders results by effect size, strongest first`() {
+        val chore = TagEntity(id = 3, name = "chore")
+        val untagged =
+            (0 until 7).flatMap { residue ->
+                (0 until 10).map { i -> EventWithTags(eventAtHour(residue + 7L * i, hour = 12), emptyList()) }
+            }
+        val focusTagged = (0 until 30).map { i -> EventWithTags(eventAtHour(7L * (i + 1000), hour = 12), listOf(focus)) }
+        val choreTagged = (0 until 29).map { i -> EventWithTags(eventAtHour(1 + 7L * (i + 2000), hour = 12), listOf(chore)) }
+
+        val result = computeTagTimingFindings(untagged + focusTagged + choreTagged)
+
+        assertEquals(2, result.size)
+        assertEquals(result.sortedByDescending { it.taggedShare - it.baselineShare }, result)
+    }
+
+    @Test
+    fun `computeTagTimingFindings caps findings at TAG_TIMING_MAX_FINDINGS`() {
+        val chore = TagEntity(id = 3, name = "chore")
+        val solo = TagEntity(id = 4, name = "solo")
+        val extra = TagEntity(id = 5, name = "extra")
+        val untagged =
+            (0 until 7).flatMap { residue ->
+                (0 until 10).map { i -> EventWithTags(eventAtHour(residue + 7L * i, hour = 12), emptyList()) }
+            }
+        val tagged =
+            listOf(focus to 0, chore to 1, solo to 2, extra to 3).flatMap { (tag, residue) ->
+                (0 until 30).map { i ->
+                    EventWithTags(eventAtHour(residue + 7L * (i + 1000 * (residue + 1)), hour = 12), listOf(tag))
+                }
+            }
+
+        val result = computeTagTimingFindings(untagged + tagged)
+
+        assertEquals(TAG_TIMING_MAX_FINDINGS, result.size)
+    }
 }

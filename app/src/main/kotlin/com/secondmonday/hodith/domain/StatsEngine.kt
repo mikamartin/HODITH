@@ -314,6 +314,35 @@ internal const val TIME_OF_DAY_SPLIT_SIGNIFICANCE_ALPHA = 0.05
 internal const val TIME_OF_DAY_SPLIT_PERMUTATION_ITERATIONS = 1000
 
 /**
+ * Spec §10 Trends "tag timing" finding (Story C T7): whether a tag's own events cluster into one
+ * bucket of either [TimeOfDay] (4 buckets) or [java.time.DayOfWeek] (7 buckets) beyond the Case's
+ * overall rhythm there. Each dimension gets its own sample-size floors, tuned to its own bucket
+ * count rather than sharing one: [TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_TIME_OF_DAY] matches
+ * [TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT] (~3.75 events per bucket across 4 buckets);
+ * [TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_WEEKDAY] keeps a slightly denser ~4 events per bucket across 7
+ * buckets, since more buckets means more chances for a spurious peak even after the permutation
+ * test's own look-elsewhere correction. [TAG_TIMING_MIN_CASE_SAMPLE_COUNT_TIME_OF_DAY]/
+ * [TAG_TIMING_MIN_CASE_SAMPLE_COUNT_WEEKDAY] are the Case-wide floors a stable baseline needs, the
+ * same per-bucket density scaled to each dimension's bucket count.
+ * [TAG_TIMING_MIN_ABSOLUTE_SHARE_DIFFERENCE]/[TAG_TIMING_MIN_RELATIVE_SHARE_DIFFERENCE] mirror
+ * [TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION]/[TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION]'s own dual floor —
+ * a share comparison, not a difference in means — so a flat percentage-point bar alone can't be
+ * easier to clear on the 7-bucket weekday split (~14% baseline per bucket) than the 4-bucket
+ * time-of-day split (~25% baseline per bucket). [TAG_TIMING_MAX_FINDINGS] caps this detector's own
+ * findings across every tag and dimension combined, the same way [TAG_OUTCOME_MAX_FINDINGS] caps
+ * its.
+ */
+internal const val TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_TIME_OF_DAY = 15
+internal const val TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_WEEKDAY = 28
+internal const val TAG_TIMING_MIN_CASE_SAMPLE_COUNT_TIME_OF_DAY = 45
+internal const val TAG_TIMING_MIN_CASE_SAMPLE_COUNT_WEEKDAY = 80
+internal const val TAG_TIMING_MIN_ABSOLUTE_SHARE_DIFFERENCE = 0.15
+internal const val TAG_TIMING_MIN_RELATIVE_SHARE_DIFFERENCE = 0.5
+internal const val TAG_TIMING_SIGNIFICANCE_ALPHA = 0.05
+internal const val TAG_TIMING_PERMUTATION_ITERATIONS = 1000
+internal const val TAG_TIMING_MAX_FINDINGS = 3
+
+/**
  * Spec §10 Trends "tag → outcome" finding (Story C T4): whether a tag's events differ from the
  * Case's other events on intensity or duration, backed by a real permutation-significance test
  * rather than a threshold check — the roster's first `Pattern`-capable detector. A (tag, outcome)
@@ -515,4 +544,137 @@ private fun timeOfDaySplitResultFor(
         eveningMean = eveningGroup.average(),
         sampleCount = sampleCount,
     )
+}
+
+/**
+ * Spec §10 Trends "tag timing" finding (Story C T7): one [TagTimingResult] per (tag, dimension) pair
+ * whose peak bucket clusters significantly beyond the Case's overall rhythm there — see
+ * [TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_TIME_OF_DAY]'s doc comment for the feasibility ruling behind
+ * this shape. Results are pooled across both dimensions, ordered by effect size (as
+ * [computeTagOutcomeFindings] orders its own), and capped at [TAG_TIMING_MAX_FINDINGS].
+ */
+internal fun computeTagTimingFindings(eventsWithTags: List<EventWithTags>): List<TagTimingResult> {
+    val caseId = eventsWithTags.firstOrNull()?.event?.caseId ?: return emptyList()
+    val tagNames = eventsWithTags.flatMap { it.tags }.map { it.name }.distinct()
+
+    return tagNames
+        .flatMap { tagName ->
+            TagTimingDimension.entries.mapNotNull { dimension ->
+                tagTimingResultFor(eventsWithTags, caseId, tagName, dimension)
+            }
+        }.sortedByDescending { it.taggedShare - it.baselineShare }
+        .take(TAG_TIMING_MAX_FINDINGS)
+}
+
+/** One (tagName, dimension) candidate: `null` below either sample-size floor, below the descriptive share floor, or when the permutation test isn't significant. */
+private fun tagTimingResultFor(
+    eventsWithTags: List<EventWithTags>,
+    caseId: Long,
+    tagName: String,
+    dimension: TagTimingDimension,
+): TagTimingResult? {
+    val minCaseSampleCount =
+        when (dimension) {
+            TagTimingDimension.WEEKDAY -> TAG_TIMING_MIN_CASE_SAMPLE_COUNT_WEEKDAY
+            TagTimingDimension.TIME_OF_DAY -> TAG_TIMING_MIN_CASE_SAMPLE_COUNT_TIME_OF_DAY
+        }
+    if (eventsWithTags.size < minCaseSampleCount) return null
+
+    val minTaggedSampleCount =
+        when (dimension) {
+            TagTimingDimension.WEEKDAY -> TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_WEEKDAY
+            TagTimingDimension.TIME_OF_DAY -> TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_TIME_OF_DAY
+        }
+    val taggedIndices = eventsWithTags.indices.filter { i -> eventsWithTags[i].tags.any { it.name == tagName } }
+    if (taggedIndices.size < minTaggedSampleCount) return null
+    val taggedSize = taggedIndices.size
+
+    return when (dimension) {
+        TagTimingDimension.WEEKDAY -> {
+            val buckets = eventsWithTags.map { Instant.ofEpochMilli(it.event.occurredAt).atZone(it.event.loggedZone()).dayOfWeek }
+            tagTimingCandidate(DayOfWeek.entries, buckets, taggedIndices, taggedSize, caseId, tagName, dimension)
+                ?.let { (peak, baseline, tagged) ->
+                    TagTimingResult(
+                        tagName,
+                        dimension,
+                        weekday = peak,
+                        baselineShare = baseline,
+                        taggedShare = tagged,
+                        sampleCount = taggedSize,
+                    )
+                }
+        }
+        TagTimingDimension.TIME_OF_DAY -> {
+            val buckets = eventsWithTags.map { timeOfDayFor(Instant.ofEpochMilli(it.event.occurredAt).atZone(it.event.loggedZone()).hour) }
+            tagTimingCandidate(TimeOfDay.entries, buckets, taggedIndices, taggedSize, caseId, tagName, dimension)
+                ?.let { (peak, baseline, tagged) ->
+                    TagTimingResult(
+                        tagName,
+                        dimension,
+                        timeOfDay = peak,
+                        baselineShare = baseline,
+                        taggedShare = tagged,
+                        sampleCount = taggedSize,
+                    )
+                }
+        }
+    }
+}
+
+/**
+ * Shared bucket-share/peak-search/permutation logic across both [TagTimingDimension]s — [B] is
+ * [DayOfWeek] or [TimeOfDay]. The observed statistic is the largest tagged-share-over-baseline-share
+ * gain across [allBuckets] ([maxPositiveDeviation]); the permutation draws a random [taggedSize]-sized
+ * subset of the full (fixed) [buckets] pool and re-takes that same max on every shuffle, so the null
+ * distribution already accounts for the observed statistic being a maximum over several candidate
+ * buckets, not one fixed test — the same look-elsewhere correction [timelineShufflePValue]'s own
+ * CUSUM re-search documents. Returns the peak bucket and its baseline/tagged shares, or `null` below
+ * the descriptive floor or when the permutation test isn't significant.
+ */
+private fun <B> tagTimingCandidate(
+    allBuckets: List<B>,
+    buckets: List<B>,
+    taggedIndices: List<Int>,
+    taggedSize: Int,
+    caseId: Long,
+    tagName: String,
+    dimension: TagTimingDimension,
+): Triple<B, Double, Double>? {
+    val baselineShares = bucketShares(buckets, allBuckets)
+    val taggedShares = bucketShares(taggedIndices.map { buckets[it] }, allBuckets)
+    val peakBucket = allBuckets.maxBy { taggedShares.getValue(it) - baselineShares.getValue(it) }
+    val peakDeviation = taggedShares.getValue(peakBucket) - baselineShares.getValue(peakBucket)
+    if (!clearsShareFloor(peakDeviation, baselineShares.getValue(peakBucket))) return null
+
+    val seed = tagTimingSeedFor(caseId, tagName, dimension, taggedSize)
+    val pValue =
+        permutationPValue(peakDeviation, TAG_TIMING_PERMUTATION_ITERATIONS, seed) { random ->
+            val sampled = buckets.shuffled(random).subList(0, taggedSize)
+            maxPositiveDeviation(bucketShares(sampled, allBuckets), baselineShares, allBuckets)
+        }
+    if (pValue >= TAG_TIMING_SIGNIFICANCE_ALPHA) return null
+
+    return Triple(peakBucket, baselineShares.getValue(peakBucket), taggedShares.getValue(peakBucket))
+}
+
+/** Each of [allBuckets]'s share of [buckets] (fraction, 0.0-1.0, sums to 1.0 across [allBuckets]). */
+private fun <B> bucketShares(
+    buckets: List<B>,
+    allBuckets: List<B>,
+): Map<B, Double> = allBuckets.associateWith { b -> buckets.count { it == b }.toDouble() / buckets.size }
+
+/** Largest bucket-vs-baseline share gain across [allBuckets] — see [tagTimingCandidate]'s doc comment for why the max is re-taken on every permutation shuffle. */
+private fun <B> maxPositiveDeviation(
+    shares: Map<B, Double>,
+    baselineShares: Map<B, Double>,
+    allBuckets: List<B>,
+): Double = allBuckets.maxOf { b -> shares.getValue(b) - baselineShares.getValue(b) }
+
+/** Mirrors [tagShareShiftDirectionFor]'s own dual absolute/relative floor — a share comparison, not a difference in means. */
+private fun clearsShareFloor(
+    delta: Double,
+    baselineShare: Double,
+): Boolean {
+    val fraction = if (baselineShare == 0.0) Double.POSITIVE_INFINITY else delta / baselineShare
+    return delta >= TAG_TIMING_MIN_ABSOLUTE_SHARE_DIFFERENCE && fraction >= TAG_TIMING_MIN_RELATIVE_SHARE_DIFFERENCE
 }

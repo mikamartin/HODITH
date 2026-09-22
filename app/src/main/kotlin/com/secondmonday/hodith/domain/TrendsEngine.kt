@@ -42,6 +42,11 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * already shows) — both are also always [TrendReliability.PATTERN], the first reusing the shared
  * permutation engine directly with its own OLS-slope statistic, the second reusing
  * [labelShufflePValue] as-is with day/evening groups standing in for untagged/tagged.
+ * [computeTagTimingFindings] (Story C T7) is appended last — a categorical clustering test rather
+ * than a difference-in-means one, so like trend slope it calls the shared permutation engine
+ * directly with its own statistic rather than [labelShufflePValue]; not gated on
+ * [statsShownOutcomes], since it's not outcome-typed. Always [TrendReliability.PATTERN] for the same
+ * "suppressed, not shown as Hint" reason as every other permutation-backed detector.
  */
 internal fun computeTrendFindings(
     gapStats: GapStats,
@@ -174,6 +179,20 @@ internal fun computeTrendFindings(
                 priorValue = it.dayMean,
                 recentValue = it.eveningMean,
                 outcome = it.outcome,
+            )
+    }
+    computeTagTimingFindings(eventsWithTags).forEach {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.TAG_TIMING,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.PATTERN,
+                sampleCount = it.sampleCount,
+                priorValue = it.baselineShare,
+                recentValue = it.taggedShare,
+                tagName = it.tagName,
+                weekday = it.weekday,
+                timeOfDay = it.timeOfDay,
             )
     }
     return capTrendFindings(findings)

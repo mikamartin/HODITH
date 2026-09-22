@@ -153,3 +153,26 @@ internal fun timeOfDaySplitSeedFor(
     hash = hash * 31 + 1
     return hash
 }
+
+/**
+ * Deterministic seed for [computeTagTimingFindings]' own direct [permutationPValue] call (Story C
+ * T7), the same rolling-hash shape [permutationSeedFor] uses — keyed on [caseId], [tagName], and
+ * [dimension] (a tag-timing candidate has no outcome, but does have a tag, unlike
+ * [trendSlopeSeedFor]/[timeOfDaySplitSeedFor]) and [sampleCount]. The trailing `+ 2` discriminator
+ * (matching [trendSlopeSeedFor]'s `+ 0` and [timeOfDaySplitSeedFor]'s `+ 1`) keeps a Case whose
+ * weekday and time-of-day candidates for the same tag happen to share a sample count from drawing
+ * the identical permutation shuffle for both.
+ */
+internal fun tagTimingSeedFor(
+    caseId: Long,
+    tagName: String,
+    dimension: TagTimingDimension,
+    sampleCount: Int,
+): Long {
+    var hash = caseId
+    hash = hash * 31 + tagName.hashCode()
+    hash = hash * 31 + dimension.ordinal
+    hash = hash * 31 + sampleCount
+    hash = hash * 31 + 2
+    return hash
+}
