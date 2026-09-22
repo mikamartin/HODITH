@@ -256,4 +256,82 @@ class PermutationSignificanceTest {
 
         assertNotEquals(first, second)
     }
+
+    // ---- trendSlopeSeedFor ----
+
+    @Test
+    fun `trendSlopeSeedFor is deterministic for the same inputs`() {
+        val first = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+        val second = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `trendSlopeSeedFor differs when caseId differs`() {
+        val first = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+        val second = trendSlopeSeedFor(caseId = 2L, outcome = TagOutcome.DURATION, sampleCount = 20)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `trendSlopeSeedFor differs when outcome differs`() {
+        val first = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+        val second = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.INTENSITY, sampleCount = 20)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `trendSlopeSeedFor differs when sampleCount differs`() {
+        val first = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+        val second = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 21)
+
+        assertNotEquals(first, second)
+    }
+
+    // ---- timeOfDaySplitSeedFor ----
+
+    @Test
+    fun `timeOfDaySplitSeedFor is deterministic for the same inputs`() {
+        val first = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 40)
+        val second = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 40)
+
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `timeOfDaySplitSeedFor differs when caseId differs`() {
+        val first = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 40)
+        val second = timeOfDaySplitSeedFor(caseId = 2L, outcome = TagOutcome.DURATION, sampleCount = 40)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `timeOfDaySplitSeedFor differs when outcome differs`() {
+        val first = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 40)
+        val second = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.INTENSITY, sampleCount = 40)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `timeOfDaySplitSeedFor differs when sampleCount differs`() {
+        val first = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 40)
+        val second = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 41)
+
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `trendSlopeSeedFor and timeOfDaySplitSeedFor differ from each other for the same inputs`() {
+        // Otherwise a Case whose trend-slope and time-of-day-split candidates for the same outcome
+        // happen to share a sample count would draw the identical permutation shuffle for both.
+        val trendSlope = trendSlopeSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+        val timeOfDaySplit = timeOfDaySplitSeedFor(caseId = 1L, outcome = TagOutcome.DURATION, sampleCount = 20)
+
+        assertNotEquals(trendSlope, timeOfDaySplit)
+    }
 }

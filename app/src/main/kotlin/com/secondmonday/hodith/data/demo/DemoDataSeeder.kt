@@ -7,9 +7,12 @@ import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.domain.EVENING_START_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
+import com.secondmonday.hodith.domain.MORNING_START_HOUR
+import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
 import kotlin.random.Random
@@ -29,6 +32,22 @@ private const val MAX_TAGS_PER_EVENT = 2
 // draw -- comfortably over both TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT and ...MIN_UNTAGGED_SAMPLE_COUNT
 // (domain, internal) at Migraine's BURSTY event count (~85 events over the full span).
 private const val TAG_OUTCOME_SHOWCASE_CHANCE_PERCENT = 40
+
+// Story C T6 showcase (Tantrum's duration trend/time-of-day split, see [CaseSeed.durationTrendShift]):
+// duration scales linearly across the span from this factor to TANTRUM_DURATION_LATE_FACTOR (a
+// difficult developmental stretch making meltdowns take longer to resolve, roughly doubling --
+// comfortably over TREND_SLOPE_MIN_RELATIVE_DIFFERENCE's 20% floor, domain-internal), and any event
+// whose local hour falls outside [MORNING_START_HOUR, EVENING_START_HOUR) is multiplied again by
+// TANTRUM_EVENING_DURATION_FACTOR (the well-known "witching hour" pattern -- evening tantrums running
+// longer than daytime ones -- comfortably over TIME_OF_DAY_SPLIT_MIN_RELATIVE_DIFFERENCE's 20% floor
+// too). That boundary must match computeTimeOfDaySplitFindings' own day (MORNING+AFTERNOON) vs.
+// evening (EVENING+NIGHT) fold exactly -- reusing the same domain constants rather than a seed-local
+// approximation, since a narrower evening window here (e.g. hour >= 17 alone, missing NIGHT's 0..5
+// wrap) would dilute the two groups' real difference by scattering un-boosted "NIGHT" events into the
+// day group's mean.
+private const val TANTRUM_DURATION_EARLY_FACTOR = 0.7
+private const val TANTRUM_DURATION_LATE_FACTOR = 1.4
+private const val TANTRUM_EVENING_DURATION_FACTOR = 1.5
 
 // Dense enough that at least one demo Case shows a clear recent uptick — exercises the Trend
 // card's UP direction and gives the calendar heatmap/Rhythm grid a busy recent stretch to shade.
@@ -90,6 +109,10 @@ private data class CaseSeed(
     // a null endedAt on a NONE/MANUAL Case would be a data bug, not an ongoing state.
     val ongoingEventCount: Int = 0,
     val tagOutcomeShift: TagOutcomeShiftSeed? = null,
+    // Story C T6 showcase: applies TANTRUM_DURATION_EARLY_FACTOR..LATE_FACTOR's time-based scaling
+    // and TANTRUM_EVENING_DURATION_FACTOR's evening bump to this Case's durations (see endedAtFor).
+    // START_STOP Cases only — a NONE/MANUAL Case never reaches endedAtFor's duration branch at all.
+    val durationTrendShift: Boolean = false,
 )
 
 // Deliberately varied on every axis Big Picture and Case Detail's Insights tab need to exercise:
@@ -150,13 +173,14 @@ private val CASE_SEEDS =
             tags = listOf("at-dinner", "on-the-phone", "resolved", "unresolved"),
         ),
         CaseSeed(
-            name = "Workout",
-            icon = "🏋️",
+            name = "Tantrum",
+            icon = "😭",
             durationMode = DurationMode.START_STOP,
             intensityEnabled = false,
             density = SeedDensity.DENSE,
-            notes = listOf("Leg day", "Easy recovery run", "Skipped cardio", "Felt strong today"),
-            tags = listOf("gym", "home", "cardio", "strength"),
+            notes = listOf("Overtired, probably", "Wrong-color cup incident", "Right before bedtime", "Grocery store meltdown"),
+            tags = listOf("overtired", "hungry", "public", "bedtime"),
+            durationTrendShift = true,
         ),
         CaseSeed(
             name = "Nosebleed",
@@ -232,8 +256,9 @@ class DemoDataSeeder
                             occurredAt,
                             now,
                             random,
-                            durationBoostFactor =
-                                showcaseTag?.durationBoostFactor ?: 1.0,
+                            durationBoostFactor = showcaseTag?.durationBoostFactor ?: 1.0,
+                            durationTrendShift = caseSeed.durationTrendShift,
+                            spanStart = spanStart,
                         )
                     insertSeedEvent(caseId, occurredAt, endedAt, caseSeed, random, forcedTag = showcaseTag?.tagName)
                 }
@@ -374,10 +399,37 @@ private fun endedAtFor(
     spanEnd: Long,
     random: Random,
     durationBoostFactor: Double = 1.0,
+    durationTrendShift: Boolean = false,
+    spanStart: Long = occurredAt,
 ): Long? {
     if (durationMode != DurationMode.START_STOP) return null
-    val duration = (random.nextLong(MIN_DURATION_MILLIS, MAX_DURATION_MILLIS) * durationBoostFactor).toLong()
+    val trendMultiplier = if (durationTrendShift) durationTrendMultiplierFor(occurredAt, spanStart, spanEnd) else 1.0
+    val duration = (random.nextLong(MIN_DURATION_MILLIS, MAX_DURATION_MILLIS) * durationBoostFactor * trendMultiplier).toLong()
     return (occurredAt + duration).coerceAtMost(spanEnd)
+}
+
+/**
+ * Story C T6 showcase (Tantrum, [CaseSeed.durationTrendShift]): [TANTRUM_DURATION_EARLY_FACTOR]..
+ * [TANTRUM_DURATION_LATE_FACTOR] scaled linearly by how far [occurredAt] falls between [spanStart]
+ * and [spanEnd] (a difficult developmental stretch making meltdowns take longer to resolve over
+ * time), times [TANTRUM_EVENING_DURATION_FACTOR] again when [occurredAt]'s own local hour falls
+ * outside [MORNING_START_HOUR]..[EVENING_START_HOUR) (the "witching hour" pattern — evening tantrums
+ * running longer than daytime ones, matching
+ * [com.secondmonday.hodith.domain.computeTimeOfDaySplitFindings]' own day/evening fold exactly) —
+ * the two effects compose independently since occurrence generation doesn't correlate time-of-span
+ * with hour-of-day.
+ */
+private fun durationTrendMultiplierFor(
+    occurredAt: Long,
+    spanStart: Long,
+    spanEnd: Long,
+): Double {
+    val timeFraction = ((occurredAt - spanStart).toDouble() / (spanEnd - spanStart).coerceAtLeast(1)).coerceIn(0.0, 1.0)
+    val trendFactor = TANTRUM_DURATION_EARLY_FACTOR + (TANTRUM_DURATION_LATE_FACTOR - TANTRUM_DURATION_EARLY_FACTOR) * timeFraction
+    val hour = Instant.ofEpochMilli(occurredAt).atZone(ZoneId.systemDefault()).hour
+    val isEvening = hour < MORNING_START_HOUR || hour >= EVENING_START_HOUR
+    val eveningFactor = if (isEvening) TANTRUM_EVENING_DURATION_FACTOR else 1.0
+    return trendFactor * eveningFactor
 }
 
 private fun intensityFor(

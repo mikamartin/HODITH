@@ -785,6 +785,30 @@ private fun TrendFindingContent(
                 )
             evidenceLabel = voice.insightsChangePointEvidenceLabel(finding.sampleCount)
         }
+        TrendFindingKind.TREND_SLOPE -> {
+            // outcome is always set for this kind -- see TrendFinding's KDoc.
+            val outcome = finding.outcome ?: TagOutcome.INTENSITY
+            val (priorLabel, recentLabel) =
+                when (outcome) {
+                    TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
+                    TagOutcome.DURATION ->
+                        formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
+                }
+            sentence = voice.insightsTrendSlopeSentence(outcome, finding.direction, priorLabel, recentLabel)
+            evidenceLabel = voice.insightsTrendSlopeEvidenceLabel(finding.sampleCount)
+        }
+        TrendFindingKind.TIME_OF_DAY_SPLIT -> {
+            // outcome is always set for this kind -- see TrendFinding's KDoc.
+            val outcome = finding.outcome ?: TagOutcome.INTENSITY
+            val (dayLabel, eveningLabel) =
+                when (outcome) {
+                    TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
+                    TagOutcome.DURATION ->
+                        formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
+                }
+            sentence = voice.insightsTimeOfDaySplitSentence(outcome, finding.direction, dayLabel, eveningLabel)
+            evidenceLabel = voice.insightsTimeOfDaySplitEvidenceLabel(finding.sampleCount)
+        }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

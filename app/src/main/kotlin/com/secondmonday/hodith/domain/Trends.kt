@@ -54,6 +54,24 @@ import java.time.LocalDate
  * [FREQUENCY_SHIFT], not a replacement: this measures whether the *typical gap* has shifted, catching
  * slow drift a fixed 30-vs-30-day window can't see, while [FREQUENCY_SHIFT] stays the simple
  * immediate-window signal.
+ *
+ * [TREND_SLOPE] (Story C T6) is a real slope over time in intensity or duration's own per-event
+ * values ([TrendFinding.outcome], the same discriminator [TAG_OUTCOME] uses), backed by a
+ * permutation test on an OLS-slope statistic that reuses the shared engine both [TAG_OUTCOME] and
+ * [CHANGE_POINT] sit on directly, rather than either of their typed wrappers — the T6 feasibility
+ * ruling's "no third bespoke test" call. Like [TAG_OUTCOME]/[CHANGE_POINT], a candidate that misses
+ * significance produces no finding at all, so every kept [TREND_SLOPE] finding is already
+ * [TrendReliability.PATTERN]. `priorValue`/`recentValue` hold the time-ordered first-half/second-half
+ * averages the slope was computed from, in [TrendFinding.outcome]'s own unit — the same "two segment
+ * averages" convention [CHANGE_POINT] uses for gap-days, applied here to intensity/duration.
+ *
+ * [TIME_OF_DAY_SPLIT] (Story C T6, alongside [TREND_SLOPE]) compares the same two outcomes between
+ * day and evening events — [timeOfDayFor]'s four buckets collapsed to two (day:
+ * `MORNING`+`AFTERNOON`, evening: `EVENING`+`NIGHT`), reusing [TAG_OUTCOME]'s own label-shuffle
+ * permutation test as-is (day/evening standing in for untagged/tagged). Also always
+ * [TrendReliability.PATTERN] for the same "suppressed, not shown as Hint" reason.
+ * [TrendFinding.direction] [ShiftDirection.UP] means the evening mean is higher, `DOWN` means the day
+ * mean is; `priorValue`/`recentValue` hold the day-group mean and evening-group mean.
  */
 enum class TrendFindingKind {
     WENT_QUIET,
@@ -64,6 +82,8 @@ enum class TrendFindingKind {
     RECURRENCE_SHAPE,
     TAG_OUTCOME,
     CHANGE_POINT,
+    TREND_SLOPE,
+    TIME_OF_DAY_SPLIT,
 }
 
 /**
@@ -90,11 +110,15 @@ enum class TrendReliability {
  * [TrendFindingKind.TAG_SHARE_SHIFT] (from [TagShareShiftResult]'s `priorShare`/`recentShare`). The
  * UI already dispatches on [kind] to pick the matching Voice sentence, so it also knows which unit
  * these two values are in. For [TrendFindingKind.TAG_OUTCOME], they hold the without-tag/with-tag
- * group means in [outcome]'s own unit instead. [tagName] is set for [TrendFindingKind.TAG_SHARE_SHIFT]
- * and [TrendFindingKind.TAG_OUTCOME] — `null` for every other kind, which isn't about one specific
- * tag. [outcome] is only set for [TrendFindingKind.TAG_OUTCOME] — `null` for every other kind.
- * [changePointDate] is only set for [TrendFindingKind.CHANGE_POINT] — `null` for every other kind,
- * none of which need a specific calendar date to state their sentence.
+ * group means in [outcome]'s own unit instead; for [TrendFindingKind.TREND_SLOPE], the time-ordered
+ * first-half/second-half averages, also in [outcome]'s own unit; for
+ * [TrendFindingKind.TIME_OF_DAY_SPLIT], the day-group/evening-group means, same unit convention.
+ * [tagName] is set for [TrendFindingKind.TAG_SHARE_SHIFT] and [TrendFindingKind.TAG_OUTCOME] —
+ * `null` for every other kind, which isn't about one specific tag. [outcome] is set for
+ * [TrendFindingKind.TAG_OUTCOME], [TrendFindingKind.TREND_SLOPE], and
+ * [TrendFindingKind.TIME_OF_DAY_SPLIT] — `null` for every other kind. [changePointDate] is only set
+ * for [TrendFindingKind.CHANGE_POINT] — `null` for every other kind, none of which need a specific
+ * calendar date to state their sentence.
  */
 data class TrendFinding(
     val kind: TrendFindingKind,

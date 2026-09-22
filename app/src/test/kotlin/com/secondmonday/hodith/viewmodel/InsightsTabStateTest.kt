@@ -5,8 +5,11 @@ import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TREND_SLOPE_MIN_SAMPLE_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
+import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFindingKind
@@ -552,6 +555,63 @@ class InsightsTabStateTest {
             ) as InsightsTabState.Ready
 
         assertTrue(state.stats.trends.none { it.kind == TrendFindingKind.WENT_QUIET })
+    }
+
+    @Test
+    fun `stats trends reports a trend-slope finding only for the outcome whose stat card is shown`() {
+        // intensityEnabled is false, so the intensity stat card is hidden -- but every event below
+        // still carries a real, stark early-low/late-high intensity value (case.intensityEnabled has
+        // no bearing on outcomeValueFor, which reads event.intensity directly), enough to clear
+        // TREND_SLOPE_MIN_SAMPLE_COUNT and the significance test on its own. This isolates
+        // statsSections()'s own `statsShownOutcomes` wiring from computeTrendSlopeFindings' separate
+        // per-event null filtering: only the wiring gate stands between this data and an INTENSITY
+        // finding, so a broken/omitted gate would leak one through here even though every StatsEngineTest
+        // detector-level test would still pass.
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP, intensityEnabled = false)
+        val count = TREND_SLOPE_MIN_SAMPLE_COUNT + 8
+        val mid = count / 2
+        val events =
+            (0 until count).map { day ->
+                val occurredAt = millisAtDay(day.toLong())
+                val intensity = if (day < mid) 1 else 5
+                val minutes = if (day < mid) 30L else 90L
+                testEvent(occurredAt = occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE, intensity = intensity)
+            }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(count + 5L)) as InsightsTabState.Ready
+
+        val trendSlopeOutcomes =
+            state.stats.trends
+                .filter { it.kind == TrendFindingKind.TREND_SLOPE }
+                .map { it.outcome }
+        assertEquals(listOf(TagOutcome.DURATION), trendSlopeOutcomes)
+    }
+
+    @Test
+    fun `stats trends only reports a trend-slope finding for intensity when duration isn't tracked, even with real endedAt data present`() {
+        // The mirror of the case above: durationMode is NONE, so the duration stat card is hidden --
+        // but every event still carries a real endedAt (outcomeValueFor(DURATION) reads it directly,
+        // independent of durationMode) forming an equally stark slope. Pins the gate's other
+        // direction, since a bug that swapped which null-check guards which outcome would pass the
+        // test above but fail this one.
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE, intensityEnabled = true)
+        val count = TREND_SLOPE_MIN_SAMPLE_COUNT + 8
+        val mid = count / 2
+        val events =
+            (0 until count).map { day ->
+                val occurredAt = millisAtDay(day.toLong())
+                val intensity = if (day < mid) 1 else 5
+                val minutes = if (day < mid) 30L else 90L
+                testEvent(occurredAt = occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE, intensity = intensity)
+            }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(count + 5L)) as InsightsTabState.Ready
+
+        val trendSlopeOutcomes =
+            state.stats.trends
+                .filter { it.kind == TrendFindingKind.TREND_SLOPE }
+                .map { it.outcome }
+        assertEquals(listOf(TagOutcome.INTENSITY), trendSlopeOutcomes)
     }
 
     // ---- stats.gaps streak fields / stats.trend gating ----

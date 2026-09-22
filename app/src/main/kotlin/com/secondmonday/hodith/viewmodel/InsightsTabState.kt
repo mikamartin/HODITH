@@ -12,6 +12,7 @@ import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
 import com.secondmonday.hodith.domain.QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
+import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFinding
@@ -331,6 +332,14 @@ private fun statsSections(
                 recentlyActiveElsewhere =
                     mostRecentActivityAcrossCasesAt != null &&
                         daysBetween(mostRecentActivityAcrossCasesAt, now, zone) <= QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS,
+                // Story C T6: only an outcome whose stat card is already shown is eligible for a
+                // trend-slope/time-of-day-split finding -- `duration`/`intensity` above are the same
+                // gated values the cards themselves render from.
+                statsShownOutcomes =
+                    setOfNotNull(
+                        TagOutcome.INTENSITY.takeIf { intensity != null },
+                        TagOutcome.DURATION.takeIf { duration != null },
+                    ),
             ),
     )
 }

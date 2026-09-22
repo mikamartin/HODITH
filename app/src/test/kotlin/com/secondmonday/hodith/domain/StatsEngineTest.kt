@@ -4,6 +4,7 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.testsupport.TEST_ZONE
+import com.secondmonday.hodith.testsupport.millisAt
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
@@ -739,5 +740,197 @@ class StatsEngineTest {
         assertEquals(2, result.size)
         assertEquals(setOf(TagOutcome.INTENSITY, TagOutcome.DURATION), result.map { it.outcome }.toSet())
         assertTrue(result.all { it.tagName == "aura" })
+    }
+
+    // ---- computeTrendSlopeFindings ----
+
+    /** A time-ordered step: the first half of [count] events at [earlyIntensity], the second half at [lateIntensity]. */
+    private fun intensitySlopeEventsWithTags(
+        earlyIntensity: Int,
+        lateIntensity: Int,
+        count: Int = TREND_SLOPE_MIN_SAMPLE_COUNT + 8,
+    ): List<EventWithTags> {
+        val mid = count / 2
+        return (0 until count).map { day ->
+            val intensity = if (day < mid) earlyIntensity else lateIntensity
+            EventWithTags(eventAt(millisAtDay(day.toLong()), intensity = intensity), emptyList())
+        }
+    }
+
+    @Test
+    fun `computeTrendSlopeFindings reports a strong upward intensity slope as significant`() {
+        val eventsWithTags = intensitySlopeEventsWithTags(earlyIntensity = 1, lateIntensity = 5)
+
+        val result = computeTrendSlopeFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.INTENSITY))
+
+        assertEquals(1, result.size)
+        val finding = result.single()
+        assertEquals(TagOutcome.INTENSITY, finding.outcome)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(1.0, finding.priorValue, 0.0001)
+        assertEquals(5.0, finding.recentValue, 0.0001)
+        assertEquals(eventsWithTags.size, finding.sampleCount)
+    }
+
+    @Test
+    fun `computeTrendSlopeFindings reports a DOWN direction when intensity falls over time`() {
+        val eventsWithTags = intensitySlopeEventsWithTags(earlyIntensity = 5, lateIntensity = 1)
+
+        val finding = computeTrendSlopeFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.INTENSITY)).single()
+
+        assertEquals(ShiftDirection.DOWN, finding.direction)
+    }
+
+    @Test
+    fun `computeTrendSlopeFindings is empty below the minimum sample count, even with a stark slope`() {
+        val eventsWithTags =
+            intensitySlopeEventsWithTags(earlyIntensity = 1, lateIntensity = 5, count = TREND_SLOPE_MIN_SAMPLE_COUNT - 1)
+
+        assertTrue(computeTrendSlopeFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.INTENSITY)).isEmpty())
+    }
+
+    @Test
+    fun `computeTrendSlopeFindings is empty when intensity stays flat over time`() {
+        val eventsWithTags = intensitySlopeEventsWithTags(earlyIntensity = 3, lateIntensity = 3)
+
+        assertTrue(computeTrendSlopeFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.INTENSITY)).isEmpty())
+    }
+
+    @Test
+    fun `computeTrendSlopeFindings suppresses an outcome not in eligibleOutcomes`() {
+        val eventsWithTags = intensitySlopeEventsWithTags(earlyIntensity = 1, lateIntensity = 5)
+
+        assertTrue(computeTrendSlopeFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.DURATION)).isEmpty())
+    }
+
+    @Test
+    fun `computeTrendSlopeFindings can report both an intensity and a duration slope at once`() {
+        val count = TREND_SLOPE_MIN_SAMPLE_COUNT + 8
+        val mid = count / 2
+        val eventsWithTags =
+            (0 until count).map { day ->
+                val occurredAt = millisAtDay(day.toLong())
+                val intensity = if (day < mid) 1 else 5
+                val minutes = if (day < mid) 30L else 90L
+                EventWithTags(eventAt(occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE, intensity = intensity), emptyList())
+            }
+
+        val result = computeTrendSlopeFindings(eventsWithTags, eligibleOutcomes = TagOutcome.entries.toSet())
+
+        assertEquals(2, result.size)
+        assertEquals(setOf(TagOutcome.INTENSITY, TagOutcome.DURATION), result.map { it.outcome }.toSet())
+    }
+
+    @Test
+    fun `computeTrendSlopeFindings excludes events with no recorded intensity from the series`() {
+        val count = TREND_SLOPE_MIN_SAMPLE_COUNT + 8
+        val mid = count / 2
+        val slopeEvents =
+            (0 until count).map { day ->
+                val intensity = if (day < mid) 1 else 5
+                EventWithTags(eventAt(millisAtDay(day.toLong()), intensity = intensity), emptyList())
+            }
+        val noIntensityEvents =
+            (100 until 105).map { day -> EventWithTags(eventAt(millisAtDay(day.toLong()), intensity = null), emptyList()) }
+
+        val finding = computeTrendSlopeFindings(slopeEvents + noIntensityEvents, eligibleOutcomes = setOf(TagOutcome.INTENSITY)).single()
+
+        assertEquals(count, finding.sampleCount)
+    }
+
+    // ---- computeTimeOfDaySplitFindings ----
+
+    private fun eventAtHour(
+        day: Long,
+        hour: Int,
+        intensity: Int? = null,
+    ) = eventAt(millisAt(day, hour), intensity = intensity)
+
+    /**
+     * [dayCount] events at [hour] 9 (MORNING) with [dayIntensity], [eveningCount] events at hour 19
+     * (EVENING) with [eveningIntensity] — spread across distinct days so no two events land at the
+     * exact same instant.
+     */
+    private fun timeOfDaySplitEventsWithTags(
+        dayIntensity: Int,
+        eveningIntensity: Int,
+        dayCount: Int = TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT + 5,
+        eveningCount: Int = TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT + 5,
+    ): List<EventWithTags> {
+        val dayEvents =
+            (0 until dayCount).map { i ->
+                EventWithTags(eventAtHour(i.toLong(), hour = 9, intensity = dayIntensity), emptyList())
+            }
+        val eveningEvents =
+            (0 until eveningCount).map { i ->
+                EventWithTags(eventAtHour((i + 1000).toLong(), hour = 19, intensity = eveningIntensity), emptyList())
+            }
+        return dayEvents + eveningEvents
+    }
+
+    @Test
+    fun `computeTimeOfDaySplitFindings reports evening running more intense than day`() {
+        val eventsWithTags = timeOfDaySplitEventsWithTags(dayIntensity = 1, eveningIntensity = 5)
+
+        val result = computeTimeOfDaySplitFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.INTENSITY))
+
+        assertEquals(1, result.size)
+        val finding = result.single()
+        assertEquals(TagOutcome.INTENSITY, finding.outcome)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(1.0, finding.dayMean, 0.0001)
+        assertEquals(5.0, finding.eveningMean, 0.0001)
+        assertEquals(eventsWithTags.size, finding.sampleCount)
+    }
+
+    @Test
+    fun `computeTimeOfDaySplitFindings reports a DOWN direction when day events run more intense`() {
+        val eventsWithTags = timeOfDaySplitEventsWithTags(dayIntensity = 5, eveningIntensity = 1)
+
+        val finding = computeTimeOfDaySplitFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.INTENSITY)).single()
+
+        assertEquals(ShiftDirection.DOWN, finding.direction)
+    }
+
+    @Test
+    fun `computeTimeOfDaySplitFindings folds NIGHT hours into the evening group, not the day group`() {
+        val dayCount = TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT + 5
+        val nightCount = TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT + 5
+        val dayEvents = (0 until dayCount).map { i -> EventWithTags(eventAtHour(i.toLong(), hour = 10, intensity = 1), emptyList()) }
+        val nightEvents =
+            (0 until nightCount).map { i -> EventWithTags(eventAtHour((i + 1000).toLong(), hour = 1, intensity = 5), emptyList()) }
+
+        val finding =
+            computeTimeOfDaySplitFindings(dayEvents + nightEvents, eligibleOutcomes = setOf(TagOutcome.INTENSITY)).single()
+
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(1.0, finding.dayMean, 0.0001)
+        assertEquals(5.0, finding.eveningMean, 0.0001)
+    }
+
+    @Test
+    fun `computeTimeOfDaySplitFindings is empty when either group is below the minimum group sample count`() {
+        val eventsWithTags =
+            timeOfDaySplitEventsWithTags(
+                dayIntensity = 1,
+                eveningIntensity = 5,
+                eveningCount = TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT - 1,
+            )
+
+        assertTrue(computeTimeOfDaySplitFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.INTENSITY)).isEmpty())
+    }
+
+    @Test
+    fun `computeTimeOfDaySplitFindings is empty when day and evening intensity don't differ`() {
+        val eventsWithTags = timeOfDaySplitEventsWithTags(dayIntensity = 3, eveningIntensity = 3)
+
+        assertTrue(computeTimeOfDaySplitFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.INTENSITY)).isEmpty())
+    }
+
+    @Test
+    fun `computeTimeOfDaySplitFindings suppresses an outcome not in eligibleOutcomes`() {
+        val eventsWithTags = timeOfDaySplitEventsWithTags(dayIntensity = 1, eveningIntensity = 5)
+
+        assertTrue(computeTimeOfDaySplitFindings(eventsWithTags, eligibleOutcomes = setOf(TagOutcome.DURATION)).isEmpty())
     }
 }

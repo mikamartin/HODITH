@@ -514,6 +514,42 @@ interface Voice {
     /** As [insightsGapShiftEvidenceLabel], for the change-point finding row. */
     fun insightsChangePointEvidenceLabel(sampleCount: Int): String
 
+    /**
+     * Spec §10 Trends "trend slope" finding (Story C T6): [outcome] (intensity or duration) has a
+     * real slope over the Case's own history — [direction] [ShiftDirection.UP] means it's climbing
+     * (running more intense, or longer), [ShiftDirection.DOWN] means it's easing (less intense, or
+     * shorter). [priorLabel]/[recentLabel] are the time-ordered first-half/second-half averages
+     * (already formatted, in [outcome]'s own unit). Like [insightsTagOutcomeSentence], this describes
+     * an effect already tested for significance — "tends to," never "causes."
+     */
+    fun insightsTrendSlopeSentence(
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        priorLabel: String,
+        recentLabel: String,
+    ): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the trend-slope finding row. */
+    fun insightsTrendSlopeEvidenceLabel(sampleCount: Int): String
+
+    /**
+     * Spec §10 Trends "time-of-day split" finding (Story C T6): [outcome] (intensity or duration)
+     * differs between day and evening events — [direction] [ShiftDirection.UP] means evening events
+     * run higher/longer, [ShiftDirection.DOWN] means day events do. [dayLabel]/[eveningLabel] are the
+     * two group means (already formatted, in [outcome]'s own unit). Both directions need their own
+     * wording — this isn't only ever "evenings are worse." Like [insightsTagOutcomeSentence], this
+     * describes an effect already tested for significance — "tends to," never "causes."
+     */
+    fun insightsTimeOfDaySplitSentence(
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        dayLabel: String,
+        eveningLabel: String,
+    ): String
+
+    /** As [insightsGapShiftEvidenceLabel], for the time-of-day-split finding row. */
+    fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int): String
+
     /** Duration stat-row labels — structural, identical across all three voices. */
     val insightsDurationAverageLabel: String get() = "Average"
     val insightsDurationLongestLabel: String get() = "Longest"
@@ -1221,6 +1257,46 @@ object PlainVoice : Voice {
 
     override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
 
+    override fun insightsTrendSlopeSentence(
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        priorLabel: String,
+        recentLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP -> "Intensity has been climbing, averaging $recentLabel lately vs $priorLabel earlier."
+                ShiftDirection.DOWN -> "Intensity has been easing, averaging $recentLabel lately vs $priorLabel earlier."
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP -> "Episodes have been running longer, averaging $recentLabel lately vs $priorLabel earlier."
+                ShiftDirection.DOWN -> "Episodes have been running shorter, averaging $recentLabel lately vs $priorLabel earlier."
+            }
+    }
+
+    override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
+
+    override fun insightsTimeOfDaySplitSentence(
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        dayLabel: String,
+        eveningLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP -> "Evening events tend to run more intense, averaging $eveningLabel vs $dayLabel during the day."
+                ShiftDirection.DOWN -> "Daytime events tend to run more intense, averaging $dayLabel vs $eveningLabel in the evening."
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP -> "Evening events tend to last longer, averaging $eveningLabel vs $dayLabel during the day."
+                ShiftDirection.DOWN -> "Daytime events tend to last longer, averaging $dayLabel vs $eveningLabel in the evening."
+            }
+    }
+
+    override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
+
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
         "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
@@ -1883,6 +1959,46 @@ object IntenseVoice : Voice {
 
     override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount gaps."
 
+    override fun insightsTrendSlopeSentence(
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        priorLabel: String,
+        recentLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP -> "It's been cutting deeper lately, averaging $recentLabel against $priorLabel before."
+                ShiftDirection.DOWN -> "It's been cutting less deep lately, averaging $recentLabel against $priorLabel before."
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP -> "It's been lingering longer lately, averaging $recentLabel against $priorLabel before."
+                ShiftDirection.DOWN -> "It's been passing quicker lately, averaging $recentLabel against $priorLabel before."
+            }
+    }
+
+    override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+
+    override fun insightsTimeOfDaySplitSentence(
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        dayLabel: String,
+        eveningLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP -> "The evening hits harder, $eveningLabel against $dayLabel by day."
+                ShiftDirection.DOWN -> "The day hits harder, $dayLabel against $eveningLabel by evening."
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP -> "The evening lingers longer, $eveningLabel against $dayLabel by day."
+                ShiftDirection.DOWN -> "The day lingers longer, $dayLabel against $eveningLabel by evening."
+            }
+    }
+
+    override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
         "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
@@ -2530,6 +2646,46 @@ object BrightVoice : Voice {
     }
 
     override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
+
+    override fun insightsTrendSlopeSentence(
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        priorLabel: String,
+        recentLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP -> "Intensity's been climbing, averaging $recentLabel lately vs $priorLabel before!"
+                ShiftDirection.DOWN -> "Intensity's been easing up, averaging $recentLabel lately vs $priorLabel before!"
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP -> "Episodes have been running longer, averaging $recentLabel lately vs $priorLabel before!"
+                ShiftDirection.DOWN -> "Episodes have been wrapping up faster, averaging $recentLabel lately vs $priorLabel before!"
+            }
+    }
+
+    override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
+
+    override fun insightsTimeOfDaySplitSentence(
+        outcome: TagOutcome,
+        direction: ShiftDirection,
+        dayLabel: String,
+        eveningLabel: String,
+    ) = when (outcome) {
+        TagOutcome.INTENSITY ->
+            when (direction) {
+                ShiftDirection.UP -> "Evenings hit harder, averaging $eveningLabel vs $dayLabel by day!"
+                ShiftDirection.DOWN -> "Days hit harder, averaging $dayLabel vs $eveningLabel by evening!"
+            }
+        TagOutcome.DURATION ->
+            when (direction) {
+                ShiftDirection.UP -> "Evenings stick around longer, averaging $eveningLabel vs $dayLabel by day!"
+                ShiftDirection.DOWN -> "Days stick around longer, averaging $dayLabel vs $eveningLabel by evening!"
+            }
+    }
+
+    override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =

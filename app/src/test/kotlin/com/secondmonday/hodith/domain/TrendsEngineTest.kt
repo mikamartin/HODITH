@@ -2,6 +2,7 @@ package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.testsupport.millisAt
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
@@ -370,6 +371,116 @@ class TrendsEngineTest {
             listOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.CHANGE_POINT),
             findings.map { it.kind },
         )
+    }
+
+    // ---- computeTrendFindings: trend slope / time-of-day split ----
+
+    // A stark, time-ordered step in intensity -- the same shape StatsEngineTest's
+    // intensitySlopeEventsWithTags uses -- spread across a date range with no gap-shift structure
+    // (a single gap length throughout) so this detector's own finding isn't entangled with others.
+    private fun trendSlopeEventsWithTags(): List<EventWithTags> {
+        val count = TREND_SLOPE_MIN_SAMPLE_COUNT + 8
+        val mid = count / 2
+        return (0 until count).map { day ->
+            val intensity = if (day < mid) 1 else 5
+            EventWithTags(testEvent(occurredAt = millisAtDay(day.toLong()), intensity = intensity), emptyList())
+        }
+    }
+
+    @Test
+    fun `computeTrendFindings reports a trend-slope finding as PATTERN with the outcome attached when eligible`() {
+        val findings =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = trendSlopeEventsWithTags(),
+                statsShownOutcomes = setOf(TagOutcome.INTENSITY),
+            )
+
+        val finding = findings.single { it.kind == TrendFindingKind.TREND_SLOPE }
+        assertEquals(TagOutcome.INTENSITY, finding.outcome)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.PATTERN, finding.reliability)
+    }
+
+    @Test
+    fun `computeTrendFindings suppresses a trend-slope finding when its outcome isn't in statsShownOutcomes`() {
+        val findings =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = trendSlopeEventsWithTags(),
+                statsShownOutcomes = setOf(TagOutcome.DURATION),
+            )
+
+        assertTrue(findings.none { it.kind == TrendFindingKind.TREND_SLOPE })
+    }
+
+    @Test
+    fun `computeTrendFindings omits trend-slope and time-of-day-split findings when statsShownOutcomes is omitted`() {
+        val findings =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = trendSlopeEventsWithTags())
+
+        assertTrue(findings.none { it.kind == TrendFindingKind.TREND_SLOPE || it.kind == TrendFindingKind.TIME_OF_DAY_SPLIT })
+    }
+
+    private fun timeOfDaySplitEventsWithTags(): List<EventWithTags> {
+        val groupCount = TIME_OF_DAY_SPLIT_MIN_GROUP_SAMPLE_COUNT + 5
+        val dayEvents =
+            (0 until groupCount).map { i ->
+                EventWithTags(testEvent(occurredAt = millisAt(i.toLong(), hour = 9), intensity = 1), emptyList())
+            }
+        val eveningEvents =
+            (0 until groupCount).map { i ->
+                EventWithTags(testEvent(occurredAt = millisAt((i + 1000).toLong(), hour = 19), intensity = 5), emptyList())
+            }
+        return dayEvents + eveningEvents
+    }
+
+    @Test
+    fun `computeTrendFindings reports a time-of-day-split finding as PATTERN with the outcome attached`() {
+        val findings =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = timeOfDaySplitEventsWithTags(),
+                statsShownOutcomes = setOf(TagOutcome.INTENSITY),
+            )
+
+        val finding = findings.single { it.kind == TrendFindingKind.TIME_OF_DAY_SPLIT }
+        assertEquals(TagOutcome.INTENSITY, finding.outcome)
+        assertEquals(ShiftDirection.UP, finding.direction)
+        assertEquals(TrendReliability.PATTERN, finding.reliability)
+    }
+
+    @Test
+    fun `computeTrendFindings places trend-slope and time-of-day-split findings after change point`() {
+        // Reuses changePointDays' own planted gap-shift shape (unrelated to intensity) so
+        // computeChangePoint's gapStats/eventsWithTags correspondence still holds, and additionally
+        // splits those same events' intensity early-low/late-high so computeTrendSlopeFindings fires
+        // too -- two orthogonal signals over the same 22 events, both expected to co-occur.
+        val eventsWithTags =
+            changePointDays.mapIndexed { index, day ->
+                val intensity = if (index < changePointDays.size / 2) 1 else 5
+                EventWithTags(testEvent(occurredAt = millisAtDay(day), intensity = intensity), emptyList())
+            }
+        val gapStats = changePointGapStats(eventsWithTags)
+
+        val findings =
+            computeTrendFindings(
+                gapStats,
+                activeDates = emptyList(),
+                trendStats = null,
+                eventsWithTags = eventsWithTags,
+                statsShownOutcomes = setOf(TagOutcome.INTENSITY),
+            )
+
+        val changePointIndex = findings.indexOfFirst { it.kind == TrendFindingKind.CHANGE_POINT }
+        val trendSlopeIndex = findings.indexOfFirst { it.kind == TrendFindingKind.TREND_SLOPE }
+        assertTrue(changePointIndex >= 0 && trendSlopeIndex > changePointIndex)
     }
 
     // ---- capTrendFindings ----
