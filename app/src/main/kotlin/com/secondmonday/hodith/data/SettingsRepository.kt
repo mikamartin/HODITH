@@ -39,4 +39,9 @@ interface SettingsRepository {
     fun observeBigPictureDetail(): Flow<BigPictureDetail>
 
     suspend fun setBigPictureDetail(detail: BigPictureDetail)
+
+    /** Case Detail's Log tab sort order (spec §6). Default [LogSortOrder.BY_START]. */
+    fun observeLogSortOrder(): Flow<LogSortOrder>
+
+    suspend fun setLogSortOrder(order: LogSortOrder)
 }

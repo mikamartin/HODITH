@@ -23,6 +23,7 @@ import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
@@ -324,6 +325,37 @@ class CaseDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).performClick()
 
         assertEquals(LogSortOrder.BY_END, changedTo)
+    }
+
+    @Test
+    fun logSortLabel_textHeight_matchesEventRowPrimaryLineHeight() {
+        // Regression guard for PROGRESS.md's "sort row is oversized" report: the sort label and the
+        // log rows below it should now share the same text style (bodyLarge), so their rendered
+        // text heights match rather than the sort row reading visually heavier.
+        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+        setCaseDetailScreenContent(
+            case = startStopCase,
+            events = listOf(EventWithTags(event = finished, tags = emptyList())),
+        )
+
+        // useUnmergedTree: EventRow's outer Row is clickable, which merges its children's semantics
+        // into one node by default — without it, the time text's own bounds would come back as the
+        // whole row's (both lines + padding), not just its own line.
+        val sortLabelHeight =
+            composeTestRule
+                .onNodeWithText(PlainVoice.logSortLabel, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot.height
+        val eventTimeHeight =
+            composeTestRule
+                .onNodeWithText(
+                    formatEventTime(finished.occurredAt, 10_000L, use24Hour = false, zone = finished.loggedZone()),
+                    substring = true,
+                    useUnmergedTree = true,
+                ).fetchSemanticsNode()
+                .boundsInRoot.height
+
+        assertEquals(eventTimeHeight, sortLabelHeight, 0.5f)
     }
 
     @Test
