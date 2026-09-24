@@ -79,7 +79,7 @@ No cross-dependencies — pick by appetite. Grouped by area below; items are ide
 
 *Branch: `feat/insights-trends-share` · Complexity: S–M · Priority: Low · Area: Share*
 
-🎨 **Design decision** — whether Trends belongs on Square once B1 settles its fixed section list, and how many findings a card has room for. Also whether `WENT_QUIET` belongs on a share card at all — it's a live-state read on the Case right now, not a historical shift like the other detectors, and may read oddly out of context. If kept, consider a generation timestamp on the card, since a `WENT_QUIET` sentence is only true at the moment the card was made. See also "Insights Trends: hide other findings behind a link when a Case has gone quiet" below — both turn on `WENT_QUIET`'s special status.
+🎨 **Design decision** — whether Trends belongs on Square once B1 settles its fixed section list, and how many findings a card has room for. Also whether `WENT_QUIET` belongs on a share card at all — it's a live-state read on the Case right now, not a historical shift like the other detectors, and may read oddly out of context. If kept, consider a generation timestamp on the card, since a `WENT_QUIET` sentence is only true at the moment the card was made.
 
 The Insights tab already folded its Trend arrow card into the Trends section — `TrendFindingKind.FREQUENCY_SHIFT` is one more finding in `stats.trends`. The Share card still uses the old path: `ShareCardState.trend`/`TrendDisplay`/`ShareCardTemplate.kt`'s `MiniTrendSection`, sourced from `StatsSections.trend`. This item swaps Share over to real Trends findings and retires the old path.
 
@@ -273,22 +273,6 @@ Normalize event notes, count repeated phrases, and offer a tag when one repeats 
 - [ ] Verified across locales with longer short-month names, not just English.
 
 **Tests** — a Compose test asserting tick labels render without ellipsis at an increased font scale.
-
-### Insights Trends: hide other findings behind a link when a Case has gone quiet
-
-*Branch: `feat/trends-went-quiet-declutter` · Complexity: S · Priority: Medium · Area: Insights*
-
-`TrendsCard` (`InsightsTab.kt` 670-687) shows up to `TRENDS_DEFAULT_VISIBLE_COUNT` (3) findings inline, with a link to the full list (`TrendsListScreen`, already shipped) once there are more. `WENT_QUIET` is always prepended first when present (`TrendsEngine.kt` 66-77) — a live-state read on the Case, not a shift across history like the other detectors. When it leads, showing it alongside up to two unrelated shift findings crowds the card. Change: when `WENT_QUIET` leads, show only it inline plus the link to the full list, instead of the first 3.
-
-Relates to the open question in "Replace the share card's old trend arrow..." about whether `WENT_QUIET` belongs on a share card at all — both are about its special status relative to the other detectors, worth settling together.
-
-**Acceptance criteria**
-
-- [ ] `TrendsCard` shows only `WENT_QUIET` + the link when it's the leading finding.
-- [ ] Link label reviewed for this case (Voice ×3 if the copy changes from the generic "show more").
-- [ ] `InsightsTabTrendsCardTest.kt` and the "show more" preview family updated with a WENT_QUIET-leading case.
-
-**Tests** — see acceptance criteria; no new statistics, no domain-level tests needed.
 
 ### Hunch extensions: confidence projection, belief drift, perception gap
 

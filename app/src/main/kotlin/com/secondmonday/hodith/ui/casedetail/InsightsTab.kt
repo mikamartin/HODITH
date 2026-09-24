@@ -665,7 +665,11 @@ private fun GapsCard(
  * neither earns its screen space; both live one tap away on the full-list screen
  * ([com.secondmonday.hodith.ui.casedetail.trends.TrendsListScreen] via [onShowMore]) instead. Shows
  * the first [TRENDS_DEFAULT_VISIBLE_COUNT] findings; "show more" is right-aligned under them,
- * matching a trailing/secondary action rather than a primary one.
+ * matching a trailing/secondary action rather than a primary one. When [TrendFindingKind.WENT_QUIET]
+ * leads (TrendsEngine always prepends it first when it fires), it's shown alone instead — it reports
+ * the Case's live, still-unresolved state rather than a settled historical shift like every other
+ * detector, so pairing it inline with those would blur two different kinds of claim; "show more"
+ * still opens the same full list.
  */
 @Composable
 private fun TrendsCard(
@@ -673,12 +677,13 @@ private fun TrendsCard(
     voice: Voice,
     onShowMore: () -> Unit,
 ) {
+    val visibleCount = if (findings.firstOrNull()?.kind == TrendFindingKind.WENT_QUIET) 1 else TRENDS_DEFAULT_VISIBLE_COUNT
     InsightsCard {
         Text(voice.insightsSectionLabelTrends, style = MaterialTheme.typography.titleSmall)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            findings.take(TRENDS_DEFAULT_VISIBLE_COUNT).forEach { finding -> TrendFindingRow(finding, voice) }
+            findings.take(visibleCount).forEach { finding -> TrendFindingRow(finding, voice) }
         }
-        if (findings.size > TRENDS_DEFAULT_VISIBLE_COUNT) {
+        if (findings.size > visibleCount) {
             TextButton(onClick = onShowMore, modifier = Modifier.align(Alignment.End)) {
                 Text(voice.insightsTrendsShowMoreAction)
             }
@@ -1324,6 +1329,76 @@ private fun TrendsCardShowMoreIntensePreview() {
 private fun TrendsCardShowMoreBrightPreview() {
     HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
         TrendsCardShowMorePreviewContent(AppTheme.BRIGHT, CardDecorationStyle.BRIGHT)
+    }
+}
+
+/** [TrendFindingKind.WENT_QUIET] leading a longer list — exercises the single-finding-plus-link collapse, as a single card rather than stacked next to other scenarios. */
+private val previewTrendsFindingsWentQuietLeading =
+    listOf(TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)) +
+        previewTrendsFindingsOverCap
+
+@Composable
+private fun TrendsCardWentQuietLeadingPreviewContent(
+    theme: AppTheme,
+    cardStyle: CardDecorationStyle,
+) {
+    CompositionLocalProvider(
+        LocalCardDecorationStyle provides cardStyle,
+        LocalVoice provides voiceFor(theme),
+    ) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Box(modifier = Modifier.padding(16.dp)) {
+                TrendsCard(previewTrendsFindingsWentQuietLeading, LocalVoice.current, onShowMore = {})
+            }
+        }
+    }
+}
+
+@Preview(name = "Trends card — went quiet leading — Plain light", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardWentQuietLeadingPlainPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = false) {
+        TrendsCardWentQuietLeadingPreviewContent(AppTheme.PLAIN, CardDecorationStyle.PLAIN)
+    }
+}
+
+@Preview(name = "Trends card — went quiet leading — Intense light", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardWentQuietLeadingIntensePreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = false) {
+        TrendsCardWentQuietLeadingPreviewContent(AppTheme.INTENSE, CardDecorationStyle.INTENSE)
+    }
+}
+
+@Preview(name = "Trends card — went quiet leading — Bright light", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardWentQuietLeadingBrightPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = false) {
+        TrendsCardWentQuietLeadingPreviewContent(AppTheme.BRIGHT, CardDecorationStyle.BRIGHT)
+    }
+}
+
+@Preview(name = "Trends card — went quiet leading — Plain dark", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardWentQuietLeadingPlainDarkPreview() {
+    HodithTheme(theme = AppTheme.PLAIN, darkTheme = true) {
+        TrendsCardWentQuietLeadingPreviewContent(AppTheme.PLAIN, CardDecorationStyle.PLAIN)
+    }
+}
+
+@Preview(name = "Trends card — went quiet leading — Intense dark", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardWentQuietLeadingIntenseDarkPreview() {
+    HodithTheme(theme = AppTheme.INTENSE, darkTheme = true) {
+        TrendsCardWentQuietLeadingPreviewContent(AppTheme.INTENSE, CardDecorationStyle.INTENSE)
+    }
+}
+
+@Preview(name = "Trends card — went quiet leading — Bright dark", showBackground = true, widthDp = 380)
+@Composable
+private fun TrendsCardWentQuietLeadingBrightDarkPreview() {
+    HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
+        TrendsCardWentQuietLeadingPreviewContent(AppTheme.BRIGHT, CardDecorationStyle.BRIGHT)
     }
 }
 

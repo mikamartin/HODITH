@@ -133,6 +133,25 @@ class InsightsTabTrendsCardTest {
     }
 
     @Test
+    fun trendsCard_wentQuietLeading_showsOnlyWentQuietPlusShowMoreLink() {
+        val wentQuiet = TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)
+        var opened = false
+        setContent(trends = listOf(wentQuiet) + List(5) { syntheticFinding(it) }, onOpenTrends = { opened = true })
+
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsWentQuietSentence(currentGapLabel = "20 days", longestPastGapLabel = "5 days"))
+            .assertExists()
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsGapShiftSentence(ShiftDirection.UP, priorAverageLabel = "3 days", recentAverageLabel = "5 days"),
+            ).assertDoesNotExist()
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendsShowMoreAction).performClick()
+
+        assert(opened) { "onOpenTrends was not invoked by the show-more link" }
+    }
+
+    @Test
     fun trendsCard_rendersRecurrenceShapeSentence() {
         val recurrenceShape = TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.8)
         setContent(trends = listOf(recurrenceShape))
