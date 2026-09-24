@@ -347,4 +347,88 @@ class BigPictureViewModelTest {
 
             assertEquals(BigPictureDetail.ALL_OFF.copy(tags = true), settings.bigPictureDetail.value)
         }
+
+    // ---- Case/Tag/Year filter persistence ----
+
+    @Test
+    fun `uiState filter fields default to null with an untouched settings repository`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertNull(state.visibleCaseIds)
+                assertNull(state.visibleTagNames)
+                assertNull(state.selectedYear)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `uiState reflects filter values emitted by the settings repository`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            viewModel().uiState.test {
+                awaitLoadedItem { it.isLoading }
+                settings.bigPictureVisibleCaseIds.value = setOf(1L)
+                assertEquals(setOf(1L), awaitItem().visibleCaseIds)
+                settings.bigPictureVisibleTagNames.value = setOf("work")
+                assertEquals(setOf("work"), awaitItem().visibleTagNames)
+                settings.bigPictureSelectedYear.value = 2025
+                assertEquals(2025, awaitItem().selectedYear)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setVisibleCaseIds writes through to the settings repository, including null`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.setVisibleCaseIds(setOf(1L, 2L))
+            assertEquals(setOf(1L, 2L), settings.bigPictureVisibleCaseIds.value)
+
+            vm.setVisibleCaseIds(null)
+            assertNull(settings.bigPictureVisibleCaseIds.value)
+        }
+
+    @Test
+    fun `setVisibleTagNames writes through to the settings repository, including null`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.setVisibleTagNames(setOf("work"))
+            assertEquals(setOf("work"), settings.bigPictureVisibleTagNames.value)
+
+            vm.setVisibleTagNames(null)
+            assertNull(settings.bigPictureVisibleTagNames.value)
+        }
+
+    @Test
+    fun `setSelectedYear writes through to the settings repository, including null`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.setSelectedYear(2025)
+            assertEquals(2025, settings.bigPictureSelectedYear.value)
+
+            vm.setSelectedYear(null)
+            assertNull(settings.bigPictureSelectedYear.value)
+        }
+
+    @Test
+    fun `filter selections persist across a fresh ViewModel instance`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            viewModel().setVisibleCaseIds(setOf(1L))
+            viewModel().setVisibleTagNames(setOf("work"))
+            viewModel().setSelectedYear(2025)
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(setOf(1L), state.visibleCaseIds)
+                assertEquals(setOf("work"), state.visibleTagNames)
+                assertEquals(2025, state.selectedYear)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 }

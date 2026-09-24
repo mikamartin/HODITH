@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.bigpicture
 
 import com.secondmonday.hodith.viewmodel.CalendarCase
+import com.secondmonday.hodith.viewmodel.CalendarEvent
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -22,6 +23,41 @@ internal fun isTagVisible(
         visibleTagNames.isEmpty() -> eventTags.isEmpty()
         else -> eventTags.any { it in visibleTagNames }
     }
+
+/**
+ * The persisted form of a "which of [all] are visible" selection: [selected] equal to [all]
+ * collapses to `null` ("no filter stored", spec §9's Big Picture filters) so a Case or tag added
+ * later is visible by default instead of silently excluded by a stale snapshotted set.
+ */
+internal fun <T> normalizeVisibleSelection(
+    selected: Set<T>,
+    all: Set<T>,
+): Set<T>? = if (selected == all) null else selected
+
+/**
+ * The live selection a stored, possibly-stale [stored] value resolves to against what currently
+ * exists in [all]: `null` means "no filter stored" (everything visible); a stored set is
+ * intersected with [all] so ids/names for a deleted Case or removed tag drop out harmlessly.
+ */
+internal fun <T> resolveVisibleSelection(
+    stored: Set<T>?,
+    all: Set<T>,
+): Set<T> = stored?.intersect(all) ?: all
+
+/**
+ * Tag names offered by [events] scoped to [visibleCaseIds] — a tag only offered by a currently
+ * hidden Case is excluded, so the Cases and Tags filters never silently AND down to nothing
+ * (see [BigPictureGrid]'s Tags dialog wiring).
+ */
+internal fun bigPictureAllTagNames(
+    events: List<CalendarEvent>,
+    visibleCaseIds: Set<Long>,
+): List<String> =
+    events
+        .filter { it.caseId in visibleCaseIds }
+        .flatMap { it.tags }
+        .distinct()
+        .sorted()
 
 /** Whether [date] is today or earlier — the Big Picture grid never renders future days (spec §9). */
 internal fun isPastOrToday(

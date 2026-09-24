@@ -13,6 +13,9 @@ class FakeSettingsRepository : SettingsRepository {
     val cloudBackupEnabled = MutableStateFlow(true)
     val bigPictureDetail = MutableStateFlow(BigPictureDetail.DEFAULT)
     val logSortOrder = MutableStateFlow(LogSortOrder.BY_START)
+    val bigPictureVisibleCaseIds = MutableStateFlow<Set<Long>?>(null)
+    val bigPictureVisibleTagNames = MutableStateFlow<Set<String>?>(null)
+    val bigPictureSelectedYear = MutableStateFlow<Int?>(null)
 
     override fun observeTheme(): Flow<AppTheme> = theme
 
@@ -64,5 +67,23 @@ class FakeSettingsRepository : SettingsRepository {
 
     override suspend fun setLogSortOrder(order: LogSortOrder) {
         this.logSortOrder.value = order
+    }
+
+    override fun observeBigPictureVisibleCaseIds(): Flow<Set<Long>?> = bigPictureVisibleCaseIds
+
+    override suspend fun setBigPictureVisibleCaseIds(caseIds: Set<Long>?) {
+        bigPictureVisibleCaseIds.value = caseIds
+    }
+
+    override fun observeBigPictureVisibleTagNames(): Flow<Set<String>?> = bigPictureVisibleTagNames
+
+    override suspend fun setBigPictureVisibleTagNames(tagNames: Set<String>?) {
+        bigPictureVisibleTagNames.value = tagNames
+    }
+
+    override fun observeBigPictureSelectedYear(): Flow<Int?> = bigPictureSelectedYear
+
+    override suspend fun setBigPictureSelectedYear(year: Int?) {
+        bigPictureSelectedYear.value = year
     }
 }

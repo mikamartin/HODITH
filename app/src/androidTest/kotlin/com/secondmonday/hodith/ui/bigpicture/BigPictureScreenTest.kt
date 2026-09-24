@@ -1,6 +1,10 @@
 package com.secondmonday.hodith.ui.bigpicture
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -79,7 +83,18 @@ class BigPictureScreenTest {
                 LocalBigPictureCellStyle provides cellStyle,
                 LocalCardDecorationStyle provides decorationStyle,
             ) {
-                BigPictureScreen(uiState = uiState, onOpenCase = onOpenCase, onToggleDetail = onToggleDetail)
+                // BigPictureScreen is stateless: its Case/Tag/Year filters now live in uiState
+                // rather than BigPictureGrid's own remember state, so this local var stands in for
+                // the ViewModel, feeding each filter callback back into the state the screen reads.
+                var state by remember { mutableStateOf(uiState) }
+                BigPictureScreen(
+                    uiState = state,
+                    onOpenCase = onOpenCase,
+                    onToggleDetail = onToggleDetail,
+                    onSetVisibleCaseIds = { state = state.copy(visibleCaseIds = it) },
+                    onSetVisibleTagNames = { state = state.copy(visibleTagNames = it) },
+                    onSelectYear = { state = state.copy(selectedYear = it) },
+                )
             }
         }
     }
@@ -89,6 +104,9 @@ class BigPictureScreenTest {
         events: List<CalendarEvent> = emptyList(),
         detail: BigPictureDetail = BigPictureDetail.DEFAULT,
         earliestMonth: YearMonth = currentMonth,
+        visibleCaseIds: Set<Long>? = null,
+        visibleTagNames: Set<String>? = null,
+        selectedYear: Int? = null,
     ) = BigPictureUiState(
         cases = cases,
         events = events,
@@ -97,6 +115,9 @@ class BigPictureScreenTest {
         today = today,
         detail = detail,
         isLoading = false,
+        visibleCaseIds = visibleCaseIds,
+        visibleTagNames = visibleTagNames,
+        selectedYear = selectedYear,
     )
 
     private fun eventToday(
@@ -702,6 +723,74 @@ class BigPictureScreenTest {
         setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday())))
 
         composeTestRule.onAllNodesWithText("›").assertCountEquals(4)
+    }
+
+    // ---- persisted filter selections (spec §9) ----
+
+    @Test
+    fun seededVisibleCaseIds_dropsAStaleIdInsteadOfCrashingOrInflatingTheCount() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday()), visibleCaseIds = setOf(case.id, 99L)))
+
+        // 99L doesn't exist among cases, so it's dropped; the remaining real id is every current
+        // case, which collapses to "All", not a bogus "2 of 1".
+        composeTestRule.onNodeWithText(": " + PlainVoice.bigPictureFilterCountAll).assertExists()
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureDayDetailEmptyState).assertDoesNotExist()
+    }
+
+    @Test
+    fun seededVisibleCaseIds_explicitEmptySet_showsNoCasesSelected_distinctFromNull() {
+        setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday()), visibleCaseIds = emptySet()))
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureNoCasesSelectedNote).assertExists()
+        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureDayDetailEmptyState).assertExists()
+    }
+
+    @Test
+    fun seededVisibleTagNames_dropsAStaleNameInsteadOfInflatingTheCount() {
+        setContent(
+            uiStateWith(
+                cases = listOf(case),
+                events = listOf(eventToday(tags = listOf("urgent"))),
+                visibleTagNames = setOf("urgent", "gone"),
+            ),
+        )
+
+        // The legend row itself renders nothing once every dimension resolves to "All" (both Case
+        // and Tag legends collapse silently), so assert on the trigger chip instead -- anchored on
+        // its own label since the Cases chip also reads ": All" at this point.
+        composeTestRule
+            .onNode(hasText(PlainVoice.bigPictureTagsFilterLabel) and hasText(": " + PlainVoice.bigPictureFilterCountAll))
+            .assertExists()
+    }
+
+    @Test
+    fun togglingACaseChip_clearsAnActivePersistedTagSelection_backToAll() {
+        // Coffee carries two tags ("work", "personal") so that, after Tea is deselected, a stale
+        // {"work"} tag selection re-intersected against Coffee's own scoped tags would still read
+        // as a partial "1 of 2" -- only an explicit reset to null collapses it to "All".
+        val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
+        val workEvent = eventToday(id = 1L, tags = listOf("work"))
+        val personalEvent = CalendarEvent(id = 2L, caseId = case.id, occurredAt = workEvent.occurredAt, tags = listOf("personal"))
+        val soloEvent =
+            CalendarEvent(id = 3L, caseId = secondCase.id, occurredAt = workEvent.occurredAt, tags = listOf("solo"))
+        setContent(
+            uiStateWith(
+                cases = listOf(case, secondCase),
+                events = listOf(workEvent, personalEvent, soloEvent),
+                visibleTagNames = setOf("work"),
+            ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
+        composeTestRule.onNodeWithText(secondCase.name).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        // The Tag legend collapses to "All tags" only once the resolved selection covers every tag
+        // currently in scope — the persisted {"work"} selection must have been reset to null, not
+        // merely re-intersected against Coffee-only tags (which would also read {"work"} = "All").
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureAllTagsLabel).assertExists()
     }
 
     // ---- overview-detail control (spec §9) ----

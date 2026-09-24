@@ -173,29 +173,27 @@ fun BigPictureGrid(
     modifier: Modifier = Modifier,
     detail: BigPictureDetail = BigPictureDetail.DEFAULT,
     onToggleDetail: (BigPictureDetailField, Boolean) -> Unit = { _, _ -> },
+    visibleCaseIds: Set<Long>? = null,
+    onSetVisibleCaseIds: (Set<Long>?) -> Unit = {},
+    visibleTagNames: Set<String>? = null,
+    onSetVisibleTagNames: (Set<String>?) -> Unit = {},
+    selectedYear: Int? = null,
+    onSelectYear: (Int?) -> Unit = {},
 ) {
-    var visibleCaseIds by remember(cases) { mutableStateOf(cases.map { it.id }.toSet()) }
-    // Scoped to visibleCaseIds, not every Case's events: a tag only offered by a currently-hidden
-    // Case would otherwise let the Cases and Tags dialogs each look non-empty while their AND
-    // silently shows nothing. Re-scoping also re-keys visibleTagNames back to "everything in the
-    // new scope" whenever Case selection changes, so the reset always moves toward more results,
-    // never toward that empty trap.
-    val allTagNames =
-        remember(events, visibleCaseIds) {
-            events
-                .filter { it.caseId in visibleCaseIds }
-                .flatMap { it.tags }
-                .distinct()
-                .sorted()
-        }
-    var visibleTagNames by remember(allTagNames) { mutableStateOf(allTagNames.toSet()) }
+    val allCaseIds = remember(cases) { cases.map { it.id }.toSet() }
+    val resolvedVisibleCaseIds = remember(visibleCaseIds, allCaseIds) { resolveVisibleSelection(visibleCaseIds, allCaseIds) }
+    // Scoped to resolvedVisibleCaseIds, not every Case's events: a tag only offered by a
+    // currently-hidden Case would otherwise let the Cases and Tags dialogs each look non-empty
+    // while their AND silently shows nothing.
+    val allTagNames = remember(events, resolvedVisibleCaseIds) { bigPictureAllTagNames(events, resolvedVisibleCaseIds) }
+    val allTagNamesSet = remember(allTagNames) { allTagNames.toSet() }
+    val resolvedVisibleTagNames = remember(visibleTagNames, allTagNamesSet) { resolveVisibleSelection(visibleTagNames, allTagNamesSet) }
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
     var selectedWeek by remember { mutableStateOf<List<LocalDate>?>(null) }
     var showMonthPicker by remember { mutableStateOf(false) }
-    var selectedYear by remember(earliestMonth, currentMonth) { mutableStateOf<Int?>(null) }
 
     val isEventVisible: (CalendarEvent) -> Boolean = { event ->
-        event.caseId in visibleCaseIds && isTagVisible(event.tags, visibleTagNames, allTagNames.size)
+        event.caseId in resolvedVisibleCaseIds && isTagVisible(event.tags, resolvedVisibleTagNames, allTagNames.size)
     }
 
     val eventsByDay =
@@ -238,22 +236,32 @@ fun BigPictureGrid(
         Column {
             FilterSummaryRow(
                 cases = cases,
-                visibleCaseIds = visibleCaseIds,
+                visibleCaseIds = resolvedVisibleCaseIds,
                 onToggleCase = { caseId ->
-                    visibleCaseIds = if (caseId in visibleCaseIds) visibleCaseIds - caseId else visibleCaseIds + caseId
+                    val next = if (caseId in resolvedVisibleCaseIds) resolvedVisibleCaseIds - caseId else resolvedVisibleCaseIds + caseId
+                    onSetVisibleCaseIds(normalizeVisibleSelection(next, allCaseIds))
+                    // Re-scoping the Case filter always resets the Tag filter back to "everything in
+                    // the new scope" — a tag only offered by a now-hidden Case would otherwise leave
+                    // the Cases and Tags filters ANDing down to nothing (the "empty trap" spec §9
+                    // guards against).
+                    onSetVisibleTagNames(null)
                 },
-                onSetVisibleCaseIds = { visibleCaseIds = it },
+                onSetVisibleCaseIds = {
+                    onSetVisibleCaseIds(normalizeVisibleSelection(it, allCaseIds))
+                    onSetVisibleTagNames(null)
+                },
                 allTagNames = allTagNames,
-                visibleTagNames = visibleTagNames,
+                visibleTagNames = resolvedVisibleTagNames,
                 onToggleTag = { tag ->
-                    visibleTagNames = if (tag in visibleTagNames) visibleTagNames - tag else visibleTagNames + tag
+                    val next = if (tag in resolvedVisibleTagNames) resolvedVisibleTagNames - tag else resolvedVisibleTagNames + tag
+                    onSetVisibleTagNames(normalizeVisibleSelection(next, allTagNamesSet))
                 },
-                onSetVisibleTagNames = { visibleTagNames = it },
+                onSetVisibleTagNames = { onSetVisibleTagNames(normalizeVisibleSelection(it, allTagNamesSet)) },
                 earliestMonth = earliestMonth,
                 currentMonth = currentMonth,
                 yearOptions = yearOptions,
                 selectedYear = selectedYear,
-                onSelectYear = { selectedYear = it },
+                onSelectYear = onSelectYear,
                 detail = detail,
                 onToggleDetail = onToggleDetail,
             )

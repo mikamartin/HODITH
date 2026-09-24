@@ -30,6 +30,9 @@ fun BigPictureRoute(
         uiState = uiState,
         onOpenCase = onOpenCase,
         onToggleDetail = viewModel::setDetail,
+        onSetVisibleCaseIds = viewModel::setVisibleCaseIds,
+        onSetVisibleTagNames = viewModel::setVisibleTagNames,
+        onSelectYear = viewModel::setSelectedYear,
         modifier = modifier,
     )
 }
@@ -40,6 +43,9 @@ fun BigPictureScreen(
     onOpenCase: (Long) -> Unit,
     modifier: Modifier = Modifier,
     onToggleDetail: (BigPictureDetailField, Boolean) -> Unit = { _, _ -> },
+    onSetVisibleCaseIds: (Set<Long>?) -> Unit = {},
+    onSetVisibleTagNames: (Set<String>?) -> Unit = {},
+    onSelectYear: (Int?) -> Unit = {},
 ) {
     val voice = LocalVoice.current
     Box(modifier = modifier.fillMaxSize()) {
@@ -70,6 +76,12 @@ fun BigPictureScreen(
                         detail = uiState.detail,
                         onOpenCase = onOpenCase,
                         onToggleDetail = onToggleDetail,
+                        visibleCaseIds = uiState.visibleCaseIds,
+                        onSetVisibleCaseIds = onSetVisibleCaseIds,
+                        visibleTagNames = uiState.visibleTagNames,
+                        onSetVisibleTagNames = onSetVisibleTagNames,
+                        selectedYear = uiState.selectedYear,
+                        onSelectYear = onSelectYear,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
                 }

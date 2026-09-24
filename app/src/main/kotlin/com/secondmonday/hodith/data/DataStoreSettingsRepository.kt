@@ -22,6 +22,9 @@ private val DEVELOPER_MODE_UNLOCKED_KEY = booleanPreferencesKey("developer_mode_
 private val CLOUD_BACKUP_ENABLED_KEY = booleanPreferencesKey("cloud_backup_enabled")
 private val BIG_PICTURE_DETAIL_KEY = stringPreferencesKey("big_picture_detail")
 private val LOG_SORT_ORDER_KEY = stringPreferencesKey("log_sort_order")
+private val BIG_PICTURE_VISIBLE_CASE_IDS_KEY = stringPreferencesKey("big_picture_visible_case_ids")
+private val BIG_PICTURE_VISIBLE_TAG_NAMES_KEY = stringPreferencesKey("big_picture_visible_tag_names")
+private val BIG_PICTURE_SELECTED_YEAR_KEY = stringPreferencesKey("big_picture_selected_year")
 
 @Singleton
 class DataStoreSettingsRepository
@@ -107,5 +110,52 @@ class DataStoreSettingsRepository
 
         override suspend fun setLogSortOrder(order: LogSortOrder) {
             dataStore.edit { preferences -> preferences[LOG_SORT_ORDER_KEY] = order.name }
+        }
+
+        override fun observeBigPictureVisibleCaseIds(): Flow<Set<Long>?> =
+            dataStore.data.map { preferences ->
+                preferences[BIG_PICTURE_VISIBLE_CASE_IDS_KEY]?.let { raw ->
+                    if (raw.isEmpty()) emptySet() else raw.split(",").mapNotNull { it.toLongOrNull() }.toSet()
+                }
+            }
+
+        override suspend fun setBigPictureVisibleCaseIds(caseIds: Set<Long>?) {
+            dataStore.edit { preferences ->
+                if (caseIds == null) {
+                    preferences.remove(BIG_PICTURE_VISIBLE_CASE_IDS_KEY)
+                } else {
+                    preferences[BIG_PICTURE_VISIBLE_CASE_IDS_KEY] = caseIds.joinToString(",")
+                }
+            }
+        }
+
+        override fun observeBigPictureVisibleTagNames(): Flow<Set<String>?> =
+            dataStore.data.map { preferences ->
+                preferences[BIG_PICTURE_VISIBLE_TAG_NAMES_KEY]?.let { raw ->
+                    if (raw.isEmpty()) emptySet() else raw.split("\n").toSet()
+                }
+            }
+
+        override suspend fun setBigPictureVisibleTagNames(tagNames: Set<String>?) {
+            dataStore.edit { preferences ->
+                if (tagNames == null) {
+                    preferences.remove(BIG_PICTURE_VISIBLE_TAG_NAMES_KEY)
+                } else {
+                    preferences[BIG_PICTURE_VISIBLE_TAG_NAMES_KEY] = tagNames.joinToString("\n")
+                }
+            }
+        }
+
+        override fun observeBigPictureSelectedYear(): Flow<Int?> =
+            dataStore.data.map { preferences -> preferences[BIG_PICTURE_SELECTED_YEAR_KEY]?.toIntOrNull() }
+
+        override suspend fun setBigPictureSelectedYear(year: Int?) {
+            dataStore.edit { preferences ->
+                if (year == null) {
+                    preferences.remove(BIG_PICTURE_SELECTED_YEAR_KEY)
+                } else {
+                    preferences[BIG_PICTURE_SELECTED_YEAR_KEY] = year.toString()
+                }
+            }
         }
     }

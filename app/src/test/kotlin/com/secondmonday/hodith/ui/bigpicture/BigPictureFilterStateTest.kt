@@ -1,7 +1,9 @@
 package com.secondmonday.hodith.ui.bigpicture
 
 import com.secondmonday.hodith.viewmodel.CalendarCase
+import com.secondmonday.hodith.viewmodel.CalendarEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 import java.time.YearMonth
@@ -166,5 +168,57 @@ class BigPictureFilterStateTest {
     @Test
     fun `bigPictureYearFilterVisible is false when earliest and current month are the same month`() {
         assertEquals(false, bigPictureYearFilterVisible(mar2026, mar2026))
+    }
+
+    @Test
+    fun `normalizeVisibleSelection collapses a full selection to null`() {
+        assertNull(normalizeVisibleSelection(setOf(1L, 2L), setOf(1L, 2L)))
+    }
+
+    @Test
+    fun `normalizeVisibleSelection leaves a partial selection unchanged`() {
+        assertEquals(setOf(1L), normalizeVisibleSelection(setOf(1L), setOf(1L, 2L)))
+    }
+
+    @Test
+    fun `normalizeVisibleSelection leaves an empty selection unchanged, distinct from null`() {
+        assertEquals(emptySet<Long>(), normalizeVisibleSelection(emptySet(), setOf(1L, 2L)))
+    }
+
+    @Test
+    fun `resolveVisibleSelection returns everything for a null stored value`() {
+        assertEquals(setOf(1L, 2L), resolveVisibleSelection(null, setOf(1L, 2L)))
+    }
+
+    @Test
+    fun `resolveVisibleSelection intersects a stored value, dropping stale entries`() {
+        assertEquals(setOf(1L), resolveVisibleSelection(setOf(1L, 99L), setOf(1L, 2L)))
+    }
+
+    @Test
+    fun `resolveVisibleSelection returns a real empty set unchanged, not everything`() {
+        assertEquals(emptySet<Long>(), resolveVisibleSelection(emptySet(), setOf(1L, 2L)))
+    }
+
+    private fun event(
+        caseId: Long,
+        tags: List<String>,
+    ) = CalendarEvent(id = 1L, caseId = caseId, occurredAt = 0L, tags = tags)
+
+    @Test
+    fun `bigPictureAllTagNames scopes to visible cases, dedupes, and sorts`() {
+        val events =
+            listOf(
+                event(caseId = 1L, tags = listOf("weekend", "work")),
+                event(caseId = 1L, tags = listOf("work")),
+                event(caseId = 2L, tags = listOf("hidden")),
+            )
+        assertEquals(listOf("weekend", "work"), bigPictureAllTagNames(events, visibleCaseIds = setOf(1L)))
+    }
+
+    @Test
+    fun `bigPictureAllTagNames is empty when no visible case has events`() {
+        val events = listOf(event(caseId = 2L, tags = listOf("hidden")))
+        assertEquals(emptyList<String>(), bigPictureAllTagNames(events, visibleCaseIds = setOf(1L)))
     }
 }

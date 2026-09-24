@@ -44,4 +44,21 @@ interface SettingsRepository {
     fun observeLogSortOrder(): Flow<LogSortOrder>
 
     suspend fun setLogSortOrder(order: LogSortOrder)
+
+    /**
+     * Big Picture's Case/Tag/Year filters (spec §9). `null` means "no filter stored" (everything
+     * visible / all years) rather than a literal snapshot, so a Case or tag added later is visible
+     * by default and a deleted one doesn't linger — see `BigPictureFilterState.resolveVisibleSelection`.
+     */
+    fun observeBigPictureVisibleCaseIds(): Flow<Set<Long>?>
+
+    suspend fun setBigPictureVisibleCaseIds(caseIds: Set<Long>?)
+
+    fun observeBigPictureVisibleTagNames(): Flow<Set<String>?>
+
+    suspend fun setBigPictureVisibleTagNames(tagNames: Set<String>?)
+
+    fun observeBigPictureSelectedYear(): Flow<Int?>
+
+    suspend fun setBigPictureSelectedYear(year: Int?)
 }

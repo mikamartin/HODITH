@@ -157,23 +157,6 @@ Picking a future time on today's date isn't blocked. `LogDetailSheet.kt`'s date/
 
 **Tests** — a unit test asserting the clamp is reported; a Compose test for the note appearing.
 
-### Big Picture's Case/Tag/Year filters don't persist, and aren't even ViewModel-scoped
-
-*Branch: none yet — investigation first · Complexity: S–M · Priority: Low · Area: Big Picture*
-
-🔍 **Investigation** — confirm persistence is actually wanted before scoping a fix.
-
-Noticed while fixing the Case Log tab's equivalent sort-order persistence bug (now resolved: `observeLogSortOrder`/`setLogSortOrder` on `SettingsRepository`, following the `BigPictureDetail` pattern). `BigPictureGrid.kt`'s Case/Tag/Year filter selections live in plain Compose state, not even `ViewModel`-scoped, so they reset on any navigation away and back — a worse starting point than the Log tab's issue was (that was ViewModel-scoped state surviving recomposition but not VM recreation; this doesn't survive recomposition at all). Not reported as a user-facing problem.
-
-**Acceptance criteria**
-
-- [ ] A ruling on whether Big Picture's filters should persist like the Log tab's sort order, or are intentionally session-only — a filter selection resetting per visit may be the more expected behavior, unlike a sort preference.
-- [ ] If persistence is wanted: same `SettingsRepository`/DataStore pattern as `observeLogSortOrder`.
-
-**Plan** — settle the ruling above first; no code until then.
-
-**Tests** — none until scoped.
-
 ### Big Picture: cross-case trend detection (design)
 
 *Branch: `chore/big-picture-cross-case-trends-design` · Complexity: XL · Priority: Low · Area: Big Picture*
