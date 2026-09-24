@@ -71,6 +71,11 @@ data class BigPictureUiState(
     val today: LocalDate? = null,
     val detail: BigPictureDetail = BigPictureDetail.DEFAULT,
     val isLoading: Boolean = true,
+    // Raw persisted filter selections (spec §9) — `null` means "no filter stored", resolved
+    // against the live cases/tags in `BigPictureGrid`, not here (see `resolveVisibleSelection`).
+    val visibleCaseIds: Set<Long>? = null,
+    val visibleTagNames: Set<String>? = null,
+    val selectedYear: Int? = null,
 )
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
@@ -99,6 +104,12 @@ class BigPictureViewModel
                 settingsRepository.observeBigPictureDetail(),
             ) { cases, eventDetails, tagNames, detail ->
                 bigPictureUiState(cases, eventDetails, tagNames, clock.nowMillis(), detail = detail)
+            }.combine(settingsRepository.observeBigPictureVisibleCaseIds()) { partial, visibleCaseIds ->
+                partial.copy(visibleCaseIds = visibleCaseIds)
+            }.combine(settingsRepository.observeBigPictureVisibleTagNames()) { partial, visibleTagNames ->
+                partial.copy(visibleTagNames = visibleTagNames)
+            }.combine(settingsRepository.observeBigPictureSelectedYear()) { partial, selectedYear ->
+                partial.copy(selectedYear = selectedYear)
             }.flowOn(defaultDispatcher)
                 .conflate()
                 .stateIn(
@@ -116,6 +127,21 @@ class BigPictureViewModel
                 val current = settingsRepository.observeBigPictureDetail().first()
                 settingsRepository.setBigPictureDetail(current.with(field, enabled))
             }
+        }
+
+        /** Persists the Cases filter (spec §9); `null` means "no filter stored" (all visible). */
+        fun setVisibleCaseIds(caseIds: Set<Long>?) {
+            viewModelScope.launch { settingsRepository.setBigPictureVisibleCaseIds(caseIds) }
+        }
+
+        /** Persists the Tags filter (spec §9); `null` means "no filter stored" (all visible). */
+        fun setVisibleTagNames(tagNames: Set<String>?) {
+            viewModelScope.launch { settingsRepository.setBigPictureVisibleTagNames(tagNames) }
+        }
+
+        /** Persists the Year filter (spec §9); `null` means "All years". */
+        fun setSelectedYear(year: Int?) {
+            viewModelScope.launch { settingsRepository.setBigPictureSelectedYear(year) }
         }
     }
 
