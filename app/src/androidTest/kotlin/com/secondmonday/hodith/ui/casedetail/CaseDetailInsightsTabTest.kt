@@ -1,6 +1,9 @@
 package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -12,6 +15,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
@@ -29,6 +34,7 @@ import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
@@ -37,6 +43,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
+
+private const val LARGE_FONT_SCALE = 2f
 
 /**
  * Drives [CaseDetailScreen]'s Insights tab (seven stat cards, then the calendar heatmap),
@@ -71,10 +79,15 @@ class CaseDetailInsightsTabTest {
         events: List<EventWithTags> = emptyList(),
         timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
         onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
+        fontScale: Float = 1f,
     ) {
         val case = testCase(durationMode = durationMode, intensityEnabled = intensityEnabled, createdAt = caseCreatedAt)
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalTimeFormat provides timeFormat) {
+            CompositionLocalProvider(
+                LocalVoice provides PlainVoice,
+                LocalTimeFormat provides timeFormat,
+                LocalDensity provides Density(density = LocalDensity.current.density, fontScale = fontScale),
+            ) {
                 CaseDetailScreen(
                     uiState = CaseDetailUiState(case = case, events = events, isLoading = false),
                     onBack = {},
@@ -338,6 +351,41 @@ class CaseDetailInsightsTabTest {
         // density (spec S9). The short month name is a collision-free anchor: the heatmap's own
         // month headers spell the month in full ("July 2026"), never the bare "Jul" form.
         composeTestRule.onNodeWithText(monthTickLabel(today)).assertExists()
+    }
+
+    @Test
+    fun frequencyGranularityToggle_week_atLargeFontScale_tickLabelDoesNotTruncate() {
+        setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)), fontScale = LARGE_FONT_SCALE)
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyGranularityWeek).performScrollTo().performClick()
+
+        val thisWeekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+        assertTickLabelHasNoVisualOverflow(weekTickLabel(thisWeekStart))
+    }
+
+    @Test
+    fun frequencyGranularityToggle_month_atLargeFontScale_tickLabelDoesNotTruncate() {
+        setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)), fontScale = LARGE_FONT_SCALE)
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyGranularityMonth).performScrollTo().performClick()
+
+        assertTickLabelHasNoVisualOverflow(monthTickLabel(today))
+    }
+
+    // TextOverflow.Ellipsis truncation is a rendering concern only — the semantics tree still
+    // reports the full, untruncated string, so onNodeWithText alone can't catch it (unlike
+    // CenteredEmptyStateTest, which reads the same GetTextLayoutResult action to check alignment).
+    private fun assertTickLabelHasNoVisualOverflow(label: String) {
+        val results = mutableListOf<TextLayoutResult>()
+        composeTestRule
+            .onNodeWithText(label)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsActions.GetTextLayoutResult)
+            ?.action
+            ?.invoke(results)
+
+        assertFalse("Expected \"$label\" to render without ellipsis truncation at 2x font scale", results.first().hasVisualOverflow)
     }
 
     @Test
@@ -726,9 +774,9 @@ class CaseDetailInsightsTabTest {
     // for the same determinism reason as mediumDate above.
     private fun dayOfWeekLabel(date: LocalDate): String = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.US)
 
-    // Mirrors formatFrequencyTickLabel's WEEK branch ("M/dd"), Locale.US fixed for the same
+    // Mirrors formatFrequencyTickLabel's WEEK branch ("M/d"), Locale.US fixed for the same
     // determinism reason as mediumDate/dayOfWeekLabel above.
-    private fun weekTickLabel(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern("M/dd", Locale.US))
+    private fun weekTickLabel(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern("M/d", Locale.US))
 
     // Mirrors formatFrequencyTickLabel's MONTH branch (getDisplayName(TextStyle.SHORT, locale)),
     // Locale.US fixed for the same determinism reason as mediumDate/dayOfWeekLabel above.

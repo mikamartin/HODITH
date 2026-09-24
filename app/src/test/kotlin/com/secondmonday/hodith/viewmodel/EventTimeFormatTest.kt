@@ -73,7 +73,7 @@ class EventTimeFormatTest {
         val start = LocalDate.of(2026, 7, 9)
 
         assertEquals("9", formatFrequencyTickLabel(start, FrequencyGranularity.DAY, Locale.US))
-        assertEquals("7/09", formatFrequencyTickLabel(start, FrequencyGranularity.WEEK, Locale.US))
+        assertEquals("7/9", formatFrequencyTickLabel(start, FrequencyGranularity.WEEK, Locale.US))
         assertEquals("Jul", formatFrequencyTickLabel(start, FrequencyGranularity.MONTH, Locale.US))
     }
 

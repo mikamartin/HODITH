@@ -261,19 +261,6 @@ Normalize event notes, count repeated phrases, and offer a tag when one repeats 
 
 **Tests** — unit tests for the phrase-repetition threshold and cause-word matching; Compose coverage for the suggestion/offer UI appearing and being dismissible.
 
-### Frequency over time: week/month labels truncate at larger text scale
-
-*Branch: `fix/frequency-over-time-label-truncation` · Complexity: S · Priority: Medium · Area: Insights*
-
-`InsightsTab.kt`'s `FrequencyCard` tick labels (501-509) use `maxLines = 1` with ellipsis, inside a fixed 12-column layout where only 6 columns carry a label. `EventTimeFormat.kt`'s `formatFrequencyTickLabel` (116-127) produces `"M/dd"` for weeks and a short month name for months — some locales' short month names run past 3 characters, and at larger font scale even the English labels can overflow their column.
-
-**Acceptance criteria**
-
-- [ ] Labels no longer truncate at larger font scale — shorten the format (e.g. `"M/d"`), reduce label density, or allow controlled wrapping.
-- [ ] Verified across locales with longer short-month names, not just English.
-
-**Tests** — a Compose test asserting tick labels render without ellipsis at an increased font scale.
-
 ### Hunch extensions: confidence projection, belief drift, perception gap
 
 *Branch: `feat/hunch-extensions` · Complexity: M · Priority: Low · Area: Hunch*
