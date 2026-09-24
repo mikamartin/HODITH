@@ -2,22 +2,20 @@
 
 A periodic, whole-suite audit of test quality — distinct from [CLEANUP_CHECKLIST.md](CLEANUP_CHECKLIST.md),
 which runs after each unit of feature work and checks that one diff's tests are sound. This
-checklist asks whether the *existing* suite, accumulated over many passes, still holds up:
-would it actually catch a regression, does it match the spec's intent rather than just the
-code's current behavior, and is it organized well enough to keep extending cheaply.
+checklist asks whether the *existing* suite, accumulated over many passes, still holds up: would
+it actually catch a regression, does it match the spec's intent rather than just the code's
+current behavior, and is it organized well enough to keep extending cheaply.
 
 **Branch:** one branch per audit, `chore/qa-audit`, containing the updated
-[QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md) plus any doc-hygiene fixes the audit surfaces in
-TESTING.md/CLEANUP_LOG.md. Findings that require code changes (not just doc fixes) become
-separate proposed follow-up branches in the backlog — do not fix everything inline on the audit
-branch itself; each is its own logical unit of work.
+[QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md) (step 8) and any doc-hygiene fixes from step 7.
+Code-level findings become separate proposed follow-up branches in the backlog rather than being
+fixed inline — each is its own logical unit of work.
 
-**Inline-fix mode:** the default above can be overridden by explicit user direction to fix
-everything on the audit branch this pass (typically bounded by "unless it's a genuinely large
-piece of work" or similar). When that direction is given, resolve code-level findings directly
-instead of writing them up as proposed branches, and confirm anything that looks like a large
-piece of work with the user before fixing it inline. In this mode, step 8's "Work, Grouped by
-Branch" section is unnecessary — say so explicitly in the backlog rather than leaving it empty.
+**Inline-fix mode:** explicit user direction can override the default above, resolving everything
+on the audit branch this pass instead (typically bounded by "unless it's a genuinely large piece
+of work" or similar) — confirm anything that size with the user before fixing it inline. In this
+mode, step 8's "Work, Grouped by Branch" section is unnecessary; say so explicitly in the backlog
+rather than leaving it empty.
 
 ## Checklist
 
@@ -34,14 +32,32 @@ Branch" section is unnecessary — say so explicitly in the backlog rather than 
       (wrong package, missing/misnamed `@RunWith`, a base class that isn't itself a valid test).
 - [ ] Flag any test class that exists but never actually runs — this is a distinct failure mode
       from "no test exists" and easy to miss because the build stays green.
+- [ ] Spot check 5-10 test classes that share a Fake (`FakeHodithRepository`, `FakeClock`, etc.)
+      across multiple test methods. Confirm each test gets a freshly constructed Fake in
+      `@Before`/setUp rather than reusing one from a shared or companion instance — a shared
+      instance is the classic way an order-dependent test happens.
+- [ ] Grep the whole suite for `@Ignore`/`@Disabled`. A suppressed test is a distinct failure mode
+      from "never discovered": the runner knows about it but skips it deliberately. Confirm each
+      one still carries a reason and an open backlog/PROGRESS.md item, not a silent, indefinite
+      skip.
+- [ ] Spot check a handful of date/time-sensitive tests (verdict engine, stats, formatting) for an
+      expected value computed from the real device clock, locale, or timezone instead of the
+      test's own explicit `FakeClock`/zone/locale — this is how a test passes locally and fails
+      only in CI, or the other way around.
 
 ### 2. Mutation spot checks
+- [ ] Before selecting files, cross-reference the domain/ViewModel/DAO source tree against the
+      test suite for any production class with no corresponding test file at all — the sample
+      below is hand-picked by "what looks risky," and a class that never looks risky enough to
+      pick can go untested for passes at a time with nothing else to catch it.
 - [ ] Select 6-10 unit test files spanning risk tiers: pure domain logic with no collaborators
-      (verdict engine, trigger evaluation, stats), domain/ViewModel logic exercised against
-      HODITH's hand-written Fakes (`FakeHodithRepository`, `FakeClock`, `FakeNotifier`,
-      `FakeSettingsRepository`, etc. — no mocking library in this project), and Room-instrumented
-      DAO tests. Prioritize files backing core mechanics (verdict engine, trigger evaluation,
-      check-in scheduling, notification evaluation) and anything touched by recent feature work.
+      (verdict engine, trigger evaluation, stats, the Trends detectors' statistical tests),
+      domain/ViewModel logic exercised against HODITH's hand-written Fakes
+      (`FakeHodithRepository`, `FakeClock`, `FakeNotifier`, `FakeSettingsRepository`, etc. — no
+      mocking library in this project), and Room-instrumented DAO tests. Prioritize files backing
+      core mechanics (verdict engine, trigger evaluation, check-in scheduling, notification
+      evaluation, the Trends detectors' significance tests) and anything touched by recent
+      feature work.
 - [ ] For each: introduce one small, targeted mutation in the source under test (flipped
       boolean, off-by-one on a boundary, swapped operator, reordered priority). Run that file's
       tests via `./gradlew test --tests "fully.qualified.ClassName"` (unit) or the equivalent
@@ -63,9 +79,11 @@ Branch" section is unnecessary — say so explicitly in the backlog rather than 
 
 ### 3. Spec cross-reference
 - [ ] Check `HODITH_SPEC.md`'s documented core mechanics (confidence tiers, comparison bands,
-      trigger semantics, check-in scheduling, notification evaluation, export/import semantics,
-      or whatever the current spec's headline contracts are) against the corresponding test
-      files' actual assertions.
+      trigger semantics, check-in scheduling, notification evaluation, the Trends detector
+      roster's permutation-test gating and significance thresholds and its shared-engine reuse
+      (§10), export/import schema-version semantics (a Room migration, a `BACKUP_SCHEMA_VERSION`
+      bump, and import validation staying in sync, §16/§17), or whatever the current spec's
+      headline contracts are) against the corresponding test files' actual assertions.
 - [ ] Confirm each test encodes the spec's *stated* behavior, not just whatever the code
       currently happens to do — a risk when tests are written test-after rather than test-first.
 - [ ] Flag any mismatch, or any core-mechanic test with no clear spec anchor.
@@ -81,9 +99,13 @@ Branch" section is unnecessary — say so explicitly in the backlog rather than 
       should verify every field it touched, not a subset.
 
 ### 5. UI-logic-that-could-be-a-unit-test review
-- [ ] Grep composables for inline validation/transformation logic living directly in
+- [ ] Grep composables — including the `widget/` package's Glance composables, not just the main
+      Compose UI tree — for inline validation/transformation logic living directly in
       `onValueChange`/`onClick` lambdas (character caps, digit filters, toggle-reset patterns,
       any small pure transformation) that's exercised only through full instrumented UI tests.
+      Widget-specific candidates: the Plain-light-only theming resolution and the Ongoing
+      pill/elapsed-time logic (§15) — check whether these reuse the same pure helpers as the main
+      UI or duplicate them inline in Glance code.
 - [ ] For each candidate, confirm it's genuinely pure (no Compose/Context/Android dependency) —
       if so, it's a candidate for extraction into a plain function with a direct unit test,
       following the project's own `BigPictureFilterState`/`AcronymText` precedent.
@@ -110,9 +132,15 @@ Branch" section is unnecessary — say so explicitly in the backlog rather than 
       History belongs in CLEANUP_LOG.md, referenced by branch/feature name, not narrated inline.
 - [ ] Check every CLEANUP_LOG.md cross-reference elsewhere in the repo (docs and source-code
       comments alike, e.g. `// see CLEANUP_LOG.md's <branch>`) still names a heading that
-      actually exists there. HODITH's log isn't pruned to a retained window like some projects'
-      — a dangling reference here means a heading was renamed or the entry was edited, not that
-      it aged out. Grep the whole repo, not just `docs/`.
+      actually exists there. CLEANUP_LOG.md keeps only its 5 newest entries — a dangling
+      reference to an entry that's aged out past that window is expected, not a bug; only flag a
+      reference whose heading was renamed or reworded while the entry is still within the
+      retained 5. Grep the whole repo, not just `docs/`.
+- [ ] Spot check a handful of CLEANUP_LOG.md entries that describe a bug fix (not just a
+      refactor) and confirm a named regression test for it still exists and still asserts against
+      the originally broken behavior — the per-diff checklist's "bug fixed → regression test
+      added?" step only confirms the test existed at commit time; a later refactor can quietly
+      delete or neuter it without anyone connecting it back to the bug it was guarding.
 - [ ] Spot-check a handful of per-area table descriptions in TESTING.md against the actual test
       code or the behavior it documents, not just the aggregate counts and history-narration
       checks above — a description can be flatly wrong (e.g. claiming a test verifies the

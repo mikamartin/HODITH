@@ -1,8 +1,8 @@
 # HODITH — Post-Work Cleanup Checklist
 
-Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PLAYBOOK.md) §1). Actually walk through every applicable item below against the real diff — don't skip straight to writing up [CLEANUP_LOG.md](CLEANUP_LOG.md) from memory of what changed. Then record the pass there: what was found and fixed, what was deferred with a reason, and which sections didn't apply.
+Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PLAYBOOK.md) §1). Walk every applicable item below against the real diff, then log the pass in [CLEANUP_LOG.md](CLEANUP_LOG.md): what was found and fixed, what was deferred and why, and which sections didn't apply.
 
-**A finding may only be recorded as deferred with explicit human sign-off.** "Deferred" is a decision the human makes, not one the AI makes to move on — surface each finding, get the call (fix now / defer / not worth doing), and only then write it up. A finding parked without that sign-off is an unfinished task, not a deferral. Anything the human decides is worth picking up later goes in [PROGRESS.md](PROGRESS.md) (the outstanding-work tracker), not only in this log's Deferred list; a finding considered and rejected is written as "considered and declined", with the reason, not as "deferred".
+**Deferring a finding requires an explicit call.** Fix now, defer, or decline — made and recorded, not assumed. An item parked without that call is unfinished, not deferred. Anything deferred that's worth revisiting later also goes in [PROGRESS.md](PROGRESS.md). A finding considered and rejected is written as "considered and declined" with the reason, never as "deferred".
 
 ### Duplication
 - [ ] Are any composables copy-pasted with minor variation? Extract a shared component or parameter.
@@ -11,10 +11,12 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Does any ViewModel logic appear in more than one place?
 - [ ] Does any new `Repository` function overlap with an existing one that could be parameterised instead?
 - [ ] Does any new `Dao` query duplicate an existing query with a Kotlin-side filter that could be pushed into SQL?
+- [ ] Does a new Trends detector implement its own significance test instead of reusing the shared permutation engine (§10)?
 
 ### Decoupling
 - [ ] Do composables contain business logic that belongs in the ViewModel or Repository?
 - [ ] **Is any time-dependent logic calling `System.currentTimeMillis()` directly instead of the injected `Clock`?** (Breaks verdict/trigger/stats testability.)
+- [ ] Does new day-bucketing or elapsed-time logic use the event's captured `utcOffsetMinutes` rather than the device's current offset (§5/§9)?
 - [ ] **Does verdict/trigger/stats code import anything from `android.*`?** These modules stay pure Kotlin.
 - [ ] Does the ViewModel directly reference UI types (Color, Dp, Composable functions)?
 - [ ] Does the data layer reference ViewModel or UI concerns?
@@ -60,6 +62,20 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Icon-only buttons have non-empty `contentDescription`?
 - [ ] All tappable targets ≥ 48 dp × 48 dp?
 - [ ] Heatmap/chart cells convey information by more than color alone (value on tap / content descriptions)?
+- [ ] New UI verified in both light and dark mode for the themes it appears in, not just the default?
+
+### Data Model, Migrations & Privacy
+- [ ] New entity or column added? Room migration, `BACKUP_SCHEMA_VERSION` bump, and import validation all updated together (§17's "three changes, not one")?
+- [ ] Schema version bumped without a matching Room `Migration`? (`SchemaMigrationCoverageTest` should fail rather than falling back to a destructive migration.)
+- [ ] Export/import (JSON) shape and referential-integrity validation still mirror the current schema?
+- [ ] FK cascade-delete relationships (Case → Event/Hunch/Trigger) still correct after schema changes?
+- [ ] Share card still excludes notes and tags (§13) — no new field reaches it without deliberately updating that exclusion?
+
+### Background Work, Widgets & Notifications
+- [ ] Trigger/check-in evaluation still debounced and idempotent on repeated runs (a logging burst, the ~6h WorkManager pass)?
+- [ ] Notifications still join the single HODITH group with summary-only alerting, not one alert per Case?
+- [ ] `POST_NOTIFICATIONS` still requested contextually (first trigger created / first check-in enabled), never on launch?
+- [ ] Widget code (Glance) respects the Plain-light-only theming constraint and each Case's `logFlow` (one-tap vs. detail-sheet trampoline)?
 
 ### Deprecated APIs
 - [ ] Any new deprecation warnings? Resolve or document with a reason.
