@@ -27,8 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
@@ -50,6 +52,10 @@ fun <T> SegmentedChoiceRow(
     modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
     stretchToFill: Boolean = true,
     enabled: (T) -> Boolean = { true },
+    textStyle: TextStyle = MaterialTheme.typography.labelLarge,
+    // Bright-only: PLAIN/INTENSE's `SegmentedButton` manages its own chrome and ignores these.
+    segmentHorizontalPadding: Dp = if (stretchToFill) 0.dp else 16.dp,
+    segmentVerticalPadding: Dp = 7.dp,
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
@@ -60,6 +66,9 @@ fun <T> SegmentedChoiceRow(
                 modifier = modifier,
                 stretchToFill = stretchToFill,
                 enabled = enabled,
+                textStyle = textStyle,
+                segmentHorizontalPadding = segmentHorizontalPadding,
+                segmentVerticalPadding = segmentVerticalPadding,
             )
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
             // Plain uses tertiaryContainer for the selected segment instead of the default
@@ -82,7 +91,7 @@ fun <T> SegmentedChoiceRow(
                         onClick = { onSelect(option) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                         colors = colors,
-                    ) { Text(label) }
+                    ) { Text(label, style = textStyle) }
                 }
             }
         }
@@ -107,6 +116,9 @@ private fun <T> BrightSegmentedChoiceRow(
     modifier: Modifier,
     stretchToFill: Boolean,
     enabled: (T) -> Boolean,
+    textStyle: TextStyle,
+    segmentHorizontalPadding: Dp,
+    segmentVerticalPadding: Dp,
 ) {
     Row(
         modifier =
@@ -132,12 +144,12 @@ private fun <T> BrightSegmentedChoiceRow(
                                 Modifier
                             },
                         ).selectable(selected = isSelected, enabled = isEnabled, onClick = { onSelect(option) }, role = Role.RadioButton)
-                        .padding(horizontal = if (stretchToFill) 0.dp else 16.dp, vertical = 7.dp),
+                        .padding(horizontal = segmentHorizontalPadding, vertical = segmentVerticalPadding),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = textStyle,
                     textAlign = TextAlign.Center,
                     color =
                         when {

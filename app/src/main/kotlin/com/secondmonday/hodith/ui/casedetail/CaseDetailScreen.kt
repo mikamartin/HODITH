@@ -363,7 +363,7 @@ private fun LogTabContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(voice.logSortLabel, style = MaterialTheme.typography.labelLarge)
+                Text(voice.logSortLabel, style = MaterialTheme.typography.bodyLarge)
                 SegmentedChoiceRow(
                     options =
                         listOf(
@@ -374,6 +374,9 @@ private fun LogTabContent(
                     onSelect = onSortOrderChange,
                     modifier = Modifier,
                     stretchToFill = false,
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    segmentHorizontalPadding = 12.dp,
+                    segmentVerticalPadding = 4.dp,
                 )
             }
         }

@@ -157,27 +157,22 @@ Picking a future time on today's date isn't blocked. `LogDetailSheet.kt`'s date/
 
 **Tests** — a unit test asserting the clamp is reported; a Compose test for the note appearing.
 
-### Case Log sort order resets on navigating away; sort row is oversized
+### Big Picture's Case/Tag/Year filters don't persist, and aren't even ViewModel-scoped
 
-*Branch: `fix/case-log-sort-persistence-and-sizing` · Complexity: S–M · Priority: Medium · Area: Bug*
+*Branch: none yet — investigation first · Complexity: S–M · Priority: Low · Area: Big Picture*
 
-Two issues reported together against the same row.
+🔍 **Investigation** — confirm persistence is actually wanted before scoping a fix.
 
-`CaseDetailViewModel`'s `logSortOrder` (line 68) is in-memory `MutableStateFlow` state only, and resets to `BY_START` whenever the Case Detail screen is destroyed and recreated — which happens on every navigation away and back, since the ViewModel is scoped to the nav back-stack entry. `SettingsRepository`/DataStore already persists one view preference this way — `BigPictureDetail` (`SettingsRepository.kt` 35-37, `DataStoreSettingsRepository.kt`) — the same pattern applies here.
-
-Separately, the sort row (`CaseDetailScreen.kt`'s `LogTabContent`, 333-421) uses `labelLarge` text and heavier padding (`SegmentedChoiceRow`/`BrightSegmentedChoiceRow`) than the log rows below it (`EventRowContent`'s `bodyLarge`/`bodySmall`, 710-745), reading as oversized next to them.
-
-Big Picture's own Case/Tag/Year filters have the same non-persistence gap, and are worse off — plain Compose state in `BigPictureGrid.kt`, not even ViewModel-scoped. Not reported as a problem and out of scope here; worth a look separately.
+Noticed while fixing the Case Log tab's equivalent sort-order persistence bug (now resolved: `observeLogSortOrder`/`setLogSortOrder` on `SettingsRepository`, following the `BigPictureDetail` pattern). `BigPictureGrid.kt`'s Case/Tag/Year filter selections live in plain Compose state, not even `ViewModel`-scoped, so they reset on any navigation away and back — a worse starting point than the Log tab's issue was (that was ViewModel-scoped state surviving recomposition but not VM recreation; this doesn't survive recomposition at all). Not reported as a user-facing problem.
 
 **Acceptance criteria**
 
-- [ ] Sort order persisted via `SettingsRepository`/DataStore (`observeLogSortOrder`/`setLogSortOrder`, `FakeSettingsRepository` updated), following the `BigPictureDetail` pattern.
-- [ ] Sort row's type scale and padding brought in line with the log rows beneath it.
-- [ ] Test coverage for both: persistence across ViewModel recreation, and sizing.
+- [ ] A ruling on whether Big Picture's filters should persist like the Log tab's sort order, or are intentionally session-only — a filter selection resetting per visit may be the more expected behavior, unlike a sort preference.
+- [ ] If persistence is wanted: same `SettingsRepository`/DataStore pattern as `observeLogSortOrder`.
 
-**Plan** — add `observeLogSortOrder`/`setLogSortOrder` to `SettingsRepository`/`DataStoreSettingsRepository`, mirroring `BigPictureDetail`; wire `CaseDetailViewModel` to read/write through it instead of local state. Reduce the sort row's text style and padding separately.
+**Plan** — settle the ruling above first; no code until then.
 
-**Tests** — a `CaseDetailViewModel` test confirming the sort order survives a fresh ViewModel instance; a Compose test asserting the sort row's measured height is closer to the log rows below it.
+**Tests** — none until scoped.
 
 ### Big Picture: cross-case trend detection (design)
 

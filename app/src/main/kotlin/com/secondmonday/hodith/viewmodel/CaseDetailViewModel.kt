@@ -13,6 +13,7 @@ import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
+import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.Clock
@@ -60,12 +61,13 @@ class CaseDetailViewModel
     @Inject
     constructor(
         private val repository: HodithRepository,
+        private val settingsRepository: SettingsRepository,
         private val clock: Clock,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
 
-        private val logSortOrder = MutableStateFlow(LogSortOrder.BY_START)
+        private val logSortOrder = settingsRepository.observeLogSortOrder()
         private val logLimit = MutableStateFlow(LOG_INITIAL_LIMIT)
 
         /**
@@ -114,7 +116,7 @@ class CaseDetailViewModel
          * keep whatever window size was earned by tapping "Show more" under the old order.
          */
         fun setLogSortOrder(order: LogSortOrder) {
-            logSortOrder.value = order
+            viewModelScope.launch { settingsRepository.setLogSortOrder(order) }
             logLimit.value = LOG_INITIAL_LIMIT
         }
 

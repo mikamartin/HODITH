@@ -12,6 +12,7 @@ class FakeSettingsRepository : SettingsRepository {
     val developerModeUnlocked = MutableStateFlow(false)
     val cloudBackupEnabled = MutableStateFlow(true)
     val bigPictureDetail = MutableStateFlow(BigPictureDetail.DEFAULT)
+    val logSortOrder = MutableStateFlow(LogSortOrder.BY_START)
 
     override fun observeTheme(): Flow<AppTheme> = theme
 
@@ -57,5 +58,11 @@ class FakeSettingsRepository : SettingsRepository {
 
     override suspend fun setBigPictureDetail(detail: BigPictureDetail) {
         bigPictureDetail.value = detail
+    }
+
+    override fun observeLogSortOrder(): Flow<LogSortOrder> = logSortOrder
+
+    override suspend fun setLogSortOrder(order: LogSortOrder) {
+        this.logSortOrder.value = order
     }
 }

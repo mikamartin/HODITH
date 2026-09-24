@@ -21,6 +21,7 @@ private val NOTIFICATION_PERMISSION_REQUESTED_KEY = booleanPreferencesKey("notif
 private val DEVELOPER_MODE_UNLOCKED_KEY = booleanPreferencesKey("developer_mode_unlocked")
 private val CLOUD_BACKUP_ENABLED_KEY = booleanPreferencesKey("cloud_backup_enabled")
 private val BIG_PICTURE_DETAIL_KEY = stringPreferencesKey("big_picture_detail")
+private val LOG_SORT_ORDER_KEY = stringPreferencesKey("log_sort_order")
 
 @Singleton
 class DataStoreSettingsRepository
@@ -95,5 +96,16 @@ class DataStoreSettingsRepository
 
         override suspend fun setBigPictureDetail(detail: BigPictureDetail) {
             dataStore.edit { preferences -> preferences[BIG_PICTURE_DETAIL_KEY] = detail.serialize() }
+        }
+
+        override fun observeLogSortOrder(): Flow<LogSortOrder> =
+            dataStore.data.map { preferences ->
+                preferences[LOG_SORT_ORDER_KEY]?.let { name ->
+                    runCatching { LogSortOrder.valueOf(name) }.getOrNull()
+                } ?: LogSortOrder.BY_START
+            }
+
+        override suspend fun setLogSortOrder(order: LogSortOrder) {
+            dataStore.edit { preferences -> preferences[LOG_SORT_ORDER_KEY] = order.name }
         }
     }

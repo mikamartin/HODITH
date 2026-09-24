@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
@@ -33,6 +34,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class CaseDetailViewModelTest {
     private val repository = FakeHodithRepository()
+    private val settings = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
     private val caseId = 1L
 
@@ -46,7 +48,7 @@ class CaseDetailViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = CaseDetailViewModel(repository, clock, SavedStateHandle(mapOf("caseId" to caseId)))
+    private fun viewModel() = CaseDetailViewModel(repository, settings, clock, SavedStateHandle(mapOf("caseId" to caseId)))
 
     private fun testCase(durationMode: DurationMode = DurationMode.NONE) =
         Fixtures.case(id = caseId, name = "Coffee", icon = "☕️", logFlow = LogFlow.DETAIL_SHEET, durationMode = durationMode)
@@ -166,6 +168,19 @@ class CaseDetailViewModelTest {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals(LogSortOrder.BY_END, state.logSortOrder)
                 assertEquals(30, state.logEvents.size)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogSortOrder persists across a fresh ViewModel instance`() =
+        runTest {
+            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            viewModel().setLogSortOrder(LogSortOrder.BY_END)
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(LogSortOrder.BY_END, state.logSortOrder)
                 cancelAndIgnoreRemainingEvents()
             }
         }
