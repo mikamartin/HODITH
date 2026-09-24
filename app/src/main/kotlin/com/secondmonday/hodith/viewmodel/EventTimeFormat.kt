@@ -120,7 +120,7 @@ internal fun formatFrequencyTickLabel(
 ): String =
     when (granularity) {
         FrequencyGranularity.DAY -> periodStart.format(DateTimeFormatter.ofPattern("d", locale))
-        FrequencyGranularity.WEEK -> periodStart.format(DateTimeFormatter.ofPattern("M/dd", locale))
+        FrequencyGranularity.WEEK -> periodStart.format(DateTimeFormatter.ofPattern("M/d", locale))
         FrequencyGranularity.MONTH -> periodStart.month.getDisplayName(TextStyle.SHORT, locale)
     }
 
@@ -142,7 +142,7 @@ internal fun frequencyTickIndices(
 }
 
 // How many of the 12 bars carry a tick label, per granularity (spec S9). Day's numeric label is
-// narrow enough to show on every bar; Week's "M/dd" and Month's short name need more room.
+// narrow enough to show on every bar; Week's "M/d" and Month's short name need more room.
 internal const val FREQUENCY_TICK_COUNT_DAY = 12
 internal const val FREQUENCY_TICK_COUNT_WEEK = 6
 internal const val FREQUENCY_TICK_COUNT_MONTH = 6

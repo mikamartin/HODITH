@@ -444,7 +444,7 @@ private fun FrequencyCard(
     val locale = LocalLocale.current.platformLocale
     val tickIndices =
         remember(display.bars.size, display.granularity) {
-            frequencyTickIndices(display.bars.size, frequencyTickCount(display.granularity)).toSet()
+            frequencyTickIndices(display.bars.size, frequencyTickCount(display.granularity))
         }
 
     InsightsCard {
@@ -467,48 +467,55 @@ private fun FrequencyCard(
             )
             val barBrush = frequencyBarBrush(LocalCardDecorationStyle.current)
             Row(modifier = Modifier.fillMaxWidth().padding(top = FREQUENCY_CHART_TOP_SPACING.dp)) {
-                display.bars.forEachIndexed { index, bar ->
+                display.bars.forEach { bar ->
                     val barHeight =
                         FREQUENCY_BAR_CHART_HEIGHT.dp *
                             bar.heightFraction.coerceAtLeast(FREQUENCY_MIN_BAR_HEIGHT_FRACTION) *
                             FREQUENCY_BAR_MAX_HEIGHT_FRACTION
-                    // One column per bar holds both the bar and its (optional) tick label, so a
-                    // label can never drift from the bar it names the way the old separate
-                    // space-between row could (spec S9).
-                    Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(modifier = Modifier.fillMaxWidth().height(FREQUENCY_BAR_CHART_HEIGHT.dp)) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 1.dp)
-                                        .height(barHeight)
-                                        .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                                        .background(barBrush),
-                            )
-                            if (bar.count > 0) {
-                                Text(
-                                    text = bar.count.toString(),
-                                    modifier = Modifier.align(Alignment.BottomCenter).offset(y = -(barHeight + FREQUENCY_BAR_LABEL_GAP.dp)),
-                                    textAlign = TextAlign.Center,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        if (index in tickIndices) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth().height(FREQUENCY_BAR_CHART_HEIGHT.dp)) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 1.dp)
+                                    .height(barHeight)
+                                    .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                                    .background(barBrush),
+                        )
+                        if (bar.count > 0) {
                             Text(
-                                text = formatFrequencyTickLabel(bar.periodStart, display.granularity, locale),
-                                modifier = Modifier.padding(top = FREQUENCY_TICK_LABEL_GAP.dp),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                                text = bar.count.toString(),
+                                modifier = Modifier.align(Alignment.BottomCenter).offset(y = -(barHeight + FREQUENCY_BAR_LABEL_GAP.dp)),
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
+                }
+            }
+            // Tick labels get their own row, one equal-weight column per tick rather than per
+            // bar, so a label spans the same multi-bar slice frequencyTickIndices already
+            // centers it in (e.g. 2 bars wide at Week/Month's 6-of-12 density) instead of being
+            // boxed into the width of just the one bar it names — the fix for labels
+            // truncating/wrapping at larger font scale, since the constraint was column width,
+            // not string length. Equal-weight columns (not a space-between row) keep every
+            // label's slot a fixed fraction of the row's width regardless of content, so a label
+            // still can't drift off the bar it names the way the old space-between row could
+            // (spec S9) — both this row and the bars row above resolve from the same
+            // fillMaxWidth(), so their column boundaries always agree.
+            Row(modifier = Modifier.fillMaxWidth().padding(top = FREQUENCY_TICK_LABEL_GAP.dp)) {
+                tickIndices.forEach { index ->
+                    Text(
+                        text = formatFrequencyTickLabel(display.bars[index].periodStart, display.granularity, locale),
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
