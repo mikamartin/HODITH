@@ -28,7 +28,7 @@ Two items, plus the tail of nearly everything else. Anything that adds or change
 
 🎨 **Design decision** — which sections, and in what fixed order, Square always shows. Touches Voice copy, so before B2.
 
-Story stays the one fully customizable, auto-sizing format. `shareCardState()` (`ShareCardState.kt`) applies `selectedSections` the same way to both formats, and `SharePreviewScreen.kt`'s `SectionsPicker` / `availableSections` render identical toggles for both. That's a real problem now that Square keeps a 1:1 floor while Story sizes freely to content (see `fix/dialog-spacing-icon-sharecard-sizing`'s commit 3): selecting every Insights section on Square produces a tall rectangle, undermining the format's purpose — Square exists for chat/feed contexts that expect a predictable square shape.
+Story stays the one fully customizable, auto-sizing format. `shareCardState()` applies `selectedSections` identically to both formats, and `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` render the same toggles for both — but Square keeps a 1:1 floor while Story sizes freely to content, so selecting every Insights section on Square produces a tall rectangle instead of the predictable square shape it's for.
 
 **Acceptance criteria**
 
@@ -40,15 +40,22 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 - [ ] Tests: `ShareCardStateTest.kt` (Square driven by preset), `SharePreviewScreenTest.kt` (picker only for Story); `ShareCardTemplateTest.kt` Square floor/no-clip still passes.
 - [ ] `docs/mockups/share-cards-prototype.html` deleted and its `ShareCardDecoration.kt` KDoc pointer dropped — it was the last mockup left in that directory, kept only as this item's Story/Square section-layout reference (`chore/prune-design-mockups` removed the other five).
 
-**Plan** — needs a product decision first: which sections (and in what fixed order) Square always shows. Once decided: show `SectionsPicker` only when `ShareCardFormat.STORY` is selected in `SharePreviewScreen.kt`, and have `shareCardState()` source Square's sections from the fixed preset, independent of `selectedSections`.
+**Plan** — decide Square's fixed section list first. Then gate `SectionsPicker` to `ShareCardFormat.STORY` only, and source Square's sections from the preset in `shareCardState()`.
 
-**Tests** — `ShareCardStateTest.kt` needs coverage that Square's output is driven by the preset; `SharePreviewScreenTest.kt` needs coverage that the section picker appears only for Story. `ShareCardTemplateTest.kt`'s Square floor/no-clip coverage should keep passing as-is, since the preset's fixed content is what it already exercises.
+**Tests** — `ShareCardStateTest.kt` and `SharePreviewScreenTest.kt` cover the preset-driven output and Story-only picker; `ShareCardTemplateTest.kt`'s floor/no-clip tests keep passing unchanged.
 
 ### B2 · Review phrasing across all three Voice implementations
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and the audit needs a human ear. **Must land last** — after every other copy-touching item. Copy-touching items still open ahead of it: B1 (Story-only picker copy). The `feat/declutter-nudges` branch reworded the Serious `checkInDueNotificationBody` and renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle` (drafts in all three voices) — fold those into the audit. The `feat/insights-from-first-event` branch added `insightsNothingLoggedMessage` and `insightsSingleEventNote` (drafts in all three voices, replacing the old `insightsNotEnoughDataMessage`) — fold those in too. The `feat/big-picture-overview-detail` branch retired `bigPictureEventNoteEmptyState` (×3) and added `bigPictureDetailDialogTitle` + `bigPictureDetailEditDescription` (×3) plus four shared `get()` field labels — fold those in. The `feat/resolved-hunch-list-redesign` branch retired the shared `hunchHistoryRowText` default and added `hunchHistoryShowMoreAction` + `hunchHistoryRetentionNote` (drafts in all three voices, no em dashes) — fold those in too.
+🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item (currently just B1).
+
+Fold these already-drafted key changes into the audit:
+
+- `feat/declutter-nudges` — reworded Serious `checkInDueNotificationBody`; renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle`.
+- `feat/insights-from-first-event` — added `insightsNothingLoggedMessage`, `insightsSingleEventNote` (replacing `insightsNotEnoughDataMessage`).
+- `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
+- `feat/resolved-hunch-list-redesign` — retired `hunchHistoryRowText`; added `hunchHistoryShowMoreAction`, `hunchHistoryRetentionNote`.
 
 **Acceptance criteria**
 
@@ -58,25 +65,25 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` (
 - [ ] New mechanical `VoiceTest` invariants: vocabulary casing, no gamification vocabulary (streak/score/keep it up/missed — spec §4), length caps on tab/button labels, no double spaces or trailing whitespace.
 - [ ] Confirmed before starting: `androidTest` references `PlainVoice` by constant, not literal, everywhere (grep for hardcoded UI literals).
 
-**Plan** — 294 `Voice` keys total, but only 213 are declared per-voice and need independent authorship (639 strings); the other 81 are shared `get()`/default-body keys (structural chrome — nav labels, field labels, and the like) reviewed once, not per voice. ~720 strings total. Not hard, but big, and it needs a human ear rather than a mechanical pass. Write the rubric first (what "consistent" means per voice: person, tense, sentence length, punctuation and emoji budget, and a locked vocabulary for Case/Hunch/Verdict/Event/Trigger), then audit in slices by screen rather than reading `Voice.kt` top to bottom — the file is grouped by key, so reading it linearly compares the wrong things. Produce a findings list first; fix in a second commit. The rubric should explicitly cover the ~105 em dashes currently in the copy (18 Serious, 36 Goth, 51 Quirky) — most convert cleanly to a period or comma, but Goth and Quirky use the em dash roughly 2–3x more often as a genuine mid-sentence pivot (a beat before a punchline or gothic aside), so each needs a per-string call rather than a mechanical substitution.
+**Plan** — 720 strings total: 213 keys declared per-voice (639 strings) need independent authorship; 81 shared `get()`/default-body keys are reviewed once. Write the rubric first (person, tense, sentence length, punctuation/emoji budget, locked Case/Hunch/Verdict/Event/Trigger vocabulary), then audit in slices by screen — not top to bottom, since `Voice.kt` is grouped by key. Produce a findings list first; fix in a second commit. ~105 em dashes exist today (18 Serious, 36 Goth, 51 Quirky); most convert to a period or comma, but Goth/Quirky use them ~2–3x more often as a genuine mid-sentence pivot, so each needs a per-string call rather than a mechanical substitution.
 
-**Tests** — `VoiceTest` today walks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. A copy audit is the right moment to add further mechanical invariants: vocabulary casing, no gamification vocabulary (streak/score/keep it up/missed — spec §4), length caps on tab and button labels, no double spaces or trailing whitespace. Instrumented tests reference `PlainVoice.x` by constant rather than by literal, so copy edits shouldn't break them — confirm that holds everywhere before starting (a grep for hardcoded UI literals in `androidTest`).
+**Tests** — `VoiceTest` already checks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. Add mechanical invariants during the audit: vocabulary casing, no gamification vocabulary (spec §4), length caps on tab/button labels, no double spaces or trailing whitespace. Confirm `androidTest` references `PlainVoice` by constant everywhere, not literal, before starting.
 
 **Concern** — the audit will change hundreds of lines in one file. Anything else touching `Voice.kt` must land first.
 
 ## Standalone
 
-No cross-dependencies — pick by appetite. Identified by title, not a number: numbering churned confusingly as items were added and removed, so items here are found by name or by their branch.
+No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
 ### Replace the share card's old trend arrow with real Trends findings
 
 *Branch: `feat/insights-trends-share` · Complexity: S–M · Priority: Low · Area: Share*
 
-🎨 **Design decision** — whether Trends belongs on Square at all once B1 settles Square's fixed section list, and how many findings a card has room for. Also settle whether `WENT_QUIET` specifically belongs on a share card at all — unlike the other detectors, it's a live-state observation about the Case right now ("still happening, or has it wound down?"), which may read oddly once shared out of context on a card someone else sees later. If it's kept, consider whether the card needs a generation timestamp ("as of [date]") somewhere on it: a `WENT_QUIET` sentence is only true at the moment the card was made, and a share card can be viewed, forwarded, or resurfaced well after that moment, unlike the Insights tab itself which always recomputes fresh. Worth weighing for the card generally, not just this one finding, since every other section is also a snapshot of whenever the card was generated.
+🎨 **Design decision** — whether Trends belongs on Square once B1 settles its fixed section list, and how many findings a card has room for. Also whether `WENT_QUIET` belongs on a share card at all — it's a live-state read on the Case right now, not a historical shift like the other detectors, and may read oddly out of context. If kept, consider a generation timestamp on the card, since a `WENT_QUIET` sentence is only true at the moment the card was made. See also "Insights Trends: hide other findings behind a link when a Case has gone quiet" below — both turn on `WENT_QUIET`'s special status.
 
-The Insights tab folded its standalone Trend arrow card into the Trends section for good — `TrendFindingKind.FREQUENCY_SHIFT` is now just one more finding in `stats.trends`, and the Insights tab no longer renders a separate arrow anywhere. The Share card is the one place the old arrow still lives: `ShareCardState.trend`/`TrendDisplay`/`ShareCardTemplate.kt`'s `MiniTrendSection` were deliberately left untouched by that migration (a separate, already-shipped feature, not to be broken as a side effect), still sourced from `StatsSections.trend` — the field kept alive *only* for this purpose. This item is that cleanup: swap Share's own trend arrow for real Trends findings, and retire the old path completely rather than running both.
+The Insights tab already folded its Trend arrow card into the Trends section — `TrendFindingKind.FREQUENCY_SHIFT` is one more finding in `stats.trends`. The Share card still uses the old path: `ShareCardState.trend`/`TrendDisplay`/`ShareCardTemplate.kt`'s `MiniTrendSection`, sourced from `StatsSections.trend`. This item swaps Share over to real Trends findings and retires the old path.
 
-The existing Insight Share flow (`ShareViewModel.kt` → `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` → `ShareCardTemplate.kt`) renders whichever `StatsSections` sections the user picks, the same `.isNotEmpty()`/config-gated pattern `TagsCard` and the other optional cards already use — Trends should slot in as one more toggle, gated on `stats.trends.isNotEmpty()`, the same way. Unlike the Insights tab's own rows, a share card has no room for a tap-revealed detail, so this item renders each selected finding as sentence text only (real prior/recent numbers, no reliability tag, no evidence line) — closer to how the arrow card's own trend sentence already rendered on a share card before this item.
+Trends should slot into the existing Insight Share flow (`ShareViewModel.kt` → `SharePreviewScreen.kt` → `ShareCardTemplate.kt`) as one more toggle gated on `stats.trends.isNotEmpty()`, same as `TagsCard`. Render each selected finding as sentence text only — no reliability tag, no evidence line — since a share card has no room for tap-revealed detail.
 
 **Acceptance criteria**
 
@@ -87,9 +94,32 @@ The existing Insight Share flow (`ShareViewModel.kt` → `SharePreviewScreen.kt`
 - [ ] Confirmed against spec §13's "no notes/tags on share cards" rule: Trends sentences are descriptive stats like every other section already shown, not raw logged text, so no new exception needed.
 - [ ] Tests: `ShareCardStateTest.kt`/`SharePreviewScreenTest.kt` coverage that the Trends toggle appears only when findings exist; `ShareCardTemplateTest.kt` coverage for its rendering; every existing test referencing the old Trend toggle/`MiniTrendSection` updated or removed.
 
-**Plan** — mirror how Tags is already gated and rendered as the closest precedent. Swap the toggle and rendering over to `stats.trends` first, verify Share still round-trips correctly, then delete `MiniTrendSection`/`ShareCardState.trend`/`TrendDisplay`/`StatsSections.trend` and their now-dead Voice keys in the same change — not a follow-up, so the old and new paths never coexist.
+**Plan** — mirror Tags' gating pattern. Swap the toggle and rendering to `stats.trends`, verify Share round-trips, then delete `MiniTrendSection`/`ShareCardState.trend`/`TrendDisplay`/`StatsSections.trend` and their dead Voice keys in the same change — not a follow-up, so the old and new paths never coexist.
 
 **Tests** — see acceptance criteria; no new statistics, so no domain-level tests needed here.
+
+### Share button: add a Log Share option alongside the existing Insight Share
+
+*Branch: `feat/share-log-export` · Complexity: L · Priority: Medium · Area: Share*
+
+🎨 **Design decision** — sort options, date-range UI, and column-selection UX need a ruling before implementation.
+
+The existing share action (`CaseDetailScreen.kt:175-177` → `ShareViewModel.kt` → `SharePreviewScreen.kt`) becomes one of two options: "Insight Share" (unchanged) and a new "Log Share" that exports the Case's raw log data as a file — configurable sort order, date range, and toggleable columns (tags, notes, duration, intensity), each shown only when applicable to the Case. Column applicability keys off `CaseEntity.durationMode`/`intensityEnabled` (`CaseEntity.kt:16-17`), reusing `availableSections`'s existing gating pattern.
+
+Distinct from **CSV export**: that's a bulk, all-cases export with no sort/date-range/column UI; this is single-Case and share-sheet-triggered. HODITH_SPEC §13's "no notes/tags on share cards" rule is specific to the image card and doesn't apply here — needs a note distinguishing the two once this ships.
+
+**Acceptance criteria**
+
+- [ ] A ruling on Log Share's output format (CSV/text attachment via Android share sheet is the likely default, consistent with the existing CSV export item's format).
+- [ ] A ruling on sort options offered (e.g. date ascending/descending) and date-range picker UX.
+- [ ] Column toggles for tags/notes/duration/intensity, each shown only when applicable to the Case (reusing `availableSections`-style gating against `CaseEntity.durationMode`/`intensityEnabled`).
+- [ ] Share entry point presents both "Insight Share" and "Log Share" as distinct options (e.g. a chooser before `SharePreviewScreen`, or a new sibling screen).
+- [ ] Voice ×3 for all new labels, toggles, and picker copy.
+- [ ] HODITH_SPEC §13 updated to scope the "no notes/tags" rule to the image share card specifically, once Log Share exists.
+
+**Plan** — settle the format/sort/date-range/column UX first (mock as a static prototype). Then: a new export path parallel to `ShareViewModel`/`SharePreviewScreen` producing the tabular file, reusing `availableSections`'s gating pattern for column applicability, plus a chooser between Insight Share and Log Share.
+
+**Tests** — a unit test for the export-row-shaping logic (column gating by Case config, sort, date-range filtering); Compose coverage for the two-option share entry point and the Log Share configuration screen.
 
 ### App-icon handle butts directly against the lens ring with no clearance
 
@@ -108,13 +138,54 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
 
+### Log entry silently clamps a future start time to now
+
+*Branch: `fix/future-start-time-clamp-notice` · Complexity: S · Priority: Medium · Area: Bug*
+
+🎨 **Design decision** — clamp-and-notify vs. blocking the save outright.
+
+Picking a future time on today's date isn't blocked. `LogDetailSheet.kt`'s date/time pickers clamp the value to `now` (`onConfirm`, lines 321 and 334), and `LogDetailViewModel.kt`'s `toEventEntity` clamps again as the authoritative floor (line 148, `coerceAtMost(now)`). Neither shows a message, so a saved event's start time can silently differ from what was entered.
+
+**Acceptance criteria**
+
+- [ ] A note is shown when a picked time gets clamped (snackbar or inline caption).
+- [ ] New Voice key (e.g. `logSheetFutureTimeClampedNotice`) ×3.
+- [ ] Same treatment applied to the `START_STOP` end-time clamp in `computeEndedAt`, if in scope.
+- [ ] Ruling made: clamp-and-notify (current behavior, now explained) vs. block the save until the time is valid.
+
+**Plan** — detect the clamp by comparing the picked value to `now` before save, either in the picker `onConfirm` handlers (`LogDetailSheet.kt`) or by having `toEventEntity`/`planSaveEvent` report whether it clamped, so the ViewModel can push a message into UI state.
+
+**Tests** — a unit test asserting the clamp is reported; a Compose test for the note appearing.
+
+### Case Log sort order resets on navigating away; sort row is oversized
+
+*Branch: `fix/case-log-sort-persistence-and-sizing` · Complexity: S–M · Priority: Medium · Area: Bug*
+
+Two issues reported together against the same row.
+
+`CaseDetailViewModel`'s `logSortOrder` (line 68) is in-memory `MutableStateFlow` state only, and resets to `BY_START` whenever the Case Detail screen is destroyed and recreated — which happens on every navigation away and back, since the ViewModel is scoped to the nav back-stack entry. `SettingsRepository`/DataStore already persists one view preference this way — `BigPictureDetail` (`SettingsRepository.kt` 35-37, `DataStoreSettingsRepository.kt`) — the same pattern applies here.
+
+Separately, the sort row (`CaseDetailScreen.kt`'s `LogTabContent`, 333-421) uses `labelLarge` text and heavier padding (`SegmentedChoiceRow`/`BrightSegmentedChoiceRow`) than the log rows below it (`EventRowContent`'s `bodyLarge`/`bodySmall`, 710-745), reading as oversized next to them.
+
+Big Picture's own Case/Tag/Year filters have the same non-persistence gap, and are worse off — plain Compose state in `BigPictureGrid.kt`, not even ViewModel-scoped. Not reported as a problem and out of scope here; worth a look separately.
+
+**Acceptance criteria**
+
+- [ ] Sort order persisted via `SettingsRepository`/DataStore (`observeLogSortOrder`/`setLogSortOrder`, `FakeSettingsRepository` updated), following the `BigPictureDetail` pattern.
+- [ ] Sort row's type scale and padding brought in line with the log rows beneath it.
+- [ ] Test coverage for both: persistence across ViewModel recreation, and sizing.
+
+**Plan** — add `observeLogSortOrder`/`setLogSortOrder` to `SettingsRepository`/`DataStoreSettingsRepository`, mirroring `BigPictureDetail`; wire `CaseDetailViewModel` to read/write through it instead of local state. Reduce the sort row's text style and padding separately.
+
+**Tests** — a `CaseDetailViewModel` test confirming the sort order survives a fresh ViewModel instance; a Compose test asserting the sort row's measured height is closer to the log rows below it.
+
 ### Big Picture: cross-case trend detection (design)
 
 *Branch: `chore/big-picture-cross-case-trends-design` · Complexity: XL · Priority: Low · Area: Big Picture*
 
 🎨 **Design decision** — a new engine and its statistical framework are a product call, not just an implementation detail. 🔍 **Investigation** — nothing here is spec'd enough to build yet.
 
-Expands HODITH_SPEC §17's existing "Computed cross-case co-occurrence" entry, which already notes the data plumbing is in place (`observeActiveCases`, `observeActiveCaseEventDetails`, `observeActiveCaseEventTagNames`) and the real cost is statistical-honesty UX. Every existing Insights card looks at one Case in isolation; Big Picture puts all Cases on one calendar but computes nothing across them — that's where connections and possible causes live.
+Expands HODITH_SPEC §17's "Computed cross-case co-occurrence" entry — data plumbing (`observeActiveCases`, `observeActiveCaseEventDetails`, `observeActiveCaseEventTagNames`) is in place; the real cost is statistical-honesty UX. Every Insights card looks at one Case in isolation; this computes connections across them.
 
 Candidate cross-Case detectors:
 
@@ -147,15 +218,40 @@ Two prerequisites carried in from the raw idea list:
 - [ ] `HODITH_SPEC.md` §17's "Computed cross-case co-occurrence" entry flagged for an update once any part of this is approved (not done in this item).
 - [ ] Anything approved spun out as its own implementation item. No production code in this item.
 
-**Plan** — write the architecture doc first (it's reusable regardless of which detectors are approved), then rule detector-by-detector; a throwaway JVM spike for the circular-shift significance test specifically, since it's the piece most likely to have a subtle bug (whole-week shifts, not arbitrary offsets).
+**Plan** — write the architecture doc first, then rule detector-by-detector. A throwaway JVM spike for the circular-shift significance test specifically — the piece most likely to have a subtle bug (whole-week shifts, not arbitrary offsets).
 
 **Tests** — none; detector-level tests land with each spun-out implementation item, following the planted-pattern strategy above.
+
+### Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)
+
+*Branch: `fix/big-picture-filter-pill-consistency` · Complexity: S–M · Priority: Medium · Area: Big Picture*
+
+🎨 **Design decision** — the actual color choices per filter type need a call.
+
+Issues reported against `ui/bigpicture/BigPictureGrid.kt`'s filter chips/pills:
+
+- **Not color-coded by filter type.** In Plain/Intense, `CaseFilterChip` (lines 865-892) uses `secondaryContainer`, `TagFilterChip` (896-921) uses `tertiaryContainer`, and `YearFilterChip` (930-962, landed with the "Big Picture: year filter" item) uses `primaryContainer` — three distinct colors. The actual gap is **Bright**: `BrightCaseFilterChip` (1009-1022) and `BrightTagFilterChip` (1025-1036) call the shared `BrightChip` (974-1006) with the same `tint = MaterialTheme.colorScheme.primary`, and `YearFilterChip`'s own Bright branch does too — so Bright shows no color distinction across any of the three.
+- **"0 of 5" should read "None" when nothing is selected.** The "Cases: N of M" format this note originally described has since shipped as "Cases: N" ("All" once fully selected, via `filterCountLabel`, lines 509-513). `filterCountLabel` still branches only on `selected == total` (→ `bigPictureFilterCountAll`); there's no `selected == 0` branch, so it falls through to the bare `"$selected"` (`Voice.kt`, `bigPictureFilterCount(selected: Int)`, not overridden per-voice) and reads "Cases: 0" instead of a "None" wording. Needs a `bigPictureFilterCountNone`-style key, following the same per-voice-override pattern `bigPictureFilterCountAll` already uses.
+- **Tag pills don't match case pills' size/alignment.** `CaseFilterChip` renders a `Row` (icon + name `Text`s, `Arrangement.spacedBy(4.dp)`, `CenterVertically`) with padding on the `Row`; `TagFilterChip` renders a single bare `Text` with the same padding values but no `Row`/explicit vertical-centering container — same `CHIP_SHAPE`/padding constants, different measurement shape, which is the likely source of the visible height/alignment mismatch in the filter `FlowRow`s (lines 419, 438, 452) and `FilterLegendRow` (538-574).
+- **Gets worse at larger font scale.** The `TagFilterChip`/`CaseFilterChip` layout mismatch above diverges further as text grows. `FilterLegendRow` (538-576) also has no divider or extra spacing between the Case-chip group and the Tag-chip group — only a uniform 6dp `spacedBy` — so at larger font/display scale the two groups read as one.
+
+**Acceptance criteria**
+
+- [ ] A ruling on the four chip colors (Cases/Tags/Year trigger chips, plus each dialog's own pills), applied consistently across Plain, Intense, and Bright.
+- [ ] `BrightCaseFilterChip`/`BrightTagFilterChip`/`YearFilterChip`'s Bright branch use distinct tints instead of all defaulting to `colorScheme.primary`.
+- [ ] `filterCountLabel` gains a `selected == 0` branch returning a new `bigPictureFilterCountNone` Voice key (Voice ×3) instead of falling through to a bare "0".
+- [ ] `TagFilterChip` (and Bright's tag chip) restructured to match `CaseFilterChip`'s `Row`-based layout so both measure to the same height/alignment in a `FlowRow`.
+- [ ] Verified side-by-side in the Cases/Tags/Year filter dialogs and in `FilterLegendRow` where Case and Tag chips can appear together, and at larger Android font-scale/display-size settings, not just default.
+
+**Plan** — settle the color ruling first (affects Plain/Intense chips, Bright chips, and `YearFilterChip`'s own PLAIN/INTENSE branch, which already uses `primaryContainer` and may need to move once the ruling lands). Then: add the `bigPictureFilterCountNone` Voice key and wire it into `filterCountLabel`; restructure `TagFilterChip`/Bright tag chip onto `CaseFilterChip`'s `Row` layout for size/alignment parity.
+
+**Tests** — `VoiceTest` coverage for the new key across all three voices; a Compose test asserting tag and case chips render at equal height in a shared `FlowRow`; existing Big Picture filter tests updated if any assert the old bare "0" label text.
 
 ### Notes mining for tag/Case suggestions
 
 *Branch: `feat/notes-mining-suggestions` · Complexity: M · Priority: Low · Area: Insights*
 
-🎨 **Design decision** — must read as an offer, never a nudge (spec §4's no-gamification stance applies directly to anything that reacts to how much a user logs or writes).
+🎨 **Design decision** — must read as an offer, never a nudge (spec §4's no-gamification stance applies directly to anything that reacts to how much a user logs or writes). One concrete UI option raised in testing: a dismissible note on Case Detail, as an alternative to a point-of-logging prompt.
 
 Normalize event notes, count repeated phrases, and offer a tag when one repeats 3+ times ("Burnt beans again" → suggested tag). Flag notes that mention another Case's name or a recurring cause word ("wine," "screen time") and offer "want to track this as its own Case?" Turns free text into testable data for the cross-case detectors (feeds the Big Picture item) without being a detector itself.
 
@@ -169,6 +265,35 @@ Normalize event notes, count repeated phrases, and offer a tag when one repeats 
 **Plan** — a simple normalize-and-count pass over `EventEntity.note` at logging time (no ML), feeding results into the existing suggestion filtering (`TagInput.kt:26` `filterTagSuggestions`) for the tag case; a new lightweight prompt for the Case-suggestion case.
 
 **Tests** — unit tests for the phrase-repetition threshold and cause-word matching; Compose coverage for the suggestion/offer UI appearing and being dismissible.
+
+### Frequency over time: week/month labels truncate at larger text scale
+
+*Branch: `fix/frequency-over-time-label-truncation` · Complexity: S · Priority: Medium · Area: Insights*
+
+`InsightsTab.kt`'s `FrequencyCard` tick labels (501-509) use `maxLines = 1` with ellipsis, inside a fixed 12-column layout where only 6 columns carry a label. `EventTimeFormat.kt`'s `formatFrequencyTickLabel` (116-127) produces `"M/dd"` for weeks and a short month name for months — some locales' short month names run past 3 characters, and at larger font scale even the English labels can overflow their column.
+
+**Acceptance criteria**
+
+- [ ] Labels no longer truncate at larger font scale — shorten the format (e.g. `"M/d"`), reduce label density, or allow controlled wrapping.
+- [ ] Verified across locales with longer short-month names, not just English.
+
+**Tests** — a Compose test asserting tick labels render without ellipsis at an increased font scale.
+
+### Insights Trends: hide other findings behind a link when a Case has gone quiet
+
+*Branch: `feat/trends-went-quiet-declutter` · Complexity: S · Priority: Medium · Area: Insights*
+
+`TrendsCard` (`InsightsTab.kt` 670-687) shows up to `TRENDS_DEFAULT_VISIBLE_COUNT` (3) findings inline, with a link to the full list (`TrendsListScreen`, already shipped) once there are more. `WENT_QUIET` is always prepended first when present (`TrendsEngine.kt` 66-77) — a live-state read on the Case, not a shift across history like the other detectors. When it leads, showing it alongside up to two unrelated shift findings crowds the card. Change: when `WENT_QUIET` leads, show only it inline plus the link to the full list, instead of the first 3.
+
+Relates to the open question in "Replace the share card's old trend arrow..." about whether `WENT_QUIET` belongs on a share card at all — both are about its special status relative to the other detectors, worth settling together.
+
+**Acceptance criteria**
+
+- [ ] `TrendsCard` shows only `WENT_QUIET` + the link when it's the leading finding.
+- [ ] Link label reviewed for this case (Voice ×3 if the copy changes from the generic "show more").
+- [ ] `InsightsTabTrendsCardTest.kt` and the "show more" preview family updated with a WENT_QUIET-leading case.
+
+**Tests** — see acceptance criteria; no new statistics, no domain-level tests needed.
 
 ### Hunch extensions: confidence projection, belief drift, perception gap
 
@@ -192,7 +317,7 @@ A fourth extension — "when a cross-Case finding appears, offer to turn it into
 - [ ] Voice ×3 for all new copy.
 - [ ] Fourth extension noted as blocked, not attempted, until the Big Picture item lands.
 
-**Plan** — each of the three is a `VerdictEngine`/Hunch-UI addition; implement and ship independently rather than as one bundle, since they don't depend on each other. Belief drift specifically extends the resolved-Hunch history UI that already exists rather than building new plumbing.
+**Plan** — each extension is a `VerdictEngine`/Hunch-UI addition, shipped independently. Belief drift extends the existing resolved-Hunch history UI rather than building new plumbing.
 
 **Tests** — `VerdictEngineTest` coverage for the projection math and belief-drift comparison over a fixed `observeHunchHistory` fixture; Compose coverage for the perception-gap framing on `JUST_CURIOUS` Hunches.
 
@@ -200,7 +325,7 @@ A fourth extension — "when a cross-Case finding appears, offer to turn it into
 
 *Branch: `feat/trigger-threshold-suggestions` · Complexity: S–M · Priority: Low · Area: Hunch*
 
-Suggest a `SILENT_FOR` threshold from the Case's own 90th-percentile historical gap. `InsightsEngine.computeGapStats` (`InsightsEngine.kt:63-99`) already builds the past-gap list the Rhythm/Gaps card uses, but there's no percentile helper over it today — this item adds one (sort the gap list, index into the 90th percentile), it isn't reusing existing math wholesale. When a user edits a trigger, show "this would have fired N times in the last year" by replaying the threshold against history: `TriggerEngine.evaluateAtLeast(trigger, events, now)` and `evaluateSilentFor(trigger, mostRecentEventAt, caseCreatedAt, now)` (`TriggerEngine.kt:36-55`) are both pure functions of `now`, so a backtest is a matter of calling them once per day (or per event) over the past year and counting `TriggerDecision`s where the condition newly became true — no new evaluation logic, just a historical loop over the existing ones. Unrelated to the already-parked "Hunch/Trigger relationship" item in HODITH_SPEC §17 (that's about the `AT_LEAST`/Hunch overlap question, deliberately left for alpha testing) — this is purely a threshold-tuning UX affordance and doesn't touch that decision.
+Suggest a `SILENT_FOR` threshold from the Case's 90th-percentile historical gap. `InsightsEngine.computeGapStats` (`InsightsEngine.kt:63-99`) builds the gap list; this item adds a percentile helper over it (none exists today). When editing a trigger, show "would have fired N times in the last year" by replaying `evaluateAtLeast`/`evaluateSilentFor` (`TriggerEngine.kt:36-55`, both pure functions of `now`) over the past year's events — a historical loop, no new evaluation logic. Unrelated to HODITH_SPEC §17's parked "Hunch/Trigger relationship" item (the `AT_LEAST`/Hunch overlap question) — this is purely threshold-tuning UX.
 
 **Acceptance criteria**
 
@@ -231,7 +356,7 @@ Suggest a `SILENT_FOR` threshold from the Case's own 90th-percentile historical 
 
 🔍 **Investigation** — a review pass, not a known fix.
 
-User testing asked for an exploratory pass over the Intense and Bright visual themes (`Color.kt`, `GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureDecoration.kt`, `ShareCardDecoration.kt`) with an eye to minor redesigns. Scope stays restyle-only, per the standing rule from the prior Bright redesign pass — visual refinement of what already exists, not new features a mockup might otherwise suggest.
+Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration.kt`, `CardDecorationStyle.kt`, `BigPictureDecoration.kt`, `ShareCardDecoration.kt`) for minor redesigns. Restyle-only — visual refinement of what exists, not new features a mockup might suggest.
 
 **Acceptance criteria**
 
@@ -247,7 +372,7 @@ User testing asked for an exploratory pass over the Intense and Bright visual th
 
 *Branch: `feat/csv-export` · Complexity: S · Priority: Medium · Area: Settings*
 
-Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existing JSON export, JSON staying canonical for import since a flattened tabular format doesn't round-trip cleanly, making CSV export-only. This item promotes that spec entry into active work — no spec change needed, just implementation.
+Scoped in HODITH_SPEC §17: CSV export alongside the existing JSON export. JSON stays canonical for import since a flattened tabular format doesn't round-trip cleanly, so CSV is export-only. No spec change needed, just implementation.
 
 **Acceptance criteria**
 
@@ -262,62 +387,15 @@ Already scoped in HODITH_SPEC §17 Future Work: CSV export alongside the existin
 
 **Concern** — none; per the spec's own note, this is the most self-contained item here.
 
-### Share button: add a Log Share option alongside the existing Insight Share
-
-*Branch: `feat/share-log-export` · Complexity: L · Priority: Medium · Area: Share*
-
-🎨 **Design decision** — sort options, date-range UI, and column-selection UX need a ruling before implementation.
-
-Requested: the existing share action (`CaseDetailScreen.kt:175-177` → `ShareViewModel.kt` → `SharePreviewScreen.kt`, which renders a `ShareCardTemplate` image via `ShareImageExporter`) should become one of two options — keep it as "Insight Share," and add a new "Log Share" that exports the Case's raw log data as a shareable file rather than an image: configurable sort order, a date range, and toggleable columns (tags, notes, duration, intensity), showing only the columns applicable to that Case. Column applicability should key off `CaseEntity.durationMode`/`intensityEnabled` (`CaseEntity.kt:16-17`), the same way `SharePreviewScreen.kt`'s `availableSections` already gates Insights sections by Case config — that gating logic is directly reusable as a pattern here.
-
-Distinct from two existing/adjacent items: the Settings-level **CSV export** item (`feat/csv-export`) is a bulk, all-cases export with no sort/date-range/column UI; this is a single-Case, share-sheet-triggered, user-configured export. HODITH_SPEC §13's "notes/tags never included on share cards" rule is specific to the *image* share card — it does not apply to Log Share, since raw notes/tags are the explicit point of a data export shared this way. §13 will need a note distinguishing the two once this ships.
-
-**Acceptance criteria**
-
-- [ ] A ruling on Log Share's output format (CSV/text attachment via Android share sheet is the likely default, consistent with the existing CSV export item's format).
-- [ ] A ruling on sort options offered (e.g. date ascending/descending) and date-range picker UX.
-- [ ] Column toggles for tags/notes/duration/intensity, each shown only when applicable to the Case (reusing `availableSections`-style gating against `CaseEntity.durationMode`/`intensityEnabled`).
-- [ ] Share entry point presents both "Insight Share" and "Log Share" as distinct options (e.g. a chooser before `SharePreviewScreen`, or a new sibling screen).
-- [ ] Voice ×3 for all new labels, toggles, and picker copy.
-- [ ] HODITH_SPEC §13 updated to scope the "no notes/tags" rule to the image share card specifically, once Log Share exists.
-
-**Plan** — needs the format/sort/date-range/column-UX decisions above settled first (cheap to mock as a static prototype per the project's standing rule for non-trivial UI). Once settled: a new export path parallel to `ShareViewModel`/`SharePreviewScreen` (or a mode within them) producing the tabular file, reusing `availableSections`'s Case-config gating pattern for column applicability, and a new entry-point chooser between Insight Share and Log Share.
-
-**Tests** — a unit test for the export-row-shaping logic (column gating by Case config, sort, date-range filtering); Compose coverage for the two-option share entry point and the Log Share configuration screen.
-
-### Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)
-
-*Branch: `fix/big-picture-filter-pill-consistency` · Complexity: S–M · Priority: Medium · Area: Big Picture*
-
-🎨 **Design decision** — the actual color choices per filter type need a call.
-
-Three related issues reported together against `ui/bigpicture/BigPictureGrid.kt`'s filter chips/pills:
-
-- **Not color-coded by filter type.** In Plain/Intense, `CaseFilterChip` (lines 865-892) uses `secondaryContainer`, `TagFilterChip` (896-921) uses `tertiaryContainer`, and `YearFilterChip` (930-962, landed with the "Big Picture: year filter" item) uses `primaryContainer` — three distinct colors. The actual gap is **Bright**: `BrightCaseFilterChip` (1009-1022) and `BrightTagFilterChip` (1025-1036) call the shared `BrightChip` (974-1006) with the same `tint = MaterialTheme.colorScheme.primary`, and `YearFilterChip`'s own Bright branch does too — so Bright shows no color distinction across any of the three.
-- **"0 of 5" should read "None" when nothing is selected.** The "Cases: N of M" format this note originally described has since shipped as "Cases: N" ("All" once fully selected, via `filterCountLabel`, lines 509-513). `filterCountLabel` still branches only on `selected == total` (→ `bigPictureFilterCountAll`); there's no `selected == 0` branch, so it falls through to the bare `"$selected"` (`Voice.kt`, `bigPictureFilterCount(selected: Int)`, not overridden per-voice) and reads "Cases: 0" instead of a "None" wording. Needs a `bigPictureFilterCountNone`-style key, following the same per-voice-override pattern `bigPictureFilterCountAll` already uses.
-- **Tag pills don't match case pills' size/alignment.** `CaseFilterChip` renders a `Row` (icon + name `Text`s, `Arrangement.spacedBy(4.dp)`, `CenterVertically`) with padding on the `Row`; `TagFilterChip` renders a single bare `Text` with the same padding values but no `Row`/explicit vertical-centering container — same `CHIP_SHAPE`/padding constants, different measurement shape, which is the likely source of the visible height/alignment mismatch in the filter `FlowRow`s (lines 419, 438, 452) and `FilterLegendRow` (538-574).
-
-**Acceptance criteria**
-
-- [ ] A ruling on the four chip colors (Cases/Tags/Year trigger chips, plus each dialog's own pills), applied consistently across Plain, Intense, and Bright.
-- [ ] `BrightCaseFilterChip`/`BrightTagFilterChip`/`YearFilterChip`'s Bright branch use distinct tints instead of all defaulting to `colorScheme.primary`.
-- [ ] `filterCountLabel` gains a `selected == 0` branch returning a new `bigPictureFilterCountNone` Voice key (Voice ×3) instead of falling through to a bare "0".
-- [ ] `TagFilterChip` (and Bright's tag chip) restructured to match `CaseFilterChip`'s `Row`-based layout so both measure to the same height/alignment in a `FlowRow`.
-- [ ] Verified side-by-side in the Cases/Tags/Year filter dialogs and in `FilterLegendRow` where Case and Tag chips can appear together.
-
-**Plan** — settle the color ruling first (affects Plain/Intense chips, Bright chips, and `YearFilterChip`'s own PLAIN/INTENSE branch, which already uses `primaryContainer` and may need to move once the ruling lands). Then: add the `bigPictureFilterCountNone` Voice key and wire it into `filterCountLabel`; restructure `TagFilterChip`/Bright tag chip onto `CaseFilterChip`'s `Row` layout for size/alignment parity.
-
-**Tests** — `VoiceTest` coverage for the new key across all three voices; a Compose test asserting tag and case chips render at equal height in a shared `FlowRow`; existing Big Picture filter tests updated if any assert the old bare "0" label text.
-
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
 
 *Branch: `refactor/big-picture-windowed-query` (if taken) · Complexity: S–M · Priority: Low · Area: Performance*
 
-🔍 **Investigation, deferred** — `BigPictureViewModel` now reads two lean flat projections (`EventDao.observeActiveCaseEventDetails()`, `TagDao.observeActiveCaseEventTagNames()`) instead of the `@Transaction @Relation` cascade this item originally flagged (see CLEANUP_LOG). That already removes the chunked `IN (...)` sub-fetches and full-row hydration that were the measured cost, and a throwaway JVM probe confirmed the Kotlin-side mapping is cheap at S6 scale. Undecided: whether the two flat queries' raw SQL-scan cost also holds up at that scale under a write burst.
+🔍 **Investigation, deferred** — `BigPictureViewModel` now reads two flat projections (`EventDao.observeActiveCaseEventDetails()`, `TagDao.observeActiveCaseEventTagNames()`) instead of the original `@Transaction @Relation` cascade — removing the chunked `IN (...)` sub-fetches and full-row hydration that were the measured cost. A JVM probe confirmed Kotlin-side mapping is cheap at S6 scale. Undecided: whether the two queries' SQL-scan cost holds up at that scale under a write burst.
 
-**Deferred rather than pursued next** — closing that needs a synthetic, S6-scale instrumented DB probe with no real usage behind it. Building month-range windowing on the back of a synthetic measurement, before knowing it's even felt, is speculative complexity worth avoiding; real alpha usage is a better trigger than a cautionary probe.
+**Deferred rather than pursued next** — closing this needs a synthetic S6-scale DB probe with no real usage behind it: speculative complexity. Real alpha usage is a better trigger than a cautionary probe.
 
 **Acceptance criteria**
 
@@ -354,7 +432,7 @@ Three related issues reported together against `ui/bigpicture/BigPictureGrid.kt`
 
 🔍 **Investigation**
 
-User testing raised the same underlying question **D1** is deferred pending — "what's the current capacity for years of extensive records?" — but broader than D1's Big Picture-specific scope. `EventDao.observeEventsWithTagsForCase` (the unbounded query) backs every Insights/Hunch stats computation (rhythm, frequency-over-time, trend, duration averages) with no row-count limit or windowing at all; only the Log tab's own display got paged querying (`feat/log-tab-paged-query`). This user-testing ask may itself be the "real alpha usage" trigger D1 was waiting on — worth resolving together with D1 rather than as a fully separate track.
+Raises the same question **D1** is deferred pending — app capacity for years of records — but broader than D1's Big Picture-specific scope. `EventDao.observeEventsWithTagsForCase` (unbounded) backs every Insights/Hunch stats computation (rhythm, frequency-over-time, trend, duration averages) with no row-count limit; only the Log tab got paged querying (`feat/log-tab-paged-query`). May itself be D1's "real alpha usage" trigger — resolve together with D1 rather than as a separate track.
 
 **Acceptance criteria**
 
@@ -371,11 +449,11 @@ User testing raised the same underlying question **D1** is deferred pending — 
 
 *Branch: none yet — needs a reusable test double designed first · Complexity: S–M · Priority: Low · Area: Repo*
 
-Surfaced while adding `RoomHodithRepository.deleteEventsOlderThan` (`feat/bulk-delete-logs-by-date`). That method fetches the affected Case ids *before* deleting (`EventDao.getCaseIdsWithEventsOlderThan`), then deletes, then calls `evaluateNotificationsForCase` for each — a real bug (querying after delete instead of before, silently re-evaluating zero Cases) has no test pinning the ordering. Checking for it turned up a wider, pre-existing gap: **`RoomHodithRepository`'s `evaluateNotificationsForCase` → `NotificationEvalScheduler.schedule()` side effect is untested at the repository level for every call site, not just this new one** — `insertEvent`, `updateEvent`, `deleteEvent`, and `deleteEventById` all fire it too, and none are covered. This isn't a guess: `RoomHodithRepositoryBackupTest.kt`'s own doc comment and an inline comment above its one event insert already document the workaround — it inserts via `db.eventDao().insert(...)` directly instead of `repository.insertEvent(...)` specifically "because that wrapper fires notification evaluation as a fire-and-forget side effect, which would invoke this test's intentionally-throwing `NotificationEvaluator` stand-in" (its `unusedScheduler()` helper's `Provider` deliberately errors if ever pulled).
+`RoomHodithRepository.deleteEventsOlderThan` fetches affected Case ids *before* deleting, then deletes, then calls `evaluateNotificationsForCase` per Case — the ordering isn't pinned by any test. Wider gap: `evaluateNotificationsForCase` → `NotificationEvalScheduler.schedule()` is untested at the repository level for every call site (`insertEvent`, `updateEvent`, `deleteEvent`, `deleteEventById`, not just `deleteEventsOlderThan`). `RoomHodithRepositoryBackupTest.kt` already documents the workaround: it inserts via `db.eventDao().insert(...)` directly to avoid triggering the wrapper's notification side effect against its intentionally-throwing `NotificationEvaluator` stand-in.
 
-The scheduler/evaluator chain itself *is* testable — `NotificationEvalSchedulerTest` (JVM, `src/test`) already proves the full `NotificationEvalScheduler` → `NotificationEvaluator` → `Notifier` path works, using `FakeHodithRepository`, `FakeSettingsRepository`, `FakeClock`, and `FakeNotifier`, with `backgroundScope`/`advanceTimeBy` driving the debounce deterministically. What's missing is the androidTest-side equivalent: a way to construct that same chain against a *real* `RoomHodithRepository`/`HodithDatabase` (`RoomHodithRepositoryLogEventsTest`'s and `RoomHodithRepositoryBackupTest`'s pattern) without either triggering `unusedScheduler()`'s deliberate error or routing around the repository's own wrapper methods, as `RoomHodithRepositoryBackupTest` currently does. `FakeNotifier` also isn't reachable from `androidTest` today — it's in `src/test`, a separate source set.
+The scheduler/evaluator chain itself is testable — `NotificationEvalSchedulerTest` (JVM) proves the full path with `FakeHodithRepository`/`FakeSettingsRepository`/`FakeClock`/`FakeNotifier`. Missing: an androidTest equivalent against a real `RoomHodithRepository`/`HodithDatabase`, without triggering `unusedScheduler()`'s deliberate error or routing around the wrapper methods. `FakeNotifier` also isn't reachable from `androidTest` — it's in `src/test`, a separate source set.
 
-Not a known bug and not blocking: every affected path already has a soft failure mode. A stale trigger/check-in evaluation self-heals within roughly six hours via `NotificationEvalWorker`'s periodic `evaluateAll` sweep, which is unaffected by any of this. Priority Low accordingly — this is a coverage gap, not a correctness risk.
+Not blocking — every affected path self-heals within ~6 hours via `NotificationEvalWorker`'s periodic `evaluateAll` sweep. Coverage gap, not a correctness risk.
 
 **Acceptance criteria**
 
@@ -384,11 +462,11 @@ Not a known bug and not blocking: every affected path already has a soft failure
 - [ ] The same coverage extended to `insertEvent`/`updateEvent`/`deleteEvent`/`deleteEventById`'s `evaluateNotificationsForCase` call, currently untested at the repository level.
 - [ ] `RoomHodithRepositoryBackupTest.kt`'s raw-DAO insert workaround revisited once the double exists — it could go back to calling `repository.insertEvent(...)` directly instead of bypassing the wrapper, if that reads more naturally with the new double in place.
 
-**Plan** — mirror `NotificationEvalSchedulerTest`'s exact successful shape (real `NotificationEvalScheduler`/`NotificationEvaluator`, `backgroundScope`, `advanceTimeBy`) but swap `FakeHodithRepository` for the real `RoomHodithRepository`/in-memory `HodithDatabase` under test, matching `RoomHodithRepositoryLogEventsTest`'s setup. Settle `FakeNotifier`'s reachability first (shared source set vs. an `androidTest`-local reimplementation) since every other piece already has a working precedent to copy.
+**Plan** — mirror `NotificationEvalSchedulerTest`'s shape but swap in the real `RoomHodithRepository`/in-memory `HodithDatabase`, matching `RoomHodithRepositoryLogEventsTest`'s setup. Settle `FakeNotifier`'s reachability first (shared source set vs. `androidTest`-local reimplementation).
 
 **Tests** — this item's entire scope is new tests; see acceptance criteria above.
 
-**Concern** — none blocking. Worth a second look if this class of repository-mutation-triggers-a-side-effect pattern grows (e.g. Trigger CRUD notably does *not* call `evaluateNotificationsForCase` today, unlike Event CRUD — noticed in passing while mapping call sites, not evaluated here as correct or a bug; a separate question if it ever comes up).
+**Concern** — none blocking. Trigger CRUD doesn't call `evaluateNotificationsForCase` today, unlike Event CRUD — noticed in passing, not evaluated here as correct or a bug.
 
 ### D5 · Detector: cycles and seasonality (autocorrelation + month-of-year)
 
@@ -396,9 +474,9 @@ Not a known bug and not blocking: every affected path already has a soft failure
 
 🔍 **Investigation, deferred** · 🎨 **Design decision**
 
-The former "cycles and seasonality" item originally scoped three sub-features: autocorrelation on daily event counts for weekly/~28-day cycles, a month-of-year comparison once a Case has 1+ years of data, and a weekday-vs-weekend fallback sentence for when full seasonality doesn't clear its bar. The fallback shipped on its own (`HODITH_SPEC.md` §10's "Weekday vs weekend" entry) — cheap, reused the existing permutation engine, needed no new statistical technique. The other two pieces are deferred: autocorrelation over a daily-count series is a genuinely new technique (not a reuse of the bucket-share/label-shuffle/timeline-shuffle machinery every other detector sits on), needs the most data of any detector considered here to even fire reliably, and month-of-year specifically needs a full year of a Case's history before it can offer anything at all.
+Originally scoped three sub-features: autocorrelation for weekly/~28-day cycles, a month-of-year comparison (needs 1+ years of data), and a weekday-vs-weekend fallback. The fallback shipped on its own (`HODITH_SPEC.md` §10). The other two are deferred: autocorrelation is a genuinely new technique (not a reuse of the existing bucket-share/label-shuffle/timeline-shuffle machinery) and needs the most data of any detector here to fire reliably.
 
-**Deferred rather than pursued next** — building this before knowing whether users' logged Cases actually run long enough, and have real weekly/monthly structure worth surfacing, is speculative complexity; real alpha usage (Cases with a year-plus of history) is a better trigger than building the heaviest computation in the roster on spec.
+**Deferred rather than pursued next** — building this before knowing whether Cases run long enough to show real weekly/monthly structure is speculative complexity. Real alpha usage (Cases with a year-plus of history) is a better trigger.
 
 **Acceptance criteria**
 
@@ -409,7 +487,7 @@ The former "cycles and seasonality" item originally scoped three sub-features: a
 - [ ] Tests: a planted weekly cycle, a planted no-cycle null.
 - [ ] `HODITH_SPEC.md` §10 gains one line per kept signal, or a rationale note here for any dropped.
 
-**Plan** — none yet; revisit scope when picked back up, since the weekday-vs-weekend fallback already covers the cheapest, most immediately useful signal from the original three.
+**Plan** — none yet — the weekday-vs-weekend fallback already covers the cheapest, most useful signal of the original three.
 
 **Tests** — none until picked back up.
 
@@ -430,11 +508,11 @@ The row shows a "coming soon" snackbar — needs a real destination once there's
 - [ ] `SettingsScreenTest` changes from asserting the coming-soon snackbar to asserting the intent launches (Espresso `Intents`).
 - [ ] The Bright plank Preview's no-op `onClick` left as-is (not a second call site).
 
-**Plan** — genuinely blocked on the listing existing, so it belongs in the release-prep branch rather than as standalone work. Two implementations: a `market://details?id=…` intent with an `https://play.google.com/…` fallback, or the Play In-App Review API. Recommend the deep link — In-App Review means adding a Google Play Services dependency to an app that currently ships none and whose whole positioning is "no network", which makes it a positioning decision rather than a technical one.
+**Plan** — blocked on the listing existing; belongs in the release-prep branch. Two options: a `market://details?id=…` intent with an `https://play.google.com/…` fallback, or the Play In-App Review API. Recommend the deep link — In-App Review adds a Google Play Services dependency to an app that ships none and positions itself as "no network".
 
-**Tests** — `SettingsScreenTest` currently asserts the coming-soon snackbar, so that test changes rather than gets added to: assert the intent is launched (Espresso `Intents`). Note the row also appears in `SettingsScreen.kt`'s Bright plank Preview with a no-op `onClick`, which needs no change but shouldn't be mistaken for a second call site.
+**Tests** — `SettingsScreenTest` currently asserts the coming-soon snackbar — change it to assert the intent launches (Espresso `Intents`). The row also appears in `SettingsScreen.kt`'s Bright plank Preview with a no-op `onClick`; no change needed, don't mistake it for a second call site.
 
-**Concern** — In-App Review is quota-limited and no-ops silently once the quota is hit, which makes manual verification unreliable; the deep link is trivially verifiable. Another reason to prefer it.
+**Concern** — In-App Review is quota-limited and no-ops silently once hit, making manual verification unreliable. The deep link is trivially verifiable.
 
 ---
 
