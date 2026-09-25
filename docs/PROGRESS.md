@@ -200,30 +200,24 @@ Two prerequisites carried in from the raw idea list:
 
 **Tests** — none; detector-level tests land with each spun-out implementation item, following the planted-pattern strategy above.
 
-### Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)
+### Instrumented tests fail locally on a non-UTC device (test-fixture bug, seen in at least two files)
 
-*Branch: `fix/big-picture-filter-pill-consistency` · Complexity: S–M · Priority: Medium · Area: Big Picture*
+*Branch: none yet · Complexity: S · Priority: Low · Area: Repo*
 
-🎨 **Design decision** — the actual color choices per filter type need a call.
+🔍 **Investigation, confirmed cause** — not a production bug, a test-fixture one. Previously flagged in passing (`fix/case-log-sort-persistence-and-sizing`'s CLEANUP_LOG.md entry, since rotated out by the 5-entry retention limit) against `CaseDetailScreenTest`/`CaseDetailInsightsTabTest`, with a promised `TESTING.md` "Known environment issues" note that never actually landed — re-found independently here against `BigPictureScreenTest`, so this item now tracks it for real instead of letting it drop a second time.
 
-Issues reported against `ui/bigpicture/BigPictureGrid.kt`'s filter chips/pills:
-
-- **Not color-coded by filter type.** In Plain/Intense, `CaseFilterChip` (lines 865-892) uses `secondaryContainer`, `TagFilterChip` (896-921) uses `tertiaryContainer`, and `YearFilterChip` (930-962, landed with the "Big Picture: year filter" item) uses `primaryContainer` — three distinct colors. The actual gap is **Bright**: `BrightCaseFilterChip` (1009-1022) and `BrightTagFilterChip` (1025-1036) call the shared `BrightChip` (974-1006) with the same `tint = MaterialTheme.colorScheme.primary`, and `YearFilterChip`'s own Bright branch does too — so Bright shows no color distinction across any of the three.
-- **"0 of 5" should read "None" when nothing is selected.** The "Cases: N of M" format this note originally described has since shipped as "Cases: N" ("All" once fully selected, via `filterCountLabel`, lines 509-513). `filterCountLabel` still branches only on `selected == total` (→ `bigPictureFilterCountAll`); there's no `selected == 0` branch, so it falls through to the bare `"$selected"` (`Voice.kt`, `bigPictureFilterCount(selected: Int)`, not overridden per-voice) and reads "Cases: 0" instead of a "None" wording. Needs a `bigPictureFilterCountNone`-style key, following the same per-voice-override pattern `bigPictureFilterCountAll` already uses.
-- **Tag pills don't match case pills' size/alignment.** `CaseFilterChip` renders a `Row` (icon + name `Text`s, `Arrangement.spacedBy(4.dp)`, `CenterVertically`) with padding on the `Row`; `TagFilterChip` renders a single bare `Text` with the same padding values but no `Row`/explicit vertical-centering container — same `CHIP_SHAPE`/padding constants, different measurement shape, which is the likely source of the visible height/alignment mismatch in the filter `FlowRow`s (lines 419, 438, 452) and `FilterLegendRow` (538-574).
-- **Gets worse at larger font scale.** The `TagFilterChip`/`CaseFilterChip` layout mismatch above diverges further as text grows. `FilterLegendRow` (538-576) also has no divider or extra spacing between the Case-chip group and the Tag-chip group — only a uniform 6dp `spacedBy` — so at larger font/display scale the two groups read as one.
+`BigPictureScreenTest.kt`'s event fixtures (`eventToday`, `millisAt`) build `occurredAt`/`endedAt` via `ZoneId.systemDefault()` but never set `CalendarEvent.utcOffsetMinutes`, which defaults to `0` (UTC). `EventDetailRow` formats display strings via `event.loggedZone()` — the event's own captured offset, `0` here — so whenever the test-running device's real default zone isn't UTC, the fixture's timestamp and its formatted display diverge (e.g. midnight in `America/Los_Angeles` displays as the UTC hour, not "12:00 AM"). CI's Linux runners default to UTC, so this has never surfaced there; it fails deterministically on a non-UTC local emulator (`persist.sys.timezone=America/Los_Angeles`) — 9 of `BigPictureScreenTest`'s methods fail for exactly this reason every run, confirmed by rerunning after an emulator restart: same 9, same names, both times. The earlier sighting in `CaseDetailScreenTest`/`CaseDetailInsightsTabTest` points at the same root cause, not a coincidence.
 
 **Acceptance criteria**
 
-- [ ] A ruling on the four chip colors (Cases/Tags/Year trigger chips, plus each dialog's own pills), applied consistently across Plain, Intense, and Bright.
-- [ ] `BrightCaseFilterChip`/`BrightTagFilterChip`/`YearFilterChip`'s Bright branch use distinct tints instead of all defaulting to `colorScheme.primary`.
-- [ ] `filterCountLabel` gains a `selected == 0` branch returning a new `bigPictureFilterCountNone` Voice key (Voice ×3) instead of falling through to a bare "0".
-- [ ] `TagFilterChip` (and Bright's tag chip) restructured to match `CaseFilterChip`'s `Row`-based layout so both measure to the same height/alignment in a `FlowRow`.
-- [ ] Verified side-by-side in the Cases/Tags/Year filter dialogs and in `FilterLegendRow` where Case and Tag chips can appear together, and at larger Android font-scale/display-size settings, not just default.
+- [ ] A ruling on the fix: set `utcOffsetMinutes` explicitly in every affected fixture (`ZoneId.systemDefault().offsetMinutesAt(...)`, mirroring `LogDetailViewModel.kt`'s production pattern) vs. pinning the emulator/test JVM's default timezone to UTC for local runs.
+- [ ] Whichever is chosen, confirmed fixed by an actual on-device run on a non-UTC machine/emulator, not just reasoned through — covering `BigPictureScreenTest` and `CaseDetailScreenTest`/`CaseDetailInsightsTabTest` at minimum.
+- [ ] A repo-wide check for the same pattern in every other `androidTest` file that builds `CalendarEvent`/`EventEntity` fixtures without setting an offset.
+- [ ] A `TESTING.md` "Known environment issues" entry, whether or not the fix lands in the same pass — so the next person who hits this locally doesn't waste time before finding this item.
 
-**Plan** — settle the color ruling first (affects Plain/Intense chips, Bright chips, and `YearFilterChip`'s own PLAIN/INTENSE branch, which already uses `primaryContainer` and may need to move once the ruling lands). Then: add the `bigPictureFilterCountNone` Voice key and wire it into `filterCountLabel`; restructure `TagFilterChip`/Bright tag chip onto `CaseFilterChip`'s `Row` layout for size/alignment parity.
+**Plan** — likely the fixture-side fix (set the offset explicitly), since it's local to the affected test files and doesn't require every contributor's machine/emulator to run in UTC.
 
-**Tests** — `VoiceTest` coverage for the new key across all three voices; a Compose test asserting tag and case chips render at equal height in a shared `FlowRow`; existing Big Picture filter tests updated if any assert the old bare "0" label text.
+**Tests** — the fix's own verification is the acceptance criteria above; no production code involved, so no new production tests.
 
 ### Notes mining for tag/Case suggestions
 
