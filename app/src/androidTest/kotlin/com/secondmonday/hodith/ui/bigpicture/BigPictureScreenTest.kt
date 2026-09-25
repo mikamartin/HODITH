@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
+import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
@@ -125,14 +126,18 @@ class BigPictureScreenTest {
         note: String? = null,
         tags: List<String> = emptyList(),
         intensity: Int? = null,
-    ) = CalendarEvent(
-        id = id,
-        caseId = case.id,
-        occurredAt = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-        note = note,
-        intensity = intensity,
-        tags = tags,
-    )
+    ): CalendarEvent {
+        val occurredAt = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        return CalendarEvent(
+            id = id,
+            caseId = case.id,
+            occurredAt = occurredAt,
+            note = note,
+            intensity = intensity,
+            tags = tags,
+            utcOffsetMinutes = offsetAt(occurredAt),
+        )
+    }
 
     @Test
     fun emptyState_showsWhenNoCases() {
@@ -256,6 +261,12 @@ class BigPictureScreenTest {
         .toInstant()
         .toEpochMilli()
 
+    // Fixtures build occurredAt via the device's own zone (millisAt/today.atStartOfDay), so their
+    // utcOffsetMinutes must be captured the same way -- mirrors the production capture in
+    // LogDetailViewModel.toEventEntity -- or a non-UTC test device diverges from the fixture's
+    // assumed-UTC default and every clock-time/day-bucketing assertion in this file breaks.
+    private fun offsetAt(millis: Long) = ZoneId.systemDefault().offsetMinutesAt(millis)
+
     @Test
     fun dayDetailDialog_spannedDay_showsSpanRangeInsteadOfClockTime() {
         // A finished 3-day event: Mon 20th 09:00 -> Wed 22nd 17:00. The 21st is a carried day.
@@ -266,6 +277,7 @@ class BigPictureScreenTest {
                 occurredAt = millisAt(weekStart, 9),
                 endedAt = millisAt(weekStart.plusDays(2), 17),
                 note = "rough stretch",
+                utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
 
@@ -285,6 +297,7 @@ class BigPictureScreenTest {
                 occurredAt = millisAt(weekStart.plusDays(1), 8),
                 isOngoing = true,
                 note = "forgot to stop",
+                utcOffsetMinutes = offsetAt(millisAt(weekStart.plusDays(1), 8)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(ongoing)))
 
@@ -315,7 +328,14 @@ class BigPictureScreenTest {
         val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
         val urgentEvent = eventToday(id = 1L, note = "urgent note", tags = listOf("urgent"))
         val laterEvent =
-            CalendarEvent(id = 2L, caseId = secondCase.id, occurredAt = urgentEvent.occurredAt, note = "later note", tags = listOf("later"))
+            CalendarEvent(
+                id = 2L,
+                caseId = secondCase.id,
+                occurredAt = urgentEvent.occurredAt,
+                note = "later note",
+                tags = listOf("later"),
+                utcOffsetMinutes = offsetAt(urgentEvent.occurredAt),
+            )
         setContent(uiStateWith(cases = listOf(case, secondCase), events = listOf(urgentEvent, laterEvent)))
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
@@ -358,7 +378,14 @@ class BigPictureScreenTest {
         val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
         val workEvent = eventToday(id = 1L, note = "work note", tags = listOf("work"))
         val soloEvent =
-            CalendarEvent(id = 2L, caseId = secondCase.id, occurredAt = workEvent.occurredAt, note = "solo note", tags = listOf("solo"))
+            CalendarEvent(
+                id = 2L,
+                caseId = secondCase.id,
+                occurredAt = workEvent.occurredAt,
+                note = "solo note",
+                tags = listOf("solo"),
+                utcOffsetMinutes = offsetAt(workEvent.occurredAt),
+            )
         setContent(uiStateWith(cases = listOf(case, secondCase), events = listOf(workEvent, soloEvent)))
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
@@ -379,7 +406,14 @@ class BigPictureScreenTest {
         val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
         val workEvent = eventToday(id = 1L, note = "work note", tags = listOf("work"))
         val soloEvent =
-            CalendarEvent(id = 2L, caseId = secondCase.id, occurredAt = workEvent.occurredAt, note = "solo note", tags = listOf("solo"))
+            CalendarEvent(
+                id = 2L,
+                caseId = secondCase.id,
+                occurredAt = workEvent.occurredAt,
+                note = "solo note",
+                tags = listOf("solo"),
+                utcOffsetMinutes = offsetAt(workEvent.occurredAt),
+            )
         setContent(uiStateWith(cases = listOf(case, secondCase), events = listOf(workEvent, soloEvent)))
 
         // Narrow tags to "solo" only, while both Cases are still visible.
@@ -442,6 +476,7 @@ class BigPictureScreenTest {
                 occurredAt = millisAt(weekStart, 9),
                 endedAt = millisAt(weekStart.plusDays(2), 17),
                 note = "rough stretch",
+                utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
 
@@ -464,6 +499,7 @@ class BigPictureScreenTest {
                 occurredAt = millisAt(weekStart.plusDays(1), 8),
                 isOngoing = true,
                 note = "forgot to stop",
+                utcOffsetMinutes = offsetAt(millisAt(weekStart.plusDays(1), 8)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(ongoing)))
 
@@ -547,7 +583,15 @@ class BigPictureScreenTest {
     @Test
     fun bulkToggle_selectAll_reselectsEveryTag() {
         val eventA = eventToday(id = 1L, note = "a note", tags = listOf("urgent"))
-        val eventB = CalendarEvent(id = 2L, caseId = case.id, occurredAt = eventA.occurredAt, note = "b note", tags = listOf("later"))
+        val eventB =
+            CalendarEvent(
+                id = 2L,
+                caseId = case.id,
+                occurredAt = eventA.occurredAt,
+                note = "b note",
+                tags = listOf("later"),
+                utcOffsetMinutes = offsetAt(eventA.occurredAt),
+            )
         setContent(uiStateWith(cases = listOf(case), events = listOf(eventA, eventB)))
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
@@ -614,7 +658,14 @@ class BigPictureScreenTest {
         // instead, deselecting Tea would scope "later" out of the Tags dialog entirely.
         val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
         val eventA = eventToday(id = 1L, tags = listOf("urgent"))
-        val eventB = CalendarEvent(id = 2L, caseId = case.id, occurredAt = eventA.occurredAt, tags = listOf("later"))
+        val eventB =
+            CalendarEvent(
+                id = 2L,
+                caseId = case.id,
+                occurredAt = eventA.occurredAt,
+                tags = listOf("later"),
+                utcOffsetMinutes = offsetAt(eventA.occurredAt),
+            )
         setContent(uiStateWith(cases = listOf(case, secondCase), events = listOf(eventA, eventB)))
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
@@ -737,8 +788,22 @@ class BigPictureScreenTest {
     fun yearFilter_composesWithCaseFilter_dayDetailRespectsBothNarrowings() {
         val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
         val earlierDay = earlierYearMonth.atDay(15)
-        val coffeeEvent = CalendarEvent(id = 1L, caseId = case.id, occurredAt = millisAt(earlierDay, 9), note = "coffee note")
-        val teaEvent = CalendarEvent(id = 2L, caseId = secondCase.id, occurredAt = millisAt(earlierDay, 10), note = "tea note")
+        val coffeeEvent =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(earlierDay, 9),
+                note = "coffee note",
+                utcOffsetMinutes = offsetAt(millisAt(earlierDay, 9)),
+            )
+        val teaEvent =
+            CalendarEvent(
+                id = 2L,
+                caseId = secondCase.id,
+                occurredAt = millisAt(earlierDay, 10),
+                note = "tea note",
+                utcOffsetMinutes = offsetAt(millisAt(earlierDay, 10)),
+            )
         setContent(
             uiStateWith(cases = listOf(case, secondCase), events = listOf(coffeeEvent, teaEvent), earliestMonth = earlierYearMonth),
         )
@@ -828,9 +893,22 @@ class BigPictureScreenTest {
         // as a partial "1 of 2" -- only an explicit reset to null collapses it to "All".
         val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
         val workEvent = eventToday(id = 1L, tags = listOf("work"))
-        val personalEvent = CalendarEvent(id = 2L, caseId = case.id, occurredAt = workEvent.occurredAt, tags = listOf("personal"))
+        val personalEvent =
+            CalendarEvent(
+                id = 2L,
+                caseId = case.id,
+                occurredAt = workEvent.occurredAt,
+                tags = listOf("personal"),
+                utcOffsetMinutes = offsetAt(workEvent.occurredAt),
+            )
         val soloEvent =
-            CalendarEvent(id = 3L, caseId = secondCase.id, occurredAt = workEvent.occurredAt, tags = listOf("solo"))
+            CalendarEvent(
+                id = 3L,
+                caseId = secondCase.id,
+                occurredAt = workEvent.occurredAt,
+                tags = listOf("solo"),
+                utcOffsetMinutes = offsetAt(workEvent.occurredAt),
+            )
         setContent(
             uiStateWith(
                 cases = listOf(case, secondCase),
@@ -972,7 +1050,8 @@ class BigPictureScreenTest {
     fun dayDetailRow_durationToggleOn_showsLastedForASameDayDurationEvent() {
         val start = millisAt(today, 9)
         val end = start + 40 * 60_000L
-        val sameDayDuration = CalendarEvent(id = 1L, caseId = case.id, occurredAt = start, endedAt = end)
+        val sameDayDuration =
+            CalendarEvent(id = 1L, caseId = case.id, occurredAt = start, endedAt = end, utcOffsetMinutes = offsetAt(start))
         setContent(
             uiStateWith(
                 cases = listOf(case),
@@ -989,7 +1068,14 @@ class BigPictureScreenTest {
     @Test
     fun dayDetailRow_durationToggleOff_hidesLasted() {
         val start = millisAt(today, 9)
-        val sameDayDuration = CalendarEvent(id = 1L, caseId = case.id, occurredAt = start, endedAt = start + 40 * 60_000L)
+        val sameDayDuration =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = start,
+                endedAt = start + 40 * 60_000L,
+                utcOffsetMinutes = offsetAt(start),
+            )
         setContent(
             uiStateWith(
                 cases = listOf(case),
@@ -1011,6 +1097,7 @@ class BigPictureScreenTest {
                 caseId = case.id,
                 occurredAt = millisAt(weekStart, 9),
                 endedAt = millisAt(weekStart.plusDays(2), 17),
+                utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
             )
         setContent(
             uiStateWith(cases = listOf(case), events = listOf(span), detail = BigPictureDetail.DEFAULT.copy(duration = true)),

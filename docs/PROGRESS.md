@@ -200,25 +200,6 @@ Two prerequisites carried in from the raw idea list:
 
 **Tests** — none; detector-level tests land with each spun-out implementation item, following the planted-pattern strategy above.
 
-### Instrumented tests fail locally on a non-UTC device (test-fixture bug, seen in at least two files)
-
-*Branch: none yet · Complexity: S · Priority: Low · Area: Repo*
-
-🔍 **Investigation, confirmed cause** — not a production bug, a test-fixture one. Previously flagged in passing (`fix/case-log-sort-persistence-and-sizing`'s CLEANUP_LOG.md entry, since rotated out by the 5-entry retention limit) against `CaseDetailScreenTest`/`CaseDetailInsightsTabTest`, with a promised `TESTING.md` "Known environment issues" note that never actually landed — re-found independently here against `BigPictureScreenTest`, so this item now tracks it for real instead of letting it drop a second time.
-
-`BigPictureScreenTest.kt`'s event fixtures (`eventToday`, `millisAt`) build `occurredAt`/`endedAt` via `ZoneId.systemDefault()` but never set `CalendarEvent.utcOffsetMinutes`, which defaults to `0` (UTC). `EventDetailRow` formats display strings via `event.loggedZone()` — the event's own captured offset, `0` here — so whenever the test-running device's real default zone isn't UTC, the fixture's timestamp and its formatted display diverge (e.g. midnight in `America/Los_Angeles` displays as the UTC hour, not "12:00 AM"). CI's Linux runners default to UTC, so this has never surfaced there; it fails deterministically on a non-UTC local emulator (`persist.sys.timezone=America/Los_Angeles`) — 9 of `BigPictureScreenTest`'s methods fail for exactly this reason every run, confirmed by rerunning after an emulator restart: same 9, same names, both times. The earlier sighting in `CaseDetailScreenTest`/`CaseDetailInsightsTabTest` points at the same root cause, not a coincidence.
-
-**Acceptance criteria**
-
-- [ ] A ruling on the fix: set `utcOffsetMinutes` explicitly in every affected fixture (`ZoneId.systemDefault().offsetMinutesAt(...)`, mirroring `LogDetailViewModel.kt`'s production pattern) vs. pinning the emulator/test JVM's default timezone to UTC for local runs.
-- [ ] Whichever is chosen, confirmed fixed by an actual on-device run on a non-UTC machine/emulator, not just reasoned through — covering `BigPictureScreenTest` and `CaseDetailScreenTest`/`CaseDetailInsightsTabTest` at minimum.
-- [ ] A repo-wide check for the same pattern in every other `androidTest` file that builds `CalendarEvent`/`EventEntity` fixtures without setting an offset.
-- [ ] A `TESTING.md` "Known environment issues" entry, whether or not the fix lands in the same pass — so the next person who hits this locally doesn't waste time before finding this item.
-
-**Plan** — likely the fixture-side fix (set the offset explicitly), since it's local to the affected test files and doesn't require every contributor's machine/emulator to run in UTC.
-
-**Tests** — the fix's own verification is the acceptance criteria above; no production code involved, so no new production tests.
-
 ### Notes mining for tag/Case suggestions
 
 *Branch: `feat/notes-mining-suggestions` · Complexity: M · Priority: Low · Area: Insights*
