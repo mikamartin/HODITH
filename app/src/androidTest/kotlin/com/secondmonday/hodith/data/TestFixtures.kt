@@ -2,6 +2,7 @@ package com.secondmonday.hodith.data
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import java.time.ZoneId
 
 fun createInMemoryDatabase(): HodithDatabase =
     Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), HodithDatabase::class.java).build()
@@ -42,6 +43,7 @@ fun testEvent(
     intensity: Int? = null,
     note: String? = null,
     loggedAt: Long = occurredAt,
+    utcOffsetMinutes: Int = ZoneId.systemDefault().offsetMinutesAt(occurredAt),
 ) = EventEntity(
     id = id,
     caseId = caseId,
@@ -50,6 +52,7 @@ fun testEvent(
     intensity = intensity,
     note = note,
     loggedAt = loggedAt,
+    utcOffsetMinutes = utcOffsetMinutes,
 )
 
 fun testHunch(
