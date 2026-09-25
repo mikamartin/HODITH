@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -48,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
@@ -424,7 +426,10 @@ private fun FilterSummaryRow(
                 )
             },
         ) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 cases.forEach { case ->
                     CaseFilterChip(case = case, selected = case.id in visibleCaseIds, onToggle = { onToggleCase(case.id) })
                 }
@@ -443,7 +448,10 @@ private fun FilterSummaryRow(
                 )
             },
         ) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 allTagNames.forEach { tag ->
                     TagFilterChip(tag = tag, selected = tag in visibleTagNames, onToggle = { onToggleTag(tag) })
                 }
@@ -457,7 +465,10 @@ private fun FilterSummaryRow(
         ) {
             // Year is single-select, unlike Cases/Tags — picking a value applies and closes
             // immediately rather than leaving the dialog open for further toggling.
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 YearFilterChip(
                     label = voice.bigPictureFilterCountAll,
                     selected = selectedYear == null,
@@ -518,7 +529,11 @@ private fun filterCountLabel(
     voice: Voice,
     selected: Int,
     total: Int,
-) = if (selected == total) voice.bigPictureFilterCountAll else voice.bigPictureFilterCount(selected)
+) = when {
+    selected == 0 -> voice.bigPictureFilterCountNone
+    selected == total -> voice.bigPictureFilterCountAll
+    else -> voice.bigPictureFilterCount(selected)
+}
 
 /** Test hook — the same field label also appears in the row behind the open dialog. */
 internal const val BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX = "bp_detail_toggle_"
@@ -567,6 +582,7 @@ private fun FilterLegendRow(
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         when (caseLegend) {
             CaseLegendState.AllSelected -> CaseGroupChip(voice.bigPictureAllCasesLabel)
@@ -574,6 +590,10 @@ private fun FilterLegendRow(
             CaseLegendState.NoneSelected -> Unit
         }
         if (allTagNames.isNotEmpty()) {
+            // Extra gap (beyond the 6dp spacedBy above) so the Case group and Tag group read as two
+            // groups, not one run — most visible at larger font/display scale where a uniform gap
+            // stops reading as a separator.
+            Spacer(modifier = Modifier.width(10.dp))
             when (tagLegend) {
                 TagLegendState.AllSelected -> TagFilterChip(tag = voice.bigPictureAllTagsLabel, selected = true, onToggle = null)
                 is TagLegendState.Some -> tagLegend.tags.forEach { tag -> TagFilterChip(tag = tag, selected = true, onToggle = null) }
@@ -889,47 +909,52 @@ private fun CaseFilterChip(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(case.icon)
+                Text(case.icon, style = MaterialTheme.typography.labelSmall)
                 Text(case.name, style = MaterialTheme.typography.labelSmall, color = content)
             }
         }
     }
 }
 
-/** [onToggle] null renders a read-only pill (no click target) — used by the legend row's static chips. */
+/**
+ * Text-only, unfilled pill — deliberately the one filter chip with no accent tint, and the same in
+ * all three decoration styles (no [LocalCardDecorationStyle] branch), unlike [CaseFilterChip]
+ * (icon + secondary-family fill) and [YearFilterChip] (primary-family fill). Intense is documented
+ * as monochrome plus exactly one accent (crimson/`primary`) and Bright as an exactly-two-color
+ * pair (`primary`/`secondary`) — a third tinted chip type would break both budgets, and Plain has
+ * no real third tone of its own either (`tertiaryContainer` there was never designed with this in
+ * mind). Selected state reads from a visibly thicker, darker border plus darker text alone — no
+ * checkmark and no fill, so the pill stays a single flat visual signal instead of stacking a fourth
+ * cue onto the row. [onToggle] null renders a read-only pill.
+ */
 @Composable
 private fun TagFilterChip(
     tag: String,
     selected: Boolean,
     onToggle: (() -> Unit)?,
 ) {
-    when (LocalCardDecorationStyle.current) {
-        CardDecorationStyle.BRIGHT -> BrightTagFilterChip(tag = tag, selected = selected, onToggle = onToggle)
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
-            val background = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface
-            val border = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.outlineVariant
-            val content = if (selected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-            Text(
-                text = tag,
-                style = MaterialTheme.typography.labelSmall,
-                color = content,
-                modifier =
-                    Modifier
-                        .clip(CHIP_SHAPE)
-                        .background(background)
-                        .border(1.dp, border, CHIP_SHAPE)
-                        .then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-            )
-        }
-    }
+    val borderWidth = if (selected) 2.dp else 1.dp
+    val border = if (selected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant
+    val content = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = tag,
+        style = MaterialTheme.typography.labelSmall,
+        color = content,
+        modifier =
+            Modifier
+                .clip(CHIP_SHAPE)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(borderWidth, border, CHIP_SHAPE)
+                .then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+    )
 }
 
 /**
  * Year picker pill. Unlike [CaseFilterChip]/[TagFilterChip] this is always used single-select (one
  * value chosen at a time, dialog dismisses on tap) — [onToggle] is never null here. Uses
- * `primaryContainer` so it reads as its own chip family distinct from Cases' `secondaryContainer`
- * and Tags' `tertiaryContainer`.
+ * `primaryContainer` so it reads as its own chip family distinct from Cases' `secondaryContainer`;
+ * [TagFilterChip] carries no fill at all (see its own doc comment).
  */
 @Composable
 private fun YearFilterChip(
@@ -939,7 +964,7 @@ private fun YearFilterChip(
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
-            BrightChip(selected = selected, onToggle = onToggle) {
+            BrightChip(selected = selected, onToggle = onToggle, tint = MaterialTheme.colorScheme.primary) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
@@ -971,17 +996,20 @@ private fun YearFilterChip(
  * otherwise. Bright's selected-state ring was specced as a zero-blur `0 0 0 3px` spread, which
  * Compose has no direct primitive for; it's approximated here as an outer [Modifier.border] on a
  * Box padded out by the same 3dp, which at a 10%-alpha tint reads as the same soft halo.
- * [CaseFilterChip] and [TagFilterChip] share this rather than each
- * reimplementing the pill+ring chrome, since only their inner content (icon+name vs. tag text)
- * differs. [onToggle] null renders a read-only pill, same as the other two.
+ * [CaseFilterChip]/[YearFilterChip]/[FilterTriggerChip]/[CaseGroupChip] share this rather than each
+ * reimplementing the pill+ring chrome. [onToggle] null renders a read-only pill, same as the
+ * others. [tint] carries the same per-filter-type color role Plain/Intense use (Case=secondary,
+ * Year=primary) so Bright's chips are color-coded too, instead of every chip washing to the same
+ * color — [TagFilterChip] deliberately opts out of this entirely (see its own doc comment) rather
+ * than taking a `tint` param here.
  */
 @Composable
 private fun BrightChip(
     selected: Boolean,
     onToggle: (() -> Unit)?,
+    tint: Color,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val tint = MaterialTheme.colorScheme.primary
     val surface = MaterialTheme.colorScheme.surface
     val shape = CHIP_SHAPE
     Box(
@@ -1016,25 +1044,10 @@ private fun BrightCaseFilterChip(
     selected: Boolean,
     onToggle: (() -> Unit)?,
 ) {
-    BrightChip(selected = selected, onToggle = onToggle) {
-        Text(case.icon)
+    BrightChip(selected = selected, onToggle = onToggle, tint = MaterialTheme.colorScheme.secondary) {
+        Text(case.icon, style = MaterialTheme.typography.labelSmall)
         Text(
             text = case.name,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun BrightTagFilterChip(
-    tag: String,
-    selected: Boolean,
-    onToggle: (() -> Unit)?,
-) {
-    BrightChip(selected = selected, onToggle = onToggle) {
-        Text(
-            text = tag,
             style = MaterialTheme.typography.labelSmall,
             color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1057,7 +1070,7 @@ private fun FilterTriggerChip(
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
-            BrightChip(selected = isFiltered, onToggle = onClick) {
+            BrightChip(selected = isFiltered, onToggle = onClick, tint = MaterialTheme.colorScheme.primary) {
                 FilterTriggerChipContent(label, count)
             }
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
@@ -1096,7 +1109,7 @@ private fun RowScope.FilterTriggerChipContent(
 private fun CaseGroupChip(text: String) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
-            BrightChip(selected = true, onToggle = null) {
+            BrightChip(selected = true, onToggle = null, tint = MaterialTheme.colorScheme.secondary) {
                 Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
             }
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
@@ -1159,7 +1172,11 @@ private fun FilterSummaryRowBrightPreviewContent() {
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = {}) { Icon(Icons.Filled.Edit, contentDescription = "Edit which detail the rows show") }
         }
-        FlowRow(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(
+            modifier = Modifier.padding(top = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             CaseFilterChip(case = CalendarCase(id = 1, icon = "🏃", name = "Runs"), selected = true, onToggle = null)
             CaseGroupChip(text = "All tags")
         }

@@ -536,6 +536,8 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureNoCasesSelectedNote).assertExists()
+        // "None" reads better than a bare "0" for the trigger chip's count.
+        composeTestRule.onNodeWithText(": " + PlainVoice.bigPictureFilterCountNone).assertExists()
 
         // Reopening confirms the label flipped now that nothing is selected.
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
@@ -568,7 +570,8 @@ class BigPictureScreenTest {
     // [CardDecorationStyle] (chip skin) is a different composition local from [BigPictureCellStyle]
     // (day-cell skin) exercised above — no other test in the app provides
     // [LocalCardDecorationStyle], so without these two, FilterTriggerChip/CaseFilterChip/
-    // TagFilterChip/CaseGroupChip's entire BRIGHT branch (via BrightChip) would go untested.
+    // CaseGroupChip's entire BRIGHT branch (via BrightChip) would go untested. TagFilterChip no
+    // longer branches on decoration style at all (see its own doc comment).
 
     @Test
     fun filterTriggerAndCaseChip_toggleWorksUnderBrightTheme() {
@@ -599,6 +602,59 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureAllCasesLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureUntaggedOnlyLabel).assertExists()
+    }
+
+    @Test
+    fun caseChipAndTagChip_haveEqualHeight_inSharedFlowRow() {
+        // Narrows both Cases and Tags to "Some" (not All, not None) so the legend row renders a
+        // real CaseFilterChip next to a real TagFilterChip -- the layout the two chip kinds must
+        // measure identically in.
+        // Both tags stay on the still-visible Case (Coffee) — Tea is deselected purely to give the
+        // Cases dimension a "Some" state, so it carries no events of its own; if it owned "later"
+        // instead, deselecting Tea would scope "later" out of the Tags dialog entirely.
+        val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
+        val eventA = eventToday(id = 1L, tags = listOf("urgent"))
+        val eventB = CalendarEvent(id = 2L, caseId = case.id, occurredAt = eventA.occurredAt, tags = listOf("later"))
+        setContent(uiStateWith(cases = listOf(case, secondCase), events = listOf(eventA, eventB)))
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
+        composeTestRule.onNodeWithText(secondCase.name).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
+        composeTestRule.onNodeWithText("later").performClick()
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+
+        val caseChipBounds = composeTestRule.onNodeWithText(case.name).getBoundsInRoot()
+        val tagChipBounds = composeTestRule.onNodeWithText("urgent").getBoundsInRoot()
+        val caseChipHeight = caseChipBounds.bottom - caseChipBounds.top
+        val tagChipHeight = tagChipBounds.bottom - tagChipBounds.top
+        assert(caseChipHeight == tagChipHeight) {
+            "expected the case chip ($caseChipHeight) and tag chip ($tagChipHeight) to measure the same height"
+        }
+    }
+
+    @Test
+    fun casesDialog_pillsWrappedAcrossRows_dontOverlapVertically() {
+        // Regression guard: the Cases/Tags/Year dialog FlowRows and the legend row's own FlowRow
+        // used to have no verticalArrangement, so once pills wrapped onto a second line the rows
+        // sat flush against each other with no gap. Enough cases here to force at least two rows in
+        // the dialog's own width.
+        val manyCases = (1..12).map { CalendarCase(id = it.toLong(), icon = "•", name = "Case $it") }
+        setContent(uiStateWith(cases = manyCases))
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
+
+        val bounds = manyCases.map { composeTestRule.onNodeWithText(it.name).getBoundsInRoot() }
+        val rowTops = bounds.map { it.top }.distinct().sorted()
+        assert(rowTops.size > 1) { "expected the case pills to wrap onto more than one row, got ${rowTops.size}" }
+        for (i in 0 until rowTops.size - 1) {
+            val rowBottom = bounds.filter { it.top == rowTops[i] }.maxOf { it.bottom }
+            val nextRowTop = rowTops[i + 1]
+            assert(rowBottom <= nextRowTop) {
+                "row at y=${rowTops[i]} (bottom=$rowBottom) overlaps the next row starting at y=$nextRowTop"
+            }
+        }
     }
 
     // ---- Year filter (spec §9) ----

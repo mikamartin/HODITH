@@ -40,6 +40,7 @@ interface Voice {
     val bigPictureDetailDurationLabel: String get() = "Duration"
     val bigPictureDetailIntensityLabel: String get() = "Intensity"
     val bigPictureFilterCountAll: String
+    val bigPictureFilterCountNone: String
     val bigPictureAllCasesLabel: String
     val bigPictureAllTagsLabel: String
     val bigPictureUntaggedOnlyLabel: String
@@ -941,6 +942,7 @@ object PlainVoice : Voice {
     override val bigPictureDetailDialogTitle = "Row detail"
     override val bigPictureDetailEditDescription = "Edit which detail the rows show"
     override val bigPictureFilterCountAll = "All"
+    override val bigPictureFilterCountNone = "None"
     override val bigPictureAllCasesLabel = "All Cases"
     override val bigPictureAllTagsLabel = "All tags"
     override val bigPictureUntaggedOnlyLabel = "Untagged only"
@@ -1670,6 +1672,7 @@ object IntenseVoice : Voice {
     override val bigPictureDetailDialogTitle = "What each entry reveals"
     override val bigPictureDetailEditDescription = "Choose what each entry reveals"
     override val bigPictureFilterCountAll = "Every one"
+    override val bigPictureFilterCountNone = "Not one"
     override val bigPictureAllCasesLabel = "Every Case"
     override val bigPictureAllTagsLabel = "Every tag"
     override val bigPictureUntaggedOnlyLabel = "Unmarked only"
@@ -2383,6 +2386,7 @@ object BrightVoice : Voice {
     override val bigPictureDetailDialogTitle = "Row detail!"
     override val bigPictureDetailEditDescription = "Pick what shows up in each row!"
     override val bigPictureFilterCountAll = "All!"
+    override val bigPictureFilterCountNone = "None!"
     override val bigPictureAllCasesLabel = "All Cases!"
     override val bigPictureAllTagsLabel = "All tags!"
     override val bigPictureUntaggedOnlyLabel = "Untagged only!"

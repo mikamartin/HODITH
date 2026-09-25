@@ -17,6 +17,55 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/big-picture-filter-pill-consistency
+
+**Scope:** PROGRESS.md's "Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)" — Big Picture's Cases/Tags/Year filter chips had no per-type color distinction under Bright, read a bare "0" instead of a "None" wording once a filter cleared to nothing, and `TagFilterChip`'s bare-`Text` layout didn't measure to the same height as `CaseFilterChip`'s `Row` layout in a shared `FlowRow`. Mid-pass, after seeing the first result on-device, the user asked for a follow-up round: drop `TagFilterChip`'s checkmark entirely (added earlier in this same session) from both the filter dialogs and the legend row, thicken its selected-state border, and fix wrapped pill rows sitting flush against each other with no vertical gap.
+
+**Changes:**
+
+- `ui/bigpicture/BigPictureGrid.kt`: `filterCountLabel` gained a `selected == 0` branch returning the new `bigPictureFilterCountNone` key. `BrightChip` took a `tint: Color` parameter (was hardcoded to `primary`) so `BrightCaseFilterChip`/`CaseGroupChip` use `secondary` and `YearFilterChip`/`FilterTriggerChip` keep `primary` — Bright now color-codes Cases distinctly from Year/trigger chips. `TagFilterChip` dropped its `LocalCardDecorationStyle` branch and `BrightTagFilterChip` entirely — one flat, unfilled `Text` pill (no icon, no fill, no checkmark) in every theme, selected state read from a thicker (`2.dp` vs. `1.dp`) border and darker text alone; this both fixed the `FlowRow` height-parity issue (matching padding, no wrapper mismatch) and satisfied the later ask to remove the checkmark. Every `FlowRow` holding these pills (Cases/Tags/Year dialogs, the legend row, one Preview) gained `verticalArrangement = Arrangement.spacedBy(6.dp)` — previously unset, so wrapped rows sat flush against the row above with no gap.
+- `ui/voice/Voice.kt`: new `bigPictureFilterCountNone` key, all three voices ("None" / "Not one" / "None!").
+- `docs/PROGRESS.md`: the resolved item removed entirely; a new item opened for a test-fixture bug found while verifying this pass (see Follow-up below) — not part of this diff's own scope, tracked separately rather than fixed here.
+- `docs/TESTING.md`: the Compose UI — Big Picture row gained clauses for the "None" count label, the case/tag chip equal-height check, and the wrapped-pill-rows-don't-overlap regression; a new "Known environment issues" bullet for the timezone test-fixture bug (see Follow-up below) — a promised note on an earlier, similar sighting never actually landed, so this one was written immediately rather than deferred a second time.
+
+**Checklist walk (against the working-tree diff):**
+
+- *Duplication* — no inline strings; `bigPictureFilterCountNone` goes through `Voice` in all three implementations in this same pass. Removing `BrightTagFilterChip` cut duplication rather than adding it (one fewer chip-styling branch to keep in sync).
+- *Decoupling* — N/A; UI-only, no ViewModel/domain code touched.
+- *Complexity & pattern health* — `BrightChip`'s new `tint` parameter is a straightforward generalization of a value it already computed internally; its four call sites were updated together, not left half-migrated.
+- *Dead code & hygiene* — removed the now-orphaned `BIG_PICTURE_TAG_CHIP_CHECK_TAG_PREFIX` test-tag constant and its `Icons.Filled.Check` import along with the checkmark itself; confirmed no other reference by grep. `ktlintCheck` and a full `compileDebugAndroidTestKotlin` passed clean.
+- *Repo hygiene* — `git status` clean aside from the pre-existing untracked `merged_branches.txt` (flagged unrelated in every prior entry, still left alone).
+- *Naming* — `bigPictureFilterCountNone` follows the existing `bigPictureFilterCount*` pattern.
+- *Hardcoded values* — none beyond this file's existing convention of inline `dp` spacing/padding values.
+- *Accessibility* — `TagFilterChip`'s selected/unselected signal dropped from three cues (checkmark + border width + color) to two (border width + color) — a deliberate simplification per the user's direct request, not an oversight; not independently re-verified in dark mode or at larger font scale by this pass (see Deferred).
+- *Data model / migrations* — N/A.
+- *Deprecated APIs* — none introduced.
+- *Spec review* — `HODITH_SPEC.md` doesn't describe filter-chip styling at this level of detail; no update needed.
+- *Tests* — see below.
+
+**Tests:**
+
+- `VoiceTest.kt`'s existing reflection-based invariants picked up `bigPictureFilterCountNone` automatically (non-blank and distinct across all three voices), confirmed by running it.
+- `BigPictureScreenTest.kt`: the checkmark-specific regression test (`tagFilterChip_showsACheckmarkOnlyWhileSelected`) removed along with the feature it guarded — the underlying selection behavior stays covered by the existing functional tests (`tagFilterChip_deselecting_hidesEventsOfOtherTags`, `..._deselectingAllTags_showsUntaggedOnly`, etc.), which assert on filtering outcomes rather than chip decoration. New: `casesDialog_pillsWrappedAcrossRows_dontOverlapVertically`, a regression guard for the missing-`verticalArrangement` fix (12 short-named Cases forced onto multiple rows in the Cases dialog; asserts each row's max bottom bound stays at or above the next row's top).
+
+**Follow-up (asked directly whether the coverage was actually comprehensive, not just green — caught a real bug and a real gap):**
+
+- `caseChipAndTagChip_haveEqualHeight_inSharedFlowRow` (added earlier in this session, before the checkmark-removal round) failed on-device: it deselects the "Tea" Case to force the Cases dimension into a "Some" state, then tries to deselect the "later" tag — but `later` belonged only to Tea's own event, so once Tea was hidden, `later` was scoped out of the Tags dialog entirely and the click had nothing to hit. Fixed by moving both tags onto the still-visible Case's event, so Tea carries no events of its own and deselecting it only narrows Cases, not Tags.
+- Running the full `BigPictureScreenTest` class surfaced 9 unrelated failures, all clock-time text assertions (`"12:00 AM"`, `"Ongoing since …"`). Traced to a genuine test-fixture bug, not flakiness — confirmed reproducible (same 9, same names) across two full runs and an emulator restart in between — and to an *already-known* one: an earlier `CLEANUP_LOG.md` entry (`fix/case-log-sort-persistence-and-sizing`, since rotated out of this file by the 5-entry limit) hit the identical failure mode in `CaseDetailScreenTest`/`CaseDetailInsightsTabTest` and flagged it for a `TESTING.md` note that never actually got written. Opened a real PROGRESS.md item this time and wrote the `TESTING.md` note immediately rather than deferring it again.
+
+**Deferred:**
+
+- Re-verifying the thicker-border/no-checkmark selected-state signal in dark mode and at larger Android font scale — the user visually confirmed the change on-device; dark mode and large-font-scale weren't separately re-checked this pass.
+- The *fix* for the timezone test-fixture bug found in Follow-up — out of this diff's scope; opened as its own PROGRESS.md item and documented in `TESTING.md` (both landed this pass) rather than fixed inline.
+
+**Docs updated:** `PROGRESS.md` — item removed entirely; new item opened for the timezone test-fixture bug. `TESTING.md` — Compose UI — Big Picture row gained three clauses; new "Known environment issues" bullet (see Changes above).
+
+**Verified:** `ktlintCheck → lintDebug → test → compileDebugAndroidTestKotlin` sequential, all green.
+
+**Instrumented run:** `connectedDebugAndroidTest` scoped to `BigPictureScreenTest` on `Pixel_8_API36(AVD)`: 58 tests, 9 failures — all 9 pre-existing and unrelated (see Follow-up above); both the fixed and the new pill test confirmed passing, first in isolation and again in the full-class run.
+
+---
+
 ## fix/big-picture-filter-persistence
 
 **Scope:** PROGRESS.md's "Big Picture's Case/Tag/Year filters don't persist, and aren't even ViewModel-scoped" — the Case/Tag/Year filter selections lived as plain Compose `remember { mutableStateOf(...) }` state inside `BigPictureGrid`, resetting on every navigation away and back and never surviving an app restart. The user ruled full `SettingsRepository`/DataStore persistence, following the exact `observeLogSortOrder`/`setLogSortOrder` pattern from the Log tab's own equivalent fix.
@@ -184,59 +233,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Verified:** `ktlintCheck → test → lintDebug → assembleDebug` sequential, all green; `connectedDebugAndroidTest` scoped to `ui.casedetail` and to the two new/touched tests individually on `Pixel_8_API36(AVD)` — both pass in isolation (the package-wide run's three failures are the pre-existing, unrelated ones noted above).
 
----
-
-## feat/insights-trends-weekday-weekend
-
-**Scope:** PROGRESS.md's Story C T8 ("Detector: cycles and seasonality") — scoped down after discussion to just its cheapest sub-feature, a case-wide `WEEKDAY_WEEKEND_SPLIT` Trends detector testing whether a Case's events cluster on weekends vs. weekdays against the fixed 2/7 calendar baseline. The eleventh detector in the Trends roster. T8's other two sub-features (autocorrelation cycle detection, month-of-year comparison) split off into a new Deferred item (D5) rather than shipping partial code for them. Also closes out Story C as a section: with T8 resolved and T9 (the only other item left) moved to Standalone, the whole Story C heading is retired from PROGRESS.md.
-
-**Feasibility ruling (resolved with the user before implementation):** three design questions settled by direct confirmation rather than inferred: (1) build only the weekday-vs-weekend fallback now, defer the rest — not attempt full autocorrelation on spec; (2) the statistic is a direct Monte Carlo binomial null via `permutationPValue` called directly with a custom closure (each shuffle draws every event's weekend/weekday membership independently as a Bernoulli(2/7) trial) — neither `labelShufflePValue` (not two equal-size cross-sectional groups) nor tag timing's look-elsewhere correction (no bucket search — weekend is fixed in advance) fit; (3) two-directional (weekend-heavy vs. weekday-heavy), unlike tag timing's always-over-concentration convention, since a Case's overall rhythm has no default lean the way a single tag's clustering does.
-
-**Changes:**
-
-- `domain/PermutationSignificance.kt`: `weekdayWeekendSeedFor` — same minimal shape as `timelineShuffleSeedFor` (just caseId + sampleCount, no tag/outcome/dimension to key on), trailing `+3` discriminator.
-- `domain/StatsEngine.kt`: `computeWeekdayWeekendFindings`/`clearsWeekdayWeekendFloor` (the detector) + five new named constants, placed alongside `computeTagTimingFindings`.
-- `domain/Insights.kt`: new `WeekdayWeekendResult` model.
-- `domain/Trends.kt`: new `TrendFindingKind.WEEKDAY_WEEKEND_SPLIT` — reuses existing `TrendFinding` fields (`priorValue`/`recentValue` for baseline/observed share) rather than adding new ones, unlike tag timing's own `weekday`/`timeOfDay` addition.
-- `domain/TrendsEngine.kt`: `computeTrendFindings` appends `WEEKDAY_WEEKEND_SPLIT` last, always `PATTERN`.
-- `ui/voice/Voice.kt`: `insightsWeekdayWeekendSentence`/`insightsWeekdayWeekendEvidenceLabel`, implemented in all three voices in this same commit.
-- `ui/casedetail/InsightsTab.kt`: new `WEEKDAY_WEEKEND_SPLIT` branch in `TrendFindingContent`'s dispatch.
-- `data/demo/DemoDataSeeder.kt`: new `weekendDateFor` showcase mechanism (mirrors `eveningHourFor`'s "bypass the normal random draw, pin into the target bucket" shape, shifting the date to the nearest Saturday/Sunday instead of the hour) applied to the existing "Argument" Case — picked because it carried no other Story C showcase, confirmed by checking every `CaseSeed` field and cross-referencing `DemoDataSeederTest.kt` before choosing it; "Noisy neighbours" was ruled out specifically because it's already `RECURRENCE_SHAPE`'s dedicated, single-finding showcase, and shifting its dates risked breaking that pinning.
-- `docs/HODITH_SPEC.md` §10: one new paragraph ("Weekday vs weekend"), following the established per-detector prose shape.
-- `docs/PROGRESS.md`: T8's section removed entirely (fallback shipped, resolving the item); a new Deferred item (D5) added for the un-shipped autocorrelation/month-of-year scope; T9 moved into Standalone under its title (no longer numbered, since Story C's sequencing no longer applies), with its own cross-reference to "T1" reworded to describe the change directly rather than by story-item number; the whole Story C heading and its historical intro paragraph removed now that no items remain under it; the "How this file is organised" bullet list's Story C entry dropped to match.
-- `docs/TESTING.md`: Stats & visual data prep row gained a weekday-vs-weekend detection clause.
-- Two doc-comment-only fixes in already-shipped code: `TrendsEngine.kt`'s and `InsightsTabState.kt`'s "(PROGRESS.md T9 retires this)" references reworded to name the item by title, since T9 is no longer a numbered PROGRESS.md item after this pass's reorg.
-
-**Checklist walk (against the working-tree diff):**
-
-- *Duplication* — no inline strings; both new sentence/evidence-label calls go through `Voice`. `weekendDateFor` mirrors `eveningHourFor`'s exact shape rather than being written independently, since both solve the identical "bypass the normal random draw, pin into a target bucket, clamp into span" problem.
-- *Decoupling* — confirmed by grep this pass (not assumed by analogy to a prior pass's check): no `android.*` import and no `System.currentTimeMillis()` added anywhere under `domain/` in this diff. `computeWeekdayWeekendFindings` takes no `now`/`Clock` — pure function of `EventWithTags`, matching every prior detector.
-- *Complexity & pattern health* — `clearsWeekdayWeekendFloor` and `weekendDateFor` are each single-caller, kept as separate functions anyway for the same testability/doc-clarity precedent `clearsShareFloor`/`eveningHourFor` already set, not a premature extraction. `TrendFindingContent`'s `when` grew by one small branch (~9 lines), no length concern.
-- *Dead code & hygiene* — no unused imports (`ktlintCheck` and the full build passed clean, run several times across the pass). A throwaway probe test (printlns only, no assertions) was added mid-pass to empirically check the permutation-significance gate's actual boundary behavior before writing a real test around it — deleted immediately after its one use, confirmed gone by grep before committing. `git status` clean aside from the pre-existing untracked `merged_branches.txt` (flagged unrelated in every prior entry, still left alone, not touched).
-- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
-- *Naming* — `insightsWeekdayWeekendSentence`/`insightsWeekdayWeekendEvidenceLabel` follow the established pattern, added to all three voices in this commit. `computeWeekdayWeekendFindings`/`WeekdayWeekendResult` match the domain layer's existing detector-naming shape.
-- *Hardcoded values* — all five new constants are named `internal const val`s with a doc comment explaining each against tag timing's own floors, including a specific note on why the dual absolute/relative floor is structurally asymmetric at this fixed baseline (see Tests below) rather than left unexplained.
-- *Accessibility* — no new tap targets; the new finding reuses the existing Trends row/plank tap surface.
-- *Deprecated APIs* — none introduced.
-- *Spec review* — `HODITH_SPEC.md` §10 gained the paragraph described above, explicitly cross-referencing PROGRESS.md's new deferred item for the un-shipped remainder.
-- *Tests* — see below.
-
-**Tests:**
-
-- `StatsEngineTest.kt`: `computeWeekdayWeekendFindings` — a planted weekend-heavy Case and a planted weekday-heavy Case (both confirmed significant, direction/shares/sample count correct), an exact-baseline null (delta exactly 0), a fails-both-floors null, below the minimum sample count even with a stark effect, and a boundary case isolating the one reachable half of the dual floor (clears the relative floor but not the absolute one — the mirror direction is structurally unreachable given the fixed 2/7 baseline, documented in `StatsEngine.kt`'s own doc comment rather than silently absent).
-- `PermutationSignificanceTest.kt`: `weekdayWeekendSeedFor` — determinism, differs by caseId, differs by sampleCount, no collision with `trendSlopeSeedFor`/`timeOfDaySplitSeedFor`/`tagTimingSeedFor` for a shape that could otherwise collide.
-- `TrendsEngineTest.kt`: a `PATTERN` finding with tag/outcome/weekday/timeOfDay/changePointDate all confirmed null, and ordering after tag timing (using a combined fixture deliberately checked to still clear the detector's own floor once tag timing's own showcase events are mixed in, not assumed to).
-- `VoiceTest.kt`: existing reflection-based invariants picked up the two new keys automatically — confirmed by running it, not assumed.
-- `InsightsTabTrendsCardTest.kt` (instrumented, new methods): a rendered sentence for each direction.
-- `DemoDataSeederTest.kt`: Argument clears the minimum sample size, and the real seeded data produces the actual `WEEKDAY_WEEKEND_SPLIT`/`PATTERN` finding, not just a sample-count assertion.
-
-**Follow-up (asked directly whether the coverage was actually comprehensive, not just green):** caught two real gaps in the first draft:
-
-- The first draft's only "null" tests failed the descriptive floor outright (either both sub-floors at once, or the sample-count floor) — nothing isolated the dual floor's two conditions independently, and nothing exercised the permutation-significance gate distinctly from the descriptive floor. Probed the actual (deterministic, seeded) output across a range of sample counts and deltas before writing anything: found that at this detector's chosen constants, clearing the descriptive floor at the minimum sample count already clears the 5% significance bar too, with no counterexample found from n=40 to n=1000 — unlike tag timing, whose look-elsewhere correction across several buckets leaves real room between the two. That's a genuine, now-documented property of this design, not a coverage gap; no "clears floor but insignificant" test exists because none is constructible. Documented directly in `StatsEngine.kt`'s doc comment so a future reader doesn't go looking for the missing test.
-- The dual floor itself was under-tested for the opposite reason: initially assumed (wrongly) that both "clears absolute not relative" and "clears relative not absolute" needed separate tests, mirroring tag timing's own two boundary tests. Working the algebra for this detector's *fixed* 2/7 baseline (unlike tag timing's per-bucket one) showed the absolute floor (0.15) always exceeds the relative floor's threshold at this baseline (0.5 × 2/7 ≈ 0.1429), so "clears absolute, fails relative" is structurally impossible here — only the reverse direction is reachable. Verified this with the same probe rather than trusting the algebra alone (n=1000, 432 weekend events landed exactly in the gap and returned null as expected). Added the one reachable boundary test and a doc-comment note explaining why its mirror doesn't exist, rather than leaving that asymmetry silently unaccounted for.
-
-**Deferred:** nothing raised and declined.
-
-**Docs updated:** `HODITH_SPEC.md` §10 — one new paragraph. `TESTING.md` — Stats & visual data prep row gained a weekday-vs-weekend clause. `PROGRESS.md` — T8 struck entirely; a new Deferred item (D5) added for the un-shipped scope; T9 moved to Standalone under its title; the now-empty Story C heading, its intro paragraph, and its "How this file is organised" bullet all removed.
-
-**Verified:** `ktlintCheck → lintDebug → test (scoped, then full) → compileDebugAndroidTestKotlin → assembleDebug` sequential, all green — run several times across the pass (after the initial implementation; after the ktlint line-length fixes; after the coverage follow-up's new tests). `connectedDebugAndroidTest` scoped to `InsightsTabTrendsCardTest` on `Pixel_8_API36(AVD)` once an emulator became available: 16/16, 0 failed, 0 skipped — including both new `trendsCard_rendersWeekdayWeekendSentence_weekendHeavy`/`_weekdayHeavy` methods, actually run, not just compiled.
