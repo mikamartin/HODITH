@@ -79,6 +79,8 @@ import com.secondmonday.hodith.viewmodel.applyPickedDate
 import com.secondmonday.hodith.viewmodel.applyPickedTime
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTimeOfDay
+import com.secondmonday.hodith.viewmodel.isEndBeforeStart
+import com.secondmonday.hodith.viewmodel.isFutureClamped
 import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
 import java.time.Instant
 import java.time.ZoneId
@@ -161,6 +163,10 @@ fun LogDetailForm(
     var showTimePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
+    // Set by DateTimePickers' onConfirm when a picked value lands after `now` and gets clamped
+    // back to it; cleared the next time that field is confirmed without clamping.
+    var startTimeClamped by remember { mutableStateOf(false) }
+    var endTimeFutureClamped by remember { mutableStateOf(false) }
 
     Column(
         modifier =
@@ -185,15 +191,26 @@ fun LogDetailForm(
                 occurredAt = draft.occurredAt,
                 zone = zone,
                 label = voice.logSheetTimeLabel,
+                notice = voice.logSheetFutureTimeClampedNotice.takeIf { startTimeClamped },
                 onDateClick = { showDatePicker = true },
                 onTimeClick = { showTimePicker = true },
             )
 
             if (durationMode == DurationMode.START_STOP) {
+                // End-before-start is a live property of the draft (either field's picker can
+                // cause it), so it's derived every recomposition rather than tracked as a flag
+                // like the future-clamp notices above.
+                val endBeforeStart = isEndBeforeStart(draft.occurredAt, draft.endedAt)
                 EndTimeSection(
                     endedAt = draft.endedAt,
                     zone = zone,
                     voice = voice,
+                    notice =
+                        when {
+                            endBeforeStart -> voice.logSheetEndBeforeStartClampedNotice
+                            endTimeFutureClamped -> voice.logSheetFutureTimeClampedNotice
+                            else -> null
+                        },
                     onStopNowClick = { draft = draft.copy(endedAt = now) },
                     onBackToOngoingClick = { draft = draft.copy(endedAt = null) },
                     onDateClick = { showEndDatePicker = true },
@@ -259,6 +276,7 @@ fun LogDetailForm(
         onDismissDatePicker = { showDatePicker = false },
         onDismissTimePicker = { showTimePicker = false },
         onValueChange = { draft = draft.copy(occurredAt = it) },
+        onClampChanged = { startTimeClamped = it },
     )
 
     draft.endedAt?.let { endedAt ->
@@ -272,6 +290,7 @@ fun LogDetailForm(
             onDismissDatePicker = { showEndDatePicker = false },
             onDismissTimePicker = { showEndTimePicker = false },
             onValueChange = { draft = draft.copy(endedAt = it) },
+            onClampChanged = { endTimeFutureClamped = it },
         )
     }
 }
@@ -309,6 +328,7 @@ private fun DateTimePickers(
     onDismissDatePicker: () -> Unit,
     onDismissTimePicker: () -> Unit,
     onValueChange: (Long) -> Unit,
+    onClampChanged: (Boolean) -> Unit,
 ) {
     if (showDatePicker) {
         LogDetailDatePickerDialog(
@@ -318,7 +338,9 @@ private fun DateTimePickers(
             voice = voice,
             onDismiss = onDismissDatePicker,
             onConfirm = { picked ->
-                onValueChange(applyPickedDate(value, picked, zone).coerceAtMost(now))
+                val applied = applyPickedDate(value, picked, zone)
+                onValueChange(applied.coerceAtMost(now))
+                onClampChanged(isFutureClamped(applied, now))
                 onDismissDatePicker()
             },
         )
@@ -331,7 +353,9 @@ private fun DateTimePickers(
             voice = voice,
             onDismiss = onDismissTimePicker,
             onConfirm = { hour, minute ->
-                onValueChange(applyPickedTime(value, hour, minute, zone).coerceAtMost(now))
+                val applied = applyPickedTime(value, hour, minute, zone)
+                onValueChange(applied.coerceAtMost(now))
+                onClampChanged(isFutureClamped(applied, now))
                 onDismissTimePicker()
             },
         )
@@ -343,6 +367,7 @@ private fun TimeSection(
     occurredAt: Long,
     zone: ZoneId,
     label: String,
+    notice: String?,
     onDateClick: () -> Unit,
     onTimeClick: () -> Unit,
 ) {
@@ -355,6 +380,9 @@ private fun TimeSection(
         ) {
             OutlinedButton(onClick = onDateClick) { Text(formatEventDate(occurredAt, zone)) }
             OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(occurredAt, use24Hour, zone)) }
+        }
+        if (notice != null) {
+            Text(notice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -374,6 +402,7 @@ private fun EndTimeSection(
     endedAt: Long?,
     zone: ZoneId,
     voice: Voice,
+    notice: String?,
     onStopNowClick: () -> Unit,
     onBackToOngoingClick: () -> Unit,
     onDateClick: () -> Unit,
@@ -399,6 +428,9 @@ private fun EndTimeSection(
                     Text(formatEventTimeOfDay(endedAt, LocalTimeFormat.current.is24Hour, zone))
                 }
             }
+        }
+        if (notice != null) {
+            Text(notice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (endedAt != null) {
             TextButton(onClick = onBackToOngoingClick, modifier = Modifier.padding(top = 4.dp)) {

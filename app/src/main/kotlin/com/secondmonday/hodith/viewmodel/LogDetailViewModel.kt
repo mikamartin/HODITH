@@ -160,6 +160,18 @@ internal fun LogDraft.toEventEntity(
     )
 }
 
+/** True when [picked] is after [now] and would be clamped down to it (a same-day future time). */
+internal fun isFutureClamped(
+    picked: Long,
+    now: Long,
+): Boolean = picked > now
+
+/** True when a START_STOP [endedAt] precedes [occurredAt] and would be clamped up to it. */
+internal fun isEndBeforeStart(
+    occurredAt: Long,
+    endedAt: Long?,
+): Boolean = endedAt != null && endedAt < occurredAt
+
 /**
  * Applies a date picked from Material3's `DatePicker` (whose `selectedDateMillis` is always
  * UTC-midnight of the chosen date, regardless of device zone) to [occurredAt], keeping its

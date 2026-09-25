@@ -150,6 +150,12 @@ interface Voice {
 
     /** Clears an edited event's end time, putting it back into the ongoing state (spec §6). */
     val logSheetBackToOngoingAction: String
+
+    /** Shown under a time field when a picked value landed after `now` and was set to it instead. */
+    val logSheetFutureTimeClampedNotice: String
+
+    /** Shown under the End field when a picked end time preceded the start and was matched to it instead. */
+    val logSheetEndBeforeStartClampedNotice: String
     val quickLogUndoAction: String
     val settingsSupportSectionLabel: String
     val settingsRateAppButton: String
@@ -1030,6 +1036,8 @@ object PlainVoice : Voice {
     override val logSheetOngoingLabel = "Ongoing"
     override val logSheetStopNowAction = "Stop now"
     override val logSheetBackToOngoingAction = "Back to ongoing"
+    override val logSheetFutureTimeClampedNotice = "Set to now, since that time hasn't happened yet."
+    override val logSheetEndBeforeStartClampedNotice = "Set to match the start time."
     override val quickLogUndoAction = "Undo"
     override val settingsSupportSectionLabel = "Support"
     override val settingsRateAppButton = "Rate the app"
@@ -1761,6 +1769,8 @@ object IntenseVoice : Voice {
     override val logSheetOngoingLabel = "Still unfolding"
     override val logSheetStopNowAction = "Seal it now"
     override val logSheetBackToOngoingAction = "Unseal it — still unfolding"
+    override val logSheetFutureTimeClampedNotice = "Pinned to this hour instead. That one hasn't come yet."
+    override val logSheetEndBeforeStartClampedNotice = "Matched to the hour it began."
     override val quickLogUndoAction = "Reverse it"
     override val settingsSupportSectionLabel = "The outside world"
     override val settingsRateAppButton = "Render a verdict"
@@ -2474,6 +2484,8 @@ object BrightVoice : Voice {
     override val logSheetOngoingLabel = "Still going!"
     override val logSheetStopNowAction = "Stop the clock!"
     override val logSheetBackToOngoingAction = "Actually, still going!"
+    override val logSheetFutureTimeClampedNotice = "Set to right now, since that time hasn't happened yet!"
+    override val logSheetEndBeforeStartClampedNotice = "Matched to the start time!"
     override val quickLogUndoAction = "Oops, undo!"
     override val settingsSupportSectionLabel = "Spread the word!"
     override val settingsRateAppButton = "Give us stars!"

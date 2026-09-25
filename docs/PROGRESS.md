@@ -138,25 +138,6 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
 
-### Log entry silently clamps a future start time to now
-
-*Branch: `fix/future-start-time-clamp-notice` · Complexity: S · Priority: Medium · Area: Bug*
-
-🎨 **Design decision** — clamp-and-notify vs. blocking the save outright.
-
-Picking a future time on today's date isn't blocked. `LogDetailSheet.kt`'s date/time pickers clamp the value to `now` (`onConfirm`, lines 321 and 334), and `LogDetailViewModel.kt`'s `toEventEntity` clamps again as the authoritative floor (line 148, `coerceAtMost(now)`). Neither shows a message, so a saved event's start time can silently differ from what was entered.
-
-**Acceptance criteria**
-
-- [ ] A note is shown when a picked time gets clamped (snackbar or inline caption).
-- [ ] New Voice key (e.g. `logSheetFutureTimeClampedNotice`) ×3.
-- [ ] Same treatment applied to the `START_STOP` end-time clamp in `computeEndedAt`, if in scope.
-- [ ] Ruling made: clamp-and-notify (current behavior, now explained) vs. block the save until the time is valid.
-
-**Plan** — detect the clamp by comparing the picked value to `now` before save, either in the picker `onConfirm` handlers (`LogDetailSheet.kt`) or by having `toEventEntity`/`planSaveEvent` report whether it clamped, so the ViewModel can push a message into UI state.
-
-**Tests** — a unit test asserting the clamp is reported; a Compose test for the note appearing.
-
 ### Big Picture: cross-case trend detection (design)
 
 *Branch: `chore/big-picture-cross-case-trends-design` · Complexity: XL · Priority: Low · Area: Big Picture*

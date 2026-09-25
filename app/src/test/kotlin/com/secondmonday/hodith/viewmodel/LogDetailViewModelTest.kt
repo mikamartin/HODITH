@@ -615,6 +615,31 @@ class LogDetailViewModelTest {
         assertEquals(45, resultZoned.minute)
     }
 
+    // --- isFutureClamped / isEndBeforeStart ---
+
+    @Test
+    fun `isFutureClamped is true when picked is after now`() {
+        assertTrue(isFutureClamped(picked = 10_001L, now = 10_000L))
+    }
+
+    @Test
+    fun `isFutureClamped is false when picked is at or before now`() {
+        assertEquals(false, isFutureClamped(picked = 10_000L, now = 10_000L))
+        assertEquals(false, isFutureClamped(picked = 9_999L, now = 10_000L))
+    }
+
+    @Test
+    fun `isEndBeforeStart is true when endedAt precedes occurredAt`() {
+        assertTrue(isEndBeforeStart(occurredAt = 10_000L, endedAt = 9_999L))
+    }
+
+    @Test
+    fun `isEndBeforeStart is false when endedAt is null or on or after occurredAt`() {
+        assertEquals(false, isEndBeforeStart(occurredAt = 10_000L, endedAt = null))
+        assertEquals(false, isEndBeforeStart(occurredAt = 10_000L, endedAt = 10_000L))
+        assertEquals(false, isEndBeforeStart(occurredAt = 10_000L, endedAt = 10_001L))
+    }
+
     // --- toDatePickerUtcMillis / datePickerDateAtLocalStartOfDay ---
 
     @Test

@@ -49,4 +49,23 @@ class LogDetailSheetTest {
 
         assertNotNull(savedDraft)
     }
+
+    @Test
+    fun startStopDraftWithEndBeforeStart_showsClampedNotice() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                LogDetailSheet(
+                    durationMode = DurationMode.START_STOP,
+                    intensityEnabled = false,
+                    initialDraft = draft(endedAt = -1L),
+                    tagSuggestions = emptyList(),
+                    now = 0L,
+                    onSave = {},
+                    onDismiss = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.logSheetEndBeforeStartClampedNotice).assertExists()
+    }
 }
