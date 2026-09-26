@@ -273,25 +273,6 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none for the audit itself.
 
-### CSV export of case/event data
-
-*Branch: `feat/csv-export` · Complexity: S · Priority: Medium · Area: Settings*
-
-Scoped in HODITH_SPEC §17: CSV export alongside the existing JSON export. JSON stays canonical for import since a flattened tabular format doesn't round-trip cleanly, so CSV is export-only. No spec change needed, just implementation.
-
-**Acceptance criteria**
-
-- [ ] A new CSV writer alongside the existing `BackupFileWriter` (`data/backup/`).
-- [ ] A Settings row for CSV export, alongside the existing JSON export/import row.
-- [ ] Voice ×3 for the new row and any share/save-location prompts.
-- [ ] Confirmed export-only — no CSV import path.
-
-**Plan** — implement per §17 as already scoped: new writer, Settings row, Voice strings.
-
-**Tests** — a unit test for the CSV writer's output shape; `SettingsScreenTest` coverage for the new row/action.
-
-**Concern** — none; per the spec's own note, this is the most self-contained item here.
-
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not

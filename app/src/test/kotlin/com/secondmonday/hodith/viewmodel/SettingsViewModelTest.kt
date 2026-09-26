@@ -9,6 +9,7 @@ import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.data.backup.BackupSerializer
+import com.secondmonday.hodith.data.backup.CsvBackupSerializer
 import com.secondmonday.hodith.data.backup.FakeBackupFileWriter
 import com.secondmonday.hodith.data.demo.DemoDataSeeder
 import com.secondmonday.hodith.domain.FakeClock
@@ -34,6 +35,7 @@ class SettingsViewModelTest {
     private val clock = FakeClock()
     private val demoDataSeeder = DemoDataSeeder(hodithRepository, clock)
     private val backupSerializer = BackupSerializer(Moshi.Builder().build())
+    private val csvBackupSerializer = CsvBackupSerializer()
     private val backupFileWriter = FakeBackupFileWriter()
 
     @Before
@@ -47,7 +49,15 @@ class SettingsViewModelTest {
     }
 
     private fun viewModel() =
-        SettingsViewModel(settingsRepository, hodithRepository, demoDataSeeder, backupSerializer, backupFileWriter, clock)
+        SettingsViewModel(
+            settingsRepository,
+            hodithRepository,
+            demoDataSeeder,
+            backupSerializer,
+            csvBackupSerializer,
+            backupFileWriter,
+            clock,
+        )
 
     @Test
     fun `uiState reflects the persisted theme`() =
@@ -209,6 +219,19 @@ class SettingsViewModelTest {
 
             assertEquals(BackupEvent.ImportSuccess, result)
             assertEquals(exported, hodithRepository.cases.value)
+        }
+
+    @Test
+    fun `performCsvExport reflects the repository's current data via CsvBackupSerializer`() =
+        runTest {
+            val viewModel = viewModel()
+            hodithRepository.cases.value = listOf(testCase(id = 1L, name = "Migraines"))
+            hodithRepository.events.value = listOf(testEvent(id = 1L, caseId = 1L, occurredAt = 0L))
+
+            val csv = viewModel.performCsvExport()
+
+            assertEquals(csvBackupSerializer.toCsv(hodithRepository.exportBackupData()), csv)
+            assertTrue(csv.contains("Migraines"))
         }
 
     @Test
