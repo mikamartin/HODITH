@@ -12,10 +12,9 @@ internal const val TRENDS_MAX_FINDINGS = 8
 
 /**
  * Spec §10 Trends section: every eligible finding across all detectors — went-quiet, gap shift,
- * streak shift, and frequency shift (the former standalone Trend arrow, absorbed here rather than
- * kept as its own section) for now (Story C T1, plus the "Case quiet vs. abandoned" resolution).
- * [computeQuietSignal]/[computeGapShift]/[computeStreakShift]/[trendStats] themselves are
- * unchanged; this only wraps their output into [TrendFinding]s and applies [capTrendFindings].
+ * streak shift, and frequency shift for now (Story C T1, plus the "Case quiet vs. abandoned"
+ * resolution). [computeQuietSignal]/[computeGapShift]/[computeStreakShift]/[trendStats] themselves
+ * are unchanged; this only wraps their output into [TrendFinding]s and applies [capTrendFindings].
  * [TrendFindingKind.WENT_QUIET] is prepended first (when it fires) rather than appended, so it
  * leads the list — the one finding about the Case's live, still-unresolved state, ahead of every
  * other finding's report on settled history. All four are always [TrendReliability.HINT] today —
@@ -23,10 +22,8 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * ([QUIET_SIGNAL_MIN_SAMPLE_COUNT]/[GAP_SHIFT_MIN_SAMPLE_COUNT]/[STREAK_SHIFT_MIN_SAMPLE_COUNT] and
  * [SHIFT_MIN_FRACTION]/[SHIFT_MIN_ABSOLUTE_DAYS] for the shift pair; a flat comparison producing no
  * finding at all for frequency shift) — [TrendReliability.PATTERN] is reserved for a future
- * detector (T4+) that adds a significance test. [trendStats] is the same value the caller
- * separately keeps on `StatsSections.trend` for Share's own mini trend arrow (PROGRESS.md's
- * "Replace the share card's old trend arrow with real Trends findings" item retires that once
- * Share moves to these findings too) — passed in rather than recomputed here.
+ * detector (T4+) that adds a significance test. [trendStats] is passed in rather than recomputed
+ * here, since the caller already computed it for its own frequency-shift wiring.
  * [eventsWithTags] backs [computeTagShareShift] (Story C T2), placed after gap/streak/frequency
  * shift since it's the one detector that can contribute more than one finding — every other kind is
  * capped at 0..1. [computeRecurrenceShape] (Story C T3) is always

@@ -8,6 +8,11 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.TrendReliability
+import com.secondmonday.hodith.ui.casedetail.TRENDS_DEFAULT_VISIBLE_COUNT
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -103,6 +108,7 @@ class ShareCardStateTest {
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = true,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         assertTrue(data.topBeat is ShareTopBeat.Reality)
@@ -123,6 +129,7 @@ class ShareCardStateTest {
                 format = ShareCardFormat.STORY,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = true,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         val beat = data.topBeat as ShareTopBeat.HunchVsReality
@@ -144,6 +151,7 @@ class ShareCardStateTest {
                 format = ShareCardFormat.STORY,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         assertTrue(data.topBeat is ShareTopBeat.Reality)
@@ -183,6 +191,7 @@ class ShareCardStateTest {
                 format = ShareCardFormat.STORY,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = true,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         assertTrue(data.topBeat is ShareTopBeat.Reality)
@@ -201,6 +210,7 @@ class ShareCardStateTest {
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         val reality = data.topBeat as ShareTopBeat.Reality
@@ -222,6 +232,7 @@ class ShareCardStateTest {
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         assertEquals("My custom title", data.caseName)
@@ -243,18 +254,19 @@ class ShareCardStateTest {
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         assertNull(data.frequency)
         assertNull(data.rhythm)
         assertNull(data.gaps)
-        assertNull(data.trend)
+        assertEquals(emptyList<Any>(), data.trends)
         assertNull(data.duration)
         assertNull(data.intensity)
     }
 
     @Test
-    fun `a single-event Case offers Rhythm and Gaps but not Frequency or Trend on the share card`() {
+    fun `a single-event Case offers Rhythm and Gaps but not Frequency or Trends on the share card`() {
         val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
         val oneEvent =
             listOf(
@@ -282,12 +294,13 @@ class ShareCardStateTest {
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         assertTrue(data.rhythm != null)
         assertTrue(data.gaps != null)
         assertNull(data.frequency)
-        assertNull(data.trend)
+        assertEquals(emptyList<Any>(), data.trends)
     }
 
     @Test
@@ -302,16 +315,145 @@ class ShareCardStateTest {
                 eventCount = 12,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
-                selectedSections = setOf(ShareInsightsSection.RHYTHM, ShareInsightsSection.TREND),
+                selectedSections = setOf(ShareInsightsSection.RHYTHM, ShareInsightsSection.TRENDS),
                 showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         assertNull(data.frequency)
         assertTrue(data.rhythm != null)
         assertNull(data.gaps)
-        assertTrue(data.trend != null)
+        assertTrue(data.trends.isNotEmpty())
         assertNull(data.duration)
         assertNull(data.intensity)
+    }
+
+    @Test
+    fun `Trends data stays empty when not selected, even though findings exist`() {
+        val case = testCase()
+        val data =
+            shareCardState(
+                case = case,
+                displayName = case.name,
+                insightsState = readyInsightsState(case),
+                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
+                eventCount = 12,
+                observedDays = 60,
+                format = ShareCardFormat.SQUARE,
+                selectedSections = setOf(ShareInsightsSection.RHYTHM),
+                showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
+            )
+
+        // readyInsightsState's fixture is the same one `only the selected sections are populated`
+        // confirms yields a non-empty stats.trends -- proves this is selection gating, not an
+        // incidentally-empty findings list.
+        assertEquals(emptyList<Any>(), data.trends)
+    }
+
+    private fun statsWithTrends(findings: List<TrendFinding>) =
+        StatsSections(
+            frequency = null,
+            rhythm = RhythmDisplay(cells = emptyList(), plottedByStart = false),
+            gaps =
+                GapsDisplay(
+                    longestGapDays = 0,
+                    currentGapDays = 0,
+                    averageGapDays = 0.0,
+                    isBursty = false,
+                    longestStreakDays = 0,
+                    averageStreakDays = 0.0,
+                ),
+            duration = null,
+            intensity = null,
+            tags = emptyList(),
+            totalEventCount = 20,
+            trends = findings,
+        )
+
+    private fun ordinaryFinding(sampleCount: Int) =
+        TrendFinding(
+            kind = TrendFindingKind.GAP_SHIFT,
+            direction = ShiftDirection.UP,
+            reliability = TrendReliability.HINT,
+            sampleCount = sampleCount,
+            priorValue = 1.0,
+            recentValue = 2.0,
+        )
+
+    @Test
+    fun `a Trends list longer than the cap is trimmed to the first three findings`() {
+        val case = testCase()
+        val findings = (1..5).map { ordinaryFinding(sampleCount = it) }
+        val insightsState = InsightsTabState.Ready(heatmapMonths = emptyList(), stats = statsWithTrends(findings))
+
+        val data =
+            shareCardState(
+                case = case,
+                displayName = case.name,
+                insightsState = insightsState,
+                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
+                eventCount = 20,
+                observedDays = 60,
+                format = ShareCardFormat.SQUARE,
+                selectedSections = setOf(ShareInsightsSection.TRENDS),
+                showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
+            )
+
+        assertEquals(findings.take(TRENDS_DEFAULT_VISIBLE_COUNT), data.trends)
+    }
+
+    @Test
+    fun `a WENT_QUIET-leading Trends list is capped to just that one finding`() {
+        val case = testCase()
+        val wentQuiet =
+            TrendFinding(
+                kind = TrendFindingKind.WENT_QUIET,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.HINT,
+                sampleCount = 6,
+                priorValue = 4.0,
+                recentValue = 50.0,
+            )
+        val findings = listOf(wentQuiet) + (1..3).map { ordinaryFinding(sampleCount = it) }
+        val insightsState = InsightsTabState.Ready(heatmapMonths = emptyList(), stats = statsWithTrends(findings))
+
+        val data =
+            shareCardState(
+                case = case,
+                displayName = case.name,
+                insightsState = insightsState,
+                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
+                eventCount = 20,
+                observedDays = 60,
+                format = ShareCardFormat.SQUARE,
+                selectedSections = setOf(ShareInsightsSection.TRENDS),
+                showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
+            )
+
+        assertEquals(listOf(wentQuiet), data.trends)
+    }
+
+    @Test
+    fun `generatedAtMillis always reflects the passed-in value, regardless of section selection`() {
+        val case = testCase()
+        val data =
+            shareCardState(
+                case = case,
+                displayName = case.name,
+                insightsState = readyInsightsState(case),
+                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
+                eventCount = 12,
+                observedDays = 60,
+                format = ShareCardFormat.SQUARE,
+                selectedSections = emptySet(),
+                showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(123),
+            )
+
+        assertEquals(millisAtDay(123), data.generatedAtMillis)
     }
 
     @Test
@@ -328,6 +470,7 @@ class ShareCardStateTest {
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         assertNull(data.duration)
@@ -348,6 +491,7 @@ class ShareCardStateTest {
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
                 showHunchVsReality = false,
+                generatedAtMillis = millisAtDay(NOW),
             )
 
         // durationMode = MANUAL but no MANUAL-duration data was logged on these events, so

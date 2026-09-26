@@ -120,6 +120,27 @@ class SharePreviewScreenTest {
     }
 
     @Test
+    fun trendsRow_hiddenWhenNoTrendsFindingsExist() {
+        setContent(
+            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false),
+        )
+
+        // By tag, not by the "Trends" label text: with findings present, that text also appears
+        // in the live card preview above (same reason sectionChecklist_togglingARow_... uses the
+        // tag, not the Rhythm label, further down this file).
+        composeTestRule.onNodeWithTag(SECTION_TOGGLE_TAG_PREFIX + ShareInsightsSection.TRENDS.name).assertDoesNotExist()
+    }
+
+    @Test
+    fun trendsRow_appearsWhenTrendsFindingsExist() {
+        setContent(
+            uiState = ShareUiState(case = testCase(id = 1L), events = resolvedHunchEvents(), isLoading = false),
+        )
+
+        composeTestRule.onNodeWithTag(SECTION_TOGGLE_TAG_PREFIX + ShareInsightsSection.TRENDS.name).assertExists()
+    }
+
+    @Test
     fun hunchVsRealityToggle_onlyAppearsOnStoryWithAResolvedHunch() {
         val hunch = testHunch(caseId = 1L, expectedCount = 5, resolvedAt = null)
 

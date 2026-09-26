@@ -301,7 +301,6 @@ interface Voice {
     /** Replaces [insightsSectionLabelRhythm] when the Case has a multi-day event — the grid then plots event starts, not spans (spec §9). */
     val insightsSectionLabelRhythmStarts: String get() = "Start times"
     val insightsSectionLabelGaps: String get() = "Gaps & streaks"
-    val insightsSectionLabelTrend: String get() = "Trend"
     val insightsSectionLabelDuration: String get() = "Event duration"
     val insightsSectionLabelIntensity: String get() = "Intensity"
     val insightsSectionLabelTags: String get() = "Tags"
@@ -405,12 +404,7 @@ interface Voice {
         recentAverageLabel: String,
     ): String
 
-    /**
-     * Spec §10 Trends section header — plural, structural like [insightsSectionLabelTrend] (still
-     * used by the Share card's own mini trend arrow, `ShareCardTemplate.kt`'s `MiniTrendSection`
-     * — the Insights tab itself no longer has a standalone arrow card, so the two labels don't
-     * appear side by side there any more, but should still read unambiguously if they ever do).
-     */
+    /** Spec §10 Trends section header — structural, shared with the Share card's own Trends section (`ShareCardTemplate.kt`'s `MiniTrendsSection`). */
     val insightsSectionLabelTrends: String get() = "Trends"
 
     /** Trends section "show more": navigates to the full findings list, unlike the in-place reveal verbs of [insightsHeatmapShowMoreAction]/[hunchHistoryShowMoreAction]. */
@@ -440,7 +434,7 @@ interface Voice {
     /**
      * Frequency-shift finding row's evidence line — states the fixed comparison window rather
      * than a variable count, since [insightsTrendSentence] (its main sentence) already states
-     * both counts directly; absorbs the former standalone Trend arrow card, spec §10.
+     * both counts directly.
      */
     fun insightsFrequencyShiftEvidenceLabel(): String
 
@@ -879,7 +873,8 @@ interface Voice {
     val shareHunchExpectedLabel: String
     val shareHunchObservedLabel: String
 
-    val shareCardFooter: String get() = "counted with HODITH app"
+    /** [date] is the card's own generation date — a still-open [com.secondmonday.hodith.domain.TrendFindingKind.WENT_QUIET] finding is only true at the moment the card is made, and dating the whole card (not just that one finding) is the honest reading for every snapshot section on it. */
+    fun shareCardFooter(date: String): String = "counted with HODITH app · $date"
 
     /** Intense skin's rotated corner stamp — structural, like [shareHunchRealityKicker]; never rendered under Plain/Bright. */
     val shareIntenseStampLabel: String get() = "Case File"

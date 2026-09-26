@@ -42,11 +42,15 @@ import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.domain.INTENSITY_MIN
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TimeOfDay
-import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.ui.casedetail.formatDays
 import com.secondmonday.hodith.ui.casedetail.formatIntensity
+import com.secondmonday.hodith.ui.casedetail.trendFindingSentence
 import com.secondmonday.hodith.ui.common.toCellColor
 import com.secondmonday.hodith.ui.common.toTextColor
 import com.secondmonday.hodith.ui.theme.HodithTheme
@@ -66,7 +70,7 @@ import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
-import com.secondmonday.hodith.viewmodel.TrendDisplay
+import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatExpectedFrequency
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import com.secondmonday.hodith.viewmodel.formatRate
@@ -137,7 +141,7 @@ fun ShareCardTemplate(
                     data.frequency?.let { MiniFrequencySection(it, voice, skin) }
                     data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
                     data.gaps?.let { MiniGapsSection(it, voice, skin) }
-                    data.trend?.let { MiniTrendSection(it, voice, skin) }
+                    data.trends.takeIf { it.isNotEmpty() }?.let { MiniTrendsSection(it, voice, skin) }
                     data.duration?.let { MiniDurationSection(it, voice, skin) }
                     data.intensity?.let { MiniIntensitySection(it, voice, skin) }
                 }
@@ -148,7 +152,7 @@ fun ShareCardTemplate(
                 ShareCardSkin.PLAIN -> Unit
             }
         }
-        ShareCardFooter(voice, skin)
+        ShareCardFooter(data.generatedAtMillis, voice, skin)
     }
 }
 
@@ -470,27 +474,23 @@ private fun MiniGapsSection(
     }
 }
 
+/**
+ * Findings rendered as sentence text only — no reliability tag, no evidence line, unlike the
+ * Insights tab's own [com.secondmonday.hodith.ui.casedetail.TrendFindingRow]/`TrendFindingPlank` —
+ * a share card has no room for tap-revealed detail (spec §13). [findings] arrives already capped
+ * by [com.secondmonday.hodith.ui.casedetail.trendsVisibleFindings].
+ */
 @Composable
-private fun MiniTrendSection(
-    display: TrendDisplay,
+private fun MiniTrendsSection(
+    findings: List<TrendFinding>,
     voice: Voice,
     skin: ShareCardSkin,
 ) {
     MiniInsightsCard {
-        MiniSectionTitle(voice.insightsSectionLabelTrend, skin)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        MiniSectionTitle(voice.insightsSectionLabelTrends, skin)
+        findings.forEach { finding ->
             Text(
-                text =
-                    when (display.direction) {
-                        TrendDirection.UP -> "↑"
-                        TrendDirection.DOWN -> "↓"
-                        TrendDirection.FLAT -> "→"
-                    },
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = voice.insightsTrendSentence(display.direction, display.recentCount, display.priorCount),
+                text = trendFindingSentence(finding, voice),
                 style = MaterialTheme.typography.labelMedium,
             )
         }
@@ -542,6 +542,7 @@ private fun MiniIntensitySection(
 
 @Composable
 private fun ShareCardFooter(
+    generatedAtMillis: Long,
     voice: Voice,
     skin: ShareCardSkin,
 ) {
@@ -552,7 +553,7 @@ private fun ShareCardFooter(
         )
     }
     Text(
-        text = voice.shareCardFooter,
+        text = voice.shareCardFooter(formatEventDate(generatedAtMillis)),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
@@ -600,9 +601,20 @@ private fun previewData(format: ShareCardFormat): ShareCardData =
                 plottedByStart = false,
             ),
         gaps = null,
-        trend = TrendDisplay(TrendDirection.UP, 8, 5),
+        trends =
+            listOf(
+                TrendFinding(
+                    kind = TrendFindingKind.FREQUENCY_SHIFT,
+                    direction = ShiftDirection.UP,
+                    reliability = TrendReliability.HINT,
+                    sampleCount = 13,
+                    priorValue = 5.0,
+                    recentValue = 8.0,
+                ),
+            ),
         duration = null,
         intensity = null,
+        generatedAtMillis = System.currentTimeMillis(),
     )
 
 @Preview(name = "Plain - Story", showBackground = true, widthDp = 400, heightDp = 700)

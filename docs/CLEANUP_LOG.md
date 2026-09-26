@@ -17,6 +17,50 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/insights-trends-share
+
+**Scope:** PROGRESS.md's "Replace the share card's old trend arrow with real Trends findings" — the Insights tab had already folded its standalone Trend arrow into `stats.trends` (`TrendFindingKind.FREQUENCY_SHIFT`), but the Share card still sourced a single up/down/flat arrow from a separate, vestigial `StatsSections.trend`/`TrendDisplay` path. Mid-review, the user also asked for a generation-date footer, since a still-open `WENT_QUIET` finding (kept eligible on the card per a design decision resolved with the user before implementation) is only true at the moment the card is made.
+
+**Changes:**
+- `ui/casedetail/InsightsTab.kt`: extracted `trendsVisibleCount`/`trendsVisibleFindings` (was an inline ternary in `TrendsCard`, now `internal`) and `trendFindingSentence`/`trendFindingEvidenceLabel` (split out of `TrendFindingContent`'s single combined `when`, `trendFindingSentence` made `internal`) so the Share card reuses both instead of duplicating the cap rule or the 12-way sentence dispatch. `TRENDS_DEFAULT_VISIBLE_COUNT` made `internal`.
+- `viewmodel/ShareCardState.kt`: `ShareInsightsSection.TREND` renamed `TRENDS`; `ShareCardData.trend: TrendDisplay?` replaced by `trends: List<TrendFinding>` (pre-capped via `trendsVisibleFindings`); new `generatedAtMillis: Long` field, threaded as a new `shareCardState()` parameter.
+- `viewmodel/InsightsTabState.kt`: `StatsSections.trend`/the `TrendDisplay` class deleted along with their computation in `statsSections()` — `trendStatsResult` itself stays, still feeding `computeTrendFindings`'s `FREQUENCY_SHIFT` finding.
+- `ui/share/SharePreviewScreen.kt`: `availableSections`/`SectionsPicker` gained a `trendsAvailable` parameter (`stats.trends.isNotEmpty()`, mirroring the existing `frequencyAvailable`), replacing the old unconditional `TREND` entry; the `shareCardState()` call passes the screen's existing `now` straight through as `generatedAtMillis`.
+- `ui/share/ShareCardTemplate.kt`: `MiniTrendSection` (single arrow glyph + `insightsTrendSentence`) replaced by `MiniTrendsSection` (iterates `data.trends`, one `trendFindingSentence` line each — no reliability tag, no evidence line); `ShareCardFooter` now takes `generatedAtMillis`, formatting it via the existing `formatEventDate` helper.
+- `ui/voice/Voice.kt`: `insightsSectionLabelTrend` (singular) deleted, now unused; `shareCardFooter` changed from a `val` to `fun shareCardFooter(date: String)` appending the formatted date — stays a single shared implementation across all three voices (structural, like `insightsSectionLabelGaps`), not newly-authored per-voice copy.
+- `domain/TrendsEngine.kt`: doc comment's dangling references to `StatsSections.trend` and this now-deleted PROGRESS.md item trimmed.
+- Tests: see below.
+- `docs/HODITH_SPEC.md`, `docs/TESTING.md`, `docs/PROGRESS.md`: see Docs updated.
+
+**Checklist walk (against the working-tree diff):**
+- *Duplication* — the `InsightsTab.kt` extraction exists specifically so the cap rule and the 12-way sentence `when` aren't duplicated; `viewmodel/ShareCardState.kt` importing `ui.casedetail.trendsVisibleFindings` matches `BackupValidationResult.kt`'s existing precedent (viewmodel already imports plain, non-Composable declarations from `ui.*` files), not a new layering violation.
+- *Decoupling* — `generatedAtMillis` flows from `SharePreviewScreen.kt`'s existing, already-Clock-derived `now` parameter; production code never calls `System.currentTimeMillis()` directly. The one direct call added is in `ShareCardTemplate.kt`'s own `@Preview` fixture, matching that file's existing `LocalDate.now()` precedent for preview-only data.
+- *Complexity & pattern health* — net simpler: one shared cap/sentence implementation instead of a second copy waiting to drift; no composable crossed the ~150-line split threshold.
+- *Dead code & hygiene* — `TrendDisplay`, `MiniTrendSection`, `StatsSections.trend`, `ShareCardState.trend`, and `insightsSectionLabelTrend` all deleted outright, not left dangling. This walk itself caught and fixed three things mid-edit: a doc comment orphaned by the `InsightsTab.kt` extraction; a new `ShareCardTemplate.kt` doc comment pointing at "PROGRESS.md's acceptance criteria" for an item this same diff deletes (reworded to cite spec §13 instead); and `ktlintFormat`'s own auto-fix pass silently rewriting three files (`InsightsTab.kt`, `ShareCardState.kt`, `ShareCardStateTest.kt`) as pure LF instead of this repo's CRLF — caught by directly counting `\r\n` vs. total lines per touched file rather than trusting `git diff`'s CRLF-normalization warning at face value, then converted back to CRLF with no content change. `git status` clean, no untracked files. `ktlintCheck` and a full `compileDebugAndroidTestKotlin` both passed clean.
+- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
+- *Naming* — `MiniTrendsSection`/`trendFindingSentence`/`trendsVisibleFindings` follow existing conventions; no new per-voice Voice keys needed.
+- *Hardcoded values* — none; reused the existing `TRENDS_DEFAULT_VISIBLE_COUNT` constant rather than introducing a new magic number for the share-card cap.
+- *Accessibility* — no new tap targets (Trends findings render as plain text, matching the "no tap-revealed detail" design decision); not independently verified on-device this pass — no emulator available, left for the user's own manual pass per their standing instruction.
+- *Data model, migrations & privacy* — Share card still excludes notes/tags (§13); confirmed Trends sentences are descriptive stats like every other section already shown, not raw logged text, so no new exception was needed.
+- *Background work, widgets & notifications, deprecated APIs* — not applicable, nothing in these areas touched.
+- *Spec review* — walked HODITH_SPEC.md §10 and §13 end to end: found and fixed the Frequency-shift bullet's stale "former standalone Trend arrow" aside (§10) alongside the intended Trend→Trends/footer updates (§13). §17 has no Future Work entry referencing this to update.
+
+**Tests:**
+- `ShareCardStateTest.kt`: updated the 3 existing assertions referencing `.trend`/`TREND`; added coverage for selection gating (findings exist but aren't selected), the 3-finding cap and the `WENT_QUIET`-leads-1 exception (via a directly-constructed synthetic `StatsSections`/`InsightsTabState.Ready`, mirroring `InsightsTabTrendsCardTest.kt`'s own synthetic-fixture convention rather than fighting real detector thresholds), and `generatedAtMillis` passthrough. 17 tests, all green.
+- `InsightsTabStateTest.kt`: 5 tests referencing the retired `stats.trend` field converted to check the `FREQUENCY_SHIFT` finding in `stats.trends` instead, preserving each test's original intent (gating at exactly 2 events, span minimum, multi-day-event parity).
+- `InsightsTabTrendsCardTest.kt`: dropped its now-invalid `trend = null` fixture line.
+- `ShareCardTemplateTest.kt`: `realityData`/`richData`/`hunchVsRealityData` fixtures moved to `trends`/`generatedAtMillis`; added sentence-only rendering (no reliability tag, no evidence line), multi-finding rendering, and footer-date-wiring tests.
+- `SharePreviewScreenTest.kt`: added Trends-toggle-presence tests (hidden with no findings, shown with at least one), mirroring the existing Duration/Intensity presence tests' shape. First version asserted on the "Trends" label text directly and failed on-device — 2 nodes matched, since with findings present that text also renders in the screen's own live card preview above the picker, not just the toggle row (the exact ambiguity `sectionChecklist_togglingARow_invokesCallbackWithTheSection` already works around elsewhere in this file). Fixed by asserting on the toggle's tag (`SECTION_TOGGLE_TAG_PREFIX + TRENDS.name`) instead, matching that existing convention.
+- Full JVM suite: 906/906 pass. `connectedDebugAndroidTest` scoped to the three changed classes (`ShareCardTemplateTest`, `SharePreviewScreenTest`, `InsightsTabTrendsCardTest`) on `Pixel_8_API36(AVD)`: 34/34 pass, after the fix above (first run: 33/34, the text-ambiguity failure caught it).
+
+**Deferred:** nothing — both open design questions PROGRESS.md flagged for this item (whether to keep `WENT_QUIET` on the card, and the per-card finding cap) were resolved with the user via a direct question before implementation started, not left as unresolved judgment calls in this pass.
+
+**Docs updated:** `HODITH_SPEC.md` §10 (Frequency-shift bullet trimmed of historical framing), §13 (Trend→Trends description, footer bullet gains the generation-date mention); `TESTING.md` (Stats & visual data prep row's stale "trend arrow"/"trend card" phrasing corrected in two places, Share card assembly row extended for the cap/`WENT_QUIET`/timestamp coverage); `PROGRESS.md` (item removed entirely). A quick pass over PROGRESS.md's other Standalone items' branch names against git history found none already shipped — nothing else to flag there.
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green, against the full accumulated diff. `connectedDebugAndroidTest` scoped to `ShareCardTemplateTest`/`SharePreviewScreenTest`/`InsightsTabTrendsCardTest` on `Pixel_8_API36(AVD)`: 34/34 pass (see Tests above for the one failure this caught and its fix).
+
+---
+
 ## fix/future-start-time-clamp-notice
 
 **Scope:** PROGRESS.md's "Log entry silently clamps a future start time to now" (resolved and removed from PROGRESS.md by this branch's first commit). A later review of that same fix, still on this branch before merge, found the result inconsistent: a future pick clamped silently to `now`, but a start time set later than an already-set end time wasn't caught at all until save, and an out-of-order end time was flagged but not corrected on screen — the notice said "matched to start" while the visible value stayed wrong until save quietly fixed it. This pass replaces all of that with one rule across all three constraints (future, start-after-end, end-before-start): an invalid pick is discarded outright, the field keeps its prior value, and a Voice-worded caption says why. Supersedes this entry's own prior version, rewritten in place since the branch hasn't merged yet.
@@ -190,40 +234,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `docs/PROGRESS.md` (item resolved + removed). `docs/TESTING.md` (Time formatting row's format string corrected, Case Detail Insights row gained a clause, new Deferrals entry for the locale gap).
 
 **Verified:** `ktlintCheck → test (scoped, then full) → lintDebug → assembleDebug` sequential, all green (run after both the first attempt and the revision). `connectedDebugAndroidTest` scoped to `CaseDetailInsightsTabTest` on `Pixel_8_API36(AVD)`, run after the revision: 37/40 passed, including all four Frequency-related tests. The 3 failures — `rhythmCell_zeroCount_staysInert`, `rhythmCell_tap_opensDialogListingOnlyMatchingEvents` (both seen identically on the first attempt's run too, unrelated `RhythmCard` date-dependent tests), and `heatmapDay_tap_keepsIntensityAndTagsOnTheRow_unlikeTheIntensityAndTagFilters` (a `ActivityScenario` teardown timeout, not an assertion failure — the documented pre-existing flaky-emulator pattern) — are all unrelated to and untouched by this diff.
-
----
-
-## feat/trends-went-quiet-declutter
-
-**Scope:** PROGRESS.md's "Insights Trends: hide other findings behind a link when a Case has gone quiet" — `TrendsCard`'s compact view always sliced to the first 3 findings, so when `WENT_QUIET` (a live-state read on the Case, always prepended first when it fires) led the list, it sat inline next to up to two unrelated historical-shift findings, blurring two different kinds of claim.
-
-**Changes:**
-- `ui/casedetail/InsightsTab.kt`: `TrendsCard` computes a `visibleCount` local (1 when the leading finding is `WENT_QUIET`, else the existing `TRENDS_DEFAULT_VISIBLE_COUNT`) and uses it for both the `.take(...)` slice and the "show more" link's visibility condition, replacing the two unconditional `TRENDS_DEFAULT_VISIBLE_COUNT` references. Doc comment updated to explain the exception. New preview scenario (`TrendsCardWentQuietLeadingPreviewContent` + Plain/Intense/Bright `@Preview`s, both light and dark) added alongside the existing "show more" preview family — dark variants go beyond that sibling family's own light-only coverage, added on the user's explicit call after I'd proposed matching the sibling instead (see Checklist walk below).
-- `ui/casedetail/InsightsTabTrendsCardTest.kt`: new `trendsCard_wentQuietLeading_showsOnlyWentQuietPlusShowMoreLink`, run on a connected emulator, not just compiled.
-- `docs/HODITH_SPEC.md` §10: the Trends bullet's "shows the first 3 by default" line gained the went-quiet-leading exception — caught during this pass's own spec review, not part of the original request.
-- `docs/PROGRESS.md`: the resolved item removed entirely; the share-card item's (`feat/insights-trends-share`) design-decision note lost its "See also ... below" cross-reference to the now-removed item.
-
-**Checklist walk (against the working-tree diff):**
-- *Duplication* — no inline strings; the link's copy stays the existing generic `voice.insightsTrendsShowMoreAction` — put to the user as an open question (the link always opens the same full list regardless of what's collapsed inline, so a special-cased copy would describe the destination inaccurately, not clarify it) and confirmed rather than decided unilaterally. The new preview content composable mirrors `TrendsCardShowMorePreviewContent`'s body closely, but that's this file's own established one-composable-per-scenario convention (every existing preview family in this file follows the same shape), not new duplication.
-- *Decoupling* — no ViewModel/Repository/domain files touched; the change is a pure local `val` inside an existing composable, no business logic moved into or out of it.
-- *Complexity & pattern health* — inline ternary, no new helper function (the ternary reads clearly and has exactly one call site, so extracting it would be the "single-caller helper not earning its keep" anti-pattern this checklist itself warns about). `TrendsCard` stays well under the ~150-line composable-split threshold. Reused `TrendFindingRow`/`InsightsCard`/`TextButton` as-is.
-- *Dead code & hygiene* — no unused imports (`ktlintCheck` ran clean, twice). `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, predates this branch, left alone per prior entries). `ktlintFormat` ran once to fix an auto-correctable line-length wrap in the new test; directly counted `\r\n` vs. total lines on all four touched files afterward rather than trusting `git diff`'s CRLF-normalization warning at face value — all four came back fully CRLF, no corruption.
-- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
-- *Naming* — new preview functions (`TrendsCardWentQuietLeading{Plain,Intense,Bright}Preview` and their `...DarkPreview` counterparts) match the sibling `TrendsCardShowMore{Plain,Intense,Bright}Preview` naming, extended with the `InsightsBrightCardsDarkPreview`-style `...DarkPreview` suffix already used elsewhere in this file. No new Voice keys, so no cross-voice naming to check.
-- *Hardcoded values* — none introduced; `TRENDS_DEFAULT_VISIBLE_COUNT` (the one relevant existing constant) is unchanged and still used for the non-WENT_QUIET branch.
-- *Accessibility* — no new tap targets; the show-more `TextButton` is the same pre-existing one, now gated on `visibleCount` instead of the constant directly. Whether the new preview family needed dark variants (its sibling `TrendsCardShowMore*` family has none) was another open question put to the user rather than decided unilaterally; they asked for dark coverage anyway, so all six previews (Plain/Intense/Bright × light/dark) exist for this scenario, going beyond the sibling family it's modeled on.
-- *Spec review* — walked HODITH_SPEC.md §10 (the section describing this exact card) end to end: found and fixed the stale "shows the first 3 by default" line (see Changes above). No other section references Trends card slicing.
-- *Data model/migrations, background work* — not applicable; no entity, schema, or WorkManager surface touched.
-- *Tests* — see below.
-
-**Tests:**
-- `InsightsTabTrendsCardTest.trendsCard_wentQuietLeading_showsOnlyWentQuietPlusShowMoreLink`: `WENT_QUIET` leading a 6-finding list, asserts the `WENT_QUIET` sentence renders, a mixed-in gap-shift sentence with the exact values `syntheticFinding(0)` would produce does *not* render, and the show-more link both appears and invokes its callback. Confirmed `insightsGapShiftSentence`'s parameter names/order against its `Voice.kt` declaration rather than assuming, and `formatDays`'s whole-number rendering (`"3 days"`/`"5 days"`, no decimal) before asserting on it.
-- Existing `trendsCard_noShowMoreLink_atExactlyTheDefaultVisibleCount`, `trendsCard_showMoreLink_appearsAndInvokesCallback_whenMoreThanTheDefaultVisibleCount`, and `trendsCard_rendersWentQuietSentence` all re-verified as still valid unchanged (none previously mixed `WENT_QUIET` with other findings, so `visibleCount`'s fallback to the old constant leaves their behavior identical) rather than assumed safe from reading the diff alone — confirmed by running the full class, not just the new test.
-- Scoped `connectedDebugAndroidTest` run against `InsightsTabTrendsCardTest` on `Pixel_8_API36(AVD)`: 17/17 passed. Full unit suite, `ktlintCheck`, `lintDebug`, `assembleDebug` all green.
-
-**Deferred:** nothing. Two judgment calls (link copy, preview theme/dark coverage) were surfaced as open questions during this pass rather than decided unilaterally — see Checklist walk above for each outcome.
-
-**Docs updated:** `HODITH_SPEC.md` §10 (Trends bullet), `PROGRESS.md` (item resolved + removed, dangling cross-reference from the share-card item trimmed).
-
-**Verified:** `ktlintCheck → test → lintDebug → assembleDebug` sequential, all green; `connectedDebugAndroidTest` scoped to `InsightsTabTrendsCardTest` on `Pixel_8_API36(AVD)` — 17/17 pass.
 

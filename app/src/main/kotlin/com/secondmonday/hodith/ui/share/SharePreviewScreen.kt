@@ -155,6 +155,7 @@ fun SharePreviewScreen(
                 format = selection.format,
                 selectedSections = selection.selectedSections,
                 showHunchVsReality = selection.showHunchVsReality,
+                generatedAtMillis = now,
             )
 
         Column(
@@ -207,6 +208,7 @@ fun SharePreviewScreen(
             SectionsPicker(
                 case = case,
                 frequencyAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.frequency != null,
+                trendsAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.trends?.isNotEmpty() == true,
                 selectedSections = selection.selectedSections,
                 voice = voice,
                 onSectionToggle = onSectionToggle,
@@ -223,13 +225,14 @@ fun SharePreviewScreen(
 private fun SectionsPicker(
     case: CaseEntity,
     frequencyAvailable: Boolean,
+    trendsAvailable: Boolean,
     selectedSections: Set<ShareInsightsSection>,
     voice: Voice,
     onSectionToggle: (ShareInsightsSection, Boolean) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(voice.shareSectionsPickerLabel, style = MaterialTheme.typography.labelLarge)
-        availableSections(case, frequencyAvailable).forEach { section ->
+        availableSections(case, frequencyAvailable, trendsAvailable).forEach { section ->
             ToggleRow(
                 label = sectionLabel(section, voice),
                 checked = section in selectedSections,
@@ -242,18 +245,20 @@ private fun SectionsPicker(
 
 /**
  * Frequency is offered only when the Insights tab itself shows it (hidden for a Case with a
- * multi-day event, spec §9); Duration/Intensity only when the Case tracks them — same
- * conditionals as the real Insights tab.
+ * multi-day event, spec §9); Trends only when at least one finding exists, same
+ * `.isNotEmpty()` gate the Insights tab's own `TrendsCard` uses; Duration/Intensity only when the
+ * Case tracks them — all four conditionals mirror the real Insights tab.
  */
 private fun availableSections(
     case: CaseEntity,
     frequencyAvailable: Boolean,
+    trendsAvailable: Boolean,
 ): List<ShareInsightsSection> =
     buildList {
         if (frequencyAvailable) add(ShareInsightsSection.FREQUENCY)
         add(ShareInsightsSection.RHYTHM)
         add(ShareInsightsSection.GAPS)
-        add(ShareInsightsSection.TREND)
+        if (trendsAvailable) add(ShareInsightsSection.TRENDS)
         if (case.durationMode.tracksDuration) add(ShareInsightsSection.DURATION)
         if (case.intensityEnabled) add(ShareInsightsSection.INTENSITY)
     }
@@ -266,7 +271,7 @@ private fun sectionLabel(
         ShareInsightsSection.FREQUENCY -> voice.insightsSectionLabelFrequency
         ShareInsightsSection.RHYTHM -> voice.insightsSectionLabelRhythm
         ShareInsightsSection.GAPS -> voice.insightsSectionLabelGaps
-        ShareInsightsSection.TREND -> voice.insightsSectionLabelTrend
+        ShareInsightsSection.TRENDS -> voice.insightsSectionLabelTrends
         ShareInsightsSection.DURATION -> voice.insightsSectionLabelDuration
         ShareInsightsSection.INTENSITY -> voice.insightsSectionLabelIntensity
     }
