@@ -17,6 +17,44 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/csv-export
+
+**Scope:** PROGRESS.md's "CSV export of case/event data" — the one Standalone item tagged with none of the doc's 🎨/🔍/🌐 markers, so it needed no upstream design call before implementation. Spec §17 already scoped the shape (a new writer alongside `BackupFileWriter`, a Settings row, Voice ×3, export-only). Two judgment calls were surfaced to the user before writing any code: timestamps render as ISO-8601 with the event's own captured offset (not raw epoch millis or the device's current zone), and archived Cases (and their events) are excluded from the CSV entirely, unlike the JSON backup which includes everything.
+
+**Changes:**
+- New `data/backup/CsvBackupSerializer.kt`: a plain `toCsv(BackupData): String`, mirroring `BackupSerializer`'s shape. One row per event across active (non-archived) Cases, cases in `BackupData.cases` order then events ascending by `occurredAt`; blank (not `0`) `ended_at`/`duration_minutes` for an instant event; tags joined sorted and comma-separated; RFC 4180 quoting for a field containing a comma/quote/newline.
+- `viewmodel/SettingsViewModel.kt`: `BackupEvent` gains `CsvExportSuccess`/`CsvExportFailure`; `performCsvExport`/`exportCsv` added alongside the existing JSON pair.
+- `ui/settings/SettingsScreen.kt`: new `CSV_FILE_NAME`/`CSV_MIME_TYPE` constants, a CSV `CreateDocument` launcher, a new `ActionRow` between the existing Export and Import rows, and the backup-event snackbar `when` extended.
+- `ui/voice/Voice.kt`: `settingsCsvExportButton`/`settingsCsvExportSuccessMessage`/`settingsCsvExportFailureMessage` added to the interface and all three voices, placed immediately next to the existing JSON export keys.
+- `docs/PROGRESS.md`: item resolved and removed. `docs/HODITH_SPEC.md`: §16 gained a CSV sentence; §17's now-obsolete "CSV export" future-work entry removed. `docs/TESTING.md`: the Export/import unit-coverage row and the Compose UI Data-actions bullet both extended.
+
+**Checklist walk (against the working-tree diff):**
+- *Duplication* — no inline strings; all three Voice keys landed in the same commit. Found and fixed: `exportData`/`exportCsv` started as near-identical Uri-write blocks (open stream, write bytes, emit success/failure); extracted a private `writeExport(uri, produceContent, successEvent, failureEvent)` helper shared by both, leaving `performExport`/`performCsvExport` as the two independently unit-tested pure functions.
+- *Decoupling* — `CsvBackupSerializer` has no `android.*` import; every timestamp comes from the event's own captured `utcOffsetMinutes` via the existing `loggedZone()` helper, never the device's current zone or `System.currentTimeMillis()`.
+- *Complexity & pattern health* — `rowFor`/`isoOffsetDateTime`/`csvField` each have one call site but separate genuinely distinct concerns (row assembly, timestamp formatting, RFC 4180 escaping), and each is independently exercised by its own `CsvBackupSerializerTest` cases, so kept split rather than inlined. The new `ActionRow` call reuses the existing component; no new composable.
+- *Dead code & hygiene* — `ktlintCheck` clean after one `ktlintFormat` pass (an auto-correctable wrap in the new serializer). `git status` clean; only the intended files touched.
+- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
+- *Naming* — `CsvBackupSerializer` sits in `data/backup` next to `BackupSerializer`/`BackupFileWriter`, same `*Serializer` suffix. New Voice keys follow the `settingsCsvExport*` shape beside their `settingsExport*`/`settingsImport*` neighbors.
+- *Hardcoded values* — none; `MILLIS_PER_MINUTE` is a plain unit-conversion constant, not a product threshold, so it stays local rather than moving to a domain constants file.
+- *Accessibility* — no new icon-only control; reuses `ActionRow`, already tap-target/theme compliant. Not independently verified in an emulator this pass — manual verification is left to the user per their standing instruction.
+- *Data model, migrations & privacy* — none touched; export-only, no entity/column/schema change, matching the spec's own "no schema impact" framing for this item.
+- *Background work, widgets & notifications, deprecated APIs* — not applicable, untouched.
+- *Spec review* — walked §16/§17 end to end since this item lived in §17; added the CSV sentence to §16 and removed the now-resolved §17 entry rather than leaving it to rot as stale "future work."
+- *Tests* — see below.
+
+**Tests:**
+- `CsvBackupSerializerTest` (new, 11 cases): empty backup → header only; instant event leaves `ended_at`/`duration_minutes` blank rather than `0`; a durationed event with intensity renders duration and its own non-zero captured offset; null intensity blank; no tags blank; multiple tags joined sorted with the resulting comma forcing quoting; a note containing a comma, a double quote, and a newline each quoted per RFC 4180; row ordering (case order, then ascending `occurredAt`); an archived case and its events excluded entirely.
+- `SettingsViewModelTest`: new `performCsvExport` wiring test against `FakeHodithRepository` (asserts it matches a direct `csvBackupSerializer.toCsv(...)` call and contains the seeded Case name); existing export/import tests re-run unchanged after the `writeExport` refactor.
+- `SettingsScreenTest`: new `exportCsvButton_tapInvokesCallback` (`@Smoke`) and `csvExportEvent_showsMatchingSnackbarMessage` — both run on a connected emulator once one became available mid-pass, not just compiled (30/30 in the scoped class run).
+
+**Deferred:** `exportCsv(uri: Uri)`'s Uri/stream path itself stays untested at the JVM unit level — matching this repo's existing precedent for `exportData`/`importData` (a real `android.net.Uri` can't be constructed without Robolectric, which this repo doesn't use; see `FakeShareImageExporter`'s identical note). `performCsvExport`, the pure function `exportCsv` delegates to, carries the real coverage instead.
+
+**Docs updated:** `PROGRESS.md` (item resolved + removed), `HODITH_SPEC.md` (§16 sentence added, §17 entry removed), `TESTING.md` (Export/import unit row, Compose UI Data-actions bullet).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green (11/11 new `CsvBackupSerializerTest` cases, 18/18 `SettingsViewModelTest`). `connectedDebugAndroidTest` scoped to `SettingsScreenTest` on `Pixel_8_API36(AVD)`, run once an emulator became available: 30/30 passed, including both new tests (`exportCsvButton_tapInvokesCallback`, `csvExportEvent_showsMatchingSnackbarMessage`). A subsequent full-suite run crashed at 261/392 (`INSTRUMENTATION_ABORTED: System has crashed`) mid-way through the unrelated `CaseDetailScreenTest` — before even reaching `SettingsScreenTest` alphabetically — matching this repo's documented pre-existing flaky-emulator pattern (see e.g. the `fix/frequency-over-time-label-truncation` entry below), not a regression from this diff.
+
+---
+
 ## fix/future-start-time-clamp-notice
 
 **Scope:** PROGRESS.md's "Log entry silently clamps a future start time to now" (resolved and removed from PROGRESS.md by this branch's first commit). A later review of that same fix, still on this branch before merge, found the result inconsistent: a future pick clamped silently to `now`, but a start time set later than an already-set end time wasn't caught at all until save, and an out-of-order end time was flagged but not corrected on screen — the notice said "matched to start" while the visible value stayed wrong until save quietly fixed it. This pass replaces all of that with one rule across all three constraints (future, start-after-end, end-before-start): an invalid pick is discarded outright, the field keeps its prior value, and a Voice-worded caption says why. Supersedes this entry's own prior version, rewritten in place since the branch hasn't merged yet.
@@ -191,39 +229,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Verified:** `ktlintCheck → test (scoped, then full) → lintDebug → assembleDebug` sequential, all green (run after both the first attempt and the revision). `connectedDebugAndroidTest` scoped to `CaseDetailInsightsTabTest` on `Pixel_8_API36(AVD)`, run after the revision: 37/40 passed, including all four Frequency-related tests. The 3 failures — `rhythmCell_zeroCount_staysInert`, `rhythmCell_tap_opensDialogListingOnlyMatchingEvents` (both seen identically on the first attempt's run too, unrelated `RhythmCard` date-dependent tests), and `heatmapDay_tap_keepsIntensityAndTagsOnTheRow_unlikeTheIntensityAndTagFilters` (a `ActivityScenario` teardown timeout, not an assertion failure — the documented pre-existing flaky-emulator pattern) — are all unrelated to and untouched by this diff.
 
----
-
-## feat/trends-went-quiet-declutter
-
-**Scope:** PROGRESS.md's "Insights Trends: hide other findings behind a link when a Case has gone quiet" — `TrendsCard`'s compact view always sliced to the first 3 findings, so when `WENT_QUIET` (a live-state read on the Case, always prepended first when it fires) led the list, it sat inline next to up to two unrelated historical-shift findings, blurring two different kinds of claim.
-
-**Changes:**
-- `ui/casedetail/InsightsTab.kt`: `TrendsCard` computes a `visibleCount` local (1 when the leading finding is `WENT_QUIET`, else the existing `TRENDS_DEFAULT_VISIBLE_COUNT`) and uses it for both the `.take(...)` slice and the "show more" link's visibility condition, replacing the two unconditional `TRENDS_DEFAULT_VISIBLE_COUNT` references. Doc comment updated to explain the exception. New preview scenario (`TrendsCardWentQuietLeadingPreviewContent` + Plain/Intense/Bright `@Preview`s, both light and dark) added alongside the existing "show more" preview family — dark variants go beyond that sibling family's own light-only coverage, added on the user's explicit call after I'd proposed matching the sibling instead (see Checklist walk below).
-- `ui/casedetail/InsightsTabTrendsCardTest.kt`: new `trendsCard_wentQuietLeading_showsOnlyWentQuietPlusShowMoreLink`, run on a connected emulator, not just compiled.
-- `docs/HODITH_SPEC.md` §10: the Trends bullet's "shows the first 3 by default" line gained the went-quiet-leading exception — caught during this pass's own spec review, not part of the original request.
-- `docs/PROGRESS.md`: the resolved item removed entirely; the share-card item's (`feat/insights-trends-share`) design-decision note lost its "See also ... below" cross-reference to the now-removed item.
-
-**Checklist walk (against the working-tree diff):**
-- *Duplication* — no inline strings; the link's copy stays the existing generic `voice.insightsTrendsShowMoreAction` — put to the user as an open question (the link always opens the same full list regardless of what's collapsed inline, so a special-cased copy would describe the destination inaccurately, not clarify it) and confirmed rather than decided unilaterally. The new preview content composable mirrors `TrendsCardShowMorePreviewContent`'s body closely, but that's this file's own established one-composable-per-scenario convention (every existing preview family in this file follows the same shape), not new duplication.
-- *Decoupling* — no ViewModel/Repository/domain files touched; the change is a pure local `val` inside an existing composable, no business logic moved into or out of it.
-- *Complexity & pattern health* — inline ternary, no new helper function (the ternary reads clearly and has exactly one call site, so extracting it would be the "single-caller helper not earning its keep" anti-pattern this checklist itself warns about). `TrendsCard` stays well under the ~150-line composable-split threshold. Reused `TrendFindingRow`/`InsightsCard`/`TextButton` as-is.
-- *Dead code & hygiene* — no unused imports (`ktlintCheck` ran clean, twice). `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, predates this branch, left alone per prior entries). `ktlintFormat` ran once to fix an auto-correctable line-length wrap in the new test; directly counted `\r\n` vs. total lines on all four touched files afterward rather than trusting `git diff`'s CRLF-normalization warning at face value — all four came back fully CRLF, no corruption.
-- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
-- *Naming* — new preview functions (`TrendsCardWentQuietLeading{Plain,Intense,Bright}Preview` and their `...DarkPreview` counterparts) match the sibling `TrendsCardShowMore{Plain,Intense,Bright}Preview` naming, extended with the `InsightsBrightCardsDarkPreview`-style `...DarkPreview` suffix already used elsewhere in this file. No new Voice keys, so no cross-voice naming to check.
-- *Hardcoded values* — none introduced; `TRENDS_DEFAULT_VISIBLE_COUNT` (the one relevant existing constant) is unchanged and still used for the non-WENT_QUIET branch.
-- *Accessibility* — no new tap targets; the show-more `TextButton` is the same pre-existing one, now gated on `visibleCount` instead of the constant directly. Whether the new preview family needed dark variants (its sibling `TrendsCardShowMore*` family has none) was another open question put to the user rather than decided unilaterally; they asked for dark coverage anyway, so all six previews (Plain/Intense/Bright × light/dark) exist for this scenario, going beyond the sibling family it's modeled on.
-- *Spec review* — walked HODITH_SPEC.md §10 (the section describing this exact card) end to end: found and fixed the stale "shows the first 3 by default" line (see Changes above). No other section references Trends card slicing.
-- *Data model/migrations, background work* — not applicable; no entity, schema, or WorkManager surface touched.
-- *Tests* — see below.
-
-**Tests:**
-- `InsightsTabTrendsCardTest.trendsCard_wentQuietLeading_showsOnlyWentQuietPlusShowMoreLink`: `WENT_QUIET` leading a 6-finding list, asserts the `WENT_QUIET` sentence renders, a mixed-in gap-shift sentence with the exact values `syntheticFinding(0)` would produce does *not* render, and the show-more link both appears and invokes its callback. Confirmed `insightsGapShiftSentence`'s parameter names/order against its `Voice.kt` declaration rather than assuming, and `formatDays`'s whole-number rendering (`"3 days"`/`"5 days"`, no decimal) before asserting on it.
-- Existing `trendsCard_noShowMoreLink_atExactlyTheDefaultVisibleCount`, `trendsCard_showMoreLink_appearsAndInvokesCallback_whenMoreThanTheDefaultVisibleCount`, and `trendsCard_rendersWentQuietSentence` all re-verified as still valid unchanged (none previously mixed `WENT_QUIET` with other findings, so `visibleCount`'s fallback to the old constant leaves their behavior identical) rather than assumed safe from reading the diff alone — confirmed by running the full class, not just the new test.
-- Scoped `connectedDebugAndroidTest` run against `InsightsTabTrendsCardTest` on `Pixel_8_API36(AVD)`: 17/17 passed. Full unit suite, `ktlintCheck`, `lintDebug`, `assembleDebug` all green.
-
-**Deferred:** nothing. Two judgment calls (link copy, preview theme/dark coverage) were surfaced as open questions during this pass rather than decided unilaterally — see Checklist walk above for each outcome.
-
-**Docs updated:** `HODITH_SPEC.md` §10 (Trends bullet), `PROGRESS.md` (item resolved + removed, dangling cross-reference from the share-card item trimmed).
-
-**Verified:** `ktlintCheck → test → lintDebug → assembleDebug` sequential, all green; `connectedDebugAndroidTest` scoped to `InsightsTabTrendsCardTest` on `Pixel_8_API36(AVD)` — 17/17 pass.
 

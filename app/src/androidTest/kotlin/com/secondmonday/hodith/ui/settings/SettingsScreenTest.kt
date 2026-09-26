@@ -62,6 +62,7 @@ class SettingsScreenTest {
         onDeleteEventsOlderThan: (Long) -> Unit = {},
         nowMillis: () -> Long = { TEST_NOW_MILLIS },
         onExportClick: () -> Unit = {},
+        onExportCsvClick: () -> Unit = {},
         onImportConfirm: () -> Unit = {},
         onOpenAbout: () -> Unit = {},
         onContactUs: () -> Unit = {},
@@ -85,6 +86,7 @@ class SettingsScreenTest {
                     onDeleteEventsOlderThan = onDeleteEventsOlderThan,
                     nowMillis = nowMillis,
                     onExportClick = onExportClick,
+                    onExportCsvClick = onExportCsvClick,
                     onImportConfirm = onImportConfirm,
                     onOpenAbout = onOpenAbout,
                     onContactUs = onContactUs,
@@ -408,6 +410,17 @@ class SettingsScreenTest {
 
     @Smoke
     @Test
+    fun exportCsvButton_tapInvokesCallback() {
+        var exported = false
+        setContent(onExportCsvClick = { exported = true })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsCsvExportButton).performScrollTo().performClick()
+
+        assertEquals(true, exported)
+    }
+
+    @Smoke
+    @Test
     fun importButton_opensConfirmDialog_confirmInvokesCallback() {
         var confirmed = false
         setContent(onImportConfirm = { confirmed = true })
@@ -441,6 +454,21 @@ class SettingsScreenTest {
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule
                 .onAllNodesWithText(PlainVoice.settingsExportSuccessMessage)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+    }
+
+    @Test
+    fun csvExportEvent_showsMatchingSnackbarMessage() {
+        val backupEvents = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 1)
+        setContent(backupEvents = backupEvents)
+
+        composeTestRule.runOnIdle { backupEvents.tryEmit(BackupEvent.CsvExportSuccess) }
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule
+                .onAllNodesWithText(PlainVoice.settingsCsvExportSuccessMessage)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }

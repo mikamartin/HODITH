@@ -359,7 +359,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 ## 16. Data, privacy, distribution
 
 - All data local: Room DB + DataStore prefs. No network permission in the manifest.
-- **Export/import**: full JSON (Moshi), schema-versioned (`schemaVersion: 1`). Import checks the file's shape and content — field rules and referential integrity across the backup — before writing anything, then restores atomically inside one transaction.
+- **Export/import**: full JSON (Moshi), schema-versioned (`schemaVersion: 1`). Import checks the file's shape and content — field rules and referential integrity across the backup — before writing anything, then restores atomically inside one transaction. A CSV export sits alongside it for tabular use: one row per event across all active (non-archived) Cases, export-only since a flattened tabular shape can't round-trip back into the relational schema.
 - Android auto-backup enabled by default (`allowBackup`, unrestricted `data_extraction_rules.xml`), with a Settings toggle (default on) to opt out — documented on the About screen. One toggle governs both cloud backup and device-transfer, since both go through the same `onFullBackup` path on API 31+; enforcement lives in `HodithBackupAgent`, since the manifest flags themselves are static and can't be flipped at runtime. Opting out only stops future backups — it doesn't purge a backup already made.
 - Free, no ads, no IAP at launch.
 - Play data-safety form: no data collected.
@@ -400,9 +400,6 @@ The list, in no particular priority order:
 - **Weekly digest notification** — opt-in "your week in events" summary. Needs a product stance before implementation: a weekly recap of the user's own logging is the exact shape a streak takes, and §4 rules out anything reading as encouragement or scolding. It stays observational only if it reports what happened, never how diligently the user logged it.
 
   *Status: open · Effort: M · Touches: the WorkManager evaluation schedule, `Notifier`, a Settings toggle, Voice ×3 · Lean: hold — settle the copy stance first; it may not survive it.*
-- **CSV export** — alongside the existing JSON export, for people who want tabular data. JSON stays canonical for import (round-trip + schema-version semantics); CSV would be export-only since a flattened tabular format doesn't round-trip cleanly back into the relational schema.
-
-  *Status: open · Effort: S · Touches: one new writer alongside `BackupFileWriter`, a Settings row, Voice ×3 · Lean: pick up — self-contained, export-only, and the only item here with no schema impact at all.*
 - **Case grouping** — track related Cases as a named group (e.g. "Someone is always sick" spanning separate per-person/pet Cases) while keeping each Case's own Hunch/Verdict/Triggers independent. Distinct from Tags, which are event-level labels, not Case-to-Case relationships. Needs a cheap prototype before committing — likely touches the data model, Big Picture, and Insights aggregation.
 
   *Status: open · Effort: L · Touches: a new entity, Home, Big Picture, Insights aggregation, Voice ×3 · Lean: prototype first, as written — the spread across three screens is what makes it L rather than M.*

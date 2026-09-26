@@ -72,6 +72,8 @@ import kotlinx.coroutines.launch
 
 private const val BACKUP_FILE_NAME = "hodith-backup.json"
 private const val BACKUP_MIME_TYPE = "application/json"
+private const val CSV_FILE_NAME = "hodith-export.csv"
+private const val CSV_MIME_TYPE = "text/csv"
 private const val CONTACT_EMAIL_URI = "mailto:hello@secondmondaystudios.com"
 
 @Composable
@@ -85,6 +87,10 @@ fun SettingsRoute(
     val exportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE)) { uri ->
             uri?.let(viewModel::exportData)
+        }
+    val exportCsvLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(CSV_MIME_TYPE)) { uri ->
+            uri?.let(viewModel::exportCsv)
         }
     // "*/*" rather than the JSON mime type: many file providers report backup files as
     // application/octet-stream or text/plain, so a stricter filter would hide valid files.
@@ -105,6 +111,7 @@ fun SettingsRoute(
         onDeleteEventsOlderThan = viewModel::deleteEventsOlderThan,
         nowMillis = viewModel::nowMillis,
         onExportClick = { exportLauncher.launch(BACKUP_FILE_NAME) },
+        onExportCsvClick = { exportCsvLauncher.launch(CSV_FILE_NAME) },
         onImportConfirm = { importLauncher.launch(arrayOf("*/*")) },
         onOpenAbout = onOpenAbout,
         onContactUs = {
@@ -128,6 +135,7 @@ fun SettingsScreen(
     onDeleteEventsOlderThan: (cutoff: Long) -> Unit,
     nowMillis: () -> Long,
     onExportClick: () -> Unit,
+    onExportCsvClick: () -> Unit,
     onImportConfirm: () -> Unit,
     onOpenAbout: () -> Unit,
     onContactUs: () -> Unit,
@@ -155,6 +163,8 @@ fun SettingsScreen(
                 when (event) {
                     BackupEvent.ExportSuccess -> voice.settingsExportSuccessMessage
                     BackupEvent.ExportFailure -> voice.settingsExportFailureMessage
+                    BackupEvent.CsvExportSuccess -> voice.settingsCsvExportSuccessMessage
+                    BackupEvent.CsvExportFailure -> voice.settingsCsvExportFailureMessage
                     BackupEvent.ImportSuccess -> voice.settingsImportSuccessMessage
                     is BackupEvent.ImportFailure ->
                         when (event.reason) {
@@ -242,6 +252,7 @@ fun SettingsScreen(
                     )
                 }
                 ActionRow(voice.settingsExportButton, onClick = onExportClick)
+                ActionRow(voice.settingsCsvExportButton, onClick = onExportCsvClick)
                 ActionRow(voice.settingsImportButton, onClick = { showImportConfirm = true })
                 ActionRow(voice.settingsDeleteDataButton, onClick = { showDeleteDataFlow = true }, isDestructive = true)
             }
