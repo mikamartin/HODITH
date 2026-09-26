@@ -201,7 +201,13 @@ interface Voice {
 
     val settingsDeleteDataLogsConfirmAction: String
     val settingsExportButton: String
-    val settingsCsvExportButton: String
+    val settingsExportFormatDialogTitle: String
+    val settingsExportFormatJsonOption: String
+    val settingsExportFormatJsonDescription: String
+    val settingsExportFormatCsvOption: String
+    val settingsExportFormatCsvDescription: String
+    val settingsExportFormatConfirmAction: String
+    val settingsExportFormatCancelAction: String
     val settingsImportButton: String
     val settingsImportConfirmTitle: String
     val settingsImportConfirmBody: String
@@ -1087,7 +1093,14 @@ object PlainVoice : Voice {
 
     override val settingsDeleteDataLogsConfirmAction = "Delete logs"
     override val settingsExportButton = "Export data"
-    override val settingsCsvExportButton = "Export as CSV"
+    override val settingsExportFormatDialogTitle = "Choose a format"
+    override val settingsExportFormatJsonOption = "JSON backup"
+    override val settingsExportFormatJsonDescription = "A full backup of everything, for restoring later in HODITH."
+    override val settingsExportFormatCsvOption = "CSV"
+    override val settingsExportFormatCsvDescription =
+        "A table you can open in a spreadsheet editor like Microsoft Excel, Google Sheets, or LibreOffice."
+    override val settingsExportFormatConfirmAction = "Export"
+    override val settingsExportFormatCancelAction = "Cancel"
     override val settingsImportButton = "Import data"
     override val settingsImportConfirmTitle = "Replace all data?"
     override val settingsImportConfirmBody =
@@ -1824,7 +1837,14 @@ object IntenseVoice : Voice {
 
     override val settingsDeleteDataLogsConfirmAction = "Strike them"
     override val settingsExportButton = "Copy the case files"
-    override val settingsCsvExportButton = "Transcribe the case files"
+    override val settingsExportFormatDialogTitle = "Choose a form"
+    override val settingsExportFormatJsonOption = "Full case file"
+    override val settingsExportFormatJsonDescription = "Every record, kept whole. The only form HODITH restores from."
+    override val settingsExportFormatCsvOption = "Transcribed table"
+    override val settingsExportFormatCsvDescription =
+        "A ledger you can open in Microsoft Excel, Google Sheets, or LibreOffice."
+    override val settingsExportFormatConfirmAction = "Copy it"
+    override val settingsExportFormatCancelAction = "Abandon"
     override val settingsImportButton = "Restore the case files"
     override val settingsImportConfirmTitle = "Erase the present for the past?"
     override val settingsImportConfirmBody =
@@ -2541,7 +2561,13 @@ object BrightVoice : Voice {
 
     override val settingsDeleteDataLogsConfirmAction = "Yeet 'em"
     override val settingsExportButton = "Save a backup!"
-    override val settingsCsvExportButton = "Save a CSV!"
+    override val settingsExportFormatDialogTitle = "Pick a format!"
+    override val settingsExportFormatJsonOption = "JSON backup"
+    override val settingsExportFormatJsonDescription = "Everything, safe and sound. The one HODITH can load back in."
+    override val settingsExportFormatCsvOption = "CSV table"
+    override val settingsExportFormatCsvDescription = "Open it up in Microsoft Excel, Google Sheets, or LibreOffice and poke around!"
+    override val settingsExportFormatConfirmAction = "Save it!"
+    override val settingsExportFormatCancelAction = "Nah, never mind"
     override val settingsImportButton = "Restore a backup!"
     override val settingsImportConfirmTitle = "Swap in the backup?"
     override val settingsImportConfirmBody = "Everything here gets wiped and replaced with what's in that file. No undo button, promise!"

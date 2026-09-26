@@ -399,24 +399,41 @@ class SettingsScreenTest {
 
     @Smoke
     @Test
-    fun exportButton_tapInvokesCallback() {
+    fun exportButton_opensFormatDialog_jsonOptionConfirmInvokesOnExportClick() {
         var exported = false
         setContent(onExportClick = { exported = true })
 
         composeTestRule.onNodeWithText(PlainVoice.settingsExportButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportFormatDialogTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportFormatConfirmAction).performClick()
 
         assertEquals(true, exported)
     }
 
     @Smoke
     @Test
-    fun exportCsvButton_tapInvokesCallback() {
+    fun exportFormatDialog_csvOptionConfirmInvokesOnExportCsvClick() {
         var exported = false
         setContent(onExportCsvClick = { exported = true })
 
-        composeTestRule.onNodeWithText(PlainVoice.settingsCsvExportButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportFormatCsvOption).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportFormatConfirmAction).performClick()
 
         assertEquals(true, exported)
+    }
+
+    @Test
+    fun exportFormatDialog_cancelInvokesNeitherCallback() {
+        var exportedJson = false
+        var exportedCsv = false
+        setContent(onExportClick = { exportedJson = true }, onExportCsvClick = { exportedCsv = true })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsExportFormatCancelAction).performClick()
+
+        assertFalse(exportedJson)
+        assertFalse(exportedCsv)
     }
 
     @Smoke
