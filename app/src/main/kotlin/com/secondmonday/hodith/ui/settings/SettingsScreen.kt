@@ -69,10 +69,23 @@ import com.secondmonday.hodith.viewmodel.SettingsUiState
 import com.secondmonday.hodith.viewmodel.SettingsViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
-private const val BACKUP_FILE_NAME = "hodith-backup.json"
 private const val BACKUP_MIME_TYPE = "application/json"
+private const val CSV_MIME_TYPE = "text/csv"
 private const val CONTACT_EMAIL_URI = "mailto:hello@secondmondaystudios.com"
+
+/** No seconds: precise enough to tell apart same-day exports without a needlessly long filename. */
+private val EXPORT_FILE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm")
+
+private fun exportFileTimestamp(nowMillis: Long): String =
+    Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault()).format(EXPORT_FILE_TIMESTAMP_FORMATTER)
+
+private fun backupFileName(nowMillis: Long) = "hodith-backup-${exportFileTimestamp(nowMillis)}.json"
+
+private fun csvFileName(nowMillis: Long) = "hodith-export-${exportFileTimestamp(nowMillis)}.csv"
 
 @Composable
 fun SettingsRoute(
@@ -85,6 +98,10 @@ fun SettingsRoute(
     val exportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE)) { uri ->
             uri?.let(viewModel::exportData)
+        }
+    val exportCsvLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(CSV_MIME_TYPE)) { uri ->
+            uri?.let(viewModel::exportCsv)
         }
     // "*/*" rather than the JSON mime type: many file providers report backup files as
     // application/octet-stream or text/plain, so a stricter filter would hide valid files.
@@ -104,7 +121,8 @@ fun SettingsRoute(
         onDeleteAllData = viewModel::deleteAllData,
         onDeleteEventsOlderThan = viewModel::deleteEventsOlderThan,
         nowMillis = viewModel::nowMillis,
-        onExportClick = { exportLauncher.launch(BACKUP_FILE_NAME) },
+        onExportClick = { exportLauncher.launch(backupFileName(viewModel.nowMillis())) },
+        onExportCsvClick = { exportCsvLauncher.launch(csvFileName(viewModel.nowMillis())) },
         onImportConfirm = { importLauncher.launch(arrayOf("*/*")) },
         onOpenAbout = onOpenAbout,
         onContactUs = {
@@ -128,6 +146,7 @@ fun SettingsScreen(
     onDeleteEventsOlderThan: (cutoff: Long) -> Unit,
     nowMillis: () -> Long,
     onExportClick: () -> Unit,
+    onExportCsvClick: () -> Unit,
     onImportConfirm: () -> Unit,
     onOpenAbout: () -> Unit,
     onContactUs: () -> Unit,
@@ -138,6 +157,7 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     var showDeleteDataFlow by remember { mutableStateOf(false) }
     var showImportConfirm by remember { mutableStateOf(false) }
+    var showExportFormatDialog by remember { mutableStateOf(false) }
 
     fun showComingSoonSnackbar() {
         coroutineScope.launch { snackbarHostState.showSnackbar(voice.comingSoonPlaceholder, duration = SnackbarDuration.Short) }
@@ -155,6 +175,8 @@ fun SettingsScreen(
                 when (event) {
                     BackupEvent.ExportSuccess -> voice.settingsExportSuccessMessage
                     BackupEvent.ExportFailure -> voice.settingsExportFailureMessage
+                    BackupEvent.CsvExportSuccess -> voice.settingsCsvExportSuccessMessage
+                    BackupEvent.CsvExportFailure -> voice.settingsCsvExportFailureMessage
                     BackupEvent.ImportSuccess -> voice.settingsImportSuccessMessage
                     is BackupEvent.ImportFailure ->
                         when (event.reason) {
@@ -187,6 +209,20 @@ fun SettingsScreen(
             onConfirm = {
                 showImportConfirm = false
                 onImportConfirm()
+            },
+        )
+    }
+
+    if (showExportFormatDialog) {
+        ExportFormatDialog(
+            voice = voice,
+            onDismiss = { showExportFormatDialog = false },
+            onConfirm = { format ->
+                showExportFormatDialog = false
+                when (format) {
+                    ExportFormat.JSON -> onExportClick()
+                    ExportFormat.CSV -> onExportCsvClick()
+                }
             },
         )
     }
@@ -241,7 +277,7 @@ fun SettingsScreen(
                         modifier = Modifier.semantics { contentDescription = voice.settingsCloudBackupToggleLabel },
                     )
                 }
-                ActionRow(voice.settingsExportButton, onClick = onExportClick)
+                ActionRow(voice.settingsExportButton, onClick = { showExportFormatDialog = true })
                 ActionRow(voice.settingsImportButton, onClick = { showImportConfirm = true })
                 ActionRow(voice.settingsDeleteDataButton, onClick = { showDeleteDataFlow = true }, isDestructive = true)
             }
