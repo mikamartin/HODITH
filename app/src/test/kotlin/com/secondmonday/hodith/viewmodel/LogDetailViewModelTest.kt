@@ -615,6 +615,45 @@ class LogDetailViewModelTest {
         assertEquals(45, resultZoned.minute)
     }
 
+    // --- validateStartEdit / validateEndEdit ---
+
+    @Test
+    fun `validateStartEdit rejects a future candidate regardless of the end time`() {
+        assertEquals(TimeEditRejection.FUTURE, validateStartEdit(candidate = 10_001L, endedAt = null, now = 10_000L))
+        // Also after the end time, but the future violation takes priority.
+        assertEquals(TimeEditRejection.FUTURE, validateStartEdit(candidate = 10_001L, endedAt = 5_000L, now = 10_000L))
+    }
+
+    @Test
+    fun `validateStartEdit rejects a non-future candidate after the end time`() {
+        assertEquals(TimeEditRejection.AFTER_END, validateStartEdit(candidate = 5_001L, endedAt = 5_000L, now = 10_000L))
+    }
+
+    @Test
+    fun `validateStartEdit accepts a candidate at or before now and at or before the end time`() {
+        assertNull(validateStartEdit(candidate = 10_000L, endedAt = null, now = 10_000L))
+        assertNull(validateStartEdit(candidate = 9_999L, endedAt = null, now = 10_000L))
+        assertNull(validateStartEdit(candidate = 5_000L, endedAt = 5_000L, now = 10_000L))
+        assertNull(validateStartEdit(candidate = 4_999L, endedAt = 5_000L, now = 10_000L))
+    }
+
+    @Test
+    fun `validateEndEdit rejects a future candidate regardless of the start time`() {
+        assertEquals(TimeEditRejection.FUTURE, validateEndEdit(candidate = 10_001L, occurredAt = 0L, now = 10_000L))
+    }
+
+    @Test
+    fun `validateEndEdit rejects a non-future candidate before the start time`() {
+        assertEquals(TimeEditRejection.BEFORE_START, validateEndEdit(candidate = 4_999L, occurredAt = 5_000L, now = 10_000L))
+    }
+
+    @Test
+    fun `validateEndEdit accepts a candidate at or before now and at or after the start time`() {
+        assertNull(validateEndEdit(candidate = 5_000L, occurredAt = 5_000L, now = 10_000L))
+        assertNull(validateEndEdit(candidate = 5_001L, occurredAt = 5_000L, now = 10_000L))
+        assertNull(validateEndEdit(candidate = 10_000L, occurredAt = 5_000L, now = 10_000L))
+    }
+
     // --- toDatePickerUtcMillis / datePickerDateAtLocalStartOfDay ---
 
     @Test

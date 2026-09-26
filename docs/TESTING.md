@@ -71,7 +71,7 @@ Cadence: before every release; full pass before Play submissions.
 
 ## Deferrals
 
-- Retro-log's date/time picker restrictions and tag add/remove aren't driven by an instrumented test — covered only by `LogDetailViewModelTest`'s pure-logic tests and manual verification. Pick up if it starts to matter.
+- Retro-log's date/time picker restrictions and tag add/remove aren't driven by an instrumented test — covered only by `LogDetailViewModelTest`'s pure-logic tests and manual verification. Pick up if it starts to matter. This includes all three of the Start/End field's reject-and-revert notices (future, start-after-end, end-before-start — `validateStartEdit`/`validateEndEdit`): each is only reachable by actually picking a value through the field's `DatePicker`/`TimePicker`, and no test in this codebase drives either picker's internals (calendar grid, hour/minute wheels) for any field.
 - The Delete Data flow's logs-only cutoff date picker: `SettingsScreenTest` proves the date button defaults to today and that the confirm step passes that default cutoff through unmodified, but actually tapping a different day in the M3 `DatePicker` calendar grid isn't driven by an instrumented test — same class of gap as every other date picker in this codebase (`WindowStartDatePickerDialog`, `LogDetailDatePickerDialog`), none of which have one either.
 - The frequency chart's Month tick label wrapping at large font scale is only proven in `Locale.US`; locales whose short month names run longer than English's aren't exercised by an automated test (the test harness has no locale-override plumbing yet). Pick up if it starts to matter.
 

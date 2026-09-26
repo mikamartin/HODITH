@@ -75,11 +75,14 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
+import com.secondmonday.hodith.viewmodel.TimeEditRejection
 import com.secondmonday.hodith.viewmodel.applyPickedDate
 import com.secondmonday.hodith.viewmodel.applyPickedTime
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTimeOfDay
 import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
+import com.secondmonday.hodith.viewmodel.validateEndEdit
+import com.secondmonday.hodith.viewmodel.validateStartEdit
 import java.time.Instant
 import java.time.ZoneId
 
@@ -161,6 +164,11 @@ fun LogDetailForm(
     var showTimePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
+    // Set by DateTimePickers' onConfirm when a picked value is rejected (the field keeps its
+    // prior value); cleared on that field's own next successful edit, or on a successful edit of
+    // the *other* field, since that can resolve the reason the rejected pick was invalid.
+    var startNotice by remember { mutableStateOf<TimeEditRejection?>(null) }
+    var endNotice by remember { mutableStateOf<TimeEditRejection?>(null) }
 
     Column(
         modifier =
@@ -185,6 +193,7 @@ fun LogDetailForm(
                 occurredAt = draft.occurredAt,
                 zone = zone,
                 label = voice.logSheetTimeLabel,
+                notice = startNotice?.let { noticeText(it, voice) },
                 onDateClick = { showDatePicker = true },
                 onTimeClick = { showTimePicker = true },
             )
@@ -194,8 +203,17 @@ fun LogDetailForm(
                     endedAt = draft.endedAt,
                     zone = zone,
                     voice = voice,
-                    onStopNowClick = { draft = draft.copy(endedAt = now) },
-                    onBackToOngoingClick = { draft = draft.copy(endedAt = null) },
+                    notice = endNotice?.let { noticeText(it, voice) },
+                    onStopNowClick = {
+                        draft = draft.copy(endedAt = now)
+                        startNotice = null
+                        endNotice = null
+                    },
+                    onBackToOngoingClick = {
+                        draft = draft.copy(endedAt = null)
+                        startNotice = null
+                        endNotice = null
+                    },
                     onDateClick = { showEndDatePicker = true },
                     onTimeClick = { showEndTimePicker = true },
                 )
@@ -259,6 +277,11 @@ fun LogDetailForm(
         onDismissDatePicker = { showDatePicker = false },
         onDismissTimePicker = { showTimePicker = false },
         onValueChange = { draft = draft.copy(occurredAt = it) },
+        validate = { candidate -> validateStartEdit(candidate, draft.endedAt, now) },
+        onResult = { rejection ->
+            startNotice = rejection
+            if (rejection == null) endNotice = null
+        },
     )
 
     draft.endedAt?.let { endedAt ->
@@ -272,6 +295,11 @@ fun LogDetailForm(
             onDismissDatePicker = { showEndDatePicker = false },
             onDismissTimePicker = { showEndTimePicker = false },
             onValueChange = { draft = draft.copy(endedAt = it) },
+            validate = { candidate -> validateEndEdit(candidate, draft.occurredAt, now) },
+            onResult = { rejection ->
+                endNotice = rejection
+                if (rejection == null) startNotice = null
+            },
         )
     }
 }
@@ -309,6 +337,8 @@ private fun DateTimePickers(
     onDismissDatePicker: () -> Unit,
     onDismissTimePicker: () -> Unit,
     onValueChange: (Long) -> Unit,
+    validate: (candidate: Long) -> TimeEditRejection?,
+    onResult: (TimeEditRejection?) -> Unit,
 ) {
     if (showDatePicker) {
         LogDetailDatePickerDialog(
@@ -318,7 +348,10 @@ private fun DateTimePickers(
             voice = voice,
             onDismiss = onDismissDatePicker,
             onConfirm = { picked ->
-                onValueChange(applyPickedDate(value, picked, zone).coerceAtMost(now))
+                val applied = applyPickedDate(value, picked, zone)
+                val rejection = validate(applied)
+                if (rejection == null) onValueChange(applied)
+                onResult(rejection)
                 onDismissDatePicker()
             },
         )
@@ -331,18 +364,32 @@ private fun DateTimePickers(
             voice = voice,
             onDismiss = onDismissTimePicker,
             onConfirm = { hour, minute ->
-                onValueChange(applyPickedTime(value, hour, minute, zone).coerceAtMost(now))
+                val applied = applyPickedTime(value, hour, minute, zone)
+                val rejection = validate(applied)
+                if (rejection == null) onValueChange(applied)
+                onResult(rejection)
                 onDismissTimePicker()
             },
         )
     }
 }
 
+private fun noticeText(
+    rejection: TimeEditRejection,
+    voice: Voice,
+): String =
+    when (rejection) {
+        TimeEditRejection.FUTURE -> voice.logSheetFutureTimeNotice
+        TimeEditRejection.AFTER_END -> voice.logSheetStartAfterEndNotice
+        TimeEditRejection.BEFORE_START -> voice.logSheetEndBeforeStartNotice
+    }
+
 @Composable
 private fun TimeSection(
     occurredAt: Long,
     zone: ZoneId,
     label: String,
+    notice: String?,
     onDateClick: () -> Unit,
     onTimeClick: () -> Unit,
 ) {
@@ -355,6 +402,9 @@ private fun TimeSection(
         ) {
             OutlinedButton(onClick = onDateClick) { Text(formatEventDate(occurredAt, zone)) }
             OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(occurredAt, use24Hour, zone)) }
+        }
+        if (notice != null) {
+            Text(notice, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -374,6 +424,7 @@ private fun EndTimeSection(
     endedAt: Long?,
     zone: ZoneId,
     voice: Voice,
+    notice: String?,
     onStopNowClick: () -> Unit,
     onBackToOngoingClick: () -> Unit,
     onDateClick: () -> Unit,
@@ -399,6 +450,9 @@ private fun EndTimeSection(
                     Text(formatEventTimeOfDay(endedAt, LocalTimeFormat.current.is24Hour, zone))
                 }
             }
+        }
+        if (notice != null) {
+            Text(notice, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
         if (endedAt != null) {
             TextButton(onClick = onBackToOngoingClick, modifier = Modifier.padding(top = 4.dp)) {
@@ -567,9 +621,9 @@ private fun LogDetailDatePickerDialog(
 
 /**
  * No future-time restriction here — M3's `TimePicker` has no "selectable time" API to restrict
- * against, unlike `DatePicker`'s `selectableDates`. The caller clamps the result to `now` after
- * [onConfirm] fires instead (same-day future times are the only case this matters for, since
- * [LogDetailDatePickerDialog] already rules out future dates).
+ * against, unlike `DatePicker`'s `selectableDates`. The caller validates and rejects the result
+ * after [onConfirm] fires instead (same-day future times are the only case this matters for,
+ * since [LogDetailDatePickerDialog] already rules out future dates).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

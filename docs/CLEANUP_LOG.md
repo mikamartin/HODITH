@@ -17,6 +17,44 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/future-start-time-clamp-notice
+
+**Scope:** PROGRESS.md's "Log entry silently clamps a future start time to now" (resolved and removed from PROGRESS.md by this branch's first commit). A later review of that same fix, still on this branch before merge, found the result inconsistent: a future pick clamped silently to `now`, but a start time set later than an already-set end time wasn't caught at all until save, and an out-of-order end time was flagged but not corrected on screen — the notice said "matched to start" while the visible value stayed wrong until save quietly fixed it. This pass replaces all of that with one rule across all three constraints (future, start-after-end, end-before-start): an invalid pick is discarded outright, the field keeps its prior value, and a Voice-worded caption says why. Supersedes this entry's own prior version, rewritten in place since the branch hasn't merged yet.
+
+**Changes:**
+- `viewmodel/LogDetailViewModel.kt`: `isFutureClamped`/`isEndBeforeStart` replaced by `validateStartEdit`/`validateEndEdit`, each returning a `TimeEditRejection?` (`FUTURE`/`AFTER_END`/`BEFORE_START`, or `null` to accept). These are now the single source of truth for whether a start/end pick applies, called from the picker `onConfirm` sites before any state mutation — nothing is clamped anymore, so what's on screen always matches what a save would persist. Save-time clamping in `toEventEntity`/`computeEndedAt` is untouched — a correctness backstop, not the UI's concern.
+- `ui/logsheet/LogDetailSheet.kt`: `DateTimePickers` takes `validate`/`onResult` instead of `onClampChanged`; a rejected pick is dropped rather than applied. `LogDetailForm` tracks `startNotice`/`endNotice` (`TimeEditRejection?`) instead of two booleans; a successful edit on either field clears both, since fixing one side can resolve the other's stale rejection. Dropped the "live" `endBeforeStart` derivation that read straight off the current draft every recomposition — unreachable now that both fields validate on entry, so it was pure defensive display for a state the UI can no longer produce. `TimeSection`/`EndTimeSection`'s notice moved from `bodySmall`/`onSurfaceVariant` to `labelMedium`/`colorScheme.error`, per user feedback that the original didn't read clearly as an error across all three themes — `colorScheme.error` is already tuned per theme (Intense uses amber, not red, precisely so it isn't confused with its crimson accent — see `Color.kt`'s own comment), and `labelMedium` resolves to each theme's bold display font rather than its plain body font.
+- `ui/voice/Voice.kt`: `logSheetFutureTimeClampedNotice`/`logSheetEndBeforeStartClampedNotice` replaced by three keys — `logSheetFutureTimeNotice` (shared by both fields), `logSheetStartAfterEndNotice` (Start field), `logSheetEndBeforeStartNotice` (End field) — all three voices. Copy iterated live with the user: dropped the original "set to.../matched to..." phrasing since nothing is clamped now, then reworded Plain's future-time line again once "staying put" tested as confusing (didn't say what was wrong, or what "it" referred to).
+- `docs/TESTING.md`: removed the Compose UI row for the now-deleted end-before-start static-state test; rewrote the Deferrals note — all three time-edit notices now share the same Compose-untestable-picker-interaction gap (previously end-before-start was the one exception, since it used to be derived from draft state alone).
+
+**Checklist walk (against the working-tree diff):**
+- *Duplication* — no inline strings; all three keys go through Voice in all three voices. `validateStartEdit`/`validateEndEdit` are the single source of truth for accept/reject, called from both the date and time `onConfirm` sites rather than re-deriving the comparison; a new `noticeText` helper centralizes the one rejection→Voice-key mapping so `TimeSection`/`EndTimeSection` don't each restate it.
+- *Decoupling* — no `android.*` import in `LogDetailViewModel.kt`; both validators take plain `Long`/`Long?`/`now`, no `System.currentTimeMillis()`. Notice state stays in `LogDetailForm`'s Compose state.
+- *Complexity & pattern health* — net simpler than before: one derived `val` and one `when` block removed, in exchange for two `TimeEditRejection?` `remember`s (was two `Boolean` `remember`s) and a 5-line mapping function. No new `LaunchedEffect`, no new sub-composable needed.
+- *Dead code & hygiene* — no unused imports (`ktlintCheck` clean); confirmed no leftover `coerceAtMost`/`coerceIn` calls in the Compose file. `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, flagged in every prior entry).
+- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
+- *Naming* — new Voice keys keep the `logSheet*Notice` convention; `TimeEditRejection`/`validateStartEdit`/`validateEndEdit` read as a pair with the existing `applyPickedDate`/`applyPickedTime` neighbors.
+- *Hardcoded values* — none; `colorScheme.error` is a theme token, not a literal color.
+- *Accessibility* — not independently verified in an emulator this pass (manual verification is left to the user per their standing instruction); the color/style reasoning above is for their review when they do.
+- *Data model/migrations, background work/widgets/notifications, deprecated APIs* — none touched.
+- *Spec review* — `HODITH_SPEC.md` still doesn't describe picker-validation behavior at this granularity; no update needed (unchanged from the prior pass).
+- *Tests* — see below.
+
+**Tests:**
+- `LogDetailViewModelTest.kt`: `isFutureClamped`/`isEndBeforeStart`'s 4 cases replaced by 6 for `validateStartEdit`/`validateEndEdit`, covering every accept/reject boundary for both fields (a future candidate rejected ahead of an ordering check; equal-boundary values accepted).
+- `LogDetailSheetTest.kt`: removed `startStopDraftWithEndBeforeStart_showsClampedNotice` — it asserted the now-deleted live-derived notice from a static invalid initial draft, a state the UI can no longer produce.
+- No new instrumented coverage added for the reject/revert behavior itself: as before, no test in this codebase drives M3's `TimePicker`/`DatePicker` internals, and that gap now applies uniformly to all three notices rather than two of three (see `docs/TESTING.md`'s Deferrals).
+
+**Deferred:**
+- Compose-level verification of all three time-edit notices (see Tests) — the M3 picker-driving gap is pre-existing and repo-wide, not something to solve as a side effect of this fix.
+- Manual/emulator verification of the notice's color and readability across all three themes' light/dark schemes — left to the user's own pass per their standing instruction.
+
+**Docs updated:** TESTING.md (Compose UI row removed, Deferrals note rewritten).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green, against the full accumulated diff.
+
+---
+
 ## fix/big-picture-filter-pill-consistency
 
 **Scope:** PROGRESS.md's "Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)" — Big Picture's Cases/Tags/Year filter chips had no per-type color distinction under Bright, read a bare "0" instead of a "None" wording once a filter cleared to nothing, and `TagFilterChip`'s bare-`Text` layout didn't measure to the same height as `CaseFilterChip`'s `Row` layout in a shared `FlowRow`. Mid-pass, after seeing the first result on-device, the user asked for a follow-up round: drop `TagFilterChip`'s checkmark entirely (added earlier in this same session) from both the filter dialogs and the legend row, thicken its selected-state border, and fix wrapped pill rows sitting flush against each other with no vertical gap.
@@ -188,48 +226,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `HODITH_SPEC.md` §10 (Trends bullet), `PROGRESS.md` (item resolved + removed, dangling cross-reference from the share-card item trimmed).
 
 **Verified:** `ktlintCheck → test → lintDebug → assembleDebug` sequential, all green; `connectedDebugAndroidTest` scoped to `InsightsTabTrendsCardTest` on `Pixel_8_API36(AVD)` — 17/17 pass.
-
----
-
-## fix/case-log-sort-persistence-and-sizing
-
-**Scope:** PROGRESS.md's "Case Log sort order resets on navigating away; sort row is oversized" — two issues reported against the same Log tab row: `CaseDetailViewModel.logSortOrder` was in-memory-only state that reset to `BY_START` on every nav away/back (ViewModel recreation), and the sort row's text/padding read oversized next to the log rows beneath it.
-
-**Changes:**
-- `data/SettingsRepository.kt`/`DataStoreSettingsRepository.kt`: `observeLogSortOrder`/`setLogSortOrder`, following `observeTheme`'s plain-enum DataStore pattern (not `BigPictureDetail`'s custom serialize/parse, since `LogSortOrder` is a two-value enum).
-- `data/FakeSettingsRepository.kt`: matching fake field + impl.
-- `viewmodel/CaseDetailViewModel.kt`: `settingsRepository` injected; `logSortOrder` now sourced directly from `settingsRepository.observeLogSortOrder()` instead of a local `MutableStateFlow` — no cached value left to go stale on recreation. `setLogSortOrder` persists via `viewModelScope.launch`.
-- `ui/common/SegmentedChoiceRow.kt`: new optional `textStyle`/`segmentHorizontalPadding`/`segmentVerticalPadding` params on both `SegmentedChoiceRow` and `BrightSegmentedChoiceRow`, defaulted to the prior hardcoded values so every other caller (Case Edit, Settings, Insights, etc.) is unaffected.
-- `ui/casedetail/CaseDetailScreen.kt`: Log tab's sort label and `SegmentedChoiceRow` call pass `bodyLarge` (down from `labelLarge`) and tighter padding (`12dp`/`4dp`, down from `16dp`/`7dp`).
-- `docs/HODITH_SPEC.md` §6: the sort toggle's line updated from "not persisted, not a schema field" to describe the new `SettingsRepository`/DataStore-backed, cross-Case device preference.
-- `docs/PROGRESS.md`: the resolved item removed; a new, separate investigation item added for Big Picture's Case/Tag/Year filters, which turned out to have the same non-persistence gap (worse — not even ViewModel-scoped) but weren't part of this bug report and are left as an open ruling (persist or intentionally session-only?) rather than folded into this fix.
-- `docs/TESTING.md`: the `ViewModels` and `Compose UI` rows each gained a clause for the new persistence and sizing coverage.
-
-**Checklist walk (against the working-tree diff):**
-- *Duplication* — no new user-visible strings (persistence + styling only); existing `Voice.logSortLabel`/`logSortByStartLabel`/`logSortByEndLabel` untouched. New `SettingsRepository` methods mirror `observeTheme`'s shape rather than inventing a new pattern.
-- *Decoupling* — `CaseDetailViewModel` still imports nothing from `androidx.compose.*`; the new `TextStyle`/`Dp` params live in the UI layer (`SegmentedChoiceRow.kt`/`CaseDetailScreen.kt`), not the ViewModel. No `domain/` files touched.
-- *Complexity & pattern health* — reused `SegmentedChoiceRow` via new defaulted params rather than forking a Log-tab-specific component. Caught and fixed one real gap here: the new `segmentHorizontalPadding`/`segmentVerticalPadding` params only affect the Bright-theme render branch (`BrightSegmentedChoiceRow`) — PLAIN/INTENSE's M3 `SegmentedButton` manages its own chrome and silently ignores them. Left as-is (M3's default control was never the "oversized" offender — only Bright's custom `16dp`/`7dp` pill padding was), but added a doc comment on the params so a future reader isn't misled into thinking they apply everywhere; `textStyle` does apply to both branches.
-- *Dead code & hygiene* — no unused imports (ktlintCheck ran clean). `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, left alone, as noted in prior entries).
-- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
-- *Naming* — no new files; `observeLogSortOrder`/`setLogSortOrder` match the existing `observe*`/`set*` pattern.
-- *Hardcoded values* — the new `12.dp`/`4.dp` sort-row padding is inline UI layout tuning (same as the original `16.dp`/`7.dp` it replaces), not a product/domain constant, so no named constant warranted.
-- *Accessibility* — considered, declined to change: the Bright pill's touch target was already below the 48dp guideline before this change (`labelLarge` + `7dp` vertical padding ≈ 34dp) across all eight `SegmentedChoiceRow`/`BrightSegmentedChoiceRow` call sites, not just this one. This change's padding reduction (`4dp` vertical) narrows it further for the Log tab specifically (≈32dp) but doesn't newly introduce the gap — it's a pre-existing, repo-wide pattern in the shared component. A systemic fix (e.g. `minimumInteractiveComponentSize()`) touches every caller and is out of scope for this bug fix; not tracked as a new PROGRESS.md item since it's cosmetic-adjacent and no user has reported it, but flagged here for visibility.
-- *Deprecated APIs* — the `@Inject`-annotation-target Kotlin compiler warning seen during `compileDebugKotlin` is pre-existing (same line, unrelated to this diff) and affects every `@Inject constructor` in the codebase, not something newly introduced here.
-- *Spec review* — HODITH_SPEC.md §6 updated (see Changes above); confirmed no other section describes sort-row behavior.
-- *Data model/migrations* — no Room schema touched (DataStore Preferences key, like `theme`/`bigPictureDetail`, needs no migration); confirmed export/import JSON doesn't include Settings preferences (same precedent as `theme`/`bigPictureDetail`, both excluded as device prefs, not investigation data — see MANUAL_TEST_PLAN item 7 in TESTING.md).
-- *Tests* — see below.
-
-**Tests:**
-- `CaseDetailViewModelTest.kt`: new `` `setLogSortOrder persists across a fresh ViewModel instance` `` — constructs a second `CaseDetailViewModel` sharing the same `FakeSettingsRepository`, proving the actual regression (a fresh VM, not just the fake, reads back the persisted value).
-- `CaseDetailScreenTest.kt`: new `logSortLabel_textHeight_matchesEventRowPrimaryLineHeight` — bounds-height comparison between the sort label and an event row's primary time text, both now `bodyLarge`. First run on a connected emulator failed (`169.0` vs `63.0`): `EventRow`'s outer `Row` is clickable, which merges its children's semantics by default, so the un-scoped query matched the whole row (both text lines + padding) instead of the time `Text` alone. Fixed with `useUnmergedTree = true` on both lookups, matching this file's own existing precedent (`logTab_fullScreenList_lastRowsStopButton_doesNotOverlapRetroLogFab`); passes on-device after the fix, confirming the sizing change actually holds at runtime, not just at compile time.
-- Full unit suite and `ktlintCheck`/`lintDebug`/`assembleDebug` all green. `connectedDebugAndroidTest` run scoped to `ui.casedetail` on a connected emulator (`Pixel_8_API36(AVD)`) surfaced three unrelated pre-existing failures — `CaseDetailScreenTest.eventRow_rendersInTwentyFourHourTime_whenLocalTimeFormatIsTwentyFourHour`/`eventRow_click_invokesOnEditEventForThatEvent` and `CaseDetailInsightsTabTest.rhythmCell_tap_opensDialogListingOnlyMatchingEvents` all fail to find text built from an unpinned `ZoneId.systemDefault()`, consistent with this emulator's configured timezone disagreeing with whatever zone those tests were authored/last verified against. Confirmed unrelated to this diff: none of those three tests or their files were touched here, and a scoped re-run of an untouched pre-existing sort-toggle test in the same file (`logSortToggle_shown_whenTheCaseTracksDurationAndHasEvents`) passed clean in isolation. Not fixed here — different files/root cause, out of this bug fix's scope — but worth a `TESTING.md` "Known environment issues" entry and a zone-pinning pass over those three call sites; flagged for a follow-up, not silently dropped.
-
-**Deferred:**
-- The sort row's new padding values (`12dp`/`4dp`) are a reasoned starting point, confirmed to produce equal-height text on-device (see Tests above) but not visually reviewed for overall balance — same "human does a final visual pass" convention. Worth a look in both light/dark and across Plain/Bright/Intense before merging.
-- Big Picture's filter-persistence gap, found in passing — spun out to its own PROGRESS.md investigation item rather than fixed here (see Changes above); not this bug report's scope.
-- The three pre-existing unpinned-zone instrumented test failures found while verifying this branch's own instrumented test (see Tests above) — real gap, wrong branch to fix it on.
-
-**Docs updated:** HODITH_SPEC.md §6, TESTING.md (`ViewModels`/`Compose UI` rows), PROGRESS.md (item resolved + removed, new Big Picture item added).
-
-**Verified:** `ktlintCheck → test → lintDebug → assembleDebug` sequential, all green; `connectedDebugAndroidTest` scoped to `ui.casedetail` and to the two new/touched tests individually on `Pixel_8_API36(AVD)` — both pass in isolation (the package-wide run's three failures are the pre-existing, unrelated ones noted above).
 
