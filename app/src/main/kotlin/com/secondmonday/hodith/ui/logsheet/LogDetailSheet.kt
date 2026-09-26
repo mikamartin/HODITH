@@ -75,13 +75,14 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
+import com.secondmonday.hodith.viewmodel.TimeEditRejection
 import com.secondmonday.hodith.viewmodel.applyPickedDate
 import com.secondmonday.hodith.viewmodel.applyPickedTime
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTimeOfDay
-import com.secondmonday.hodith.viewmodel.isEndBeforeStart
-import com.secondmonday.hodith.viewmodel.isFutureClamped
 import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
+import com.secondmonday.hodith.viewmodel.validateEndEdit
+import com.secondmonday.hodith.viewmodel.validateStartEdit
 import java.time.Instant
 import java.time.ZoneId
 
@@ -163,10 +164,11 @@ fun LogDetailForm(
     var showTimePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
-    // Set by DateTimePickers' onConfirm when a picked value lands after `now` and gets clamped
-    // back to it; cleared the next time that field is confirmed without clamping.
-    var startTimeClamped by remember { mutableStateOf(false) }
-    var endTimeFutureClamped by remember { mutableStateOf(false) }
+    // Set by DateTimePickers' onConfirm when a picked value is rejected (the field keeps its
+    // prior value); cleared on that field's own next successful edit, or on a successful edit of
+    // the *other* field, since that can resolve the reason the rejected pick was invalid.
+    var startNotice by remember { mutableStateOf<TimeEditRejection?>(null) }
+    var endNotice by remember { mutableStateOf<TimeEditRejection?>(null) }
 
     Column(
         modifier =
@@ -191,28 +193,27 @@ fun LogDetailForm(
                 occurredAt = draft.occurredAt,
                 zone = zone,
                 label = voice.logSheetTimeLabel,
-                notice = voice.logSheetFutureTimeClampedNotice.takeIf { startTimeClamped },
+                notice = startNotice?.let { noticeText(it, voice) },
                 onDateClick = { showDatePicker = true },
                 onTimeClick = { showTimePicker = true },
             )
 
             if (durationMode == DurationMode.START_STOP) {
-                // End-before-start is a live property of the draft (either field's picker can
-                // cause it), so it's derived every recomposition rather than tracked as a flag
-                // like the future-clamp notices above.
-                val endBeforeStart = isEndBeforeStart(draft.occurredAt, draft.endedAt)
                 EndTimeSection(
                     endedAt = draft.endedAt,
                     zone = zone,
                     voice = voice,
-                    notice =
-                        when {
-                            endBeforeStart -> voice.logSheetEndBeforeStartClampedNotice
-                            endTimeFutureClamped -> voice.logSheetFutureTimeClampedNotice
-                            else -> null
-                        },
-                    onStopNowClick = { draft = draft.copy(endedAt = now) },
-                    onBackToOngoingClick = { draft = draft.copy(endedAt = null) },
+                    notice = endNotice?.let { noticeText(it, voice) },
+                    onStopNowClick = {
+                        draft = draft.copy(endedAt = now)
+                        startNotice = null
+                        endNotice = null
+                    },
+                    onBackToOngoingClick = {
+                        draft = draft.copy(endedAt = null)
+                        startNotice = null
+                        endNotice = null
+                    },
                     onDateClick = { showEndDatePicker = true },
                     onTimeClick = { showEndTimePicker = true },
                 )
@@ -276,7 +277,11 @@ fun LogDetailForm(
         onDismissDatePicker = { showDatePicker = false },
         onDismissTimePicker = { showTimePicker = false },
         onValueChange = { draft = draft.copy(occurredAt = it) },
-        onClampChanged = { startTimeClamped = it },
+        validate = { candidate -> validateStartEdit(candidate, draft.endedAt, now) },
+        onResult = { rejection ->
+            startNotice = rejection
+            if (rejection == null) endNotice = null
+        },
     )
 
     draft.endedAt?.let { endedAt ->
@@ -290,7 +295,11 @@ fun LogDetailForm(
             onDismissDatePicker = { showEndDatePicker = false },
             onDismissTimePicker = { showEndTimePicker = false },
             onValueChange = { draft = draft.copy(endedAt = it) },
-            onClampChanged = { endTimeFutureClamped = it },
+            validate = { candidate -> validateEndEdit(candidate, draft.occurredAt, now) },
+            onResult = { rejection ->
+                endNotice = rejection
+                if (rejection == null) startNotice = null
+            },
         )
     }
 }
@@ -328,7 +337,8 @@ private fun DateTimePickers(
     onDismissDatePicker: () -> Unit,
     onDismissTimePicker: () -> Unit,
     onValueChange: (Long) -> Unit,
-    onClampChanged: (Boolean) -> Unit,
+    validate: (candidate: Long) -> TimeEditRejection?,
+    onResult: (TimeEditRejection?) -> Unit,
 ) {
     if (showDatePicker) {
         LogDetailDatePickerDialog(
@@ -339,8 +349,9 @@ private fun DateTimePickers(
             onDismiss = onDismissDatePicker,
             onConfirm = { picked ->
                 val applied = applyPickedDate(value, picked, zone)
-                onValueChange(applied.coerceAtMost(now))
-                onClampChanged(isFutureClamped(applied, now))
+                val rejection = validate(applied)
+                if (rejection == null) onValueChange(applied)
+                onResult(rejection)
                 onDismissDatePicker()
             },
         )
@@ -354,13 +365,24 @@ private fun DateTimePickers(
             onDismiss = onDismissTimePicker,
             onConfirm = { hour, minute ->
                 val applied = applyPickedTime(value, hour, minute, zone)
-                onValueChange(applied.coerceAtMost(now))
-                onClampChanged(isFutureClamped(applied, now))
+                val rejection = validate(applied)
+                if (rejection == null) onValueChange(applied)
+                onResult(rejection)
                 onDismissTimePicker()
             },
         )
     }
 }
+
+private fun noticeText(
+    rejection: TimeEditRejection,
+    voice: Voice,
+): String =
+    when (rejection) {
+        TimeEditRejection.FUTURE -> voice.logSheetFutureTimeNotice
+        TimeEditRejection.AFTER_END -> voice.logSheetStartAfterEndNotice
+        TimeEditRejection.BEFORE_START -> voice.logSheetEndBeforeStartNotice
+    }
 
 @Composable
 private fun TimeSection(
@@ -382,7 +404,7 @@ private fun TimeSection(
             OutlinedButton(onClick = onTimeClick) { Text(formatEventTimeOfDay(occurredAt, use24Hour, zone)) }
         }
         if (notice != null) {
-            Text(notice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(notice, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -430,7 +452,7 @@ private fun EndTimeSection(
             }
         }
         if (notice != null) {
-            Text(notice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(notice, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
         if (endedAt != null) {
             TextButton(onClick = onBackToOngoingClick, modifier = Modifier.padding(top = 4.dp)) {
@@ -599,9 +621,9 @@ private fun LogDetailDatePickerDialog(
 
 /**
  * No future-time restriction here — M3's `TimePicker` has no "selectable time" API to restrict
- * against, unlike `DatePicker`'s `selectableDates`. The caller clamps the result to `now` after
- * [onConfirm] fires instead (same-day future times are the only case this matters for, since
- * [LogDetailDatePickerDialog] already rules out future dates).
+ * against, unlike `DatePicker`'s `selectableDates`. The caller validates and rejects the result
+ * after [onConfirm] fires instead (same-day future times are the only case this matters for,
+ * since [LogDetailDatePickerDialog] already rules out future dates).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

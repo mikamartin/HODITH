@@ -151,11 +151,14 @@ interface Voice {
     /** Clears an edited event's end time, putting it back into the ongoing state (spec §6). */
     val logSheetBackToOngoingAction: String
 
-    /** Shown under a time field when a picked value landed after `now` and was set to it instead. */
-    val logSheetFutureTimeClampedNotice: String
+    /** Shown under a time field when a picked value landed after `now`; the edit is discarded and the field keeps its prior value. */
+    val logSheetFutureTimeNotice: String
 
-    /** Shown under the End field when a picked end time preceded the start and was matched to it instead. */
-    val logSheetEndBeforeStartClampedNotice: String
+    /** Shown under the Start field when a picked start time landed after the current end time; the edit is discarded. */
+    val logSheetStartAfterEndNotice: String
+
+    /** Shown under the End field when a picked end time landed before the current start time; the edit is discarded. */
+    val logSheetEndBeforeStartNotice: String
     val quickLogUndoAction: String
     val settingsSupportSectionLabel: String
     val settingsRateAppButton: String
@@ -1036,8 +1039,9 @@ object PlainVoice : Voice {
     override val logSheetOngoingLabel = "Ongoing"
     override val logSheetStopNowAction = "Stop now"
     override val logSheetBackToOngoingAction = "Back to ongoing"
-    override val logSheetFutureTimeClampedNotice = "Set to now, since that time hasn't happened yet."
-    override val logSheetEndBeforeStartClampedNotice = "Set to match the start time."
+    override val logSheetFutureTimeNotice = "Can't be in the future."
+    override val logSheetStartAfterEndNotice = "Can't start after the end time."
+    override val logSheetEndBeforeStartNotice = "Can't end before the start time."
     override val quickLogUndoAction = "Undo"
     override val settingsSupportSectionLabel = "Support"
     override val settingsRateAppButton = "Rate the app"
@@ -1769,8 +1773,9 @@ object IntenseVoice : Voice {
     override val logSheetOngoingLabel = "Still unfolding"
     override val logSheetStopNowAction = "Seal it now"
     override val logSheetBackToOngoingAction = "Unseal it — still unfolding"
-    override val logSheetFutureTimeClampedNotice = "Pinned to this hour instead. That one hasn't come yet."
-    override val logSheetEndBeforeStartClampedNotice = "Matched to the hour it began."
+    override val logSheetFutureTimeNotice = "No hour ahead of this one can be claimed."
+    override val logSheetStartAfterEndNotice = "A beginning cannot follow its own end."
+    override val logSheetEndBeforeStartNotice = "An end cannot precede its own beginning."
     override val quickLogUndoAction = "Reverse it"
     override val settingsSupportSectionLabel = "The outside world"
     override val settingsRateAppButton = "Render a verdict"
@@ -2484,8 +2489,9 @@ object BrightVoice : Voice {
     override val logSheetOngoingLabel = "Still going!"
     override val logSheetStopNowAction = "Stop the clock!"
     override val logSheetBackToOngoingAction = "Actually, still going!"
-    override val logSheetFutureTimeClampedNotice = "Set to right now, since that time hasn't happened yet!"
-    override val logSheetEndBeforeStartClampedNotice = "Matched to the start time!"
+    override val logSheetFutureTimeNotice = "You can't log the future!"
+    override val logSheetStartAfterEndNotice = "That can't start after it ends!"
+    override val logSheetEndBeforeStartNotice = "That can't end before it starts!"
     override val quickLogUndoAction = "Oops, undo!"
     override val settingsSupportSectionLabel = "Spread the word!"
     override val settingsRateAppButton = "Give us stars!"

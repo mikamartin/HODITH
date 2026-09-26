@@ -19,43 +19,39 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ## fix/future-start-time-clamp-notice
 
-**Scope:** PROGRESS.md's "Log entry silently clamps a future start time to now" — the log sheet's date/time pickers silently clamp a same-day future pick down to `now`, and `computeEndedAt` silently clamps a `START_STOP` end time in either direction (future, or before its own start), with no feedback in either case.
+**Scope:** PROGRESS.md's "Log entry silently clamps a future start time to now" (resolved and removed from PROGRESS.md by this branch's first commit). A later review of that same fix, still on this branch before merge, found the result inconsistent: a future pick clamped silently to `now`, but a start time set later than an already-set end time wasn't caught at all until save, and an out-of-order end time was flagged but not corrected on screen — the notice said "matched to start" while the visible value stayed wrong until save quietly fixed it. This pass replaces all of that with one rule across all three constraints (future, start-after-end, end-before-start): an invalid pick is discarded outright, the field keeps its prior value, and a Voice-worded caption says why. Supersedes this entry's own prior version, rewritten in place since the branch hasn't merged yet.
 
 **Changes:**
-- `viewmodel/LogDetailViewModel.kt`: two new pure helpers next to `applyPickedDate`/`applyPickedTime` — `isFutureClamped(picked, now)` and `isEndBeforeStart(occurredAt, endedAt)` — mirroring the existing `coerceAtMost`/`coerceIn` clamp sites so the UI can report them without touching `toEventEntity`/`planSaveEvent`, which stay the sole save-time authority.
-- `ui/logsheet/LogDetailSheet.kt`: `DateTimePickers` gained an `onClampChanged` callback, called from both dialogs' `onConfirm` using `isFutureClamped`. `LogDetailForm` tracks `startTimeClamped`/`endTimeFutureClamped` flags from that callback and derives `endBeforeStart` live from the current draft every recomposition (it isn't a single-moment event — either field's edit can cause it). `TimeSection`/`EndTimeSection` gained a `notice: String?` param rendered as a `bodySmall`/`onSurfaceVariant` caption under the field, following `CaseEditScreen.kt`'s existing inline-field-message precedent (used there for validation errors; here it's informational, not blocking, so it deliberately skips `colorScheme.error`).
-- `ui/voice/Voice.kt`: two new keys, `logSheetFutureTimeClampedNotice`/`logSheetEndBeforeStartClampedNotice`, all three voices.
-- `docs/PROGRESS.md`: the resolved item removed entirely.
-- `docs/TESTING.md`: the Compose UI row and the existing retro-log picker deferral both updated (see Docs updated).
+- `viewmodel/LogDetailViewModel.kt`: `isFutureClamped`/`isEndBeforeStart` replaced by `validateStartEdit`/`validateEndEdit`, each returning a `TimeEditRejection?` (`FUTURE`/`AFTER_END`/`BEFORE_START`, or `null` to accept). These are now the single source of truth for whether a start/end pick applies, called from the picker `onConfirm` sites before any state mutation — nothing is clamped anymore, so what's on screen always matches what a save would persist. Save-time clamping in `toEventEntity`/`computeEndedAt` is untouched — a correctness backstop, not the UI's concern.
+- `ui/logsheet/LogDetailSheet.kt`: `DateTimePickers` takes `validate`/`onResult` instead of `onClampChanged`; a rejected pick is dropped rather than applied. `LogDetailForm` tracks `startNotice`/`endNotice` (`TimeEditRejection?`) instead of two booleans; a successful edit on either field clears both, since fixing one side can resolve the other's stale rejection. Dropped the "live" `endBeforeStart` derivation that read straight off the current draft every recomposition — unreachable now that both fields validate on entry, so it was pure defensive display for a state the UI can no longer produce. `TimeSection`/`EndTimeSection`'s notice moved from `bodySmall`/`onSurfaceVariant` to `labelMedium`/`colorScheme.error`, per user feedback that the original didn't read clearly as an error across all three themes — `colorScheme.error` is already tuned per theme (Intense uses amber, not red, precisely so it isn't confused with its crimson accent — see `Color.kt`'s own comment), and `labelMedium` resolves to each theme's bold display font rather than its plain body font.
+- `ui/voice/Voice.kt`: `logSheetFutureTimeClampedNotice`/`logSheetEndBeforeStartClampedNotice` replaced by three keys — `logSheetFutureTimeNotice` (shared by both fields), `logSheetStartAfterEndNotice` (Start field), `logSheetEndBeforeStartNotice` (End field) — all three voices. Copy iterated live with the user: dropped the original "set to.../matched to..." phrasing since nothing is clamped now, then reworded Plain's future-time line again once "staying put" tested as confusing (didn't say what was wrong, or what "it" referred to).
+- `docs/TESTING.md`: removed the Compose UI row for the now-deleted end-before-start static-state test; rewrote the Deferrals note — all three time-edit notices now share the same Compose-untestable-picker-interaction gap (previously end-before-start was the one exception, since it used to be derived from draft state alone).
 
 **Checklist walk (against the working-tree diff):**
-- *Duplication* — no inline strings; both new keys go through Voice in all three voices in this same commit. The two clamp-detection functions are the single source of truth for "did this clamp" — the picker `onConfirm` sites and the reactive end-before-start check both call them rather than re-deriving the comparison.
-- *Decoupling* — no `android.*` import added to `LogDetailViewModel.kt`; both new functions take `now`/`occurredAt`/`endedAt` as plain `Long`/`Long?` params, no `System.currentTimeMillis()`. UI state (the two clamp flags) stays in `LogDetailForm`'s Compose state, not pushed into a ViewModel that doesn't otherwise exist for this sheet.
-- *Complexity & pattern health* — `LogDetailForm` was already large; this added two `remember` flags, one derived `val`, and parameter threading rather than a new sub-composable or state holder. No new `LaunchedEffect`. Considered plumbing a `SnackbarHost` instead (this codebase's established one-shot-message pattern, via `Channel`/`receiveAsFlow`, e.g. `HomeViewModel.quickLogUndo`) but declined: `LogDetailSheet`'s `ModalBottomSheet` and the widget trampoline Activity that hosts it have no `Scaffold` today, and adding one in three places for a non-blocking FYI was disproportionate — confirmed with the user before implementing (see PROGRESS.md item's design-decision tag).
-- *Dead code & hygiene* — no unused imports (`ktlintCheck` clean). `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, flagged in every prior entry, left alone).
+- *Duplication* — no inline strings; all three keys go through Voice in all three voices. `validateStartEdit`/`validateEndEdit` are the single source of truth for accept/reject, called from both the date and time `onConfirm` sites rather than re-deriving the comparison; a new `noticeText` helper centralizes the one rejection→Voice-key mapping so `TimeSection`/`EndTimeSection` don't each restate it.
+- *Decoupling* — no `android.*` import in `LogDetailViewModel.kt`; both validators take plain `Long`/`Long?`/`now`, no `System.currentTimeMillis()`. Notice state stays in `LogDetailForm`'s Compose state.
+- *Complexity & pattern health* — net simpler than before: one derived `val` and one `when` block removed, in exchange for two `TimeEditRejection?` `remember`s (was two `Boolean` `remember`s) and a 5-line mapping function. No new `LaunchedEffect`, no new sub-composable needed.
+- *Dead code & hygiene* — no unused imports (`ktlintCheck` clean); confirmed no leftover `coerceAtMost`/`coerceIn` calls in the Compose file. `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, flagged in every prior entry).
 - *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
-- *Naming* — new Voice keys follow the existing `logSheet*` convention; new functions follow `applyPickedDate`/`applyPickedTime`'s neighboring `is*`-boolean-predicate style.
-- *Hardcoded values* — none; no magic numbers introduced.
-- *Accessibility* — the caption is plain `Text`, no new tappable target; color comes from the theme (`onSurfaceVariant`), so it renders correctly in dark mode and under Intense/Bright without a separate check.
-- *Data model/migrations* — none touched.
-- *Background work/widgets/notifications* — none touched.
-- *Deprecated APIs* — none introduced.
-- *Spec review* — `HODITH_SPEC.md` doesn't describe picker clamp behavior at this level of detail; no update needed.
+- *Naming* — new Voice keys keep the `logSheet*Notice` convention; `TimeEditRejection`/`validateStartEdit`/`validateEndEdit` read as a pair with the existing `applyPickedDate`/`applyPickedTime` neighbors.
+- *Hardcoded values* — none; `colorScheme.error` is a theme token, not a literal color.
+- *Accessibility* — not independently verified in an emulator this pass (manual verification is left to the user per their standing instruction); the color/style reasoning above is for their review when they do.
+- *Data model/migrations, background work/widgets/notifications, deprecated APIs* — none touched.
+- *Spec review* — `HODITH_SPEC.md` still doesn't describe picker-validation behavior at this granularity; no update needed (unchanged from the prior pass).
 - *Tests* — see below.
 
 **Tests:**
-- `LogDetailViewModelTest.kt`: four new cases for `isFutureClamped`/`isEndBeforeStart` (true/false boundary on each side).
-- `LogDetailSheetTest.kt`: new `startStopDraftWithEndBeforeStart_showsClampedNotice`, rendering `LogDetailSheet` with a `START_STOP` draft whose `endedAt` precedes `occurredAt` and asserting the notice text appears — driven entirely by initial draft state, no picker interaction needed.
-- Not covered by an instrumented test: the same-day future-time clamp notice itself, since asserting it requires driving M3's `TimePicker`/`DatePicker` internals (hour/minute wheels, calendar grid), which no test in this codebase does for any picker (checked). Flagged in TESTING.md's existing retro-log-picker deferral rather than silently skipped.
-- No connected device was available in this environment to run `connectedDebugAndroidTest`; `assembleDebugAndroidTest` confirms the new test compiles. Running it on-device is left to the user before merge.
+- `LogDetailViewModelTest.kt`: `isFutureClamped`/`isEndBeforeStart`'s 4 cases replaced by 6 for `validateStartEdit`/`validateEndEdit`, covering every accept/reject boundary for both fields (a future candidate rejected ahead of an ordering check; equal-boundary values accepted).
+- `LogDetailSheetTest.kt`: removed `startStopDraftWithEndBeforeStart_showsClampedNotice` — it asserted the now-deleted live-derived notice from a static invalid initial draft, a state the UI can no longer produce.
+- No new instrumented coverage added for the reject/revert behavior itself: as before, no test in this codebase drives M3's `TimePicker`/`DatePicker` internals, and that gap now applies uniformly to all three notices rather than two of three (see `docs/TESTING.md`'s Deferrals).
 
 **Deferred:**
-- The future-time-clamp notice's Compose-level verification (see Tests above) — the M3 picker-driving gap is pre-existing and repo-wide, not something to solve as a side effect of this fix.
-- Running the new instrumented test on a real device — no emulator/device was attached in this session.
+- Compose-level verification of all three time-edit notices (see Tests) — the M3 picker-driving gap is pre-existing and repo-wide, not something to solve as a side effect of this fix.
+- Manual/emulator verification of the notice's color and readability across all three themes' light/dark schemes — left to the user's own pass per their standing instruction.
 
-**Docs updated:** TESTING.md (Compose UI row, retro-log deferral note), PROGRESS.md (item resolved and removed).
+**Docs updated:** TESTING.md (Compose UI row removed, Deferrals note rewritten).
 
-**Verified:** `ktlintCheck → test → lintDebug → assembleDebug` sequential, all green; `assembleDebugAndroidTest` compiles clean (no device available to actually run `connectedDebugAndroidTest` in this environment).
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green, against the full accumulated diff.
 
 ---
 

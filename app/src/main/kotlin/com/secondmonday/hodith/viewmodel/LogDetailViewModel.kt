@@ -160,17 +160,49 @@ internal fun LogDraft.toEventEntity(
     )
 }
 
-/** True when [picked] is after [now] and would be clamped down to it (a same-day future time). */
-internal fun isFutureClamped(
-    picked: Long,
-    now: Long,
-): Boolean = picked > now
+/**
+ * Why a start/end field's picked value was rejected and left unchanged. The sheet's date/time
+ * pickers never clamp to a nearby boundary — a candidate is either accepted outright or the edit
+ * is discarded entirely, so what's on screen always matches what a save would persist.
+ */
+internal enum class TimeEditRejection {
+    /** The candidate is after `now` — nothing can be logged as happening in the future. */
+    FUTURE,
 
-/** True when a START_STOP [endedAt] precedes [occurredAt] and would be clamped up to it. */
-internal fun isEndBeforeStart(
-    occurredAt: Long,
+    /** A start-field candidate lands after the current end time. */
+    AFTER_END,
+
+    /** An end-field candidate lands before the current start time. */
+    BEFORE_START,
+}
+
+/**
+ * Whether a start-field pick of [candidate] should be applied, given the current [endedAt]
+ * (null while still ongoing) and [now]. Checked in this order since a future candidate is
+ * rejected on that basis regardless of where the end time sits.
+ */
+internal fun validateStartEdit(
+    candidate: Long,
     endedAt: Long?,
-): Boolean = endedAt != null && endedAt < occurredAt
+    now: Long,
+): TimeEditRejection? =
+    when {
+        candidate > now -> TimeEditRejection.FUTURE
+        endedAt != null && candidate > endedAt -> TimeEditRejection.AFTER_END
+        else -> null
+    }
+
+/** Whether an end-field pick of [candidate] should be applied, given the current [occurredAt] and [now]. */
+internal fun validateEndEdit(
+    candidate: Long,
+    occurredAt: Long,
+    now: Long,
+): TimeEditRejection? =
+    when {
+        candidate > now -> TimeEditRejection.FUTURE
+        candidate < occurredAt -> TimeEditRejection.BEFORE_START
+        else -> null
+    }
 
 /**
  * Applies a date picked from Material3's `DatePicker` (whose `selectedDateMillis` is always
