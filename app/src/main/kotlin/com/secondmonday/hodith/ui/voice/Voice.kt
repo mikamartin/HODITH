@@ -201,6 +201,13 @@ interface Voice {
 
     val settingsDeleteDataLogsConfirmAction: String
     val settingsExportButton: String
+    val settingsExportFormatDialogTitle: String
+    val settingsExportFormatJsonOption: String
+    val settingsExportFormatJsonDescription: String
+    val settingsExportFormatCsvOption: String
+    val settingsExportFormatCsvDescription: String
+    val settingsExportFormatConfirmAction: String
+    val settingsExportFormatCancelAction: String
     val settingsImportButton: String
     val settingsImportConfirmTitle: String
     val settingsImportConfirmBody: String
@@ -208,6 +215,8 @@ interface Voice {
     val settingsImportCancelAction: String
     val settingsExportSuccessMessage: String
     val settingsExportFailureMessage: String
+    val settingsCsvExportSuccessMessage: String
+    val settingsCsvExportFailureMessage: String
     val settingsImportSuccessMessage: String
     val settingsImportFailureInvalidMessage: String
     val settingsImportFailureVersionMessage: String
@@ -1079,6 +1088,14 @@ object PlainVoice : Voice {
 
     override val settingsDeleteDataLogsConfirmAction = "Delete logs"
     override val settingsExportButton = "Export data"
+    override val settingsExportFormatDialogTitle = "Choose a format"
+    override val settingsExportFormatJsonOption = "JSON backup"
+    override val settingsExportFormatJsonDescription = "A full backup of everything, for restoring later in HODITH."
+    override val settingsExportFormatCsvOption = "CSV"
+    override val settingsExportFormatCsvDescription =
+        "A table you can open in a spreadsheet editor like Microsoft Excel, Google Sheets, or LibreOffice."
+    override val settingsExportFormatConfirmAction = "Export"
+    override val settingsExportFormatCancelAction = "Cancel"
     override val settingsImportButton = "Import data"
     override val settingsImportConfirmTitle = "Replace all data?"
     override val settingsImportConfirmBody =
@@ -1087,6 +1104,8 @@ object PlainVoice : Voice {
     override val settingsImportCancelAction = "Cancel"
     override val settingsExportSuccessMessage = "Backup saved."
     override val settingsExportFailureMessage = "Couldn't save the backup."
+    override val settingsCsvExportSuccessMessage = "CSV saved."
+    override val settingsCsvExportFailureMessage = "Couldn't save the CSV."
     override val settingsImportSuccessMessage = "Backup restored."
     override val settingsImportFailureInvalidMessage = "That file isn't a valid HODITH backup."
     override val settingsImportFailureVersionMessage = "That backup was made by a version of HODITH this app can't read."
@@ -1813,6 +1832,14 @@ object IntenseVoice : Voice {
 
     override val settingsDeleteDataLogsConfirmAction = "Strike them"
     override val settingsExportButton = "Copy the case files"
+    override val settingsExportFormatDialogTitle = "Choose a form"
+    override val settingsExportFormatJsonOption = "Full case file"
+    override val settingsExportFormatJsonDescription = "Every record, kept whole. The only form HODITH restores from."
+    override val settingsExportFormatCsvOption = "Transcribed table"
+    override val settingsExportFormatCsvDescription =
+        "A ledger you can open in Microsoft Excel, Google Sheets, or LibreOffice."
+    override val settingsExportFormatConfirmAction = "Copy it"
+    override val settingsExportFormatCancelAction = "Abandon"
     override val settingsImportButton = "Restore the case files"
     override val settingsImportConfirmTitle = "Erase the present for the past?"
     override val settingsImportConfirmBody =
@@ -1821,6 +1848,8 @@ object IntenseVoice : Voice {
     override val settingsImportCancelAction = "Abandon"
     override val settingsExportSuccessMessage = "The case files are copied."
     override val settingsExportFailureMessage = "The case files couldn't be copied."
+    override val settingsCsvExportSuccessMessage = "The case files are transcribed."
+    override val settingsCsvExportFailureMessage = "The case files could not be transcribed."
     override val settingsImportSuccessMessage = "The case files are restored."
     override val settingsImportFailureInvalidMessage = "That file holds no case files this app recognizes."
     override val settingsImportFailureVersionMessage = "That file was sealed by a version of this app no longer spoken here."
@@ -2527,6 +2556,13 @@ object BrightVoice : Voice {
 
     override val settingsDeleteDataLogsConfirmAction = "Yeet 'em"
     override val settingsExportButton = "Save a backup!"
+    override val settingsExportFormatDialogTitle = "Pick a format!"
+    override val settingsExportFormatJsonOption = "JSON backup"
+    override val settingsExportFormatJsonDescription = "Everything, safe and sound. The one HODITH can load back in."
+    override val settingsExportFormatCsvOption = "CSV table"
+    override val settingsExportFormatCsvDescription = "Open it up in Microsoft Excel, Google Sheets, or LibreOffice and poke around!"
+    override val settingsExportFormatConfirmAction = "Save it!"
+    override val settingsExportFormatCancelAction = "Nah, never mind"
     override val settingsImportButton = "Restore a backup!"
     override val settingsImportConfirmTitle = "Swap in the backup?"
     override val settingsImportConfirmBody = "Everything here gets wiped and replaced with what's in that file. No undo button, promise!"
@@ -2534,6 +2570,8 @@ object BrightVoice : Voice {
     override val settingsImportCancelAction = "Nah, never mind"
     override val settingsExportSuccessMessage = "Backup saved!"
     override val settingsExportFailureMessage = "Backup didn't save. Oops."
+    override val settingsCsvExportSuccessMessage = "CSV saved!"
+    override val settingsCsvExportFailureMessage = "CSV didn't save. Oops."
     override val settingsImportSuccessMessage = "Backup restored!"
     override val settingsImportFailureInvalidMessage = "That's not a HODITH backup file!"
     override val settingsImportFailureVersionMessage = "That backup's from a version this app can't read."

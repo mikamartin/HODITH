@@ -12,6 +12,7 @@ import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.backup.BACKUP_SCHEMA_VERSION
 import com.secondmonday.hodith.data.backup.BackupFileWriter
 import com.secondmonday.hodith.data.backup.BackupSerializer
+import com.secondmonday.hodith.data.backup.CsvBackupSerializer
 import com.secondmonday.hodith.data.demo.DemoDataSeeder
 import com.secondmonday.hodith.domain.Clock
 import com.squareup.moshi.JsonDataException
@@ -43,6 +44,10 @@ sealed interface BackupEvent {
 
     data object ExportFailure : BackupEvent
 
+    data object CsvExportSuccess : BackupEvent
+
+    data object CsvExportFailure : BackupEvent
+
     data object ImportSuccess : BackupEvent
 
     data class ImportFailure(
@@ -60,6 +65,7 @@ class SettingsViewModel
         private val hodithRepository: HodithRepository,
         private val demoDataSeeder: DemoDataSeeder,
         private val backupSerializer: BackupSerializer,
+        private val csvBackupSerializer: CsvBackupSerializer,
         private val backupFileWriter: BackupFileWriter,
         private val clock: Clock,
     ) : ViewModel() {
@@ -127,15 +133,28 @@ class SettingsViewModel
         /** Pure export logic (serialize current data), split out from [exportData]'s Uri/stream handling so it's unit-testable. */
         suspend fun performExport(): String = backupSerializer.toJson(hodithRepository.exportBackupData())
 
-        fun exportData(uri: Uri) {
+        fun exportData(uri: Uri) = writeExport(uri, ::performExport, BackupEvent.ExportSuccess, BackupEvent.ExportFailure)
+
+        /** Pure CSV export logic, split out from [exportCsv]'s Uri/stream handling so it's unit-testable. */
+        suspend fun performCsvExport(): String = csvBackupSerializer.toCsv(hodithRepository.exportBackupData())
+
+        fun exportCsv(uri: Uri) = writeExport(uri, ::performCsvExport, BackupEvent.CsvExportSuccess, BackupEvent.CsvExportFailure)
+
+        /** Shared Uri/stream handling behind [exportData]/[exportCsv]: produce the content, write it, report success/failure. */
+        private fun writeExport(
+            uri: Uri,
+            produceContent: suspend () -> String,
+            successEvent: BackupEvent,
+            failureEvent: BackupEvent,
+        ) {
             viewModelScope.launch {
                 try {
-                    val json = performExport()
+                    val content = produceContent()
                     val stream = backupFileWriter.openOutputStream(uri) ?: throw IOException("No output stream for $uri")
-                    stream.use { it.write(json.toByteArray()) }
-                    _backupEvents.send(BackupEvent.ExportSuccess)
+                    stream.use { it.write(content.toByteArray()) }
+                    _backupEvents.send(successEvent)
                 } catch (e: IOException) {
-                    _backupEvents.send(BackupEvent.ExportFailure)
+                    _backupEvents.send(failureEvent)
                 }
             }
         }
