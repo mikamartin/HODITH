@@ -3,6 +3,8 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.domain.ComparisonBand
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.ui.casedetail.trendsVisibleFindings
 
 /** Spec §13's two share-card canvases — Story allows the toggleable Hunch vs. Reality beat, Square never does. */
 enum class ShareCardFormat {
@@ -15,7 +17,7 @@ enum class ShareInsightsSection {
     FREQUENCY,
     RHYTHM,
     GAPS,
-    TREND,
+    TRENDS,
     DURATION,
     INTENSITY,
 }
@@ -48,9 +50,10 @@ data class ShareCardData(
     val frequency: FrequencyDisplay?,
     val rhythm: RhythmDisplay?,
     val gaps: GapsDisplay?,
-    val trend: TrendDisplay?,
+    val trends: List<TrendFinding>,
     val duration: DurationDisplay?,
     val intensity: IntensityDisplay?,
+    val generatedAtMillis: Long,
 )
 
 /**
@@ -74,6 +77,7 @@ internal fun shareCardState(
     format: ShareCardFormat,
     selectedSections: Set<ShareInsightsSection>,
     showHunchVsReality: Boolean,
+    generatedAtMillis: Long,
 ): ShareCardData {
     val stats = (insightsState as? InsightsTabState.Ready)?.stats
 
@@ -99,8 +103,14 @@ internal fun shareCardState(
         frequency = stats?.frequency?.takeIf { ShareInsightsSection.FREQUENCY in selectedSections },
         rhythm = stats?.rhythm?.takeIf { ShareInsightsSection.RHYTHM in selectedSections },
         gaps = stats?.gaps?.takeIf { ShareInsightsSection.GAPS in selectedSections },
-        trend = stats?.trend?.takeIf { ShareInsightsSection.TREND in selectedSections },
+        trends =
+            stats
+                ?.trends
+                ?.takeIf { ShareInsightsSection.TRENDS in selectedSections }
+                ?.let { trendsVisibleFindings(it) }
+                ?: emptyList(),
         duration = stats?.duration?.takeIf { ShareInsightsSection.DURATION in selectedSections },
         intensity = stats?.intensity?.takeIf { ShareInsightsSection.INTENSITY in selectedSections },
+        generatedAtMillis = generatedAtMillis,
     )
 }

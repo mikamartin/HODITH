@@ -122,7 +122,7 @@ import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 private const val HEATMAP_DEFAULT_MONTH_COUNT = 3
-private const val TRENDS_DEFAULT_VISIBLE_COUNT = 3
+internal const val TRENDS_DEFAULT_VISIBLE_COUNT = 3
 private const val FREQUENCY_BAR_CHART_HEIGHT = 80
 private const val FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.02f
 
@@ -684,7 +684,7 @@ private fun TrendsCard(
     voice: Voice,
     onShowMore: () -> Unit,
 ) {
-    val visibleCount = if (findings.firstOrNull()?.kind == TrendFindingKind.WENT_QUIET) 1 else TRENDS_DEFAULT_VISIBLE_COUNT
+    val visibleCount = trendsVisibleCount(findings)
     InsightsCard {
         Text(voice.insightsSectionLabelTrends, style = MaterialTheme.typography.titleSmall)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -697,6 +697,17 @@ private fun TrendsCard(
         }
     }
 }
+
+/**
+ * How many of [findings] the compact [TrendsCard] shows before its "show more" link — also reused
+ * by the Share card's own Trends section so both surfaces cap identically. [TrendFindingKind.WENT_QUIET]
+ * shown alone when it leads (see [TrendsCard]'s own doc comment for why).
+ */
+internal fun trendsVisibleCount(findings: List<TrendFinding>): Int =
+    if (findings.firstOrNull()?.kind == TrendFindingKind.WENT_QUIET) 1 else TRENDS_DEFAULT_VISIBLE_COUNT
+
+/** [findings] trimmed to [trendsVisibleCount] — the actual capped list, for callers that render it directly rather than needing the count separately. */
+internal fun trendsVisibleFindings(findings: List<TrendFinding>): List<TrendFinding> = findings.take(trendsVisibleCount(findings))
 
 /** [TrendFinding]'s reliability tag — plain colored text, the same "flag" idiom [insightsBurstFlagLabel] already uses on the Gaps card, not a filled chip. Pattern reads more prominent than Hint, matching that it carries more statistical weight. Shown only on the full-list screen ([TrendFindingPlank]), not the compact card. */
 @Composable
@@ -713,58 +724,37 @@ private fun TrendReliabilityTag(
 }
 
 /**
- * One [TrendFinding]'s content: its sentence (with the real prior/recent averages) and its
- * evidence count on the line below, always visible without a tap. [showReliabilityTag] adds the
- * Hint/Pattern tag alongside the sentence — off for [TrendFindingRow] (compact card, keeps that
- * surface to sentence + numbers only), on for [TrendFindingPlank] (full-list screen, more room and
- * more reason to want the tier at a glance).
+ * [finding]'s display sentence, with the real prior/recent values formatted in — no evidence count,
+ * no reliability tag. Reused by [ShareCardTemplate.kt][com.secondmonday.hodith.ui.share.ShareCardTemplate]'s
+ * sentence-only Trends section, so this stays the single place each [TrendFindingKind] is worded.
  */
 @Composable
-private fun TrendFindingContent(
+internal fun trendFindingSentence(
     finding: TrendFinding,
     voice: Voice,
-    showReliabilityTag: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val sentence: String
-    val evidenceLabel: String
+): String =
     when (finding.kind) {
-        TrendFindingKind.WENT_QUIET -> {
-            sentence = voice.insightsWentQuietSentence(formatDays(finding.recentValue), formatDays(finding.priorValue))
-            evidenceLabel = voice.insightsWentQuietEvidenceLabel(finding.sampleCount)
-        }
-        TrendFindingKind.GAP_SHIFT -> {
-            sentence = voice.insightsGapShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
-            evidenceLabel = voice.insightsGapShiftEvidenceLabel(finding.sampleCount)
-        }
-        TrendFindingKind.STREAK_SHIFT -> {
-            sentence =
-                voice.insightsStreakShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
-            evidenceLabel = voice.insightsStreakShiftEvidenceLabel(finding.sampleCount)
-        }
+        TrendFindingKind.WENT_QUIET -> voice.insightsWentQuietSentence(formatDays(finding.recentValue), formatDays(finding.priorValue))
+        TrendFindingKind.GAP_SHIFT ->
+            voice.insightsGapShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
+        TrendFindingKind.STREAK_SHIFT ->
+            voice.insightsStreakShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
         TrendFindingKind.FREQUENCY_SHIFT -> {
             // FLAT never reaches here -- computeTrendFindings excludes it, the same "silent when
             // nothing moved" rule gap/streak shift already follow (spec §10, Story C T1).
             val trendDirection = if (finding.direction == ShiftDirection.UP) TrendDirection.UP else TrendDirection.DOWN
-            sentence = voice.insightsTrendSentence(trendDirection, finding.recentValue.roundToInt(), finding.priorValue.roundToInt())
-            evidenceLabel = voice.insightsFrequencyShiftEvidenceLabel()
+            voice.insightsTrendSentence(trendDirection, finding.recentValue.roundToInt(), finding.priorValue.roundToInt())
         }
-        TrendFindingKind.TAG_SHARE_SHIFT -> {
+        TrendFindingKind.TAG_SHARE_SHIFT ->
             // tagName is always set for this kind -- see TrendFinding's doc comment.
-            sentence =
-                voice.insightsTagShareShiftSentence(
-                    finding.tagName.orEmpty(),
-                    finding.direction,
-                    formatPercent(finding.priorValue),
-                    formatPercent(finding.recentValue),
-                )
-            evidenceLabel = voice.insightsTagShareShiftEvidenceLabel(finding.sampleCount)
-        }
-        TrendFindingKind.RECURRENCE_SHAPE -> {
-            sentence =
-                voice.insightsRecurrenceShapeSentence(finding.direction, formatDays(finding.priorValue), formatPercent(finding.recentValue))
-            evidenceLabel = voice.insightsRecurrenceShapeEvidenceLabel(finding.sampleCount)
-        }
+            voice.insightsTagShareShiftSentence(
+                finding.tagName.orEmpty(),
+                finding.direction,
+                formatPercent(finding.priorValue),
+                formatPercent(finding.recentValue),
+            )
+        TrendFindingKind.RECURRENCE_SHAPE ->
+            voice.insightsRecurrenceShapeSentence(finding.direction, formatDays(finding.priorValue), formatPercent(finding.recentValue))
         TrendFindingKind.TAG_OUTCOME -> {
             // tagName and outcome are always set for this kind -- see TrendFinding's KDoc.
             val outcome = finding.outcome ?: TagOutcome.INTENSITY
@@ -775,28 +765,23 @@ private fun TrendFindingContent(
                         formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
                 }
             val relativeDifferenceLabel = formatPercent(abs((finding.recentValue - finding.priorValue) / finding.priorValue))
-            sentence =
-                voice.insightsTagOutcomeSentence(
-                    finding.tagName.orEmpty(),
-                    outcome,
-                    finding.direction,
-                    relativeDifferenceLabel,
-                    withoutTagLabel,
-                    withTagLabel,
-                )
-            evidenceLabel = voice.insightsTagOutcomeEvidenceLabel(finding.sampleCount)
+            voice.insightsTagOutcomeSentence(
+                finding.tagName.orEmpty(),
+                outcome,
+                finding.direction,
+                relativeDifferenceLabel,
+                withoutTagLabel,
+                withTagLabel,
+            )
         }
-        TrendFindingKind.CHANGE_POINT -> {
+        TrendFindingKind.CHANGE_POINT ->
             // changePointDate is always set for this kind -- see TrendFinding's KDoc.
-            sentence =
-                voice.insightsChangePointSentence(
-                    finding.direction,
-                    formatApproximateMonth(finding.changePointDate ?: LocalDate.now()),
-                    formatDays(finding.priorValue),
-                    formatDays(finding.recentValue),
-                )
-            evidenceLabel = voice.insightsChangePointEvidenceLabel(finding.sampleCount)
-        }
+            voice.insightsChangePointSentence(
+                finding.direction,
+                formatApproximateMonth(finding.changePointDate ?: LocalDate.now()),
+                formatDays(finding.priorValue),
+                formatDays(finding.recentValue),
+            )
         TrendFindingKind.TREND_SLOPE -> {
             // outcome is always set for this kind -- see TrendFinding's KDoc.
             val outcome = finding.outcome ?: TagOutcome.INTENSITY
@@ -806,8 +791,7 @@ private fun TrendFindingContent(
                     TagOutcome.DURATION ->
                         formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
                 }
-            sentence = voice.insightsTrendSlopeSentence(outcome, finding.direction, priorLabel, recentLabel)
-            evidenceLabel = voice.insightsTrendSlopeEvidenceLabel(finding.sampleCount)
+            voice.insightsTrendSlopeSentence(outcome, finding.direction, priorLabel, recentLabel)
         }
         TrendFindingKind.TIME_OF_DAY_SPLIT -> {
             // outcome is always set for this kind -- see TrendFinding's KDoc.
@@ -818,8 +802,7 @@ private fun TrendFindingContent(
                     TagOutcome.DURATION ->
                         formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
                 }
-            sentence = voice.insightsTimeOfDaySplitSentence(outcome, finding.direction, dayLabel, eveningLabel)
-            evidenceLabel = voice.insightsTimeOfDaySplitEvidenceLabel(finding.sampleCount)
+            voice.insightsTimeOfDaySplitSentence(outcome, finding.direction, dayLabel, eveningLabel)
         }
         TrendFindingKind.TAG_TIMING -> {
             // tagName is always set; exactly one of weekday/timeOfDay is set -- see TrendFinding's KDoc.
@@ -827,25 +810,56 @@ private fun TrendFindingContent(
             val bucketPhrase =
                 finding.weekday?.let { "on ${it.getDisplayName(TextStyle.FULL, locale)}s" }
                     ?: "in the ${rhythmTimeOfDayLabel(voice, finding.timeOfDay ?: TimeOfDay.MORNING).lowercase()}"
-            sentence =
-                voice.insightsTagTimingSentence(
-                    finding.tagName.orEmpty(),
-                    bucketPhrase,
-                    formatPercent(finding.priorValue),
-                    formatPercent(finding.recentValue),
-                )
-            evidenceLabel = voice.insightsTagTimingEvidenceLabel(finding.sampleCount)
+            voice.insightsTagTimingSentence(
+                finding.tagName.orEmpty(),
+                bucketPhrase,
+                formatPercent(finding.priorValue),
+                formatPercent(finding.recentValue),
+            )
         }
-        TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> {
-            sentence =
-                voice.insightsWeekdayWeekendSentence(
-                    finding.direction,
-                    weekdayLabel = formatPercent(1 - finding.recentValue),
-                    weekendLabel = formatPercent(finding.recentValue),
-                )
-            evidenceLabel = voice.insightsWeekdayWeekendEvidenceLabel(finding.sampleCount)
-        }
+        TrendFindingKind.WEEKDAY_WEEKEND_SPLIT ->
+            voice.insightsWeekdayWeekendSentence(
+                finding.direction,
+                weekdayLabel = formatPercent(1 - finding.recentValue),
+                weekendLabel = formatPercent(finding.recentValue),
+            )
     }
+
+/** [finding]'s evidence-count line — the small "based on N events" caption below its sentence. Not shown on the share card (see [trendFindingSentence]'s doc comment). */
+private fun trendFindingEvidenceLabel(
+    finding: TrendFinding,
+    voice: Voice,
+): String =
+    when (finding.kind) {
+        TrendFindingKind.WENT_QUIET -> voice.insightsWentQuietEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.GAP_SHIFT -> voice.insightsGapShiftEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.STREAK_SHIFT -> voice.insightsStreakShiftEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.FREQUENCY_SHIFT -> voice.insightsFrequencyShiftEvidenceLabel()
+        TrendFindingKind.TAG_SHARE_SHIFT -> voice.insightsTagShareShiftEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.RECURRENCE_SHAPE -> voice.insightsRecurrenceShapeEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.TAG_OUTCOME -> voice.insightsTagOutcomeEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.CHANGE_POINT -> voice.insightsChangePointEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.TREND_SLOPE -> voice.insightsTrendSlopeEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.TIME_OF_DAY_SPLIT -> voice.insightsTimeOfDaySplitEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.TAG_TIMING -> voice.insightsTagTimingEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> voice.insightsWeekdayWeekendEvidenceLabel(finding.sampleCount)
+    }
+
+/**
+ * One [TrendFinding]'s sentence plus its evidence count on the line below, always visible without
+ * a tap. [showReliabilityTag] adds the Hint/Pattern tag alongside the sentence — off for
+ * [TrendFindingRow] (compact card, keeps that surface to sentence + numbers only), on for
+ * [TrendFindingPlank] (full-list screen, more room and more reason to want the tier at a glance).
+ */
+@Composable
+private fun TrendFindingContent(
+    finding: TrendFinding,
+    voice: Voice,
+    showReliabilityTag: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val sentence = trendFindingSentence(finding, voice)
+    val evidenceLabel = trendFindingEvidenceLabel(finding, voice)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(text = sentence, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))

@@ -75,29 +75,6 @@ Fold these already-drafted key changes into the audit:
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-### Replace the share card's old trend arrow with real Trends findings
-
-*Branch: `feat/insights-trends-share` · Complexity: S–M · Priority: Low · Area: Share*
-
-🎨 **Design decision** — whether Trends belongs on Square once B1 settles its fixed section list, and how many findings a card has room for. Also whether `WENT_QUIET` belongs on a share card at all — it's a live-state read on the Case right now, not a historical shift like the other detectors, and may read oddly out of context. If kept, consider a generation timestamp on the card, since a `WENT_QUIET` sentence is only true at the moment the card was made.
-
-The Insights tab already folded its Trend arrow card into the Trends section — `TrendFindingKind.FREQUENCY_SHIFT` is one more finding in `stats.trends`. The Share card still uses the old path: `ShareCardState.trend`/`TrendDisplay`/`ShareCardTemplate.kt`'s `MiniTrendSection`, sourced from `StatsSections.trend`. This item swaps Share over to real Trends findings and retires the old path.
-
-Trends should slot into the existing Insight Share flow (`ShareViewModel.kt` → `SharePreviewScreen.kt` → `ShareCardTemplate.kt`) as one more toggle gated on `stats.trends.isNotEmpty()`, same as `TagsCard`. Render each selected finding as sentence text only — no reliability tag, no evidence line — since a share card has no room for tap-revealed detail.
-
-**Acceptance criteria**
-
-- [ ] `availableSections` (`SharePreviewScreen.kt`) gains a Trends entry (replacing the old Trend entry, not adding alongside it), offered only when `stats.trends.isNotEmpty()`.
-- [ ] `ShareCardTemplate.kt` renders the selected Trends findings as sentence-only text (no tag, no evidence line), respecting whatever per-card finding cap this item settles on.
-- [ ] `MiniTrendSection`, `ShareCardState.trend`, `TrendDisplay`, and `StatsSections.trend` all removed — no code path still reads the old single-arrow shape once this ships.
-- [ ] Voice ×3 for the new section-toggle label, if `insightsSectionLabelTrends` doesn't already read correctly in that context; `insightsSectionLabelTrend` (singular) and its now-orphaned Voice keys removed once `MiniTrendSection` no longer needs them.
-- [ ] Confirmed against spec §13's "no notes/tags on share cards" rule: Trends sentences are descriptive stats like every other section already shown, not raw logged text, so no new exception needed.
-- [ ] Tests: `ShareCardStateTest.kt`/`SharePreviewScreenTest.kt` coverage that the Trends toggle appears only when findings exist; `ShareCardTemplateTest.kt` coverage for its rendering; every existing test referencing the old Trend toggle/`MiniTrendSection` updated or removed.
-
-**Plan** — mirror Tags' gating pattern. Swap the toggle and rendering to `stats.trends`, verify Share round-trips, then delete `MiniTrendSection`/`ShareCardState.trend`/`TrendDisplay`/`StatsSections.trend` and their dead Voice keys in the same change — not a follow-up, so the old and new paths never coexist.
-
-**Tests** — see acceptance criteria; no new statistics, so no domain-level tests needed here.
-
 ### Share button: add a Log Share option alongside the existing Insight Share
 
 *Branch: `feat/share-log-export` · Complexity: L · Priority: Medium · Area: Share*

@@ -11,7 +11,6 @@ import com.secondmonday.hodith.domain.TREND_SLOPE_MIN_SAMPLE_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
-import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.durationEvent
@@ -55,7 +54,7 @@ class InsightsTabStateTest {
         state as InsightsTabState.Ready
         assertEquals(1, state.shadedDates().size)
         assertNull(state.stats.frequency)
-        assertNull(state.stats.trend)
+        assertTrue(state.stats.trends.none { it.kind == TrendFindingKind.FREQUENCY_SHIFT })
         // Rhythm and Gaps are non-nullable on StatsSections — their presence is the point: the
         // single-event tab still shows them.
         assertEquals(28, state.stats.rhythm.cells.size)
@@ -94,7 +93,7 @@ class InsightsTabStateTest {
     }
 
     @Test
-    fun `the Trend card appears at exactly two events once the span qualifies`() {
+    fun `a frequency-shift finding appears at exactly two events once the span qualifies`() {
         // Same 90-day span as the single-event case above, so the only thing that changed is the
         // event count crossing INSIGHTS_MIN_EVENTS.
         val case = testCase(createdAt = millisAtDay(0))
@@ -102,7 +101,7 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, eventsWithTags = listOf(eventAtDay(75), eventAtDay(85)).withoutTags(), now = millisAtDay(90))
 
         assertTrue(state is InsightsTabState.Ready)
-        assertNotNull((state as InsightsTabState.Ready).stats.trend)
+        assertTrue((state as InsightsTabState.Ready).stats.trends.any { it.kind == TrendFindingKind.FREQUENCY_SHIFT })
     }
 
     @Test
@@ -470,7 +469,7 @@ class InsightsTabStateTest {
     }
 
     @Test
-    fun `stats trends contains an UP frequency-shift finding absorbing the former standalone arrow card`() {
+    fun `stats trends contains an UP frequency-shift finding`() {
         // now = day 100: recent window (70,100] has 3 events (75, 85, 95), prior window (40,70]
         // has 1 (50) -> more recently, i.e. UP. Only 3 gaps between 4 events, below
         // GAP_SHIFT_MIN_SAMPLE_COUNT, so this is the only finding.
@@ -483,8 +482,6 @@ class InsightsTabStateTest {
         assertEquals(ShiftDirection.UP, finding.direction)
         assertEquals(1.0, finding.priorValue, 0.0001)
         assertEquals(3.0, finding.recentValue, 0.0001)
-        // No separate standalone card any more -- the arrow's own signal now lives only in stats.trends.
-        assertEquals(TrendDirection.UP, state.stats.trend?.direction)
     }
 
     @Test
@@ -614,7 +611,7 @@ class InsightsTabStateTest {
         assertEquals(listOf(TagOutcome.INTENSITY), trendSlopeOutcomes)
     }
 
-    // ---- stats.gaps streak fields / stats.trend gating ----
+    // ---- stats.gaps streak fields / frequency-shift finding gating ----
 
     @Test
     fun `gaps display reports the longest and average streak of consecutive active days`() {
@@ -629,29 +626,28 @@ class InsightsTabStateTest {
     }
 
     @Test
-    fun `trend is null below the trend card's own minimum span`() {
+    fun `no frequency-shift finding below the trend card's own minimum span`() {
         val case = testCase(createdAt = millisAtDay(0))
         val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(4))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
-        assertEquals(null, state.stats.trend)
+        assertTrue(state.stats.trends.none { it.kind == TrendFindingKind.FREQUENCY_SHIFT })
     }
 
     @Test
-    fun `trend still counts a multi-day event once, unaffected by its span (spec section 9)`() {
+    fun `frequency-shift finding still counts a multi-day event once, unaffected by its span (spec section 9)`() {
         val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
         val pointEvents = listOf(eventAtDay(0), eventAtDay(20), eventAtDay(70), eventAtDay(80))
         val asPoint = insightsTabState(case, (pointEvents + eventAtDay(85)).withoutTags(), now = millisAtDay(90))
         val asSpan = insightsTabState(case, (pointEvents + durationEvent(85, 95)).withoutTags(), now = millisAtDay(90))
 
-        val point = (asPoint as InsightsTabState.Ready).stats.trend
-        val span = (asSpan as InsightsTabState.Ready).stats.trend
+        val point = (asPoint as InsightsTabState.Ready).stats.trends.single { it.kind == TrendFindingKind.FREQUENCY_SHIFT }
+        val span = (asSpan as InsightsTabState.Ready).stats.trends.single { it.kind == TrendFindingKind.FREQUENCY_SHIFT }
         // The span hides the frequency card (tested elsewhere) but must not inflate the trend counts.
         assertNull(asSpan.stats.frequency)
-        assertNotNull(point)
-        assertEquals(point?.recentCount, span?.recentCount)
-        assertEquals(point?.priorCount, span?.priorCount)
+        assertEquals(point.recentValue, span.recentValue, 0.0001)
+        assertEquals(point.priorValue, span.priorValue, 0.0001)
     }
 
     // ---- stats.duration card gate (spec section 10) ----

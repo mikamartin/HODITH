@@ -15,10 +15,15 @@ import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.casedetail.formatDays
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.FrequencyBar
@@ -28,7 +33,7 @@ import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
-import com.secondmonday.hodith.viewmodel.TrendDisplay
+import com.secondmonday.hodith.viewmodel.formatEventDate
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,6 +44,19 @@ private const val STORY_TAG = "story_card"
 private const val SQUARE_TAG = "square_card"
 private const val RICH_SQUARE_TAG = "rich_square_card"
 private const val BOUNDS_TOLERANCE_DP = 1f
+
+/** Arbitrary fixed instant — only needs to be self-consistent between what a fixture is built with and what a test formats to compare against, not any particular real date. */
+private const val FIXTURE_GENERATED_AT_MILLIS = 0L
+
+private val FREQUENCY_SHIFT_FINDING =
+    TrendFinding(
+        kind = TrendFindingKind.FREQUENCY_SHIFT,
+        direction = ShiftDirection.UP,
+        reliability = TrendReliability.HINT,
+        sampleCount = 8,
+        priorValue = 5.0,
+        recentValue = 8.0,
+    )
 
 /** Regression coverage for spec §13's sizing rules (Square keeps its 1:1 floor, Story sizes freely) and the overflow-clip bug they replaced. */
 @UiTest
@@ -55,9 +73,10 @@ class ShareCardTemplateTest {
             frequency = null,
             rhythm = null,
             gaps = null,
-            trend = null,
+            trends = emptyList(),
             duration = null,
             intensity = null,
+            generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
         )
 
     /** Enough sections to reliably exceed Square's floor, so its no-clip behavior is actually exercised. */
@@ -81,9 +100,10 @@ class ShareCardTemplateTest {
                     plottedByStart = false,
                 ),
             gaps = null,
-            trend = TrendDisplay(TrendDirection.UP, 8, 5),
+            trends = listOf(FREQUENCY_SHIFT_FINDING),
             duration = null,
             intensity = null,
+            generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
         )
 
     private fun hunchVsRealityData(format: ShareCardFormat) =
@@ -109,9 +129,10 @@ class ShareCardTemplateTest {
             frequency = null,
             rhythm = null,
             gaps = null,
-            trend = null,
+            trends = emptyList(),
             duration = null,
             intensity = null,
+            generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
         )
 
     @Test
@@ -212,7 +233,7 @@ class ShareCardTemplateTest {
             }
         }
 
-        val footers = composeTestRule.onAllNodesWithText(PlainVoice.shareCardFooter)
+        val footers = composeTestRule.onAllNodesWithText(PlainVoice.shareCardFooter(formatEventDate(FIXTURE_GENERATED_AT_MILLIS)))
         val sparseGap =
             composeTestRule.onNodeWithTag(SQUARE_TAG).getUnclippedBoundsInRoot().bottom - footers[0].getUnclippedBoundsInRoot().bottom
         val richGap =
@@ -239,5 +260,53 @@ class ShareCardTemplateTest {
         }
 
         composeTestRule.onNodeWithText(PlainVoice.shareHunchRealityKicker).assertExists()
+    }
+
+    @Test
+    fun trendsSectionRendersSentenceOnlyWithNoReliabilityTagOrEvidenceLine() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = richData(ShareCardFormat.SQUARE), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendSentence(TrendDirection.UP, 8, 5)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyShiftEvidenceLabel()).assertDoesNotExist()
+    }
+
+    @Test
+    fun trendsSectionRendersEachSelectedFindingAsItsOwnLine() {
+        val gapShiftFinding =
+            TrendFinding(
+                kind = TrendFindingKind.GAP_SHIFT,
+                direction = ShiftDirection.DOWN,
+                reliability = TrendReliability.HINT,
+                sampleCount = 12,
+                priorValue = 6.0,
+                recentValue = 3.0,
+            )
+        val data = richData(ShareCardFormat.SQUARE).copy(trends = listOf(FREQUENCY_SHIFT_FINDING, gapShiftFinding))
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = data, voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendSentence(TrendDirection.UP, 8, 5)).assertExists()
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsGapShiftSentence(ShiftDirection.DOWN, formatDays(6.0), formatDays(3.0)))
+            .assertExists()
+    }
+
+    @Test
+    fun footerRendersTheCardsGeneratedDate() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = realityData(ShareCardFormat.SQUARE), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareCardFooter(formatEventDate(FIXTURE_GENERATED_AT_MILLIS))).assertExists()
     }
 }

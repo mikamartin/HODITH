@@ -67,7 +67,6 @@ class InsightsTabTrendsCardTest {
                     frequency = null,
                     rhythm = RhythmDisplay(cells = emptyRhythmCells, plottedByStart = false),
                     gaps = GapsDisplay(0, 0, 0.0, false, 0, 0.0),
-                    trend = null,
                     duration = null,
                     intensity = null,
                     tags = emptyList(),

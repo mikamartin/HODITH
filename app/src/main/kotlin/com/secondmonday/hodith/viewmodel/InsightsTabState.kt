@@ -14,7 +14,6 @@ import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
-import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.computeDurationStats
@@ -51,9 +50,10 @@ sealed interface InsightsTabState {
 
     /**
      * At least one event. [stats] is always present, but with a single event
-     * [StatsSections.frequency] and [StatsSections.trend] are `null` (below [INSIGHTS_MIN_EVENTS]
-     * a per-bucket count or a 30-vs-30-day comparison has nothing to say) — the tab then shows
-     * only the one-event count note, the Rhythm and Gaps cards, and the heatmap.
+     * [StatsSections.frequency] is `null` and no frequency-shift finding appears in
+     * [StatsSections.trends] (below [INSIGHTS_MIN_EVENTS] a per-bucket count or a 30-vs-30-day
+     * comparison has nothing to say) — the tab then shows only the one-event count note, the
+     * Rhythm and Gaps cards, and the heatmap.
      */
     data class Ready(
         val heatmapMonths: List<HeatmapMonth>,
@@ -68,19 +68,11 @@ sealed interface InsightsTabState {
  * event. [totalEventCount] gives the tag breakdown a denominator, so an individual tag's count
  * reads against the Case's whole history rather than floating on its own. [trends], like [tags], is
  * always a non-null `List` — empty (not null) means nothing was found, not "not yet computed."
- *
- * [trend] is no longer read by the Insights tab itself — the former standalone Trend arrow card is
- * gone, its 30-vs-30-day comparison now one more [trends] finding
- * ([com.secondmonday.hodith.domain.TrendFindingKind.FREQUENCY_SHIFT]). The field stays only because
- * `ShareCardState` still sources its own mini trend arrow from it (PROGRESS.md's "Replace the share
- * card's old trend arrow with real Trends findings" item retires this field once Share moves to
- * [trends] too).
  */
 data class StatsSections(
     val frequency: FrequencyDisplay?,
     val rhythm: RhythmDisplay,
     val gaps: GapsDisplay,
-    val trend: TrendDisplay?,
     val duration: DurationDisplay?,
     val intensity: IntensityDisplay?,
     val tags: List<TagBreakdownEntry>,
@@ -130,12 +122,6 @@ data class GapsDisplay(
     val isBursty: Boolean,
     val longestStreakDays: Int,
     val averageStreakDays: Double,
-)
-
-data class TrendDisplay(
-    val direction: TrendDirection,
-    val recentCount: Int,
-    val priorCount: Int,
 )
 
 data class DurationDisplay(
@@ -287,17 +273,8 @@ private fun statsSections(
             averageStreakDays = streakStats.averageStreakDays,
         )
 
-    // Computed once, shared by `trend` (Share's own mini arrow, StatsSections' doc comment) and
-    // `trends`' FREQUENCY_SHIFT finding below.
+    // Feeds `trends`' FREQUENCY_SHIFT finding below.
     val trendStatsResult = if (belowStatsMinimum) null else computeTrendStats(events, now, spanDays)
-    val trend =
-        trendStatsResult?.let {
-            TrendDisplay(
-                direction = it.direction,
-                recentCount = it.recentCount,
-                priorCount = it.priorCount,
-            )
-        }
 
     val duration =
         if (case.durationMode.tracksDuration) {
@@ -319,7 +296,6 @@ private fun statsSections(
         frequency = frequency,
         rhythm = rhythm,
         gaps = gaps,
-        trend = trend,
         duration = duration,
         intensity = intensity,
         tags = computeTagBreakdown(eventsWithTags),
