@@ -672,7 +672,72 @@ class ShareCardStateTest {
                 zone = ZONE,
             )
 
-        assertEquals("${formatEventDate(millisAtDay(10), ZONE)} – ${formatEventDate(millisAtDay(20), ZONE)}", data.rangeLabel)
+        assertEquals(
+            "${formatDateRangeBound(
+                millisAtDay(10),
+                millisAtDay(NOW),
+                ZONE,
+            )} – ${formatDateRangeBound(millisAtDay(20), millisAtDay(NOW), ZONE)}",
+            data.rangeLabel,
+        )
+    }
+
+    @Test
+    fun `logShareCardState range label includes the year for a bound outside now's calendar year`() {
+        val case = testCase()
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = emptyList(),
+                format = ShareCardFormat.STORY,
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = millisAtDay(-400),
+                dateTo = millisAtDay(20),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertEquals(
+            "${formatDateRangeBound(
+                millisAtDay(-400),
+                millisAtDay(NOW),
+                ZONE,
+            )} – ${formatDateRangeBound(millisAtDay(20), millisAtDay(NOW), ZONE)}",
+            data.rangeLabel,
+        )
+    }
+
+    @Test
+    fun `logShareCardState range label reads a To-labeled bound when dateFrom is unset but dateTo is narrowed`() {
+        val case = testCase()
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = emptyList(),
+                format = ShareCardFormat.STORY,
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = null,
+                dateTo = millisAtDay(20),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertEquals(
+            "${PlainVoice.shareLogDateToLabel} ${formatDateRangeBound(millisAtDay(20), millisAtDay(NOW), ZONE)}",
+            data.rangeLabel,
+        )
     }
 
     @Test

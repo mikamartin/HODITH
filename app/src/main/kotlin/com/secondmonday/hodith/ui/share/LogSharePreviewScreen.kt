@@ -53,7 +53,7 @@ import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
 import com.secondmonday.hodith.viewmodel.LogShareViewModel
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
-import com.secondmonday.hodith.viewmodel.formatSpanDate
+import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.logShareCardState
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import kotlinx.coroutines.flow.collectLatest
@@ -241,14 +241,10 @@ private fun DateRangeSection(
     OutlinedButton(onClick = { showRangePicker = true }, modifier = Modifier.fillMaxWidth()) {
         Text(
             "${voice.shareLogRangeLabel}: " +
-                if (isDefaultRange) {
-                    voice.shareLogRangeAllTimeLabel
-                } else {
-                    voice.shareLogRangeNote(
-                        selection.dateFrom?.let { formatSpanDate(it.toLocalDateIn(zone)) },
-                        formatSpanDate(selection.dateTo.toLocalDateIn(zone)),
-                    )
-                },
+                voice.shareLogRangeNote(
+                    selection.dateFrom?.let { formatDateRangeBound(it, now, zone) },
+                    if (isDefaultRange) null else formatDateRangeBound(selection.dateTo, now, zone),
+                ),
         )
     }
 

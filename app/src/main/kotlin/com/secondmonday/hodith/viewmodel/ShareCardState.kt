@@ -203,7 +203,7 @@ internal fun logShareCardState(
     )
 }
 
-/** [Voice.shareLogRangeAllTimeLabel] when [dateFrom] is unset and [dateTo] is today; otherwise each bound formatted via [formatEventDate] ("…" for an unset [dateFrom]). */
+/** Delegates the combining logic to [Voice.shareLogRangeNote], the same function the Log tab's range note and the Log Share button use. */
 private fun logShareRangeLabel(
     dateFrom: Long?,
     dateTo: Long,
@@ -212,9 +212,10 @@ private fun logShareRangeLabel(
     voice: Voice,
 ): String {
     val isDefaultRange = dateFrom == null && dateTo.toLocalDateIn(zone) == now.toLocalDateIn(zone)
-    if (isDefaultRange) return voice.shareLogRangeAllTimeLabel
-    val fromLabel = dateFrom?.let { formatEventDate(it, zone) } ?: "…"
-    return "$fromLabel – ${formatEventDate(dateTo, zone)}"
+    return voice.shareLogRangeNote(
+        from = dateFrom?.let { formatDateRangeBound(it, now, zone) },
+        to = if (isDefaultRange) null else formatDateRangeBound(dateTo, now, zone),
+    )
 }
 
 private fun logCardRow(

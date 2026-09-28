@@ -97,16 +97,15 @@ import com.secondmonday.hodith.viewmodel.HunchHistoryEntry
 import com.secondmonday.hodith.viewmodel.HunchTabState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
+import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatExpectedFrequency
 import com.secondmonday.hodith.viewmodel.formatRate
-import com.secondmonday.hodith.viewmodel.formatSpanDate
 import com.secondmonday.hodith.viewmodel.hunchProgressFraction
 import com.secondmonday.hodith.viewmodel.hunchTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
-import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -531,8 +530,8 @@ private fun LogFilterRow(
         Text(
             text =
                 voice.shareLogRangeNote(
-                    dateFrom?.let { formatSpanDate(it.toLocalDateIn(zone)) },
-                    dateTo?.let { formatSpanDate(it.toLocalDateIn(zone)) },
+                    dateFrom?.let { formatDateRangeBound(it, now, zone) },
+                    dateTo?.let { formatDateRangeBound(it, now, zone) },
                 ),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,

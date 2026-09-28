@@ -37,11 +37,10 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
+import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTime
-import com.secondmonday.hodith.viewmodel.formatSpanDate
 import com.secondmonday.hodith.viewmodel.startOfDayMillis
-import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -441,10 +440,11 @@ class CaseDetailScreenTest {
             logDateTo = to,
         )
 
+        val now = 10_000L
         composeTestRule.onNodeWithText(PlainVoice.shareLogRangeSelectedLabel, substring = true).assertExists()
         composeTestRule
             .onNodeWithText(
-                PlainVoice.shareLogRangeNote(formatSpanDate(from.toLocalDateIn(zone)), formatSpanDate(to.toLocalDateIn(zone))),
+                PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, zone), formatDateRangeBound(to, now, zone)),
             ).assertExists()
     }
 

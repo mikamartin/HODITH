@@ -69,6 +69,24 @@ class EventTimeFormatTest {
     }
 
     @Test
+    fun `formatDateRangeBound omits the year when occurredAt shares now's calendar year`() {
+        val utc = ZoneId.of("UTC")
+        val occurredAt = ZonedDateTime.of(2026, 7, 9, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val now = ZonedDateTime.of(2026, 12, 31, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+
+        assertEquals("Jul 9", formatDateRangeBound(occurredAt, now, utc))
+    }
+
+    @Test
+    fun `formatDateRangeBound includes the year when occurredAt falls in a different calendar year than now`() {
+        val utc = ZoneId.of("UTC")
+        val occurredAt = ZonedDateTime.of(2025, 7, 9, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val now = ZonedDateTime.of(2026, 1, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+
+        assertEquals("Jul 9, 2025", formatDateRangeBound(occurredAt, now, utc))
+    }
+
+    @Test
     fun `formatFrequencyTickLabel is numeric and short, varying by granularity`() {
         val start = LocalDate.of(2026, 7, 9)
 

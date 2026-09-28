@@ -17,7 +17,7 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
-import com.secondmonday.hodith.viewmodel.formatSpanDate
+import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -77,9 +77,10 @@ class LogSharePreviewScreenTest {
 
     /**
      * The range button's exact text, including its "Range: " prefix. The live card preview below
-     * renders its own range subtitle with the same bare value and no prefix (a separate
-     * formatter, `logShareRangeLabel`) -- matching on the bare value alone is ambiguous, so the
-     * prefix is what makes this the button specifically.
+     * renders its own range subtitle with the same bare value and no prefix (`logShareRangeLabel`
+     * shares `formatDateRangeBound`/`Voice.shareLogRangeNote` with this button, so the bare value
+     * is now identical) -- matching on the bare value alone would be ambiguous, so the prefix is
+     * what makes this the button specifically.
      */
     private fun rangeButtonText(value: String) = "${PlainVoice.shareLogRangeLabel}: $value"
 
@@ -206,6 +207,7 @@ class LogSharePreviewScreenTest {
     fun rangeButton_showsFormattedBounds_whenRangeIsNarrowed() {
         val from = millisAtDay(20)
         val to = millisAtDay(40)
+        val now = millisAtDay(60)
         setContent(
             uiState =
                 LogShareUiState(
@@ -219,7 +221,7 @@ class LogSharePreviewScreenTest {
         composeTestRule
             .onNodeWithText(
                 rangeButtonText(
-                    PlainVoice.shareLogRangeNote(formatSpanDate(from.toLocalDateIn(ZONE)), formatSpanDate(to.toLocalDateIn(ZONE))),
+                    PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
                 ),
             ).assertExists()
     }
@@ -242,6 +244,7 @@ class LogSharePreviewScreenTest {
         // from the current selection and hand both ends back out on Confirm, not just open.
         val from = millisAtDay(20)
         val to = millisAtDay(40)
+        val now = millisAtDay(60)
         var changedFrom: LocalDate? = null
         var changedTo: LocalDate? = null
         setContent(
@@ -259,7 +262,7 @@ class LogSharePreviewScreenTest {
         composeTestRule
             .onNodeWithText(
                 rangeButtonText(
-                    PlainVoice.shareLogRangeNote(formatSpanDate(from.toLocalDateIn(ZONE)), formatSpanDate(to.toLocalDateIn(ZONE))),
+                    PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
                 ),
             ).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
