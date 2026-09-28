@@ -227,6 +227,34 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none for the audit itself.
 
+### UI test suite never renders real theme colors, and covers only Plain's copy
+
+*Branch: `chore/ui-test-voice-theme-coverage` · Complexity: M–L · Priority: Medium · Area: Repo*
+
+🔍 **Investigation** — the fix shape (full distribution vs. a smoke pass) depends on a survey not yet done.
+
+An emulator run surfaced a color scheme that matched none of the three voices, exposing two separate gaps, not one:
+
+- **Theme (color scheme)**: no `androidTest` file applies `HodithTheme` (or even a bare `MaterialTheme`) at all. Every screen test renders with Compose's generic Material3 default colors — not Plain's real palette either, let alone Intense's or Bright's.
+- **Voice (copy)**: almost every `*ScreenTest.kt` hardcodes `CompositionLocalProvider(LocalVoice provides PlainVoice)`. Intense/Bright copy is exercised only at the unit level (`VoiceTest`'s reflection checks that all three exist and differ), never inside a rendered UI test.
+
+`LocalCardDecorationStyle` (Plain/Intense/Bright's chip-chrome equivalent) also defaults to `PLAIN` almost everywhere. `BigPictureScreenTest.kt` is the one exception — its own comment already flags that without its two `decorationStyle = CardDecorationStyle.BRIGHT` tests, `FilterTriggerChip`/`CaseFilterChip`/`CaseGroupChip`'s entire BRIGHT branch (`BrightChip`) would go untested. Every other screen using those same shared chip components (e.g. `CaseDetailScreen`'s Sort/Range chips) gets no Bright coverage at all (Intense shares Plain's code path in that `when`, so it's covered incidentally there). `CenteredEmptyStateTest.kt` goes one step further and reuses `IntenseVoice`'s string content for a layout edge case, but that's a text-length probe, not theme or decoration-style coverage.
+
+Not every gap here is equally risky — a composable that only reads `MaterialTheme.colorScheme`/`typography` (like `DateRangeFilterDialog`) renders one structural tree regardless of voice or theme, so missing color coverage there is cosmetic, not a correctness risk. The real risk is composables that structurally branch on `LocalCardDecorationStyle`/`LocalBigPictureCellStyle` (`BrightChip` and anything else `when`-ing on decoration style) — those branches can silently break (wrong click target, broken semantics, a crash) with nothing to catch it.
+
+**Acceptance criteria**
+
+- [ ] A survey of every composable that branches structurally on `CardDecorationStyle`/`BigPictureCellStyle` (not just per-voice string content, which `VoiceTest` already covers at the unit level) — this is the list that actually needs non-Plain rendering coverage.
+- [ ] Ideally: existing tests across test classes redistributed so some run under Plain, some Intense, some Bright (voice, decoration style, and real `HodithTheme` colors together), rather than concentrating all non-Plain coverage in one file.
+- [ ] If full redistribution is impractical for a given screen: at minimum, one happy-path smoke test each for Intense and Bright (open the screen, exercise its primary action, real `HodithTheme` colors applied) — following `BigPictureScreenTest`'s `cellStyle`/`decorationStyle` parameter pattern as the model — while the rest of that screen's tests stay on Plain copy as today.
+- [ ] Any test found asserting on a hardcoded copy literal instead of `PlainVoice.xxx` (or whichever voice it's under) fixed while in the area — echoes B2's own `androidTest`-hygiene criterion.
+
+**Plan** — survey first (grep for `LocalCardDecorationStyle`/`LocalBigPictureCellStyle` usage under `ui/` to enumerate every structurally-branching composable and which test classes exercise it today). Then decide per screen: redistribute voice/style/theme across existing tests where cheap, or add a dedicated Intense/Bright smoke pass (wrapped in real `HodithTheme`) where full parameterization isn't worth the churn.
+
+**Tests** — this item's entire scope is test changes; no production code.
+
+**Concern** — varying `LocalVoice`/`LocalCardDecorationStyle`/real theme colors in existing tests will surface any test currently passing only because it happens to match Plain's specific copy or Compose's default colors — expect some collateral fixes, not just new coverage.
+
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
