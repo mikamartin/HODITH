@@ -560,6 +560,7 @@ private fun LogFilterRow(
         DateRangeFilterDialog(
             dateFrom = dateFrom,
             dateTo = dateTo,
+            isRangeFiltered = isRangeFiltered,
             now = now,
             zone = zone,
             voice = voice,

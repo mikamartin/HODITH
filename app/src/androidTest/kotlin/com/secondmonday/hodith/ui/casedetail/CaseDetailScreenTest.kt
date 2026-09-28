@@ -30,6 +30,7 @@ import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.common.DATE_RANGE_ALL_TIME_BUTTON_TAG
 import com.secondmonday.hodith.ui.common.overlapsRect
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -484,6 +485,43 @@ class CaseDetailScreenTest {
 
         assertEquals(LocalDate.of(2026, 7, 3), changedFrom)
         assertEquals(LocalDate.of(2026, 8, 15), changedTo)
+    }
+
+    @Test
+    fun logRangeDialog_allTimeTap_clearsBothBoundsInOneTapAndClosesTheDialog() {
+        val zone = ZoneId.systemDefault()
+        val from = zone.startOfDayMillis(LocalDate.of(2026, 7, 3))
+        val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
+        var changedFrom: LocalDate? = LocalDate.of(2026, 7, 3)
+        var changedTo: LocalDate? = LocalDate.of(2026, 8, 15)
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+            logDateFrom = from,
+            logDateTo = to,
+            onLogDateFromChange = { changedFrom = it },
+            onLogDateToChange = { changedTo = it },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).performClick()
+        composeTestRule.onNodeWithTag(DATE_RANGE_ALL_TIME_BUTTON_TAG).performClick()
+
+        assertEquals(null, changedFrom)
+        assertEquals(null, changedTo)
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).assertDoesNotExist()
+    }
+
+    @Test
+    fun logRangeDialog_allTimeButton_hiddenWhenNothingIsFilteredYet() {
+        // The chip itself already reads "All time" when unfiltered -- the dialog's own shortcut
+        // has nothing to do in that state, so it should stay off rather than double up on it.
+        // By tag, not by label text: the chip's own collapsed label is that same "All time" text.
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).performClick()
+
+        composeTestRule.onNodeWithTag(DATE_RANGE_ALL_TIME_BUTTON_TAG).assertDoesNotExist()
     }
 
     @Test

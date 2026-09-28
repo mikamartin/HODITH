@@ -12,6 +12,7 @@ import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.common.DATE_RANGE_ALL_TIME_BUTTON_TAG
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.LogShareSelection
@@ -269,6 +270,52 @@ class LogSharePreviewScreenTest {
 
         assertEquals(from.toLocalDateIn(ZONE), changedFrom)
         assertEquals(to.toLocalDateIn(ZONE), changedTo)
+    }
+
+    @Test
+    fun rangeDialog_allTimeTap_clearsBothBoundsInOneTapAndClosesTheDialog() {
+        val from = millisAtDay(20)
+        val to = millisAtDay(40)
+        val now = millisAtDay(60)
+        var changedFrom: LocalDate? = from.toLocalDateIn(ZONE)
+        var changedTo: LocalDate? = to.toLocalDateIn(ZONE)
+        setContent(
+            uiState =
+                LogShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(dateTo = to).copy(dateFrom = from),
+                    isLoading = false,
+                ),
+            onDateFromPicked = { changedFrom = it },
+            onDateToPicked = { changedTo = it },
+        )
+
+        composeTestRule
+            .onNodeWithText(
+                rangeButtonText(
+                    PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
+                ),
+            ).performClick()
+        composeTestRule.onNodeWithTag(DATE_RANGE_ALL_TIME_BUTTON_TAG).performClick()
+
+        assertNull(changedFrom)
+        assertEquals(now.toLocalDateIn(ZONE), changedTo)
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).assertDoesNotExist()
+    }
+
+    @Test
+    fun rangeDialog_allTimeButton_hiddenWhenNothingIsFilteredYet() {
+        // The range button's own label already reads "Range: All time" when unfiltered, and the
+        // live card preview below repeats the bare value -- by tag, not by label text, so this
+        // doesn't collide with either.
+        setContent(
+            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+        )
+
+        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareLogRangeAllTimeLabel)).performClick()
+
+        composeTestRule.onNodeWithTag(DATE_RANGE_ALL_TIME_BUTTON_TAG).assertDoesNotExist()
     }
 
     @Test

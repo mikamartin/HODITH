@@ -252,6 +252,7 @@ private fun DateRangeSection(
         DateRangeFilterDialog(
             dateFrom = selection.dateFrom,
             dateTo = selection.dateTo,
+            isRangeFiltered = !isDefaultRange,
             now = now,
             zone = zone,
             voice = voice,
