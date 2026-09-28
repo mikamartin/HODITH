@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -72,12 +73,12 @@ import com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT
 import com.secondmonday.hodith.domain.VerdictResult
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
+import com.secondmonday.hodith.ui.common.DateRangeFilterDialog
 import com.secondmonday.hodith.ui.common.FabListBottomClearance
 import com.secondmonday.hodith.ui.common.FilterTriggerChip
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
-import com.secondmonday.hodith.ui.common.RangeDatePickerDialog
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.ToggleRow
@@ -472,9 +473,11 @@ private fun LogTabContent(
 }
 
 /**
- * The Log tab's filter-chip row (Sort, From, To, plus the pinned field-visibility Edit icon) and
- * the dialogs its chips/icon open — split out from [LogTabContent] the same way Big Picture's own
- * `FilterSummaryRow` (chip row + dialogs) sits apart from the grid it filters.
+ * The Log tab's filter-chip row (Sort, Range, plus the pinned field-visibility Edit icon) and the
+ * dialogs its chips/icon open — split out from [LogTabContent] the same way Big Picture's own
+ * `FilterSummaryRow` (chip row + dialogs) sits apart from the grid it filters. A narrowed Range
+ * collapses to [Voice.shareLogRangeSelectedLabel] in the chip itself (the actual bounds, once
+ * formatted, don't fit the chip's own width) with the real dates spelled out underneath instead.
  */
 @Composable
 private fun LogFilterRow(
@@ -492,9 +495,9 @@ private fun LogFilterRow(
 ) {
     val zone = remember { ZoneId.systemDefault() }
     var showSortDialog by remember { mutableStateOf(false) }
-    var showFromPicker by remember { mutableStateOf(false) }
-    var showToPicker by remember { mutableStateOf(false) }
+    var showRangePicker by remember { mutableStateOf(false) }
     var showFieldsDialog by remember { mutableStateOf(false) }
+    val isRangeFiltered = dateFrom != null || dateTo != null
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -511,23 +514,11 @@ private fun LogFilterRow(
                 isFiltered = sortOrder != LogSortOrder.BY_START,
             )
         }
-        // From/To are each their own chip opening the date picker directly — not a combined
-        // "Range" chip opening an InfoDialog that then opens a second, much larger picker dialog
-        // on top of it. That double-dialog nesting is what broke (PROGRESS.md's Log tab filter
-        // bug report): the inner M3 DatePickerDialog dwarfing the small InfoDialog around it, and
-        // the InfoDialog's own two-button Row overflowing/clipping the "To" button out of reach in
-        // that narrow width. One chip, one dialog, same shape as every other filter chip here.
         FilterTriggerChip(
-            label = voice.shareLogDateFromLabel,
-            count = dateFrom?.let { formatSpanDate(it.toLocalDateIn(zone)) } ?: voice.shareLogRangeAllTimeLabel,
-            onClick = { showFromPicker = true },
-            isFiltered = dateFrom != null,
-        )
-        FilterTriggerChip(
-            label = voice.shareLogDateToLabel,
-            count = dateTo?.let { formatSpanDate(it.toLocalDateIn(zone)) } ?: voice.shareLogRangeAllTimeLabel,
-            onClick = { showToPicker = true },
-            isFiltered = dateTo != null,
+            label = voice.shareLogRangeLabel,
+            count = if (isRangeFiltered) voice.shareLogRangeSelectedLabel else voice.shareLogRangeAllTimeLabel,
+            onClick = { showRangePicker = true },
+            isFiltered = isRangeFiltered,
         )
         Spacer(modifier = Modifier.weight(1f))
         // Edit which fields each row shows (spec §6) — pinned right, same placement as
@@ -535,6 +526,19 @@ private fun LogFilterRow(
         IconButton(onClick = { showFieldsDialog = true }) {
             Icon(Icons.Filled.Edit, contentDescription = voice.logDetailEditDescription)
         }
+    }
+    if (isRangeFiltered) {
+        Text(
+            text =
+                voice.shareLogRangeNote(
+                    dateFrom?.let { formatSpanDate(it.toLocalDateIn(zone)) },
+                    dateTo?.let { formatSpanDate(it.toLocalDateIn(zone)) },
+                ),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+        )
     }
 
     if (showSortDialog) {
@@ -553,29 +557,18 @@ private fun LogFilterRow(
             )
         }
     }
-    if (showFromPicker) {
-        RangeDatePickerDialog(
-            initialLocalMillis = dateFrom ?: dateTo ?: now,
-            maxLocalMillis = dateTo ?: now,
+    if (showRangePicker) {
+        DateRangeFilterDialog(
+            dateFrom = dateFrom,
+            dateTo = dateTo,
+            now = now,
             zone = zone,
             voice = voice,
-            onDismiss = { showFromPicker = false },
-            onConfirm = { picked ->
-                onDateFromChange(picked)
-                showFromPicker = false
-            },
-        )
-    }
-    if (showToPicker) {
-        RangeDatePickerDialog(
-            initialLocalMillis = dateTo ?: now,
-            maxLocalMillis = now,
-            zone = zone,
-            voice = voice,
-            onDismiss = { showToPicker = false },
-            onConfirm = { picked ->
-                onDateToChange(picked)
-                showToPicker = false
+            onDismiss = { showRangePicker = false },
+            onConfirm = { from, to ->
+                onDateFromChange(from)
+                onDateToChange(to)
+                showRangePicker = false
             },
         )
     }

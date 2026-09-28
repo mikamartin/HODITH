@@ -17,7 +17,10 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
+import com.secondmonday.hodith.viewmodel.formatSpanDate
+import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
@@ -47,6 +50,8 @@ class LogSharePreviewScreenTest {
         now: Long = millisAtDay(60),
         onFormatSelect: (ShareCardFormat) -> Unit = {},
         onSortOrderSelect: (ChronologicalOrder) -> Unit = {},
+        onDateFromPicked: (LocalDate?) -> Unit = {},
+        onDateToPicked: (LocalDate) -> Unit = {},
         onFieldToggle: (LogRowField, Boolean) -> Unit = { _, _ -> },
         onShareClick: () -> Unit = {},
     ) {
@@ -59,8 +64,8 @@ class LogSharePreviewScreenTest {
                     onBack = {},
                     onFormatSelect = onFormatSelect,
                     onSortOrderSelect = onSortOrderSelect,
-                    onDateFromPicked = {},
-                    onDateToPicked = {},
+                    onDateFromPicked = onDateFromPicked,
+                    onDateToPicked = onDateToPicked,
                     onFieldToggle = onFieldToggle,
                     onShareClick = onShareClick,
                 )
@@ -69,6 +74,14 @@ class LogSharePreviewScreenTest {
     }
 
     private fun defaultSelection(dateTo: Long = millisAtDay(60)) = LogShareSelection(dateTo = dateTo)
+
+    /**
+     * The range button's exact text, including its "Range: " prefix. The live card preview below
+     * renders its own range subtitle with the same bare value and no prefix (a separate
+     * formatter, `logShareRangeLabel`) -- matching on the bare value alone is ambiguous, so the
+     * prefix is what makes this the button specifically.
+     */
+    private fun rangeButtonText(value: String) = "${PlainVoice.shareLogRangeLabel}: $value"
 
     @Smoke
     @Test
@@ -178,5 +191,96 @@ class LogSharePreviewScreenTest {
         )
 
         composeTestRule.onNodeWithText(PlainVoice.shareLogEmptyRangeMessage).assertExists()
+    }
+
+    @Test
+    fun rangeButton_defaultsToAllTime() {
+        setContent(
+            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+        )
+
+        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareLogRangeAllTimeLabel)).assertExists()
+    }
+
+    @Test
+    fun rangeButton_showsFormattedBounds_whenRangeIsNarrowed() {
+        val from = millisAtDay(20)
+        val to = millisAtDay(40)
+        setContent(
+            uiState =
+                LogShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(dateTo = to).copy(dateFrom = from),
+                    isLoading = false,
+                ),
+        )
+
+        composeTestRule
+            .onNodeWithText(
+                rangeButtonText(
+                    PlainVoice.shareLogRangeNote(formatSpanDate(from.toLocalDateIn(ZONE)), formatSpanDate(to.toLocalDateIn(ZONE))),
+                ),
+            ).assertExists()
+    }
+
+    @Test
+    fun rangeButton_tap_opensOneCombinedRangeDialog() {
+        setContent(
+            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+        )
+
+        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareLogRangeAllTimeLabel)).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerCancel).assertExists()
+    }
+
+    @Test
+    fun rangeDialog_confirmWithoutChanges_roundTripsTheExistingRangeToBothCallbacks() {
+        // Same regression guard as CaseDetailScreenTest's equivalent: the dialog must seed itself
+        // from the current selection and hand both ends back out on Confirm, not just open.
+        val from = millisAtDay(20)
+        val to = millisAtDay(40)
+        var changedFrom: LocalDate? = null
+        var changedTo: LocalDate? = null
+        setContent(
+            uiState =
+                LogShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(dateTo = to).copy(dateFrom = from),
+                    isLoading = false,
+                ),
+            onDateFromPicked = { changedFrom = it },
+            onDateToPicked = { changedTo = it },
+        )
+
+        composeTestRule
+            .onNodeWithText(
+                rangeButtonText(
+                    PlainVoice.shareLogRangeNote(formatSpanDate(from.toLocalDateIn(ZONE)), formatSpanDate(to.toLocalDateIn(ZONE))),
+                ),
+            ).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
+
+        assertEquals(from.toLocalDateIn(ZONE), changedFrom)
+        assertEquals(to.toLocalDateIn(ZONE), changedTo)
+    }
+
+    @Test
+    fun rangeDialog_confirmWithNoStartSelected_clearsFromToSinceTheBeginning() {
+        // dateFrom starts null (since-the-beginning) in the default selection -- confirming
+        // without touching the calendar should keep it null, not coerce it to some other value.
+        var changedFrom: LocalDate? = LocalDate.of(2026, 1, 1)
+        setContent(
+            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            onDateFromPicked = { changedFrom = it },
+        )
+
+        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareLogRangeAllTimeLabel)).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
+
+        assertNull(changedFrom)
     }
 }

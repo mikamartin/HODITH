@@ -418,18 +418,20 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun logDateChips_defaultToAllTime() {
+    fun logRangeChip_defaultsToAllTime() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogDateFromLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareLogDateToLabel).assertExists()
-        composeTestRule.onAllNodesWithText(PlainVoice.shareLogRangeAllTimeLabel, substring = true).assertCountEquals(2)
+        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeAllTimeLabel, substring = true).assertExists()
     }
 
     @Test
-    fun logDateChips_showFormattedBounds_whenRangeIsNarrowed() {
+    fun logRangeChip_collapsesToSelected_withFormattedBoundsInANoteBelow_whenRangeIsNarrowed() {
+        // The chip itself stays terse ("Selected") -- a formatted date pair didn't fit the chip's
+        // own width alongside the Sort chip and the pinned Edit icon. The actual bounds render as
+        // a separate line underneath instead.
         val zone = ZoneId.systemDefault()
         val from = zone.startOfDayMillis(LocalDate.of(2026, 7, 3))
         val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
@@ -439,24 +441,49 @@ class CaseDetailScreenTest {
             logDateTo = to,
         )
 
-        composeTestRule.onNodeWithText(formatSpanDate(from.toLocalDateIn(zone)), substring = true).assertExists()
-        composeTestRule.onNodeWithText(formatSpanDate(to.toLocalDateIn(zone)), substring = true).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeSelectedLabel, substring = true).assertExists()
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.shareLogRangeNote(formatSpanDate(from.toLocalDateIn(zone)), formatSpanDate(to.toLocalDateIn(zone))),
+            ).assertExists()
     }
 
     @Test
-    fun logDateFromChip_tap_opensItsOwnPickerDirectly_notANestedDialog() {
-        // Regression guard: From/To each open the real DatePicker directly -- a combined "Range"
-        // chip that opened an InfoDialog which then opened a second, much bigger picker dialog on
-        // top of it is what broke (the InfoDialog's own two-button row overflowing and clipping
-        // the "To" button out of reach). One chip, one dialog now, same as every other filter chip.
+    fun logRangeChip_tap_opensOneCombinedRangeDialog() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogDateFromLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerCancel).assertExists()
+    }
+
+    @Test
+    fun logRangeDialog_confirmWithoutChanges_roundTripsTheExistingRangeToBothCallbacks() {
+        // Regression guard for the dialog's own state seeding: opening it should pre-select the
+        // current dateFrom/dateTo (via toDatePickerUtcMillis), and Confirm should hand both back
+        // out through their own callback -- proving the combined onConfirm(from, to) wiring, not
+        // just that the dialog opens.
+        val zone = ZoneId.systemDefault()
+        val from = zone.startOfDayMillis(LocalDate.of(2026, 7, 3))
+        val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
+        var changedFrom: LocalDate? = null
+        var changedTo: LocalDate? = null
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+            logDateFrom = from,
+            logDateTo = to,
+            onLogDateFromChange = { changedFrom = it },
+            onLogDateToChange = { changedTo = it },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
+
+        assertEquals(LocalDate.of(2026, 7, 3), changedFrom)
+        assertEquals(LocalDate.of(2026, 8, 15), changedTo)
     }
 
     @Test

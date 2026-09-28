@@ -955,6 +955,28 @@ interface Voice {
     val shareLogFieldTagsLabel: String get() = "Tags"
     val shareLogRangeAllTimeLabel: String get() = "All time"
 
+    /**
+     * The single combined Range control (Log tab's filter chip, Log Share's own trigger) that
+     * replaced separate From/To controls — [shareLogRangeLabel] is its label, and
+     * [shareLogRangeSelectedLabel] is the compact chip's collapsed value once a range is set (the
+     * actual bounds render separately via [shareLogRangeNote], since a formatted date pair didn't
+     * fit the chip's own width).
+     */
+    val shareLogRangeLabel: String get() = "Range"
+    val shareLogRangeSelectedLabel: String get() = "Selected"
+
+    /** [from]/[to] are already-formatted dates, or `null` when that side is unbounded. */
+    fun shareLogRangeNote(
+        from: String?,
+        to: String?,
+    ): String =
+        when {
+            from != null && to != null -> "$from – $to"
+            from != null -> "$shareLogDateFromLabel $from"
+            to != null -> "$shareLogDateToLabel $to"
+            else -> shareLogRangeAllTimeLabel
+        }
+
     /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown every time a List
      * widget is added or reconfigured (spec §15); each instance picks its own Cases. */
     val widgetConfigureTitle: String

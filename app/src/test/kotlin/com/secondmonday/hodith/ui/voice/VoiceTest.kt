@@ -79,6 +79,16 @@ class VoiceTest {
     }
 
     @Test
+    fun `shareLogRangeNote combines both bounds, falls back to a labeled single bound, or reads All time`() {
+        for (voice in voices) {
+            assertEquals("Sep 3 – Sep 20", voice.shareLogRangeNote("Sep 3", "Sep 20"))
+            assertEquals("${voice.shareLogDateFromLabel} Sep 3", voice.shareLogRangeNote("Sep 3", null))
+            assertEquals("${voice.shareLogDateToLabel} Sep 20", voice.shareLogRangeNote(null, "Sep 20"))
+            assertEquals(voice.shareLogRangeAllTimeLabel, voice.shareLogRangeNote(null, null))
+        }
+    }
+
+    @Test
     fun `sharePunchline never uses first- or second-person pronouns`() {
         // Share cards are viewed by whoever the card is shared with, not just the user who made
         // the Hunch — "you"/"your"/"I"/"my" would address the wrong audience once it leaves the app.

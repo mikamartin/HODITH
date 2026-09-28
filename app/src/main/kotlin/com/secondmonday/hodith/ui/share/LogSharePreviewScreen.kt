@@ -16,14 +16,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -40,7 +43,7 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ChronologicalOrder
-import com.secondmonday.hodith.ui.common.DateRangePickerRow
+import com.secondmonday.hodith.ui.common.DateRangeFilterDialog
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
@@ -50,7 +53,9 @@ import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
 import com.secondmonday.hodith.viewmodel.LogShareViewModel
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
+import com.secondmonday.hodith.viewmodel.formatSpanDate
 import com.secondmonday.hodith.viewmodel.logShareCardState
+import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -230,15 +235,38 @@ private fun DateRangeSection(
     onDateToPicked: (LocalDate) -> Unit,
     voice: Voice,
 ) {
-    DateRangePickerRow(
-        dateFrom = selection.dateFrom,
-        dateTo = selection.dateTo,
-        now = now,
-        zone = zone,
-        onDateFromChange = onDateFromPicked,
-        onDateToChange = { picked -> if (picked != null) onDateToPicked(picked) },
-        voice = voice,
-    )
+    var showRangePicker by remember { mutableStateOf(false) }
+    val isDefaultRange = selection.dateFrom == null && selection.dateTo.toLocalDateIn(zone) == now.toLocalDateIn(zone)
+
+    OutlinedButton(onClick = { showRangePicker = true }, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "${voice.shareLogRangeLabel}: " +
+                if (isDefaultRange) {
+                    voice.shareLogRangeAllTimeLabel
+                } else {
+                    voice.shareLogRangeNote(
+                        selection.dateFrom?.let { formatSpanDate(it.toLocalDateIn(zone)) },
+                        formatSpanDate(selection.dateTo.toLocalDateIn(zone)),
+                    )
+                },
+        )
+    }
+
+    if (showRangePicker) {
+        DateRangeFilterDialog(
+            dateFrom = selection.dateFrom,
+            dateTo = selection.dateTo,
+            now = now,
+            zone = zone,
+            voice = voice,
+            onDismiss = { showRangePicker = false },
+            onConfirm = { from, to ->
+                onDateFromPicked(from)
+                onDateToPicked(to ?: now.toLocalDateIn(zone))
+                showRangePicker = false
+            },
+        )
+    }
 }
 
 @Composable
