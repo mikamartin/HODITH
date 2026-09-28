@@ -133,9 +133,9 @@ the system share sheet, and how the image looks once it lands somewhere else.
 
 1. **The chooser opens and each option reaches the real share sheet with a real image.** From a
    Case with a handful of logged events, tap the Share icon on Case Detail's header — a dialog
-   offers "Insight Share" and "Log Share". Pick Insight Share, tap Share on the preview screen — the
+   offers "Insight" and "Log". Pick Insight, tap Share on the preview screen — the
    system share sheet opens, and picking a target (e.g. a messenger app, or "Save to Photos")
-   produces the actual rendered card image, not a blank/corrupt file. Repeat picking Log Share
+   produces the actual rendered card image, not a blank/corrupt file. Repeat picking Log
    instead.
 2. **Story vs. Square both render correctly end to end**, for both card types. Toggle between Story
    and Square on the preview screen — both formats produce a correctly-shaped image through the full

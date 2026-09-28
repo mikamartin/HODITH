@@ -922,16 +922,19 @@ interface Voice {
     // ---- Log Share (a second share card of the Case's actual entries, not a data export — see
     // PROGRESS.md's "Share button: add a Log Share option" item) ----
 
-    /** The entry-point chooser's two options — structural, identical across all three voices, like [shareFormatStoryLabel]. Doubles as the Log Share screen's own title. */
-    val shareChooserInsightOption: String get() = "Insight Share"
-    val shareChooserLogOption: String get() = "Log Share"
+    /** The entry-point chooser's two options — structural, identical across all three voices, like [shareFormatStoryLabel]. The dialog's own title already says "Share" ([shareOpenDescription]), so these stay short rather than repeating it. */
+    val shareChooserInsightOption: String get() = "Insight"
+    val shareChooserLogOption: String get() = "Log"
     val shareChooserCancelAction: String get() = "Cancel"
 
     /** One-line descriptions under each chooser option — the one place this dialog's copy actually carries tone. */
     val shareChooserInsightDescription: String
     val shareChooserLogDescription: String
 
-    /** Log Share's primary button — distinct from [shareChooserLogOption] (the screen's title), unlike Insight Share where [shareOpenDescription] serves both roles. */
+    /** The Log Share preview screen's own TopAppBar title — distinct from [shareChooserLogOption] (the chooser's short option label) now that the two no longer share a string. */
+    val shareLogScreenTitle: String get() = "Log Share"
+
+    /** Log Share's primary button — distinct from [shareLogScreenTitle] (the screen's title), unlike Insight Share where [shareOpenDescription] serves both roles. */
     val shareLogButtonLabel: String
 
     /** The Log Share card's kicker, parallel to [shareHunchRealityKicker]. */

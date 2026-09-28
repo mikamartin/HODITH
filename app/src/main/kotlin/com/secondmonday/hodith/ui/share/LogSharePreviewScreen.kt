@@ -131,7 +131,7 @@ fun LogSharePreviewScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(voice.shareChooserLogOption) },
+                title = { Text(voice.shareLogScreenTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)
