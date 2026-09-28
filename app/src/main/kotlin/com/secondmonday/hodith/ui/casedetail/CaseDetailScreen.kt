@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -47,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -58,6 +60,7 @@ import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
+import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.VerdictMetric
@@ -70,12 +73,18 @@ import com.secondmonday.hodith.domain.VerdictResult
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.FabListBottomClearance
+import com.secondmonday.hodith.ui.common.FilterTriggerChip
+import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
+import com.secondmonday.hodith.ui.common.RangeDatePickerDialog
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.StopIconButton
+import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
+import com.secondmonday.hodith.ui.share.ShareChoice
+import com.secondmonday.hodith.ui.share.ShareChooserDialog
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
@@ -91,11 +100,14 @@ import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatExpectedFrequency
 import com.secondmonday.hodith.viewmodel.formatRate
+import com.secondmonday.hodith.viewmodel.formatSpanDate
 import com.secondmonday.hodith.viewmodel.hunchProgressFraction
 import com.secondmonday.hodith.viewmodel.hunchTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
+import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 private const val LOG_TAB = 0
@@ -116,6 +128,7 @@ fun CaseDetailRoute(
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenTriggers: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
+    onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CaseDetailViewModel = hiltViewModel(),
@@ -128,6 +141,7 @@ fun CaseDetailRoute(
         onEditEvent = onEditEvent,
         onOpenTriggers = onOpenTriggers,
         onOpenShare = onOpenShare,
+        onOpenLogShare = onOpenLogShare,
         onOpenTrends = onOpenTrends,
         newEventDraft = viewModel::newEventDraft,
         onSaveEvent = viewModel::saveNewEvent,
@@ -136,6 +150,9 @@ fun CaseDetailRoute(
         onAddHunch = viewModel::addHunch,
         onResolveHunch = viewModel::resolveHunch,
         onLogSortOrderChange = viewModel::setLogSortOrder,
+        onLogDateFromChange = viewModel::setLogDateFrom,
+        onLogDateToChange = viewModel::setLogDateTo,
+        onLogFieldVisibleChange = viewModel::setLogFieldVisible,
         onShowMoreLogEvents = viewModel::loadMoreLogEvents,
         modifier = modifier,
     )
@@ -150,6 +167,7 @@ fun CaseDetailScreen(
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenTriggers: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
+    onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
     newEventDraft: () -> LogDraft,
     onSaveEvent: (LogDraft) -> Unit,
@@ -158,6 +176,9 @@ fun CaseDetailScreen(
     onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit,
     onResolveHunch: (HunchEntity) -> Unit,
     onLogSortOrderChange: (LogSortOrder) -> Unit,
+    onLogDateFromChange: (LocalDate?) -> Unit,
+    onLogDateToChange: (LocalDate?) -> Unit,
+    onLogFieldVisibleChange: (LogRowField, Boolean) -> Unit,
     onShowMoreLogEvents: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -171,6 +192,7 @@ fun CaseDetailScreen(
     var newEventSheetNow by remember { mutableStateOf<Long?>(null) }
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
     var showHunchCreationSheet by remember { mutableStateOf(false) }
+    var showShareChooser by remember { mutableStateOf(false) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
 
     Scaffold(
@@ -185,7 +207,7 @@ fun CaseDetailScreen(
                 },
                 actions = {
                     if (case != null) {
-                        IconButton(onClick = { onOpenShare(case.id) }) {
+                        IconButton(onClick = { showShareChooser = true }) {
                             Icon(Icons.Filled.Share, contentDescription = voice.shareOpenDescription)
                         }
                         IconButton(onClick = { onOpenTriggers(case.id) }) {
@@ -248,6 +270,12 @@ fun CaseDetailScreen(
                         voice = voice,
                         sortOrder = uiState.logSortOrder,
                         onSortOrderChange = onLogSortOrderChange,
+                        dateFrom = uiState.logDateFrom,
+                        dateTo = uiState.logDateTo,
+                        onDateFromChange = onLogDateFromChange,
+                        onDateToChange = onLogDateToChange,
+                        visibleFields = uiState.logVisibleFields,
+                        onFieldVisibleChange = onLogFieldVisibleChange,
                         onShowMore = onShowMoreLogEvents,
                         onStopEvent = onStopEvent,
                         onEditEvent = { event -> case?.let { onEditEvent(it.id, event.id) } },
@@ -327,6 +355,20 @@ fun CaseDetailScreen(
             },
         )
     }
+
+    if (showShareChooser && case != null) {
+        ShareChooserDialog(
+            voice = voice,
+            onDismiss = { showShareChooser = false },
+            onConfirm = { choice ->
+                showShareChooser = false
+                when (choice) {
+                    ShareChoice.INSIGHT -> onOpenShare(case.id)
+                    ShareChoice.LOG -> onOpenLogShare(case.id)
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -338,6 +380,12 @@ private fun LogTabContent(
     voice: Voice,
     sortOrder: LogSortOrder,
     onSortOrderChange: (LogSortOrder) -> Unit,
+    dateFrom: Long?,
+    dateTo: Long?,
+    onDateFromChange: (LocalDate?) -> Unit,
+    onDateToChange: (LocalDate?) -> Unit,
+    visibleFields: Set<LogRowField>,
+    onFieldVisibleChange: (LogRowField, Boolean) -> Unit,
     onShowMore: () -> Unit,
     onStopEvent: (EventEntity) -> Unit,
     onEditEvent: (EventEntity) -> Unit,
@@ -355,30 +403,20 @@ private fun LogTabContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // Start/end sort is only meaningful when the Case tracks duration (spec §6) — a `NONE`
-        // Case's `endedAt` is never shown, so "Ended" would order by an invisible field.
-        if (case != null && case.durationMode.tracksDuration && uiState.events.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(voice.logSortLabel, style = MaterialTheme.typography.bodyLarge)
-                SegmentedChoiceRow(
-                    options =
-                        listOf(
-                            LogSortOrder.BY_START to voice.logSortByStartLabel,
-                            LogSortOrder.BY_END to voice.logSortByEndLabel,
-                        ),
-                    selected = sortOrder,
-                    onSelect = onSortOrderChange,
-                    modifier = Modifier,
-                    stretchToFill = false,
-                    textStyle = MaterialTheme.typography.bodyLarge,
-                    segmentHorizontalPadding = 12.dp,
-                    segmentVerticalPadding = 4.dp,
-                )
-            }
+        if (case != null && uiState.events.isNotEmpty()) {
+            LogFilterRow(
+                case = case,
+                now = now,
+                voice = voice,
+                sortOrder = sortOrder,
+                onSortOrderChange = onSortOrderChange,
+                dateFrom = dateFrom,
+                dateTo = dateTo,
+                onDateFromChange = onDateFromChange,
+                onDateToChange = onDateToChange,
+                visibleFields = visibleFields,
+                onFieldVisibleChange = onFieldVisibleChange,
+            )
         }
         if (case != null && ongoingEvents.isNotEmpty()) {
             // The header always reads as a count (spec §6) — even for one event — so it looks the
@@ -396,6 +434,9 @@ private fun LogTabContent(
                 uiState.events.isEmpty() -> {
                     CenteredEmptyState(voice.eventListEmptyState)
                 }
+                uiState.logEvents.isEmpty() -> {
+                    CenteredEmptyState(voice.shareLogEmptyRangeMessage)
+                }
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -408,6 +449,7 @@ private fun LogTabContent(
                                 now = now,
                                 voice = voice,
                                 durationMode = case?.durationMode ?: DurationMode.NONE,
+                                visibleFields = visibleFields,
                                 onClick = { onEditEvent(eventWithTags.event) },
                                 onStopEvent = onStopEvent,
                             )
@@ -428,6 +470,160 @@ private fun LogTabContent(
         }
     }
 }
+
+/**
+ * The Log tab's filter-chip row (Sort, From, To, plus the pinned field-visibility Edit icon) and
+ * the dialogs its chips/icon open — split out from [LogTabContent] the same way Big Picture's own
+ * `FilterSummaryRow` (chip row + dialogs) sits apart from the grid it filters.
+ */
+@Composable
+private fun LogFilterRow(
+    case: CaseEntity,
+    now: Long,
+    voice: Voice,
+    sortOrder: LogSortOrder,
+    onSortOrderChange: (LogSortOrder) -> Unit,
+    dateFrom: Long?,
+    dateTo: Long?,
+    onDateFromChange: (LocalDate?) -> Unit,
+    onDateToChange: (LocalDate?) -> Unit,
+    visibleFields: Set<LogRowField>,
+    onFieldVisibleChange: (LogRowField, Boolean) -> Unit,
+) {
+    val zone = remember { ZoneId.systemDefault() }
+    var showSortDialog by remember { mutableStateOf(false) }
+    var showFromPicker by remember { mutableStateOf(false) }
+    var showToPicker by remember { mutableStateOf(false) }
+    var showFieldsDialog by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Start/end sort is only meaningful when the Case tracks duration (spec §6) — a
+        // `NONE` Case's `endedAt` is never shown, so "Ended" would order by an invisible field.
+        if (case.durationMode.tracksDuration) {
+            FilterTriggerChip(
+                label = voice.logSortLabel,
+                count = if (sortOrder == LogSortOrder.BY_START) voice.logSortByStartLabel else voice.logSortByEndLabel,
+                onClick = { showSortDialog = true },
+                isFiltered = sortOrder != LogSortOrder.BY_START,
+            )
+        }
+        // From/To are each their own chip opening the date picker directly — not a combined
+        // "Range" chip opening an InfoDialog that then opens a second, much larger picker dialog
+        // on top of it. That double-dialog nesting is what broke (PROGRESS.md's Log tab filter
+        // bug report): the inner M3 DatePickerDialog dwarfing the small InfoDialog around it, and
+        // the InfoDialog's own two-button Row overflowing/clipping the "To" button out of reach in
+        // that narrow width. One chip, one dialog, same shape as every other filter chip here.
+        FilterTriggerChip(
+            label = voice.shareLogDateFromLabel,
+            count = dateFrom?.let { formatSpanDate(it.toLocalDateIn(zone)) } ?: voice.shareLogRangeAllTimeLabel,
+            onClick = { showFromPicker = true },
+            isFiltered = dateFrom != null,
+        )
+        FilterTriggerChip(
+            label = voice.shareLogDateToLabel,
+            count = dateTo?.let { formatSpanDate(it.toLocalDateIn(zone)) } ?: voice.shareLogRangeAllTimeLabel,
+            onClick = { showToPicker = true },
+            isFiltered = dateTo != null,
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        // Edit which fields each row shows (spec §6) — pinned right, same placement as
+        // Big Picture's own detail-edit icon.
+        IconButton(onClick = { showFieldsDialog = true }) {
+            Icon(Icons.Filled.Edit, contentDescription = voice.logDetailEditDescription)
+        }
+    }
+
+    if (showSortDialog) {
+        InfoDialog(title = voice.logSortLabel, onDismiss = { showSortDialog = false }) {
+            SegmentedChoiceRow(
+                options =
+                    listOf(
+                        LogSortOrder.BY_START to voice.logSortByStartLabel,
+                        LogSortOrder.BY_END to voice.logSortByEndLabel,
+                    ),
+                selected = sortOrder,
+                onSelect = {
+                    onSortOrderChange(it)
+                    showSortDialog = false
+                },
+            )
+        }
+    }
+    if (showFromPicker) {
+        RangeDatePickerDialog(
+            initialLocalMillis = dateFrom ?: dateTo ?: now,
+            maxLocalMillis = dateTo ?: now,
+            zone = zone,
+            voice = voice,
+            onDismiss = { showFromPicker = false },
+            onConfirm = { picked ->
+                onDateFromChange(picked)
+                showFromPicker = false
+            },
+        )
+    }
+    if (showToPicker) {
+        RangeDatePickerDialog(
+            initialLocalMillis = dateTo ?: now,
+            maxLocalMillis = now,
+            zone = zone,
+            voice = voice,
+            onDismiss = { showToPicker = false },
+            onConfirm = { picked ->
+                onDateToChange(picked)
+                showToPicker = false
+            },
+        )
+    }
+    if (showFieldsDialog) {
+        InfoDialog(title = voice.logDetailDialogTitle, onDismiss = { showFieldsDialog = false }) {
+            Column {
+                availableLogRowFields(case).forEach { field ->
+                    ToggleRow(
+                        label = logRowFieldLabel(field, voice),
+                        checked = field in visibleFields,
+                        onCheckedChange = { onFieldVisibleChange(field, it) },
+                        modifier =
+                            Modifier
+                                .testTag(LOG_DETAIL_FIELD_TOGGLE_TAG_PREFIX + field.name)
+                                .padding(vertical = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Prefix for each field-toggle row's `testTag` in the Log tab's field-visibility dialog — clicking
+ * by tag rather than by label text, same as Big Picture's own `BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX`,
+ * since the label/Switch semantics don't reliably merge into one clickable node in every context.
+ */
+internal const val LOG_DETAIL_FIELD_TOGGLE_TAG_PREFIX = "log_detail_field_toggle_"
+
+/** Notes/Tags always offered; Duration/Intensity only when the Case tracks them — the Log tab's own gating, matching Log Share's `availableLogRowFields`. */
+private fun availableLogRowFields(case: CaseEntity): List<LogRowField> =
+    buildList {
+        add(LogRowField.NOTES)
+        add(LogRowField.TAGS)
+        if (case.durationMode.tracksDuration) add(LogRowField.DURATION)
+        if (case.intensityEnabled) add(LogRowField.INTENSITY)
+    }
+
+private fun logRowFieldLabel(
+    field: LogRowField,
+    voice: Voice,
+): String =
+    when (field) {
+        LogRowField.NOTES -> voice.shareLogFieldNotesLabel
+        LogRowField.TAGS -> voice.shareLogFieldTagsLabel
+        LogRowField.DURATION -> voice.insightsSectionLabelDuration
+        LogRowField.INTENSITY -> voice.insightsSectionLabelIntensity
+    }
 
 @Composable
 private fun HunchTabContent(
@@ -673,6 +869,7 @@ private fun EventRow(
     now: Long,
     voice: Voice,
     durationMode: DurationMode,
+    visibleFields: Set<LogRowField>,
     onClick: () -> Unit,
     onStopEvent: (EventEntity) -> Unit,
 ) {
@@ -688,6 +885,7 @@ private fun EventRow(
                     now,
                     voice,
                     durationMode,
+                    visibleFields,
                     onStopEvent,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
@@ -699,6 +897,7 @@ private fun EventRow(
                 now,
                 voice,
                 durationMode,
+                visibleFields,
                 onStopEvent,
                 modifier =
                     Modifier
@@ -716,6 +915,7 @@ private fun EventRowContent(
     now: Long,
     voice: Voice,
     durationMode: DurationMode,
+    visibleFields: Set<LogRowField>,
     onStopEvent: (EventEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -735,11 +935,15 @@ private fun EventRowContent(
             }
             val details =
                 eventDetailSummary(
-                    event,
-                    eventWithTags.tags,
-                    voice,
+                    occurredAt = event.occurredAt,
+                    endedAt = event.endedAt,
+                    intensity = event.intensity,
+                    note = event.note.takeIf { LogRowField.NOTES in visibleFields },
+                    tagNames = if (LogRowField.TAGS in visibleFields) eventWithTags.tags.map { it.name } else emptyList(),
+                    voice = voice,
                     isOngoing = isOngoing,
-                    tracksDuration = durationMode.tracksDuration,
+                    tracksDuration = durationMode.tracksDuration && LogRowField.DURATION in visibleFields,
+                    showIntensity = LogRowField.INTENSITY in visibleFields,
                 )
             if (details != null) {
                 Text(text = details, style = MaterialTheme.typography.bodySmall)

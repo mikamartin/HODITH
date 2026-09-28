@@ -286,6 +286,10 @@ interface Voice {
     val logSortByStartLabel: String get() = "Started"
     val logSortByEndLabel: String get() = "Ended"
 
+    /** Log tab's pinned Edit icon (spec §6) — same role as [bigPictureDetailEditDescription], persona-styled to match. Opens [logDetailDialogTitle]'s dialog of Notes/Tags/Duration/Intensity toggles. */
+    val logDetailEditDescription: String
+    val logDetailDialogTitle: String
+
     /** Reveals 50 more Log tab events beyond the currently loaded window (spec §6, PROGRESS.md F4). Persona-styled, like [insightsHeatmapShowMoreAction] — a similar "reveal more of the list" CTA. */
     val logShowMoreAction: String
 
@@ -914,6 +918,42 @@ interface Voice {
         direction: HunchDirection,
         band: ComparisonBand,
     ): String
+
+    // ---- Log Share (a second share card of the Case's actual entries, not a data export — see
+    // PROGRESS.md's "Share button: add a Log Share option" item) ----
+
+    /** The entry-point chooser's two options — structural, identical across all three voices, like [shareFormatStoryLabel]. Doubles as the Log Share screen's own title. */
+    val shareChooserInsightOption: String get() = "Insight Share"
+    val shareChooserLogOption: String get() = "Log Share"
+    val shareChooserCancelAction: String get() = "Cancel"
+
+    /** One-line descriptions under each chooser option — the one place this dialog's copy actually carries tone. */
+    val shareChooserInsightDescription: String
+    val shareChooserLogDescription: String
+
+    /** Log Share's primary button — distinct from [shareChooserLogOption] (the screen's title), unlike Insight Share where [shareOpenDescription] serves both roles. */
+    val shareLogButtonLabel: String
+
+    /** The Log Share card's kicker, parallel to [shareHunchRealityKicker]. */
+    val shareLogCardKicker: String
+
+    /** [shown]/[total] when the cap (spec §13) trims the match count. */
+    fun shareLogTruncationNote(
+        shown: Int,
+        total: Int,
+    ): String
+
+    /** Shown on the card (and the config screen's preview) when the current filter matches nothing. */
+    val shareLogEmptyRangeMessage: String
+
+    /** Sort/date-range/field-picker labels — structural, identical across all three voices. */
+    val shareLogSortNewestLabel: String get() = "Newest first"
+    val shareLogSortOldestLabel: String get() = "Oldest first"
+    val shareLogDateFromLabel: String get() = "From"
+    val shareLogDateToLabel: String get() = "To"
+    val shareLogFieldNotesLabel: String get() = "Notes"
+    val shareLogFieldTagsLabel: String get() = "Tags"
+    val shareLogRangeAllTimeLabel: String get() = "All time"
 
     /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown every time a List
      * widget is added or reconfigured (spec §15); each instance picks its own Cases. */
@@ -1656,6 +1696,21 @@ object PlainVoice : Voice {
     override val shareNameFieldLabel = "Name on card"
     override val shareSectionsPickerLabel = "Include in card"
 
+    override val shareChooserInsightDescription = "A visual summary of your stats."
+    override val shareChooserLogDescription = "The actual entries, as logged."
+    override val shareLogButtonLabel = "Share log"
+    override val shareLogCardKicker = "The log"
+
+    override fun shareLogTruncationNote(
+        shown: Int,
+        total: Int,
+    ) = "Showing the most recent $shown of $total. Narrow the range to include more."
+
+    override val shareLogEmptyRangeMessage = "No entries in this range."
+
+    override val logDetailEditDescription = "Edit which detail the log shows"
+    override val logDetailDialogTitle = "Log detail"
+
     override fun sharePunchline(
         direction: HunchDirection,
         band: ComparisonBand,
@@ -2383,6 +2438,21 @@ object IntenseVoice : Voice {
     override val shareNameFieldLabel = "Name for the record"
     override val shareSectionsPickerLabel = "What the record shows"
 
+    override val shareChooserInsightDescription = "The verdict, distilled."
+    override val shareChooserLogDescription = "The evidence itself, unredacted."
+    override val shareLogButtonLabel = "Release the record"
+    override val shareLogCardKicker = "The record"
+
+    override fun shareLogTruncationNote(
+        shown: Int,
+        total: Int,
+    ) = "$shown of $total entered into evidence. Narrow the range for the rest."
+
+    override val shareLogEmptyRangeMessage = "No evidence in this window."
+
+    override val logDetailEditDescription = "Edit which detail the record shows"
+    override val logDetailDialogTitle = "Record detail"
+
     override fun sharePunchline(
         direction: HunchDirection,
         band: ComparisonBand,
@@ -3104,6 +3174,21 @@ object BrightVoice : Voice {
     override val shareHunchVsRealityToggleLabel = "Show the surprise!"
     override val shareNameFieldLabel = "Name it!"
     override val shareSectionsPickerLabel = "Pick what to show!"
+
+    override val shareChooserInsightDescription = "Your stats, made pretty!"
+    override val shareChooserLogDescription = "Every entry, just as you logged it!"
+    override val shareLogButtonLabel = "Share the log!"
+    override val shareLogCardKicker = "Every entry!"
+
+    override fun shareLogTruncationNote(
+        shown: Int,
+        total: Int,
+    ) = "Showing $shown of $total! Narrow the range to fit the rest!"
+
+    override val shareLogEmptyRangeMessage = "Nothing logged in this range yet!"
+
+    override val logDetailEditDescription = "Pick what each log entry shows!"
+    override val logDetailDialogTitle = "Log detail!"
 
     override fun sharePunchline(
         direction: HunchDirection,

@@ -13,6 +13,9 @@ class FakeSettingsRepository : SettingsRepository {
     val cloudBackupEnabled = MutableStateFlow(true)
     val bigPictureDetail = MutableStateFlow(BigPictureDetail.DEFAULT)
     val logSortOrder = MutableStateFlow(LogSortOrder.BY_START)
+    val logDateFrom = MutableStateFlow<Long?>(null)
+    val logDateTo = MutableStateFlow<Long?>(null)
+    val logVisibleFields = MutableStateFlow(LogRowField.entries.toSet())
     val bigPictureVisibleCaseIds = MutableStateFlow<Set<Long>?>(null)
     val bigPictureVisibleTagNames = MutableStateFlow<Set<String>?>(null)
     val bigPictureSelectedYear = MutableStateFlow<Int?>(null)
@@ -67,6 +70,24 @@ class FakeSettingsRepository : SettingsRepository {
 
     override suspend fun setLogSortOrder(order: LogSortOrder) {
         this.logSortOrder.value = order
+    }
+
+    override fun observeLogDateFrom(): Flow<Long?> = logDateFrom
+
+    override suspend fun setLogDateFrom(millis: Long?) {
+        this.logDateFrom.value = millis
+    }
+
+    override fun observeLogDateTo(): Flow<Long?> = logDateTo
+
+    override suspend fun setLogDateTo(millis: Long?) {
+        this.logDateTo.value = millis
+    }
+
+    override fun observeLogVisibleFields(): Flow<Set<LogRowField>> = logVisibleFields
+
+    override suspend fun setLogVisibleFields(fields: Set<LogRowField>) {
+        this.logVisibleFields.value = fields
     }
 
     override fun observeBigPictureVisibleCaseIds(): Flow<Set<Long>?> = bigPictureVisibleCaseIds

@@ -287,11 +287,52 @@ class FakeHodithRepositoryTest {
             val caseId = repository.insertCase(testCase())
             repeat(5) { i -> repository.insertEvent(testEvent(caseId = caseId, occurredAt = i.toLong())) }
 
-            repository.observeLogEventsForCase(caseId, LogSortOrder.BY_START, limit = 3, durationMode = DurationMode.NONE).test {
-                val page = awaitItem()
-                assertEquals(listOf(4L, 3L, 2L), page.events.map { it.event.occurredAt })
-                assertTrue(page.hasMore)
-            }
+            repository
+                .observeLogEventsForCase(
+                    caseId,
+                    LogSortOrder.BY_START,
+                    limit = 3,
+                    durationMode = DurationMode.NONE,
+                    dateFrom = null,
+                    dateTo = null,
+                ).test {
+                    val page = awaitItem()
+                    assertEquals(listOf(4L, 3L, 2L), page.events.map { it.event.occurredAt })
+                    assertTrue(page.hasMore)
+                }
+        }
+
+    @Test
+    fun `observeLogEventsForCase narrows to an inclusive dateFrom-dateTo range, unbounded on either null side`() =
+        runTest {
+            val caseId = repository.insertCase(testCase())
+            repeat(5) { i -> repository.insertEvent(testEvent(caseId = caseId, occurredAt = i.toLong())) }
+
+            repository
+                .observeLogEventsForCase(
+                    caseId,
+                    LogSortOrder.BY_START,
+                    limit = 10,
+                    durationMode = DurationMode.NONE,
+                    dateFrom = 1L,
+                    dateTo = 3L,
+                ).test {
+                    val page = awaitItem()
+                    assertEquals(listOf(3L, 2L, 1L), page.events.map { it.event.occurredAt })
+                    assertFalse(page.hasMore)
+                }
+
+            repository
+                .observeLogEventsForCase(
+                    caseId,
+                    LogSortOrder.BY_START,
+                    limit = 10,
+                    durationMode = DurationMode.NONE,
+                    dateFrom = 3L,
+                    dateTo = null,
+                ).test {
+                    assertEquals(listOf(4L, 3L), awaitItem().events.map { it.event.occurredAt })
+                }
         }
 
     @Test
@@ -300,11 +341,19 @@ class FakeHodithRepositoryTest {
             val caseId = repository.insertCase(testCase())
             repeat(3) { i -> repository.insertEvent(testEvent(caseId = caseId, occurredAt = i.toLong())) }
 
-            repository.observeLogEventsForCase(caseId, LogSortOrder.BY_START, limit = 3, durationMode = DurationMode.NONE).test {
-                val page = awaitItem()
-                assertEquals(3, page.events.size)
-                assertFalse(page.hasMore)
-            }
+            repository
+                .observeLogEventsForCase(
+                    caseId,
+                    LogSortOrder.BY_START,
+                    limit = 3,
+                    durationMode = DurationMode.NONE,
+                    dateFrom = null,
+                    dateTo = null,
+                ).test {
+                    val page = awaitItem()
+                    assertEquals(3, page.events.size)
+                    assertFalse(page.hasMore)
+                }
         }
 
     @Test
@@ -315,8 +364,14 @@ class FakeHodithRepositoryTest {
             val finishedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
 
             repository
-                .observeLogEventsForCase(caseId, LogSortOrder.BY_END, limit = 10, durationMode = DurationMode.START_STOP)
-                .test {
+                .observeLogEventsForCase(
+                    caseId,
+                    LogSortOrder.BY_END,
+                    limit = 10,
+                    durationMode = DurationMode.START_STOP,
+                    dateFrom = null,
+                    dateTo = null,
+                ).test {
                     val page = awaitItem()
                     assertEquals(listOf(runningId, finishedId), page.events.map { it.event.id })
                 }
@@ -330,8 +385,14 @@ class FakeHodithRepositoryTest {
             val laterFinishedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
 
             repository
-                .observeLogEventsForCase(caseId, LogSortOrder.BY_END, limit = 10, durationMode = DurationMode.MANUAL)
-                .test {
+                .observeLogEventsForCase(
+                    caseId,
+                    LogSortOrder.BY_END,
+                    limit = 10,
+                    durationMode = DurationMode.MANUAL,
+                    dateFrom = null,
+                    dateTo = null,
+                ).test {
                     val page = awaitItem()
                     assertEquals(listOf(laterFinishedId, openEndedId), page.events.map { it.event.id })
                 }

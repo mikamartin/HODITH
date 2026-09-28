@@ -10,6 +10,7 @@ import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
@@ -27,9 +28,12 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.LocalDate
+import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CaseDetailViewModelTest {
@@ -181,6 +185,128 @@ class CaseDetailViewModelTest {
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals(LogSortOrder.BY_END, state.logSortOrder)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogDateFrom stores the picked date's local start-of-day millis and resets the window back to 30`() =
+        runTest {
+            val zone = ZoneId.systemDefault()
+            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            val today = clock.nowMillis().toLocalDateIn(zone)
+            repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = clock.nowMillis() + i)) }
+            val vm = viewModel()
+            vm.loadMoreLogEvents()
+
+            vm.setLogDateFrom(today)
+
+            vm.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(zone.startOfDayMillis(today), state.logDateFrom)
+                assertEquals(30, state.logEvents.size)
+                assertTrue(state.logHasMore)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogDateFrom persists across a fresh ViewModel instance`() =
+        runTest {
+            val zone = ZoneId.systemDefault()
+            val picked = LocalDate.of(2026, 7, 3)
+            repository.cases.value = listOf(testCase())
+            viewModel().setLogDateFrom(picked)
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(zone.startOfDayMillis(picked), state.logDateFrom)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogDateFrom of null clears the bound back to since-the-beginning`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+            vm.setLogDateFrom(LocalDate.of(2026, 7, 3))
+
+            vm.setLogDateFrom(null)
+
+            vm.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertNull(state.logDateFrom)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogDateTo stores the picked date's local end-of-day millis and resets the window back to 30`() =
+        runTest {
+            val zone = ZoneId.systemDefault()
+            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            val today = clock.nowMillis().toLocalDateIn(zone)
+            repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = clock.nowMillis() + i)) }
+            val vm = viewModel()
+            vm.loadMoreLogEvents()
+
+            vm.setLogDateTo(today)
+
+            vm.uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(zone.endOfDayMillis(today), state.logDateTo)
+                assertEquals(30, state.logEvents.size)
+                assertTrue(state.logHasMore)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogDateTo persists across a fresh ViewModel instance`() =
+        runTest {
+            val zone = ZoneId.systemDefault()
+            val picked = LocalDate.of(2026, 8, 15)
+            repository.cases.value = listOf(testCase())
+            viewModel().setLogDateTo(picked)
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(zone.endOfDayMillis(picked), state.logDateTo)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogFieldVisible toggles a single field without disturbing the rest`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+
+                vm.setLogFieldVisible(LogRowField.NOTES, visible = false)
+                val afterRemoval = awaitItem().logVisibleFields
+                assertEquals(false, LogRowField.NOTES in afterRemoval)
+                assertTrue(LogRowField.TAGS in afterRemoval)
+
+                vm.setLogFieldVisible(LogRowField.NOTES, visible = true)
+                assertTrue(LogRowField.NOTES in awaitItem().logVisibleFields)
+
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setLogFieldVisible persists across a fresh ViewModel instance`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            viewModel().setLogFieldVisible(LogRowField.TAGS, visible = false)
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertFalse(LogRowField.TAGS in state.logVisibleFields)
                 cancelAndIgnoreRemainingEvents()
             }
         }

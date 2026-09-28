@@ -75,29 +75,6 @@ Fold these already-drafted key changes into the audit:
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-### Share button: add a Log Share option alongside the existing Insight Share
-
-*Branch: `feat/share-log-export` · Complexity: L · Priority: Medium · Area: Share*
-
-🎨 **Design decision** — sort options, date-range UI, and column-selection UX need a ruling before implementation.
-
-The existing share action (`CaseDetailScreen.kt:175-177` → `ShareViewModel.kt` → `SharePreviewScreen.kt`) becomes one of two options: "Insight Share" (unchanged) and a new "Log Share" that exports the Case's raw log data as a file — configurable sort order, date range, and toggleable columns (tags, notes, duration, intensity), each shown only when applicable to the Case. Column applicability keys off `CaseEntity.durationMode`/`intensityEnabled` (`CaseEntity.kt:16-17`), reusing `availableSections`'s existing gating pattern.
-
-Distinct from **CSV export**: that's a bulk, all-cases export with no sort/date-range/column UI; this is single-Case and share-sheet-triggered. HODITH_SPEC §13's "no notes/tags on share cards" rule is specific to the image card and doesn't apply here — needs a note distinguishing the two once this ships.
-
-**Acceptance criteria**
-
-- [ ] A ruling on Log Share's output format (CSV/text attachment via Android share sheet is the likely default, consistent with the existing CSV export item's format).
-- [ ] A ruling on sort options offered (e.g. date ascending/descending) and date-range picker UX.
-- [ ] Column toggles for tags/notes/duration/intensity, each shown only when applicable to the Case (reusing `availableSections`-style gating against `CaseEntity.durationMode`/`intensityEnabled`).
-- [ ] Share entry point presents both "Insight Share" and "Log Share" as distinct options (e.g. a chooser before `SharePreviewScreen`, or a new sibling screen).
-- [ ] Voice ×3 for all new labels, toggles, and picker copy.
-- [ ] HODITH_SPEC §13 updated to scope the "no notes/tags" rule to the image share card specifically, once Log Share exists.
-
-**Plan** — settle the format/sort/date-range/column UX first (mock as a static prototype). Then: a new export path parallel to `ShareViewModel`/`SharePreviewScreen` producing the tabular file, reusing `availableSections`'s gating pattern for column applicability, plus a chooser between Insight Share and Log Share.
-
-**Tests** — a unit test for the export-row-shaping logic (column gating by Case config, sort, date-range filtering); Compose coverage for the two-option share entry point and the Log Share configuration screen.
-
 ### App-icon handle butts directly against the lens ring with no clearance
 
 *Branch: `fix/icon-handle-clearance` · Complexity: S · Priority: Low · Area: Bug*

@@ -63,6 +63,7 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.domain.weeksInGrid
+import com.secondmonday.hodith.ui.common.FilterTriggerChip
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
@@ -120,7 +121,7 @@ import java.time.ZoneId
  */
 private const val MAX_ICONS_PER_CELL = 3
 private val WEEK_CHEVRON_TOUCH_TARGET = 48.dp
-private val CHIP_SHAPE = RoundedCornerShape(16.dp)
+internal val CHIP_SHAPE = RoundedCornerShape(16.dp)
 
 /** Stroke for the ring that marks the icon on the day a multi-day event started (spec §9). */
 private val SPAN_START_RING_WIDTH = 1.5.dp
@@ -1004,7 +1005,7 @@ private fun YearFilterChip(
  * than taking a `tint` param here.
  */
 @Composable
-private fun BrightChip(
+internal fun BrightChip(
     selected: Boolean,
     onToggle: (() -> Unit)?,
     tint: Color,
@@ -1052,56 +1053,6 @@ private fun BrightCaseFilterChip(
             color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-/**
- * Small trigger chip ("Cases: N ▸") opening the full picker dialog. [isFiltered] draws a highlight
- * border/ring when this dimension is narrowed off its default (not all selected, or a specific
- * year) — a quick "something is filtered" signal (spec §9); otherwise the chip stays the neutral/
- * unselected pill look, since the label+count communicate state, not the chip's own selection
- * styling.
- */
-@Composable
-private fun FilterTriggerChip(
-    label: String,
-    count: String,
-    onClick: () -> Unit,
-    isFiltered: Boolean = false,
-) {
-    when (LocalCardDecorationStyle.current) {
-        CardDecorationStyle.BRIGHT ->
-            BrightChip(selected = isFiltered, onToggle = onClick, tint = MaterialTheme.colorScheme.primary) {
-                FilterTriggerChipContent(label, count)
-            }
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
-            Row(
-                modifier =
-                    Modifier
-                        .clip(CHIP_SHAPE)
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(
-                            width = if (isFiltered) 1.5.dp else 1.dp,
-                            color = if (isFiltered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                            shape = CHIP_SHAPE,
-                        ).clickable(onClick = onClick)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                FilterTriggerChipContent(label, count)
-            }
-    }
-}
-
-/** [label] stays its own text node (unmodified, no colon) so existing exact-text chip lookups keep working; the colon lands on [count] instead. */
-@Composable
-private fun RowScope.FilterTriggerChipContent(
-    label: String,
-    count: String,
-) {
-    Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-    Text(": $count", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Text("▸", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
 }
 
 /** Case-toned aggregate legend label ("All Cases") — text only (no per-case icon), always read-only. */

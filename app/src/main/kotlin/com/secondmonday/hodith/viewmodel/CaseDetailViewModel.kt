@@ -11,6 +11,7 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
+import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.SettingsRepository
@@ -32,6 +33,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
 import javax.inject.Inject
 
@@ -41,6 +44,9 @@ data class CaseDetailUiState(
     val logEvents: List<EventWithTags> = emptyList(),
     val logHasMore: Boolean = false,
     val logSortOrder: LogSortOrder = LogSortOrder.BY_START,
+    val logDateFrom: Long? = null,
+    val logDateTo: Long? = null,
+    val logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
     val tagSuggestions: List<TagEntity> = emptyList(),
     val activeHunch: HunchEntity? = null,
     val hunchHistory: List<HunchEntity> = emptyList(),
@@ -56,6 +62,15 @@ private const val LOG_INITIAL_LIMIT = 30
 /** ...and each "Show more" tap grows the loaded window by this many, cumulatively (30 → 80 → 130 → ...). */
 private const val LOG_LOAD_MORE_INCREMENT = 50
 
+/** [CaseDetailViewModel.logPage]'s combined query key — a named tuple in place of a five-element [Triple]-of-[Triple]s. */
+private data class LogPageQuery(
+    val case: CaseEntity?,
+    val order: LogSortOrder,
+    val dateFrom: Long?,
+    val dateTo: Long?,
+    val limit: Int,
+)
+
 @HiltViewModel
 class CaseDetailViewModel
     @Inject
@@ -66,22 +81,39 @@ class CaseDetailViewModel
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
+        private val zone = ZoneId.systemDefault()
 
         private val logSortOrder = settingsRepository.observeLogSortOrder()
+        private val logDateFrom = settingsRepository.observeLogDateFrom()
+        private val logDateTo = settingsRepository.observeLogDateTo()
+        private val logVisibleFields = settingsRepository.observeLogVisibleFields()
         private val logLimit = MutableStateFlow(LOG_INITIAL_LIMIT)
 
         /**
          * The Log tab's capped, sorted page — re-queried (not re-sorted client-side) whenever the
-         * sort order, the loaded limit, or the Case's `durationMode` changes; the last of those
-         * matters because [LogSortOrder.BY_END]'s "is this running?" check is only meaningful for a
-         * `START_STOP` Case (PROGRESS.md F4).
+         * sort order, the date range, the loaded limit, or the Case's `durationMode` changes; the
+         * last of those matters because [LogSortOrder.BY_END]'s "is this running?" check is only
+         * meaningful for a `START_STOP` Case (PROGRESS.md F4).
          */
         @OptIn(ExperimentalCoroutinesApi::class)
         private val logPage =
-            combine(repository.observeCase(caseId), logSortOrder, logLimit) { case, order, limit -> Triple(case, order, limit) }
+            combine(
+                repository.observeCase(caseId),
+                logSortOrder,
+                logDateFrom,
+                logDateTo,
+                logLimit,
+            ) { case, order, dateFrom, dateTo, limit -> LogPageQuery(case, order, dateFrom, dateTo, limit) }
                 .distinctUntilChanged()
-                .flatMapLatest { (case, order, limit) ->
-                    repository.observeLogEventsForCase(caseId, order, limit, case?.durationMode ?: DurationMode.NONE)
+                .flatMapLatest { query ->
+                    repository.observeLogEventsForCase(
+                        caseId,
+                        query.order,
+                        query.limit,
+                        query.case?.durationMode ?: DurationMode.NONE,
+                        query.dateFrom,
+                        query.dateTo,
+                    )
                 }
 
         val uiState: StateFlow<CaseDetailUiState> =
@@ -102,6 +134,9 @@ class CaseDetailViewModel
                 )
             }.combine(logPage) { partial, page -> partial.copy(logEvents = page.events, logHasMore = page.hasMore) }
                 .combine(logSortOrder) { partial, order -> partial.copy(logSortOrder = order) }
+                .combine(logDateFrom) { partial, dateFrom -> partial.copy(logDateFrom = dateFrom) }
+                .combine(logDateTo) { partial, dateTo -> partial.copy(logDateTo = dateTo) }
+                .combine(logVisibleFields) { partial, fields -> partial.copy(logVisibleFields = fields) }
                 .combine(repository.observeMostRecentLoggedAtAcrossActiveCases()) { partial, mostRecentActivityAcrossCasesAt ->
                     partial.copy(mostRecentActivityAcrossCasesAt = mostRecentActivityAcrossCasesAt)
                 }.stateIn(
@@ -118,6 +153,29 @@ class CaseDetailViewModel
         fun setLogSortOrder(order: LogSortOrder) {
             viewModelScope.launch { settingsRepository.setLogSortOrder(order) }
             logLimit.value = LOG_INITIAL_LIMIT
+        }
+
+        /** Same reset-the-window rationale as [setLogSortOrder]: a newly-narrowed range reads as a fresh top-[LOG_INITIAL_LIMIT]. */
+        fun setLogDateFrom(date: LocalDate?) {
+            viewModelScope.launch { settingsRepository.setLogDateFrom(date?.let { zone.startOfDayMillis(it) }) }
+            logLimit.value = LOG_INITIAL_LIMIT
+        }
+
+        /** See [setLogDateFrom]. `null` clears the upper bound back to "through today". */
+        fun setLogDateTo(date: LocalDate?) {
+            viewModelScope.launch { settingsRepository.setLogDateTo(date?.let { zone.endOfDayMillis(it) }) }
+            logLimit.value = LOG_INITIAL_LIMIT
+        }
+
+        /** Flips one field of the persisted Log-tab row-display preference — purely a rendering choice, so it doesn't reset [logLimit]. */
+        fun setLogFieldVisible(
+            field: LogRowField,
+            visible: Boolean,
+        ) {
+            viewModelScope.launch {
+                val current = settingsRepository.observeLogVisibleFields().first()
+                settingsRepository.setLogVisibleFields(if (visible) current + field else current - field)
+            }
         }
 
         /** "Show more" — cumulative, one-directional growth of the Log tab's loaded window. */

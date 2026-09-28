@@ -8,11 +8,16 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.LogRowField
+import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.domain.ChronologicalOrder
+import com.secondmonday.hodith.domain.LOG_SHARE_CARD_ENTRY_CAP
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.ui.casedetail.TRENDS_DEFAULT_VISIBLE_COUNT
+import com.secondmonday.hodith.ui.voice.PlainVoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -497,5 +502,201 @@ class ShareCardStateTest {
         // durationMode = MANUAL but no MANUAL-duration data was logged on these events, so
         // computeDurationStats legitimately returns null here -- only intensity is asserted non-null.
         assertTrue(data.intensity != null)
+    }
+
+    // ---- logShareCardState ----
+
+    private fun logShareEvent(
+        day: Long,
+        note: String? = null,
+        tags: List<TagEntity> = emptyList(),
+        intensity: Int? = null,
+        durationMinutes: Long? = null,
+    ) = EventWithTags(
+        EventEntity(
+            caseId = 1L,
+            occurredAt = millisAtDay(day),
+            endedAt = durationMinutes?.let { millisAtDay(day) + it * 60_000L },
+            intensity = intensity,
+            note = note,
+            loggedAt = millisAtDay(day),
+        ),
+        tags,
+    )
+
+    private val allLogFields = LogRowField.entries.toSet()
+
+    @Test
+    fun `logShareCardState suppresses duration and intensity when the Case doesn't track them, even if selected`() {
+        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
+        val events = listOf(logShareEvent(day = 0, intensity = 3, durationMinutes = 30))
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = events,
+                format = ShareCardFormat.STORY,
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = null,
+                dateTo = millisAtDay(NOW),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertNull(data.rows.single().detail)
+    }
+
+    @Test
+    fun `logShareCardState omits a field from the row when the user turns it off, even if the Case tracks it`() {
+        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = true)
+        val events = listOf(logShareEvent(day = 0, intensity = 3))
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = events,
+                format = ShareCardFormat.STORY,
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = null,
+                dateTo = millisAtDay(NOW),
+                fields = setOf(LogRowField.NOTES, LogRowField.TAGS),
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertNull(data.rows.single().detail)
+    }
+
+    @Test
+    fun `logShareCardState caps rows at LOG_SHARE_CARD_ENTRY_CAP and reports the pre-cap match count`() {
+        val case = testCase()
+        val events = (0 until LOG_SHARE_CARD_ENTRY_CAP + 5L).map { logShareEvent(day = it) }
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = events,
+                format = ShareCardFormat.STORY,
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = null,
+                dateTo = millisAtDay(events.size.toLong()),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(events.size.toLong()),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertEquals(LOG_SHARE_CARD_ENTRY_CAP, data.rows.size)
+        assertEquals(events.size, data.truncatedTotalCount)
+    }
+
+    @Test
+    fun `logShareCardState reports no truncation when matches fit under the cap`() {
+        val case = testCase()
+        val events = listOf(logShareEvent(day = 0), logShareEvent(day = 1))
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = events,
+                format = ShareCardFormat.STORY,
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = null,
+                dateTo = millisAtDay(NOW),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertNull(data.truncatedTotalCount)
+    }
+
+    @Test
+    fun `logShareCardState range label reads All time when dateFrom is unset and dateTo is today`() {
+        val case = testCase()
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = emptyList(),
+                format = ShareCardFormat.STORY,
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = null,
+                dateTo = millisAtDay(NOW),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertEquals(PlainVoice.shareLogRangeAllTimeLabel, data.rangeLabel)
+    }
+
+    @Test
+    fun `logShareCardState range label formats explicit bounds once narrowed`() {
+        val case = testCase()
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = emptyList(),
+                format = ShareCardFormat.STORY,
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = millisAtDay(10),
+                dateTo = millisAtDay(20),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertEquals("${formatEventDate(millisAtDay(10), ZONE)} – ${formatEventDate(millisAtDay(20), ZONE)}", data.rangeLabel)
+    }
+
+    @Test
+    fun `logShareCardState orders rows by the requested sort direction`() {
+        val case = testCase()
+        val events = listOf(logShareEvent(day = 0), logShareEvent(day = 5), logShareEvent(day = 10))
+
+        fun rowsFor(order: ChronologicalOrder) =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = events,
+                format = ShareCardFormat.STORY,
+                sortOrder = order,
+                dateFrom = null,
+                dateTo = millisAtDay(NOW),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            ).rows.map { it.timestamp }
+
+        assertEquals(rowsFor(ChronologicalOrder.NEWEST_FIRST), rowsFor(ChronologicalOrder.OLDEST_FIRST).reversed())
     }
 }

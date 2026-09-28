@@ -37,12 +37,21 @@ interface EventDao {
      * [limit] rows, `id DESC` breaking ties on an identical `occurredAt`. Log-tab-only: ongoing-event
      * detection, Insights/Hunch stats, and the Log tab's own summary line all need the full history
      * and keep using [observeEventsWithTagsForCase]. Callers fetch `limit + 1` and trim to detect
-     * whether more rows remain (see `RoomHodithRepository.observeLogEventsForCase`).
+     * whether more rows remain (see `RoomHodithRepository.observeLogEventsForCase`). [dateFrom]/
+     * [dateTo] narrow to `occurredAt` inclusively on either side; either `null` leaves that side
+     * unbounded (the Log tab's Range filter, spec §6/§13's reusable `filterAndSortEvents` pattern
+     * brought to a real DB query instead of an in-memory one).
      */
     @Transaction
-    @Query("SELECT * FROM events WHERE caseId = :caseId ORDER BY occurredAt DESC, id DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM events WHERE caseId = :caseId " +
+            "AND (:dateFrom IS NULL OR occurredAt >= :dateFrom) AND (:dateTo IS NULL OR occurredAt <= :dateTo) " +
+            "ORDER BY occurredAt DESC, id DESC LIMIT :limit",
+    )
     fun observeEventsWithTagsForCasePagedByStart(
         caseId: Long,
+        dateFrom: Long?,
+        dateTo: Long?,
         limit: Int,
     ): Flow<List<EventWithTags>>
 
@@ -52,12 +61,13 @@ interface EventDao {
      * `MANUAL`/`NONE` Case's events are never "running" the way the Log tab's sort toggle means it —
      * then by `endedAt` (or `occurredAt` for an end-less `MANUAL` entry, the same
      * `IFNULL(endedAt, occurredAt)` [getLatestEventEndForCase] already reads), then `occurredAt`,
-     * then `id`, all descending. Same `limit + 1` peek-ahead contract as
-     * [observeEventsWithTagsForCasePagedByStart].
+     * then `id`, all descending. Same `limit + 1` peek-ahead contract and [dateFrom]/[dateTo]
+     * narrowing as [observeEventsWithTagsForCasePagedByStart].
      */
     @Transaction
     @Query(
         "SELECT * FROM events WHERE caseId = :caseId " +
+            "AND (:dateFrom IS NULL OR occurredAt >= :dateFrom) AND (:dateTo IS NULL OR occurredAt <= :dateTo) " +
             "ORDER BY " +
             "CASE WHEN :isStartStopCase = 1 AND endedAt IS NULL THEN 1 ELSE 0 END DESC, " +
             "IFNULL(endedAt, occurredAt) DESC, occurredAt DESC, id DESC " +
@@ -66,6 +76,8 @@ interface EventDao {
     fun observeEventsWithTagsForCasePagedByEnd(
         caseId: Long,
         isStartStopCase: Boolean,
+        dateFrom: Long?,
+        dateTo: Long?,
         limit: Int,
     ): Flow<List<EventWithTags>>
 

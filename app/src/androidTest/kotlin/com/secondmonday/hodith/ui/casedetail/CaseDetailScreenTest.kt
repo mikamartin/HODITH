@@ -7,7 +7,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -19,11 +21,11 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.VerdictMetric
-import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
@@ -37,6 +39,9 @@ import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTime
+import com.secondmonday.hodith.viewmodel.formatSpanDate
+import com.secondmonday.hodith.viewmodel.startOfDayMillis
+import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -44,6 +49,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Second Compose UI instrumented test in the repo, closing the gap `TESTING.md` had twice
@@ -74,11 +81,15 @@ class CaseDetailScreenTest {
         logEvents: List<EventWithTags> = events,
         logHasMore: Boolean = false,
         logSortOrder: LogSortOrder = LogSortOrder.BY_START,
+        logDateFrom: Long? = null,
+        logDateTo: Long? = null,
+        logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
         activeHunch: HunchEntity? = null,
         hunchHistory: List<HunchEntity> = emptyList(),
         onEditCase: (Long) -> Unit = {},
         onOpenTriggers: (Long) -> Unit = {},
         onOpenShare: (Long) -> Unit = {},
+        onOpenLogShare: (Long) -> Unit = {},
         onOpenTrends: (Long) -> Unit = {},
         onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
         onSaveEvent: (LogDraft) -> Unit = {},
@@ -89,6 +100,9 @@ class CaseDetailScreenTest {
             { _, _, _, _, _, _ -> },
         onResolveHunch: (HunchEntity) -> Unit = {},
         onLogSortOrderChange: (LogSortOrder) -> Unit = {},
+        onLogDateFromChange: (LocalDate?) -> Unit = {},
+        onLogDateToChange: (LocalDate?) -> Unit = {},
+        onLogFieldVisibleChange: (LogRowField, Boolean) -> Unit = { _, _ -> },
         onShowMoreLogEvents: () -> Unit = {},
     ) {
         composeTestRule.setContent {
@@ -101,6 +115,9 @@ class CaseDetailScreenTest {
                             logEvents = logEvents,
                             logHasMore = logHasMore,
                             logSortOrder = logSortOrder,
+                            logDateFrom = logDateFrom,
+                            logDateTo = logDateTo,
+                            logVisibleFields = logVisibleFields,
                             activeHunch = activeHunch,
                             hunchHistory = hunchHistory,
                             isLoading = false,
@@ -110,6 +127,7 @@ class CaseDetailScreenTest {
                     onEditEvent = onEditEvent,
                     onOpenTriggers = onOpenTriggers,
                     onOpenShare = onOpenShare,
+                    onOpenLogShare = onOpenLogShare,
                     onOpenTrends = onOpenTrends,
                     newEventDraft = {
                         LogDraft(
@@ -129,6 +147,9 @@ class CaseDetailScreenTest {
                     onAddHunch = onAddHunch,
                     onResolveHunch = onResolveHunch,
                     onLogSortOrderChange = onLogSortOrderChange,
+                    onLogDateFromChange = onLogDateFromChange,
+                    onLogDateToChange = onLogDateToChange,
+                    onLogFieldVisibleChange = onLogFieldVisibleChange,
                     onShowMoreLogEvents = onShowMoreLogEvents,
                 )
             }
@@ -151,23 +172,83 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun headerActions_editTriggersAndShareIcons_invokeCallbacksWithCaseId() {
+    fun headerActions_editAndTriggersIcons_invokeCallbacksWithCaseId() {
         var editedCaseId: Long? = null
         var triggersCaseId: Long? = null
-        var shareCaseId: Long? = null
         setCaseDetailScreenContent(
             onEditCase = { editedCaseId = it },
             onOpenTriggers = { triggersCaseId = it },
-            onOpenShare = { shareCaseId = it },
         )
 
-        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
         composeTestRule.onNodeWithContentDescription(PlainVoice.triggersOpenDescription).performClick()
         composeTestRule.onNodeWithContentDescription(PlainVoice.caseDetailEditDescription).performClick()
 
-        assertEquals(startStopCase.id, shareCaseId)
         assertEquals(startStopCase.id, triggersCaseId)
         assertEquals(startStopCase.id, editedCaseId)
+    }
+
+    @Test
+    fun shareIcon_opensChooserDialog_ratherThanNavigatingDirectly() {
+        var shareCaseId: Long? = null
+        setCaseDetailScreenContent(onOpenShare = { shareCaseId = it })
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.shareChooserInsightOption).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareChooserLogOption).assertExists()
+        assertNull(shareCaseId)
+    }
+
+    @Test
+    fun shareChooser_confirmingTheDefaultInsightOption_invokesOnOpenShare() {
+        var shareCaseId: Long? = null
+        var logShareCaseId: Long? = null
+        setCaseDetailScreenContent(
+            onOpenShare = { shareCaseId = it },
+            onOpenLogShare = { logShareCaseId = it },
+        )
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
+        // The dialog's title and its confirm button share Insight Share's own "Share" label (same
+        // reuse SharePreviewScreen's title/button already do) -- .onLast() is the confirm button.
+        composeTestRule.onAllNodesWithText(PlainVoice.shareOpenDescription).onLast().performClick()
+
+        assertEquals(startStopCase.id, shareCaseId)
+        assertNull(logShareCaseId)
+    }
+
+    @Test
+    fun shareChooser_selectingLogShareThenConfirming_invokesOnOpenLogShare() {
+        var shareCaseId: Long? = null
+        var logShareCaseId: Long? = null
+        setCaseDetailScreenContent(
+            onOpenShare = { shareCaseId = it },
+            onOpenLogShare = { logShareCaseId = it },
+        )
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareChooserLogOption).performClick()
+        composeTestRule.onAllNodesWithText(PlainVoice.shareOpenDescription).onLast().performClick()
+
+        assertEquals(startStopCase.id, logShareCaseId)
+        assertNull(shareCaseId)
+    }
+
+    @Test
+    fun shareChooser_cancel_invokesNeitherCallback() {
+        var shareCaseId: Long? = null
+        var logShareCaseId: Long? = null
+        setCaseDetailScreenContent(
+            onOpenShare = { shareCaseId = it },
+            onOpenLogShare = { logShareCaseId = it },
+        )
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareChooserCancelAction).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.shareChooserInsightOption).assertDoesNotExist()
+        assertNull(shareCaseId)
+        assertNull(logShareCaseId)
     }
 
     @Smoke
@@ -304,9 +385,17 @@ class CaseDetailScreenTest {
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
         )
 
+        // The chip's own count text already reads the current selection ("Started" by default,
+        // rendered as ": Started" -- hence substring lookups here); the other option only surfaces
+        // once the chip opens its dialog.
         composeTestRule.onNodeWithText(PlainVoice.logSortLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.logSortByStartLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSortByStartLabel, substring = true).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel, substring = true).assertDoesNotExist()
+
+        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).performClick()
+
+        composeTestRule.onAllNodesWithText(PlainVoice.logSortByStartLabel, substring = true).assertCountEquals(2)
+        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel, substring = true).assertExists()
     }
 
     @Test
@@ -322,40 +411,95 @@ class CaseDetailScreenTest {
             onLogSortOrderChange = { changedTo = it },
         )
 
+        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).performClick()
 
         assertEquals(LogSortOrder.BY_END, changedTo)
     }
 
     @Test
-    fun logSortLabel_textHeight_matchesEventRowPrimaryLineHeight() {
-        // Regression guard for PROGRESS.md's "sort row is oversized" report: the sort label and the
-        // log rows below it should now share the same text style (bodyLarge), so their rendered
-        // text heights match rather than the sort row reading visually heavier.
-        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+    fun logDateChips_defaultToAllTime() {
         setCaseDetailScreenContent(
-            case = startStopCase,
-            events = listOf(EventWithTags(event = finished, tags = emptyList())),
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
         )
 
-        // useUnmergedTree: EventRow's outer Row is clickable, which merges its children's semantics
-        // into one node by default — without it, the time text's own bounds would come back as the
-        // whole row's (both lines + padding), not just its own line.
-        val sortLabelHeight =
-            composeTestRule
-                .onNodeWithText(PlainVoice.logSortLabel, useUnmergedTree = true)
-                .fetchSemanticsNode()
-                .boundsInRoot.height
-        val eventTimeHeight =
-            composeTestRule
-                .onNodeWithText(
-                    formatEventTime(finished.occurredAt, 10_000L, use24Hour = false, zone = finished.loggedZone()),
-                    substring = true,
-                    useUnmergedTree = true,
-                ).fetchSemanticsNode()
-                .boundsInRoot.height
+        composeTestRule.onNodeWithText(PlainVoice.shareLogDateFromLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareLogDateToLabel).assertExists()
+        composeTestRule.onAllNodesWithText(PlainVoice.shareLogRangeAllTimeLabel, substring = true).assertCountEquals(2)
+    }
 
-        assertEquals(eventTimeHeight, sortLabelHeight, 0.5f)
+    @Test
+    fun logDateChips_showFormattedBounds_whenRangeIsNarrowed() {
+        val zone = ZoneId.systemDefault()
+        val from = zone.startOfDayMillis(LocalDate.of(2026, 7, 3))
+        val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+            logDateFrom = from,
+            logDateTo = to,
+        )
+
+        composeTestRule.onNodeWithText(formatSpanDate(from.toLocalDateIn(zone)), substring = true).assertExists()
+        composeTestRule.onNodeWithText(formatSpanDate(to.toLocalDateIn(zone)), substring = true).assertExists()
+    }
+
+    @Test
+    fun logDateFromChip_tap_opensItsOwnPickerDirectly_notANestedDialog() {
+        // Regression guard: From/To each open the real DatePicker directly -- a combined "Range"
+        // chip that opened an InfoDialog which then opened a second, much bigger picker dialog on
+        // top of it is what broke (the InfoDialog's own two-button row overflowing and clipping
+        // the "To" button out of reach). One chip, one dialog now, same as every other filter chip.
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareLogDateFromLabel).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerCancel).assertExists()
+    }
+
+    @Test
+    fun logDetailEditIcon_tap_opensFieldsDialog_andTogglingNotesInvokesCallback() {
+        var toggled: Pair<LogRowField, Boolean>? = null
+        setCaseDetailScreenContent(
+            case = startStopCase.copy(durationMode = DurationMode.NONE, intensityEnabled = false),
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+            onLogFieldVisibleChange = { field, visible -> toggled = field to visible },
+        )
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.logDetailEditDescription).performClick()
+
+        // Duration/Intensity only offered when the Case tracks them (spec §6), same gating as Log Share's own field picker.
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelDuration).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertDoesNotExist()
+        // By tag, not by label text: the label/Switch semantics don't reliably merge into one
+        // clickable node in every context (see LOG_DETAIL_FIELD_TOGGLE_TAG_PREFIX's own doc comment).
+        composeTestRule.onNodeWithTag(LOG_DETAIL_FIELD_TOGGLE_TAG_PREFIX + LogRowField.NOTES.name).performClick()
+
+        assertEquals(LogRowField.NOTES to false, toggled)
+    }
+
+    @Test
+    fun eventRow_hidesNote_whenNotesFieldIsToggledOff() {
+        val event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, note = "a private note")
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = event, tags = emptyList())),
+            logVisibleFields = LogRowField.entries.toSet() - LogRowField.NOTES,
+        )
+
+        composeTestRule.onNodeWithText("a private note", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun logTab_showsEmptyRangeMessage_whenTheFilteredLogIsEmptyButHistoryIsNot() {
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
+            logEvents = emptyList(),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareLogEmptyRangeMessage).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.eventListEmptyState).assertDoesNotExist()
     }
 
     @Test
