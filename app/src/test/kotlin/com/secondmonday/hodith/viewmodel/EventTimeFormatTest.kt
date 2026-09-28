@@ -40,11 +40,6 @@ class EventTimeFormatTest {
     }
 
     @Test
-    fun `formatSpanDate is month and day, no year`() {
-        assertEquals("Jul 9", formatSpanDate(LocalDate.of(2026, 7, 9)))
-    }
-
-    @Test
     fun `formatSpanDateTime is month, day and time with no year, in both clock formats and the given zone`() {
         val utc = ZoneId.of("UTC")
         val millis = ZonedDateTime.of(2026, 7, 9, 8, 2, 0, 0, utc).toInstant().toEpochMilli()

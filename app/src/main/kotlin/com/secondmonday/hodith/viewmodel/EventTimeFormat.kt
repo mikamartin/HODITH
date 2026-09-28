@@ -103,9 +103,6 @@ internal fun formatClockTime(
     use24Hour: Boolean,
 ): String = time.format(if (use24Hour) TIME_ONLY_24H else TIME_ONLY_12H)
 
-/** "MMM d" — a span endpoint on the Big Picture grid. */
-internal fun formatSpanDate(date: LocalDate): String = date.format(SPAN_DATE_FORMATTER)
-
 /**
  * "MMM d, h:mm a" — a Big Picture ongoing/span endpoint that fell on a different day than the row
  * it's shown on, so the day alone would drop the actual start time and the time alone would read
