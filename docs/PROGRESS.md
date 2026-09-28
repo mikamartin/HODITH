@@ -92,109 +92,38 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
 
-### Big Picture: cross-case trend detection (design)
+### Hunch/Trigger relationship: feasibility & rework
 
-*Branch: `chore/big-picture-cross-case-trends-design` · Complexity: XL · Priority: Low · Area: Big Picture*
+*Branch: `chore/hunch-trigger-feasibility` · Complexity: L · Priority: Low · Area: Hunch*
 
-🎨 **Design decision** — a new engine and its statistical framework are a product call, not just an implementation detail. 🔍 **Investigation** — nothing here is spec'd enough to build yet.
+🎨 **Design decision** — whether Hunch and Trigger stay two entities, merge, or become something new is a product-positioning call, not just an implementation detail. 🔍 **Investigation** — nothing below is buildable until the feasibility question is answered.
 
-Expands HODITH_SPEC §17's "Computed cross-case co-occurrence" entry — data plumbing (`observeActiveCases`, `observeActiveCaseEventDetails`, `observeActiveCaseEventTagNames`) is in place; the real cost is statistical-honesty UX. Every Insights card looks at one Case in isolation; this computes connections across them.
+`AT_LEAST` triggers ("N+ times in a rolling window") and Hunches ("~N times per period", verdict computed over the whole observation window) currently overlap: a user with an active Hunch may re-enter nearly the same numbers to also get notified. They're not actually the same thing (rolling-window burst detection vs. whole-history average), so a naive prefill would misrepresent what the alert means. Current usage doesn't demonstrate that keeping them as two separate, similarly-shaped entities is the right call — the first step here is feasibility: could Hunch and Trigger be one entity, or does the overlap resolve some other way? That answer may require reworking HODITH_SPEC.md's Hunch/Trigger sections and how the app positions the two concepts, not just picking one of the options below.
 
-Candidate cross-Case detectors:
+Options considered for the narrower overlap question, still relevant regardless of how the feasibility question resolves:
 
-- **Lagged precedence** — for each B event, check whether an A event started within a lag window before it (3h/12h/24h/48h/72h), compare hit rate to baseline, run in reverse too; asymmetric lift suggests A leads (e.g. "late-night noise followed by a migraine the next day").
-- **Suppression** — same computation, lift below 1 ("migraines are less common in the 48 hours after a workout").
-- **Absence as a precursor** — test whether B is more likely when A's *current* gap exceeds A's own typical (75th-percentile) gap, not after A itself.
-- **Dose-response** — bucket A-count in the prior window (0/1/2+) and look for a steady rise in B's probability, intensity, or duration; the strongest causal hint available from observational data, deserving a higher confidence tier.
-- **Cross-case intensity/duration spillover** — does A's intensity/duration predict the severity of the next B?
-- **Shared shifts** — run change-point detection per-Case; if two Cases shift within ~2 weeks of each other, surface it ("workouts dropped and arguments rose around the same time in March").
+1. A genuinely new hunch-verdict-based alert kind, evaluated via the verdict engine rather than `TriggerEngine`.
+2. Prefill `AT_LEAST`'s fields from the active Hunch as a labelled approximation.
+3. Leave both engines as-is and just surface trigger creation contextually from the Hunch tab instead of a separate entry point.
 
-Architectural framework (applies to all six, and is the reusable piece other detector work should build on):
-
-- **`Finding` interface** — every detector returns effect size, support count, a significance score, sentence-template parameters, and evidence event IDs (for the drill-down the app already has elsewhere).
-- **Pipeline**: eligibility gating (same shape as existing card-visibility gates) → significance via circular shift (shift A's timeline by random offsets, ~200 runs, in whole-week steps to preserve weekday structure) → multiple-comparisons control (Benjamini-Hochberg across all pairs×lags from one run, plus a minimum lift ≥1.5/≤0.67 and support ≥5 hits) → stability check (effect holds in both history halves) → tiering (Hint → passed significance; Pattern → also stable; Strong connection → also directional with dose-response) → persist/dedupe (store `firstSeenAt` and last effect size, re-surface only on tier change, let users dismiss or mark "makes sense" and use that to rank future findings).
-- **Wording rules** — "often follows," "tends to come before," "less common after"; never "causes." The honest route to causation here is directional + dose-response + stable → offer a Hunch → confirm with future data (see the Hunch extensions item).
-- **Run cadence** — cheap within-Case work on event insert/edit; expensive cross-Case shift tests in a daily background job.
-
-Two prerequisites carried in from the raw idea list:
-
-- **Tags are global** — "home" is used by Coffee and Workout both, so any tag-aware detector must key on `(caseId, tagName)`, not tag name alone.
-- **No timezone stored** — resolved by `fix/event-timezone-offset` (events now carry their own captured UTC offset); any same-day/lag/time-of-day detector here can build on it.
-- **Logging lag / batch-logging exclusion** — `loggedAt - occurredAt` marks heavily backfilled events as fuzzy-timed; down-weight them in lag/time-of-day detectors, and exclude event pairs from different Cases logged within ~2 minutes of each other (batch logging creates fake co-occurrence).
-
-**Acceptance criteria**
-
-- [ ] A written architecture doc covering the `Finding` interface, the full pipeline, tiering, wording rules, and run cadence above.
-- [ ] A keep/drop call on each of the six detectors, with the pair-count-at-alpha-scale (8 Cases → 56 ordered pairs × 5 lags = 280 tests) sanity-checked against the multiple-comparisons control.
-- [ ] A ruling on where findings surface (a Big Picture section vs. a cross-Case Insights-adjacent screen).
-- [ ] A testing strategy: known patterns planted in `DemoDataSeeder.kt` (e.g. noise → migraine within 24h at 3× lift; a refractory gap after migraines) with a shuffled-null-data check that no detector invents a finding that isn't there.
-- [ ] `HODITH_SPEC.md` §17's "Computed cross-case co-occurrence" entry flagged for an update once any part of this is approved (not done in this item).
-- [ ] Anything approved spun out as its own implementation item. No production code in this item.
-
-**Plan** — write the architecture doc first, then rule detector-by-detector. A throwaway JVM spike for the circular-shift significance test specifically — the piece most likely to have a subtle bug (whole-week shifts, not arbitrary offsets).
-
-**Tests** — none; detector-level tests land with each spun-out implementation item, following the planted-pattern strategy above.
-
-### Notes mining for tag/Case suggestions
-
-*Branch: `feat/notes-mining-suggestions` · Complexity: M · Priority: Low · Area: Insights*
-
-🎨 **Design decision** — must read as an offer, never a nudge (spec §4's no-gamification stance applies directly to anything that reacts to how much a user logs or writes). One concrete UI option raised in testing: a dismissible note on Case Detail, as an alternative to a point-of-logging prompt.
-
-Normalize event notes, count repeated phrases, and offer a tag when one repeats 3+ times ("Burnt beans again" → suggested tag). Flag notes that mention another Case's name or a recurring cause word ("wine," "screen time") and offer "want to track this as its own Case?" Turns free text into testable data for the cross-case detectors (feeds the Big Picture item) without being a detector itself.
-
-**Acceptance criteria**
-
-- [ ] Phrase-repetition detection (≥3 occurrences) surfaces a tag suggestion at the point of logging, not a background nag.
-- [ ] Cross-Case-name / cause-word mentions surface a "track this as its own Case?" offer, dismissible with no repeat nagging on decline.
-- [ ] Confirmed against spec §4: no streak-like framing, no "you keep mentioning X" scolding tone — purely an offer.
-- [ ] Voice ×3 for the suggestion/offer copy.
-
-**Plan** — a simple normalize-and-count pass over `EventEntity.note` at logging time (no ML), feeding results into the existing suggestion filtering (`TagInput.kt:26` `filterTagSuggestions`) for the tag case; a new lightweight prompt for the Case-suggestion case.
-
-**Tests** — unit tests for the phrase-repetition threshold and cause-word matching; Compose coverage for the suggestion/offer UI appearing and being dismissible.
-
-### Hunch extensions: confidence projection, belief drift, perception gap
-
-*Branch: `feat/hunch-extensions` · Complexity: M · Priority: Low · Area: Hunch*
-
-🎨 **Design decision** — copy tone for each extension needs settling (avoid anything reading as pressure toward a particular verdict).
-
-Three independent extensions to the Hunch feature:
+Folded-in ideas — each parked until the feasibility question above is settled, since building any of them now risks doubling down on a shape that gets reworked:
 
 - **Time-to-confidence projection** — "At the current rate, CONFIDENT in about 9 days," projected off `confidenceTierFor(observationCount: Int, windowDays: Long)` (`VerdictEngine.kt:132-140`)'s existing `PRELIMINARY_MIN_EVENTS`/`CONFIDENT_MIN_EVENTS` and `*_MIN_DAYS` constants: given the Case's current event rate, solve for the day both thresholds clear.
-- **Belief drift across superseded Hunches** — when a Case has more than one Hunch over time on the same question (e.g. coffee: 3/day, then 2/day), say so: "Your expectation dropped, and the data agrees." No new query needed — `HunchDao.observeHunchHistory(caseId)` (`HunchDao.kt:27-28`) already returns every Hunch for a Case ordered `createdAt DESC`, and each resolved one already carries a frozen verdict snapshot (`HunchEntity`'s `resolved*` columns, `Verdict.kt`'s `withResolvedVerdictSnapshot`). The just-shipped resolved-Hunch list (`feat/resolved-hunch-list-redesign` — `CaseDetailScreen.kt`/`HunchTabState.kt`, 15-item retention cap via `HunchDao.deleteResolvedHunchesBeyondLimit`) is the natural surface for a belief-drift sentence between consecutive entries.
+- **Belief drift across superseded Hunches** — when a Case has more than one Hunch over time on the same question (e.g. coffee: 3/day, then 2/day), say so: "Your expectation dropped, and the data agrees." No new query needed — `HunchDao.observeHunchHistory(caseId)` (`HunchDao.kt:27-28`) already returns every Hunch for a Case ordered `createdAt DESC`, and each resolved one already carries a frozen verdict snapshot (`HunchEntity`'s `resolved*` columns, `Verdict.kt`'s `withResolvedVerdictSnapshot`). The resolved-Hunch list (`feat/resolved-hunch-list-redesign` — `CaseDetailScreen.kt`/`HunchTabState.kt`, 15-item retention cap via `HunchDao.deleteResolvedHunchesBeyondLimit`) is the natural surface for a belief-drift sentence between consecutive entries.
 - **Perception-gap framing for `JUST_CURIOUS`** — frame the result as how it felt vs. what the data shows, rather than a verdict against an expectation.
-
-A fourth extension — "when a cross-Case finding appears, offer to turn it into a Hunch" — is **blocked on** the Big Picture cross-case trend detection item shipping first, since it depends on that item's findings existing at all.
-
-**Acceptance criteria**
-
-- [ ] Time-to-confidence projection implemented as a `VerdictEngine` extension over `confidenceTierFor`'s existing thresholds, shown only where a Hunch is already `NO_VERDICT`→`PRELIMINARY` or `PRELIMINARY`→`CONFIDENT` trending.
-- [ ] Belief-drift sentence shown when `observeHunchHistory` returns more than one Hunch on a comparable question, comparing consecutive resolved snapshots' `resolvedExpectedRate`/`resolvedObservedRate`.
-- [ ] Perception-gap framing applied specifically to `HunchDirection.JUST_CURIOUS`.
-- [ ] Voice ×3 for all new copy.
-- [ ] Fourth extension noted as blocked, not attempted, until the Big Picture item lands.
-
-**Plan** — each extension is a `VerdictEngine`/Hunch-UI addition, shipped independently. Belief drift extends the existing resolved-Hunch history UI rather than building new plumbing.
-
-**Tests** — `VerdictEngineTest` coverage for the projection math and belief-drift comparison over a fixed `observeHunchHistory` fixture; Compose coverage for the perception-gap framing on `JUST_CURIOUS` Hunches.
-
-### Trigger: suggested threshold from historical percentile + backtest preview
-
-*Branch: `feat/trigger-threshold-suggestions` · Complexity: S–M · Priority: Low · Area: Hunch*
-
-Suggest a `SILENT_FOR` threshold from the Case's 90th-percentile historical gap. `InsightsEngine.computeGapStats` (`InsightsEngine.kt:63-99`) builds the gap list; this item adds a percentile helper over it (none exists today). When editing a trigger, show "would have fired N times in the last year" by replaying `evaluateAtLeast`/`evaluateSilentFor` (`TriggerEngine.kt:36-55`, both pure functions of `now`) over the past year's events — a historical loop, no new evaluation logic. Unrelated to HODITH_SPEC §17's parked "Hunch/Trigger relationship" item (the `AT_LEAST`/Hunch overlap question) — this is purely threshold-tuning UX.
+- **Trigger threshold suggestions** — suggest a `SILENT_FOR` threshold from the Case's 90th-percentile historical gap. `InsightsEngine.computeGapStats` (`InsightsEngine.kt:63-99`) builds the gap list; this would add a percentile helper over it (none exists today). When editing a trigger, show "would have fired N times in the last year" by replaying `evaluateAtLeast`/`evaluateSilentFor` (`TriggerEngine.kt:36-55`, both pure functions of `now`) over the past year's events — a historical loop, no new evaluation logic.
 
 **Acceptance criteria**
 
-- [ ] A percentile helper over `computeGapStats`'s gap list; `SILENT_FOR` trigger creation defaults its threshold suggestion to the Case's 90th-percentile result.
-- [ ] Trigger edit screen shows a historical-replay count ("would have fired N times in the last year") for the currently-entered threshold, for both `AT_LEAST` and `SILENT_FOR`, by replaying `evaluateAtLeast`/`evaluateSilentFor` over the past year's events.
-- [ ] Voice ×3 for the suggestion and replay-count copy.
+- [ ] A written feasibility call: keep Hunch and Trigger as two entities, merge them into one, or introduce a new entity — with rationale grounded in actual usage (alpha data) rather than the abstract overlap alone.
+- [ ] `HODITH_SPEC.md`'s Hunch (§7), Trigger (§11 Triggers subsection), and Vocabulary (§2) sections flagged for rework once the feasibility call is made, scoped to whichever entity shape wins.
+- [ ] If the two-entity shape survives: a decision among the three overlap options above, implemented.
+- [ ] Folded-in ideas (time-to-confidence projection, belief drift, perception-gap framing, trigger threshold suggestions) revisited only after the feasibility call, each re-scoped to whatever the winning shape turns out to be.
+- [ ] Voice ×3 for any new copy that results.
 
-**Plan** — add the percentile helper first (small, testable in isolation); then a `domain/` function that walks a Case's event history day-by-day (or event-by-event) calling the existing `evaluateAtLeast`/`evaluateSilentFor` with a historical `now`, counting rising-edge fires.
+**Plan** — parked until alpha testing shows how people actually use Hunches and Triggers, per the original spec note. When picked up: feasibility investigation first (no production code), then the overlap-option decision, then the folded-in ideas re-scoped to match.
 
-**Tests** — unit tests for the percentile helper against a known gap list; a backtest-count test against a fixture event sequence with known fire points for both trigger kinds; Compose coverage for both appearing on the trigger edit screen.
+**Tests** — none until the feasibility call is made; each folded-in idea keeps its own test shape (noted above) once re-scoped and picked up.
 
 ### Audit the hosted privacy policy and Play data-safety form
 
@@ -255,6 +184,29 @@ Not every gap here is equally risky — a composable that only reads `MaterialTh
 
 **Concern** — varying `LocalVoice`/`LocalCardDecorationStyle`/real theme colors in existing tests will surface any test currently passing only because it happens to match Plain's specific copy or Compose's default colors — expect some collateral fixes, not just new coverage.
 
+### No repository-level test coverage for the notification-eval scheduling side effect
+
+*Branch: none yet — needs a reusable test double designed first · Complexity: S–M · Priority: Low · Area: Repo*
+
+`RoomHodithRepository.deleteEventsOlderThan` fetches affected Case ids *before* deleting, then deletes, then calls `evaluateNotificationsForCase` per Case — the ordering isn't pinned by any test. Wider gap: `evaluateNotificationsForCase` → `NotificationEvalScheduler.schedule()` is untested at the repository level for every call site (`insertEvent`, `updateEvent`, `deleteEvent`, `deleteEventById`, not just `deleteEventsOlderThan`). `RoomHodithRepositoryBackupTest.kt` already documents the workaround: it inserts via `db.eventDao().insert(...)` directly to avoid triggering the wrapper's notification side effect against its intentionally-throwing `NotificationEvaluator` stand-in.
+
+The scheduler/evaluator chain itself is testable — `NotificationEvalSchedulerTest` (JVM) proves the full path with `FakeHodithRepository`/`FakeSettingsRepository`/`FakeClock`/`FakeNotifier`. Missing: an androidTest equivalent against a real `RoomHodithRepository`/`HodithDatabase`, without triggering `unusedScheduler()`'s deliberate error or routing around the wrapper methods. `FakeNotifier` also isn't reachable from `androidTest` — it's in `src/test`, a separate source set.
+
+Not blocking — every affected path self-heals within ~6 hours via `NotificationEvalWorker`'s periodic `evaluateAll` sweep. Coverage gap, not a correctness risk.
+
+**Acceptance criteria**
+
+- [ ] A reusable androidTest double/helper for the notification-eval side effect — real `NotificationEvalScheduler` + `NotificationEvaluator` wired to the `RoomHodithRepository` under test, with a `FakeNotifier`-equivalent double it can actually read from (moved to a shared source set, or reimplemented for `androidTest`).
+- [ ] `RoomHodithRepository.deleteEventsOlderThan`'s affected-Case-id-before-delete ordering pinned by a test using it — the concrete bug that prompted this item.
+- [ ] The same coverage extended to `insertEvent`/`updateEvent`/`deleteEvent`/`deleteEventById`'s `evaluateNotificationsForCase` call, currently untested at the repository level.
+- [ ] `RoomHodithRepositoryBackupTest.kt`'s raw-DAO insert workaround revisited once the double exists — it could go back to calling `repository.insertEvent(...)` directly instead of bypassing the wrapper, if that reads more naturally with the new double in place.
+
+**Plan** — mirror `NotificationEvalSchedulerTest`'s shape but swap in the real `RoomHodithRepository`/in-memory `HodithDatabase`, matching `RoomHodithRepositoryLogEventsTest`'s setup. Settle `FakeNotifier`'s reachability first (shared source set vs. `androidTest`-local reimplementation).
+
+**Tests** — this item's entire scope is new tests; see acceptance criteria above.
+
+**Concern** — none blocking. Trigger CRUD doesn't call `evaluateNotificationsForCase` today, unlike Event CRUD — noticed in passing, not evaluated here as correct or a bug.
+
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
@@ -313,30 +265,7 @@ Raises the same question **D1** is deferred pending — app capacity for years o
 
 **Tests** — none until a follow-up item lands.
 
-### D4 · No repository-level test coverage for the notification-eval scheduling side effect
-
-*Branch: none yet — needs a reusable test double designed first · Complexity: S–M · Priority: Low · Area: Repo*
-
-`RoomHodithRepository.deleteEventsOlderThan` fetches affected Case ids *before* deleting, then deletes, then calls `evaluateNotificationsForCase` per Case — the ordering isn't pinned by any test. Wider gap: `evaluateNotificationsForCase` → `NotificationEvalScheduler.schedule()` is untested at the repository level for every call site (`insertEvent`, `updateEvent`, `deleteEvent`, `deleteEventById`, not just `deleteEventsOlderThan`). `RoomHodithRepositoryBackupTest.kt` already documents the workaround: it inserts via `db.eventDao().insert(...)` directly to avoid triggering the wrapper's notification side effect against its intentionally-throwing `NotificationEvaluator` stand-in.
-
-The scheduler/evaluator chain itself is testable — `NotificationEvalSchedulerTest` (JVM) proves the full path with `FakeHodithRepository`/`FakeSettingsRepository`/`FakeClock`/`FakeNotifier`. Missing: an androidTest equivalent against a real `RoomHodithRepository`/`HodithDatabase`, without triggering `unusedScheduler()`'s deliberate error or routing around the wrapper methods. `FakeNotifier` also isn't reachable from `androidTest` — it's in `src/test`, a separate source set.
-
-Not blocking — every affected path self-heals within ~6 hours via `NotificationEvalWorker`'s periodic `evaluateAll` sweep. Coverage gap, not a correctness risk.
-
-**Acceptance criteria**
-
-- [ ] A reusable androidTest double/helper for the notification-eval side effect — real `NotificationEvalScheduler` + `NotificationEvaluator` wired to the `RoomHodithRepository` under test, with a `FakeNotifier`-equivalent double it can actually read from (moved to a shared source set, or reimplemented for `androidTest`).
-- [ ] `RoomHodithRepository.deleteEventsOlderThan`'s affected-Case-id-before-delete ordering pinned by a test using it — the concrete bug that prompted this item.
-- [ ] The same coverage extended to `insertEvent`/`updateEvent`/`deleteEvent`/`deleteEventById`'s `evaluateNotificationsForCase` call, currently untested at the repository level.
-- [ ] `RoomHodithRepositoryBackupTest.kt`'s raw-DAO insert workaround revisited once the double exists — it could go back to calling `repository.insertEvent(...)` directly instead of bypassing the wrapper, if that reads more naturally with the new double in place.
-
-**Plan** — mirror `NotificationEvalSchedulerTest`'s shape but swap in the real `RoomHodithRepository`/in-memory `HodithDatabase`, matching `RoomHodithRepositoryLogEventsTest`'s setup. Settle `FakeNotifier`'s reachability first (shared source set vs. `androidTest`-local reimplementation).
-
-**Tests** — this item's entire scope is new tests; see acceptance criteria above.
-
-**Concern** — none blocking. Trigger CRUD doesn't call `evaluateNotificationsForCase` today, unlike Event CRUD — noticed in passing, not evaluated here as correct or a bug.
-
-### D5 · Detector: cycles and seasonality (autocorrelation + month-of-year)
+### D4 · Detector: cycles and seasonality (autocorrelation + month-of-year)
 
 *Branch: none yet — deferred, scope narrowed · Complexity: L · Priority: Low · Area: Insights*
 

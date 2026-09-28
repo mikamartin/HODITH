@@ -48,7 +48,7 @@ The case → evidence → hunch → verdict framing is deliberate: it gives all 
 
 - **HODITH is not a habit tracker.** No streaks, points, scores, rewards, or reminders to "do the thing" — Cases are often about events nobody controls. If a feature idea pushes toward behaviour change rather than observation, it doesn't belong.
 - No cloud sync, accounts, or telemetry.
-- No computed cross-case correlation ("X causes Y") — the Big Picture shows co-occurrence visually; the math version is Future Work (§17).
+- No computed cross-case correlation ("X causes Y") — the Big Picture shows co-occurrence visually, not computed correlation.
 - No third-party charting library — v1 visuals are custom Compose.
 - No iOS, no tablet-optimised layouts.
 
@@ -329,7 +329,7 @@ Turning a finished (or in-progress) investigation into something you can drop in
   - toggle Insights sections on/off.
   Notes and tags are **never** included on this card — the redacted-summary premise is the whole point, and they're the most personal data in the app.
 - **Log Share** — a second card type, same rendered-image pipeline, showing the Case's actual logged entries (timestamp, and duration/intensity/note/tags per row, each field only offered when the Case tracks it) instead of Insights stats. Deliberately the opposite of the Insight card's redacted-summary rule above: raw notes/tags are the whole point of choosing this option, so nothing is held back. A Log filter (sort direction, date range, per-field toggles) curates what fits — the card caps at 30 entries regardless of format (a fixed floor for Square, not a ceiling, so both formats need the same safety limit), truncating to the most recent matches with an on-card note when the range holds more. The card shows its own resolved date range as a subtitle under the case name.
-- Entry point: the Case Detail header's Share icon opens a chooser (system dialog, radio-button style) between "Insight" and "Log" rather than acting immediately — the dialog's own title already says "Share", so the options don't repeat it. Sharing the Big Picture (multiple cases at once) is deliberately excluded — see §17.
+- Entry point: the Case Detail header's Share icon opens a chooser (system dialog, radio-button style) between "Insight" and "Log" rather than acting immediately — the dialog's own title already says "Share", so the options don't repeat it. Sharing the Big Picture (multiple cases at once) is deliberately excluded — several case names on one image multiplies the privacy footguns anonymisation would need to solve first.
 - HODITH branding on both card types is a small, unobtrusive footer ("counted with HODITH app") alongside the card's own generation date — honest attribution, not an ad. The "app" is there for discoverability: someone seeing a shared card should be able to search the phrase and find it. The date marks every section as a snapshot from that moment, since a Trends finding like a current silence streak is only true as of when the card was made.
 
 ## 14. Screens
@@ -368,43 +368,16 @@ Bottom navigation: **Home · Big Picture · Settings**.
 
 ## 17. Future work (deferred)
 
-Each item carries a trailer summarising what picking it up would cost: **Status** (whether any of it is already built), **Effort** (S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week), **Touches** (where the change lands), and **Lean** — a suggestion to inform the decision, not the decision itself. Nothing is dropped from this list on a lean alone.
-
-Three costs apply across almost every item and aren't repeated in each trailer:
-
-- **A new entity or column is three changes, not one** — a Room migration, a `BACKUP_SCHEMA_VERSION` bump, and import validation, since the export shape mirrors the tables one-for-one (§16).
-- **Every user-visible string is written three times**, once per Voice, in the same commit (§12).
-- **A schema bump now requires a real Room `Migration`** — `fallbackToDestructiveMigration` was removed once the schema hit `SCHEMA_FREEZE_POINT` (v6; v1–5 never shipped) — a fixed historical marker, not the current version. Check `HODITH_DATABASE_VERSION` in `HodithDatabase.kt` for the schema's actual current version, which keeps advancing as real migrations ship. A version bump with no matching migration fails a guard test (`SchemaMigrationCoverageTest`) instead of silently wiping local data.
+Ideas explicitly considered and set aside rather than built now. Each carries a trailer — **Status** (whether any of it is already built), **Effort** (S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week), **Touches** (where the change lands), **Lean** (a suggestion to inform the decision, not the decision itself).
 
 The list, in no particular priority order:
 
-- **Computed cross-case co-occurrence** — the math version of what the Big Picture shows visually. Statistically treacherous (small samples, confounders); needs UX that suggests, never asserts.
-
-  *Status: open · Effort: M · Touches: a new `domain/` engine, one Big Picture or Insights surface, Voice ×3 · Lean: hold — the cross-case data plumbing already exists (`observeActiveCases`, `observeActiveCaseEventDetails`, `observeActiveCaseEventTagNames`), so the real cost is the statistical-honesty UX, not the wiring.*
-- **Charting library evaluation** — if a custom Compose visual can't render acceptably across a multi-year range, evaluate Vico or similar. That range case is the only open trip-wire: the Big Picture grid has no pinch/continuous zoom by design (§9), and the calendar heatmap already reaches full history behind its show-more-months control.
-
-  *Status: open, on a trigger that hasn't been hit · Effort: S to evaluate · Touches: nothing until it is · Lean: abandon unless the range case appears in practice.*
-- **Tag-scoped verdicts & triggers** — verdicts and triggers narrowed to a tag ("rude *at dinner*"). Tag-level *insights* already shipped — §10's tag breakdown and §9's Big Picture tag filter — so what remains is teaching `VerdictEngine` and `TriggerEngine` to scope themselves to a tag.
-
-  *Status: open · Effort: L · Touches: `HunchEntity`/`TriggerEntity` schema, both domain engines, the Hunch and Triggers UI, Voice ×3 · Lean: hold.*
-- **Big Picture sharing** — a multi-case share card. Excluded from v1: several case names on one image multiplies the privacy footguns; needs careful anonymisation UX first.
-
-  *Status: open · Effort: L · Touches: share card templates, a new multi-case preview flow, Voice ×3 · Lean: hold — behind the anonymisation UX.*
-- **Animated story export** — the share card as a short video/GIF for stories. Static cards first.
-
-  *Status: open · Effort: L · Touches: the share pipeline's first non-static output (encoder dependency, larger files, a longer preview flow) · Lean: hold — behind a new media dependency in an app that currently ships none.*
 - **Confirmed-quiet checkpoints** — the check-in "All quiet" answer could be stored, letting verdicts distinguish confirmed silence from unknown silence and raising confidence accordingly. Adds an entity and verdict complexity; revisit after v1 data habits are observed.
 
   *Status: open — the "All quiet" action exists, but `CaseEntity.lastCheckInAt` keeps only a single overwritten re-arm anchor, read by check-in scheduling and never by `VerdictEngine`, so no history is being accumulated today · Effort: M · Touches: a new entity, `VerdictEngine` and its confidence tiers, Voice ×3 · Lean: hold until v1 data habits are observed, as written.*
-- **Hunch/Trigger relationship** — `AT_LEAST` triggers ("N+ times in a rolling window") and Hunches ("~N times per period", verdict computed over the whole observation window) currently overlap: a user with an active Hunch may re-enter nearly the same numbers to also get notified. They're not actually the same thing (rolling-window burst detection vs. whole-history average), so a naive prefill would misrepresent what the alert means. Options considered: (1) a genuinely new hunch-verdict-based alert kind, evaluated via the verdict engine rather than `TriggerEngine`; (2) prefill `AT_LEAST`'s fields from the active Hunch as a labelled approximation; (3) leave both engines as-is and just surface trigger creation contextually from the Hunch tab instead of a separate entry point. Deliberately left unresolved — revisit once alpha testing shows how people actually use the two features.
-
-  *Status: open · Effort: S–L depending on which option wins — (3) is UI-only, (1) and (2) reach the schema and the notification engines · Lean: parked until alpha testing, as written.*
 - **Weekly digest notification** — opt-in "your week in events" summary. Needs a product stance before implementation: a weekly recap of the user's own logging is the exact shape a streak takes, and §4 rules out anything reading as encouragement or scolding. It stays observational only if it reports what happened, never how diligently the user logged it.
 
   *Status: open · Effort: M · Touches: the WorkManager evaluation schedule, `Notifier`, a Settings toggle, Voice ×3 · Lean: hold — settle the copy stance first; it may not survive it.*
-- **Case grouping** — track related Cases as a named group (e.g. "Someone is always sick" spanning separate per-person/pet Cases) while keeping each Case's own Hunch/Verdict/Triggers independent. Distinct from Tags, which are event-level labels, not Case-to-Case relationships. Needs a cheap prototype before committing — likely touches the data model, Big Picture, and Insights aggregation.
-
-  *Status: open · Effort: L · Touches: a new entity, Home, Big Picture, Insights aggregation, Voice ×3 · Lean: prototype first, as written — the spread across three screens is what makes it L rather than M.*
 
 ## 18. Tech stack
 
