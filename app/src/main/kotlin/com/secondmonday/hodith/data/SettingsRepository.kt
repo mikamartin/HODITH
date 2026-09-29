@@ -46,6 +46,23 @@ interface SettingsRepository {
     suspend fun setLogSortOrder(order: LogSortOrder)
 
     /**
+     * The Log tab's Range filter (spec §6/§13) — device-wide, applied across every Case, same as
+     * [observeLogSortOrder] rather than a per-Case value. `null` on either side means unbounded.
+     */
+    fun observeLogDateFrom(): Flow<Long?>
+
+    suspend fun setLogDateFrom(millis: Long?)
+
+    fun observeLogDateTo(): Flow<Long?>
+
+    suspend fun setLogDateTo(millis: Long?)
+
+    /** The Log tab's per-row field selection (spec §6/§13) — device-wide, absent key defaults to every field on. */
+    fun observeLogVisibleFields(): Flow<Set<LogRowField>>
+
+    suspend fun setLogVisibleFields(fields: Set<LogRowField>)
+
+    /**
      * Big Picture's Case/Tag/Year filters (spec §9). `null` means "no filter stored" (everything
      * visible / all years) rather than a literal snapshot, so a Case or tag added later is visible
      * by default and a deleted one doesn't linger — see `BigPictureFilterState.resolveVisibleSelection`.

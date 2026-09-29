@@ -67,8 +67,14 @@ class RoomHodithRepositoryLogEventsTest {
 
             val page =
                 repository
-                    .observeLogEventsForCase(caseId, LogSortOrder.BY_START, limit = 3, durationMode = DurationMode.NONE)
-                    .first()
+                    .observeLogEventsForCase(
+                        caseId,
+                        LogSortOrder.BY_START,
+                        limit = 3,
+                        durationMode = DurationMode.NONE,
+                        dateFrom = null,
+                        dateTo = null,
+                    ).first()
 
             assertEquals(listOf(4L, 3L, 2L), page.events.map { it.event.occurredAt })
             assertTrue(page.hasMore)
@@ -81,8 +87,14 @@ class RoomHodithRepositoryLogEventsTest {
 
             val page =
                 repository
-                    .observeLogEventsForCase(caseId, LogSortOrder.BY_START, limit = 3, durationMode = DurationMode.NONE)
-                    .first()
+                    .observeLogEventsForCase(
+                        caseId,
+                        LogSortOrder.BY_START,
+                        limit = 3,
+                        durationMode = DurationMode.NONE,
+                        dateFrom = null,
+                        dateTo = null,
+                    ).first()
 
             assertEquals(3, page.events.size)
             assertFalse(page.hasMore)
@@ -96,8 +108,14 @@ class RoomHodithRepositoryLogEventsTest {
 
             val page =
                 repository
-                    .observeLogEventsForCase(caseId, LogSortOrder.BY_END, limit = 10, durationMode = DurationMode.START_STOP)
-                    .first()
+                    .observeLogEventsForCase(
+                        caseId,
+                        LogSortOrder.BY_END,
+                        limit = 10,
+                        durationMode = DurationMode.START_STOP,
+                        dateFrom = null,
+                        dateTo = null,
+                    ).first()
 
             assertEquals(listOf(running, finished), page.events.map { it.event.id })
         }
@@ -114,9 +132,46 @@ class RoomHodithRepositoryLogEventsTest {
 
             val page =
                 repository
-                    .observeLogEventsForCase(caseId, LogSortOrder.BY_END, limit = 10, durationMode = DurationMode.MANUAL)
-                    .first()
+                    .observeLogEventsForCase(
+                        caseId,
+                        LogSortOrder.BY_END,
+                        limit = 10,
+                        durationMode = DurationMode.MANUAL,
+                        dateFrom = null,
+                        dateTo = null,
+                    ).first()
 
             assertEquals(listOf(laterFinished, openEnded), page.events.map { it.event.id })
+        }
+
+    @Test
+    fun observeLogEventsForCase_narrowsToAnInclusiveDateFromDateToRange_unboundedOnEitherNullSide() =
+        runTest {
+            repeat(5) { i -> db.eventDao().insert(testEvent(caseId = caseId, occurredAt = i.toLong())) }
+
+            val narrowed =
+                repository
+                    .observeLogEventsForCase(
+                        caseId,
+                        LogSortOrder.BY_START,
+                        limit = 10,
+                        durationMode = DurationMode.NONE,
+                        dateFrom = 1L,
+                        dateTo = 3L,
+                    ).first()
+            assertEquals(listOf(3L, 2L, 1L), narrowed.events.map { it.event.occurredAt })
+            assertFalse(narrowed.hasMore)
+
+            val unboundedTo =
+                repository
+                    .observeLogEventsForCase(
+                        caseId,
+                        LogSortOrder.BY_START,
+                        limit = 10,
+                        durationMode = DurationMode.NONE,
+                        dateFrom = 3L,
+                        dateTo = null,
+                    ).first()
+            assertEquals(listOf(4L, 3L), unboundedTo.events.map { it.event.occurredAt })
         }
 }

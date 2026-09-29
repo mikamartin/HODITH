@@ -95,6 +95,7 @@ class CaseDetailInsightsTabTest {
                     onEditEvent = onEditEvent,
                     onOpenTriggers = {},
                     onOpenShare = {},
+                    onOpenLogShare = {},
                     onOpenTrends = {},
                     newEventDraft = {
                         LogDraft(
@@ -114,6 +115,9 @@ class CaseDetailInsightsTabTest {
                     onAddHunch = { _, _, _, _, _, _ -> },
                     onResolveHunch = {},
                     onLogSortOrderChange = {},
+                    onLogDateFromChange = {},
+                    onLogDateToChange = {},
+                    onLogFieldVisibleChange = { _, _ -> },
                     onShowMoreLogEvents = {},
                 )
             }

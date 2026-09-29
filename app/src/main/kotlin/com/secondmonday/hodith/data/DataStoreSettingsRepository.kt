@@ -25,6 +25,9 @@ private val LOG_SORT_ORDER_KEY = stringPreferencesKey("log_sort_order")
 private val BIG_PICTURE_VISIBLE_CASE_IDS_KEY = stringPreferencesKey("big_picture_visible_case_ids")
 private val BIG_PICTURE_VISIBLE_TAG_NAMES_KEY = stringPreferencesKey("big_picture_visible_tag_names")
 private val BIG_PICTURE_SELECTED_YEAR_KEY = stringPreferencesKey("big_picture_selected_year")
+private val LOG_DATE_FROM_KEY = stringPreferencesKey("log_date_from")
+private val LOG_DATE_TO_KEY = stringPreferencesKey("log_date_to")
+private val LOG_VISIBLE_FIELDS_KEY = stringPreferencesKey("log_visible_fields")
 
 @Singleton
 class DataStoreSettingsRepository
@@ -110,6 +113,39 @@ class DataStoreSettingsRepository
 
         override suspend fun setLogSortOrder(order: LogSortOrder) {
             dataStore.edit { preferences -> preferences[LOG_SORT_ORDER_KEY] = order.name }
+        }
+
+        override fun observeLogDateFrom(): Flow<Long?> =
+            dataStore.data.map { preferences -> preferences[LOG_DATE_FROM_KEY]?.toLongOrNull() }
+
+        override suspend fun setLogDateFrom(millis: Long?) {
+            dataStore.edit { preferences ->
+                if (millis == null) preferences.remove(LOG_DATE_FROM_KEY) else preferences[LOG_DATE_FROM_KEY] = millis.toString()
+            }
+        }
+
+        override fun observeLogDateTo(): Flow<Long?> = dataStore.data.map { preferences -> preferences[LOG_DATE_TO_KEY]?.toLongOrNull() }
+
+        override suspend fun setLogDateTo(millis: Long?) {
+            dataStore.edit { preferences ->
+                if (millis == null) preferences.remove(LOG_DATE_TO_KEY) else preferences[LOG_DATE_TO_KEY] = millis.toString()
+            }
+        }
+
+        /** Absent key (never stored, or every field explicitly re-selected) reads as every field on — matches [LogRowField]'s "all on" default elsewhere. */
+        override fun observeLogVisibleFields(): Flow<Set<LogRowField>> =
+            dataStore.data.map { preferences ->
+                preferences[LOG_VISIBLE_FIELDS_KEY]?.let { raw ->
+                    if (raw.isEmpty()) {
+                        emptySet()
+                    } else {
+                        raw.split(",").mapNotNull { name -> runCatching { LogRowField.valueOf(name) }.getOrNull() }.toSet()
+                    }
+                } ?: LogRowField.entries.toSet()
+            }
+
+        override suspend fun setLogVisibleFields(fields: Set<LogRowField>) {
+            dataStore.edit { preferences -> preferences[LOG_VISIBLE_FIELDS_KEY] = fields.joinToString(",") { it.name } }
         }
 
         override fun observeBigPictureVisibleCaseIds(): Flow<Set<Long>?> =

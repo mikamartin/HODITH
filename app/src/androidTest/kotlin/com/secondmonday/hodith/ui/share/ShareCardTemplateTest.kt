@@ -28,6 +28,7 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.FrequencyBar
 import com.secondmonday.hodith.viewmodel.FrequencyDisplay
+import com.secondmonday.hodith.viewmodel.LogCardRow
 import com.secondmonday.hodith.viewmodel.RhythmCellDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
@@ -65,7 +66,7 @@ class ShareCardTemplateTest {
     val composeTestRule = createComposeRule()
 
     private fun realityData(format: ShareCardFormat) =
-        ShareCardData(
+        ShareCardData.Insights(
             format = format,
             caseIcon = "☕",
             caseName = "Perfect coffee",
@@ -81,7 +82,7 @@ class ShareCardTemplateTest {
 
     /** Enough sections to reliably exceed Square's floor, so its no-clip behavior is actually exercised. */
     private fun richData(format: ShareCardFormat) =
-        ShareCardData(
+        ShareCardData.Insights(
             format = format,
             caseIcon = "☕",
             caseName = "Perfect coffee",
@@ -107,7 +108,7 @@ class ShareCardTemplateTest {
         )
 
     private fun hunchVsRealityData(format: ShareCardFormat) =
-        ShareCardData(
+        ShareCardData.Insights(
             format = format,
             caseIcon = "☕",
             caseName = "Perfect coffee",
@@ -308,5 +309,66 @@ class ShareCardTemplateTest {
         }
 
         composeTestRule.onNodeWithText(PlainVoice.shareCardFooter(formatEventDate(FIXTURE_GENERATED_AT_MILLIS))).assertExists()
+    }
+
+    private fun logData(
+        rows: List<LogCardRow>,
+        truncatedTotalCount: Int? = null,
+    ) = ShareCardData.Log(
+        format = ShareCardFormat.STORY,
+        caseIcon = "🤕",
+        caseName = "Migraine",
+        generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
+        rangeLabel = "All time",
+        rows = rows,
+        truncatedTotalCount = truncatedTotalCount,
+    )
+
+    @Test
+    fun logCardRendersKickerRangeAndEachRow() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(
+                    data = logData(rows = listOf(LogCardRow(timestamp = "Wed, Sep 9 · 8:14 PM", detail = "5h 20m · Intensity 4/5"))),
+                    voice = PlainVoice,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareLogCardKicker).assertExists()
+        composeTestRule.onNodeWithText("All time").assertExists()
+        composeTestRule.onNodeWithText("Wed, Sep 9 · 8:14 PM").assertExists()
+        composeTestRule.onNodeWithText("5h 20m · Intensity 4/5").assertExists()
+    }
+
+    @Test
+    fun logCardShowsTruncationNoteOnlyWhenCapped() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                Column {
+                    ShareCardTemplate(
+                        data = logData(rows = listOf(LogCardRow("Wed, Sep 9 · 8:14 PM", null)), truncatedTotalCount = null),
+                        voice = PlainVoice,
+                    )
+                    ShareCardTemplate(
+                        data = logData(rows = listOf(LogCardRow("Wed, Sep 9 · 8:14 PM", null)), truncatedTotalCount = 42),
+                        voice = PlainVoice,
+                    )
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareLogTruncationNote(1, 42)).assertExists()
+    }
+
+    @Test
+    fun logCardShowsEmptyRangeMessageWhenNoRowsMatch() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = logData(rows = emptyList()), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareLogEmptyRangeMessage).assertExists()
     }
 }

@@ -167,18 +167,8 @@ fun SharePreviewScreen(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                ShareCardTemplate(
-                    data = cardData,
-                    voice = voice,
-                    modifier =
-                        Modifier.drawWithContent {
-                            graphicsLayer.record { this@drawWithContent.drawContent() }
-                            drawLayer(graphicsLayer)
-                        },
-                )
-            }
-
+            // Controls first, preview second (matches Log Share's own screen order) — a long
+            // sections list would otherwise crowd the controls below the fold.
             SegmentedChoiceRow(
                 options =
                     listOf(
@@ -213,6 +203,18 @@ fun SharePreviewScreen(
                 voice = voice,
                 onSectionToggle = onSectionToggle,
             )
+
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                ShareCardTemplate(
+                    data = cardData,
+                    voice = voice,
+                    modifier =
+                        Modifier.drawWithContent {
+                            graphicsLayer.record { this@drawWithContent.drawContent() }
+                            drawLayer(graphicsLayer)
+                        },
+                )
+            }
 
             Button(onClick = onShareClick, modifier = Modifier.fillMaxWidth()) {
                 Text(voice.shareOpenDescription)

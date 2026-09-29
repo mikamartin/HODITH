@@ -73,14 +73,19 @@ class RoomHodithRepository
             order: LogSortOrder,
             limit: Int,
             durationMode: DurationMode,
+            dateFrom: Long?,
+            dateTo: Long?,
         ): Flow<LogEventsPage> {
             val rows =
                 when (order) {
-                    LogSortOrder.BY_START -> eventDao.observeEventsWithTagsForCasePagedByStart(caseId, limit = limit + 1)
+                    LogSortOrder.BY_START ->
+                        eventDao.observeEventsWithTagsForCasePagedByStart(caseId, dateFrom = dateFrom, dateTo = dateTo, limit = limit + 1)
                     LogSortOrder.BY_END ->
                         eventDao.observeEventsWithTagsForCasePagedByEnd(
                             caseId,
                             isStartStopCase = durationMode == DurationMode.START_STOP,
+                            dateFrom = dateFrom,
+                            dateTo = dateTo,
                             limit = limit + 1,
                         )
                 }

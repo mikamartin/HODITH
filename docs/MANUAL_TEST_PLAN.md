@@ -109,29 +109,54 @@ instrumented tests only assert are set, and the real permission dialog/banner ro
      banner without restarting the app.
    - **Grant:** no banner; notifications post as in items 1–3.
 
+## Log tab filters
+
+The chip row's own wiring (Sort/From/To chip rendering, each opening its picker directly, the Edit
+icon's field toggles and their gating, the empty-range message, persistence through
+`SettingsRepository`) is covered by `CaseDetailScreenTest`/`CaseDetailViewModelTest`. As with Log
+Share's own date pickers (see Share cards item 6), no instrumented test in this repo drives a real
+Material3 `DatePicker`'s calendar-day tap — only this step below.
+
+1. **Log tab's From/To chips each pick a real date and narrow the row list.** On a Case with events
+   spread across more than one day, open the Log tab, tap the "From" chip (then separately the "To"
+   chip) and pick an actual day on each one's calendar — the row list narrows to that range, and each
+   chip's own collapsed text updates to show the picked date, not just "All time". Confirm the "To"
+   picker refuses a future date the same way Log Share's own "To" picker does.
+
 ## Share cards
 
-The card assembly logic (top-beat selection, section filtering, display-name override) is unit-tested
-(`ShareCardStateTest`) and the preview screen's own gating is instrumented-tested
-(`SharePreviewScreenTest`, not yet run on-device — see TESTING.md's Known environment issues). These
-steps are about the parts only a real device/FileProvider/share-sheet handoff can prove: the actual
-bitmap capture, the system share sheet, and how the image looks once it lands somewhere else.
+The card assembly logic (top-beat selection, section filtering, display-name override, and Log
+Share's filter/cap) is unit-tested (`ShareCardStateTest`) and both preview screens' own gating is
+instrumented-tested (`SharePreviewScreenTest`, `LogSharePreviewScreenTest`). These steps are about
+the parts only a real device/FileProvider/share-sheet handoff can prove: the actual bitmap capture,
+the system share sheet, and how the image looks once it lands somewhere else.
 
-1. **Share sheet opens with a real image.** From a Case with a handful of logged events, tap the
-   Share icon on Case Detail's header, then tap Share on the preview screen — the system share sheet
-   opens, and picking a target (e.g. a messenger app, or "Save to Photos") produces the actual
-   rendered card image, not a blank/corrupt file.
-2. **Story vs. Square both render correctly end to end.** Toggle between Story and Square on the
-   preview screen — both formats produce a correctly-shaped image through the full capture → share
-   pipeline (not just in the in-app preview).
-3. **All three themes render correctly through the real pipeline.** Switch the app's theme
-   (Settings) between Plain/Intense/Bright, then share from the same Case each time — the captured
-   image matches that theme's skin (Intense's stamp, Bright's banner/sticker), not a stale or
-   default one.
+1. **The chooser opens and each option reaches the real share sheet with a real image.** From a
+   Case with a handful of logged events, tap the Share icon on Case Detail's header — a dialog
+   offers "Insight" and "Log". Pick Insight, tap Share on the preview screen — the
+   system share sheet opens, and picking a target (e.g. a messenger app, or "Save to Photos")
+   produces the actual rendered card image, not a blank/corrupt file. Repeat picking Log
+   instead.
+2. **Story vs. Square both render correctly end to end**, for both card types. Toggle between Story
+   and Square on the preview screen — both formats produce a correctly-shaped image through the full
+   capture → share pipeline (not just in the in-app preview).
+3. **All three themes render correctly through the real pipeline**, for both card types. Switch the
+   app's theme (Settings) between Plain/Intense/Bright, then share from the same Case each time — the
+   captured image matches that theme's skin (Intense's stamp, Bright's banner/sticker), not a stale
+   or default one.
 4. **Edited display name shows up on the shared image.** Type a custom name in the preview screen's
    name field, then share — the exported image shows the typed name, not the Case's actual name.
 5. **Section checklist choices are reflected in the shared image**, not just the in-app preview —
    toggle a couple of sections off/on and confirm the exported image matches what was checked.
+6. **Log Share's date-range/sort/field pickers are reflected in the shared image.** On the Log Share
+   screen, narrow the date range (both the "From" and "To" date pickers), flip the sort order, and
+   toggle a field off — share, and confirm the exported image matches what was configured, not the
+   in-app preview alone. Also confirm the "To" picker's calendar genuinely refuses a future date and
+   the "From" picker refuses a date later than the current "To" (not just that the app's own state
+   happens to stay in range).
+7. **Log Share's entry-count cap is reflected in the shared image**, not just the on-screen preview —
+   on a Case with more than 30 logged events, share with the range widened to include all of them and
+   confirm the exported image shows the truncation note, not silently more or fewer rows than the cap.
 
 ## About & Contact
 

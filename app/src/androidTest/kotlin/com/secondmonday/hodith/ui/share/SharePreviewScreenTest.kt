@@ -200,10 +200,10 @@ class SharePreviewScreenTest {
         )
 
         // By tag, not by the "Rhythm" label text: that text can also appear in the live card
-        // preview above once it has real data, so the tag is the only unambiguous target.
-        // performScrollTo() first: the screen's a scrolling Column and this row can sit below the
-        // fold, and the v2 test API's performClick() needs the target actually reachable, not just
-        // present in the semantics tree.
+        // preview elsewhere on the screen once it has real data, so the tag is the only
+        // unambiguous target. performScrollTo() first: the screen's a scrolling Column and this
+        // row can sit below the fold, and the v2 test API's performClick() needs the target
+        // actually reachable, not just present in the semantics tree.
         composeTestRule
             .onNodeWithTag(SECTION_TOGGLE_TAG_PREFIX + ShareInsightsSection.RHYTHM.name)
             .performScrollTo()

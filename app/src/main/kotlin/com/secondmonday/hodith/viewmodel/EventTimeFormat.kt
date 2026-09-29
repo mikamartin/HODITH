@@ -71,6 +71,22 @@ internal fun formatEventDate(
     zone: ZoneId = ZoneId.systemDefault(),
 ): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(MEDIUM_DATE_FORMATTER)
 
+/**
+ * A log date-range bound: "MMM d" when [occurredAt] falls in the same calendar year as [now],
+ * "MMM d, yyyy" otherwise — the same same-year rationale as [formatEventTime], applied to a bare
+ * date. Used by the Log Share card's range subtitle and the Log tab/Log Share range note/button,
+ * so all three format bounds identically before handing them to a Voice range-note function.
+ */
+internal fun formatDateRangeBound(
+    occurredAt: Long,
+    now: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String {
+    val zoned = Instant.ofEpochMilli(occurredAt).atZone(zone)
+    val sameYear = zoned.year == Instant.ofEpochMilli(now).atZone(zone).year
+    return zoned.format(if (sameYear) SPAN_DATE_FORMATTER else MEDIUM_DATE_FORMATTER)
+}
+
 /** Time-only counterpart of [formatEventTime], for the log sheet's separate date/time buttons. */
 internal fun formatEventTimeOfDay(
     occurredAt: Long,
@@ -86,9 +102,6 @@ internal fun formatClockTime(
     time: LocalTime,
     use24Hour: Boolean,
 ): String = time.format(if (use24Hour) TIME_ONLY_24H else TIME_ONLY_12H)
-
-/** "MMM d" — a span endpoint on the Big Picture grid. */
-internal fun formatSpanDate(date: LocalDate): String = date.format(SPAN_DATE_FORMATTER)
 
 /**
  * "MMM d, h:mm a" — a Big Picture ongoing/span endpoint that fell on a different day than the row

@@ -112,9 +112,16 @@ class FakeHodithRepository : HodithRepository {
         order: LogSortOrder,
         limit: Int,
         durationMode: DurationMode,
+        dateFrom: Long?,
+        dateTo: Long?,
     ): Flow<LogEventsPage> =
         combine(events, tags, eventTags) { eventList, tagList, crossRefs ->
-            val forCase = eventList.filter { it.caseId == caseId }
+            val forCase =
+                eventList.filter {
+                    it.caseId == caseId &&
+                        (dateFrom == null || it.occurredAt >= dateFrom) &&
+                        (dateTo == null || it.occurredAt <= dateTo)
+                }
             val ordered =
                 when (order) {
                     LogSortOrder.BY_START ->

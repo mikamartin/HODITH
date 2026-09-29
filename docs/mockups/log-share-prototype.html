@@ -1,0 +1,849 @@
+<title>Log Share Cards</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;700&family=Source+Serif+4:wght@400;600&family=Baloo+2:wght@500;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --devpanel-bg: #ffffff; --devpanel-fg: #1c2226; --devpanel-muted: #5b6670;
+  --devpanel-border: #dde3e6; --devpanel-accent: #3a6b76; --stage-bg: #eef1f3;
+  --warn-bg: #fff4e5; --warn-border: #f0c987; --warn-fg: #6b4a12;
+  --note-bg: #eef6f4; --note-border: #bcdbd2; --note-fg: #1c453d;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --devpanel-bg: #181c1f; --devpanel-fg: #e7ecef; --devpanel-muted: #96a3ab;
+    --devpanel-border: #2a3237; --devpanel-accent: #6fa8b5; --stage-bg: #101315;
+    --warn-bg: #2c2410; --warn-border: #5c481c; --warn-fg: #e8c37a;
+    --note-bg: #17231f; --note-border: #2c463d; --note-fg: #a9d6c9;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --devpanel-bg: #181c1f; --devpanel-fg: #e7ecef; --devpanel-muted: #96a3ab;
+  --devpanel-border: #2a3237; --devpanel-accent: #6fa8b5; --stage-bg: #101315;
+  --warn-bg: #2c2410; --warn-border: #5c481c; --warn-fg: #e8c37a;
+  --note-bg: #17231f; --note-border: #2c463d; --note-fg: #a9d6c9;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --devpanel-bg: #ffffff; --devpanel-fg: #1c2226; --devpanel-muted: #5b6670;
+  --devpanel-border: #dde3e6; --devpanel-accent: #3a6b76; --stage-bg: #eef1f3;
+  --warn-bg: #fff4e5; --warn-border: #f0c987; --warn-fg: #6b4a12;
+  --note-bg: #eef6f4; --note-border: #bcdbd2; --note-fg: #1c453d;
+}
+
+/* ---- Plain ---- */
+.card[data-skin="plain"] {
+  --bg: #EAF5FC; --on-bg: #071620; --surface: #FFFFFF; --on-surface: #071620;
+  --surface-variant: #CFE8F8; --on-surface-variant: #164156; --surface-high: #E9ECEE;
+  --outline: #6FB8DE; --outline-variant: #9CCEE8;
+  --primary: #3A6B76; --on-primary: #FFFFFF; --primary-container: #C7E8ED; --on-primary-container: #082024;
+  --secondary: #12394C; --on-secondary: #FFFFFF; --secondary-container: #CCE6F5; --on-secondary-container: #0A2A36;
+  --font-display: 'Inter', system-ui, sans-serif; --font-display-weight: 600; --font-body: 'Inter', system-ui, sans-serif;
+  --radius-md: 8px; --radius-lg: 8px;
+}
+.card[data-skin="plain"][data-mode="dark"] {
+  --bg: #14181B; --on-bg: #E7ECEF; --surface: #1C2226; --on-surface: #E7ECEF;
+  --surface-variant: #3A444A; --on-surface-variant: #96A3AB; --surface-high: #232A2E;
+  --outline: #2A3237; --outline-variant: #3A444A;
+  --primary: #6FA8B5; --on-primary: #0B1416; --primary-container: #1F3A40; --on-primary-container: #C7E8ED;
+  --secondary: #B8C4C9; --on-secondary: #283338; --secondary-container: #3F4C51; --on-secondary-container: #D4E0E4;
+}
+
+/* ---- Intense ---- */
+.card[data-skin="intense"] {
+  --bg: #FAFAF8; --on-bg: #141414; --surface: #FFFFFF; --on-surface: #141414;
+  --surface-variant: #E3E3E1; --on-surface-variant: #6B6B6B; --surface-high: #EDEDEB;
+  --outline: #3D3D3D; --outline-variant: #D8D8D6;
+  --primary: #A3132E; --on-primary: #FFFFFF; --primary-container: #FFD9DE; --on-primary-container: #3F0012;
+  --secondary: #5A5A5E; --on-secondary: #FFFFFF; --secondary-container: #E3E3E1; --on-secondary-container: #1C1C1E;
+  --font-display: 'Oswald', 'Arial Narrow', sans-serif; --font-display-weight: 700; --font-body: 'Source Serif 4', Georgia, serif;
+  --radius-md: 2px; --radius-lg: 2px;
+}
+.card[data-skin="intense"][data-mode="dark"] {
+  --bg: #0D0D0F; --on-bg: #F2F2F0; --surface: #18181B; --on-surface: #F2F2F0;
+  --surface-variant: #3A3A3E; --on-surface-variant: #9A9A9E; --surface-high: #232326;
+  --outline: #3A3A3E; --outline-variant: #2A2A2D;
+  --primary: #D0324C; --on-primary: #FFFFFF; --primary-container: #5C0A1F; --on-primary-container: #FFD9DE;
+  --secondary: #B8B8BC; --on-secondary: #2A2A2D; --secondary-container: #3F3F43; --on-secondary-container: #EAEAEC;
+}
+
+/* ---- Bright ---- */
+.card[data-skin="bright"] {
+  --bg: #FFF7ED; --on-bg: #794531; --surface: #FFFFFF; --on-surface: #794531;
+  --surface-variant: #F2E4D4; --on-surface-variant: #79654F; --surface-high: #FBEEE0;
+  --outline: #F2DCC4; --outline-variant: #F6E9D9;
+  --primary: #FF6B4A; --on-primary: #FFFFFF; --primary-container: #FFDBCF; --on-primary-container: #3A0900;
+  --secondary: #17B3A3; --on-secondary: #FFFFFF; --secondary-container: #CBF1EB; --on-secondary-container: #00201C;
+  --font-display: 'Baloo 2', 'Comic Sans MS', cursive, sans-serif; --font-display-weight: 700; --font-body: 'Nunito', system-ui, sans-serif;
+  --radius-md: 20px; --radius-lg: 24px;
+}
+.card[data-skin="bright"][data-mode="dark"] {
+  --bg: #2A1E1A; --on-bg: #FFF3E6; --surface: #35271F; --on-surface: #FFF3E6;
+  --surface-variant: #4A372C; --on-surface-variant: #C9AF9C; --surface-high: #403026;
+  --outline: #4A372C; --outline-variant: #5C4736;
+  --primary: #FF8266; --on-primary: #3A0900; --primary-container: #5C2210; --on-primary-container: #FFDBCF;
+  --secondary: #34D6C4; --on-secondary: #00201C; --secondary-container: #0B4A42; --on-secondary-container: #CBF1EB;
+}
+
+* { box-sizing: border-box; }
+html, body { height: auto; }
+body {
+  margin: 0; padding: 24px 16px 48px; background: var(--stage-bg); color: var(--devpanel-fg);
+  font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { text-wrap: balance; }
+code { font-size: 0.92em; }
+
+.stage {
+  display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 28px; align-items: start; max-width: 1280px; margin: 0 auto;
+}
+@media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+/* ---------- Dev panel ---------- */
+.devpanel {
+  background: var(--devpanel-bg); border: 1px solid var(--devpanel-border); border-radius: 12px;
+  padding: 20px 22px; position: sticky; top: 16px;
+}
+@media (max-width: 900px) { .devpanel { position: static; } }
+.devpanel h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; letter-spacing: 0.01em; }
+.kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--devpanel-accent); font-weight: 600; margin: 0 0 10px; }
+.devpanel p.note { font-size: 13px; line-height: 1.55; color: var(--devpanel-muted); margin: 0 0 18px; }
+.field { margin-bottom: 16px; }
+.field label.fieldlabel {
+  display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--devpanel-muted); font-weight: 600; margin-bottom: 8px;
+}
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button {
+  font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 10px;
+  border-radius: 7px; border: 1px solid var(--devpanel-border); background: transparent;
+  color: var(--devpanel-fg); cursor: pointer; line-height: 1.2;
+}
+.seg button:hover { border-color: var(--devpanel-accent); }
+.seg button.is-active { background: var(--devpanel-accent); border-color: var(--devpanel-accent); color: #fff; }
+
+.daterow { display: flex; gap: 8px; align-items: center; }
+.daterow input[type="date"] {
+  font-family: inherit; font-size: 12.5px; padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--devpanel-border); background: var(--devpanel-bg); color: var(--devpanel-fg); flex: 1; min-width: 0;
+}
+.daterow span { font-size: 11px; color: var(--devpanel-muted); }
+.hint { font-size: 11px; color: var(--devpanel-muted); margin: 6px 0 0; line-height: 1.4; }
+.capinput { display: flex; align-items: center; gap: 8px; }
+.capinput input {
+  width: 64px; font-family: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--devpanel-border); background: var(--devpanel-bg); color: var(--devpanel-fg);
+}
+
+.decided { background: var(--note-bg); border: 1px solid var(--note-border); color: var(--note-fg); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; margin-bottom: 14px; }
+.decided strong { display: block; margin-bottom: 2px; }
+
+.questions { border-top: 1px solid var(--devpanel-border); padding-top: 16px; margin-top: 4px; }
+.questions h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--devpanel-accent); margin: 0 0 8px; }
+.questions ol { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: var(--devpanel-fg); }
+.questions li { margin-bottom: 8px; }
+.questions .reco { display: block; color: var(--devpanel-muted); margin-top: 2px; }
+
+/* ---------- Sections ---------- */
+.section { margin-bottom: 44px; }
+.section > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--devpanel-muted); margin: 0 0 6px; font-weight: 700; }
+.section > p.lede { font-size: 13.5px; line-height: 1.55; color: var(--devpanel-fg); margin: 0 0 18px; max-width: 62ch; }
+
+/* ---------- Phone-shell chrome (shared by every "real screen" mock) ---------- */
+.appbar-row { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+.appbar-frame { display: flex; flex-direction: column; gap: 8px; width: 260px; }
+.appbar-frame.screen-frame { width: 300px; }
+.appbar-frame .frame-label { font-size: 12px; font-weight: 600; color: var(--devpanel-muted); }
+.phone-shell { background: #fff; border: 1px solid var(--devpanel-border); border-radius: 14px; overflow: hidden; box-shadow: 0 10px 28px -14px rgba(0,0,0,0.3); }
+.appbar {
+  display: flex; align-items: center; gap: 8px;
+  background: #FFFFFF; color: #071620; padding: 8px 6px; font-family: 'Inter', system-ui, sans-serif;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+}
+.appbar .title { font-size: 17px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.appbar .title .icon-glyph { font-size: 18px; }
+.appbar .actions { display: flex; gap: 0; }
+.appbar .spacer { flex: 1; }
+.appbar .icon-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; color: #071620;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; flex: none;
+}
+.appbar .icon-btn svg { width: 22px; height: 22px; }
+.appbar .icon-btn:hover { background: rgba(7,22,32,0.08); }
+.phone-body { background: #EAF5FC; min-height: 64px; padding: 14px; position: relative; }
+
+/* ---- A real AlertDialog (mirrors ExportFormatDialog.kt: title, RadioButton rows with an
+   indented description, Cancel/Confirm text buttons) -- reused for Option B's chooser AND
+   section 4's three filter dialogs (Sort/Range/Fields) ---- */
+.dialog-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center;
+  justify-content: center; padding: 10px; z-index: 5;
+}
+.dialog-box { background: #fff; border-radius: 24px; padding: 18px; width: 100%; max-width: 100%; box-shadow: 0 12px 32px -8px rgba(0,0,0,0.4); }
+.dialog-box .dialog-title { font-size: 17px; font-weight: 500; color: #071620; margin: 0 0 16px; }
+.dialog-option { display: flex; align-items: center; cursor: pointer; }
+.dialog-option .radio { width: 32px; flex: none; display: flex; align-items: center; justify-content: center; }
+.dialog-option .radio svg { width: 20px; height: 20px; }
+.dialog-option .opt-label { font-size: 15.5px; color: #071620; padding-left: 12px; }
+.dialog-option + .opt-desc { margin: 0 0 12px 32px; font-size: 12.5px; color: #164156; opacity: 0.8; line-height: 1.4; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 8px; }
+.dialog-actions button {
+  font-family: inherit; font-size: 13.5px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
+  color: #3A6B76; background: none; border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer;
+}
+.dialog-actions button:hover { background: rgba(58,107,118,0.1); }
+.dialog-daterow { display: flex; gap: 8px; margin-bottom: 4px; }
+.dialog-daterow input[type="date"] {
+  flex: 1; min-width: 0; font-family: inherit; font-size: 13px; padding: 8px; border-radius: 6px; border: 1px solid #CFCFCF;
+}
+
+/* ---- Real Material 3 controls used inside the screen mocks (SegmentedButton, ToggleRow/Switch) ---- */
+.m3-row-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #5B6670; font-weight: 700; margin: 16px 0 7px; }
+.m3-row-label:first-child { margin-top: 4px; }
+.m3-seg { display: flex; border: 1px solid #79747E; border-radius: 20px; overflow: hidden; }
+.m3-seg button {
+  flex: 1; border: none; border-right: 1px solid #79747E; background: #fff; color: #071620;
+  font-family: inherit; font-size: 12.5px; font-weight: 500; padding: 8px 6px; cursor: pointer;
+}
+.m3-seg button:last-child { border-right: none; }
+.m3-seg button.is-active { background: #CCE6F5; color: #0A2A36; font-weight: 700; }
+
+.switchrow { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; cursor: pointer; }
+.switchrow.is-disabled { cursor: default; opacity: 0.4; }
+.switchrow .sr-label { font-size: 14.5px; color: #071620; }
+.m3-switch {
+  width: 34px; height: 20px; border-radius: 10px; background: #CFCFCF; position: relative;
+  transition: background .15s; flex: none;
+}
+.m3-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.switchrow[data-on="true"] .m3-switch { background: #3A6B76; }
+.switchrow[data-on="true"] .m3-switch::after { left: 16px; }
+
+.m3-datebtn-row { display: flex; gap: 8px; }
+.m3-datebtn {
+  flex: 1; border: 1px solid #79747E; background: transparent; border-radius: 20px; padding: 8px 6px;
+  font-family: inherit; font-size: 11.5px; color: #071620; text-align: center; cursor: pointer;
+}
+.m3-primary-btn {
+  display: block; width: 100%; margin-top: 20px; border: none; border-radius: 20px; padding: 12px;
+  background: #3A6B76; color: #fff; font-family: inherit; font-size: 14px; font-weight: 600;
+  text-align: center; cursor: pointer;
+}
+.mini-card-wrap { display: flex; justify-content: center; }
+.mini-card-wrap .card { width: 270px; }
+.match-count { font-size: 11.5px; color: #164156; opacity: 0.75; text-align: center; margin: 10px 0 2px; }
+
+/* ---- Big Picture's own filter-trigger-chip pattern (FilterTriggerChip/FilterTriggerChipContent),
+   reused here for the Log tab (section 4) instead of an always-open panel ---- */
+.chiprow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; max-width: 440px; }
+.filter-chip {
+  display: flex; align-items: center; gap: 4px; border-radius: 20px; background: #fff;
+  border: 1px solid #D8D8D6; padding: 6px 10px; font-family: inherit; font-size: 12px; cursor: pointer;
+}
+.filter-chip.is-filtered { border-width: 1.5px; border-color: #3A6B76; }
+.filter-chip .chip-label { font-weight: 700; color: #071620; }
+.filter-chip .chip-value { color: #5B6670; }
+.filter-chip .chip-caret { color: #3A6B76; }
+.chip-spacer { flex: 1; }
+.edit-icon-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; color: #071620;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; flex: none;
+}
+.edit-icon-btn svg { width: 20px; height: 20px; }
+.edit-icon-btn:hover { background: rgba(7,22,32,0.08); }
+
+/* ---------- Filter panel callout (section 2) ---------- */
+.filterblock {
+  background: var(--devpanel-bg); border: 1px solid var(--devpanel-border); border-radius: 12px;
+  padding: 16px 18px; margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 20px 28px; align-items: flex-start;
+}
+.filterblock .taglabel {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--devpanel-accent); border: 1px solid var(--devpanel-accent); border-radius: 20px; padding: 2px 9px; margin-bottom: 12px;
+}
+
+/* ---------- Cards ---------- */
+.card-row { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+.card-frame { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.card-frame .card-label { font-size: 12px; font-weight: 600; color: var(--devpanel-muted); }
+
+.card {
+  background: var(--bg); color: var(--on-bg); font-family: var(--font-body);
+  border-radius: 14px; overflow: hidden; position: relative;
+  box-shadow: 0 16px 40px -16px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.12);
+  display: flex; flex-direction: column;
+}
+.card[data-format="story"] { min-height: 420px; }
+.card[data-format="square"] { min-height: 270px; }
+
+.card-inner { flex: 1; display: flex; flex-direction: column; padding: 20px 18px 14px; }
+.beat-case { display: flex; align-items: center; gap: 8px; }
+.beat-case .icon { font-size: 22px; line-height: 1; }
+.beat-case .name { font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 15px; }
+.beat-kicker { font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 700; opacity: 0.55; margin: 13px 0 2px; }
+.beat-subtitle { font-size: 8px; opacity: 0.6; margin: 0 0 7px; }
+
+.log-entries { display: flex; flex-direction: column; gap: 7px; }
+.log-entry {
+  background: var(--surface); color: var(--on-surface); border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-md); padding: 7px 9px;
+}
+.log-entry .row-time { font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 10px; }
+.log-entry .row-detail { font-size: 8.5px; opacity: 0.75; margin-top: 2px; line-height: 1.35; }
+.truncate-note {
+  font-size: 8.5px; font-style: italic; opacity: 0.7; margin-top: 8px; text-align: center;
+}
+.card-footer {
+  flex: none; padding: 10px 18px 14px; font-size: 9.5px; letter-spacing: 0.04em;
+  color: var(--on-surface-variant, var(--on-bg)); opacity: 0.55; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.card-footer .footer-text { text-transform: none; letter-spacing: 0.01em; }
+.card-footer .share-btn {
+  font-family: var(--font-display); font-weight: var(--font-display-weight); font-size: 9px;
+  text-transform: uppercase; letter-spacing: 0.04em; background: var(--primary); color: var(--on-primary);
+  border: none; border-radius: 999px; padding: 5px 10px; cursor: pointer; opacity: 1;
+}
+
+/* Square: tighter spacing */
+.card[data-format="square"] .card-inner { padding: 16px 16px 10px; }
+.card[data-format="square"] .log-entries { gap: 5px; }
+
+/* ---- Plain: clean report card ---- */
+.card[data-skin="plain"] .card-inner { border-top: 3px solid var(--primary); padding-top: 17px; }
+
+/* ---- Intense: pulp dossier ---- */
+.card[data-skin="intense"] { border: 2px solid var(--on-bg); }
+.card[data-skin="intense"] .card-inner { position: relative; }
+.card[data-skin="intense"] .beat-case .name { text-transform: uppercase; letter-spacing: 0.02em; }
+.card[data-skin="intense"] .beat-kicker { text-transform: uppercase; }
+.card[data-skin="intense"] .log-entry { border-width: 1px; }
+.card[data-skin="intense"] .card-footer { border-top: 1px solid var(--outline-variant); padding-top: 8px; }
+.card[data-skin="intense"] .stamp {
+  position: absolute; top: 14px; right: -6px; border: 2px solid var(--primary); color: var(--primary);
+  font-family: var(--font-display); font-weight: 700; font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; padding: 3px 8px; transform: rotate(9deg); opacity: 0.85;
+  border-radius: 2px; pointer-events: none;
+}
+
+/* ---- Bright: playful reveal ---- */
+.card[data-skin="bright"] .beat-case {
+  background: var(--secondary-container); color: var(--on-secondary-container); margin: -20px -18px 0;
+  padding: 16px 18px 12px; border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.card[data-format="square"][data-skin="bright"] .beat-case { margin: -16px -16px 0; padding: 14px 16px 10px; }
+.card[data-skin="bright"] .beat-kicker { margin-top: 15px; }
+.card[data-skin="bright"] .sticker { position: absolute; top: 10px; right: 10px; font-size: 20px; transform: rotate(12deg); }
+
+/* ---------- Log-tab reuse mock (mirrors EventRow/EventRowContent exactly: Plain wraps each row
+   in its own surface Card with a small vertical gap; Intense/Bright render flat, padding-only
+   rows with no card and no divider at all -- shown as a note underneath, not reproduced 3x here) ---------- */
+.logtab-mock {
+  background: #EAF5FC; border-radius: 12px; padding: 12px; max-width: 420px;
+}
+.logtab-row {
+  background: #fff; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px;
+}
+.logtab-row:last-child { margin-bottom: 0; }
+.logtab-row .row-time { font-size: 16px; font-weight: 400; color: #071620; }
+.logtab-row .row-detail { font-size: 12.5px; color: #071620; opacity: 0.7; margin-top: 2px; }
+.logtab-empty { padding: 24px 0; text-align: center; color: var(--devpanel-muted); font-size: 13px; }
+
+.warn-note {
+  background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-fg);
+  border-radius: 8px; padding: 8px 12px; font-size: 12.5px; line-height: 1.5; margin-bottom: 14px; max-width: 62ch;
+}
+</style>
+
+<div class="stage" id="stage">
+  <aside class="devpanel">
+    <p class="kicker">Log Share planning &middot; not shipped copy</p>
+    <h1>Log Share &mdash; prototype</h1>
+    <p class="note">PROGRESS.md's brief called this a file export. It isn't &mdash; it's a second share <em>card</em>, styled like today's Insight Share, showing your actual logged entries instead of stats. Every control below is wired live into sections 2&ndash;4 on the right. All copy is illustrative &mdash; not final Voice-layer strings.</p>
+
+    <div class="field">
+      <label class="fieldlabel">Demo case</label>
+      <div class="seg">
+        <button data-case="migraine" class="is-active">Migraine 🤕</button>
+        <button data-case="coffee">Perfect coffee ☕</button>
+      </div>
+      <p class="hint">Migraine tracks duration + intensity. Coffee tracks neither &mdash; watch those two toggles grey out everywhere.</p>
+    </div>
+
+    <div class="field">
+      <label class="fieldlabel">Sort</label>
+      <div class="seg">
+        <button data-sort="newest" class="is-active">Newest first</button>
+        <button data-sort="oldest">Oldest first</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="fieldlabel">Date range</label>
+      <div class="daterow">
+        <input type="date" data-role="from" aria-label="From date">
+        <span>to</span>
+        <input type="date" data-role="to" aria-label="To date">
+      </div>
+      <p class="hint">To defaults to today and can't move into the future; From defaults blank (the beginning) and can't be set later than To.</p>
+    </div>
+
+    <div class="field">
+      <label class="fieldlabel">Fields shown</label>
+      <div class="switchrow" data-field="notes"><span class="sr-label">Notes</span><span class="m3-switch"></span></div>
+      <div class="switchrow" data-field="tags"><span class="sr-label">Tags</span><span class="m3-switch"></span></div>
+      <div class="switchrow" data-field="duration"><span class="sr-label">Duration</span><span class="m3-switch"></span></div>
+      <div class="switchrow" data-field="intensity"><span class="sr-label">Intensity</span><span class="m3-switch"></span></div>
+    </div>
+
+    <div class="field">
+      <label class="fieldlabel">Card format</label>
+      <div class="seg">
+        <button data-format="story" class="is-active">Story</button>
+        <button data-format="square">Square</button>
+      </div>
+      <p class="hint">Square has a fixed 1:1 floor. Both formats are also capped at the entry count below, as a safety ceiling &mdash; not just a space constraint.</p>
+    </div>
+
+    <div class="field">
+      <label class="fieldlabel">Card cap (entries)</label>
+      <div class="capinput">
+        <input type="number" id="cap-input" value="30" min="1" max="60">
+        <span class="hint" style="margin:0;">try other values</span>
+      </div>
+      <p class="hint">Recommendation: <strong>30</strong> &mdash; matches the Log tab's own existing initial page size (spec &sect;6: 30 events, then &ldquo;Show more&rdquo; in batches of 50). Familiar number, not an arbitrary new one. Square's own space already trims lower than this for most cases.</p>
+    </div>
+
+    <div class="decided">
+      <strong>Decided</strong>
+      Entry point: Option B &mdash; single Share icon opening an <code>AlertDialog</code> chooser (section 1).
+    </div>
+
+    <div class="questions">
+      <h2>Still open</h2>
+      <ol>
+        <li><strong>Format:</strong> given both formats are now capped, does Square still earn its place for a log &mdash; or Story-only?</li>
+        <li><strong>Defaults:</strong> sort direction, date range, and which fields start on?
+          <span class="reco">Leaning: newest-first, full history, all applicable fields on &mdash; matches how Insight Share defaults (everything on, user trims).</span>
+        </li>
+        <li><strong>Cap value &amp; behavior:</strong> is 30 right, and should it silently truncate (as built) or block sharing until the range is narrowed?</li>
+        <li><strong>Reuse:</strong> section 4 now mirrors Big Picture exactly &mdash; <code>FilterTriggerChip</code>s for Sort/Range, a pinned Edit icon for which fields show &mdash; right shape for the Log tab?</li>
+      </ol>
+    </div>
+  </aside>
+
+  <div>
+    <div class="section">
+      <h2>1 &middot; Entry point</h2>
+      <p class="lede">Decided: a single Share icon opens an <code>AlertDialog</code> chooser between &ldquo;Insight Share&rdquo; and &ldquo;Log Share&rdquo; &mdash; mirrors <code>ExportFormatDialog.kt</code> exactly (title, <code>RadioButton</code> rows with an indented description, Cancel/Confirm). Real <code>TopAppBar</code> colors (surface, no tint) and real icon glyphs.</p>
+      <div class="appbar-row">
+        <div class="appbar-frame">
+          <div class="phone-shell">
+            <div class="appbar">
+              <span class="title"><span class="icon-glyph">🤕</span> Migraine</span>
+              <span class="spacer"></span>
+              <span class="actions">
+                <button class="icon-btn" id="chooser-toggle" title="Share"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg></button>
+                <button class="icon-btn" title="Triggers"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></button>
+                <button class="icon-btn" title="Edit"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+              </span>
+            </div>
+            <div class="phone-body">
+              <div class="dialog-backdrop" id="chooser-sheet">
+                <div class="dialog-box">
+                  <p class="dialog-title">Share</p>
+                  <label class="dialog-option">
+                    <span class="radio" style="color:#3A6B76"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="5"/></svg></span>
+                    <span class="opt-label">Insight Share</span>
+                  </label>
+                  <p class="opt-desc">A visual summary of your stats.</p>
+                  <label class="dialog-option">
+                    <span class="radio" style="color:#6B6B6B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg></span>
+                    <span class="opt-label">Log Share</span>
+                  </label>
+                  <p class="opt-desc">The actual entries, as logged.</p>
+                  <div class="dialog-actions"><button>Cancel</button><button>Share</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">Tap the share icon to toggle the dialog</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>2 &middot; The Log Share card</h2>
+      <p class="lede">Same rendered-image pipeline as Insight Share (Compose capture &rarr; bitmap &rarr; share sheet), same three skins, different content: your entries instead of stats. Footer now carries the same generation-date stamp Insight Share's card has (spec &sect;13).</p>
+
+      <div class="filterblock">
+        <div><span class="taglabel">Reusable filter block</span><br><span style="font-size:12px;color:var(--devpanel-muted);">Sort, date range, and field toggles &mdash; the same state drives this card row, the real screen in section 3, and the Log tab in section 4.</span></div>
+      </div>
+
+      <div id="warn-slot"></div>
+
+      <div class="card-row" id="card-row">
+        <!-- cards rendered by JS -->
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>3 &middot; The screen itself</h2>
+      <p class="lede">Options first, preview second &mdash; a long log would otherwise crowd the filters off the visible screen. The preview is also capped (same cap as the final card), with a match-count line so it's clear when you're not seeing everything. Mirrors <code>SharePreviewScreen</code>'s controls (<code>SegmentedButton</code>, <code>ToggleRow</code>/<code>Switch</code>). Live &mdash; try it.</p>
+      <div class="appbar-frame screen-frame">
+        <div class="phone-shell">
+          <div class="appbar">
+            <button class="icon-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+            <span class="title">Log Share</span>
+          </div>
+          <div class="phone-body">
+            <p class="m3-row-label" style="margin-top:0;">Sort</p>
+            <div class="m3-seg">
+              <button data-sort="newest" class="is-active">Newest first</button>
+              <button data-sort="oldest">Oldest first</button>
+            </div>
+
+            <p class="m3-row-label">Date range</p>
+            <div class="m3-datebtn-row">
+              <button class="m3-datebtn" id="mini-date-from">From: all time</button>
+              <button class="m3-datebtn" id="mini-date-to">To: today</button>
+            </div>
+
+            <p class="m3-row-label">Fields shown</p>
+            <div class="switchrow" data-field="notes"><span class="sr-label">Notes</span><span class="m3-switch"></span></div>
+            <div class="switchrow" data-field="tags"><span class="sr-label">Tags</span><span class="m3-switch"></span></div>
+            <div class="switchrow" data-field="duration"><span class="sr-label">Duration</span><span class="m3-switch"></span></div>
+            <div class="switchrow" data-field="intensity"><span class="sr-label">Intensity</span><span class="m3-switch"></span></div>
+
+            <p class="m3-row-label">Card format</p>
+            <div class="m3-seg">
+              <button data-format="story" class="is-active">Story</button>
+              <button data-format="square">Square</button>
+            </div>
+
+            <p class="match-count" id="mini-match-count"></p>
+            <div class="mini-card-wrap" id="mini-card-slot"></div>
+
+            <button class="m3-primary-btn" id="mini-share-btn">Share log</button>
+          </div>
+        </div>
+        <div class="frame-label">Wired to the same state as everything else on this page</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>4 &middot; Same filter, on the Log tab</h2>
+      <p class="lede">Two borrowed patterns, not one: Sort/Range are true filters (what's included), shown as Big Picture's collapsed <code>FilterTriggerChip</code>s (&ldquo;Cases: 2 of 3 &#9656;&rdquo;) &mdash; a better fit for a screen you look at constantly, usually with nothing narrowed. Which fields a row shows isn't a filter, it's per-row content &mdash; Big Picture already draws that exact line, editing its own per-row detail fields via a pinned-right Edit icon (<code>BigPictureDetailField</code>), not a third chip. Same split here.</p>
+      <div class="chiprow" id="chip-row">
+        <div class="filter-chip" id="chip-sort" data-open-dialog="dialog-sort"><span class="chip-label">Sort</span><span class="chip-value"></span><span class="chip-caret">▸</span></div>
+        <div class="filter-chip" id="chip-range" data-open-dialog="dialog-range"><span class="chip-label">Range</span><span class="chip-value"></span><span class="chip-caret">▸</span></div>
+        <span class="chip-spacer"></span>
+        <button class="edit-icon-btn" data-open-dialog="dialog-fields" title="Fields shown"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+      </div>
+      <div class="logtab-mock" id="logtab-mock"></div>
+
+      <div class="dialog-backdrop" id="dialog-sort" style="display:none; position:fixed;">
+        <div class="dialog-box" style="max-width:260px;">
+          <p class="dialog-title">Sort</p>
+          <div class="m3-seg" style="margin-bottom:16px;">
+            <button data-sort="newest" class="is-active">Newest first</button>
+            <button data-sort="oldest">Oldest first</button>
+          </div>
+          <div class="dialog-actions"><button class="dialog-done" data-dialog="dialog-sort">Done</button></div>
+        </div>
+      </div>
+      <div class="dialog-backdrop" id="dialog-range" style="display:none; position:fixed;">
+        <div class="dialog-box" style="max-width:280px;">
+          <p class="dialog-title">Date range</p>
+          <div class="dialog-daterow">
+            <input type="date" data-role="from" aria-label="From date">
+            <input type="date" data-role="to" aria-label="To date">
+          </div>
+          <p style="font-size:11.5px;color:#5B6670;margin:4px 0 12px;">To can't be in the future; From can't be later than To.</p>
+          <div class="dialog-actions"><button class="dialog-done" data-dialog="dialog-range">Done</button></div>
+        </div>
+      </div>
+      <div class="dialog-backdrop" id="dialog-fields" style="display:none; position:fixed;">
+        <div class="dialog-box" style="max-width:260px;">
+          <p class="dialog-title">Fields shown</p>
+          <div class="switchrow" data-field="notes"><span class="sr-label">Notes</span><span class="m3-switch"></span></div>
+          <div class="switchrow" data-field="tags"><span class="sr-label">Tags</span><span class="m3-switch"></span></div>
+          <div class="switchrow" data-field="duration"><span class="sr-label">Duration</span><span class="m3-switch"></span></div>
+          <div class="switchrow" data-field="intensity"><span class="sr-label">Intensity</span><span class="m3-switch"></span></div>
+          <div class="dialog-actions" style="margin-top:10px;"><button class="dialog-done" data-dialog="dialog-fields">Done</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CASES = {
+  migraine: {
+    icon: '🤕', name: 'Migraine', tracksDuration: true, intensityEnabled: true,
+    entries: [
+      { d: '2026-09-09T20:14', end: '2026-09-10T01:34', intensity: 4, note: 'Started right after the gym', tags: ['screen-time'] },
+      { d: '2026-09-05T06:40', end: '2026-09-05T08:25', intensity: 2, note: '', tags: ['period'] },
+      { d: '2026-08-29T23:02', end: '2026-08-30T08:12', intensity: 5, note: 'Worst one in months, had to leave work early', tags: ['no-sleep', 'stress'] },
+      { d: '2026-08-22T14:15', end: '2026-08-22T17:15', intensity: 3, note: '', tags: ['wine'] },
+      { d: '2026-08-14T07:30', end: '2026-08-14T09:50', intensity: 2, note: 'Mild, gone by lunch', tags: [] },
+      { d: '2026-08-09T21:50', end: '2026-08-10T03:55', intensity: 4, note: '', tags: ['no-sleep'] },
+      { d: '2026-08-02T13:00', end: '2026-08-02T17:40', intensity: 3, note: 'During the drive home', tags: ['screen-time'] },
+      { d: '2026-07-27T10:20', end: '2026-07-27T11:05', intensity: 1, note: '', tags: [] },
+      { d: '2026-07-21T17:05', end: '2026-07-21T23:00', intensity: 4, note: 'Right before the deadline', tags: ['stress'] },
+      { d: '2026-07-16T08:00', end: '2026-07-16T09:30', intensity: 2, note: '', tags: ['period'] },
+      { d: '2026-07-10T23:40', end: '2026-07-11T03:05', intensity: 3, note: '', tags: ['wine'] },
+      { d: '2026-07-03T06:15', end: '2026-07-03T14:15', intensity: 5, note: 'Called in sick', tags: ['no-sleep', 'stress'] },
+      { d: '2026-06-27T15:30', end: '2026-06-27T17:40', intensity: 2, note: '', tags: [] },
+      { d: '2026-06-19T09:15', end: '2026-06-19T13:05', intensity: 3, note: 'After the flight', tags: ['screen-time'] },
+    ],
+  },
+  coffee: {
+    icon: '☕', name: 'Perfect coffee', tracksDuration: false, intensityEnabled: false,
+    entries: [
+      { d: '2026-09-08T07:45', end: null, intensity: null, note: 'Actually perfect today', tags: ['oat-milk'] },
+      { d: '2026-09-03T08:10', end: null, intensity: null, note: '', tags: [] },
+      { d: '2026-08-27T07:30', end: null, intensity: null, note: 'Extra hot, nailed it', tags: ['extra-hot'] },
+      { d: '2026-08-20T08:05', end: null, intensity: null, note: '', tags: ['oat-milk'] },
+      { d: '2026-08-12T07:50', end: null, intensity: null, note: 'New beans', tags: [] },
+      { d: '2026-08-05T08:00', end: null, intensity: null, note: '', tags: [] },
+      { d: '2026-07-29T07:40', end: null, intensity: null, note: 'Slightly burnt but fine', tags: [] },
+      { d: '2026-07-22T08:15', end: null, intensity: null, note: '', tags: ['oat-milk'] },
+      { d: '2026-07-15T07:55', end: null, intensity: null, note: '', tags: [] },
+      { d: '2026-07-08T08:20', end: null, intensity: null, note: 'Best one in weeks', tags: ['extra-hot'] },
+    ],
+  },
+};
+
+const SKINS = [
+  { key: 'plain', label: 'Plain', kicker: 'The log', share: 'Share log' },
+  { key: 'intense', label: 'Intense', kicker: 'The record', share: 'Release the record' },
+  { key: 'bright', label: 'Bright', kicker: 'Every entry!', share: 'Share the log!' },
+];
+
+function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const state = {
+  caseKey: 'migraine',
+  sort: 'newest',
+  dateFrom: '',
+  dateTo: todayIso(),
+  fields: { notes: true, tags: true, duration: true, intensity: true },
+  format: 'story',
+  cap: 30,
+};
+
+const SQUARE_CAP = 5;
+
+function fmtTime(iso) {
+  const dt = new Date(iso);
+  const weekday = dt.toLocaleDateString(undefined, { weekday: 'short' });
+  const month = dt.toLocaleDateString(undefined, { month: 'short' });
+  const day = dt.getDate();
+  let h = dt.getHours();
+  const m = dt.getMinutes().toString().padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return `${weekday}, ${month} ${day} &middot; ${h}:${m} ${ampm}`;
+}
+
+function fmtShortDate(iso) {
+  const dt = new Date(iso + (iso.length <= 10 ? 'T00:00' : ''));
+  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function fmtDuration(startIso, endIso) {
+  const ms = new Date(endIso) - new Date(startIso);
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function detailLine(entry, caseDef) {
+  const parts = [];
+  if (state.fields.duration && caseDef.tracksDuration && entry.end) parts.push(fmtDuration(entry.d, entry.end));
+  if (state.fields.intensity && caseDef.intensityEnabled && entry.intensity != null) parts.push(`Intensity ${entry.intensity}/5`);
+  if (state.fields.notes && entry.note) parts.push(entry.note);
+  if (state.fields.tags && entry.tags.length) parts.push(entry.tags.map(t => `#${t}`).join(' '));
+  return parts.join(' &middot; ');
+}
+
+function filteredEntries(caseDef) {
+  let list = caseDef.entries.slice();
+  if (state.dateFrom) list = list.filter(e => e.d.slice(0, 10) >= state.dateFrom);
+  if (state.dateTo) list = list.filter(e => e.d.slice(0, 10) <= state.dateTo);
+  list.sort((a, b) => state.sort === 'newest' ? b.d.localeCompare(a.d) : a.d.localeCompare(b.d));
+  return list;
+}
+
+function cardMarkup(skin, caseDef, rowsHtml, cappedThisRun, entriesLength, capUsed, genDate, rangeLabel) {
+  return `
+    <div class="card" data-format="${state.format}" data-skin="${skin.key}">
+      <div class="card-inner">
+        ${skin.key === 'intense' ? '<div class="stamp">Case&nbsp;File</div>' : ''}
+        ${skin.key === 'bright' ? '<div class="sticker">📋</div>' : ''}
+        <div class="beat-case"><span class="icon">${caseDef.icon}</span><span class="name">${caseDef.name}</span></div>
+        <p class="beat-kicker">${skin.kicker}</p>
+        <p class="beat-subtitle">${rangeLabel}</p>
+        <div class="log-entries">${rowsHtml}</div>
+        ${cappedThisRun ? `<p class="truncate-note">Showing the most recent ${capUsed} of ${entriesLength} &mdash; narrow the range to include more.</p>` : ''}
+      </div>
+      <div class="card-footer">
+        <span class="footer-text">counted with HODITH app &middot; ${genDate}</span>
+        <button class="share-btn">${skin.share}</button>
+      </div>
+    </div>
+  `;
+}
+
+function render() {
+  const caseDef = CASES[state.caseKey];
+  if (!caseDef.tracksDuration) state.fields.duration = false;
+  if (!caseDef.intensityEnabled) state.fields.intensity = false;
+
+  const entries = filteredEntries(caseDef);
+  const capUsed = state.format === 'square' ? Math.min(SQUARE_CAP, state.cap) : state.cap;
+  const cappedThisRun = entries.length > capUsed;
+  const visible = cappedThisRun ? entries.slice(0, capUsed) : entries;
+  const genDate = fmtShortDate(new Date().toISOString());
+  const isDefaultRange = !state.dateFrom && state.dateTo === todayIso();
+  const rangeLabel = isDefaultRange
+    ? 'All time'
+    : `${state.dateFrom ? fmtShortDate(state.dateFrom) : '…'}–${fmtShortDate(state.dateTo)}`;
+
+  const warnSlot = document.getElementById('warn-slot');
+  warnSlot.innerHTML = cappedThisRun
+    ? `<div class="warn-note">Only the most recent ${capUsed} of ${entries.length} matching entries fit under the cap &mdash; see each card's own truncation line below. This is the safeguard question #3 is asking about.</div>`
+    : '';
+
+  const rowsHtml = visible.map(e => `
+    <div class="log-entry">
+      <div class="row-time">${fmtTime(e.d)}</div>
+      ${detailLine(e, caseDef) ? `<div class="row-detail">${detailLine(e, caseDef)}</div>` : ''}
+    </div>
+  `).join('');
+
+  document.getElementById('card-row').innerHTML = SKINS.map(skin => `
+    <div class="card-frame">
+      ${cardMarkup(skin, caseDef, rowsHtml, cappedThisRun, entries.length, capUsed, genDate, rangeLabel)}
+      <div class="card-label">${skin.label}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('mini-card-slot').innerHTML = cardMarkup(SKINS[0], caseDef, rowsHtml, cappedThisRun, entries.length, capUsed, genDate, rangeLabel);
+  document.getElementById('mini-share-btn').textContent = SKINS[0].share;
+  document.getElementById('mini-date-from').textContent = 'From: ' + (state.dateFrom ? fmtShortDate(state.dateFrom) : 'the beginning');
+  document.getElementById('mini-date-to').textContent = 'To: ' + (state.dateTo === todayIso() ? 'today' : fmtShortDate(state.dateTo));
+  document.getElementById('mini-match-count').textContent = cappedThisRun
+    ? `${entries.length} entries match — showing the most recent ${capUsed}`
+    : `${entries.length} entries match`;
+
+  const mock = document.getElementById('logtab-mock');
+  mock.innerHTML = entries.length
+    ? entries.map(e => `
+      <div class="logtab-row">
+        <div class="row-time">${fmtTime(e.d)}</div>
+        ${detailLine(e, caseDef) ? `<div class="row-detail">${detailLine(e, caseDef)}</div>` : ''}
+      </div>
+    `).join('')
+    : '<div class="logtab-empty">No entries in this range.</div>';
+
+  // Log tab's own trigger chips (Big Picture's FilterTriggerChip pattern: label + live value + caret)
+  const chipSort = document.getElementById('chip-sort');
+  chipSort.querySelector('.chip-value').textContent = state.sort === 'newest' ? 'Newest' : 'Oldest';
+  chipSort.classList.toggle('is-filtered', state.sort !== 'newest');
+
+  const chipRange = document.getElementById('chip-range');
+  chipRange.querySelector('.chip-value').textContent = rangeLabel;
+  chipRange.classList.toggle('is-filtered', !isDefaultRange);
+
+  document.querySelectorAll('[data-sort]').forEach(b => b.classList.toggle('is-active', b.dataset.sort === state.sort));
+  document.querySelectorAll('[data-format]').forEach(b => b.classList.toggle('is-active', b.dataset.format === state.format));
+  document.querySelectorAll('[data-case]').forEach(b => b.classList.toggle('is-active', b.dataset.case === state.caseKey));
+  document.querySelectorAll('[data-field]').forEach(row => {
+    const field = row.dataset.field;
+    const available = field === 'duration' ? caseDef.tracksDuration : field === 'intensity' ? caseDef.intensityEnabled : true;
+    row.classList.toggle('is-disabled', !available);
+    row.setAttribute('data-on', String(!!state.fields[field] && available));
+  });
+  const today = todayIso();
+  document.querySelectorAll('input[type="date"][data-role="from"]').forEach(el => {
+    el.value = state.dateFrom;
+    el.max = state.dateTo || today;
+  });
+  document.querySelectorAll('input[type="date"][data-role="to"]').forEach(el => {
+    el.value = state.dateTo;
+    el.max = today;
+    if (state.dateFrom) el.min = state.dateFrom; else el.removeAttribute('min');
+  });
+}
+
+document.addEventListener('click', e => {
+  const sortBtn = e.target.closest('[data-sort]');
+  if (sortBtn) { state.sort = sortBtn.dataset.sort; render(); return; }
+  const formatBtn = e.target.closest('[data-format]');
+  if (formatBtn) { state.format = formatBtn.dataset.format; render(); return; }
+  const caseBtn = e.target.closest('[data-case]');
+  if (caseBtn) { state.caseKey = caseBtn.dataset.case; render(); return; }
+  const fieldRow = e.target.closest('[data-field]');
+  if (fieldRow) {
+    if (fieldRow.classList.contains('is-disabled')) return;
+    const field = fieldRow.dataset.field;
+    state.fields[field] = !state.fields[field];
+    render();
+    return;
+  }
+  const opener = e.target.closest('[data-open-dialog]');
+  if (opener) {
+    document.getElementById(opener.dataset.openDialog).style.display = 'flex';
+    return;
+  }
+  const doneBtn = e.target.closest('.dialog-done');
+  if (doneBtn) { document.getElementById(doneBtn.dataset.dialog).style.display = 'none'; return; }
+});
+
+document.addEventListener('change', e => {
+  if (e.target.matches('input[type="date"][data-role="from"]')) {
+    let v = e.target.value;
+    if (v && state.dateTo && v > state.dateTo) v = state.dateTo;
+    state.dateFrom = v;
+    render();
+  }
+  if (e.target.matches('input[type="date"][data-role="to"]')) {
+    const today = todayIso();
+    let v = e.target.value || today;
+    if (v > today) v = today;
+    if (state.dateFrom && v < state.dateFrom) v = state.dateFrom;
+    state.dateTo = v;
+    render();
+  }
+});
+
+document.getElementById('cap-input').addEventListener('change', e => {
+  state.cap = Math.max(1, parseInt(e.target.value, 10) || 30);
+  render();
+});
+
+document.getElementById('mini-date-from').addEventListener('click', () => document.querySelector('.devpanel input[data-role="from"]').focus());
+document.getElementById('mini-date-to').addEventListener('click', () => document.querySelector('.devpanel input[data-role="to"]').focus());
+
+document.getElementById('chooser-toggle').addEventListener('click', () => {
+  const sheet = document.getElementById('chooser-sheet');
+  sheet.style.display = sheet.style.display === 'none' ? '' : 'none';
+});
+
+render();
+</script>

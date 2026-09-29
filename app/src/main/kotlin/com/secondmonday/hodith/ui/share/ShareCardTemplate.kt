@@ -65,6 +65,7 @@ import com.secondmonday.hodith.viewmodel.FrequencyBar
 import com.secondmonday.hodith.viewmodel.FrequencyDisplay
 import com.secondmonday.hodith.viewmodel.GapsDisplay
 import com.secondmonday.hodith.viewmodel.IntensityDisplay
+import com.secondmonday.hodith.viewmodel.LogCardRow
 import com.secondmonday.hodith.viewmodel.RhythmCellDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
@@ -137,13 +138,10 @@ fun ShareCardTemplate(
                     if (skin == ShareCardSkin.PLAIN) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                    TopBeatContent(data.topBeat, voice, skin)
-                    data.frequency?.let { MiniFrequencySection(it, voice, skin) }
-                    data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
-                    data.gaps?.let { MiniGapsSection(it, voice, skin) }
-                    data.trends.takeIf { it.isNotEmpty() }?.let { MiniTrendsSection(it, voice, skin) }
-                    data.duration?.let { MiniDurationSection(it, voice, skin) }
-                    data.intensity?.let { MiniIntensitySection(it, voice, skin) }
+                    when (data) {
+                        is ShareCardData.Insights -> InsightsCardBody(data, voice, skin)
+                        is ShareCardData.Log -> LogCardBody(data, voice, skin)
+                    }
                 }
             }
             when (skin) {
@@ -153,6 +151,71 @@ fun ShareCardTemplate(
             }
         }
         ShareCardFooter(data.generatedAtMillis, voice, skin)
+    }
+}
+
+@Composable
+private fun InsightsCardBody(
+    data: ShareCardData.Insights,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    TopBeatContent(data.topBeat, voice, skin)
+    data.frequency?.let { MiniFrequencySection(it, voice, skin) }
+    data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
+    data.gaps?.let { MiniGapsSection(it, voice, skin) }
+    data.trends.takeIf { it.isNotEmpty() }?.let { MiniTrendsSection(it, voice, skin) }
+    data.duration?.let { MiniDurationSection(it, voice, skin) }
+    data.intensity?.let { MiniIntensitySection(it, voice, skin) }
+}
+
+/** Log Share's body: [BeatKicker] (reused as-is), the resolved range as a subtitle, then every row, then an optional truncation note. */
+@Composable
+private fun LogCardBody(
+    data: ShareCardData.Log,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        BeatKicker(voice.shareLogCardKicker, skin)
+        Text(
+            text = data.rangeLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+        )
+    }
+    if (data.rows.isEmpty()) {
+        Text(text = voice.shareLogEmptyRangeMessage, style = MaterialTheme.typography.labelMedium)
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            data.rows.forEach { row -> LogEntryRow(row, skin) }
+        }
+    }
+    data.truncatedTotalCount?.let { totalCount ->
+        Text(
+            text = voice.shareLogTruncationNote(data.rows.size, totalCount),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun LogEntryRow(
+    row: LogCardRow,
+    skin: ShareCardSkin,
+) {
+    MiniInsightsCard {
+        Text(
+            text = if (skin == ShareCardSkin.INTENSE) row.timestamp.uppercase() else row.timestamp,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        row.detail?.let {
+            Text(text = it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -564,7 +627,7 @@ private fun ShareCardFooter(
 
 /** Mirrors [com.secondmonday.hodith.viewmodel.shareCardState]'s gating: Square never gets the Hunch vs. Reality beat. */
 private fun previewData(format: ShareCardFormat): ShareCardData =
-    ShareCardData(
+    ShareCardData.Insights(
         format = format,
         caseIcon = "☕",
         caseName = "Perfect coffee",

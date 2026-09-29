@@ -39,13 +39,16 @@ interface HodithRepository {
      * [limit] events in [order], plus whether more remain. Every other Log-tab-adjacent need
      * (ongoing-event detection, Insights/Hunch stats, the Log tab's own summary line/day-span) keeps
      * reading the full history via [observeEventsWithTagsForCase]; this is additive, not a
-     * replacement.
+     * replacement. [dateFrom]/[dateTo] narrow to `occurredAt` inclusively (either `null` = unbounded
+     * on that side) — the Log tab's Range filter.
      */
     fun observeLogEventsForCase(
         caseId: Long,
         order: LogSortOrder,
         limit: Int,
         durationMode: DurationMode,
+        dateFrom: Long?,
+        dateTo: Long?,
     ): Flow<LogEventsPage>
 
     /** Lean per-event projection (timing + Case `durationMode`) for every active Case — Home / widget counts (spec §9/§14). */

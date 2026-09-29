@@ -40,11 +40,6 @@ class EventTimeFormatTest {
     }
 
     @Test
-    fun `formatSpanDate is month and day, no year`() {
-        assertEquals("Jul 9", formatSpanDate(LocalDate.of(2026, 7, 9)))
-    }
-
-    @Test
     fun `formatSpanDateTime is month, day and time with no year, in both clock formats and the given zone`() {
         val utc = ZoneId.of("UTC")
         val millis = ZonedDateTime.of(2026, 7, 9, 8, 2, 0, 0, utc).toInstant().toEpochMilli()
@@ -66,6 +61,24 @@ class EventTimeFormatTest {
     @Test
     fun `formatWeekdayDayDate is weekday and day-of-month`() {
         assertEquals("Thu 9", formatWeekdayDayDate(LocalDate.of(2026, 7, 9)))
+    }
+
+    @Test
+    fun `formatDateRangeBound omits the year when occurredAt shares now's calendar year`() {
+        val utc = ZoneId.of("UTC")
+        val occurredAt = ZonedDateTime.of(2026, 7, 9, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val now = ZonedDateTime.of(2026, 12, 31, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+
+        assertEquals("Jul 9", formatDateRangeBound(occurredAt, now, utc))
+    }
+
+    @Test
+    fun `formatDateRangeBound includes the year when occurredAt falls in a different calendar year than now`() {
+        val utc = ZoneId.of("UTC")
+        val occurredAt = ZonedDateTime.of(2025, 7, 9, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val now = ZonedDateTime.of(2026, 1, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+
+        assertEquals("Jul 9, 2025", formatDateRangeBound(occurredAt, now, utc))
     }
 
     @Test
