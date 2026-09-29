@@ -75,23 +75,6 @@ Fold these already-drafted key changes into the audit:
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-### `BigPictureQueriesTest` fails on a non-UTC local emulator
-
-*Branch: none yet · Complexity: XS · Priority: Low · Area: Repo*
-
-🔍 **Investigation, narrow** — the fix is a one-line test change once picked up; filed rather than fixed inline because it surfaced while verifying unrelated work (`test/notification-eval-repository-coverage`).
-
-`observeActiveCaseEventDetails_projectsTimingIntensityAndNote` fails on a non-UTC local emulator: its expected `CaseEventDetail(...)` literal leaves `utcOffsetMinutes` at the class's `0` default instead of computing it the same way `testEvent()` does. The Event fixture itself is correctly zone-aware (`ZoneId.systemDefault().offsetMinutesAt(occurredAt)`, per `TESTING.md`'s existing "Clock-time-formatting instrumented tests" note) — this is the narrower case of an *assertion* literal, not a fixture input, staying UTC-only. CI runners default to UTC, so it's never surfaced there.
-
-**Acceptance criteria**
-
-- [ ] The expected `CaseEventDetail` in `BigPictureQueriesTest.kt` computes `utcOffsetMinutes` the same way `testEvent()` does, rather than relying on the class default.
-- [ ] `TESTING.md`'s existing "Clock-time-formatting instrumented tests" bullet gains a clause noting this narrower assertion-literal case, so a future non-UTC-only-fixture-focused reader doesn't miss it.
-
-**Plan** — one-line fix once picked up; low priority since it's a local-environment-only false failure, not a CI or production issue.
-
-**Tests** — the fix *is* the test change; no new test needed.
-
 ### App-icon handle butts directly against the lens ring with no clearance
 
 *Branch: `fix/icon-handle-clearance` · Complexity: S · Priority: Low · Area: Bug*

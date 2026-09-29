@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.ZoneId
 
 /**
  * The lean projections the Big Picture grid reads instead of the full `CaseWithEventsAndTags`
@@ -47,7 +48,15 @@ class BigPictureQueriesTest {
 
             assertEquals(
                 listOf(
-                    CaseEventDetail(id = eventId, caseId = caseId, occurredAt = 100L, endedAt = 400L, intensity = 3, note = "felt fine"),
+                    CaseEventDetail(
+                        id = eventId,
+                        caseId = caseId,
+                        occurredAt = 100L,
+                        endedAt = 400L,
+                        intensity = 3,
+                        note = "felt fine",
+                        utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(100L),
+                    ),
                 ),
                 details,
             )
