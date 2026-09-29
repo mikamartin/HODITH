@@ -17,6 +17,41 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## chore/ui-test-voice-theme-coverage
+
+**Scope:** PROGRESS.md's "UI test suite never renders real theme colors, and covers only Plain's copy" — no `androidTest` file applied real `HodithTheme` colors, almost every `*ScreenTest.kt` hardcoded `LocalVoice provides PlainVoice`, and only `BigPictureScreenTest` varied decoration/cell style (with voice still pinned to Plain regardless). A session survey found the gap wider than the item's own text named: 13 composables structurally branch on decoration/cell style, not just the BigPicture chips, and production (`HodithApp.kt`) drives `LocalVoice`/`LocalBigPictureCellStyle`/`LocalCardDecorationStyle`/`LocalShareCardSkin` all from one `AppTheme` via matching mapper functions (`voiceFor`/`bigPictureCellStyle`/`cardDecorationStyle`/`shareCardSkin`) — no test reproduced that combination. User chose a targeted scope over a full per-screen smoke pass: one Bright (and, where genuinely 3-way distinct, Intense) rendering+interaction test per structurally-branching composable, wherever it's most naturally hosted, rather than fanning out to every consuming screen of a shared component.
+
+**Changes:**
+- `ui/common/HodithComposeContent.kt` (new): `ComposeContentTestRule.setHodithContent(theme, darkTheme, content)`, mirroring `HodithApp.kt`'s own composition — real `HodithTheme` colors plus every theme-driven composition local, all from one `AppTheme`.
+- All 12 `*ScreenTest.kt` files: `setContent` helpers now delegate to `setHodithContent`, replacing their ad hoc `CompositionLocalProvider(LocalVoice provides PlainVoice)` — every screen test now renders through real theme colors, not Compose's Material3 defaults.
+- `BigPictureScreenTest.kt`: migrated its existing Bright/Intense `cellStyle`/`decorationStyle` tests to the new `theme` param. This surfaced that they'd been asserting on hardcoded `PlainVoice` text while rendering Bright/Intense styling — an inauthentic combination the real app can never produce — fixed to assert the matching voice's text (`BrightVoice.infoDialogDismissAction`/`bigPictureAllCasesLabel`/`bigPictureUntaggedOnlyLabel`/`bigPictureDetailEditDescription`/`eventIntensityLabel`).
+- New Bright/Intense coverage, one test per structurally-branching composable: `CaseDetailScreenTest` (`SegmentedChoiceRow`+`FilterTriggerChip` via the Sort control, `EventRow`), `CaseDetailInsightsTabTest` (`InsightsCard`), `CaseEditScreenTest` (`IconChoice`), `HomeScreenTest` (`HomeCaseListItem`'s 3-way dispatch, Bright + Intense), `SettingsScreenTest` (`Plank`'s 3-way dispatch plus `ActionRow`, Intense + Bright), `TrendsListScreenTest` (`TrendFindingPlank`).
+- `ShareCardTemplateTest.kt`: `onNodeWithText("All time")` → `PlainVoice.shareLogRangeAllTimeLabel`. `BigPictureScreenTest.kt`: removed a stale `assertDoesNotExist()` against a retired Voice string's old literal.
+
+**Checklist walk (against the diff):**
+- *Duplication/Decoupling* — N/A; no production code touched. The one pre-existing hardcoded literal found (`ShareCardTemplateTest`) was fixed, not reintroduced elsewhere.
+- *Complexity & pattern health* — the new harness is a 15-line extension function called from all 14 modified files, not a single-caller helper. No new `LaunchedEffect`/`remember` patterns introduced.
+- *Dead code & hygiene* — `ktlintCheck` and `compileDebugAndroidTestKotlin` (rerun with `--rerun` to force full output) both clean, no unused imports/params/deprecation warnings. `git status` showed only the 14 modified files plus the one new harness file.
+- *Repo hygiene* — no secrets, no local paths, nothing untracked beyond the intended new file.
+- *Naming* — `HodithComposeContent.kt` sits under `ui/common/` alongside the repo's other test-support files (`CenteredEmptyStateTest.kt`, `RectOverlap.kt`); `setHodithContent` mirrors the existing `setContent` naming convention.
+- *Hardcoded values / Accessibility / Data model / Background work / Deprecated APIs* — N/A, no production code touched.
+- *Spec review* — N/A; no behavior changed, `HODITH_SPEC.md` unaffected.
+- *Tests* — see below. `TESTING.md`'s Big Picture row corrected: "the only test in the app that provides `LocalCardDecorationStyle`" is no longer true now that the shared harness provides it everywhere.
+
+**Tests:**
+- Sanity-checked one new test's theme-sensitivity directly: temporarily pointed `HomeScreenTest`'s new `rowTapAndQuickLogButton_areDistinctTargets_underBrightTheme` at `AppTheme.PLAIN` while keeping its `BrightVoice` assertion — failed as expected (`"Log One Tap Case!"` not found), then reverted.
+- All 14 modified classes run against a real emulator in two scoped batches (287 tests total): first batch (176/177 completed) hit a mid-run emulator crash (`INSTRUMENTATION_ABORTED: System has crashed`) that aborted the run right after `CaseDetailScreenTest.logShowMoreButton_tap_invokesOnShowMoreLogEvents` reported failed with no captured logcat; reran that one test alone and it passed cleanly, confirming the emulator crash, not a regression. Second batch covered the 8 classes the crash cut off before they ran (105/105 passing). Combined: 287/287 passing.
+
+**Deferred:** nothing found requiring deferral.
+
+**Docs updated:** `PROGRESS.md` (item resolved + removed). `TESTING.md` (Big Picture row's stale "only test" claim corrected).
+
+**Verified:** `ktlintCheck` and `compileDebugAndroidTestKotlin` both green (no production code, so `lintDebug`/`assembleDebug` untouched by this diff).
+
+**Instrumented run:** `connectedDebugAndroidTest` scoped to the 14 modified classes on `Pixel_8_API36(AVD)`, split across two runs due to a mid-run emulator crash: 287/287 passing overall (see Tests).
+
+---
+
 ## test/notification-eval-repository-coverage
 
 **Scope:** PROGRESS.md's "No repository-level test coverage for the notification-eval scheduling side effect" — `RoomHodithRepository`'s `insertEvent`/`updateEvent`/`deleteEvent`/`deleteEventById`/`deleteEventsOlderThan` each schedule a fire-and-forget notification-eval side effect, but nothing exercised that chain against a real `RoomHodithRepository`/`HodithDatabase`/`NotificationEvalScheduler`/`NotificationEvaluator` — in particular `deleteEventsOlderThan`'s "fetch affected Case ids before deleting" ordering was unpinned by any test. The blocker: `FakeNotifier`/`FakeClock`/`FakeSettingsRepository` lived in `src/test`, a JVM-only source set invisible to `androidTest`. Asked which of the item's two named fixes to take, the user chose a shared source set over androidTest-local reimplementations, to close the reachability gap for good rather than adding copies to keep in sync.
@@ -200,42 +235,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `PROGRESS.md` (item resolved + removed, from the original pass), `HODITH_SPEC.md` (§16 sentence from the original pass; §14 Settings row reworded this pass), `TESTING.md` (Export/import unit row and Compose UI Data-actions bullet, both touched across the two passes).
 
 **Verified:** `ktlintCheck → lintDebug → testDebugUnitTest → assembleDebug` sequential, all green against the full accumulated diff. `connectedDebugAndroidTest` for `SettingsScreenTest` last ran clean during the original pass (30/30, see git history for this entry's prior version); not re-run this pass — see Deferred.
-
----
-
-## fix/future-start-time-clamp-notice
-
-**Scope:** PROGRESS.md's "Log entry silently clamps a future start time to now" (resolved and removed from PROGRESS.md by this branch's first commit). A later review of that same fix, still on this branch before merge, found the result inconsistent: a future pick clamped silently to `now`, but a start time set later than an already-set end time wasn't caught at all until save, and an out-of-order end time was flagged but not corrected on screen — the notice said "matched to start" while the visible value stayed wrong until save quietly fixed it. This pass replaces all of that with one rule across all three constraints (future, start-after-end, end-before-start): an invalid pick is discarded outright, the field keeps its prior value, and a Voice-worded caption says why. Supersedes this entry's own prior version, rewritten in place since the branch hasn't merged yet.
-
-**Changes:**
-- `viewmodel/LogDetailViewModel.kt`: `isFutureClamped`/`isEndBeforeStart` replaced by `validateStartEdit`/`validateEndEdit`, each returning a `TimeEditRejection?` (`FUTURE`/`AFTER_END`/`BEFORE_START`, or `null` to accept). These are now the single source of truth for whether a start/end pick applies, called from the picker `onConfirm` sites before any state mutation — nothing is clamped anymore, so what's on screen always matches what a save would persist. Save-time clamping in `toEventEntity`/`computeEndedAt` is untouched — a correctness backstop, not the UI's concern.
-- `ui/logsheet/LogDetailSheet.kt`: `DateTimePickers` takes `validate`/`onResult` instead of `onClampChanged`; a rejected pick is dropped rather than applied. `LogDetailForm` tracks `startNotice`/`endNotice` (`TimeEditRejection?`) instead of two booleans; a successful edit on either field clears both, since fixing one side can resolve the other's stale rejection. Dropped the "live" `endBeforeStart` derivation that read straight off the current draft every recomposition — unreachable now that both fields validate on entry, so it was pure defensive display for a state the UI can no longer produce. `TimeSection`/`EndTimeSection`'s notice moved from `bodySmall`/`onSurfaceVariant` to `labelMedium`/`colorScheme.error`, per user feedback that the original didn't read clearly as an error across all three themes — `colorScheme.error` is already tuned per theme (Intense uses amber, not red, precisely so it isn't confused with its crimson accent — see `Color.kt`'s own comment), and `labelMedium` resolves to each theme's bold display font rather than its plain body font.
-- `ui/voice/Voice.kt`: `logSheetFutureTimeClampedNotice`/`logSheetEndBeforeStartClampedNotice` replaced by three keys — `logSheetFutureTimeNotice` (shared by both fields), `logSheetStartAfterEndNotice` (Start field), `logSheetEndBeforeStartNotice` (End field) — all three voices. Copy iterated live with the user: dropped the original "set to.../matched to..." phrasing since nothing is clamped now, then reworded Plain's future-time line again once "staying put" tested as confusing (didn't say what was wrong, or what "it" referred to).
-- `docs/TESTING.md`: removed the Compose UI row for the now-deleted end-before-start static-state test; rewrote the Deferrals note — all three time-edit notices now share the same Compose-untestable-picker-interaction gap (previously end-before-start was the one exception, since it used to be derived from draft state alone).
-
-**Checklist walk (against the working-tree diff):**
-- *Duplication* — no inline strings; all three keys go through Voice in all three voices. `validateStartEdit`/`validateEndEdit` are the single source of truth for accept/reject, called from both the date and time `onConfirm` sites rather than re-deriving the comparison; a new `noticeText` helper centralizes the one rejection→Voice-key mapping so `TimeSection`/`EndTimeSection` don't each restate it.
-- *Decoupling* — no `android.*` import in `LogDetailViewModel.kt`; both validators take plain `Long`/`Long?`/`now`, no `System.currentTimeMillis()`. Notice state stays in `LogDetailForm`'s Compose state.
-- *Complexity & pattern health* — net simpler than before: one derived `val` and one `when` block removed, in exchange for two `TimeEditRejection?` `remember`s (was two `Boolean` `remember`s) and a 5-line mapping function. No new `LaunchedEffect`, no new sub-composable needed.
-- *Dead code & hygiene* — no unused imports (`ktlintCheck` clean); confirmed no leftover `coerceAtMost`/`coerceIn` calls in the Compose file. `git status` clean aside from the pre-existing untracked `merged_branches.txt` (unrelated, flagged in every prior entry).
-- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
-- *Naming* — new Voice keys keep the `logSheet*Notice` convention; `TimeEditRejection`/`validateStartEdit`/`validateEndEdit` read as a pair with the existing `applyPickedDate`/`applyPickedTime` neighbors.
-- *Hardcoded values* — none; `colorScheme.error` is a theme token, not a literal color.
-- *Accessibility* — not independently verified in an emulator this pass (manual verification is left to the user per their standing instruction); the color/style reasoning above is for their review when they do.
-- *Data model/migrations, background work/widgets/notifications, deprecated APIs* — none touched.
-- *Spec review* — `HODITH_SPEC.md` still doesn't describe picker-validation behavior at this granularity; no update needed (unchanged from the prior pass).
-- *Tests* — see below.
-
-**Tests:**
-- `LogDetailViewModelTest.kt`: `isFutureClamped`/`isEndBeforeStart`'s 4 cases replaced by 6 for `validateStartEdit`/`validateEndEdit`, covering every accept/reject boundary for both fields (a future candidate rejected ahead of an ordering check; equal-boundary values accepted).
-- `LogDetailSheetTest.kt`: removed `startStopDraftWithEndBeforeStart_showsClampedNotice` — it asserted the now-deleted live-derived notice from a static invalid initial draft, a state the UI can no longer produce.
-- No new instrumented coverage added for the reject/revert behavior itself: as before, no test in this codebase drives M3's `TimePicker`/`DatePicker` internals, and that gap now applies uniformly to all three notices rather than two of three (see `docs/TESTING.md`'s Deferrals).
-
-**Deferred:**
-- Compose-level verification of all three time-edit notices (see Tests) — the M3 picker-driving gap is pre-existing and repo-wide, not something to solve as a side effect of this fix.
-- Manual/emulator verification of the notice's color and readability across all three themes' light/dark schemes — left to the user's own pass per their standing instruction.
-
-**Docs updated:** TESTING.md (Compose UI row removed, Deferrals note rewritten).
-
-**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green, against the full accumulated diff.
 

@@ -1,17 +1,18 @@
 package com.secondmonday.hodith.ui.casedetail.trends
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
+import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -41,11 +42,10 @@ class TrendsListScreenTest {
         caseIcon: String = "☕",
         caseName: String = "Coffee",
         onBack: () -> Unit = {},
+        theme: AppTheme = AppTheme.PLAIN,
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                TrendsListScreen(findings = findings, caseIcon = caseIcon, caseName = caseName, onBack = onBack)
-            }
+        composeTestRule.setHodithContent(theme = theme) {
+            TrendsListScreen(findings = findings, caseIcon = caseIcon, caseName = caseName, onBack = onBack)
         }
     }
 
@@ -76,6 +76,22 @@ class TrendsListScreenTest {
             .assertExists()
         composeTestRule
             .onNodeWithText(PlainVoice.insightsStreakShiftSentence(ShiftDirection.DOWN, "4 days", "2 days"))
+            .assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityPatternLabel).assertExists()
+    }
+
+    @Test
+    fun everyFinding_rendersItsOwnPlank_underBrightTheme() {
+        // TrendFindingPlank renders Card-wrapped under Bright instead of Plain's flat content --
+        // confirms real finding text still shows through that structural branch.
+        setContent(theme = AppTheme.BRIGHT)
+
+        composeTestRule
+            .onNodeWithText(BrightVoice.insightsGapShiftSentence(ShiftDirection.UP, "3.2 days", "5.8 days"))
+            .assertExists()
+        composeTestRule
+            .onNodeWithText(BrightVoice.insightsStreakShiftSentence(ShiftDirection.DOWN, "4 days", "2 days"))
             .assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityPatternLabel).assertExists()

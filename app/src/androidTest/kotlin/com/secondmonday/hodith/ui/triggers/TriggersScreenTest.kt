@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.ui.triggers
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -11,7 +10,7 @@ import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.overlapsRect
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.TriggerRow
 import com.secondmonday.hodith.viewmodel.TriggersUiState
@@ -39,16 +38,14 @@ class TriggersScreenTest {
         onSetEnabled: (Long, Boolean) -> Unit = { _, _ -> },
         onDeleteTrigger: (Long) -> Unit = {},
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                TriggersScreen(
-                    uiState = uiState,
-                    onBack = {},
-                    onCreateTrigger = onCreateTrigger,
-                    onSetEnabled = onSetEnabled,
-                    onDeleteTrigger = onDeleteTrigger,
-                )
-            }
+        composeTestRule.setHodithContent {
+            TriggersScreen(
+                uiState = uiState,
+                onBack = {},
+                onCreateTrigger = onCreateTrigger,
+                onSetEnabled = onSetEnabled,
+                onDeleteTrigger = onDeleteTrigger,
+            )
         }
     }
 

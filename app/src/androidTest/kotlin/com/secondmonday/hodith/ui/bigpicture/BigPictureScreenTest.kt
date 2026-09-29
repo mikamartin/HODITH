@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.ui.bigpicture
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,16 +18,14 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.theme.BigPictureCellStyle
-import com.secondmonday.hodith.ui.theme.CardDecorationStyle
-import com.secondmonday.hodith.ui.theme.LocalBigPictureCellStyle
-import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
+import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.BigPictureUiState
 import com.secondmonday.hodith.viewmodel.CalendarCase
@@ -73,30 +70,23 @@ class BigPictureScreenTest {
 
     private fun setContent(
         uiState: BigPictureUiState,
-        cellStyle: BigPictureCellStyle = BigPictureCellStyle.PLAIN,
-        decorationStyle: CardDecorationStyle = CardDecorationStyle.PLAIN,
+        theme: AppTheme = AppTheme.PLAIN,
         onOpenCase: (Long) -> Unit = {},
         onToggleDetail: (BigPictureDetailField, Boolean) -> Unit = { _, _ -> },
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(
-                LocalVoice provides PlainVoice,
-                LocalBigPictureCellStyle provides cellStyle,
-                LocalCardDecorationStyle provides decorationStyle,
-            ) {
-                // BigPictureScreen is stateless: its Case/Tag/Year filters now live in uiState
-                // rather than BigPictureGrid's own remember state, so this local var stands in for
-                // the ViewModel, feeding each filter callback back into the state the screen reads.
-                var state by remember { mutableStateOf(uiState) }
-                BigPictureScreen(
-                    uiState = state,
-                    onOpenCase = onOpenCase,
-                    onToggleDetail = onToggleDetail,
-                    onSetVisibleCaseIds = { state = state.copy(visibleCaseIds = it) },
-                    onSetVisibleTagNames = { state = state.copy(visibleTagNames = it) },
-                    onSelectYear = { state = state.copy(selectedYear = it) },
-                )
-            }
+        composeTestRule.setHodithContent(theme = theme) {
+            // BigPictureScreen is stateless: its Case/Tag/Year filters now live in uiState
+            // rather than BigPictureGrid's own remember state, so this local var stands in for
+            // the ViewModel, feeding each filter callback back into the state the screen reads.
+            var state by remember { mutableStateOf(uiState) }
+            BigPictureScreen(
+                uiState = state,
+                onOpenCase = onOpenCase,
+                onToggleDetail = onToggleDetail,
+                onSetVisibleCaseIds = { state = state.copy(visibleCaseIds = it) },
+                onSetVisibleTagNames = { state = state.copy(visibleTagNames = it) },
+                onSelectYear = { state = state.copy(selectedYear = it) },
+            )
         }
     }
 
@@ -214,22 +204,24 @@ class BigPictureScreenTest {
     }
 
     @Test
-    fun grid_rendersAndOpensDayDetail_underIntenseCellStyle() {
+    fun grid_rendersAndOpensDayDetail_underIntenseTheme() {
         setContent(
             uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))),
-            cellStyle = BigPictureCellStyle.INTENSE,
+            theme = AppTheme.INTENSE,
         )
 
+        // "Cases" is structural copy shared by all three voices (Voice.kt's own default), so this
+        // label is correct regardless of theme.
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).assertExists()
         composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
         composeTestRule.onNodeWithText("felt fine").assertExists()
     }
 
     @Test
-    fun grid_rendersAndOpensDayDetail_underBrightCellStyle() {
+    fun grid_rendersAndOpensDayDetail_underBrightTheme() {
         setContent(
             uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))),
-            cellStyle = BigPictureCellStyle.BRIGHT,
+            theme = AppTheme.BRIGHT,
         )
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).assertExists()
@@ -611,23 +603,23 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText("b note").assertExists()
     }
 
-    // [CardDecorationStyle] (chip skin) is a different composition local from [BigPictureCellStyle]
-    // (day-cell skin) exercised above — no other test in the app provides
-    // [LocalCardDecorationStyle], so without these two, FilterTriggerChip/CaseFilterChip/
-    // CaseGroupChip's entire BRIGHT branch (via BrightChip) would go untested. TagFilterChip no
-    // longer branches on decoration style at all (see its own doc comment).
+    // Card decoration style (chip skin) is a different composition local from the day-cell style
+    // exercised above — both come from `theme` via [setHodithContent]. Without these tests,
+    // FilterTriggerChip/CaseFilterChip/CaseGroupChip's entire BRIGHT branch (via BrightChip) would
+    // go untested. TagFilterChip no longer branches on decoration style at all (see its own doc
+    // comment).
 
     @Test
     fun filterTriggerAndCaseChip_toggleWorksUnderBrightTheme() {
         val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
         setContent(
             uiStateWith(cases = listOf(case, secondCase), events = listOf(eventToday())),
-            decorationStyle = CardDecorationStyle.BRIGHT,
+            theme = AppTheme.BRIGHT,
         )
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
         composeTestRule.onNodeWithText(secondCase.name).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(BrightVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(": " + PlainVoice.bigPictureFilterCount(1)).assertExists()
         composeTestRule.onNodeWithText(case.name).assertExists()
@@ -637,15 +629,15 @@ class BigPictureScreenTest {
     fun filterLegend_showsAllCasesGroupChipAndUntaggedOnlyChip_underBrightTheme() {
         setContent(
             uiStateWith(cases = listOf(case), events = listOf(eventToday(tags = listOf("urgent")))),
-            decorationStyle = CardDecorationStyle.BRIGHT,
+            theme = AppTheme.BRIGHT,
         )
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
         composeTestRule.onNodeWithText("urgent").performClick()
-        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(BrightVoice.infoDialogDismissAction).performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureAllCasesLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureUntaggedOnlyLabel).assertExists()
+        composeTestRule.onNodeWithText(BrightVoice.bigPictureAllCasesLabel).assertExists()
+        composeTestRule.onNodeWithText(BrightVoice.bigPictureUntaggedOnlyLabel).assertExists()
     }
 
     @Test
@@ -825,7 +817,7 @@ class BigPictureScreenTest {
     fun yearFilterTriggerAndDialogChip_workUnderBrightTheme() {
         setContent(
             uiStateWith(cases = listOf(case), events = listOf(eventToday()), earliestMonth = earlierYearMonth),
-            decorationStyle = CardDecorationStyle.BRIGHT,
+            theme = AppTheme.BRIGHT,
         )
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureYearFilterLabel).performClick()
@@ -939,8 +931,6 @@ class BigPictureScreenTest {
 
         openDay()
 
-        // The retired bigPictureEventNoteEmptyState used to render "No note" here.
-        composeTestRule.onNodeWithText("No note").assertDoesNotExist()
         composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
     }
 
@@ -1152,15 +1142,14 @@ class BigPictureScreenTest {
                 events = listOf(eventToday(intensity = 3)),
                 detail = BigPictureDetail.DEFAULT.copy(intensity = true),
             ),
-            cellStyle = BigPictureCellStyle.BRIGHT,
-            decorationStyle = CardDecorationStyle.BRIGHT,
+            theme = AppTheme.BRIGHT,
         )
 
-        composeTestRule.onNodeWithContentDescription(PlainVoice.bigPictureDetailEditDescription).performClick()
+        composeTestRule.onNodeWithContentDescription(BrightVoice.bigPictureDetailEditDescription).performClick()
         composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.INTENSITY)).assertIsOn()
-        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(BrightVoice.infoDialogDismissAction).performClick()
 
         openDay()
-        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(3), substring = true).assertExists()
+        composeTestRule.onNodeWithText(BrightVoice.eventIntensityLabel(3), substring = true).assertExists()
     }
 }

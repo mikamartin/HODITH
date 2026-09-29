@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.ui.case
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -9,10 +8,11 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
 import org.junit.Assert.assertEquals
@@ -41,27 +41,27 @@ class CaseEditScreenTest {
         onDismissLeaveStartStop: () -> Unit = {},
         onConfirmEnterStartStop: () -> Unit = {},
         onDismissEnterStartStop: () -> Unit = {},
+        onIconSelect: (String) -> Unit = {},
+        theme: AppTheme = AppTheme.PLAIN,
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                CaseEditScreen(
-                    uiState = uiState,
-                    onNameChange = {},
-                    onDescriptionChange = {},
-                    onIconSelect = {},
-                    onLogFlowChange = {},
-                    onDurationModeChange = onDurationModeChange,
-                    onConfirmLeaveStartStop = onConfirmLeaveStartStop,
-                    onDismissLeaveStartStop = onDismissLeaveStartStop,
-                    onConfirmEnterStartStop = onConfirmEnterStartStop,
-                    onDismissEnterStartStop = onDismissEnterStartStop,
-                    onIntensityToggle = {},
-                    onCheckInToggle = {},
-                    onSave = {},
-                    onArchive = onArchive,
-                    onBack = {},
-                )
-            }
+        composeTestRule.setHodithContent(theme = theme) {
+            CaseEditScreen(
+                uiState = uiState,
+                onNameChange = {},
+                onDescriptionChange = {},
+                onIconSelect = onIconSelect,
+                onLogFlowChange = {},
+                onDurationModeChange = onDurationModeChange,
+                onConfirmLeaveStartStop = onConfirmLeaveStartStop,
+                onDismissLeaveStartStop = onDismissLeaveStartStop,
+                onConfirmEnterStartStop = onConfirmEnterStartStop,
+                onDismissEnterStartStop = onDismissEnterStartStop,
+                onIntensityToggle = {},
+                onCheckInToggle = {},
+                onSave = {},
+                onArchive = onArchive,
+                onBack = {},
+            )
         }
     }
 
@@ -126,6 +126,22 @@ class CaseEditScreenTest {
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.caseIconSectionCollapseDescription).performClick()
         composeTestRule.onNodeWithContentDescription(PlainVoice.caseIconSectionExpandDescription).assertExists()
+    }
+
+    @Test
+    fun iconChoice_tap_invokesOnIconSelect_underBrightTheme() {
+        // IconChoice renders as BrightIconChoice (IconHalo + selection ring) under Bright, instead
+        // of Plain/Intense's plain bordered circle -- confirms the click target still works.
+        var selected: String? = null
+        setContent(
+            uiState = CaseEditUiState(isEditing = false, isLoading = false),
+            onIconSelect = { selected = it },
+            theme = AppTheme.BRIGHT,
+        )
+
+        composeTestRule.onNodeWithText(CASE_ICONS.first()).performClick()
+
+        assertEquals(CASE_ICONS.first(), selected)
     }
 
     @Smoke

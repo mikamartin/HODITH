@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
@@ -27,8 +28,9 @@ import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.DurationUnit
@@ -80,11 +82,11 @@ class CaseDetailInsightsTabTest {
         timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
         onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
         fontScale: Float = 1f,
+        theme: AppTheme = AppTheme.PLAIN,
     ) {
         val case = testCase(durationMode = durationMode, intensityEnabled = intensityEnabled, createdAt = caseCreatedAt)
-        composeTestRule.setContent {
+        composeTestRule.setHodithContent(theme = theme) {
             CompositionLocalProvider(
-                LocalVoice provides PlainVoice,
                 LocalTimeFormat provides timeFormat,
                 LocalDensity provides Density(density = LocalDensity.current.density, fontScale = fontScale),
             ) {
@@ -171,6 +173,18 @@ class CaseDetailInsightsTabTest {
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
+    }
+
+    @Test
+    fun singleEvent_showsHeatmapRhythmGapsAndCountNote_underBrightTheme() {
+        // InsightsCard renders as a GlowCard under Bright instead of a flat Card+Column --
+        // confirms real content still shows through that structural branch.
+        setInsightsTabContent(caseCreatedAt = daysAgo(60), events = listOf(eventAt(1)), theme = AppTheme.BRIGHT)
+
+        composeTestRule.onNodeWithText(BrightVoice.insightsSingleEventNote).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelHeatmap).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelGaps).assertExists()
     }
 
     @Smoke
