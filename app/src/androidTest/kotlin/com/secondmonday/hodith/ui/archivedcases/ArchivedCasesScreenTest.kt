@@ -1,13 +1,12 @@
 package com.secondmonday.hodith.ui.archivedcases
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.ArchivedCaseRow
 import com.secondmonday.hodith.viewmodel.ArchivedCasesUiState
@@ -34,16 +33,14 @@ class ArchivedCasesScreenTest {
         onDeleteForever: (Long) -> Unit = {},
         onClearArchive: () -> Unit = {},
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                ArchivedCasesScreen(
-                    uiState = uiState,
-                    onBack = {},
-                    onUnarchive = onUnarchive,
-                    onDeleteForever = onDeleteForever,
-                    onClearArchive = onClearArchive,
-                )
-            }
+        composeTestRule.setHodithContent {
+            ArchivedCasesScreen(
+                uiState = uiState,
+                onBack = {},
+                onUnarchive = onUnarchive,
+                onDeleteForever = onDeleteForever,
+                onClearArchive = onClearArchive,
+            )
         }
     }
 

@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.ui.about
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -9,7 +8,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.DeveloperModeUnlockEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,15 +31,13 @@ class AboutScreenTest {
         onVersionTapped: () -> Unit = {},
         onOpenPrivacyPolicy: () -> Unit = {},
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                AboutScreen(
-                    onBack = onBack,
-                    unlockEvents = unlockEvents,
-                    onVersionTapped = onVersionTapped,
-                    onOpenPrivacyPolicy = onOpenPrivacyPolicy,
-                )
-            }
+        composeTestRule.setHodithContent {
+            AboutScreen(
+                onBack = onBack,
+                unlockEvents = unlockEvents,
+                onVersionTapped = onVersionTapped,
+                onOpenPrivacyPolicy = onOpenPrivacyPolicy,
+            )
         }
     }
 

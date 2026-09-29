@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.ui.home
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -8,13 +7,15 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.overlapsRect
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
+import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
@@ -66,23 +67,22 @@ class HomeScreenTest {
         onSaveLogSheetEvent: (LogDraft) -> Unit = {},
         onUndoQuickLog: (Long) -> Unit = {},
         nowMillis: () -> Long = { 0L },
+        theme: AppTheme = AppTheme.PLAIN,
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                HomeScreen(
-                    uiState = uiState,
-                    logSheet = logSheet,
-                    quickLogUndo = quickLogUndo,
-                    onNewCase = {},
-                    onOpenCase = onOpenCase,
-                    onOpenArchivedCases = onOpenArchivedCases,
-                    onQuickLogTap = onQuickLogTap,
-                    onDismissLogSheet = {},
-                    onSaveLogSheetEvent = onSaveLogSheetEvent,
-                    onUndoQuickLog = onUndoQuickLog,
-                    nowMillis = nowMillis,
-                )
-            }
+        composeTestRule.setHodithContent(theme = theme) {
+            HomeScreen(
+                uiState = uiState,
+                logSheet = logSheet,
+                quickLogUndo = quickLogUndo,
+                onNewCase = {},
+                onOpenCase = onOpenCase,
+                onOpenArchivedCases = onOpenArchivedCases,
+                onQuickLogTap = onQuickLogTap,
+                onDismissLogSheet = {},
+                onSaveLogSheetEvent = onSaveLogSheetEvent,
+                onUndoQuickLog = onUndoQuickLog,
+                nowMillis = nowMillis,
+            )
         }
     }
 
@@ -137,6 +137,37 @@ class HomeScreenTest {
 
         assertEquals(oneTapRow.caseId, openedCaseId)
         assertNull(quickLogTapped)
+    }
+
+    @Test
+    fun rowTapAndQuickLogButton_areDistinctTargets_underBrightTheme() {
+        // HomeCaseListItem dispatches 3-way (Bright/Plain/Intense). Bright wraps the whole row in
+        // a GlowCard with its own onClick, so this confirms the quick-log button still hits its
+        // own separate target rather than bubbling up to the row's click.
+        var quickLogTapped: HomeCaseRow? = null
+        var openedCaseId: Long? = null
+        setHomeScreenContent(
+            onQuickLogTap = { quickLogTapped = it },
+            onOpenCase = { openedCaseId = it },
+            theme = AppTheme.BRIGHT,
+        )
+
+        composeTestRule.onNodeWithContentDescription(BrightVoice.quickLogButtonDescription(oneTapRow.name)).performClick()
+
+        assertEquals(oneTapRow, quickLogTapped)
+        assertNull(openedCaseId)
+    }
+
+    @Test
+    fun rowTap_opensCaseDetail_underIntenseTheme() {
+        // Intense renders HomeCaseRowBody flat (its own third branch, distinct from Plain's Card
+        // wrapper and Bright's GlowCard) -- confirms the row's own click target still works.
+        var openedCaseId: Long? = null
+        setHomeScreenContent(onOpenCase = { openedCaseId = it }, theme = AppTheme.INTENSE)
+
+        composeTestRule.onNodeWithText(oneTapRow.name).performClick()
+
+        assertEquals(oneTapRow.caseId, openedCaseId)
     }
 
     @Test

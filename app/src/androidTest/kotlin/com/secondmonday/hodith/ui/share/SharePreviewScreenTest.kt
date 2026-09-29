@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.ui.share
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -15,7 +14,7 @@ import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.data.testHunch
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareInsightsSection
@@ -58,20 +57,18 @@ class SharePreviewScreenTest {
         onSectionToggle: (ShareInsightsSection, Boolean) -> Unit = { _, _ -> },
         onShowHunchVsRealityToggle: (Boolean) -> Unit = {},
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                SharePreviewScreen(
-                    uiState = uiState,
-                    now = now,
-                    graphicsLayer = rememberGraphicsLayer(),
-                    onBack = {},
-                    onFormatSelect = onFormatSelect,
-                    onDisplayNameChange = {},
-                    onSectionToggle = onSectionToggle,
-                    onShowHunchVsRealityToggle = onShowHunchVsRealityToggle,
-                    onShareClick = {},
-                )
-            }
+        composeTestRule.setHodithContent {
+            SharePreviewScreen(
+                uiState = uiState,
+                now = now,
+                graphicsLayer = rememberGraphicsLayer(),
+                onBack = {},
+                onFormatSelect = onFormatSelect,
+                onDisplayNameChange = {},
+                onSectionToggle = onSectionToggle,
+                onShowHunchVsRealityToggle = onShowHunchVsRealityToggle,
+                onShareClick = {},
+            )
         }
     }
 

@@ -10,8 +10,8 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
-import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.LogDetailScreenUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
@@ -39,8 +39,8 @@ class LogDetailScreenTest {
         onBack: () -> Unit = {},
         onDelete: (() -> Unit)? = {},
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalTimeFormat provides TimeFormat.TWELVE_HOUR) {
+        composeTestRule.setHodithContent {
+            CompositionLocalProvider(LocalTimeFormat provides TimeFormat.TWELVE_HOUR) {
                 LogDetailScreen(uiState = uiState, onSave = onSave, onBack = onBack, onDelete = onDelete)
             }
         }

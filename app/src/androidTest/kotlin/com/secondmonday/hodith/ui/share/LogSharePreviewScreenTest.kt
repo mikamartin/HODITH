@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.ui.share
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -13,7 +12,7 @@ import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.DATE_RANGE_ALL_TIME_BUTTON_TAG
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
@@ -56,21 +55,19 @@ class LogSharePreviewScreenTest {
         onFieldToggle: (LogRowField, Boolean) -> Unit = { _, _ -> },
         onShareClick: () -> Unit = {},
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                LogSharePreviewScreen(
-                    uiState = uiState,
-                    now = now,
-                    graphicsLayer = rememberGraphicsLayer(),
-                    onBack = {},
-                    onFormatSelect = onFormatSelect,
-                    onSortOrderSelect = onSortOrderSelect,
-                    onDateFromPicked = onDateFromPicked,
-                    onDateToPicked = onDateToPicked,
-                    onFieldToggle = onFieldToggle,
-                    onShareClick = onShareClick,
-                )
-            }
+        composeTestRule.setHodithContent {
+            LogSharePreviewScreen(
+                uiState = uiState,
+                now = now,
+                graphicsLayer = rememberGraphicsLayer(),
+                onBack = {},
+                onFormatSelect = onFormatSelect,
+                onSortOrderSelect = onSortOrderSelect,
+                onDateFromPicked = onDateFromPicked,
+                onDateToPicked = onDateToPicked,
+                onFieldToggle = onFieldToggle,
+                onShareClick = onShareClick,
+            )
         }
     }
 

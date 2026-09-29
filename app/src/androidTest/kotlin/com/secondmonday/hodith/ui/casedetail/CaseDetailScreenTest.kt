@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
@@ -32,10 +33,10 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.DATE_RANGE_ALL_TIME_BUTTON_TAG
 import com.secondmonday.hodith.ui.common.overlapsRect
+import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.share.SHARE_CHOOSER_OPTION_TAG_PREFIX
 import com.secondmonday.hodith.ui.share.ShareChoice
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
-import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.DurationUnit
@@ -98,6 +99,7 @@ class CaseDetailScreenTest {
         onStopEvent: (EventEntity) -> Unit = {},
         nowMillis: () -> Long = { 10_000L },
         timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
+        theme: AppTheme = AppTheme.PLAIN,
         onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit =
             { _, _, _, _, _, _ -> },
         onResolveHunch: (HunchEntity) -> Unit = {},
@@ -107,8 +109,8 @@ class CaseDetailScreenTest {
         onLogFieldVisibleChange: (LogRowField, Boolean) -> Unit = { _, _ -> },
         onShowMoreLogEvents: () -> Unit = {},
     ) {
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalTimeFormat provides timeFormat) {
+        composeTestRule.setHodithContent(theme = theme) {
+            CompositionLocalProvider(LocalTimeFormat provides timeFormat) {
                 CaseDetailScreen(
                     uiState =
                         CaseDetailUiState(
@@ -315,6 +317,24 @@ class CaseDetailScreenTest {
     }
 
     @Test
+    fun eventRow_click_invokesOnEditEvent_underBrightTheme() {
+        // EventRow renders Card-wrapped under Bright, with its click target placed differently
+        // than Plain's flat row -- a real risk if that branch silently breaks (spec survey).
+        val event = testEvent(id = 7L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+        var edited: Pair<Long, Long>? = null
+        setCaseDetailScreenContent(
+            events = listOf(EventWithTags(event = event, tags = emptyList())),
+            onEditEvent = { caseId, eventId -> edited = caseId to eventId },
+            nowMillis = { 10_000L },
+            theme = AppTheme.BRIGHT,
+        )
+
+        composeTestRule.onNodeWithText(formatEventTime(event.occurredAt, 10_000L, use24Hour = false)).performClick()
+
+        assertEquals(startStopCase.id to event.id, edited)
+    }
+
+    @Test
     fun ongoingEvent_showsStopButtonOnItsRow_andInvokesOnStopEvent() {
         val ongoing = ongoingEvent()
         var stopped: EventEntity? = null
@@ -411,6 +431,26 @@ class CaseDetailScreenTest {
             case = startStopCase,
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
             onLogSortOrderChange = { changedTo = it },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).performClick()
+
+        assertEquals(LogSortOrder.BY_END, changedTo)
+    }
+
+    @Test
+    fun logSortToggle_worksUnderBrightTheme() {
+        // The Sort trigger is a FilterTriggerChip; its dialog's Started/Ended choice is a
+        // SegmentedChoiceRow -- the two structurally-branching composables this screen owns,
+        // both exercised here under real Bright rendering rather than Plain's default code path.
+        val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
+        var changedTo: LogSortOrder? = null
+        setCaseDetailScreenContent(
+            case = startStopCase,
+            events = listOf(EventWithTags(event = finished, tags = emptyList())),
+            onLogSortOrderChange = { changedTo = it },
+            theme = AppTheme.BRIGHT,
         )
 
         composeTestRule.onNodeWithText(PlainVoice.logSortLabel).performClick()

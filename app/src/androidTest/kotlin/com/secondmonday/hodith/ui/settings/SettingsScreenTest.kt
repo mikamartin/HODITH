@@ -19,7 +19,9 @@ import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.overlapsRect
-import com.secondmonday.hodith.ui.voice.LocalVoice
+import com.secondmonday.hodith.ui.common.setHodithContent
+import com.secondmonday.hodith.ui.voice.BrightVoice
+import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.BackupEvent
 import com.secondmonday.hodith.viewmodel.SettingsUiState
@@ -67,10 +69,10 @@ class SettingsScreenTest {
         onOpenAbout: () -> Unit = {},
         onContactUs: () -> Unit = {},
         fontScale: Float = 1f,
+        theme: AppTheme = AppTheme.PLAIN,
     ) {
-        composeTestRule.setContent {
+        composeTestRule.setHodithContent(theme = theme) {
             CompositionLocalProvider(
-                LocalVoice provides PlainVoice,
                 LocalDensity provides Density(density = LocalDensity.current.density, fontScale = fontScale),
             ) {
                 SettingsScreen(
@@ -101,6 +103,31 @@ class SettingsScreenTest {
         setContent(onOpenAbout = { opened = true })
 
         composeTestRule.onNodeWithText(PlainVoice.aboutScreenTitle).performClick()
+
+        assertEquals(true, opened)
+    }
+
+    @Test
+    fun aboutButton_invokesOnOpenAbout_underIntenseTheme() {
+        // Plank renders as an OutlinedCard under Intense -- its third distinct branch alongside
+        // Plain's Card and Bright's GlowCard -- confirms content inside still renders and clicks.
+        var opened = false
+        setContent(onOpenAbout = { opened = true }, theme = AppTheme.INTENSE)
+
+        composeTestRule.onNodeWithText(IntenseVoice.aboutScreenTitle).performClick()
+
+        assertEquals(true, opened)
+    }
+
+    @Test
+    fun aboutButton_invokesOnOpenAbout_underBrightTheme() {
+        // Exercises both Plank (GlowCard) and ActionRow (BrightActionRow) -- the two
+        // structurally-branching composables this screen owns -- together under real Bright
+        // rendering, not just Plain's default code path.
+        var opened = false
+        setContent(onOpenAbout = { opened = true }, theme = AppTheme.BRIGHT)
+
+        composeTestRule.onNodeWithText(BrightVoice.aboutScreenTitle).performClick()
 
         assertEquals(true, opened)
     }

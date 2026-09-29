@@ -336,7 +336,7 @@ class ShareCardTemplateTest {
         }
 
         composeTestRule.onNodeWithText(PlainVoice.shareLogCardKicker).assertExists()
-        composeTestRule.onNodeWithText("All time").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeAllTimeLabel).assertExists()
         composeTestRule.onNodeWithText("Wed, Sep 9 · 8:14 PM").assertExists()
         composeTestRule.onNodeWithText("5h 20m · Intensity 4/5").assertExists()
     }
