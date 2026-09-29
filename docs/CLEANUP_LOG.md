@@ -17,6 +17,44 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## test/notification-eval-repository-coverage
+
+**Scope:** PROGRESS.md's "No repository-level test coverage for the notification-eval scheduling side effect" — `RoomHodithRepository`'s `insertEvent`/`updateEvent`/`deleteEvent`/`deleteEventById`/`deleteEventsOlderThan` each schedule a fire-and-forget notification-eval side effect, but nothing exercised that chain against a real `RoomHodithRepository`/`HodithDatabase`/`NotificationEvalScheduler`/`NotificationEvaluator` — in particular `deleteEventsOlderThan`'s "fetch affected Case ids before deleting" ordering was unpinned by any test. The blocker: `FakeNotifier`/`FakeClock`/`FakeSettingsRepository` lived in `src/test`, a JVM-only source set invisible to `androidTest`. Asked which of the item's two named fixes to take, the user chose a shared source set over androidTest-local reimplementations, to close the reachability gap for good rather than adding copies to keep in sync.
+
+**Changes:**
+
+- `app/build.gradle.kts`: extended the existing `sourceSets { }` block with `getByName("test").kotlin.srcDirs(...)`/`getByName("androidTest").kotlin.srcDirs(...)` pointing at a new `app/src/sharedTest/kotlin/` directory.
+- `FakeClock.kt`, `FakeNotifier.kt`, `FakeSettingsRepository.kt` moved (`git mv`, package unchanged) from `src/test` into `src/sharedTest`.
+- `app/src/androidTest/kotlin/com/secondmonday/hodith/data/RoomHodithRepositoryNotificationEvalTest.kt` (new): five tests against a real in-memory `HodithDatabase` and a real `NotificationEvalScheduler`/`NotificationEvaluator` (only `Notifier` faked), one per wrapper method, plus the `deleteEventsOlderThan` ordering regression pin (two Cases, only one's event within the cutoff; asserts exactly that Case gets evaluated).
+
+**Checklist walk (against the diff):**
+
+- *Duplication/Decoupling/Complexity* — N/A; no ViewModel/UI/domain production code touched, no new Repository or Dao surface.
+- *Dead code & hygiene* — no unused imports (`ktlintCheck` and `compileDebugAndroidTestKotlin` both passed clean); no throwaway prototype involved.
+- *Repo hygiene* — `git status` showed only the expected changes.
+- *Naming* — new file follows the existing `RoomHodithRepository<Feature>Test.kt` convention, sits in `data/`.
+- *Hardcoded values* — `DAY_MILLIS`/`AWAIT_TIMEOUT_MILLIS`/`AWAIT_POLL_MILLIS` are named local constants, not inlined.
+- *Background work & notifications* — this pass is coverage for the debounced-evaluation contract itself, not a behavior change to it.
+- *Deprecated APIs* — `.kotlin.srcDirs(...)` on `AndroidSourceSet` emits a "use `directories` instead" warning; considered and declined — the file's one pre-existing `sourceSets` line already uses the same deprecated `srcDirs` call, and migrating only the two new lines would leave the block inconsistent for no functional gain.
+- *Spec review* — N/A; this closes a test-coverage gap, not new behavior HODITH_SPEC.md describes.
+- *Tests* — see below; `TESTING.md` updated (new clause on the existing `RoomHodithRepositoryLogEventsTest` bullet in the Room DAOs row).
+
+**Tests:**
+
+- The five new tests initially used `kotlinx-coroutines-test`'s virtual time (`runTest`/`backgroundScope`/`advanceTimeBy`), mirroring `NotificationEvalSchedulerTest` — but `evaluateCase`'s real Room queries cross into Room's own real query-executor threads, which the virtual clock doesn't control, so `advanceTimeBy`/`runCurrent` returned before that cross-thread work actually finished (two tests failed with an empty notifier). Rewritten to a real `CoroutineScope(Dispatchers.Default)` and `runBlocking` with a real polling wait (`awaitNotification`) for the side effect instead.
+- Sanity-checked the regression pin: temporarily swapped `deleteEventsOlderThan`'s fetch/delete order — the new test failed (timed out waiting for the eval) as expected — then reverted (confirmed zero net diff on that file).
+- All 5 new tests plus the 2 sibling `RoomHodithRepository*Test` classes (14 tests total) pass on `Pixel_8_API36(AVD)`.
+
+**Found, unrelated (not fixed here):** running the wider `data` package surfaced `BigPictureQueriesTest` failing on this non-UTC local emulator — its expected `CaseEventDetail` literal leaves `utcOffsetMinutes` at the class default (`0`) instead of computing it the same way `testEvent()` does, unlike the fixture-input fix `TESTING.md` already documents for this exact class of bug. CI defaults to UTC, so it's never surfaced there. Opened a PROGRESS.md item and extended the existing `TESTING.md` "Known environment issues" bullet rather than fixing inline, since it's outside this branch's scope.
+
+**Docs updated:** `PROGRESS.md` (this item struck; new item opened for the `BigPictureQueriesTest` bug found in passing). `TESTING.md` (Room DAOs row gained a clause; "Known environment issues" bullet extended).
+
+**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green.
+
+**Instrumented run:** `connectedDebugAndroidTest` scoped to the new class plus its two `RoomHodithRepository*Test` siblings on `Pixel_8_API36(AVD)`: 14/14 passing.
+
+---
+
 ## feat/share-log-card
 
 **Scope:** PROGRESS.md's "Share button: add a Log Share option alongside the existing Insight Share." A prototype (`docs/mockups/log-share-prototype.html`, several rounds with the user) corrected the item's own framing mid-flight: this is a second visually-designed share *card* — same Compose-capture → bitmap → share-sheet pipeline as today's Insight Share — showing the Case's actual logged entries instead of a data export. The prototype also settled the entry point (a single Share icon opening an `AlertDialog` chooser, mirroring `ExportFormatDialog.kt`), the date-range defaults/bounds, and a uniform 30-entry card cap discovered during implementation planning to apply to both formats (Square's floor doesn't cap it any tighter than Story — a correction to the prototype's own tighter Square demo cap). A second pass in the same branch (still uncommitted, per the user's "everything implemented before any commit" instruction) brought the same reusable filter onto the real Case Detail Log tab itself — the user had explicitly asked for this from the start ("a filter for logs that can also be reused on logs screen later"), not deferred it, correcting an earlier misreading mid-session that had wrongly treated it as out of scope.
@@ -200,53 +238,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** TESTING.md (Compose UI row removed, Deferrals note rewritten).
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green, against the full accumulated diff.
-
----
-
-## fix/big-picture-filter-pill-consistency
-
-**Scope:** PROGRESS.md's "Big Picture: filter pill consistency pass (color-coding, empty-selection label, tag/case pill parity)" — Big Picture's Cases/Tags/Year filter chips had no per-type color distinction under Bright, read a bare "0" instead of a "None" wording once a filter cleared to nothing, and `TagFilterChip`'s bare-`Text` layout didn't measure to the same height as `CaseFilterChip`'s `Row` layout in a shared `FlowRow`. Mid-pass, after seeing the first result on-device, the user asked for a follow-up round: drop `TagFilterChip`'s checkmark entirely (added earlier in this same session) from both the filter dialogs and the legend row, thicken its selected-state border, and fix wrapped pill rows sitting flush against each other with no vertical gap.
-
-**Changes:**
-
-- `ui/bigpicture/BigPictureGrid.kt`: `filterCountLabel` gained a `selected == 0` branch returning the new `bigPictureFilterCountNone` key. `BrightChip` took a `tint: Color` parameter (was hardcoded to `primary`) so `BrightCaseFilterChip`/`CaseGroupChip` use `secondary` and `YearFilterChip`/`FilterTriggerChip` keep `primary` — Bright now color-codes Cases distinctly from Year/trigger chips. `TagFilterChip` dropped its `LocalCardDecorationStyle` branch and `BrightTagFilterChip` entirely — one flat, unfilled `Text` pill (no icon, no fill, no checkmark) in every theme, selected state read from a thicker (`2.dp` vs. `1.dp`) border and darker text alone; this both fixed the `FlowRow` height-parity issue (matching padding, no wrapper mismatch) and satisfied the later ask to remove the checkmark. Every `FlowRow` holding these pills (Cases/Tags/Year dialogs, the legend row, one Preview) gained `verticalArrangement = Arrangement.spacedBy(6.dp)` — previously unset, so wrapped rows sat flush against the row above with no gap.
-- `ui/voice/Voice.kt`: new `bigPictureFilterCountNone` key, all three voices ("None" / "Not one" / "None!").
-- `docs/PROGRESS.md`: the resolved item removed entirely; a new item opened for a test-fixture bug found while verifying this pass (see Follow-up below) — not part of this diff's own scope, tracked separately rather than fixed here.
-- `docs/TESTING.md`: the Compose UI — Big Picture row gained clauses for the "None" count label, the case/tag chip equal-height check, and the wrapped-pill-rows-don't-overlap regression; a new "Known environment issues" bullet for the timezone test-fixture bug (see Follow-up below) — a promised note on an earlier, similar sighting never actually landed, so this one was written immediately rather than deferred a second time.
-
-**Checklist walk (against the working-tree diff):**
-
-- *Duplication* — no inline strings; `bigPictureFilterCountNone` goes through `Voice` in all three implementations in this same pass. Removing `BrightTagFilterChip` cut duplication rather than adding it (one fewer chip-styling branch to keep in sync).
-- *Decoupling* — N/A; UI-only, no ViewModel/domain code touched.
-- *Complexity & pattern health* — `BrightChip`'s new `tint` parameter is a straightforward generalization of a value it already computed internally; its four call sites were updated together, not left half-migrated.
-- *Dead code & hygiene* — removed the now-orphaned `BIG_PICTURE_TAG_CHIP_CHECK_TAG_PREFIX` test-tag constant and its `Icons.Filled.Check` import along with the checkmark itself; confirmed no other reference by grep. `ktlintCheck` and a full `compileDebugAndroidTestKotlin` passed clean.
-- *Repo hygiene* — `git status` clean aside from the pre-existing untracked `merged_branches.txt` (flagged unrelated in every prior entry, still left alone).
-- *Naming* — `bigPictureFilterCountNone` follows the existing `bigPictureFilterCount*` pattern.
-- *Hardcoded values* — none beyond this file's existing convention of inline `dp` spacing/padding values.
-- *Accessibility* — `TagFilterChip`'s selected/unselected signal dropped from three cues (checkmark + border width + color) to two (border width + color) — a deliberate simplification per the user's direct request, not an oversight; not independently re-verified in dark mode or at larger font scale by this pass (see Deferred).
-- *Data model / migrations* — N/A.
-- *Deprecated APIs* — none introduced.
-- *Spec review* — `HODITH_SPEC.md` doesn't describe filter-chip styling at this level of detail; no update needed.
-- *Tests* — see below.
-
-**Tests:**
-
-- `VoiceTest.kt`'s existing reflection-based invariants picked up `bigPictureFilterCountNone` automatically (non-blank and distinct across all three voices), confirmed by running it.
-- `BigPictureScreenTest.kt`: the checkmark-specific regression test (`tagFilterChip_showsACheckmarkOnlyWhileSelected`) removed along with the feature it guarded — the underlying selection behavior stays covered by the existing functional tests (`tagFilterChip_deselecting_hidesEventsOfOtherTags`, `..._deselectingAllTags_showsUntaggedOnly`, etc.), which assert on filtering outcomes rather than chip decoration. New: `casesDialog_pillsWrappedAcrossRows_dontOverlapVertically`, a regression guard for the missing-`verticalArrangement` fix (12 short-named Cases forced onto multiple rows in the Cases dialog; asserts each row's max bottom bound stays at or above the next row's top).
-
-**Follow-up (asked directly whether the coverage was actually comprehensive, not just green — caught a real bug and a real gap):**
-
-- `caseChipAndTagChip_haveEqualHeight_inSharedFlowRow` (added earlier in this session, before the checkmark-removal round) failed on-device: it deselects the "Tea" Case to force the Cases dimension into a "Some" state, then tries to deselect the "later" tag — but `later` belonged only to Tea's own event, so once Tea was hidden, `later` was scoped out of the Tags dialog entirely and the click had nothing to hit. Fixed by moving both tags onto the still-visible Case's event, so Tea carries no events of its own and deselecting it only narrows Cases, not Tags.
-- Running the full `BigPictureScreenTest` class surfaced 9 unrelated failures, all clock-time text assertions (`"12:00 AM"`, `"Ongoing since …"`). Traced to a genuine test-fixture bug, not flakiness — confirmed reproducible (same 9, same names) across two full runs and an emulator restart in between — and to an *already-known* one: an earlier `CLEANUP_LOG.md` entry (`fix/case-log-sort-persistence-and-sizing`, since rotated out of this file by the 5-entry limit) hit the identical failure mode in `CaseDetailScreenTest`/`CaseDetailInsightsTabTest` and flagged it for a `TESTING.md` note that never actually got written. Opened a real PROGRESS.md item this time and wrote the `TESTING.md` note immediately rather than deferring it again.
-
-**Deferred:**
-
-- Re-verifying the thicker-border/no-checkmark selected-state signal in dark mode and at larger Android font scale — the user visually confirmed the change on-device; dark mode and large-font-scale weren't separately re-checked this pass.
-- The *fix* for the timezone test-fixture bug found in Follow-up — out of this diff's scope; opened as its own PROGRESS.md item and documented in `TESTING.md` (both landed this pass) rather than fixed inline.
-
-**Docs updated:** `PROGRESS.md` — item removed entirely; new item opened for the timezone test-fixture bug. `TESTING.md` — Compose UI — Big Picture row gained three clauses; new "Known environment issues" bullet (see Changes above).
-
-**Verified:** `ktlintCheck → lintDebug → test → compileDebugAndroidTestKotlin` sequential, all green.
-
-**Instrumented run:** `connectedDebugAndroidTest` scoped to `BigPictureScreenTest` on `Pixel_8_API36(AVD)`: 58 tests, 9 failures — all 9 pre-existing and unrelated (see Follow-up above); both the fixed and the new pill test confirmed passing, first in isolation and again in the full-class run.
 

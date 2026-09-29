@@ -23,6 +23,10 @@ android {
     sourceSets {
         // Exposes app/schemas/*.json to MigrationTestHelper in instrumented tests.
         getByName("androidTest").assets.srcDirs("$projectDir/schemas")
+        // Fakes (FakeClock/FakeNotifier/FakeSettingsRepository) shared between the JVM `test`
+        // suite and the instrumented `androidTest` suite.
+        getByName("test").kotlin.srcDirs("$projectDir/src/sharedTest/kotlin")
+        getByName("androidTest").kotlin.srcDirs("$projectDir/src/sharedTest/kotlin")
     }
 
     buildTypes {
