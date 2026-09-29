@@ -32,6 +32,8 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.DATE_RANGE_ALL_TIME_BUTTON_TAG
 import com.secondmonday.hodith.ui.common.overlapsRect
+import com.secondmonday.hodith.ui.share.SHARE_CHOOSER_OPTION_TAG_PREFIX
+import com.secondmonday.hodith.ui.share.ShareChoice
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -194,8 +196,8 @@ class CaseDetailScreenTest {
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
 
-        composeTestRule.onNodeWithText(PlainVoice.shareChooserInsightOption).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareChooserLogOption).assertExists()
+        composeTestRule.onNodeWithTag(SHARE_CHOOSER_OPTION_TAG_PREFIX + ShareChoice.INSIGHT.name).assertExists()
+        composeTestRule.onNodeWithTag(SHARE_CHOOSER_OPTION_TAG_PREFIX + ShareChoice.LOG.name).assertExists()
         assertNull(shareCaseId)
     }
 
@@ -227,7 +229,7 @@ class CaseDetailScreenTest {
         )
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.shareChooserLogOption).performClick()
+        composeTestRule.onNodeWithTag(SHARE_CHOOSER_OPTION_TAG_PREFIX + ShareChoice.LOG.name).performClick()
         composeTestRule.onAllNodesWithText(PlainVoice.shareOpenDescription).onLast().performClick()
 
         assertEquals(startStopCase.id, logShareCaseId)

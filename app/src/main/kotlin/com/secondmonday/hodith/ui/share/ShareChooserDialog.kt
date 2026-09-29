@@ -43,12 +43,14 @@ internal fun ShareChooserDialog(
                     description = voice.shareChooserInsightDescription,
                     selected = choice == ShareChoice.INSIGHT,
                     onSelect = { choice = ShareChoice.INSIGHT },
+                    testTag = SHARE_CHOOSER_OPTION_TAG_PREFIX + ShareChoice.INSIGHT.name,
                 )
                 RadioOptionRow(
                     label = voice.shareChooserLogOption,
                     description = voice.shareChooserLogDescription,
                     selected = choice == ShareChoice.LOG,
                     onSelect = { choice = ShareChoice.LOG },
+                    testTag = SHARE_CHOOSER_OPTION_TAG_PREFIX + ShareChoice.LOG.name,
                 )
             }
         },
@@ -60,3 +62,11 @@ internal fun ShareChooserDialog(
         },
     )
 }
+
+/**
+ * [ShareChooserDialog]'s two [RadioOptionRow]s need to be findable by tag rather than by label
+ * text: the Log option's own label text ("Log") collides with the still-present Case Detail Log
+ * tab underneath the dialog, the same class of ambiguity Big Picture/Log tab/Log Share's own field
+ * toggles hit and solved the same way.
+ */
+internal const val SHARE_CHOOSER_OPTION_TAG_PREFIX = "share_chooser_option_"
