@@ -75,6 +75,23 @@ Fold these already-drafted key changes into the audit:
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
+### `BigPictureQueriesTest` fails on a non-UTC local emulator
+
+*Branch: none yet · Complexity: XS · Priority: Low · Area: Repo*
+
+🔍 **Investigation, narrow** — the fix is a one-line test change once picked up; filed rather than fixed inline because it surfaced while verifying unrelated work (`test/notification-eval-repository-coverage`).
+
+`observeActiveCaseEventDetails_projectsTimingIntensityAndNote` fails on a non-UTC local emulator: its expected `CaseEventDetail(...)` literal leaves `utcOffsetMinutes` at the class's `0` default instead of computing it the same way `testEvent()` does. The Event fixture itself is correctly zone-aware (`ZoneId.systemDefault().offsetMinutesAt(occurredAt)`, per `TESTING.md`'s existing "Clock-time-formatting instrumented tests" note) — this is the narrower case of an *assertion* literal, not a fixture input, staying UTC-only. CI runners default to UTC, so it's never surfaced there.
+
+**Acceptance criteria**
+
+- [ ] The expected `CaseEventDetail` in `BigPictureQueriesTest.kt` computes `utcOffsetMinutes` the same way `testEvent()` does, rather than relying on the class default.
+- [ ] `TESTING.md`'s existing "Clock-time-formatting instrumented tests" bullet gains a clause noting this narrower assertion-literal case, so a future non-UTC-only-fixture-focused reader doesn't miss it.
+
+**Plan** — one-line fix once picked up; low priority since it's a local-environment-only false failure, not a CI or production issue.
+
+**Tests** — the fix *is* the test change; no new test needed.
+
 ### App-icon handle butts directly against the lens ring with no clearance
 
 *Branch: `fix/icon-handle-clearance` · Complexity: S · Priority: Low · Area: Bug*
@@ -183,29 +200,6 @@ Not every gap here is equally risky — a composable that only reads `MaterialTh
 **Tests** — this item's entire scope is test changes; no production code.
 
 **Concern** — varying `LocalVoice`/`LocalCardDecorationStyle`/real theme colors in existing tests will surface any test currently passing only because it happens to match Plain's specific copy or Compose's default colors — expect some collateral fixes, not just new coverage.
-
-### No repository-level test coverage for the notification-eval scheduling side effect
-
-*Branch: none yet — needs a reusable test double designed first · Complexity: S–M · Priority: Low · Area: Repo*
-
-`RoomHodithRepository.deleteEventsOlderThan` fetches affected Case ids *before* deleting, then deletes, then calls `evaluateNotificationsForCase` per Case — the ordering isn't pinned by any test. Wider gap: `evaluateNotificationsForCase` → `NotificationEvalScheduler.schedule()` is untested at the repository level for every call site (`insertEvent`, `updateEvent`, `deleteEvent`, `deleteEventById`, not just `deleteEventsOlderThan`). `RoomHodithRepositoryBackupTest.kt` already documents the workaround: it inserts via `db.eventDao().insert(...)` directly to avoid triggering the wrapper's notification side effect against its intentionally-throwing `NotificationEvaluator` stand-in.
-
-The scheduler/evaluator chain itself is testable — `NotificationEvalSchedulerTest` (JVM) proves the full path with `FakeHodithRepository`/`FakeSettingsRepository`/`FakeClock`/`FakeNotifier`. Missing: an androidTest equivalent against a real `RoomHodithRepository`/`HodithDatabase`, without triggering `unusedScheduler()`'s deliberate error or routing around the wrapper methods. `FakeNotifier` also isn't reachable from `androidTest` — it's in `src/test`, a separate source set.
-
-Not blocking — every affected path self-heals within ~6 hours via `NotificationEvalWorker`'s periodic `evaluateAll` sweep. Coverage gap, not a correctness risk.
-
-**Acceptance criteria**
-
-- [ ] A reusable androidTest double/helper for the notification-eval side effect — real `NotificationEvalScheduler` + `NotificationEvaluator` wired to the `RoomHodithRepository` under test, with a `FakeNotifier`-equivalent double it can actually read from (moved to a shared source set, or reimplemented for `androidTest`).
-- [ ] `RoomHodithRepository.deleteEventsOlderThan`'s affected-Case-id-before-delete ordering pinned by a test using it — the concrete bug that prompted this item.
-- [ ] The same coverage extended to `insertEvent`/`updateEvent`/`deleteEvent`/`deleteEventById`'s `evaluateNotificationsForCase` call, currently untested at the repository level.
-- [ ] `RoomHodithRepositoryBackupTest.kt`'s raw-DAO insert workaround revisited once the double exists — it could go back to calling `repository.insertEvent(...)` directly instead of bypassing the wrapper, if that reads more naturally with the new double in place.
-
-**Plan** — mirror `NotificationEvalSchedulerTest`'s shape but swap in the real `RoomHodithRepository`/in-memory `HodithDatabase`, matching `RoomHodithRepositoryLogEventsTest`'s setup. Settle `FakeNotifier`'s reachability first (shared source set vs. `androidTest`-local reimplementation).
-
-**Tests** — this item's entire scope is new tests; see acceptance criteria above.
-
-**Concern** — none blocking. Trigger CRUD doesn't call `evaluateNotificationsForCase` today, unlike Event CRUD — noticed in passing, not evaluated here as correct or a bug.
 
 ## Deferred
 
