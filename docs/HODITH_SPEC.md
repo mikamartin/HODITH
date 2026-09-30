@@ -130,7 +130,7 @@ The switch-*in* conversion uses `endedAt = occurredAt` (the event's own start), 
 
 ## 8. Comparison math (internal — reused by Notifications, not yet user-facing)
 
-A pure-Kotlin comparison engine kept from the retired Hunch feature for the Notifications work planned next (see PROGRESS.md's Story N). Nothing currently reaches it from any screen. Inputs: an `Expectation(count, per, metric, windowStart)` value, an event list, the Case's `durationMode`, `now`.
+A pure-Kotlin comparison engine for the Notifications work planned next (see PROGRESS.md's Story N). Nothing currently reaches it from any screen. Inputs: an `Expectation(count, per, metric, windowStart)` value, an event list, the Case's `durationMode`, `now`.
 
 - **Observation window** is `[expectation.windowStart, now]` — resolving `windowStart` is the caller's job, not this engine's; a Notification's lookback will always be a rolling day count decided at the call site.
 - **Window filtering** — an event feeds the count only if its active span (§9) reaches into the window and it started by `now`. A duration event that began before the window but is still active inside it counts (span-overlap, not `occurredAt` alone). Days-active only counts the event's in-window days.
@@ -143,7 +143,7 @@ A pure-Kotlin comparison engine kept from the retired Hunch feature for the Noti
   - **Preliminary** — count ≥5 and window ≥14 days
   - **Confident** — count ≥15 and window ≥28 days
 - **Comparison bands** (observed ÷ expected): `<0.5` much less · `0.5–0.8` less · `0.8–1.25` about right · `1.25–2.0` more · `>2.0` much more. Each cutoff itself belongs to the higher band (e.g. exactly `0.8` is "about right", not "less").
-- Copy comes from the Voice layer (§12) and is band-only — the direction-aware framing Hunch used (too often vs. not enough) was retired along with it.
+- Copy comes from the Voice layer (§12) and is band-only, not direction-aware.
 
 ## 9. Visualizations
 

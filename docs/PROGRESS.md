@@ -29,7 +29,7 @@ Alpha feedback showed Hunch wasn't landing, and it overlapped with `AT_LEAST` Tr
 
 *Branch: `feat/notifications` · Complexity: L · Priority: Medium · Area: Notifications*
 
-Rename Trigger → Notification everywhere and move it into a bell tab, reusing N1's kept pieces (`Expectation`, `FrequencyPickers.kt`, `ExpectationCards.kt`) — no new visual design; the cards and editor are today's `TriggerListItem`/`TriggerCreationSheet` extended with those pickers and the neutral tier cards.
+Rename Trigger → Notification everywhere and move it into a bell tab, reusing the pieces `chore/remove-hunch` kept (`Expectation`, `FrequencyPickers.kt`, `ExpectationCards.kt`) — no new visual design; the cards and editor are today's `TriggerListItem`/`TriggerCreationSheet` extended with those pickers and the neutral tier cards.
 
 **Target UX**
 
@@ -40,14 +40,14 @@ Rename Trigger → Notification everywhere and move it into a bell tab, reusing 
   3. Add FAB and empty state, following `TriggersEmptyState`.
 - **Editor** (create and edit, prefilled when editing) — today's `TriggerCreationSheet` layout:
   - Kind: `SegmentedChoiceRow` — Happens often / Goes quiet.
-  - Often: count (`NumberStepper`); per day/week/month (N1's period picker); looking back 7 / 30 / 90 / custom days, always rolling; measure times / days active (N1's metric picker, duration Cases only); **intensity at least** off / 1–5 (`SegmentedChoiceRow`, only when the Case has `intensityEnabled` — e.g. "3+ times per week with intensity 3+"; events without an intensity don't count while it's set).
+  - Often: count (`NumberStepper`); per day/week/month (`FrequencyPickers.kt`'s period picker); looking back 7 / 30 / 90 / custom days, always rolling; measure times / days active (`FrequencyPickers.kt`'s metric picker, duration Cases only); **intensity at least** off / 1–5 (`SegmentedChoiceRow`, only when the Case has `intensityEnabled` — e.g. "3+ times per week with intensity 3+"; events without an intensity don't count while it's set).
   - Quiet: days (`NumberStepper`), as today.
 
 **Acceptance criteria**
 
 - [ ] Rename throughout: `NotificationEntity`, `NotificationDao`, table `notifications`, `NotificationKind { OFTEN, QUIET }`, engine, decision type, ViewModel, tests, Voice keys, spec. `android.app.Notification` imported under an alias where a file needs both; `NotificationEvaluator`/`Notifier` keep their names.
 - [ ] New columns `expectedPer`, `metric` (default occurrence count), `minIntensity` (nullable). No hand-written migration: an `AutoMigration` with a `@DeleteTable` spec drops `triggers` and creates `notifications`, so existing test-install triggers are discarded (satisfies `SchemaMigrationCoverageTest`). Test installs are restored from the shared testing backup JSON, adjusted by hand to the new shape on request.
-- [ ] Often condition: observed rate over the lookback, normalised to `per`, ≥ count — through N1's `Expectation` math (span-overlap filtering, both metrics) after the intensity filter. Firing is not tier-gated; only the comparison line is. Edge-trigger state machine unchanged. Quiet condition unchanged. `NotificationEvaluator`'s fetch window covers the lookback.
+- [ ] Often condition: observed rate over the lookback, normalised to `per`, ≥ count — through `Expectation`'s comparison math (span-overlap filtering, both metrics) after the intensity filter. Firing is not tier-gated; only the comparison line is. Edge-trigger state machine unchanged. Quiet condition unchanged. `NotificationEvaluator`'s fetch window covers the lookback.
 - [ ] Bell tab, cards, editor and check-in row per Target UX; `CaseDetailScreen.kt` gets new tab state + ViewModel wiring.
 - [ ] Backup `BACKUP_SCHEMA_VERSION` 2 → 3 carrying the new fields and the `notifications` key; a v2 file is rejected through the existing invalid-file path.
 - [ ] Voice ×3: Now, comparison, settings-line and intensity copy; trigger keys renamed. No em dashes, no gamification.
