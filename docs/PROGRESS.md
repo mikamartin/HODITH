@@ -6,7 +6,7 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 Items are grouped by how they connect, not by feature area:
 
-- **Story N — Notifications rework** — Hunch removed, Triggers reframed as Notifications in a bell tab; two ordered branches.
+- **Story N — Notifications rework** — Hunch removed (done); Triggers reframed as Notifications in a bell tab (N2, remaining).
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
@@ -21,57 +21,15 @@ Each item carries:
 
 ## Story N — Notifications rework
 
-Alpha feedback showed Hunch isn't landing, and it overlaps with `AT_LEAST` Triggers: two similar "N per period" forms, while Triggers sit behind a Case Detail header icon few people find. The call: **remove Hunch entirely and reframe Triggers as Notifications**, shown in a bell-icon tab where the Hunch tab is now. Each Notification card shows all its settings, a live "Now:" line, and — for the often kind — a tier-gated comparison line against its own threshold, so the "how often does it truly happen" answer survives without a separate entity. Per-Case check-ins move from Case edit into the same tab. Only test installs exist, so the rename goes all the way down to code and the DB, and the shared testing backup JSON is adjusted by hand rather than converted in code.
+Alpha feedback showed Hunch wasn't landing, and it overlapped with `AT_LEAST` Triggers: two similar "N per period" forms, while Triggers sit behind a Case Detail header icon few people find. The call: **remove Hunch entirely and reframe Triggers as Notifications**, shown in a bell-icon tab where the Hunch tab used to be. `chore/remove-hunch` did the first half — Hunch is gone, and the pieces Notifications reuses now live neutrally: `domain/Expectation.kt` (a pure `Expectation(count, per, metric, windowStart)` comparison input), `VerdictEngine.kt`/`Verdict.kt` refactored onto it, `ui/common/FrequencyPickers.kt` (count/period/metric pickers), and `ui/common/ExpectationCards.kt` (neutral tier-badge + headline cards) — none of it wired to a screen yet. Case Detail now has two tabs (Log, Insights); Triggers still live on their own screen.
 
-Two branches, in order — N1 leaves the app coherent (Log + Insights tabs, the existing Triggers screen) and N2 builds on what N1 deliberately keeps. Both touch Voice, so both land before B3.
-
-**Docs sweep** (an acceptance criterion in both items, each covering its own half): grep every `*.md` for `Hunch`/`hunch`/`Trigger`/`trigger`/`Verdict`/`check-in` and resolve each hit on purpose, leaving unrelated uses alone (Big Picture's `FilterTriggerChip`). Covers HODITH_SPEC.md, README.md, TESTING.md, MANUAL_TEST_PLAN.md, DEV_PLAYBOOK.md, CLEANUP_CHECKLIST.md, QA_AUDIT_RULES.md, CLAUDE.md (the "Case/Hunch/Verdict vocabulary" line and the "Verdict, trigger, and stats code stays pure" rule), and this file. CLEANUP_LOG.md's past entries stay as history — each branch adds its own new pass entry after actually walking the checklist.
-
-### N1 · Remove Hunch
-
-*Branch: `chore/remove-hunch` · Complexity: L · Priority: Medium · Area: Notifications*
-
-Delete everything Hunch-only; keep and neutralise the pieces N2 reuses. Afterwards Case Detail has two tabs (Log, Insights) and Triggers still live on their own screen.
-
-**Acceptance criteria**
-
-- [ ] **Deleted (Hunch-only):**
-  - Hunch tab wiring in `CaseDetailScreen.kt` — `HunchTabContent`, `HunchCard`, `HunchNoneCard`, `HunchNudgeCard`, `HunchHistoryList`/`HunchHistoryPlank` — and the tab itself.
-  - `HunchTabState.kt` and the 5-event nudge.
-  - `HunchEntity`, `HunchDao`, `HunchDirection`, and their `HodithDatabase`/`DatabaseModule` wiring.
-  - `ObservationWindow` and `HunchCreationSheet.kt`'s `WindowStartDatePickerDialog` (a Notification's lookback is always a rolling day count).
-  - Hunch paths in `HodithRepository`/`RoomHodithRepository` (including the backfill `RoomHodithRepositoryHunchBackfillTest` covers), `CaseDetailViewModel`, and `FakeHodithRepository`.
-  - The Hunch-derived check-in interval — `hunchCheckInDays` and the `hunch` parameter in `domain/CheckIn.kt`; the effective interval becomes toggle + Settings default only.
-  - The share card's Hunch vs. Reality beat (`ShareCardState.kt`'s `HunchVsReality`, `ShareCardTemplate.kt`, `SharePreviewScreen.kt`'s toggle, `ShareViewModel`). Reality becomes the only top beat in both formats; B2 replaces it with a summary.
-  - Voice keys used only by the deleted pieces, in all three voices.
-- [ ] **Kept for N2** (unused between the two branches, deliberately — don't delete them as dead code):
-  - `HunchCreationSheet.kt`'s count, period and metric pickers and helpers (`periodOptionsFor`, `coerceExpectedPer`, `expectedPerLabel`, `LabelledSection`), moved to a neutral shared file (e.g. `ui/common/FrequencyPickers.kt`).
-  - `HunchEarlyCard`/`HunchVerdictCard` layouts, turned into neutral tier-badge + headline composables.
-  - `VerdictEngine.kt`/`Verdict.kt` window, rate, tier and band math, refactored from a `HunchEntity` input to a pure `Expectation(count, per, metric, windowStart)` value. Constants stay named in `domain/`.
-  - `ExpectedPer`, `VerdictMetric`, and the Voice keys for period, metric, tier and comparison-band copy.
-- [ ] Room: `hunches` dropped via a new schema version (an `AutoMigration` with a `@DeleteTable` spec, like the existing `DropHunchNudgeDismissedColumn`), exported schema JSON committed.
-- [ ] Backup: `BACKUP_SCHEMA_VERSION` 1 → 2 with no `hunches` key; a v1 file is rejected through the existing invalid-file path (`BackupValidationResult`). CSV export unaffected beyond any Hunch column.
-- [ ] HODITH_SPEC.md, Hunch half: §1–3 rewritten (idea, vocabulary, the "Hunch is the hero" principle); §5 Hunch model removed; §7 removed (it also still describes a "Got a feeling?" case-creation step that doesn't exist); §8 reframed as the comparison math N2 reuses; §11 check-in timing, §13 share beat, §14 Case detail tabs and §17 updated.
-- [ ] Docs sweep (above), Hunch half.
-
-**Plan** — neutralise first (move the kept pickers/cards, refactor `VerdictEngine` to `Expectation`, all green), then delete the Hunch-only pieces, then the Room/backup version bumps, then docs.
-
-**Tests**
-
-- Unit — `VerdictEngineTest` ported to `Expectation` with every existing case kept: window filtering including span overlap, both metrics, rate normalisation per DAY/WEEK/MONTH, every tier boundary, every band cutoff (including cutoff-belongs-to-higher-band).
-- Unit — `CheckInTest`: toggle off, Settings default, no Hunch path left.
-- Unit — `BackupSerializerTest`/`BackupValidationResultTest`: v2 round-trip, v1 rejected, no `hunches` key; `CsvBackupSerializerTest` updated.
-- Unit — `ShareCardStateTest`/`ShareViewModelTest`: no Hunch beat, Reality always present in both formats.
-- Unit — `HunchCreationSheetLogicTest` becomes a test of the relocated picker helpers; `HunchTabStateTest` deleted; `CaseDetailViewModelTest`, `SettingsViewModelTest`, `FakeHodithRepositoryTest` lose their Hunch cases.
-- Migration — `MigrationTestHelper` (already used by `DatabaseFreshInstallTest`): `hunches` dropped, every other table and its rows intact.
-- Instrumented — `CaseDetailScreenTest` shows two tabs; `SharePreviewScreenTest` has no Hunch toggle; `ShareCardTemplateTest` passes; `HunchDaoTest` and `RoomHodithRepositoryHunchBackfillTest` deleted; `CaseDetailInsightsTabTest`, `RoomHodithRepositoryBackupTest`, `BackupImportIntegrationTest`, `CaseDaoTest`, `TestFixtures` lose their Hunch parts.
-- `VoiceTest` passes with no orphaned keys.
+**Docs sweep** (an acceptance criterion below): grep every `*.md` for `Trigger`/`trigger`/`check-in` and resolve each hit on purpose, leaving unrelated uses alone (Big Picture's `FilterTriggerChip`). CLEANUP_LOG.md's past entries stay as history — this branch adds its own new pass entry after actually walking the checklist.
 
 ### N2 · Notifications tab
 
 *Branch: `feat/notifications` · Complexity: L · Priority: Medium · Area: Notifications*
 
-Needs N1. Rename Trigger → Notification everywhere and move it into a bell tab, reusing N1's kept pieces — no new visual design; the cards and editor are today's `TriggerListItem`/`TriggerCreationSheet` extended with the Hunch sheet's pickers and the neutral tier cards.
+Rename Trigger → Notification everywhere and move it into a bell tab, reusing N1's kept pieces (`Expectation`, `FrequencyPickers.kt`, `ExpectationCards.kt`) — no new visual design; the cards and editor are today's `TriggerListItem`/`TriggerCreationSheet` extended with those pickers and the neutral tier cards.
 
 **Target UX**
 
@@ -141,9 +99,9 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` a
 
 *Branch: `feat/share-card-summary-beat` · Complexity: M · Priority: Medium · Area: Share*
 
-🎨 **Design decision** — what the summary says and how it reads in each theme's template. Needs N1 (which removes the Hunch vs. Reality beat); touches Voice copy, so before B3.
+🎨 **Design decision** — what the summary says and how it reads in each theme's template. Touches Voice copy, so before B3.
 
-N1 leaves the plain Reality beat (event count + days observed) as the card's only top beat. The Hunch beat was the card's punchline — "I checked: it does NOT always rain on my day off" — and a Case can carry several Notifications, so no single Notification's comparison can stand in for it. Replace Reality with a short summary beat that works for both Story and Square.
+The plain Reality beat (event count + days observed) is now the card's only top beat, since `chore/remove-hunch` retired the old Hunch vs. Reality punchline — "I checked: it does NOT always rain on my day off" — and a Case can carry several Notifications, so no single Notification's comparison can stand in for it. Replace Reality with a short summary beat that works for both Story and Square.
 
 **Acceptance criteria**
 
@@ -167,7 +125,6 @@ Fold these already-drafted key changes into the audit:
 - `feat/declutter-nudges` — reworded Serious `checkInDueNotificationBody`; renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle`.
 - `feat/insights-from-first-event` — added `insightsNothingLoggedMessage`, `insightsSingleEventNote` (replacing `insightsNotEnoughDataMessage`).
 - `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
-- `feat/resolved-hunch-list-redesign` — retired `hunchHistoryRowText`; added `hunchHistoryShowMoreAction`, `hunchHistoryRetentionNote` (both retired again by N1).
 
 **Acceptance criteria**
 
@@ -177,7 +134,7 @@ Fold these already-drafted key changes into the audit:
 - [ ] New mechanical `VoiceTest` invariants: vocabulary casing, no gamification vocabulary (streak/score/keep it up/missed — spec §4), length caps on tab/button labels, no double spaces or trailing whitespace.
 - [ ] Confirmed before starting: `androidTest` references `PlainVoice` by constant, not literal, everywhere (grep for hardcoded UI literals).
 
-**Plan** — 720 strings total: 213 keys declared per-voice (639 strings) need independent authorship; 81 shared `get()`/default-body keys are reviewed once. Write the rubric first (person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Notification/Check-in vocabulary), then audit in slices by screen — not top to bottom, since `Voice.kt` is grouped by key. Produce a findings list first; fix in a second commit. ~105 em dashes exist today (18 Serious, 36 Goth, 51 Quirky); most convert to a period or comma, but Goth/Quirky use them ~2–3x more often as a genuine mid-sentence pivot, so each needs a per-string call rather than a mechanical substitution.
+**Plan** — write the rubric first (person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Notification/Check-in vocabulary), then audit in slices by screen — not top to bottom, since `Voice.kt` is grouped by key. Produce a findings list first; fix in a second commit. Re-tally the per-voice/shared key split and the em-dash count before starting — `chore/remove-hunch` retired dozens of keys and touched dashes in the ones it rewrote, so the prior counts no longer hold.
 
 **Tests** — `VoiceTest` already checks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. Add mechanical invariants during the audit: vocabulary casing, no gamification vocabulary (spec §4), length caps on tab/button labels, no double spaces or trailing whitespace. Confirm `androidTest` references `PlainVoice` by constant everywhere, not literal, before starting.
 
