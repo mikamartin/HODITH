@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.NotificationEntity
 
@@ -32,15 +33,53 @@ fun oftenWindowStart(
     windowDays: Int?,
 ): Long = now - (windowDays ?: 0) * MILLIS_PER_DAY
 
-/** `OFTEN`'s condition (spec §11): the rolling [NotificationEntity.windowDays]-day event count has reached [NotificationEntity.threshold]. */
+/**
+ * Builds the [Expectation]/filtered-events pair that both `OFTEN`'s firing check ([evaluateOften])
+ * and a later UI comparison line need to compute their answer from. Pulled out on its own so those
+ * two consumers can't independently drift on windowing or intensity filtering — a UI line built
+ * from slightly different inputs than the engine that actually fires would be misleading rather
+ * than merely inconsistent. [allEvents] should be unbounded (every event that could possibly be
+ * relevant to the Case), not pre-windowed: [computeVerdict] does its own span-overlap window
+ * filtering and needs to see events whose span started before the window but still reaches into it.
+ */
+fun expectationInputsFor(
+    notification: NotificationEntity,
+    allEvents: List<EventEntity>,
+    now: Long,
+): Pair<Expectation, List<EventEntity>> {
+    val windowStart = oftenWindowStart(now, notification.windowDays)
+    val expectation =
+        Expectation(
+            count = notification.threshold,
+            per = notification.expectedPer,
+            metric = notification.metric,
+            windowStart = windowStart,
+        )
+    val minIntensity = notification.minIntensity
+    val filteredEvents =
+        if (minIntensity == null) {
+            allEvents
+        } else {
+            allEvents.filter { it.intensity != null && it.intensity >= minIntensity }
+        }
+    return expectation to filteredEvents
+}
+
+/**
+ * `OFTEN`'s condition (spec §11): the observed rate over the notification's lookback window has
+ * reached the expected rate. Firing is never tier-gated — [computeVerdict]'s `ConfidenceTier` and
+ * `comparisonBand` play no role in this boolean decision, only in what a later UI displays; a
+ * `NO_VERDICT` case can still fire if its raw observed-vs-expected rate clears the bar.
+ */
 fun evaluateOften(
     notification: NotificationEntity,
-    events: List<EventEntity>,
+    allEvents: List<EventEntity>,
     now: Long,
+    durationMode: DurationMode,
 ): NotificationDecision {
-    val windowStart = oftenWindowStart(now, notification.windowDays)
-    val windowCount = events.count { it.occurredAt in windowStart..now }
-    return evaluateNotification(notification, conditionMet = windowCount >= notification.threshold, now = now)
+    val (expectation, filteredEvents) = expectationInputsFor(notification, allEvents, now)
+    val result = computeVerdict(expectation, filteredEvents, now, durationMode)
+    return evaluateNotification(notification, conditionMet = result.observedRate >= result.expectedRate, now = now)
 }
 
 /** `QUIET`'s condition (spec §11): days since the latest of last event / case creation has reached [NotificationEntity.threshold]. */

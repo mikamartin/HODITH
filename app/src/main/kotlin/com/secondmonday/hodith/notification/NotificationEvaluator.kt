@@ -12,7 +12,6 @@ import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.evaluateCheckIn
 import com.secondmonday.hodith.domain.evaluateOften
 import com.secondmonday.hodith.domain.evaluateQuiet
-import com.secondmonday.hodith.domain.oftenWindowStart
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import kotlinx.coroutines.flow.first
@@ -92,12 +91,15 @@ class NotificationEvaluator
                 val decision =
                     when (notification.kind) {
                         NotificationKind.OFTEN -> {
-                            val windowStart = oftenWindowStart(now, notification.windowDays)
-                            // eventsInWindow's range is half-open ([start, end)) — +1 so an event
-                            // occurring at exactly `now` (e.g. the one that just triggered this
-                            // immediate-eval hook) still counts.
-                            val events = repo.eventsInWindow(case.id, windowStart, now + 1)
-                            evaluateOften(notification, events, now)
+                            // Unbounded fetch, not windowed by the lookback: computeVerdict (via
+                            // evaluateOften's expectationInputsFor) does its own span-overlap window
+                            // filtering and needs to see every event that could reach into the
+                            // window, including a duration event that started before it but is
+                            // still active inside it. eventsInWindow's range is half-open
+                            // ([start, end)) — +1 so an event occurring at exactly `now` (e.g. the
+                            // one that just triggered this immediate-eval hook) still counts.
+                            val events = repo.eventsInWindow(case.id, 0L, now + 1)
+                            evaluateOften(notification, events, now, case.durationMode)
                         }
                         NotificationKind.QUIET -> {
                             evaluateQuiet(notification, silenceAnchorFor(repo, case, now), case.createdAt, now)

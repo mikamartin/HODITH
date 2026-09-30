@@ -113,6 +113,23 @@ class NotificationEvaluatorTest {
         }
 
     @Test
+    fun `evaluateCase counts an OFTEN duration event that started before the lookback window but is still active inside it`() =
+        runTest {
+            // Regression: the OFTEN fetch is now unbounded (repo.eventsInWindow(caseId, 0L, now+1)),
+            // not windowed by the notification's own lookback, so computeVerdict's own span-overlap
+            // logic can see an event whose span started before the window but still reaches into
+            // it. Event runs days 0..40; the 7-day lookback from day 30 only opens at day 23 — an
+            // occurredAt-only windowed fetch would never have handed this event to the evaluator.
+            repository.cases.value = listOf(case(durationMode = DurationMode.MANUAL))
+            repository.notifications.value = listOf(notification(threshold = 1, windowDays = 7))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(0), endedAt = millisAtDay(40)))
+
+            evaluator.evaluateCase(1L)
+
+            assertEquals(1, notifier.firedNotifications.size)
+        }
+
+    @Test
     fun `evaluateCase ignores a disabled notification`() =
         runTest {
             repository.cases.value = listOf(case())
