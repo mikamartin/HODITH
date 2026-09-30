@@ -2,14 +2,19 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
+import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.NotificationEntity
 import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
+import com.secondmonday.hodith.testsupport.testCase
+import com.secondmonday.hodith.testsupport.testEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -57,6 +62,9 @@ class NotificationsViewModelTest {
         caseId: Long = this.caseId,
         threshold: Int = 5,
         windowDays: Int? = 7,
+        expectedPer: ExpectedPer = ExpectedPer.WEEK,
+        metric: VerdictMetric = VerdictMetric.OCCURRENCE_COUNT,
+        minIntensity: Int? = null,
         enabled: Boolean = true,
         lastFiredAt: Long? = null,
     ) = NotificationEntity(
@@ -65,9 +73,9 @@ class NotificationsViewModelTest {
         kind = NotificationKind.OFTEN,
         threshold = threshold,
         windowDays = windowDays,
-        expectedPer = ExpectedPer.WEEK,
-        metric = VerdictMetric.OCCURRENCE_COUNT,
-        minIntensity = null,
+        expectedPer = expectedPer,
+        metric = metric,
+        minIntensity = minIntensity,
         enabled = enabled,
         lastFiredAt = lastFiredAt,
     )
@@ -75,6 +83,7 @@ class NotificationsViewModelTest {
     @Test
     fun `uiState only includes notifications for this case`() =
         runTest {
+            repository.cases.value = listOf(testCase(id = caseId))
             repository.notifications.value =
                 listOf(oftenNotification(id = 1L, caseId = caseId), oftenNotification(id = 2L, caseId = 99L))
 
@@ -87,53 +96,137 @@ class NotificationsViewModelTest {
         }
 
     @Test
-    fun `uiState computes firedDaysAgo from lastFiredAt, null when never fired`() =
+    fun `uiState carries the Case's durationMode, intensityEnabled, checkInsEnabled and events`() =
         runTest {
-            val fired = clock.nowMillis() - 3 * MILLIS_PER_DAY
-            repository.notifications.value =
-                listOf(
-                    oftenNotification(id = 1L, lastFiredAt = fired),
-                    oftenNotification(id = 2L, lastFiredAt = null),
+            val case =
+                testCase(
+                    id = caseId,
+                    durationMode = DurationMode.MANUAL,
+                    intensityEnabled = true,
+                    checkInsEnabled = false,
+                    createdAt = 500L,
                 )
+            repository.cases.value = listOf(case)
+            repository.events.value = listOf(testEvent(id = 1L, caseId = caseId, occurredAt = 1_000L))
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(3L, state.notifications.single { it.id == 1L }.firedDaysAgo)
-                assertNull(state.notifications.single { it.id == 2L }.firedDaysAgo)
+                assertEquals(DurationMode.MANUAL, state.durationMode)
+                assertTrue(state.intensityEnabled)
+                assertFalse(state.checkInsEnabled)
+                assertEquals(500L, state.caseCreatedAt)
+                assertEquals(1, state.events.size)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `createNotification inserts an OFTEN notification with its window`() =
+    fun `createNotification inserts an OFTEN notification with its window, per, metric and intensity`() =
         runTest {
-            viewModel().createNotification(kind = NotificationKind.OFTEN, threshold = 5, windowDays = 7)
+            repository.cases.value = listOf(testCase(id = caseId))
+
+            viewModel().createNotification(
+                kind = NotificationKind.OFTEN,
+                threshold = 5,
+                windowDays = 7,
+                expectedPer = ExpectedPer.WEEK,
+                metric = VerdictMetric.DAYS_ACTIVE,
+                minIntensity = 3,
+            )
 
             val inserted = repository.notifications.value.single()
             assertEquals(caseId, inserted.caseId)
             assertEquals(NotificationKind.OFTEN, inserted.kind)
             assertEquals(5, inserted.threshold)
             assertEquals(7, inserted.windowDays)
+            assertEquals(ExpectedPer.WEEK, inserted.expectedPer)
+            assertEquals(VerdictMetric.DAYS_ACTIVE, inserted.metric)
+            assertEquals(3, inserted.minIntensity)
             assertTrue(inserted.enabled)
         }
 
     @Test
-    fun `createNotification drops windowDays for QUIET even if one is passed`() =
+    fun `createNotification drops windowDays, metric and intensity for QUIET`() =
         runTest {
-            viewModel().createNotification(kind = NotificationKind.QUIET, threshold = 14, windowDays = 30)
+            repository.cases.value = listOf(testCase(id = caseId))
+
+            viewModel().createNotification(
+                kind = NotificationKind.QUIET,
+                threshold = 14,
+                windowDays = 30,
+                expectedPer = ExpectedPer.WEEK,
+                metric = VerdictMetric.DAYS_ACTIVE,
+                minIntensity = 3,
+            )
 
             val inserted = repository.notifications.value.single()
             assertEquals(NotificationKind.QUIET, inserted.kind)
             assertEquals(14, inserted.threshold)
             assertNull(inserted.windowDays)
+            assertEquals(VerdictMetric.OCCURRENCE_COUNT, inserted.metric)
+            assertNull(inserted.minIntensity)
         }
 
     @Test
     fun `createNotification does not insert an OFTEN notification with a zero-day window`() =
         runTest {
-            viewModel().createNotification(kind = NotificationKind.OFTEN, threshold = 5, windowDays = 0)
+            viewModel().createNotification(
+                kind = NotificationKind.OFTEN,
+                threshold = 5,
+                windowDays = 0,
+                expectedPer = ExpectedPer.WEEK,
+                metric = VerdictMetric.OCCURRENCE_COUNT,
+                minIntensity = null,
+            )
 
             assertTrue(repository.notifications.value.isEmpty())
+        }
+
+    @Test
+    fun `updateNotification edits an existing notification's fields, leaving armed and lastFiredAt alone`() =
+        runTest {
+            repository.notifications.value = listOf(oftenNotification(id = 1L, threshold = 5, windowDays = 7, lastFiredAt = 999L))
+
+            viewModel().updateNotification(
+                notificationId = 1L,
+                kind = NotificationKind.OFTEN,
+                threshold = 10,
+                windowDays = 30,
+                expectedPer = ExpectedPer.MONTH,
+                metric = VerdictMetric.DAYS_ACTIVE,
+                minIntensity = 2,
+            )
+
+            val updated = repository.notifications.value.single()
+            assertEquals(10, updated.threshold)
+            assertEquals(30, updated.windowDays)
+            assertEquals(ExpectedPer.MONTH, updated.expectedPer)
+            assertEquals(VerdictMetric.DAYS_ACTIVE, updated.metric)
+            assertEquals(2, updated.minIntensity)
+            assertEquals(999L, updated.lastFiredAt)
+        }
+
+    @Test
+    fun `updateNotification does not persist an OFTEN edit with a zero-day window`() =
+        runTest {
+            repository.notifications.value = listOf(oftenNotification(id = 1L, threshold = 5, windowDays = 7))
+
+            viewModel().updateNotification(
+                notificationId = 1L,
+                kind = NotificationKind.OFTEN,
+                threshold = 10,
+                windowDays = 0,
+                expectedPer = ExpectedPer.WEEK,
+                metric = VerdictMetric.OCCURRENCE_COUNT,
+                minIntensity = null,
+            )
+
+            assertEquals(
+                5,
+                repository.notifications.value
+                    .single()
+                    .threshold,
+            )
         }
 
     @Test
@@ -159,14 +252,107 @@ class NotificationsViewModelTest {
         }
 
     @Test
-    fun `notificationRows maps entities to rows with calendar-day-aware firedDaysAgo`() {
+    fun `setCheckInsEnabled writes checkInsEnabled on the Case immediately`() =
+        runTest {
+            repository.cases.value = listOf(testCase(id = caseId, checkInsEnabled = true))
+
+            viewModel().setCheckInsEnabled(false)
+
+            assertFalse(
+                repository.cases.value
+                    .single()
+                    .checkInsEnabled,
+            )
+        }
+
+    @Test
+    fun `notificationCardState for OFTEN carries the observed rate and a verdict result`() {
+        val notification = oftenNotification(threshold = 1, windowDays = 30)
         val now = clock.nowMillis()
-        val rows =
-            notificationRows(
-                notifications = listOf(oftenNotification(id = 1L, lastFiredAt = now - 2 * MILLIS_PER_DAY)),
-                nowMillis = now,
+        val events = (1..20).map { testEvent(id = it.toLong(), caseId = caseId, occurredAt = now - it * MILLIS_PER_DAY) }
+
+        val state = notificationCardState(notification, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+
+        assertEquals(NotificationKind.OFTEN, state.kind)
+        assertTrue((state.observedRate ?: 0.0) > 0.0)
+        assertNull(state.silentDays)
+        assertEquals(ConfidenceTier.CONFIDENT, state.verdictResult?.tier)
+    }
+
+    @Test
+    fun `notificationCardState for OFTEN reads NO_VERDICT below the confidence tier, gating the comparison line`() {
+        val notification = oftenNotification(threshold = 1, windowDays = 30)
+        val now = clock.nowMillis()
+        val events = listOf(testEvent(id = 1L, caseId = caseId, occurredAt = now))
+
+        val state = notificationCardState(notification, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+
+        assertEquals(ConfidenceTier.NO_VERDICT, state.verdictResult?.tier)
+    }
+
+    @Test
+    fun `notificationCardState for QUIET carries silentDays from the latest event, not observedRate`() {
+        val notification =
+            NotificationEntity(
+                id = 1L,
+                caseId = caseId,
+                kind = NotificationKind.QUIET,
+                threshold = 14,
+                windowDays = null,
+                expectedPer = ExpectedPer.WEEK,
+                metric = VerdictMetric.OCCURRENCE_COUNT,
+                minIntensity = null,
+                enabled = true,
+                lastFiredAt = null,
+            )
+        val now = clock.nowMillis()
+        val events = listOf(testEvent(id = 1L, caseId = caseId, occurredAt = now - 3 * MILLIS_PER_DAY))
+
+        val state = notificationCardState(notification, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+
+        assertEquals(NotificationKind.QUIET, state.kind)
+        assertEquals(3L, state.silentDays)
+        assertNull(state.observedRate)
+        assertNull(state.expectation)
+        assertNull(state.verdictResult)
+    }
+
+    @Test
+    fun `notificationCardState for QUIET with no events falls back to caseCreatedAt`() {
+        val notification =
+            NotificationEntity(
+                id = 1L,
+                caseId = caseId,
+                kind = NotificationKind.QUIET,
+                threshold = 14,
+                windowDays = null,
+                expectedPer = ExpectedPer.WEEK,
+                metric = VerdictMetric.OCCURRENCE_COUNT,
+                minIntensity = null,
+                enabled = true,
+                lastFiredAt = null,
+            )
+        val now = clock.nowMillis()
+
+        val state =
+            notificationCardState(
+                notification,
+                emptyList<EventEntity>(),
+                DurationMode.NONE,
+                caseCreatedAt = now - 5 * MILLIS_PER_DAY,
+                now = now,
             )
 
-        assertEquals(2L, rows.single().firedDaysAgo)
+        assertEquals(5L, state.silentDays)
+    }
+
+    @Test
+    fun `notificationCardState computes firedDaysAgo calendar-day-aware, null when never fired`() {
+        val now = clock.nowMillis()
+        val fired = oftenNotification(id = 1L, lastFiredAt = now - 2 * MILLIS_PER_DAY)
+        val neverFired = oftenNotification(id = 2L, lastFiredAt = null)
+
+        assertEquals(2L, notificationCardState(fired, emptyList(), DurationMode.NONE, 0L, now).firedDaysAgo)
+        assertNull(notificationCardState(neverFired, emptyList(), DurationMode.NONE, 0L, now).firedDaysAgo)
     }
 }

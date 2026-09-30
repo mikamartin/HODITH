@@ -57,7 +57,6 @@ class CaseEditScreenTest {
                 onConfirmEnterStartStop = onConfirmEnterStartStop,
                 onDismissEnterStartStop = onDismissEnterStartStop,
                 onIntensityToggle = {},
-                onCheckInToggle = {},
                 onSave = {},
                 onArchive = onArchive,
                 onBack = {},

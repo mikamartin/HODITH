@@ -152,6 +152,11 @@ class NotificationEvaluator
          * latest `occurredAt`, ignoring any stored `endedAt`, so the notification/check-in clock
          * agrees with the heatmap, gaps card and Big Picture, all of which collapse a non-tracking
          * Case's spans. Null (⇒ count from Case creation) with no events.
+         *
+         * [com.secondmonday.hodith.domain.silenceAnchorForEvents] implements this same rule from an
+         * in-memory event list for the bell tab's Now line, which already holds the Case's full
+         * event history and has no reason to make these three suspend calls. Keep the two in sync
+         * by hand.
          */
         private suspend fun silenceAnchorFor(
             repo: HodithRepository,

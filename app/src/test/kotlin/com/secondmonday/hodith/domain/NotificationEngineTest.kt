@@ -517,4 +517,67 @@ class NotificationEngineTest {
         assertFalse(result.shouldFire)
         assertTrue(result.newArmed)
     }
+
+    // ---- silenceAnchorForEvents: the bell tab's in-memory counterpart of
+    // NotificationEvaluator.silenceAnchorFor -- same rule, mirrored scenarios (adapted from
+    // NotificationEvaluatorTest's DB-backed QUIET/check-in coverage of that private function).
+
+    @Test
+    fun `silenceAnchorForEvents is null with no events`() {
+        assertNull(silenceAnchorForEvents(emptyList(), DurationMode.NONE, now = millisAtDay(30)))
+    }
+
+    @Test
+    fun `silenceAnchorForEvents anchors on the latest endedAt for a duration-tracking Case`() {
+        val events =
+            listOf(
+                testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = millisAtDay(10)),
+                testEvent(id = 2L, occurredAt = millisAtDay(15), endedAt = millisAtDay(20)),
+            )
+
+        assertEquals(millisAtDay(20), silenceAnchorForEvents(events, DurationMode.MANUAL, now = millisAtDay(30)))
+    }
+
+    @Test
+    fun `silenceAnchorForEvents anchors on now while a START_STOP event is still running`() {
+        val events = listOf(testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = null))
+
+        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, DurationMode.START_STOP, now = millisAtDay(30)))
+    }
+
+    @Test
+    fun `silenceAnchorForEvents anchors on now with several START_STOP events running at once`() {
+        val events =
+            listOf(
+                testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = null),
+                testEvent(id = 2L, occurredAt = millisAtDay(5), endedAt = null),
+            )
+
+        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, DurationMode.START_STOP, now = millisAtDay(30)))
+    }
+
+    @Test
+    fun `silenceAnchorForEvents anchors on the latest occurredAt for a Case that no longer tracks duration`() {
+        // Same event as the duration-tracking test above (ran days 2..10) but read as a point
+        // when durationMode is NONE -- the stored endedAt is ignored (spec §9/§10).
+        val events = listOf(testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = millisAtDay(10)))
+
+        assertEquals(millisAtDay(2), silenceAnchorForEvents(events, DurationMode.NONE, now = millisAtDay(30)))
+    }
+
+    @Test
+    fun `silenceAnchorForEvents falls back to occurredAt for a MANUAL event with no recorded duration`() {
+        // Regression: getLatestEventEndForCase runs MAX(IFNULL(endedAt, occurredAt)) in SQL, so an
+        // end-less MANUAL event isn't excluded from the max -- it contributes its own occurredAt.
+        // The most recent event here (day 25) has no duration entered; a version that dropped
+        // null-endedAt events outright would wrongly anchor on the earlier event's endedAt (day 10)
+        // instead, understating how recently this Case was actually active.
+        val events =
+            listOf(
+                testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = millisAtDay(10)),
+                testEvent(id = 2L, occurredAt = millisAtDay(25), endedAt = null),
+            )
+
+        assertEquals(millisAtDay(25), silenceAnchorForEvents(events, DurationMode.MANUAL, now = millisAtDay(30)))
+    }
 }

@@ -34,7 +34,6 @@ data class CaseEditUiState(
     val logFlow: LogFlow = LogFlow.DETAIL_SHEET,
     val durationMode: DurationMode = DurationMode.NONE,
     val intensityEnabled: Boolean = false,
-    val checkInsEnabled: Boolean = true,
     val showNameError: Boolean = false,
     val showDuplicateNameError: Boolean = false,
     val showIconError: Boolean = false,
@@ -185,8 +184,6 @@ class CaseEditViewModel
                 it.copy(intensityEnabled = enabled, logFlow = coerceLogFlow(it.logFlow, it.durationMode, enabled))
             }
 
-        fun onCheckInToggle(enabled: Boolean) = _uiState.update { it.copy(checkInsEnabled = enabled) }
-
         fun save() {
             viewModelScope.launch {
                 val state = _uiState.value
@@ -212,6 +209,9 @@ class CaseEditViewModel
                 val current = existingCase
 
                 if (current != null) {
+                    // checkInsEnabled is deliberately not copied here -- the form no longer asks
+                    // for it (it's a live setting on the bell tab now, NotificationsViewModel.
+                    // setCheckInsEnabled), so .copy() leaves the Case's persisted value untouched.
                     repository.updateCase(
                         current.copy(
                             name = name,
@@ -220,7 +220,6 @@ class CaseEditViewModel
                             logFlow = state.logFlow,
                             durationMode = state.durationMode,
                             intensityEnabled = state.intensityEnabled,
-                            checkInsEnabled = state.checkInsEnabled,
                         ),
                     )
                     // Leaving START_STOP: stop every still-running event at the moment of the switch.
@@ -234,6 +233,9 @@ class CaseEditViewModel
                         stampOpenEndedEvents(current.id) { it.occurredAt }
                     }
                 } else {
+                    // A newly-created Case still needs a checkInsEnabled value at insert time even
+                    // though the form no longer asks -- default true, matching this field's default
+                    // everywhere else (CaseEditUiState/testCase/TestFixtures).
                     repository.insertCase(
                         CaseEntity(
                             name = name,
@@ -243,7 +245,7 @@ class CaseEditViewModel
                             logFlow = state.logFlow,
                             durationMode = state.durationMode,
                             intensityEnabled = state.intensityEnabled,
-                            checkInsEnabled = state.checkInsEnabled,
+                            checkInsEnabled = true,
                             lastCheckInAt = null,
                             sortOrder = activeCases.size,
                             archived = false,
@@ -253,7 +255,10 @@ class CaseEditViewModel
                 // A widget currently showing this Case can be affected by name/icon/archived
                 // changes made here — refresh in case one is.
                 widgetRefresher.refreshWidgets()
-                if (state.checkInsEnabled && !settingsRepository.hasRequestedNotificationPermission()) {
+                // A new Case starts with check-ins on by default (above); an edit no longer touches
+                // checkInsEnabled at all, so this nudge -- originally keyed to the check-in toggle --
+                // now triggers on Case creation itself, the only path here that can turn check-ins on.
+                if (current == null && !settingsRepository.hasRequestedNotificationPermission()) {
                     settingsRepository.setNotificationPermissionRequested()
                     notificationPermissionRequestSignal.request()
                 }
@@ -282,7 +287,6 @@ internal fun CaseEntity.toUiState() =
         durationMode = durationMode,
         intensityEnabled = intensityEnabled,
         canArchive = true,
-        checkInsEnabled = checkInsEnabled,
     )
 
 /**

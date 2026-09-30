@@ -3,7 +3,6 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.ui.logsheet.TAG_NAME_MAX_LENGTH
-import com.secondmonday.hodith.ui.notifications.THRESHOLD_RANGE
 
 /** Real-world UTC offsets run from UTC-12:00 to UTC+14:00 — a little headroom past the extremes. */
 internal val VALID_UTC_OFFSET_MINUTES_RANGE = -720..840

@@ -93,6 +93,7 @@ class VoiceTest {
                     kClass == String::class -> listOf("Test Case")
                     kClass == Int::class -> listOf(3)
                     kClass == Long::class -> listOf(5L)
+                    kClass == Boolean::class -> listOf(true, false)
                     else -> error("No sample value strategy for parameter type $kClass")
                 }
             return if (type.isMarkedNullable) base + null else base

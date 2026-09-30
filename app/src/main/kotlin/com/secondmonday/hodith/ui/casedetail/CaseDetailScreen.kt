@@ -44,6 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -54,6 +56,7 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.LogSortOrder
+import com.secondmonday.hodith.data.NotificationEntity
 import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -80,6 +83,7 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.CaseDetailViewModel
 import com.secondmonday.hodith.viewmodel.LogDraft
+import com.secondmonday.hodith.viewmodel.NotificationsViewModel
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.formatEventTime
@@ -91,6 +95,7 @@ import java.time.ZoneId
 
 private const val LOG_TAB = 0
 private const val INSIGHTS_TAB = 1
+private const val NOTIFICATIONS_TAB = 2
 
 // Deliberately not colorScheme.outlineVariant: that hue shifts per theme (blue on Plain, warm on
 // Bright), which read as inconsistent. A single fixed neutral gray reads the same everywhere.
@@ -101,7 +106,6 @@ fun CaseDetailRoute(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
-    onOpenNotifications: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
@@ -114,7 +118,6 @@ fun CaseDetailRoute(
         onBack = onBack,
         onEditCase = onEditCase,
         onEditEvent = onEditEvent,
-        onOpenNotifications = onOpenNotifications,
         onOpenShare = onOpenShare,
         onOpenLogShare = onOpenLogShare,
         onOpenTrends = onOpenTrends,
@@ -138,7 +141,6 @@ fun CaseDetailScreen(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
-    onOpenNotifications: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
@@ -164,6 +166,10 @@ fun CaseDetailScreen(
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
     var showShareChooser by remember { mutableStateOf(false) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
+    // Hoisted above NotificationsTabContent so the outer FAB (a sibling of the tab content, not a
+    // nested Scaffold) can open the same create sheet a card tap opens for edit.
+    var showNotificationEditor by remember { mutableStateOf(false) }
+    var editingNotification by remember { mutableStateOf<NotificationEntity?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -180,9 +186,6 @@ fun CaseDetailScreen(
                         IconButton(onClick = { showShareChooser = true }) {
                             Icon(Icons.Filled.Share, contentDescription = voice.shareOpenDescription)
                         }
-                        IconButton(onClick = { onOpenNotifications(case.id) }) {
-                            Icon(Icons.Filled.Notifications, contentDescription = voice.notificationsOpenDescription)
-                        }
                         IconButton(onClick = { onEditCase(case.id) }) {
                             Icon(Icons.Filled.Edit, contentDescription = voice.caseDetailEditDescription)
                         }
@@ -191,12 +194,24 @@ fun CaseDetailScreen(
             )
         },
         floatingActionButton = {
-            if (selectedTab == LOG_TAB) {
-                FloatingActionButton(
-                    onClick = { newEventSheetNow = now },
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = voice.retroLogEntryDescription)
-                }
+            when (selectedTab) {
+                LOG_TAB ->
+                    FloatingActionButton(
+                        onClick = { newEventSheetNow = now },
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = voice.retroLogEntryDescription)
+                    }
+                NOTIFICATIONS_TAB ->
+                    if (case != null) {
+                        FloatingActionButton(
+                            onClick = {
+                                editingNotification = null
+                                showNotificationEditor = true
+                            },
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = voice.notificationsFabDescription)
+                        }
+                    }
             }
         },
     ) { contentPadding ->
@@ -223,6 +238,13 @@ fun CaseDetailScreen(
                     selected = selectedTab == INSIGHTS_TAB,
                     onClick = { selectedTab = INSIGHTS_TAB },
                     text = { Text(voice.caseDetailInsightsTabLabel) },
+                )
+                // Icon only, per Target UX -- a Voice content description carries its accessible name.
+                Tab(
+                    selected = selectedTab == NOTIFICATIONS_TAB,
+                    onClick = { selectedTab = NOTIFICATIONS_TAB },
+                    icon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
+                    modifier = Modifier.semantics { contentDescription = voice.notificationsTabDescription },
                 )
             }
             when (selectedTab) {
@@ -276,6 +298,66 @@ fun CaseDetailScreen(
                             onEditEvent = { event -> onEditEvent(case.id, event.id) },
                             onOpenTrends = { onOpenTrends(case.id) },
                         )
+                    }
+                NOTIFICATIONS_TAB ->
+                    if (case != null) {
+                        // Its own hiltViewModel() instance (architecture decision, PROGRESS.md N2):
+                        // re-queries the repository on its own rather than sharing this screen's
+                        // CaseDetailViewModel, same as every other full-screen/tab destination.
+                        val notificationsViewModel: NotificationsViewModel = hiltViewModel()
+                        val notificationsUiState by notificationsViewModel.uiState.collectAsStateWithLifecycle()
+                        NotificationsTabContent(
+                            uiState = notificationsUiState,
+                            now = now,
+                            voice = voice,
+                            onCheckInToggle = notificationsViewModel::setCheckInsEnabled,
+                            onSetEnabled = notificationsViewModel::setEnabled,
+                            onCreateRequest = {
+                                editingNotification = null
+                                showNotificationEditor = true
+                            },
+                            onCardClick = { notification ->
+                                editingNotification = notification
+                                showNotificationEditor = true
+                            },
+                        )
+                        if (showNotificationEditor) {
+                            NotificationEditorSheet(
+                                voice = voice,
+                                durationMode = case.durationMode,
+                                intensityEnabled = case.intensityEnabled,
+                                editing = editingNotification,
+                                onDismiss = { showNotificationEditor = false },
+                                onSave = { kind, threshold, windowDays, expectedPer, metric, minIntensity ->
+                                    val editingId = editingNotification?.id
+                                    if (editingId == null) {
+                                        notificationsViewModel.createNotification(
+                                            kind,
+                                            threshold,
+                                            windowDays,
+                                            expectedPer,
+                                            metric,
+                                            minIntensity,
+                                        )
+                                    } else {
+                                        notificationsViewModel.updateNotification(
+                                            editingId,
+                                            kind,
+                                            threshold,
+                                            windowDays,
+                                            expectedPer,
+                                            metric,
+                                            minIntensity,
+                                        )
+                                    }
+                                    showNotificationEditor = false
+                                },
+                                onDelete = {
+                                    editingNotification?.let { notificationsViewModel.deleteNotification(it.id) }
+                                    showNotificationEditor = false
+                                },
+                            )
+                        }
                     }
             }
         }

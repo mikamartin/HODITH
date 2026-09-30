@@ -2,7 +2,9 @@ package com.secondmonday.hodith.ui.voice
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.NotificationKind
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -12,6 +14,15 @@ import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendReliability
+
+/** "day" / "week" / "month" / "3 months" — shared by every voice's Notification card-title copy. */
+private fun perPhrase(per: ExpectedPer): String =
+    when (per) {
+        ExpectedPer.DAY -> "day"
+        ExpectedPer.WEEK -> "week"
+        ExpectedPer.MONTH -> "month"
+        ExpectedPer.QUARTER -> "3 months"
+    }
 
 /**
  * One user-visible string per key, in three personalities (spec §12). Composables read
@@ -744,8 +755,7 @@ interface Voice {
         }
 
     // ---- Notifications (Phase 9, spec §11/§14) ----
-    val notificationsScreenTitle: String
-    val notificationsOpenDescription: String
+    val notificationsTabDescription: String
     val notificationsFabDescription: String
     val notificationsEmptyTitle: String
     val notificationsEmptyBody: String
@@ -771,12 +781,15 @@ interface Voice {
     val notificationsDeleteConfirmAction: String
     val notificationsDeleteCancelAction: String
     val notificationsCreateTitle: String
+
+    /** Bell tab editor's title when editing an existing Notification, as opposed to [notificationsCreateTitle]. */
+    val notificationsEditTitle: String
     val notificationsKindPickerLabel: String
     val notificationsOftenLabel: String get() = "At least"
-    val notificationsOftenSuffix: String get() = "times"
     val notificationsWindowLabel: String get() = "Within"
     val notificationsWindowSeven: String get() = "7 days"
     val notificationsWindowThirty: String get() = "30 days"
+    val notificationsWindowNinety: String get() = "90 days"
     val notificationsWindowCustom: String get() = "Custom"
     val notificationsWindowCustomHint: String get() = "Days"
     val notificationsQuietLabel: String
@@ -785,6 +798,42 @@ interface Voice {
     val notificationsCancelButton: String
     val notificationsDecreaseCountDescription: String
     val notificationsIncreaseCountDescription: String
+
+    /** Editor's metric-picker section label, shown only for a duration-tracking Case; options are [metricOccurrenceLabel]/[metricDaysActiveLabel]. */
+    val notificationsMetricLabel: String get() = "Measure"
+
+    /** Editor's intensity-at-least picker label, shown only when the Case has intensity tracking on. */
+    val notificationsIntensityLabel: String get() = "Intensity at least"
+
+    /** An intensity-at-least option's label — null is "off", otherwise "1+".."5+". Structural, identical across all three voices. */
+    fun notificationsIntensityOption(level: Int?): String = if (level == null) "Off" else "$level+"
+
+    /** Bell-tab card title for an OFTEN Notification — "3+ times per week"; [per] is pre-labeled via a per-voice unit word. */
+    fun notificationCardTitleOften(
+        threshold: Int,
+        per: ExpectedPer,
+    ): String
+
+    /** Bell-tab card title for a QUIET Notification — "Quiet for 14 days". */
+    fun notificationCardTitleQuiet(threshold: Int): String
+
+    /**
+     * Bell-tab card settings line — lookback plus, only on a duration-tracking Case
+     * ([showMeasure]), what's being counted, plus an intensity clause when [minIntensity] is set.
+     * Quiet Notifications have no settings line beyond their own card title.
+     */
+    fun notificationSettingsLine(
+        lookbackDays: Int,
+        showMeasure: Boolean,
+        metric: VerdictMetric,
+        minIntensity: Int?,
+    ): String
+
+    /** Bell-tab card's always-shown Now line for OFTEN — "Now: 2.6x/week"; [rateLabel] is pre-formatted via `formatRate`. */
+    fun notificationNowLineOften(rateLabel: String): String
+
+    /** Bell-tab card's always-shown Now line for QUIET — "Now: quiet for 3 days". */
+    fun notificationNowLineQuiet(silentDays: Long): String
 
     // ---- Notifications (Phase 9, spec §11) ----
 
@@ -1453,8 +1502,7 @@ object PlainVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("Based on $activeDayCount active days over $windowDays days.", tier)
 
-    override val notificationsScreenTitle = "Triggers"
-    override val notificationsOpenDescription = "Open triggers"
+    override val notificationsTabDescription = "Triggers"
     override val notificationsFabDescription = "New trigger"
     override val notificationsEmptyTitle = "No triggers yet"
     override val notificationsEmptyBody = "Get a nudge when something happens too often, or goes quiet too long."
@@ -1486,12 +1534,38 @@ object PlainVoice : Voice {
     override val notificationsDeleteConfirmAction = "Delete"
     override val notificationsDeleteCancelAction = "Cancel"
     override val notificationsCreateTitle = "New trigger"
+    override val notificationsEditTitle = "Edit trigger"
     override val notificationsKindPickerLabel = "What should trigger it?"
     override val notificationsQuietLabel = "No events for"
     override val notificationsSaveButton = "Save trigger"
     override val notificationsCancelButton = "Cancel"
     override val notificationsDecreaseCountDescription = "Decrease threshold"
     override val notificationsIncreaseCountDescription = "Increase threshold"
+
+    override fun notificationCardTitleOften(
+        threshold: Int,
+        per: ExpectedPer,
+    ) = "$threshold+ times per ${perPhrase(per)}"
+
+    override fun notificationCardTitleQuiet(threshold: Int) = "No events for $threshold days"
+
+    override fun notificationSettingsLine(
+        lookbackDays: Int,
+        showMeasure: Boolean,
+        metric: VerdictMetric,
+        minIntensity: Int?,
+    ): String {
+        val parts = mutableListOf("Looking back $lookbackDays days")
+        if (showMeasure) {
+            parts += if (metric == VerdictMetric.DAYS_ACTIVE) "counting days active" else "counting times"
+        }
+        if (minIntensity != null) parts += "intensity $minIntensity+"
+        return parts.joinToString(" · ")
+    }
+
+    override fun notificationNowLineOften(rateLabel: String) = "Now: $rateLabel"
+
+    override fun notificationNowLineQuiet(silentDays: Long) = "Now: quiet for $silentDays days"
 
     override val notificationChannelName = "Notifications"
     override val notificationChannelDescription = "Notification and check-in alerts."
@@ -2055,8 +2129,7 @@ object IntenseVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("$activeDayCount active days over $windowDays days.", tier)
 
-    override val notificationsScreenTitle = "Alarms"
-    override val notificationsOpenDescription = "Tend the alarms"
+    override val notificationsTabDescription = "Alarms"
     override val notificationsFabDescription = "Set a new alarm"
     override val notificationsEmptyTitle = "No alarm is set"
     override val notificationsEmptyBody = "Nothing yet watches this case. Set an alarm, and be warned when the pattern breaks."
@@ -2088,12 +2161,38 @@ object IntenseVoice : Voice {
     override val notificationsDeleteConfirmAction = "Silence it"
     override val notificationsDeleteCancelAction = "Abandon"
     override val notificationsCreateTitle = "Set an alarm"
+    override val notificationsEditTitle = "Tend the alarm"
     override val notificationsKindPickerLabel = "What should you be warned of?"
     override val notificationsQuietLabel = "Silence of"
     override val notificationsSaveButton = "Set the alarm"
     override val notificationsCancelButton = "Abandon"
     override val notificationsDecreaseCountDescription = "Diminish the threshold"
     override val notificationsIncreaseCountDescription = "Swell the threshold"
+
+    override fun notificationCardTitleOften(
+        threshold: Int,
+        per: ExpectedPer,
+    ) = "$threshold or more, per ${perPhrase(per)}"
+
+    override fun notificationCardTitleQuiet(threshold: Int) = "$threshold days of silence"
+
+    override fun notificationSettingsLine(
+        lookbackDays: Int,
+        showMeasure: Boolean,
+        metric: VerdictMetric,
+        minIntensity: Int?,
+    ): String {
+        val parts = mutableListOf("Watching the last $lookbackDays days")
+        if (showMeasure) {
+            parts += if (metric == VerdictMetric.DAYS_ACTIVE) "counting active days" else "counting every entry"
+        }
+        if (minIntensity != null) parts += "intensity $minIntensity or worse"
+        return parts.joinToString(" · ")
+    }
+
+    override fun notificationNowLineOften(rateLabel: String) = "As it stands, $rateLabel"
+
+    override fun notificationNowLineQuiet(silentDays: Long) = "As it stands, $silentDays days of silence"
 
     override val notificationChannelName = "Alarms"
     override val notificationChannelDescription = "What has stirred, and what has gone quiet."
@@ -2654,8 +2753,7 @@ object BrightVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("That's $activeDayCount active days out of $windowDays days!", tier)
 
-    override val notificationsScreenTitle = "Alerts!"
-    override val notificationsOpenDescription = "Check your alerts!"
+    override val notificationsTabDescription = "Alerts!"
     override val notificationsFabDescription = "New alert!"
     override val notificationsEmptyTitle = "No alerts yet!"
     override val notificationsEmptyBody = "Want a nudge when something happens a lot, or goes quiet for a while? Set one up!"
@@ -2687,12 +2785,38 @@ object BrightVoice : Voice {
     override val notificationsDeleteConfirmAction = "Remove it"
     override val notificationsDeleteCancelAction = "Never mind"
     override val notificationsCreateTitle = "New alert!"
+    override val notificationsEditTitle = "Edit alert!"
     override val notificationsKindPickerLabel = "What should trigger it?"
     override val notificationsQuietLabel = "Quiet for"
     override val notificationsSaveButton = "Save alert!"
     override val notificationsCancelButton = "Never mind"
     override val notificationsDecreaseCountDescription = "Fewer!"
     override val notificationsIncreaseCountDescription = "More!"
+
+    override fun notificationCardTitleOften(
+        threshold: Int,
+        per: ExpectedPer,
+    ) = "$threshold+ times per ${perPhrase(per)}"
+
+    override fun notificationCardTitleQuiet(threshold: Int) = "Quiet for $threshold days"
+
+    override fun notificationSettingsLine(
+        lookbackDays: Int,
+        showMeasure: Boolean,
+        metric: VerdictMetric,
+        minIntensity: Int?,
+    ): String {
+        val parts = mutableListOf("Last $lookbackDays days")
+        if (showMeasure) {
+            parts += if (metric == VerdictMetric.DAYS_ACTIVE) "counting days active" else "counting times"
+        }
+        if (minIntensity != null) parts += "intensity $minIntensity+"
+        return parts.joinToString(" · ")
+    }
+
+    override fun notificationNowLineOften(rateLabel: String) = "Right now: $rateLabel"
+
+    override fun notificationNowLineQuiet(silentDays: Long) = "Right now: quiet for $silentDays days"
 
     override val notificationChannelName = "Nudges"
     override val notificationChannelDescription = "Heads-up for notifications and check-ins."
