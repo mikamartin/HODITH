@@ -4,9 +4,6 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
-import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.TagEntity
@@ -51,20 +48,6 @@ private fun testCase(
     archived = false,
 )
 
-private fun testHunch(
-    direction: HunchDirection = HunchDirection.TOO_OFTEN,
-    expectedCount: Int = 2,
-    expectedPer: ExpectedPer = ExpectedPer.MONTH,
-) = HunchEntity(
-    id = 1L,
-    caseId = 1L,
-    direction = direction,
-    expectedCount = expectedCount,
-    expectedPer = expectedPer,
-    createdAt = millisAtDay(0),
-    resolvedAt = null,
-)
-
 /** 12 events, 5 days apart, spanning day 0 to day 55 — enough for every stat section to be non-null. */
 private fun readyEventsWithTags(): List<EventWithTags> =
     (0..55L step 5).map { day ->
@@ -85,121 +68,28 @@ private const val NOW = 60L
 
 private fun readyInsightsState(case: CaseEntity): InsightsTabState = insightsTabState(case, readyEventsWithTags(), now = millisAtDay(NOW))
 
-private fun verdictHunchState(hunch: HunchEntity): HunchTabState =
-    hunchTabState(
-        testCase(),
-        activeHunch = hunch,
-        events = readyEventsWithTags().map { it.event },
-        history = emptyList(),
-        now = millisAtDay(NOW),
-    )
-
 private val ALL_SECTIONS = ShareInsightsSection.entries.toSet()
 
 class ShareCardStateTest {
     // ---- top beat selection ----
 
     @Test
-    fun `Square always falls back to Reality even with a resolved Hunch and the toggle on`() {
-        val hunch = testHunch()
-        val data =
-            shareCardState(
-                case = testCase(),
-                displayName = testCase().name,
-                insightsState = readyInsightsState(testCase()),
-                hunchState = verdictHunchState(hunch),
-                eventCount = 12,
-                observedDays = 60,
-                format = ShareCardFormat.SQUARE,
-                selectedSections = ALL_SECTIONS,
-                showHunchVsReality = true,
-                generatedAtMillis = millisAtDay(NOW),
-            )
+    fun `Reality is the top beat regardless of format`() {
+        for (format in ShareCardFormat.entries) {
+            val data =
+                shareCardState(
+                    case = testCase(),
+                    displayName = testCase().name,
+                    insightsState = readyInsightsState(testCase()),
+                    eventCount = 12,
+                    observedDays = 60,
+                    format = format,
+                    selectedSections = ALL_SECTIONS,
+                    generatedAtMillis = millisAtDay(NOW),
+                )
 
-        assertTrue(data.topBeat is ShareTopBeat.Reality)
-    }
-
-    @Test
-    fun `Story with the toggle on and a resolved Hunch shows Hunch vs Reality`() {
-        val hunch = testHunch()
-        val hunchState = verdictHunchState(hunch)
-        val data =
-            shareCardState(
-                case = testCase(),
-                displayName = testCase().name,
-                insightsState = readyInsightsState(testCase()),
-                hunchState = hunchState,
-                eventCount = 12,
-                observedDays = 60,
-                format = ShareCardFormat.STORY,
-                selectedSections = ALL_SECTIONS,
-                showHunchVsReality = true,
-                generatedAtMillis = millisAtDay(NOW),
-            )
-
-        val beat = data.topBeat as ShareTopBeat.HunchVsReality
-        assertEquals(hunch, beat.hunch)
-        assertEquals((hunchState as HunchTabState.Verdict).result.comparisonBand, beat.band)
-    }
-
-    @Test
-    fun `Story with the toggle off shows Reality even with a resolved Hunch`() {
-        val hunch = testHunch()
-        val data =
-            shareCardState(
-                case = testCase(),
-                displayName = testCase().name,
-                insightsState = readyInsightsState(testCase()),
-                hunchState = verdictHunchState(hunch),
-                eventCount = 12,
-                observedDays = 60,
-                format = ShareCardFormat.STORY,
-                selectedSections = ALL_SECTIONS,
-                showHunchVsReality = false,
-                generatedAtMillis = millisAtDay(NOW),
-            )
-
-        assertTrue(data.topBeat is ShareTopBeat.Reality)
-    }
-
-    @Test
-    fun `Story with the toggle on but only an EarlyDays Hunch falls back to Reality`() {
-        // Fresh hunch, only 1 event logged -- below the Preliminary bar, so no comparisonBand yet.
-        val hunch = testHunch()
-        val earlyDaysState =
-            hunchTabState(
-                testCase(),
-                activeHunch = hunch,
-                events =
-                    listOf(
-                        EventEntity(
-                            caseId = 1L,
-                            occurredAt = millisAtDay(0),
-                            endedAt = null,
-                            intensity = null,
-                            note = null,
-                            loggedAt = millisAtDay(0),
-                        ),
-                    ),
-                history = emptyList(),
-                now = millisAtDay(1),
-            )
-
-        val data =
-            shareCardState(
-                case = testCase(),
-                displayName = testCase().name,
-                insightsState = readyInsightsState(testCase()),
-                hunchState = earlyDaysState,
-                eventCount = 1,
-                observedDays = 1,
-                format = ShareCardFormat.STORY,
-                selectedSections = ALL_SECTIONS,
-                showHunchVsReality = true,
-                generatedAtMillis = millisAtDay(NOW),
-            )
-
-        assertTrue(data.topBeat is ShareTopBeat.Reality)
+            assertTrue(data.topBeat is ShareTopBeat.Reality)
+        }
     }
 
     @Test
@@ -209,12 +99,10 @@ class ShareCardStateTest {
                 case = testCase(),
                 displayName = testCase().name,
                 insightsState = InsightsTabState.NothingLogged,
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 1,
                 observedDays = 3,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -231,12 +119,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = "My custom title",
                 insightsState = InsightsTabState.NothingLogged,
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 1,
                 observedDays = 1,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -253,12 +139,10 @@ class ShareCardStateTest {
                 case = testCase(),
                 displayName = testCase().name,
                 insightsState = InsightsTabState.NothingLogged,
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 0,
                 observedDays = 1,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -293,12 +177,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 insightsState = insightsTabState(case, oneEvent, now = millisAtDay(NOW)),
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 1,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -316,12 +198,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 insightsState = readyInsightsState(case),
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 12,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = setOf(ShareInsightsSection.RHYTHM, ShareInsightsSection.TRENDS),
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -341,12 +221,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 insightsState = readyInsightsState(case),
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 12,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = setOf(ShareInsightsSection.RHYTHM),
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -397,12 +275,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 insightsState = insightsState,
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 20,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = setOf(ShareInsightsSection.TRENDS),
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -429,12 +305,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 insightsState = insightsState,
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 20,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = setOf(ShareInsightsSection.TRENDS),
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -449,12 +323,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 insightsState = readyInsightsState(case),
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 12,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = emptySet(),
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(123),
             )
 
@@ -469,12 +341,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 insightsState = readyInsightsState(case),
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 12,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 
@@ -490,12 +360,10 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 insightsState = readyInsightsState(case),
-                hunchState = HunchTabState.NoActiveHunch(showNudge = false, history = emptyList()),
                 eventCount = 12,
                 observedDays = 60,
                 format = ShareCardFormat.SQUARE,
                 selectedSections = ALL_SECTIONS,
-                showHunchVsReality = false,
                 generatedAtMillis = millisAtDay(NOW),
             )
 

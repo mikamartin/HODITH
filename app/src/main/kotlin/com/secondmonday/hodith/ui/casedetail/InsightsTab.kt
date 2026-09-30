@@ -184,7 +184,6 @@ internal fun InsightsTabContent(
                 // singular copy assumes the sparse band is exactly one event (true while
                 // INSIGHTS_MIN_EVENTS == 2).
                 if (state.stats.totalEventCount < INSIGHTS_MIN_EVENTS) {
-                    // Same muted aside as the Hunch tab's `hunchTabNoneDataNote` on the sibling tab.
                     Text(
                         text = voice.insightsSingleEventNote,
                         style = MaterialTheme.typography.bodySmall,

@@ -41,7 +41,6 @@ class RoomHodithRepositoryLogEventsTest {
                     caseDao = db.caseDao(),
                     eventDao = db.eventDao(),
                     tagDao = db.tagDao(),
-                    hunchDao = db.hunchDao(),
                     triggerDao = db.triggerDao(),
                     notificationEvalScheduler = unusedScheduler(),
                 )

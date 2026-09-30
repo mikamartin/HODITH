@@ -8,7 +8,7 @@
 
 Sometimes a thought hits you: *"this always happens"* — or *"this never happens anymore."* Usually you don't actually know. HODITH lets you check.
 
-You open a **Case** on the thing you've noticed, log occurrences as life happens, and the app shows you the reality: how often it happens, when it clusters, and — if you stated a **Hunch** up front — whether your gut feeling was right.
+You open a **Case** on the thing you've noticed, log occurrences as life happens, and the app shows you the reality: how often it happens, when it clusters, and how it compares to your other Cases on the same calendar.
 
 ### Example use cases
 
@@ -29,20 +29,17 @@ Some of these you influence, many you don't. HODITH doesn't care — it just cou
 |---|---|
 | **Case** | The thing being observed ("Kiddo was rude", "Migraine", "Perfect coffee"). |
 | **Event** | One logged occurrence. The voices may dress this up ("evidence" in Intense). |
-| **Hunch** | Your stated feeling about frequency: "this happens ~daily", "not nearly enough". |
-| **Verdict** | What the data says about your Hunch, once there's enough of it. |
 
-The case → evidence → hunch → verdict framing is deliberate: it gives all three voices a shared metaphor to play with.
+The case → evidence framing is deliberate: it gives all three voices a shared metaphor to play with.
 
 ## 3. Design principles
 
-1. **The Hunch is the hero.** A Case can carry a Hunch — *"I feel this happens ~daily."* After enough logs the app renders a Verdict: "You felt this happened daily. Reality: 2.1×/week." That confirm-or-bust moment is the app's core moment.
-2. **Logging is neutral.** An event not happening is information, not failure. The app never congratulates, never scolds, never asks where you've been.
-3. **Logging must survive real life.** Events happen mid-argument or mid-sneeze. One tap from the widget logs "it happened, now." Details are optional and can be added later. Retro-logging is first-class — you often only realize afterwards.
-4. **Statistical honesty.** With too few logs there is no verdict — the app says "early days, keep logging" instead of pretending. Small-sample humility keeps the app trustworthy, and each Voice can flavor this state differently (§12).
-5. **Show, don't lecture.** The flagship visual — the Big Picture — puts all your cases on one shared calendar and lets your own eyes spot the patterns when icons land on the same day.
-6. **Every Case has a face.** Each Case gets an icon (emoji), shown everywhere it appears — Home, Big Picture, widgets, notifications. Icons are the primary way cases are told apart; color is never the only distinguisher (easier to remember, better for accessibility).
-7. **Nothing leaves through the app itself.** No accounts, no analytics, no network permission at all — export/import is the user's escape hatch. Android's own device backup can still carry the app's data off the phone if the user has that turned on; a Settings toggle opts out (§16).
+1. **Logging is neutral.** An event not happening is information, not failure. The app never congratulates, never scolds, never asks where you've been.
+2. **Logging must survive real life.** Events happen mid-argument or mid-sneeze. One tap from the widget logs "it happened, now." Details are optional and can be added later. Retro-logging is first-class — you often only realize afterwards.
+3. **Statistical honesty.** With too little data the app says "not enough yet" rather than pretending a pattern exists — small-sample humility keeps the app trustworthy, and each Voice can flavor this state differently (§12).
+4. **Show, don't lecture.** The flagship visual — the Big Picture — puts all your cases on one shared calendar and lets your own eyes spot the patterns when icons land on the same day.
+5. **Every Case has a face.** Each Case gets an icon (emoji), shown everywhere it appears — Home, Big Picture, widgets, notifications. Icons are the primary way cases are told apart; color is never the only distinguisher (easier to remember, better for accessibility).
+6. **Nothing leaves through the app itself.** No accounts, no analytics, no network permission at all — export/import is the user's escape hatch. Android's own device backup can still carry the app's data off the phone if the user has that turned on; a Settings toggle opts out (§16).
 
 ## 4. Non-goals (v1)
 
@@ -64,24 +61,19 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; each Event als
 | name | e.g. "Kiddo was rude"; unique case-insensitively among active Cases — an archived Case's name may be reused |
 | description | nullable String — optional longer freeform text beyond the title |
 | icon | emoji, required — the Case's visual identity everywhere |
-| createdAt | start of the observation window (see §8) |
+| createdAt | when the Case was opened; the earliest point any of its stats or visuals can look back to |
 | logFlow | `ONE_TAP` \| `DETAIL_SHEET` — what the widget/log button does |
 | durationMode | `NONE` \| `MANUAL` \| `START_STOP` |
 | intensityEnabled | boolean — show 1–5 intensity on the detail sheet |
-| checkInsEnabled | boolean — whether this Case participates in check-ins (§11); the interval itself is always the app-level default from Settings, or hunch-derived if the Case has an active Hunch. A Case wanting a custom silence threshold instead gets a `SILENT_FOR` Trigger (§11), which already covers exactly that. |
+| checkInsEnabled | boolean — whether this Case participates in check-ins (§11); the interval itself is always the app-level default from Settings. A Case wanting a custom silence threshold instead gets a `SILENT_FOR` Trigger (§11), which already covers exactly that. |
 | lastCheckInAt | nullable — when a check-in last fired or was answered "all quiet"; used for re-arming |
 | sortOrder | manual ordering on Home and Big Picture |
 | archived | boolean — hidden from Home/widgets/Big Picture, data retained |
 
-Case deliberately has no fixed valence field of its own — direction stays scoped to `Hunch.direction`
-below, which can change over a Case's life as hunches resolve and new ones are made, and includes a
-neutral `JUST_CURIOUS` option. A Case with no Hunch has no framing at all, matching §4's
-"observation, not judgment" stance.
-
 Archiving is reversible and non-destructive. **Hard-deleting a Case** is a separate, irreversible
 action, reachable only from the Archived Cases screen (§14) on a case that's already archived —
-never directly from an active Case. It cascades to the case's events, hunches, and triggers (FK
-cascade delete, same as `Event.caseId` below).
+never directly from an active Case. It cascades to the case's events and triggers (FK cascade
+delete, same as `Event.caseId` below).
 
 ### Event
 
@@ -96,28 +88,6 @@ cascade delete, same as `Event.caseId` below).
 | tags | tag strings via join table (`EventTag` / `Tag`) for reuse & autocomplete per case |
 | loggedAt | when it was recorded (audit; distinguishes retro-logs) |
 | utcOffsetMinutes | the device's UTC offset captured at `occurredAt` (not save time), so a retro-logged entry gets its own historical offset |
-
-### Hunch
-
-Optional, at most one active per Case.
-
-| Field | Notes |
-|---|---|
-| id | PK |
-| caseId | FK |
-| direction | `TOO_OFTEN` \| `NOT_ENOUGH` \| `JUST_CURIOUS` |
-| expectedCount | Int |
-| expectedPer | `DAY` \| `WEEK` \| `MONTH` |
-| createdAt | verdict compares reality since the hunch was made and overall |
-| resolvedAt | nullable — user can close a hunch and keep the verdict in history |
-| resolvedTier | nullable — `ConfidenceTier` snapshotted at resolution |
-| resolvedEventCount | nullable — occurrence-count snapshot at resolution |
-| resolvedActiveDayCount | nullable — days-active snapshot at resolution |
-| resolvedWindowDays | nullable — observation-window length snapshot at resolution |
-| resolvedObservedRate | nullable — observed rate snapshot at resolution |
-| resolvedExpectedRate | nullable — expected rate snapshot at resolution |
-| resolvedComparisonBand | nullable — comparison-band snapshot at resolution |
-| resolvedVerdictSnapshotTaken | boolean, default false — whether the fields above were captured; needed because `resolvedComparisonBand == null` is also the legitimate result for a Hunch resolved before it ever reached a verdict |
 
 ### Trigger
 
@@ -134,8 +104,6 @@ Optional, many per Case.
 | armed | boolean, defaults true — edge-trigger state: fires (and flips to false) when the condition first becomes true, flips back to true once the condition stops being true. Prevents refiring on every evaluation while the condition remains met. |
 | lastFiredAt | nullable — when it last fired, for notification copy |
 
-Verdicts are **computed, never stored** — the verdict engine is a set of pure functions over `(hunch, events, now)`. Deliberate: it makes the app's riskiest logic its most unit-testable surface. A *resolved* Hunch is the one exception: its result is computed once at resolution time and cached on the Hunch row, so its history entry stays frozen rather than drifting if an Event inside its window is later edited or deleted.
-
 ## 6. Logging flows
 
 - **One-tap** (widget or Home row): inserts an Event at `now`. In-app shows a snackbar with Undo; from the widget the event is silently created (editable/deletable in-app — Glance can't do transient undo reliably).
@@ -144,7 +112,7 @@ Verdicts are **computed, never stored** — the verdict engine is a set of pure 
 - **Retro-log**: from case detail, the Log tab's icon-only FAB (bottom-right; also the log-now entry point) → detail sheet with date/time picker. For a `START_STOP` case this is also how a fully-known past start+end range gets logged — the sheet's End section defaults to "Ongoing" but accepts an explicit end date/time, which is what leaving it unset vs. setting it actually means.
 - Every event is editable and deletable from the case's event list — tapping a row opens the full-screen editor above (delete lives in its `TopAppBar`). Each row shows its timestamp (weekday + date, year only when it differs from the current year, plus time-of-day — 12- or 24-hour per the Settings toggle, §14) and, inline on a second line, an ongoing/duration indicator, intensity/note/tags when present — an open event shows the "Ongoing" pill + its own live elapsed time and carries its own Stop; a finished duration event on a Case that still tracks duration (`durationMode ≠ NONE`) shows how long it lasted — a zero-length event (`endedAt == occurredAt`) is a point and shows no duration line. Which of Notes/Tags/Duration/Intensity a row shows is a user-editable, persisted preference (an Edit icon opens a four-switch dialog, same idiom as Big Picture's own Overview detail toggle, §9), Duration/Intensity offered only when the Case tracks them; a note-less or tag-less event still shows whichever other fields are on and toggled visible.
 - Above the row list, a small filter-chip row (same `FilterTriggerChip` idiom as Big Picture's own filters, §9) holds **Sort**, **From** and **To**, with the field-visibility Edit icon pinned to its right. The **Sort** chip (shown only when the Case tracks duration) opens the existing **Started / Ended** toggle: "Ended" lists still-running events first, then finished events by most recent end. **From** and **To** each open the date picker directly for that one bound (each defaults to "All time"/unbounded); once a bound is set, the dialog's title row offers a one-tap "All time" button that clears both bounds and closes it — deliberately two independent chips rather than one combined "Range" chip opening a picker dialog inside another dialog, which is cramped and unreliable (PROGRESS.md's Log tab filter bug report). Together they narrow the row list to events whose start falls within the picked range, inclusive; a range with no matches shows an empty-range message rather than the Case's plain "nothing logged yet" state. Sort, the date range and the field-visibility choice are all device-level view preferences (`SettingsRepository`/DataStore, like the theme) applied across every Case, not per-Case schema fields.
-- The Log tab's row list loads 30 events at a time (capped, sorted, range-narrowed query), with a "Show more" button revealing 50 more per tap; narrowing Sort or Range resets the loaded window back to 30. Ongoing-event detection, the header's event-count summary, and the Insights/Hunch tabs' stats always read the Case's full history regardless of how much of the Log tab's list is loaded or how the Range filter narrows it.
+- The Log tab's row list loads 30 events at a time (capped, sorted, range-narrowed query), with a "Show more" button revealing 50 more per tap; narrowing Sort or Range resets the loaded window back to 30. Ongoing-event detection, the header's event-count summary, and the Insights tab's stats always read the Case's full history regardless of how much of the Log tab's list is loaded or how the Range filter narrows it.
 
 ### Duration-mode transition contract
 
@@ -160,38 +128,22 @@ Only `START_STOP` reads an `endedAt == null` event as *ongoing*; under `NONE` an
 
 The switch-*in* conversion uses `endedAt = occurredAt` (the event's own start), not `now`, so a point logged days ago does not become a multi-day span. The switch-*out* conversion uses `now` because a genuinely-running event is being ended. There is no migration for an event left with an inflated `endedAt` by an earlier round-trip — an over-long span is indistinguishable from a real one — so those are fixed by editing the event.
 
-## 7. Hunch flow
+## 8. Comparison math (internal — reused by Notifications, not yet user-facing)
 
-- Case creation asks: *"Got a feeling about this one?"* — skippable in one tap.
-- A Hunch can be added at any time, even with zero events logged yet — the Hunch tab's invite carries a short aside noting that checking it against reality takes some time, roughly proportionate to the hunch itself.
-- **Nudge:** after 5 logged events on a hunch-less Case, the case detail screen's Hunch tab shows a card inviting a Hunch, in place of the plain "no hunch yet" card. It stays until a Hunch is added — there is no dismiss. The nudge lives in-app only; it never notifies.
-- Creating a Hunch: direction → expected frequency (count + period) → observation window, plus a metric picker for a duration-tracking Case. Voice-flavoured copy throughout. All these choices are made once at creation and stored on the Hunch — the verdict card never re-asks or offers a toggle. Every picker renders flat and always visible when applicable, up to five sections; no "more options" disclosure.
-  - **Metric** (`HunchEntity.metric`) — shown only when the Case's `durationMode` tracks duration (`MANUAL`/`START_STOP`); a `NONE` Case sees no picker and its metric is implicitly occurrence count. See §8.
-  - **Period** — occurrence count offers day/week/month; days-active offers week/month/3 months ("days active per day" is nonsensical). Same `ExpectedPer` enum, a different visible three-option subset.
-  - **Observation window** (`HunchEntity.observationWindow`, + `windowStartDate` for custom) — every Case. See §8.
-- A Hunch can be resolved ("verdict accepted"), archiving it to the Case's hunch history; a new Hunch can then be made. The history of hunches vs verdicts is its own artifact ("you've been wrong about this three times"). A resolved Hunch's verdict is frozen as of `resolvedAt` (a rolling window is measured from that instant, not the live clock). History is capped at the 15 most recently resolved Hunches per Case — the 5 shown by default plus the 10 a "show more" reveals — with older ones pruned automatically as new Hunches resolve; a note on the fully-expanded list states the cap plainly.
+A pure-Kotlin comparison engine for the Notifications work planned next (see PROGRESS.md's Story N). Nothing currently reaches it from any screen. Inputs: an `Expectation(count, per, metric, windowStart)` value, an event list, the Case's `durationMode`, `now`.
 
-## 8. Verdict engine
-
-Pure Kotlin, no Android dependencies. Inputs: hunch, event list, the Case's `createdAt` and `durationMode`, `now`.
-
-- **Observation window** always ends at `now`; the start comes from `hunch.observationWindow`:
-  - **Since the start** (default) — `min(case.createdAt, earliest event.occurredAt)`; a retro-logged event can predate the Case.
-  - **Last 3 months** — a rolling fixed 90-day span before `now` (the same round approximation as `DAYS_PER_MONTH = 30`, not a calendar quarter), floored so it never predates the Case. Slides forward as `now` advances.
-  - **Custom** — a user-picked fixed start date (`hunch.windowStartDate`), floored at `case.createdAt`; the picker disallows earlier dates, since a "custom" pick identical to "since the start" is just a confusing label.
-- **Window filtering** — an event feeds the count only if its active span (§9) reaches into `[windowStart, now]` and it started by `now`. A duration event that began before the window but is still active inside it counts (span-overlap, not `occurredAt` alone). Days-active only counts the event's in-window days.
-- **Metric** (`hunch.metric`):
+- **Observation window** is `[expectation.windowStart, now]` — resolving `windowStart` is the caller's job, not this engine's; a Notification's lookback will always be a rolling day count decided at the call site.
+- **Window filtering** — an event feeds the count only if its active span (§9) reaches into the window and it started by `now`. A duration event that began before the window but is still active inside it counts (span-overlap, not `occurredAt` alone). Days-active only counts the event's in-window days.
+- **Metric** (`expectation.metric`):
   - **Occurrence count** (default, and the only option for a `NONE` Case) — number of in-window events.
   - **Days active** — number of distinct calendar days any in-window event's active span touched. Two same-day events read as one active day ("a day either had it happen or it didn't"). Honest for a Case with long, overlapping duration events, where a raw event tally undersells how much of the time the event was happening. Only offered when the Case tracks duration.
-- **Observed rate** = the metric's count ÷ window length, normalised to the hunch's `expectedPer` unit.
+- **Observed rate** = the metric's count ÷ window length, normalised to `expectation.per`.
 - **Confidence tiers** (both conditions required per tier) — the same math for every window and both metrics; days-active feeds its distinct-active-day count in where the event count would go, with no new constants and no dual-condition guard. Accepted tradeoff: a single long duration event can clear the bar alone.
   - **No verdict** — count < 5 *or* window < 14 days → "early days" state
   - **Preliminary** — count ≥5 and window ≥14 days
   - **Confident** — count ≥15 and window ≥28 days
 - **Comparison bands** (observed ÷ expected): `<0.5` much less · `0.5–0.8` less · `0.8–1.25` about right · `1.25–2.0` more · `>2.0` much more. Each cutoff itself belongs to the higher band (e.g. exactly `0.8` is "about right", not "less").
-- Rendering is direction-aware: for `TOO_OFTEN`, "much less" is a relief; for `NOT_ENOUGH`, it's a confirmation. `JUST_CURIOUS` gets neutral phrasing. Days-active has its own headline/meta copy set, phrased as a share of days. All copy comes from the Voice layer (§12).
-- The verdict card stays text-only (tier badge, headline, meta) whatever the metric or window — the calendar visualization lives on the Insights tab (§9), never the card.
-- Cases without a Hunch still get visuals and stats (§9–10), just no verdict card.
+- Copy comes from the Voice layer (§12) and is band-only, not direction-aware.
 
 ## 9. Visualizations
 
@@ -245,7 +197,7 @@ The calendar heatmap (§9) follows the tag breakdown as the tab's final section.
 
 ### Trends detectors
 
-The Trends section's current roster of detectors — every one shares the "often follows"/"tends to," never "causes" wording rule, and a `Hint`/`Pattern` reliability tier distinct from Hunch's `ConfidenceTier` (that measures sample-size adequacy for an average; this measures whether the effect itself has been tested for significance).
+The Trends section's current roster of detectors — every one shares the "often follows"/"tends to," never "causes" wording rule, and a `Hint`/`Pattern` reliability tier distinct from §8's `ConfidenceTier` (that measures sample-size adequacy for an average; this measures whether the effect itself has been tested for significance).
 
 - **Went quiet** — the current, still-open silence since the last event is a record for this Case (at least as long as any gap it's ever had), while the user is demonstrably still logging elsewhere (something logged, any Case, within the last week). Unlike every other detector below, this one isn't a shift between two halves of completed history — it's the Case's live state — and its sentence is framed as an open question ("still happening, or has it wound down?", spec §4's "ask rather than silently report"), never a statement that the user did something wrong. A Trends finding, not a notification — it never touches check-ins or `SILENT_FOR` triggers (§11), which stay the only two ways to be alerted about a Case's silence. Always `Hint`.
 - **Gap shift** — whether the average gap between events has shifted noticeably between the earlier and more recent half of the Case's history (by gap count, not a fixed day window). Always `Hint`: a descriptive dual-threshold check, no significance test behind it.
@@ -284,10 +236,7 @@ The duration and intensity cards are gated purely on the Case's current `duratio
 Silence in a Case is ambiguous: did the event stop happening, or did the user stop logging? A check-in resolves that — it's data hygiene, not a nag, and the copy makes the distinction: it asks whether anything went unlogged, never implies the user should "keep it up".
 
 - A check-in fires when a Case has had **zero events for its effective interval** — counting from the latest of: last event's end (its start for a point event or any event on a Case that no longer tracks duration; now if one is still running), last check-in, or case creation. This automatically covers the created-but-never-logged Case ("You opened 🐕 *Dog barking* 14 days ago — nothing logged yet. All quiet, or forgot it exists?").
-- **Timing:**
-  - Case with a Hunch — derived from the expected rate: expected gap = period ÷ expectedCount, check-in after **2 × expected gap**, clamped to 3–30 days. If you said "3× a week" and a week passes silently, that's exactly when a heads-up is useful.
-  - Case without a Hunch — the **app-level default** from Settings (`off / 7 / 14 / 30 days`).
-  - A Case can opt out entirely (`checkInsEnabled = false`) but has no custom interval of its own — a Case wanting a specific silence threshold gets a `SILENT_FOR` Trigger instead, rather than a second, overlapping way to configure the same idea.
+- **Timing:** the **app-level default** from Settings (`off / 7 / 14 / 30 days`) — every Case shares it. A Case can opt out entirely (`checkInsEnabled = false`) but has no custom interval of its own — a Case wanting a specific silence threshold gets a `SILENT_FOR` Trigger instead, rather than a second, overlapping way to configure the same idea.
 - Notification actions: **Log** (respects the Case's `logFlow` — one-tap logs directly, detail-sheet opens the sheet) and **All quiet** (re-arms the check-in; no event created).
 - Anti-spam: check-ins are evaluated by the same WorkManager job as triggers. Every HODITH notification — check-ins and fired triggers alike — joins one Android notification group, so the shade bundles them into a single stack under a group summary ("3 cases need a look — tap to review"). Only the summary alerts for a batch (`GROUP_ALERT_SUMMARY`) and it alerts once, so an unanswered check-in re-posted on each ~6h pass updates its "N days quiet" text silently rather than re-alerting. Each due Case keeps its own **Log** / **All quiet** actions in the expanded stack — there's no action-less flattened summary. Re-arming only happens explicitly — via **All quiet**, or a new event moving the anchor forward — never automatically at fire time; and a check-in whose Case has stopped being due has its notification withdrawn on the next pass, so the stack doesn't keep a stale entry.
 
@@ -319,12 +268,11 @@ Turning a finished (or in-progress) investigation into something you can drop in
 - **Share card** — a rendered image, generated locally (Compose capture → bitmap → Android share sheet via FileProvider; no network involved, consistent with §16). Two formats, sized asymmetrically on purpose: **story** sizes purely to its selected content, since Instagram/Snapchat Stories letterbox a shorter-than-9:16 image back to shape automatically; **square** keeps a 1:1 floor (matching 1080×1080), since it shares into contexts — chat threads, feed posts — that render whatever aspect ratio they're given. Both still grow taller than their floor if the selected content needs more room.
 - **Card content**, in order, in the active theme's skin and voice:
   1. *The case* — icon + name.
-  2. *The top beat* — either **Hunch vs. Reality** (expected-vs-observed rate pair plus a voice-flavoured, impersonal punchline, e.g. "Plot twist: more often than expected.") when the Case has a resolved Hunch and the user has it toggled on — story format only — or a plain **Reality** fallback (event count + days observed) otherwise. Square always gets Reality; there's no independent toggle for it, since the card always needs at least one beat.
+  2. *The top beat* — **Reality** (event count + days observed), in both formats — the card always needs at least one beat.
   3. *Insights sections* — a checklist-driven picker across Frequency, Rhythm, Gaps & streaks, Trends, Duration, and Intensity, rendered as faithful mini-copies of the real Insights tab's cards. Duration/Intensity are only offered when the Case tracks them; Trends only when the Case has at least one finding, same as the Insights tab's own Trends card, and renders each selected finding as sentence text only — no reliability tag, no evidence line, since the card has no room for tap-revealed detail.
 - **Templates are theme-based** — Plain renders like a clean report card, Intense like a bordered dossier with a rotated corner stamp, Bright with a banner header and sticker. The template follows the *currently active* theme; switching themes before sharing restyles the card.
 - **Preview before share, always.** The share flow opens a preview screen where the user can:
   - pick story vs. square,
-  - show/hide the Hunch vs. Reality beat (story only, when applicable),
   - edit the displayed case name (real names can be personal — "Kiddo was rude" might become "Someone was grumpy"),
   - toggle Insights sections on/off.
   Notes and tags are **never** included on this card — the redacted-summary premise is the whole point, and they're the most personal data in the app.
@@ -340,9 +288,9 @@ Bottom navigation: **Home · Big Picture · Settings**.
 |---|---|
 | **Home** | Case list (drag to reorder): icon, name, description (when set, truncated to two lines), today/this-week count (a duration event counts while its active span is still open into the window, matching the calendar heatmap — §9), quick-log button, ongoing indicator. FAB: new Case. Trigger banners if notifications are denied. Text link to **Archived Cases**, shown only once at least one Case is archived. |
 | **Big Picture** | §9 flagship view. |
-| **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10), **Hunch** (verdict card or hunch creation, hunch history). Header: icon, name, share action (§13, opens the Insight/Log chooser), config access. Description shown below the header, above the tabs, when the Case has one set. |
+| **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10). Header: icon, name, share action (§13, opens the Insight/Log chooser), config access. Description shown below the header, above the tabs, when the Case has one set. |
 | **New/edit Case** | Name (required, capped at 60 characters, must be unique among active Cases case-insensitively), optional description (capped at 90 characters), collapsible icon picker (expanded by default for a new Case, collapsed with an icon summary when editing), logFlow, durationMode, intensity toggle, check-in toggle (on/off). Logging, Duration, and Check-in each carry a tappable info icon opening a plain explanatory dialog. The Logging control's "One tap" option is disabled whenever durationMode is Manual and/or intensity tracking is on (one-tap can't capture a typed duration or intensity rating; Start/stop is unaffected) — an existing Case's logFlow silently corrects to Detail sheet the moment its duration/intensity settings make One tap invalid, whether that happens while editing or because a previously-valid stored value became invalid. Changing durationMode while the Case has open-ended events raises a confirm dialog in either direction — leaving Start/stop stops running events now, entering it collapses open-ended events to instant events (§6 transition contract); cancelling either dialog leaves the mode unchanged. Header also carries an **Archive** action on an existing Case (confirm dialog noting the Case stays intact and pointing to Archived Cases for permanent delete; not shown when creating a new Case) — navigates to Home on confirm. |
-| **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/hunches/triggers). Top bar: **Clear archive** (shown only when the list is non-empty; confirm dialog naming the archived-Case count; permanent, cascades the same as per-row delete). Reached via Home's archived-cases link. |
+| **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/triggers). Top bar: **Clear archive** (shown only when the list is non-empty; confirm dialog naming the archived-Case count; permanent, cascades the same as per-row delete). Reached via Home's archived-cases link. |
 | **Log detail sheet** | §6 — logging a *new* event; reachable from widget (trampoline activity), Home, case detail's Log-tab FAB. |
 | **Edit event** | §6 — full-screen editor for an existing event (`TopAppBar` back arrow + delete action, mirroring New/edit Case). Reached from Case Detail's Log tab by tapping a row. |
 | **Share preview** | §13 — Insight Share: card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |

@@ -4,7 +4,7 @@ Project-specific instructions for AI assistants working in this repository.
 
 ## What this is
 
-HODITH ("How Often Does It Truly Happen") — a local-only Android app (Kotlin, Jetpack Compose, Room, Hilt, Glance, WorkManager) for checking gut feelings about how often events happen against logged reality. Read [docs/HODITH_SPEC.md](docs/HODITH_SPEC.md) §1–4 (idea, vocabulary, principles, non-goals) before writing any code or copy — the Case/Hunch/Verdict vocabulary and the observation-not-behaviour-change stance shape everything.
+HODITH ("How Often Does It Truly Happen") — a local-only Android app (Kotlin, Jetpack Compose, Room, Hilt, Glance, WorkManager) for checking gut feelings about how often events happen against logged reality. Read [docs/HODITH_SPEC.md](docs/HODITH_SPEC.md) §1–4 (idea, vocabulary, principles, non-goals) before writing any code or copy — the Case/Event vocabulary and the observation-not-behaviour-change stance shape everything.
 
 This repo is also a portfolio piece, built with heavy AI assistance. This file is checked in as both working instructions and a transparent record of how AI was used. See the README's "AI-assisted development workflow" section.
 
@@ -23,7 +23,7 @@ This repo is also a portfolio piece, built with heavy AI assistance. This file i
 - **Every user-visible string goes through the `Voice` layer** and must be added to all three voices (Serious, Goth, Quirky) in the same commit. No inline UI strings, ever.
 - **No gamification language or mechanics** — no streaks, scores, "keep it up!", "you missed a day". HODITH observes; it does not push behaviour change (spec §4). If a feature idea drifts that way, stop and raise it.
 - **Verdict, trigger, and stats code stays pure Kotlin** (`domain/` package): no `android.*` imports, all time via injected `Clock`.
-- Product constants (confidence tiers, comparison bands, nudge threshold) live as named constants in the domain layer — never inline magic numbers.
+- Product constants (confidence tiers, comparison bands) live as named constants in the domain layer — never inline magic numbers.
 
 ## Git hygiene (public repo)
 

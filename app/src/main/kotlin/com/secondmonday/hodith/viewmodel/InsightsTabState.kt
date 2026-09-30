@@ -40,7 +40,7 @@ import java.time.ZoneId
 
 /**
  * What the Case Detail Insights tab renders (spec §9-10's visuals half), derived fresh from raw
- * data on every read — mirrors [hunchTabState]'s pure-mapping pattern. [NothingLogged] covers the
+ * data on every read, same pure-mapping pattern as [homeCaseRows]. [NothingLogged] covers the
  * spec's "friendly placeholder, never an empty chart pretending to mean something" rule; from the
  * first event the tab is [Ready] and the calendar heatmap has a cell to show (spec §9).
  */

@@ -33,10 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
-import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.INTENSITY_MAX
@@ -72,9 +68,7 @@ import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
 import com.secondmonday.hodith.viewmodel.formatEventDate
-import com.secondmonday.hodith.viewmodel.formatExpectedFrequency
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
-import com.secondmonday.hodith.viewmodel.formatRate
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -160,7 +154,7 @@ private fun InsightsCardBody(
     voice: Voice,
     skin: ShareCardSkin,
 ) {
-    TopBeatContent(data.topBeat, voice, skin)
+    TopBeatContent(data.topBeat, voice)
     data.frequency?.let { MiniFrequencySection(it, voice, skin) }
     data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
     data.gaps?.let { MiniGapsSection(it, voice, skin) }
@@ -275,49 +269,12 @@ private fun BoxScope.IntenseStampBadge(voice: Voice) {
 private fun TopBeatContent(
     topBeat: ShareTopBeat,
     voice: Voice,
-    skin: ShareCardSkin,
 ) {
     when (topBeat) {
-        is ShareTopBeat.HunchVsReality -> HunchVsRealityBeat(topBeat, voice, skin)
         is ShareTopBeat.Reality -> RealityBeat(topBeat, voice)
     }
 }
 
-@Composable
-private fun HunchVsRealityBeat(
-    beat: ShareTopBeat.HunchVsReality,
-    voice: Voice,
-    skin: ShareCardSkin,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        BeatKicker(voice.shareHunchRealityKicker, skin)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HunchStat(
-                value = formatExpectedFrequency(beat.hunch.expectedCount, beat.hunch.expectedPer, beat.hunch.metric),
-                label = voice.shareHunchExpectedLabel,
-                skin = skin,
-                emphasize = false,
-                modifier = Modifier.weight(1f),
-            )
-            Text("→", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            HunchStat(
-                value = formatRate(beat.observedRate, beat.hunch.expectedPer, beat.hunch.metric),
-                label = voice.shareHunchObservedLabel,
-                skin = skin,
-                emphasize = true,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Text(
-            text = voice.sharePunchline(beat.hunch.direction, beat.band),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
-}
-
-/** Skips [BeatKicker] — "Reality" only means something in contrast to a Hunch, and this beat shows precisely when there's just Reality alone. */
 @Composable
 private fun RealityBeat(
     beat: ShareTopBeat.Reality,
@@ -353,38 +310,6 @@ private fun BeatKicker(
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
     )
-}
-
-@Composable
-private fun HunchStat(
-    value: String,
-    label: String,
-    skin: ShareCardSkin,
-    emphasize: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val chipModifier =
-        if (skin == ShareCardSkin.BRIGHT) {
-            val bg = if (emphasize) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-            Modifier.clip(MaterialTheme.shapes.small).background(bg).padding(vertical = 6.dp, horizontal = 4.dp)
-        } else {
-            Modifier
-        }
-
-    Column(modifier = modifier.then(chipModifier), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = if (skin == ShareCardSkin.INTENSE) value.uppercase() else value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = if (skin == ShareCardSkin.INTENSE) label.uppercase() else label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-    }
 }
 
 /** Mini-scale counterpart of `InsightsTab.kt`'s `InsightsCard` — same chrome, smaller padding/spacing for the card's fixed width. */
@@ -625,31 +550,12 @@ private fun ShareCardFooter(
 
 // ---- Previews (design validation, not shipped UI) ----
 
-/** Mirrors [com.secondmonday.hodith.viewmodel.shareCardState]'s gating: Square never gets the Hunch vs. Reality beat. */
 private fun previewData(format: ShareCardFormat): ShareCardData =
     ShareCardData.Insights(
         format = format,
         caseIcon = "☕",
         caseName = "Perfect coffee",
-        topBeat =
-            if (format == ShareCardFormat.STORY) {
-                ShareTopBeat.HunchVsReality(
-                    hunch =
-                        HunchEntity(
-                            id = 1L,
-                            caseId = 1L,
-                            direction = HunchDirection.TOO_OFTEN,
-                            expectedCount = 2,
-                            expectedPer = ExpectedPer.MONTH,
-                            createdAt = 0L,
-                            resolvedAt = null,
-                        ),
-                    observedRate = 7.0,
-                    band = ComparisonBand.MUCH_MORE,
-                )
-            } else {
-                ShareTopBeat.Reality(eventCount = 14, observedDays = 60)
-            },
+        topBeat = ShareTopBeat.Reality(eventCount = 14, observedDays = 60),
         frequency =
             FrequencyDisplay(
                 granularity = FrequencyGranularity.WEEK,

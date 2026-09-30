@@ -10,7 +10,7 @@ A local-only Android app for checking gut feelings against reality.
 
 Sometimes a thought hits you: *"this always happens"* — or *"this never happens anymore."* Usually you don't actually know. HODITH lets you check.
 
-Open a **Case** on the thing you've noticed — a teenager snapping at you, a migraine, the train running late, the coffee coming out perfect, a friend calling out of the blue. Log occurrences as they happen. State a **Hunch** about how often you *feel* it happens, and once there's enough data, get the **Verdict**: fact, or just a feeling.
+Open a **Case** on the thing you've noticed — a teenager snapping at you, a migraine, the train running late, the coffee coming out perfect, a friend calling out of the blue. Log occurrences as they happen, and let the data answer instead of your memory.
 
 ---
 
@@ -21,12 +21,12 @@ Open a **Case** on the thing you've noticed — a teenager snapping at you, a mi
 ## What it does
 
 - **Log in one tap.** A home-screen widget records "it happened, now" without opening the app. Optionally add detail: intensity, duration (including live start/stop for ongoing things like a rough day), notes, and tags. Logging something you only remembered later works too.
-- **Hunches and verdicts.** Tell the app "I feel this happens daily" and it will eventually answer with the observed rate. It waits for enough data first — with a handful of logs it says "early days" rather than pretending to know.
+- **Check-ins.** Silence is ambiguous — did it stop happening, or did you stop logging? A quiet nudge asks, never nags.
 - **The Big Picture.** Every Case on one shared timeline, occurrences as dots aligned by date. When your "unbearable day" dots stack above your "kiddo was rude" dots, you can see it — the app draws, you conclude.
 - **Per-case visuals and stats.** A dot timeline showing bursts and droughts, a year-in-pixels calendar, a day-of-week × time-of-day rhythm heatmap, gaps, trends, durations, intensity.
 - **Triggers.** A factual heads-up when something happens 3+ times in a week, or hasn't happened in 14 days. A count and a name — the rest is up to you.
-- **Three themes, three voices.** Plain, Intense, and Bright change the colors *and* every word the app says. The Intense verdict for a disproven fear: *"Your dread was exaggerated."*
-- **Share the reveal.** Turn a Case into a story-style card — the case, the hunch, the evidence, the verdict — styled by your theme, sized for stories or feeds. You preview first, can rename the case on the card, and notes/tags never leave the phone.
+- **Three themes, three voices.** Plain, Intense, and Bright change the colors *and* every word the app says. Intense's take on "How often does it truly happen?": *"How oft dares it truly haunt?"*
+- **Share the reveal.** Turn a Case into a story-style card — the case, the evidence, the stats — styled by your theme, sized for stories or feeds. You preview first, can rename the case on the card, and notes/tags never leave the phone.
 - **Your data stays yours.** HODITH itself doesn't request network permission and sends nothing anywhere; export/import as JSON anytime. Android's own device backup can still include HODITH's data if you have phone backup turned on — a Settings toggle lets you opt out.
 
 ## By design, it leaves out
@@ -51,7 +51,7 @@ No streaks, scores, or reminders to "do better" — many Cases are about things 
 
 ## Architecture
 
-MVVM throughout. `HodithRepository` is the single source of truth over Room. The verdict engine, trigger evaluation, and stats live in a pure-Kotlin `domain/` layer with no Android dependencies — time comes in via an injected `Clock` — so the app's riskiest logic is fully unit-testable on the JVM. The Glance widgets and the WorkManager trigger job read the repository directly, independent of the activity lifecycle.
+MVVM throughout. `HodithRepository` is the single source of truth over Room. Trigger evaluation and stats live in a pure-Kotlin `domain/` layer with no Android dependencies — time comes in via an injected `Clock` — so the app's riskiest logic is fully unit-testable on the JVM. The Glance widgets and the WorkManager trigger job read the repository directly, independent of the activity lifecycle.
 
 ```mermaid
 graph LR
@@ -63,7 +63,6 @@ graph LR
         ViewModels["ViewModels (StateFlow)"]
     end
     subgraph domain["Domain (pure Kotlin)"]
-        Verdict["Verdict Engine"]
         Triggers["Trigger Evaluation"]
         Stats["Stats"]
     end

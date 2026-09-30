@@ -1,9 +1,6 @@
 package com.secondmonday.hodith.data
 
 import com.secondmonday.hodith.data.backup.BackupData
-import com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT
-import com.secondmonday.hodith.domain.computeVerdict
-import com.secondmonday.hodith.domain.withResolvedVerdictSnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -21,14 +18,12 @@ class FakeHodithRepository : HodithRepository {
     private var nextCaseId = 1L
     private var nextEventId = 1L
     private var nextTagId = 1L
-    private var nextHunchId = 1L
     private var nextTriggerId = 1L
 
     val cases = MutableStateFlow<List<CaseEntity>>(emptyList())
     val events = MutableStateFlow<List<EventEntity>>(emptyList())
     val tags = MutableStateFlow<List<TagEntity>>(emptyList())
     val eventTags = MutableStateFlow<List<EventTagCrossRef>>(emptyList())
-    val hunches = MutableStateFlow<List<HunchEntity>>(emptyList())
     val triggers = MutableStateFlow<List<TriggerEntity>>(emptyList())
 
     // Case
@@ -63,7 +58,6 @@ class FakeHodithRepository : HodithRepository {
     override suspend fun deleteCase(case: CaseEntity) {
         cases.update { list -> list.filterNot { it.id == case.id } }
         events.update { list -> list.filterNot { it.caseId == case.id } }
-        hunches.update { list -> list.filterNot { it.caseId == case.id } }
         triggers.update { list -> list.filterNot { it.caseId == case.id } }
     }
 
@@ -75,7 +69,6 @@ class FakeHodithRepository : HodithRepository {
                 .toSet()
         cases.update { list -> list.filterNot { it.id in archivedIds } }
         events.update { list -> list.filterNot { it.caseId in archivedIds } }
-        hunches.update { list -> list.filterNot { it.caseId in archivedIds } }
         triggers.update { list -> list.filterNot { it.caseId in archivedIds } }
     }
 
@@ -84,7 +77,6 @@ class FakeHodithRepository : HodithRepository {
         events.value = emptyList()
         tags.value = emptyList()
         eventTags.value = emptyList()
-        hunches.value = emptyList()
         triggers.value = emptyList()
     }
 
@@ -262,57 +254,6 @@ class FakeHodithRepository : HodithRepository {
         eventTags.update { list -> list.filterNot { it.eventId == eventId && it.tagId == tagId } }
     }
 
-    // Hunch
-    override fun observeActiveHunch(caseId: Long): Flow<HunchEntity?> =
-        hunches.map { list -> list.find { it.caseId == caseId && it.resolvedAt == null } }
-
-    override suspend fun getActiveHunch(caseId: Long): HunchEntity? = hunches.value.find { it.caseId == caseId && it.resolvedAt == null }
-
-    override fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>> =
-        hunches.map { list -> list.filter { it.caseId == caseId }.sortedByDescending { it.createdAt } }
-
-    override suspend fun insertHunch(hunch: HunchEntity): Long {
-        val id = if (hunch.id != 0L) hunch.id else nextHunchId++
-        hunches.update { it + hunch.copy(id = id) }
-        return id
-    }
-
-    override suspend fun updateHunch(hunch: HunchEntity) {
-        hunches.update { list -> list.map { if (it.id == hunch.id) hunch else it } }
-    }
-
-    override suspend fun deleteHunch(hunch: HunchEntity) {
-        hunches.update { list -> list.filterNot { it.id == hunch.id } }
-    }
-
-    override suspend fun pruneResolvedHunches(caseId: Long) {
-        hunches.update { list ->
-            val resolvedForCase = list.filter { it.caseId == caseId && it.resolvedAt != null }
-            val keepIds =
-                resolvedForCase
-                    .sortedWith(compareByDescending<HunchEntity> { it.resolvedAt }.thenByDescending { it.id })
-                    .take(HUNCH_HISTORY_RETENTION_LIMIT)
-                    .map { it.id }
-                    .toSet()
-            list.filterNot { it.caseId == caseId && it.resolvedAt != null && it.id !in keepIds }
-        }
-    }
-
-    override suspend fun backfillResolvedHunchVerdicts() {
-        val casesById = cases.value.associateBy { it.id }
-        val eventsByCaseId = events.value.groupBy { it.caseId }
-        hunches.update { list ->
-            list.map { hunch ->
-                val resolvedAt = hunch.resolvedAt
-                if (resolvedAt == null || hunch.resolvedVerdictSnapshotTaken) return@map hunch
-                val case = casesById[hunch.caseId] ?: return@map hunch
-                val eventsAtResolution = eventsByCaseId[hunch.caseId].orEmpty().filter { it.occurredAt <= resolvedAt }
-                val result = computeVerdict(hunch, eventsAtResolution, case.createdAt, resolvedAt, case.durationMode)
-                hunch.withResolvedVerdictSnapshot(result)
-            }
-        }
-    }
-
     // Trigger
     override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggers.value.find { it.id == triggerId }
 
@@ -344,7 +285,6 @@ class FakeHodithRepository : HodithRepository {
             tags = tags.value,
             events = events.value,
             eventTags = eventTags.value,
-            hunches = hunches.value,
             triggers = triggers.value,
         )
 
@@ -353,7 +293,6 @@ class FakeHodithRepository : HodithRepository {
         tags.value = backup.tags
         events.value = backup.events
         eventTags.value = backup.eventTags
-        hunches.value = backup.hunches
         triggers.value = backup.triggers
     }
 }

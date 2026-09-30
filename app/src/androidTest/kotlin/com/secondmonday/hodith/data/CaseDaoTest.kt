@@ -114,20 +114,17 @@ class CaseDaoTest {
         }
 
     @Test
-    fun deletingCase_cascadesToEventsHunchesAndTriggers() =
+    fun deletingCase_cascadesToEventsAndTriggers() =
         runTest {
             val caseId = caseDao.insert(testCase())
             val eventDao = db.eventDao()
-            val hunchDao = db.hunchDao()
             val triggerDao = db.triggerDao()
             eventDao.insert(testEvent(caseId = caseId))
-            hunchDao.insert(testHunch(caseId = caseId))
             triggerDao.insert(testTrigger(caseId = caseId))
 
             caseDao.delete(caseDao.getById(caseId)!!)
 
             assertEquals(emptyList<EventEntity>(), eventDao.observeEventsForCase(caseId).first())
-            assertEquals(null, hunchDao.observeActiveHunch(caseId).first())
             assertEquals(emptyList<TriggerEntity>(), triggerDao.observeTriggersForCase(caseId).first())
         }
 
@@ -151,13 +148,11 @@ class CaseDaoTest {
     fun deleteAllArchived_removesOnlyArchivedCasesAndCascades() =
         runTest {
             val eventDao = db.eventDao()
-            val hunchDao = db.hunchDao()
             val triggerDao = db.triggerDao()
             val activeId = caseDao.insert(testCase(name = "Active"))
             val archivedId = caseDao.insert(testCase(name = "Archived", archived = true))
             eventDao.insert(testEvent(caseId = activeId))
             eventDao.insert(testEvent(caseId = archivedId))
-            hunchDao.insert(testHunch(caseId = archivedId))
             triggerDao.insert(testTrigger(caseId = archivedId))
 
             caseDao.deleteAllArchived()
@@ -165,7 +160,6 @@ class CaseDaoTest {
             assertEquals(listOf("Active"), caseDao.getAll().map { it.name })
             assertEquals(1, eventDao.observeEventsForCase(activeId).first().size)
             assertEquals(emptyList<EventEntity>(), eventDao.observeEventsForCase(archivedId).first())
-            assertEquals(null, hunchDao.observeActiveHunch(archivedId).first())
             assertEquals(emptyList<TriggerEntity>(), triggerDao.observeTriggersForCase(archivedId).first())
         }
 

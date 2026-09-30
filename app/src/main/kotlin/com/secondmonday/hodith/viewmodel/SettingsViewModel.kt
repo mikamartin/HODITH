@@ -165,7 +165,7 @@ class SettingsViewModel
                 backupSerializer.peekSchemaVersion(json)
                     ?: return BackupEvent.ImportFailure(ImportFailureReason.INVALID)
 
-            if (declaredVersion > BACKUP_SCHEMA_VERSION) {
+            if (declaredVersion != BACKUP_SCHEMA_VERSION) {
                 return BackupEvent.ImportFailure(ImportFailureReason.UNSUPPORTED_VERSION)
             }
 

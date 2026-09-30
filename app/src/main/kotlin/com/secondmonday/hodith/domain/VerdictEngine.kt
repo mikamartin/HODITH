@@ -3,29 +3,17 @@ package com.secondmonday.hodith.domain
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.HunchEntity
-import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.loggedZone
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** Spec §8 confidence tiers: both the observation count and the day count must clear their bar. */
+/** Confidence tiers: both the observation count and the day count must clear their bar. */
 internal const val PRELIMINARY_MIN_EVENTS = 5
 internal const val PRELIMINARY_MIN_DAYS = 14L
 internal const val CONFIDENT_MIN_EVENTS = 15
 internal const val CONFIDENT_MIN_DAYS = 28L
-
-/** Spec §7: the nudge card offers a Hunch after this many logged events on a hunch-less Case. */
-internal const val HUNCH_NUDGE_EVENT_THRESHOLD = 5
-
-/**
- * How many resolved Hunches are kept per Case (5 shown by default + 10 revealed by "show more" =
- * the entire retained set) — older resolved Hunches are pruned automatically on the next
- * resolution.
- */
-internal const val HUNCH_HISTORY_RETENTION_LIMIT = 15
 
 /**
  * Spec §8 comparison-band cutoffs (observed ÷ expected): `<0.5` much less, `0.5–0.8` less,
@@ -38,25 +26,23 @@ internal const val ABOUT_RIGHT_MAX_RATIO = 1.25
 internal const val MORE_MAX_RATIO = 2.0
 
 /**
- * Spec §8's verdict engine: a pure function of a Hunch, its Case's events, the Case's duration
- * mode, and the current time. Verdicts are computed fresh on every read, never stored, so this
- * is the app's most unit-testable — and riskiest to get wrong — surface.
+ * A pure function of an [Expectation], its Case's events, the Case's duration mode, and the
+ * current time. Verdicts are computed fresh on every read, never stored, so this is the app's
+ * most unit-testable — and riskiest to get wrong — surface.
  *
- * The observation window ends at [now] in every mode; its start comes from the Hunch's
- * [HunchEntity.observationWindow] (see [windowStartFor]). Events whose active span never reaches
- * into the window are excluded before anything is counted. What is then counted depends on
- * [HunchEntity.metric]: the raw in-window event tally ([VerdictMetric.OCCURRENCE_COUNT]) or the
+ * The observation window is `[expectation.windowStart, now]`. Events whose active span never
+ * reaches into the window are excluded before anything is counted. What is then counted depends
+ * on [Expectation.metric]: the raw in-window event tally ([VerdictMetric.OCCURRENCE_COUNT]) or the
  * number of distinct calendar days an in-window event's span touched ([VerdictMetric.DAYS_ACTIVE]).
  */
 internal fun computeVerdict(
-    hunch: HunchEntity,
+    expectation: Expectation,
     events: List<EventEntity>,
-    caseCreatedAt: Long,
     now: Long,
     durationMode: DurationMode,
     zone: ZoneId = ZoneId.systemDefault(),
 ): VerdictResult {
-    val windowStartMillis = windowStartFor(hunch, events, caseCreatedAt, now)
+    val windowStartMillis = expectation.windowStart
     val windowDays = daysBetween(windowStartMillis, now, zone)
 
     // In-window = the event's active span intersects [windowStart, now]: it must reach into the
@@ -64,15 +50,15 @@ internal fun computeVerdict(
     val inWindow = events.filter { it.occurredAt <= now && activeSpanEnd(it, durationMode, now) >= windowStartMillis }
     val eventCount = inWindow.size
     val activeDayCount = distinctActiveDays(inWindow, durationMode, windowStartMillis, now, zone)
-    val observationCount = if (hunch.metric == VerdictMetric.DAYS_ACTIVE) activeDayCount else eventCount
+    val observationCount = if (expectation.metric == VerdictMetric.DAYS_ACTIVE) activeDayCount else eventCount
 
     val tier = confidenceTierFor(observationCount, windowDays)
-    val observedRate = observedRateFor(observationCount, windowDays, hunch.expectedPer)
-    val expectedRate = hunch.expectedCount.toDouble()
+    val observedRate = observedRateFor(observationCount, windowDays, expectation.per)
+    val expectedRate = expectation.count.toDouble()
 
     return VerdictResult(
         tier = tier,
-        metric = hunch.metric,
+        metric = expectation.metric,
         eventCount = eventCount,
         activeDayCount = activeDayCount,
         windowDays = windowDays,
@@ -81,31 +67,6 @@ internal fun computeVerdict(
         comparisonBand = if (tier == ConfidenceTier.NO_VERDICT) null else comparisonBandFor(observedRate, expectedRate),
     )
 }
-
-/**
- * The observation window's start instant for [hunch]'s window mode:
- * - [ObservationWindow.SINCE_START] — the earlier of the Case's creation or its earliest event
- *   (a retro-logged event can predate the Case itself).
- * - [ObservationWindow.LAST_3_MONTHS] — a rolling fixed 90-day span ending at [now]
- *   ([DAYS_PER_QUARTER], matching the app's other calendar approximations), floored so it never
- *   predates the Case.
- * - [ObservationWindow.CUSTOM] — the stored [HunchEntity.windowStartDate], floored at the Case's
- *   own creation.
- */
-internal fun windowStartFor(
-    hunch: HunchEntity,
-    events: List<EventEntity>,
-    caseCreatedAt: Long,
-    now: Long,
-): Long =
-    when (hunch.observationWindow) {
-        ObservationWindow.SINCE_START ->
-            minOf(caseCreatedAt, events.minOfOrNull { it.occurredAt } ?: caseCreatedAt)
-        ObservationWindow.LAST_3_MONTHS ->
-            maxOf(caseCreatedAt, now - (DAYS_PER_QUARTER.toLong() * MILLIS_PER_DAY))
-        ObservationWindow.CUSTOM ->
-            maxOf(caseCreatedAt, hunch.windowStartDate ?: caseCreatedAt)
-    }
 
 /**
  * Distinct calendar days in [[windowStartMillis], [now]] that any of [events]' active spans
@@ -148,7 +109,7 @@ internal fun confidenceTierFor(
         else -> ConfidenceTier.NO_VERDICT
     }
 
-/** Normalizes a per-day rate up to the Hunch's own unit so it's directly comparable to [HunchEntity.expectedCount]. */
+/** Normalizes a per-day rate up to the expectation's own unit so it's directly comparable to [Expectation.count]. */
 internal fun observedRateFor(
     eventCount: Int,
     windowDays: Long,

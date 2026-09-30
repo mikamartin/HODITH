@@ -1,11 +1,11 @@
-package com.secondmonday.hodith.ui.casedetail
+package com.secondmonday.hodith.ui.common
 
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.VerdictMetric
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class HunchCreationSheetLogicTest {
+class FrequencyPickersTest {
     @Test
     fun `periodOptionsFor offers Day-Week-Month for occurrence count`() {
         assertEquals(

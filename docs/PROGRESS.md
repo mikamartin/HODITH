@@ -6,6 +6,7 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 Items are grouped by how they connect, not by feature area:
 
+- **Story N — Notifications rework** — Hunch removed (done); Triggers reframed as Notifications in a bell tab (N2, remaining).
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
@@ -13,20 +14,70 @@ Items are grouped by how they connect, not by feature area:
 
 Each item carries:
 
-- a **trailer** — *Branch · Complexity · Priority · Area*. Complexity: S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week (same scale as HODITH_SPEC §17). Priority: High gates the first release or corrects something wrong today · Medium worth doing before alpha · Low cosmetic or deferrable · Blocked can't start yet. Area is a loose bucket — Bug / Big Picture / Insights / Hunch / Share / Settings / Voice / Performance / Repo.
+- a **trailer** — *Branch · Complexity · Priority · Area*. Complexity: S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week (same scale as HODITH_SPEC §17). Priority: High gates the first release or corrects something wrong today · Medium worth doing before alpha · Low cosmetic or deferrable · Blocked can't start yet. Area is a loose bucket — Bug / Big Picture / Insights / Notifications / Share / Settings / Voice / Performance / Repo.
 - zero or more **tags** — 🎨 *Design decision* (needs a design or product-owner call before implementation) · 🌐 *External action* (work outside this repo) · 🔍 *Investigation* (needs a repro/diagnose pass before the fix is knowable).
 - **Acceptance criteria** — the checklist that says "done".
 - **Plan / Tests / Concern** — detail, unchanged from prior tracking.
 
+## Story N — Notifications rework
+
+Alpha feedback showed Hunch wasn't landing, and it overlapped with `AT_LEAST` Triggers: two similar "N per period" forms, while Triggers sit behind a Case Detail header icon few people find. The call: **remove Hunch entirely and reframe Triggers as Notifications**, shown in a bell-icon tab where the Hunch tab used to be. `chore/remove-hunch` did the first half — Hunch is gone, and the pieces Notifications reuses now live neutrally: `domain/Expectation.kt` (a pure `Expectation(count, per, metric, windowStart)` comparison input), `VerdictEngine.kt`/`Verdict.kt` refactored onto it, `ui/common/FrequencyPickers.kt` (count/period/metric pickers), and `ui/common/ExpectationCards.kt` (neutral tier-badge + headline cards) — none of it wired to a screen yet. Case Detail now has two tabs (Log, Insights); Triggers still live on their own screen.
+
+**Docs sweep** (an acceptance criterion below): grep every `*.md` for `Trigger`/`trigger`/`check-in` and resolve each hit on purpose, leaving unrelated uses alone (Big Picture's `FilterTriggerChip`). CLEANUP_LOG.md's past entries stay as history — this branch adds its own new pass entry after actually walking the checklist.
+
+### N2 · Notifications tab
+
+*Branch: `feat/notifications` · Complexity: L · Priority: Medium · Area: Notifications*
+
+Rename Trigger → Notification everywhere and move it into a bell tab, reusing the pieces `chore/remove-hunch` kept (`Expectation`, `FrequencyPickers.kt`, `ExpectationCards.kt`) — no new visual design; the cards and editor are today's `TriggerListItem`/`TriggerCreationSheet` extended with those pickers and the neutral tier cards.
+
+**Target UX**
+
+- Case Detail tabs: **Log · Insights · 🔔** — icon only, with a Voice content description. The header Triggers action, the Triggers route and `TriggersScreen.kt` go away.
+- Bell tab, top to bottom:
+  1. **Check-ins row** — the same control Case edit has today: `RowWithInfo` (`ui/common/SectionWithInfo.kt`) with the existing check-in label, info dialog and switch bound to `CaseEntity.checkInsEnabled`. Interval is always the Settings default. Removed from `CaseEditScreen.kt`.
+  2. **Notification cards** — title ("3+ times per week" / "Quiet for 14 days"); settings line ("Looking back 30 days · counting times · intensity 3+", measure only on duration Cases, intensity only when set); **Now line** ("Now: 2 per week" / "Now: quiet for 3 days"); for the often kind, a **comparison line** below/about/above the threshold using the existing bands and tier badge, shown only once the lookback clears the existing confidence tiers; last-fired line when set; enable switch (a disabled Notification still shows Now and the comparison); tap to **edit**, with delete (confirm dialog) inside the editor.
+  3. Add FAB and empty state, following `TriggersEmptyState`.
+- **Editor** (create and edit, prefilled when editing) — today's `TriggerCreationSheet` layout:
+  - Kind: `SegmentedChoiceRow` — Happens often / Goes quiet.
+  - Often: count (`NumberStepper`); per day/week/month (`FrequencyPickers.kt`'s period picker); looking back 7 / 30 / 90 / custom days, always rolling; measure times / days active (`FrequencyPickers.kt`'s metric picker, duration Cases only); **intensity at least** off / 1–5 (`SegmentedChoiceRow`, only when the Case has `intensityEnabled` — e.g. "3+ times per week with intensity 3+"; events without an intensity don't count while it's set).
+  - Quiet: days (`NumberStepper`), as today.
+
+**Acceptance criteria**
+
+- [ ] Rename throughout: `NotificationEntity`, `NotificationDao`, table `notifications`, `NotificationKind { OFTEN, QUIET }`, engine, decision type, ViewModel, tests, Voice keys, spec. `android.app.Notification` imported under an alias where a file needs both; `NotificationEvaluator`/`Notifier` keep their names.
+- [ ] New columns `expectedPer`, `metric` (default occurrence count), `minIntensity` (nullable). No hand-written migration: an `AutoMigration` with a `@DeleteTable` spec drops `triggers` and creates `notifications`, so existing test-install triggers are discarded (satisfies `SchemaMigrationCoverageTest`). Test installs are restored from the shared testing backup JSON, adjusted by hand to the new shape on request.
+- [ ] Often condition: observed rate over the lookback, normalised to `per`, ≥ count — through `Expectation`'s comparison math (span-overlap filtering, both metrics) after the intensity filter. Firing is not tier-gated; only the comparison line is. Edge-trigger state machine unchanged. Quiet condition unchanged. `NotificationEvaluator`'s fetch window covers the lookback.
+- [ ] Bell tab, cards, editor and check-in row per Target UX; `CaseDetailScreen.kt` gets new tab state + ViewModel wiring.
+- [ ] Backup `BACKUP_SCHEMA_VERSION` 2 → 3 carrying the new fields and the `notifications` key; a v2 file is rejected through the existing invalid-file path.
+- [ ] Voice ×3: Now, comparison, settings-line and intensity copy; trigger keys renamed. No em dashes, no gamification.
+- [ ] **Demo seed** (`data/demo/DemoDataSeeder.kt` seeds none today): an often Notification per week over 30 days with its comparison line showing, a days-active one on a duration Case, an intensity-filtered one on the migraine seed, a quiet one, one disabled, one Case with none (empty state), one Case with check-ins off. `armed`/`lastFiredAt` consistent with the seeded events so loading demo data doesn't fire a burst.
+- [ ] HODITH_SPEC.md, Notifications half: §2 vocabulary, §5 model, §11, §14 (Case detail tabs, New/edit Case without check-ins, Triggers row removed), §15 if affected.
+- [ ] Docs sweep (above), Notifications half; this story struck from this file in the same commit.
+
+**Plan** — rename + migration first (behaviour-neutral, all green), then the often-condition engine change, then the UI swap, then seed and docs.
+
+**Tests**
+
+- Unit — engine: often condition at/below/above threshold for each `per`; lookback 7/30/90/custom; times vs days active; intensity filter (null excluded, boundary included); span-overlap events; fire / stay quiet / re-arm sequences; quiet condition unchanged (last event end, running event, never-logged Case); `enabled = false` never fires. `TriggerEngineTest` renamed and extended.
+- Unit — card state: Now line for each kind, per and metric; comparison hidden below the tier threshold and shown at each band; settings-line composition.
+- Unit — ViewModel: create, edit, toggle, delete; check-in toggle writes `checkInsEnabled`. `TriggersViewModelTest` renamed and extended.
+- Unit — `NotificationEvaluatorTest`/`NotifierContentTest`: fetch window covers the lookback; copy per kind.
+- Unit — backup v3 round-trip with the new fields; a v2 file rejected.
+- Unit — `DemoDataSeederTest`: each seeded Notification's kind and fields; intensity only on intensity Cases, days active only on duration Cases; the check-ins-off Case; a repeat load adds another full set; nothing left armed with its condition already met.
+- Migration — `MigrationTestHelper`: `triggers` dropped, `notifications` created empty, every other table and its rows intact.
+- Instrumented — new bell-tab screen test: check-in row present and toggling; empty state → create; card fields per kind; Now line; comparison gating; edit prefilled → save; delete confirm; measure picker only on duration Cases, intensity picker only with intensity on; disabled card still shows Now; tab icon content description. `TriggersScreenTest` deleted with its coverage carried over; `TriggerDaoTest` renamed; `CaseEditScreenTest` without the check-in toggle; `CaseDetailScreenTest` with the bell tab and no header Triggers action. All through `HodithComposeContent`, across themes and voices.
+- `VoiceTest` covers every new key ×3.
+
 ## Story B — copy & Voice
 
-Two items, plus the tail of nearly everything else. Anything that adds or changes a Voice key must land before B2.
+Three items, plus the tail of nearly everything else. Anything that adds or changes a Voice key must land before B3.
 
 ### B1 · Square share format should become a fixed preset
 
 *Branch: `feat/square-share-card-preset` · Complexity: M · Priority: Medium · Area: Share*
 
-🎨 **Design decision** — which sections, and in what fixed order, Square always shows. Touches Voice copy, so before B2.
+🎨 **Design decision** — which sections, and in what fixed order, Square always shows. Touches Voice copy, so before B3.
 
 Story stays the one fully customizable, auto-sizing format. `shareCardState()` applies `selectedSections` identically to both formats, and `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` render the same toggles for both — but Square keeps a 1:1 floor while Story sizes freely to content, so selecting every Insights section on Square produces a tall rectangle instead of the predictable square shape it's for.
 
@@ -44,28 +95,46 @@ Story stays the one fully customizable, auto-sizing format. `shareCardState()` a
 
 **Tests** — `ShareCardStateTest.kt` and `SharePreviewScreenTest.kt` cover the preset-driven output and Story-only picker; `ShareCardTemplateTest.kt`'s floor/no-clip tests keep passing unchanged.
 
-### B2 · Review phrasing across all three Voice implementations
+### B2 · Share card summary beat
+
+*Branch: `feat/share-card-summary-beat` · Complexity: M · Priority: Medium · Area: Share*
+
+🎨 **Design decision** — what the summary says and how it reads in each theme's template. Touches Voice copy, so before B3.
+
+The plain Reality beat (event count + days observed) is now the card's only top beat, since `chore/remove-hunch` retired the old Hunch vs. Reality punchline — "I checked: it does NOT always rain on my day off" — and a Case can carry several Notifications, so no single Notification's comparison can stand in for it. Replace Reality with a short summary beat that works for both Story and Square.
+
+**Acceptance criteria**
+
+- [ ] A documented summary shape (e.g. overall rate + observed span, with an optional voice-flavoured line), built from data the Insights tab already computes — no new domain math.
+- [ ] Rendered in both Story and Square, in all three theme templates, without breaking Square's 1:1 floor or B1's fixed preset.
+- [ ] Voice ×3 for any new copy, impersonal (no "I"/"you" — the viewer isn't the user).
+- [ ] HODITH_SPEC.md §13 updated.
+
+**Plan** — decide the summary shape with a cheap mockup first, then swap it in for Reality in `shareCardState()` and `ShareCardTemplate.kt`.
+
+**Tests** — `ShareCardStateTest.kt` (summary content for both formats, edge cases: one event, no events), `ShareCardTemplateTest.kt` (fits and no-clip in both formats), `SharePreviewScreenTest.kt` if the preview gains or loses a control.
+
+### B3 · Review phrasing across all three Voice implementations
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item (currently just B1).
+🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item (currently B1, B2, and Story N).
 
 Fold these already-drafted key changes into the audit:
 
 - `feat/declutter-nudges` — reworded Serious `checkInDueNotificationBody`; renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle`.
 - `feat/insights-from-first-event` — added `insightsNothingLoggedMessage`, `insightsSingleEventNote` (replacing `insightsNotEnoughDataMessage`).
 - `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
-- `feat/resolved-hunch-list-redesign` — retired `hunchHistoryRowText`; added `hunchHistoryShowMoreAction`, `hunchHistoryRetentionNote`.
 
 **Acceptance criteria**
 
-- [ ] A written rubric: per-voice person, tense, sentence length, punctuation/emoji budget, locked Case/Hunch/Verdict/Event/Trigger vocabulary, and an em-dash policy with per-string calls for Goth/Quirky mid-sentence pivots.
+- [ ] A written rubric: per-voice person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Notification/Check-in vocabulary, and an em-dash policy with per-string calls for Goth/Quirky mid-sentence pivots.
 - [ ] A findings list produced first; fixes in a separate second commit.
 - [ ] Audit done in slices by screen, not by reading `Voice.kt` linearly.
 - [ ] New mechanical `VoiceTest` invariants: vocabulary casing, no gamification vocabulary (streak/score/keep it up/missed — spec §4), length caps on tab/button labels, no double spaces or trailing whitespace.
 - [ ] Confirmed before starting: `androidTest` references `PlainVoice` by constant, not literal, everywhere (grep for hardcoded UI literals).
 
-**Plan** — 720 strings total: 213 keys declared per-voice (639 strings) need independent authorship; 81 shared `get()`/default-body keys are reviewed once. Write the rubric first (person, tense, sentence length, punctuation/emoji budget, locked Case/Hunch/Verdict/Event/Trigger vocabulary), then audit in slices by screen — not top to bottom, since `Voice.kt` is grouped by key. Produce a findings list first; fix in a second commit. ~105 em dashes exist today (18 Serious, 36 Goth, 51 Quirky); most convert to a period or comma, but Goth/Quirky use them ~2–3x more often as a genuine mid-sentence pivot, so each needs a per-string call rather than a mechanical substitution.
+**Plan** — write the rubric first (person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Notification/Check-in vocabulary), then audit in slices by screen — not top to bottom, since `Voice.kt` is grouped by key. Produce a findings list first; fix in a second commit. Re-tally the per-voice/shared key split and the em-dash count before starting — `chore/remove-hunch` retired dozens of keys and touched dashes in the ones it rewrote, so the prior counts no longer hold.
 
 **Tests** — `VoiceTest` already checks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. Add mechanical invariants during the audit: vocabulary casing, no gamification vocabulary (spec §4), length caps on tab/button labels, no double spaces or trailing whitespace. Confirm `androidTest` references `PlainVoice` by constant everywhere, not literal, before starting.
 
@@ -91,39 +160,6 @@ In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edg
 **Plan** — push the handle's two inner points (`58.818,65.182` and `65.182,58.818`) outward along the (1,1) diagonal; mirror the change in `ic_launcher_monochrome.xml`. The handle tip is already near the 66dp adaptive-icon safe zone, so this may also mean shortening the handle or nudging the enclosing `group` scale (0.9).
 
 **Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
-
-### Hunch/Trigger relationship: feasibility & rework
-
-*Branch: `chore/hunch-trigger-feasibility` · Complexity: L · Priority: Low · Area: Hunch*
-
-🎨 **Design decision** — whether Hunch and Trigger stay two entities, merge, or become something new is a product-positioning call, not just an implementation detail. 🔍 **Investigation** — nothing below is buildable until the feasibility question is answered.
-
-`AT_LEAST` triggers ("N+ times in a rolling window") and Hunches ("~N times per period", verdict computed over the whole observation window) currently overlap: a user with an active Hunch may re-enter nearly the same numbers to also get notified. They're not actually the same thing (rolling-window burst detection vs. whole-history average), so a naive prefill would misrepresent what the alert means. Current usage doesn't demonstrate that keeping them as two separate, similarly-shaped entities is the right call — the first step here is feasibility: could Hunch and Trigger be one entity, or does the overlap resolve some other way? That answer may require reworking HODITH_SPEC.md's Hunch/Trigger sections and how the app positions the two concepts, not just picking one of the options below.
-
-Options considered for the narrower overlap question, still relevant regardless of how the feasibility question resolves:
-
-1. A genuinely new hunch-verdict-based alert kind, evaluated via the verdict engine rather than `TriggerEngine`.
-2. Prefill `AT_LEAST`'s fields from the active Hunch as a labelled approximation.
-3. Leave both engines as-is and just surface trigger creation contextually from the Hunch tab instead of a separate entry point.
-
-Folded-in ideas — each parked until the feasibility question above is settled, since building any of them now risks doubling down on a shape that gets reworked:
-
-- **Time-to-confidence projection** — "At the current rate, CONFIDENT in about 9 days," projected off `confidenceTierFor(observationCount: Int, windowDays: Long)` (`VerdictEngine.kt:132-140`)'s existing `PRELIMINARY_MIN_EVENTS`/`CONFIDENT_MIN_EVENTS` and `*_MIN_DAYS` constants: given the Case's current event rate, solve for the day both thresholds clear.
-- **Belief drift across superseded Hunches** — when a Case has more than one Hunch over time on the same question (e.g. coffee: 3/day, then 2/day), say so: "Your expectation dropped, and the data agrees." No new query needed — `HunchDao.observeHunchHistory(caseId)` (`HunchDao.kt:27-28`) already returns every Hunch for a Case ordered `createdAt DESC`, and each resolved one already carries a frozen verdict snapshot (`HunchEntity`'s `resolved*` columns, `Verdict.kt`'s `withResolvedVerdictSnapshot`). The resolved-Hunch list (`feat/resolved-hunch-list-redesign` — `CaseDetailScreen.kt`/`HunchTabState.kt`, 15-item retention cap via `HunchDao.deleteResolvedHunchesBeyondLimit`) is the natural surface for a belief-drift sentence between consecutive entries.
-- **Perception-gap framing for `JUST_CURIOUS`** — frame the result as how it felt vs. what the data shows, rather than a verdict against an expectation.
-- **Trigger threshold suggestions** — suggest a `SILENT_FOR` threshold from the Case's 90th-percentile historical gap. `InsightsEngine.computeGapStats` (`InsightsEngine.kt:63-99`) builds the gap list; this would add a percentile helper over it (none exists today). When editing a trigger, show "would have fired N times in the last year" by replaying `evaluateAtLeast`/`evaluateSilentFor` (`TriggerEngine.kt:36-55`, both pure functions of `now`) over the past year's events — a historical loop, no new evaluation logic.
-
-**Acceptance criteria**
-
-- [ ] A written feasibility call: keep Hunch and Trigger as two entities, merge them into one, or introduce a new entity — with rationale grounded in actual usage (alpha data) rather than the abstract overlap alone.
-- [ ] `HODITH_SPEC.md`'s Hunch (§7), Trigger (§11 Triggers subsection), and Vocabulary (§2) sections flagged for rework once the feasibility call is made, scoped to whichever entity shape wins.
-- [ ] If the two-entity shape survives: a decision among the three overlap options above, implemented.
-- [ ] Folded-in ideas (time-to-confidence projection, belief drift, perception-gap framing, trigger threshold suggestions) revisited only after the feasibility call, each re-scoped to whatever the winning shape turns out to be.
-- [ ] Voice ×3 for any new copy that results.
-
-**Plan** — parked until alpha testing shows how people actually use Hunches and Triggers, per the original spec note. When picked up: feasibility investigation first (no production code), then the overlap-option decision, then the folded-in ideas re-scoped to match.
-
-**Tests** — none until the feasibility call is made; each folded-in idea keeps its own test shape (noted above) once re-scoped and picked up.
 
 ### Audit the hosted privacy policy and Play data-safety form
 
@@ -201,7 +237,7 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 🔍 **Investigation**
 
-Raises the same question **D1** is deferred pending — app capacity for years of records — but broader than D1's Big Picture-specific scope. `EventDao.observeEventsWithTagsForCase` (unbounded) backs every Insights/Hunch stats computation (rhythm, frequency-over-time, trend, duration averages) with no row-count limit; only the Log tab got paged querying (`feat/log-tab-paged-query`). May itself be D1's "real alpha usage" trigger — resolve together with D1 rather than as a separate track.
+Raises the same question **D1** is deferred pending — app capacity for years of records — but broader than D1's Big Picture-specific scope. `EventDao.observeEventsWithTagsForCase` (unbounded) backs every Insights stats computation (and, after N2, every Notification's Now line) (rhythm, frequency-over-time, trend, duration averages) with no row-count limit; only the Log tab got paged querying (`feat/log-tab-paged-query`). May itself be D1's "real alpha usage" trigger — resolve together with D1 rather than as a separate track.
 
 **Acceptance criteria**
 
@@ -234,6 +270,27 @@ Originally scoped three sub-features: autocorrelation for weekly/~28-day cycles,
 - [ ] `HODITH_SPEC.md` §10 gains one line per kept signal, or a rationale note here for any dropped.
 
 **Plan** — none yet — the weekday-vs-weekend fallback already covers the cheapest, most useful signal of the original three.
+
+**Tests** — none until picked back up.
+
+### D5 · Notification threshold suggestions
+
+*Branch: none yet — deferred, needs N2 · Complexity: M · Priority: Low · Area: Notifications*
+
+🎨 **Design decision**
+
+Carried over from the retired Hunch/Trigger feasibility item, re-scoped to Notifications. When creating or editing a quiet Notification, suggest a threshold from the Case's 90th-percentile historical gap — `InsightsEngine.computeGapStats` builds the gap list; this adds a percentile helper over it (none exists today). For either kind, show "would have fired N times in the last year" by replaying the (pure, `now`-parameterised) Notification conditions over the past year's events — a historical loop, no new evaluation logic.
+
+**Deferred rather than pursued next** — the editor's shape settles in N2 first, and real use of the bell tab should show whether people struggle to pick thresholds at all.
+
+**Acceptance criteria**
+
+- [ ] Revisit once N2 has shipped and alpha testers have used it.
+- [ ] A percentile helper over the gap list, with its own unit tests.
+- [ ] The replay loop reuses the Notification conditions as-is and is unit-tested against a planted event history.
+- [ ] Voice ×3 for the suggestion copy, observational only (no "you should").
+
+**Plan** — none yet.
 
 **Tests** — none until picked back up.
 

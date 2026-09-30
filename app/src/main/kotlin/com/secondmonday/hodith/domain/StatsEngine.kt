@@ -53,11 +53,10 @@ internal const val TAG_SHARE_SHIFT_MAX_FINDINGS = 3
 
 /**
  * A Case's full observation span in days, from the earlier of its creation or earliest (possibly
- * retro-logged) event through [now] — mirrors [computeVerdict]'s window-start rule, since frequency
- * granularity and the trend arrow both need "how long has this Case actually been observed". This
- * stays on the passed-in [zone] rather than the earliest event's own captured offset: it's a
- * start-point-vs-now comparison, not one event vs. another, so it follows the same now-side rule
- * [computeGapStats] documents.
+ * retro-logged) event through [now], since frequency granularity and the trend arrow both need
+ * "how long has this Case actually been observed". This stays on the passed-in [zone] rather than
+ * the earliest event's own captured offset: it's a start-point-vs-now comparison, not one event
+ * vs. another, so it follows the same now-side rule [computeGapStats] documents.
  */
 internal fun observationSpanDays(
     events: List<EventEntity>,

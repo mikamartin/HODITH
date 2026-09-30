@@ -37,7 +37,7 @@ interface HodithRepository {
     /**
      * Capped, sorted page of a Case's events for the Log tab's row list only (spec §6) — at most
      * [limit] events in [order], plus whether more remain. Every other Log-tab-adjacent need
-     * (ongoing-event detection, Insights/Hunch stats, the Log tab's own summary line/day-span) keeps
+     * (ongoing-event detection, Insights stats, the Log tab's own summary line/day-span) keeps
      * reading the full history via [observeEventsWithTagsForCase]; this is additive, not a
      * replacement. [dateFrom]/[dateTo] narrow to `occurredAt` inclusively (either `null` = unbounded
      * on that side) — the Log tab's Range filter.
@@ -106,30 +106,6 @@ interface HodithRepository {
         eventId: Long,
         tagId: Long,
     )
-
-    // Hunch
-    fun observeActiveHunch(caseId: Long): Flow<HunchEntity?>
-
-    suspend fun getActiveHunch(caseId: Long): HunchEntity?
-
-    fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>>
-
-    suspend fun insertHunch(hunch: HunchEntity): Long
-
-    suspend fun updateHunch(hunch: HunchEntity)
-
-    suspend fun deleteHunch(hunch: HunchEntity)
-
-    /** Keeps only the most recently resolved Hunches for [caseId], pruning older ones. */
-    suspend fun pruneResolvedHunches(caseId: Long)
-
-    /**
-     * One-time-per-row backfill for Hunches resolved before the verdict-snapshot columns existed
-     * (`HunchEntity.resolvedVerdictSnapshotTaken`) — computes and persists each one's snapshot from
-     * whatever Events still exist now. Called from [com.secondmonday.hodith.HodithApplication] on
-     * every launch; a no-op once every resolved Hunch has been snapshotted.
-     */
-    suspend fun backfillResolvedHunchVerdicts()
 
     // Trigger
     suspend fun getTrigger(triggerId: Long): TriggerEntity?

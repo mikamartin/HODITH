@@ -2,9 +2,6 @@ package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.testsupport.millisAtDay
 import org.junit.Assert.assertEquals
@@ -12,19 +9,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-
-private fun hunch(
-    expectedCount: Int,
-    expectedPer: ExpectedPer,
-) = HunchEntity(
-    id = 1,
-    caseId = 1,
-    direction = HunchDirection.TOO_OFTEN,
-    expectedCount = expectedCount,
-    expectedPer = expectedPer,
-    createdAt = 0L,
-    resolvedAt = null,
-)
 
 private fun case(
     createdAt: Long,
@@ -46,58 +30,24 @@ private fun case(
 
 class CheckInTest {
     @Test
-    fun `toggle off always wins, regardless of hunch or settings default`() {
-        val result = effectiveCheckInDays(checkInsEnabled = false, hunch = hunch(3, ExpectedPer.WEEK), settingsDefaultDays = 14)
+    fun `toggle off always wins, regardless of settings default`() {
+        val result = effectiveCheckInDays(checkInsEnabled = false, settingsDefaultDays = 14)
 
         assertNull(result)
     }
 
     @Test
-    fun `no hunch falls back to the settings default`() {
-        val result = effectiveCheckInDays(checkInsEnabled = true, hunch = null, settingsDefaultDays = 14)
+    fun `toggle on uses the settings default`() {
+        val result = effectiveCheckInDays(checkInsEnabled = true, settingsDefaultDays = 14)
 
         assertEquals(14, result)
     }
 
     @Test
-    fun `no hunch and settings default off means off`() {
-        val result = effectiveCheckInDays(checkInsEnabled = true, hunch = null, settingsDefaultDays = null)
+    fun `toggle on with settings default off means off`() {
+        val result = effectiveCheckInDays(checkInsEnabled = true, settingsDefaultDays = null)
 
         assertNull(result)
-    }
-
-    @Test
-    fun `an active hunch overrides the settings default entirely`() {
-        val result = effectiveCheckInDays(checkInsEnabled = true, hunch = hunch(1, ExpectedPer.WEEK), settingsDefaultDays = null)
-
-        assertEquals(14, result)
-    }
-
-    @Test
-    fun `hunch-derived interval is 2x the expected gap`() {
-        // 3x a week -> expected gap ~2.33 days -> 2x = ~4.67, rounds to 5.
-        assertEquals(5, hunchCheckInDays(hunch(3, ExpectedPer.WEEK)))
-    }
-
-    @Test
-    fun `hunch-derived interval clamps to the 3 day floor`() {
-        // 7x a day -> tiny gap -> clamps up to the floor.
-        assertEquals(HUNCH_CHECK_IN_MIN_DAYS, hunchCheckInDays(hunch(7, ExpectedPer.DAY)))
-    }
-
-    @Test
-    fun `hunch-derived interval clamps to the 30 day ceiling`() {
-        // Once a month -> 2x gap = 60 days -> clamps down to the ceiling.
-        assertEquals(HUNCH_CHECK_IN_MAX_DAYS, hunchCheckInDays(hunch(1, ExpectedPer.MONTH)))
-    }
-
-    @Test
-    fun `hunch-derived interval handles a days-active QUARTER hunch as a period over count`() {
-        // A days-active Hunch states "N days active per 3 months" — QUARTER = 90 days.
-        // 4 days active / 90 -> gap 22.5 -> 2x = 45 -> clamps down to the 30-day ceiling.
-        assertEquals(HUNCH_CHECK_IN_MAX_DAYS, hunchCheckInDays(hunch(4, ExpectedPer.QUARTER)))
-        // 20 days active / 90 -> gap 4.5 -> 2x = 9, inside the bounds.
-        assertEquals(9, hunchCheckInDays(hunch(20, ExpectedPer.QUARTER)))
     }
 
     // ---- evaluateCheckIn: due-check anchored on the latest of event / check-in / creation ----
@@ -107,7 +57,6 @@ class CheckInTest {
         val result =
             evaluateCheckIn(
                 case(createdAt = millisAtDay(0), checkInsEnabled = false),
-                hunch = null,
                 settingsDefaultDays = 7,
                 mostRecentEventAt = null,
                 now = millisAtDay(100),
@@ -121,7 +70,6 @@ class CheckInTest {
         val result =
             evaluateCheckIn(
                 case(createdAt = millisAtDay(0)),
-                hunch = null,
                 settingsDefaultDays = 14,
                 mostRecentEventAt = null,
                 now = millisAtDay(14),
@@ -136,7 +84,6 @@ class CheckInTest {
         val result =
             evaluateCheckIn(
                 case(createdAt = millisAtDay(0)),
-                hunch = null,
                 settingsDefaultDays = 14,
                 mostRecentEventAt = null,
                 now = millisAtDay(13),
@@ -150,7 +97,6 @@ class CheckInTest {
         val result =
             evaluateCheckIn(
                 case(createdAt = millisAtDay(0)),
-                hunch = null,
                 settingsDefaultDays = 7,
                 mostRecentEventAt = millisAtDay(90),
                 now = millisAtDay(95),
@@ -165,7 +111,6 @@ class CheckInTest {
         val result =
             evaluateCheckIn(
                 case(createdAt = millisAtDay(0), lastCheckInAt = millisAtDay(80)),
-                hunch = null,
                 settingsDefaultDays = 7,
                 mostRecentEventAt = millisAtDay(50),
                 now = millisAtDay(87),
@@ -173,20 +118,5 @@ class CheckInTest {
 
         assertTrue(result.due)
         assertEquals(7L, result.silentDays)
-    }
-
-    @Test
-    fun `evaluateCheckIn uses the hunch-derived interval over the settings default`() {
-        // 3x a week -> hunch-derived interval of 5 days (see the hunch-derived-interval test above).
-        val result =
-            evaluateCheckIn(
-                case(createdAt = millisAtDay(0)),
-                hunch = hunch(3, ExpectedPer.WEEK),
-                settingsDefaultDays = 30,
-                mostRecentEventAt = null,
-                now = millisAtDay(5),
-            )
-
-        assertTrue(result.due)
     }
 }

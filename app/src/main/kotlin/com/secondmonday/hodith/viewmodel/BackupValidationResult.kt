@@ -1,9 +1,7 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TriggerKind
 import com.secondmonday.hodith.data.backup.BackupData
-import com.secondmonday.hodith.ui.casedetail.EXPECTED_COUNT_RANGE
 import com.secondmonday.hodith.ui.logsheet.TAG_NAME_MAX_LENGTH
 import com.secondmonday.hodith.ui.triggers.THRESHOLD_RANGE
 
@@ -38,7 +36,6 @@ fun validateBackup(backup: BackupData): BackupValidationResult {
     duplicateNonZeroIds(backup.cases) { it.id }.forEach { violations += "Case: duplicate id $it" }
     duplicateNonZeroIds(backup.events) { it.id }.forEach { violations += "Event: duplicate id $it" }
     duplicateNonZeroIds(backup.tags) { it.id }.forEach { violations += "Tag: duplicate id $it" }
-    duplicateNonZeroIds(backup.hunches) { it.id }.forEach { violations += "Hunch: duplicate id $it" }
     duplicateNonZeroIds(backup.triggers) { it.id }.forEach { violations += "Trigger: duplicate id $it" }
 
     backup.cases.forEach { case ->
@@ -72,21 +69,6 @@ fun validateBackup(backup: BackupData): BackupValidationResult {
     backup.eventTags.forEach { crossRef ->
         if (crossRef.eventId !in eventIds) violations += "EventTag: eventId ${crossRef.eventId} not present in backup"
         if (crossRef.tagId !in tagIds) violations += "EventTag: tagId ${crossRef.tagId} not present in backup"
-    }
-
-    backup.hunches.forEach { hunch ->
-        if (hunch.caseId !in caseIds) violations += "Hunch ${hunch.id}: caseId ${hunch.caseId} not present in backup"
-        if (hunch.expectedCount !in EXPECTED_COUNT_RANGE) violations += "Hunch ${hunch.id}: expectedCount out of range"
-        when (hunch.observationWindow) {
-            ObservationWindow.CUSTOM ->
-                if (hunch.windowStartDate == null) {
-                    violations += "Hunch ${hunch.id}: CUSTOM observation window requires a windowStartDate"
-                }
-            else ->
-                if (hunch.windowStartDate != null) {
-                    violations += "Hunch ${hunch.id}: windowStartDate is only valid with a CUSTOM observation window"
-                }
-        }
     }
 
     backup.triggers.forEach { trigger ->

@@ -12,7 +12,7 @@ import com.secondmonday.hodith.data.AppTheme
  * Highest matching that scheme's own `surface`, `High` its own deliberate value) — any tier left
  * unset falls back to `lightColorScheme`/`darkColorScheme`'s hardcoded M3 baseline default
  * (a generic purple unrelated to this app's palette), which leaked into any plain `Card()`
- * (Insights/Hunch) and the bottom `NavigationBar`'s default background before this was found.
+ * (Insights) and the bottom `NavigationBar`'s default background before this was found.
  * Roles not set here (inverse*, scrim, surfaceTint, and the tertiary family outside Plain's
  * `tertiaryContainer`/`onTertiaryContainer`) intentionally keep Material3's baseline values —
  * nothing in the app renders them prominently today; revisit if that changes.
@@ -67,12 +67,12 @@ private val plainLight =
         onSurface = PlainLightOnSurface,
         surfaceVariant = Color(0xFFCFE8F8),
         onSurfaceVariant = PlainLightOnSurfaceVariant,
-        // Every surfaceContainer tier authored white: Insights/Hunch's plain Card() (and any
+        // Every surfaceContainer tier authored white: Insights' plain Card() (and any
         // other unstyled M3 component) defaults to one of these depending on the exact
         // component, and leaving any tier unset doesn't derive a neutral from this scheme's own
         // primary — lightColorScheme(...) fills an unset parameter with M3's stock default
         // (a generic purple), unrelated to this app's palette. Found via screenshots showing
-        // Insights/Hunch cards rendering that stock purple instead of a white plank.
+        // Insights cards rendering that stock purple instead of a white plank.
         surfaceContainerLowest = Color(0xFFFFFFFF),
         surfaceContainerLow = Color(0xFFFFFFFF),
         surfaceContainer = Color(0xFFFFFFFF),
@@ -103,7 +103,7 @@ private val plainDark =
         surfaceVariant = Color(0xFF3A444A),
         onSurfaceVariant = Color(0xFF96A3AB),
         // Same reasoning as plainLight: every surfaceContainer tier authored (matching surface)
-        // rather than left to leak M3's stock baseline purple into Insights/Hunch cards.
+        // rather than left to leak M3's stock baseline purple into Insights cards.
         surfaceContainerLowest = Color(0xFF1C2226),
         surfaceContainerLow = Color(0xFF1C2226),
         surfaceContainer = Color(0xFF1C2226),
@@ -138,7 +138,7 @@ private val intenseLight =
         onSurfaceVariant = Color(0xFF6B6B6B),
         // Same reasoning as plainLight: every surfaceContainer tier authored (Lowest/Low/plain/
         // Highest matching surface) rather than left to leak M3's stock baseline purple into
-        // Insights/Hunch cards. surfaceContainerHigh keeps its existing deliberate value.
+        // Insights cards. surfaceContainerHigh keeps its existing deliberate value.
         surfaceContainerLowest = Color(0xFFFFFFFF),
         surfaceContainerLow = Color(0xFFFFFFFF),
         surfaceContainer = Color(0xFFFFFFFF),

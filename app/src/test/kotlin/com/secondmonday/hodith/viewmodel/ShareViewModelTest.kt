@@ -5,10 +5,7 @@ import app.cash.turbine.test
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
-import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.share.FakeShareImageExporter
 import com.secondmonday.hodith.domain.FakeClock
@@ -61,33 +58,20 @@ class ShareViewModelTest {
         )
 
     @Test
-    fun `uiState reflects the case, its events and active hunch, defaulting the selection`() =
+    fun `uiState reflects the case and its events, defaulting the selection`() =
         runTest {
             repository.cases.value = listOf(testCase())
             repository.insertEvent(
                 EventEntity(caseId = caseId, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L),
             )
-            val hunch =
-                HunchEntity(
-                    id = 1L,
-                    caseId = caseId,
-                    direction = HunchDirection.TOO_OFTEN,
-                    expectedCount = 5,
-                    expectedPer = ExpectedPer.WEEK,
-                    createdAt = 0L,
-                    resolvedAt = null,
-                )
-            repository.hunches.value = listOf(hunch)
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals("Coffee", state.case?.name)
                 assertEquals(1, state.events.size)
-                assertEquals(hunch, state.activeHunch)
                 assertEquals(ShareCardFormat.STORY, state.selection.format)
                 assertNull(state.selection.displayNameOverride)
                 assertEquals(ShareInsightsSection.entries.toSet(), state.selection.selectedSections)
-                assertTrue(state.selection.showHunchVsReality)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -158,20 +142,6 @@ class ShareViewModelTest {
                 vm.setSectionSelected(ShareInsightsSection.DURATION, selected = true)
                 assertTrue(ShareInsightsSection.DURATION in awaitItem().selection.selectedSections)
 
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `setShowHunchVsReality updates the selection`() =
-        runTest {
-            repository.cases.value = listOf(testCase())
-            val vm = viewModel()
-
-            vm.uiState.test {
-                awaitLoadedItem { it.isLoading }
-                vm.setShowHunchVsReality(false)
-                assertFalse(awaitItem().selection.showHunchVsReality)
                 cancelAndIgnoreRemainingEvents()
             }
         }

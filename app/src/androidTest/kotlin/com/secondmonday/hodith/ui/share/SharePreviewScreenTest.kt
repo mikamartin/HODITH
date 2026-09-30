@@ -8,17 +8,14 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
-import com.secondmonday.hodith.data.testHunch
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareInsightsSection
-import com.secondmonday.hodith.viewmodel.ShareSelection
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -35,8 +32,8 @@ private fun millisAtDay(epochDay: Long): Long =
         .toInstant()
         .toEpochMilli()
 
-/** 12 events, 5 days apart — comfortably past the Preliminary bar so a Hunch resolves to a Verdict. */
-private fun resolvedHunchEvents(): List<EventWithTags> =
+/** 12 events, 5 days apart — enough for the Trends section to have findings. */
+private fun trendsEligibleEvents(): List<EventWithTags> =
     (0..55L step 5).map { day -> EventWithTags(testEvent(caseId = 1L, occurredAt = millisAtDay(day)), emptyList()) }
 
 /**
@@ -55,7 +52,6 @@ class SharePreviewScreenTest {
         now: Long = millisAtDay(60),
         onFormatSelect: (ShareCardFormat) -> Unit = {},
         onSectionToggle: (ShareInsightsSection, Boolean) -> Unit = { _, _ -> },
-        onShowHunchVsRealityToggle: (Boolean) -> Unit = {},
     ) {
         composeTestRule.setHodithContent {
             SharePreviewScreen(
@@ -66,7 +62,6 @@ class SharePreviewScreenTest {
                 onFormatSelect = onFormatSelect,
                 onDisplayNameChange = {},
                 onSectionToggle = onSectionToggle,
-                onShowHunchVsRealityToggle = onShowHunchVsRealityToggle,
                 onShareClick = {},
             )
         }
@@ -131,61 +126,10 @@ class SharePreviewScreenTest {
     @Test
     fun trendsRow_appearsWhenTrendsFindingsExist() {
         setContent(
-            uiState = ShareUiState(case = testCase(id = 1L), events = resolvedHunchEvents(), isLoading = false),
+            uiState = ShareUiState(case = testCase(id = 1L), events = trendsEligibleEvents(), isLoading = false),
         )
 
         composeTestRule.onNodeWithTag(SECTION_TOGGLE_TAG_PREFIX + ShareInsightsSection.TRENDS.name).assertExists()
-    }
-
-    @Test
-    fun hunchVsRealityToggle_onlyAppearsOnStoryWithAResolvedHunch() {
-        val hunch = testHunch(caseId = 1L, expectedCount = 5, resolvedAt = null)
-
-        setContent(
-            uiState =
-                ShareUiState(
-                    case = testCase(id = 1L),
-                    events = resolvedHunchEvents(),
-                    activeHunch = hunch,
-                    selection = ShareSelection(format = ShareCardFormat.STORY),
-                    isLoading = false,
-                ),
-        )
-        composeTestRule.onNodeWithText(PlainVoice.shareHunchVsRealityToggleLabel).assertExists()
-    }
-
-    @Test
-    fun hunchVsRealityToggle_hiddenOnSquareEvenWithAResolvedHunch() {
-        val hunch = testHunch(caseId = 1L, expectedCount = 5, resolvedAt = null)
-
-        setContent(
-            uiState =
-                ShareUiState(
-                    case = testCase(id = 1L),
-                    events = resolvedHunchEvents(),
-                    activeHunch = hunch,
-                    selection = ShareSelection(format = ShareCardFormat.SQUARE),
-                    isLoading = false,
-                ),
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.shareHunchVsRealityToggleLabel).assertDoesNotExist()
-    }
-
-    @Test
-    fun hunchVsRealityToggle_hiddenWithoutAnActiveHunch() {
-        setContent(
-            uiState =
-                ShareUiState(
-                    case = testCase(id = 1L),
-                    events = emptyList(),
-                    activeHunch = null as HunchEntity?,
-                    selection = ShareSelection(format = ShareCardFormat.STORY),
-                    isLoading = false,
-                ),
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.shareHunchVsRealityToggleLabel).assertDoesNotExist()
     }
 
     @Test

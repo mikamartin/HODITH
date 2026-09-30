@@ -231,7 +231,7 @@ private const val SEVEN_DAYS = 7
 private const val THIRTY_DAYS = 30
 private const val CUSTOM_WINDOW_MAX_DIGITS = 3
 
-/** New-Trigger bottom sheet (spec §11/§14): kind, threshold, and — for [TriggerKind.AT_LEAST] — a rolling window. Same shape as [com.secondmonday.hodith.ui.casedetail.HunchCreationSheet]. */
+/** New-Trigger bottom sheet (spec §11/§14): kind, threshold, and — for [TriggerKind.AT_LEAST] — a rolling window. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TriggerCreationSheet(

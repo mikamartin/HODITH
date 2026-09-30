@@ -259,7 +259,7 @@ internal fun toDatePickerUtcMillis(
 /**
  * The local start-of-day millis in [zone] for the date picked in Material3's `DatePicker` (a bare
  * calendar date at UTC-midnight). Unlike [applyPickedDate] this carries no time-of-day — for a
- * value that is a date, not a datetime, like a Hunch's observation-window start.
+ * value that is a date, not a datetime.
  */
 internal fun datePickerDateAtLocalStartOfDay(
     pickedDateUtcMillis: Long,

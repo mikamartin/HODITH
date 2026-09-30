@@ -35,7 +35,7 @@ interface EventDao {
     /**
      * Capped page of a Case's events, newest-started first (spec §6, "Started" order) — at most
      * [limit] rows, `id DESC` breaking ties on an identical `occurredAt`. Log-tab-only: ongoing-event
-     * detection, Insights/Hunch stats, and the Log tab's own summary line all need the full history
+     * detection, Insights stats, and the Log tab's own summary line all need the full history
      * and keep using [observeEventsWithTagsForCase]. Callers fetch `limit + 1` and trim to detect
      * whether more rows remain (see `RoomHodithRepository.observeLogEventsForCase`). [dateFrom]/
      * [dateTo] narrow to `occurredAt` inclusively on either side; either `null` leaves that side

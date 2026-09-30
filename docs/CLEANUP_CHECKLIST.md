@@ -68,7 +68,7 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] New entity or column added? Room migration, `BACKUP_SCHEMA_VERSION` bump, and import validation all updated together (§17's "three changes, not one")?
 - [ ] Schema version bumped without a matching Room `Migration`? (`SchemaMigrationCoverageTest` should fail rather than falling back to a destructive migration.)
 - [ ] Export/import (JSON) shape and referential-integrity validation still mirror the current schema?
-- [ ] FK cascade-delete relationships (Case → Event/Hunch/Trigger) still correct after schema changes?
+- [ ] FK cascade-delete relationships (Case → Event/Trigger) still correct after schema changes?
 - [ ] Share card still excludes notes and tags (§13) — no new field reaches it without deliberately updating that exclusion?
 
 ### Background Work, Widgets & Notifications

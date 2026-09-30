@@ -5,7 +5,6 @@ import androidx.room.Room
 import com.secondmonday.hodith.data.CaseDao
 import com.secondmonday.hodith.data.EventDao
 import com.secondmonday.hodith.data.HodithDatabase
-import com.secondmonday.hodith.data.HunchDao
 import com.secondmonday.hodith.data.TagDao
 import com.secondmonday.hodith.data.TriggerDao
 import dagger.Module
@@ -36,9 +35,6 @@ object DatabaseModule {
 
     @Provides
     fun provideTagDao(database: HodithDatabase): TagDao = database.tagDao()
-
-    @Provides
-    fun provideHunchDao(database: HodithDatabase): HunchDao = database.hunchDao()
 
     @Provides
     fun provideTriggerDao(database: HodithDatabase): TriggerDao = database.triggerDao()

@@ -89,7 +89,7 @@ instrumented tests only assert are set, and the real permission dialog/banner ro
    just the app generically). (The notification's voice-flavoured title/body is covered by
    `NotifierContentTest.notifyTriggerFired_postsANotificationWithTheVoiceTitleAndBody`.)
 2. **Check-in fires a notification: tap target.** Enable check-ins on a Case with no recent events
-   past its effective interval (Hunch-derived, or the Settings default). Tapping the notification
+   past the Settings-default interval. Tapping the notification
    body (not an action) opens directly on that Case. (Title/body/Log/All quiet actions are covered
    by `NotifierContentTest.notifyCheckInDue_postsANotificationWithLogAndAllQuietActions`.)
 3. **Check-in grouping: summary tap target and OS-flag sanity.** Get 2+ Cases due for a check-in in
@@ -191,7 +191,7 @@ to"/"open" picker UI itself.
 4. **Import a non-HODITH file.** Pick an arbitrary file (a photo, a text file) via the import picker
    — a "not a valid backup" snackbar appears and existing data is untouched.
 5. **Import across app installs.** Export from one install (or before a fresh reinstall/data wipe),
-   then import that file on the clean install — full restore, including tags and Hunch history.
+   then import that file on the clean install — full restore, including tags and triggers.
 
 Android's own OS-level device backup (separate from the export/import above) can't be exercised by
 an instrumented test — Android's real backup transport isn't available in a test harness. See

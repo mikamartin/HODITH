@@ -1,7 +1,6 @@
 package com.secondmonday.hodith
 
 import android.app.Application
-import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.notification.NotificationEvalWorker
 import com.secondmonday.hodith.notification.ensureNotificationChannel
@@ -19,9 +18,6 @@ class HodithApplication : Application() {
     lateinit var settingsRepository: SettingsRepository
 
     @Inject
-    lateinit var repository: HodithRepository
-
-    @Inject
     lateinit var applicationScope: CoroutineScope
 
     override fun onCreate() {
@@ -31,8 +27,5 @@ class HodithApplication : Application() {
         applicationScope.launch {
             ensureNotificationChannel(this@HodithApplication, voiceFor(settingsRepository.observeTheme().first()))
         }
-        // One-time-per-row backfill for Hunches resolved before the verdict-snapshot columns
-        // existed (HunchEntity.resolvedVerdictSnapshotTaken) — see HodithRepository docs.
-        applicationScope.launch { repository.backfillResolvedHunchVerdicts() }
     }
 }

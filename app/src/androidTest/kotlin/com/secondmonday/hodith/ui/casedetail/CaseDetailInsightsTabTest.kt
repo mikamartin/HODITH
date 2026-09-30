@@ -50,7 +50,7 @@ private const val LARGE_FONT_SCALE = 2f
 
 /**
  * Drives [CaseDetailScreen]'s Insights tab (seven stat cards, then the calendar heatmap),
- * same stateless pattern as `CaseDetailScreenTest`'s Log/Hunch coverage but split into its own
+ * same stateless pattern as `CaseDetailScreenTest`'s Log tab coverage but split into its own
  * class given the number of gating scenarios. From the first event the heatmap, a one-line count
  * note, and the Rhythm and Gaps cards render; Frequency and Trend wait for `INSIGHTS_MIN_EVENTS`
  * (2). Boundary values below (that 2-event threshold, the 56-day trend span, the 3-month heatmap
@@ -114,8 +114,6 @@ class CaseDetailInsightsTabTest {
                     onSaveEvent = {},
                     onStopEvent = {},
                     nowMillis = { now },
-                    onAddHunch = { _, _, _, _, _, _ -> },
-                    onResolveHunch = {},
                     onLogSortOrderChange = {},
                     onLogDateFromChange = {},
                     onLogDateToChange = {},
