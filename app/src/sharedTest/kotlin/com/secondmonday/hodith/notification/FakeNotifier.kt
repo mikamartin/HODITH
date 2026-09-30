@@ -1,22 +1,22 @@
 package com.secondmonday.hodith.notification
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.TriggerEntity
+import com.secondmonday.hodith.data.NotificationEntity
 import com.secondmonday.hodith.ui.voice.Voice
 
 /** Records calls instead of posting real notifications — same style as [com.secondmonday.hodith.widget.FakeWidgetRefresher]. */
 class FakeNotifier : Notifier {
-    val firedTriggers = mutableListOf<TriggerEntity>()
+    val firedNotifications = mutableListOf<NotificationEntity>()
     val dueCheckIns = mutableListOf<Pair<CaseEntity, Long>>()
     val cancelledCheckIns = mutableListOf<Long>()
     var groupSummaryRefreshes = 0
 
-    override fun notifyTriggerFired(
+    override fun notifyNotificationFired(
         case: CaseEntity,
-        trigger: TriggerEntity,
+        notification: NotificationEntity,
         voice: Voice,
     ) {
-        firedTriggers += trigger
+        firedNotifications += notification
     }
 
     override fun notifyCheckInDue(

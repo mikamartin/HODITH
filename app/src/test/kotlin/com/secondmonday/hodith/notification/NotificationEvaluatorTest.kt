@@ -3,11 +3,13 @@ package com.secondmonday.hodith.notification
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.TriggerEntity
-import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.NotificationEntity
+import com.secondmonday.hodith.data.NotificationKind
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
@@ -53,21 +55,24 @@ class NotificationEvaluatorTest {
         archived = archived,
     )
 
-    private fun trigger(
+    private fun notification(
         id: Long = 1L,
         caseId: Long = 1L,
-        kind: TriggerKind = TriggerKind.AT_LEAST,
+        kind: NotificationKind = NotificationKind.OFTEN,
         threshold: Int = 3,
         windowDays: Int? = 7,
         enabled: Boolean = true,
         armed: Boolean = true,
         lastFiredAt: Long? = null,
-    ) = TriggerEntity(
+    ) = NotificationEntity(
         id = id,
         caseId = caseId,
         kind = kind,
         threshold = threshold,
         windowDays = windowDays,
+        expectedPer = ExpectedPer.WEEK,
+        metric = VerdictMetric.OCCURRENCE_COUNT,
+        minIntensity = null,
         enabled = enabled,
         armed = armed,
         lastFiredAt = lastFiredAt,
@@ -81,90 +86,90 @@ class NotificationEvaluatorTest {
     ) = testEvent(id = id, caseId = caseId, occurredAt = occurredAt, endedAt = endedAt)
 
     @Test
-    fun `evaluateCase fires an AT_LEAST trigger once its window count reaches threshold`() =
+    fun `evaluateCase fires an OFTEN notification once its window count reaches threshold`() =
         runTest {
             repository.cases.value = listOf(case())
-            repository.triggers.value = listOf(trigger(threshold = 3, windowDays = 7))
+            repository.notifications.value = listOf(notification(threshold = 3, windowDays = 7))
             repository.events.value = (1..3).map { event(id = it.toLong(), occurredAt = clock.nowMillis()) }
 
             evaluator.evaluateCase(1L)
 
-            assertEquals(1, notifier.firedTriggers.size)
-            val updated = repository.triggers.value.single()
+            assertEquals(1, notifier.firedNotifications.size)
+            val updated = repository.notifications.value.single()
             assertTrue(!updated.armed)
             assertEquals(clock.nowMillis(), updated.lastFiredAt)
         }
 
     @Test
-    fun `evaluateCase does not fire an AT_LEAST trigger below threshold`() =
+    fun `evaluateCase does not fire an OFTEN notification below threshold`() =
         runTest {
             repository.cases.value = listOf(case())
-            repository.triggers.value = listOf(trigger(threshold = 3, windowDays = 7))
+            repository.notifications.value = listOf(notification(threshold = 3, windowDays = 7))
             repository.events.value = listOf(event(occurredAt = clock.nowMillis()))
 
             evaluator.evaluateCase(1L)
 
-            assertTrue(notifier.firedTriggers.isEmpty())
+            assertTrue(notifier.firedNotifications.isEmpty())
         }
 
     @Test
-    fun `evaluateCase ignores a disabled trigger`() =
+    fun `evaluateCase ignores a disabled notification`() =
         runTest {
             repository.cases.value = listOf(case())
-            repository.triggers.value = listOf(trigger(threshold = 1, windowDays = 7, enabled = false))
+            repository.notifications.value = listOf(notification(threshold = 1, windowDays = 7, enabled = false))
             repository.events.value = listOf(event(occurredAt = clock.nowMillis()))
 
             evaluator.evaluateCase(1L)
 
-            assertTrue(notifier.firedTriggers.isEmpty())
+            assertTrue(notifier.firedNotifications.isEmpty())
         }
 
     @Test
-    fun `evaluateCase fires a SILENT_FOR trigger based on the most recent event`() =
+    fun `evaluateCase fires a QUIET notification based on the most recent event`() =
         runTest {
             repository.cases.value = listOf(case(createdAt = 0L))
-            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(16)))
 
             evaluator.evaluateCase(1L)
 
-            assertEquals(1, notifier.firedTriggers.size)
+            assertEquals(1, notifier.firedNotifications.size)
         }
 
     @Test
-    fun `evaluateCase counts SILENT_FOR silence from when a duration event ended, not when it started`() =
+    fun `evaluateCase counts QUIET silence from when a duration event ended, not when it started`() =
         runTest {
             // Event ran days 2..20 and stopped; now is day 30, so 10 quiet days — under the 14-day threshold.
             // Measured from the day-2 start it would be 28 days and would fire.
             repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.MANUAL))
-            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
 
             evaluator.evaluateCase(1L)
 
-            assertTrue(notifier.firedTriggers.isEmpty())
+            assertTrue(notifier.firedNotifications.isEmpty())
         }
 
     @Test
-    fun `evaluateCase does not fire SILENT_FOR while an event is still running on the Case`() =
+    fun `evaluateCase does not fire QUIET while an event is still running on the Case`() =
         runTest {
             // Started day 2, never stopped; now is day 30. A running event is not silence.
             repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
-            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = null))
 
             evaluator.evaluateCase(1L)
 
-            assertTrue(notifier.firedTriggers.isEmpty())
+            assertTrue(notifier.firedNotifications.isEmpty())
         }
 
     @Test
-    fun `evaluateCase does not fire SILENT_FOR with several events running on the Case at once`() =
+    fun `evaluateCase does not fire QUIET with several events running on the Case at once`() =
         runTest {
             // Two concurrent open events (retro-log / fast restart, spec §6). The Case is running,
             // so the silence anchor pins to now regardless of how many events are open.
             repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
-            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value =
                 listOf(
                     event(id = 1L, occurredAt = millisAtDay(2), endedAt = null),
@@ -173,13 +178,13 @@ class NotificationEvaluatorTest {
 
             evaluator.evaluateCase(1L)
 
-            assertTrue(notifier.firedTriggers.isEmpty())
+            assertTrue(notifier.firedNotifications.isEmpty())
         }
 
     @Test
     fun `evaluateCase does not fire a check-in while an event is still running on the Case`() =
         runTest {
-            // Spec §11: a still-running event counts as no silence for check-ins too, not just SILENT_FOR.
+            // Spec §11: a still-running event counts as no silence for check-ins too, not just QUIET.
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
             repository.cases.value =
                 listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.START_STOP))
@@ -191,18 +196,18 @@ class NotificationEvaluatorTest {
         }
 
     @Test
-    fun `evaluateCase counts SILENT_FOR silence from occurredAt for a Case that no longer tracks duration`() =
+    fun `evaluateCase counts QUIET silence from occurredAt for a Case that no longer tracks duration`() =
         runTest {
             // Same event as the MANUAL test above (ran days 2..20) but the Case is now NONE, so spec
             // §9/§10 read it as a point: silence counts from the day-2 start = 28 quiet days, which
             // clears the 14-day threshold and fires. Reading the stored day-20 endedAt would give 10.
             repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.NONE))
-            repository.triggers.value = listOf(trigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = null))
+            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
 
             evaluator.evaluateCase(1L)
 
-            assertEquals(1, notifier.firedTriggers.size)
+            assertEquals(1, notifier.firedNotifications.size)
         }
 
     @Test
@@ -210,7 +215,7 @@ class NotificationEvaluatorTest {
         runTest {
             evaluator.evaluateCase(404L)
 
-            assertTrue(notifier.firedTriggers.isEmpty())
+            assertTrue(notifier.firedNotifications.isEmpty())
             assertTrue(notifier.dueCheckIns.isEmpty())
         }
 
@@ -218,12 +223,12 @@ class NotificationEvaluatorTest {
     fun `evaluateCase skips an archived case entirely`() =
         runTest {
             repository.cases.value = listOf(case(archived = true, checkInsEnabled = true))
-            repository.triggers.value = listOf(trigger(threshold = 1, windowDays = 7))
+            repository.notifications.value = listOf(notification(threshold = 1, windowDays = 7))
             repository.events.value = listOf(event(occurredAt = clock.nowMillis()))
 
             evaluator.evaluateCase(1L)
 
-            assertTrue(notifier.firedTriggers.isEmpty())
+            assertTrue(notifier.firedNotifications.isEmpty())
             assertTrue(notifier.dueCheckIns.isEmpty())
         }
 
@@ -317,7 +322,7 @@ class NotificationEvaluatorTest {
         }
 
     @Test
-    fun `evaluateAll evaluates every enabled trigger and every active case's check-in`() =
+    fun `evaluateAll evaluates every enabled notification and every active case's check-in`() =
         runTest {
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
             repository.cases.value =
@@ -325,12 +330,12 @@ class NotificationEvaluatorTest {
                     case(id = 1L, createdAt = 0L, checkInsEnabled = true),
                     case(id = 2L, createdAt = 0L, checkInsEnabled = false),
                 )
-            repository.triggers.value = listOf(trigger(id = 1L, caseId = 2L, threshold = 1, windowDays = 7))
+            repository.notifications.value = listOf(notification(id = 1L, caseId = 2L, threshold = 1, windowDays = 7))
             repository.events.value = listOf(event(id = 1L, caseId = 2L, occurredAt = clock.nowMillis()))
 
             evaluator.evaluateAll()
 
-            assertEquals(1, notifier.firedTriggers.size)
+            assertEquals(1, notifier.firedNotifications.size)
             assertEquals(1, notifier.dueCheckIns.size)
             assertEquals(
                 1L,

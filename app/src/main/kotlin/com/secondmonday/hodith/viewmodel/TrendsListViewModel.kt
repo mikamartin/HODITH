@@ -22,7 +22,7 @@ data class TrendsListUiState(
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
 
-/** Spec §10 Trends section's full-list screen — re-derives [TrendsListUiState.findings] from [insightsTabState] the same way [CaseDetailScreen][com.secondmonday.hodith.ui.casedetail.CaseDetailScreen] does for the compact card, rather than sharing that screen's own ViewModel instance (no destination in this app does; each full-screen route re-queries the repository on its own, see [TriggersViewModel]). */
+/** Spec §10 Trends section's full-list screen — re-derives [TrendsListUiState.findings] from [insightsTabState] the same way [CaseDetailScreen][com.secondmonday.hodith.ui.casedetail.CaseDetailScreen] does for the compact card, rather than sharing that screen's own ViewModel instance (no destination in this app does; each full-screen route re-queries the repository on its own, see [NotificationsViewModel]). */
 @HiltViewModel
 class TrendsListViewModel
     @Inject

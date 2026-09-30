@@ -82,7 +82,7 @@ class CaseDetailScreenTest {
         logDateTo: Long? = null,
         logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
         onEditCase: (Long) -> Unit = {},
-        onOpenTriggers: (Long) -> Unit = {},
+        onOpenNotifications: (Long) -> Unit = {},
         onOpenShare: (Long) -> Unit = {},
         onOpenLogShare: (Long) -> Unit = {},
         onOpenTrends: (Long) -> Unit = {},
@@ -116,7 +116,7 @@ class CaseDetailScreenTest {
                     onBack = {},
                     onEditCase = onEditCase,
                     onEditEvent = onEditEvent,
-                    onOpenTriggers = onOpenTriggers,
+                    onOpenNotifications = onOpenNotifications,
                     onOpenShare = onOpenShare,
                     onOpenLogShare = onOpenLogShare,
                     onOpenTrends = onOpenTrends,
@@ -161,18 +161,18 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun headerActions_editAndTriggersIcons_invokeCallbacksWithCaseId() {
+    fun headerActions_editAndNotificationsIcons_invokeCallbacksWithCaseId() {
         var editedCaseId: Long? = null
-        var triggersCaseId: Long? = null
+        var notificationsCaseId: Long? = null
         setCaseDetailScreenContent(
             onEditCase = { editedCaseId = it },
-            onOpenTriggers = { triggersCaseId = it },
+            onOpenNotifications = { notificationsCaseId = it },
         )
 
-        composeTestRule.onNodeWithContentDescription(PlainVoice.triggersOpenDescription).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.notificationsOpenDescription).performClick()
         composeTestRule.onNodeWithContentDescription(PlainVoice.caseDetailEditDescription).performClick()
 
-        assertEquals(startStopCase.id, triggersCaseId)
+        assertEquals(startStopCase.id, notificationsCaseId)
         assertEquals(startStopCase.id, editedCaseId)
     }
 

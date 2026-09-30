@@ -46,12 +46,15 @@ class FakeHodithRepositoryTest {
         loggedAt = occurredAt,
     )
 
-    private fun testTrigger(caseId: Long) =
-        TriggerEntity(
+    private fun testNotification(caseId: Long) =
+        NotificationEntity(
             caseId = caseId,
-            kind = TriggerKind.AT_LEAST,
+            kind = NotificationKind.OFTEN,
             threshold = 3,
             windowDays = 7,
+            expectedPer = ExpectedPer.WEEK,
+            metric = VerdictMetric.OCCURRENCE_COUNT,
+            minIntensity = null,
             enabled = true,
             armed = true,
             lastFiredAt = null,
@@ -126,22 +129,22 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `deleteCase cascades to its events and triggers but leaves other cases' alone`() =
+    fun `deleteCase cascades to its events and notifications but leaves other cases' alone`() =
         runTest {
             val deletedId = repository.insertCase(testCase())
             val keptId = repository.insertCase(testCase(name = "Other"))
             repository.insertEvent(testEvent(caseId = deletedId))
             repository.insertEvent(testEvent(caseId = keptId))
-            repository.insertTrigger(testTrigger(caseId = deletedId))
-            repository.insertTrigger(testTrigger(caseId = keptId))
+            repository.insertNotification(testNotification(caseId = deletedId))
+            repository.insertNotification(testNotification(caseId = keptId))
 
             repository.deleteCase(repository.getCase(deletedId)!!)
 
             assertNull(repository.getCase(deletedId))
             assertTrue(repository.events.value.none { it.caseId == deletedId })
             assertEquals(1, repository.events.value.count { it.caseId == keptId })
-            assertTrue(repository.triggers.value.none { it.caseId == deletedId })
-            assertEquals(1, repository.triggers.value.count { it.caseId == keptId })
+            assertTrue(repository.notifications.value.none { it.caseId == deletedId })
+            assertEquals(1, repository.notifications.value.count { it.caseId == keptId })
         }
 
     @Test
@@ -427,23 +430,36 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `getEnabledTriggers filters out disabled triggers across all cases`() =
+    fun `getEnabledNotifications filters out disabled notifications across all cases`() =
         runTest {
-            repository.insertTrigger(
-                TriggerEntity(caseId = 1L, kind = TriggerKind.AT_LEAST, threshold = 3, windowDays = 7, enabled = true, lastFiredAt = null),
+            repository.insertNotification(
+                NotificationEntity(
+                    caseId = 1L,
+                    kind = NotificationKind.OFTEN,
+                    threshold = 3,
+                    windowDays = 7,
+                    expectedPer = ExpectedPer.WEEK,
+                    metric = VerdictMetric.OCCURRENCE_COUNT,
+                    minIntensity = null,
+                    enabled = true,
+                    lastFiredAt = null,
+                ),
             )
-            repository.insertTrigger(
-                TriggerEntity(
+            repository.insertNotification(
+                NotificationEntity(
                     caseId = 2L,
-                    kind = TriggerKind.SILENT_FOR,
+                    kind = NotificationKind.QUIET,
                     threshold = 1,
                     windowDays = null,
+                    expectedPer = ExpectedPer.WEEK,
+                    metric = VerdictMetric.OCCURRENCE_COUNT,
+                    minIntensity = null,
                     enabled = false,
                     lastFiredAt = null,
                 ),
             )
 
-            val enabled = repository.getEnabledTriggers()
+            val enabled = repository.getEnabledNotifications()
 
             assertEquals(1, enabled.size)
             assertTrue(enabled.single().enabled)

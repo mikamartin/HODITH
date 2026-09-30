@@ -101,7 +101,7 @@ fun CaseDetailRoute(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
-    onOpenTriggers: (Long) -> Unit,
+    onOpenNotifications: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
@@ -114,7 +114,7 @@ fun CaseDetailRoute(
         onBack = onBack,
         onEditCase = onEditCase,
         onEditEvent = onEditEvent,
-        onOpenTriggers = onOpenTriggers,
+        onOpenNotifications = onOpenNotifications,
         onOpenShare = onOpenShare,
         onOpenLogShare = onOpenLogShare,
         onOpenTrends = onOpenTrends,
@@ -138,7 +138,7 @@ fun CaseDetailScreen(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
-    onOpenTriggers: (Long) -> Unit,
+    onOpenNotifications: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
@@ -180,8 +180,8 @@ fun CaseDetailScreen(
                         IconButton(onClick = { showShareChooser = true }) {
                             Icon(Icons.Filled.Share, contentDescription = voice.shareOpenDescription)
                         }
-                        IconButton(onClick = { onOpenTriggers(case.id) }) {
-                            Icon(Icons.Filled.Notifications, contentDescription = voice.triggersOpenDescription)
+                        IconButton(onClick = { onOpenNotifications(case.id) }) {
+                            Icon(Icons.Filled.Notifications, contentDescription = voice.notificationsOpenDescription)
                         }
                         IconButton(onClick = { onEditCase(case.id) }) {
                             Icon(Icons.Filled.Edit, contentDescription = voice.caseDetailEditDescription)

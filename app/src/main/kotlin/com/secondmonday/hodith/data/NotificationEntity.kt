@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 import com.squareup.moshi.JsonClass
 
 @Entity(
-    tableName = "triggers",
+    tableName = "notifications",
     foreignKeys = [
         ForeignKey(
             entity = CaseEntity::class,
@@ -19,12 +19,15 @@ import com.squareup.moshi.JsonClass
     indices = [Index("caseId")],
 )
 @JsonClass(generateAdapter = true)
-data class TriggerEntity(
+data class NotificationEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val caseId: Long,
-    val kind: TriggerKind,
+    val kind: NotificationKind,
     val threshold: Int,
     val windowDays: Int?,
+    val expectedPer: ExpectedPer,
+    val metric: VerdictMetric = VerdictMetric.OCCURRENCE_COUNT,
+    val minIntensity: Int?,
     val enabled: Boolean,
     val armed: Boolean = true,
     val lastFiredAt: Long?,

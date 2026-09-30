@@ -3,12 +3,12 @@ package com.secondmonday.hodith.data.backup
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
+import com.secondmonday.hodith.data.NotificationEntity
 import com.secondmonday.hodith.data.TagEntity
-import com.secondmonday.hodith.data.TriggerEntity
 import com.squareup.moshi.JsonClass
 
 /** Bumped only if a future change makes an older export unreadable by [BackupSerializer]. */
-const val BACKUP_SCHEMA_VERSION = 2
+const val BACKUP_SCHEMA_VERSION = 3
 
 /**
  * Full-database export/import shape (spec §16): every entity table, as-is, with original
@@ -22,5 +22,5 @@ data class BackupData(
     val tags: List<TagEntity>,
     val events: List<EventEntity>,
     val eventTags: List<EventTagCrossRef>,
-    val triggers: List<TriggerEntity>,
+    val notifications: List<NotificationEntity>,
 )

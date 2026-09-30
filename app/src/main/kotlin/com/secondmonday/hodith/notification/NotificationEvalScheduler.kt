@@ -9,12 +9,12 @@ import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
- * Debounces the immediate Trigger/check-in evaluation that
+ * Debounces the immediate Notification/check-in evaluation that
  * [com.secondmonday.hodith.data.RoomHodithRepository] fires after every event mutation (spec §11).
  *
  * A rapid quick-log burst on one Case would otherwise launch one overlapping
- * [NotificationEvaluator.evaluateCase] per tap — several DAO reads plus a possible `triggers` write
- * each — all contending on the single SQLite connection. Here each Case keeps at most one pending
+ * [NotificationEvaluator.evaluateCase] per tap — several DAO reads plus a possible `notifications`
+ * write each — all contending on the single SQLite connection. Here each Case keeps at most one pending
  * evaluation, replaced on every new request, so a burst collapses to one evaluation
  * [EVAL_DEBOUNCE_MILLIS] after the last tap. The window is well under a second, so a genuine single
  * edit still evaluates effectively immediately. The ~6h [NotificationEvalWorker] runs

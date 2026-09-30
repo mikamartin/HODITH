@@ -1,4 +1,4 @@
-package com.secondmonday.hodith.ui.triggers
+package com.secondmonday.hodith.ui.notifications
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,7 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.FabListBottomClearance
 import com.secondmonday.hodith.ui.common.NumberStepper
@@ -53,62 +53,62 @@ import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.filterDigitInput
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
-import com.secondmonday.hodith.viewmodel.TriggerRow
-import com.secondmonday.hodith.viewmodel.TriggersUiState
-import com.secondmonday.hodith.viewmodel.TriggersViewModel
+import com.secondmonday.hodith.viewmodel.NotificationRow
+import com.secondmonday.hodith.viewmodel.NotificationsUiState
+import com.secondmonday.hodith.viewmodel.NotificationsViewModel
 
 @Composable
-fun TriggersRoute(
+fun NotificationsRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: TriggersViewModel = hiltViewModel(),
+    viewModel: NotificationsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    TriggersScreen(
+    NotificationsScreen(
         uiState = uiState,
         onBack = onBack,
-        onCreateTrigger = viewModel::createTrigger,
+        onCreateNotification = viewModel::createNotification,
         onSetEnabled = viewModel::setEnabled,
-        onDeleteTrigger = viewModel::deleteTrigger,
+        onDeleteNotification = viewModel::deleteNotification,
         modifier = modifier,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TriggersScreen(
-    uiState: TriggersUiState,
+fun NotificationsScreen(
+    uiState: NotificationsUiState,
     onBack: () -> Unit,
-    onCreateTrigger: (kind: TriggerKind, threshold: Int, windowDays: Int?) -> Unit,
-    onSetEnabled: (triggerId: Long, enabled: Boolean) -> Unit,
-    onDeleteTrigger: (triggerId: Long) -> Unit,
+    onCreateNotification: (kind: NotificationKind, threshold: Int, windowDays: Int?) -> Unit,
+    onSetEnabled: (notificationId: Long, enabled: Boolean) -> Unit,
+    onDeleteNotification: (notificationId: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
     var showCreateSheet by remember { mutableStateOf(false) }
-    var deleteTarget by remember { mutableStateOf<TriggerRow?>(null) }
+    var deleteTarget by remember { mutableStateOf<NotificationRow?>(null) }
 
     val target = deleteTarget
     if (target != null) {
         ConfirmDialog(
-            title = voice.triggersDeleteConfirmTitle,
-            body = voice.triggersDeleteConfirmBody,
-            confirmLabel = voice.triggersDeleteConfirmAction,
-            cancelLabel = voice.triggersDeleteCancelAction,
+            title = voice.notificationsDeleteConfirmTitle,
+            body = voice.notificationsDeleteConfirmBody,
+            confirmLabel = voice.notificationsDeleteConfirmAction,
+            cancelLabel = voice.notificationsDeleteCancelAction,
             onDismiss = { deleteTarget = null },
             onConfirm = {
-                onDeleteTrigger(target.id)
+                onDeleteNotification(target.id)
                 deleteTarget = null
             },
         )
     }
 
     if (showCreateSheet) {
-        TriggerCreationSheet(
+        NotificationCreationSheet(
             voice = voice,
             onDismiss = { showCreateSheet = false },
             onSave = { kind, threshold, windowDays ->
-                onCreateTrigger(kind, threshold, windowDays)
+                onCreateNotification(kind, threshold, windowDays)
                 showCreateSheet = false
             },
         )
@@ -118,7 +118,7 @@ fun TriggersScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(voice.triggersScreenTitle) },
+                title = { Text(voice.notificationsScreenTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)
@@ -127,9 +127,9 @@ fun TriggersScreen(
             )
         },
         floatingActionButton = {
-            if (uiState.triggers.isNotEmpty()) {
+            if (uiState.notifications.isNotEmpty()) {
                 FloatingActionButton(onClick = { showCreateSheet = true }) {
-                    Icon(Icons.Filled.Add, contentDescription = voice.triggersFabDescription)
+                    Icon(Icons.Filled.Add, contentDescription = voice.notificationsFabDescription)
                 }
             }
         },
@@ -137,8 +137,8 @@ fun TriggersScreen(
         Box(modifier = Modifier.padding(contentPadding).fillMaxSize()) {
             when {
                 uiState.isLoading -> Unit
-                uiState.triggers.isEmpty() -> {
-                    TriggersEmptyState(
+                uiState.notifications.isEmpty() -> {
+                    NotificationsEmptyState(
                         voice = voice,
                         onCreate = { showCreateSheet = true },
                         modifier = Modifier.align(Alignment.Center),
@@ -149,8 +149,8 @@ fun TriggersScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = FabListBottomClearance),
                     ) {
-                        items(uiState.triggers, key = { it.id }) { row ->
-                            TriggerListItem(
+                        items(uiState.notifications, key = { it.id }) { row ->
+                            NotificationListItem(
                                 row = row,
                                 voice = voice,
                                 onSetEnabled = { enabled -> onSetEnabled(row.id, enabled) },
@@ -165,7 +165,7 @@ fun TriggersScreen(
 }
 
 @Composable
-private fun TriggersEmptyState(
+private fun NotificationsEmptyState(
     voice: Voice,
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
@@ -175,20 +175,20 @@ private fun TriggersEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(voice.triggersEmptyTitle, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-        Text(voice.triggersEmptyBody, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-        Button(onClick = onCreate) { Text(voice.triggersEmptyCta) }
+        Text(voice.notificationsEmptyTitle, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(voice.notificationsEmptyBody, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+        Button(onClick = onCreate) { Text(voice.notificationsEmptyCta) }
     }
 }
 
 @Composable
-private fun TriggerListItem(
-    row: TriggerRow,
+private fun NotificationListItem(
+    row: NotificationRow,
     voice: Voice,
     onSetEnabled: (Boolean) -> Unit,
     onRequestDelete: () -> Unit,
 ) {
-    val summary = voice.triggerSummary(row.kind, row.threshold, row.windowDays)
+    val summary = voice.notificationSummary(row.kind, row.threshold, row.windowDays)
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(
             modifier =
@@ -200,10 +200,10 @@ private fun TriggerListItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(summary, style = MaterialTheme.typography.titleSmall)
-                Text(voice.triggerKindLabel(row.kind), style = MaterialTheme.typography.bodySmall)
+                Text(voice.notificationKindLabel(row.kind), style = MaterialTheme.typography.bodySmall)
                 row.firedDaysAgo?.let { daysAgo ->
                     Text(
-                        voice.triggerFiredAgo(daysAgo),
+                        voice.notificationFiredAgo(daysAgo),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -212,10 +212,10 @@ private fun TriggerListItem(
             Switch(
                 checked = row.enabled,
                 onCheckedChange = onSetEnabled,
-                modifier = Modifier.semantics { contentDescription = voice.triggerToggleDescription(summary) },
+                modifier = Modifier.semantics { contentDescription = voice.notificationToggleDescription(summary) },
             )
             IconButton(onClick = onRequestDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = voice.triggerDeleteDescription(summary))
+                Icon(Icons.Filled.Delete, contentDescription = voice.notificationDeleteDescription(summary))
             }
         }
     }
@@ -224,25 +224,25 @@ private fun TriggerListItem(
 private enum class WindowPreset { SEVEN, THIRTY, CUSTOM }
 
 internal val THRESHOLD_RANGE = 1..999
-private const val DEFAULT_AT_LEAST_THRESHOLD = 5
-private const val DEFAULT_SILENT_THRESHOLD = 14
+private const val DEFAULT_OFTEN_THRESHOLD = 5
+private const val DEFAULT_QUIET_THRESHOLD = 14
 private const val DEFAULT_CUSTOM_WINDOW_DAYS = 14
 private const val SEVEN_DAYS = 7
 private const val THIRTY_DAYS = 30
 private const val CUSTOM_WINDOW_MAX_DIGITS = 3
 
-/** New-Trigger bottom sheet (spec §11/§14): kind, threshold, and — for [TriggerKind.AT_LEAST] — a rolling window. */
+/** New-Notification bottom sheet (spec §11/§14): kind, threshold, and — for [NotificationKind.OFTEN] — a rolling window. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TriggerCreationSheet(
+private fun NotificationCreationSheet(
     voice: Voice,
     onDismiss: () -> Unit,
-    onSave: (kind: TriggerKind, threshold: Int, windowDays: Int?) -> Unit,
+    onSave: (kind: NotificationKind, threshold: Int, windowDays: Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var kind by remember { mutableStateOf(TriggerKind.AT_LEAST) }
-    var atLeastThreshold by remember { mutableIntStateOf(DEFAULT_AT_LEAST_THRESHOLD) }
-    var silentThreshold by remember { mutableIntStateOf(DEFAULT_SILENT_THRESHOLD) }
+    var kind by remember { mutableStateOf(NotificationKind.OFTEN) }
+    var oftenThreshold by remember { mutableIntStateOf(DEFAULT_OFTEN_THRESHOLD) }
+    var quietThreshold by remember { mutableIntStateOf(DEFAULT_QUIET_THRESHOLD) }
     var windowPreset by remember { mutableStateOf(WindowPreset.SEVEN) }
     var customWindowText by remember { mutableStateOf(DEFAULT_CUSTOM_WINDOW_DAYS.toString()) }
 
@@ -252,7 +252,7 @@ private fun TriggerCreationSheet(
             WindowPreset.THIRTY -> THIRTY_DAYS
             WindowPreset.CUSTOM -> customWindowText.toIntOrNull()
         }
-    val canSave = kind == TriggerKind.SILENT_FOR || (windowDays != null && windowDays > 0)
+    val canSave = kind == NotificationKind.QUIET || (windowDays != null && windowDays > 0)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -263,41 +263,41 @@ private fun TriggerCreationSheet(
             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text(voice.triggersCreateTitle, style = MaterialTheme.typography.titleLarge)
+            Text(voice.notificationsCreateTitle, style = MaterialTheme.typography.titleLarge)
 
             Column {
-                Text(voice.triggersKindPickerLabel, style = MaterialTheme.typography.labelLarge)
+                Text(voice.notificationsKindPickerLabel, style = MaterialTheme.typography.labelLarge)
                 SegmentedChoiceRow(
                     options =
                         listOf(
-                            TriggerKind.AT_LEAST to voice.triggerKindLabel(TriggerKind.AT_LEAST),
-                            TriggerKind.SILENT_FOR to voice.triggerKindLabel(TriggerKind.SILENT_FOR),
+                            NotificationKind.OFTEN to voice.notificationKindLabel(NotificationKind.OFTEN),
+                            NotificationKind.QUIET to voice.notificationKindLabel(NotificationKind.QUIET),
                         ),
                     selected = kind,
                     onSelect = { kind = it },
                 )
             }
 
-            if (kind == TriggerKind.AT_LEAST) {
+            if (kind == NotificationKind.OFTEN) {
                 Column {
-                    Text(voice.triggersAtLeastLabel, style = MaterialTheme.typography.labelLarge)
+                    Text(voice.notificationsOftenLabel, style = MaterialTheme.typography.labelLarge)
                     NumberStepper(
-                        value = atLeastThreshold,
+                        value = oftenThreshold,
                         range = THRESHOLD_RANGE,
-                        suffix = voice.triggersAtLeastSuffix,
-                        decreaseDescription = voice.triggersDecreaseCountDescription,
-                        increaseDescription = voice.triggersIncreaseCountDescription,
-                        onChange = { atLeastThreshold = it },
+                        suffix = voice.notificationsOftenSuffix,
+                        decreaseDescription = voice.notificationsDecreaseCountDescription,
+                        increaseDescription = voice.notificationsIncreaseCountDescription,
+                        onChange = { oftenThreshold = it },
                     )
                 }
                 Column {
-                    Text(voice.triggersWindowLabel, style = MaterialTheme.typography.labelLarge)
+                    Text(voice.notificationsWindowLabel, style = MaterialTheme.typography.labelLarge)
                     SegmentedChoiceRow(
                         options =
                             listOf(
-                                WindowPreset.SEVEN to voice.triggersWindowSeven,
-                                WindowPreset.THIRTY to voice.triggersWindowThirty,
-                                WindowPreset.CUSTOM to voice.triggersWindowCustom,
+                                WindowPreset.SEVEN to voice.notificationsWindowSeven,
+                                WindowPreset.THIRTY to voice.notificationsWindowThirty,
+                                WindowPreset.CUSTOM to voice.notificationsWindowCustom,
                             ),
                         selected = windowPreset,
                         onSelect = { windowPreset = it },
@@ -306,7 +306,7 @@ private fun TriggerCreationSheet(
                         OutlinedTextField(
                             value = customWindowText,
                             onValueChange = { customWindowText = filterDigitInput(it, maxDigits = CUSTOM_WINDOW_MAX_DIGITS) },
-                            label = { Text(voice.triggersWindowCustomHint) },
+                            label = { Text(voice.notificationsWindowCustomHint) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         )
@@ -314,27 +314,27 @@ private fun TriggerCreationSheet(
                 }
             } else {
                 Column {
-                    Text(voice.triggersSilentLabel, style = MaterialTheme.typography.labelLarge)
+                    Text(voice.notificationsQuietLabel, style = MaterialTheme.typography.labelLarge)
                     NumberStepper(
-                        value = silentThreshold,
+                        value = quietThreshold,
                         range = THRESHOLD_RANGE,
-                        suffix = voice.triggersSilentSuffix,
-                        decreaseDescription = voice.triggersDecreaseCountDescription,
-                        increaseDescription = voice.triggersIncreaseCountDescription,
-                        onChange = { silentThreshold = it },
+                        suffix = voice.notificationsQuietSuffix,
+                        decreaseDescription = voice.notificationsDecreaseCountDescription,
+                        increaseDescription = voice.notificationsIncreaseCountDescription,
+                        onChange = { quietThreshold = it },
                     )
                 }
             }
 
             Button(
                 onClick = {
-                    val threshold = if (kind == TriggerKind.AT_LEAST) atLeastThreshold else silentThreshold
-                    onSave(kind, threshold, if (kind == TriggerKind.AT_LEAST) windowDays else null)
+                    val threshold = if (kind == NotificationKind.OFTEN) oftenThreshold else quietThreshold
+                    onSave(kind, threshold, if (kind == NotificationKind.OFTEN) windowDays else null)
                 },
                 enabled = canSave,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(voice.triggersSaveButton)
+                Text(voice.notificationsSaveButton)
             }
         }
     }

@@ -2,7 +2,7 @@ package com.secondmonday.hodith.ui.voice
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -743,48 +743,48 @@ interface Voice {
             else -> "Confident"
         }
 
-    // ---- Triggers (Phase 9, spec §11/§14) ----
-    val triggersScreenTitle: String
-    val triggersOpenDescription: String
-    val triggersFabDescription: String
-    val triggersEmptyTitle: String
-    val triggersEmptyBody: String
-    val triggersEmptyCta: String
+    // ---- Notifications (Phase 9, spec §11/§14) ----
+    val notificationsScreenTitle: String
+    val notificationsOpenDescription: String
+    val notificationsFabDescription: String
+    val notificationsEmptyTitle: String
+    val notificationsEmptyBody: String
+    val notificationsEmptyCta: String
 
-    fun triggerKindLabel(kind: TriggerKind): String
+    fun notificationKindLabel(kind: NotificationKind): String
 
-    /** [windowDays] only applies to [TriggerKind.AT_LEAST]; ignored for [TriggerKind.SILENT_FOR]. */
-    fun triggerSummary(
-        kind: TriggerKind,
+    /** [windowDays] only applies to [NotificationKind.OFTEN]; ignored for [NotificationKind.QUIET]. */
+    fun notificationSummary(
+        kind: NotificationKind,
         threshold: Int,
         windowDays: Int?,
     ): String
 
-    fun triggerFiredAgo(daysAgo: Long): String
+    fun notificationFiredAgo(daysAgo: Long): String
 
-    fun triggerToggleDescription(summary: String): String
+    fun notificationToggleDescription(summary: String): String
 
-    fun triggerDeleteDescription(summary: String): String
+    fun notificationDeleteDescription(summary: String): String
 
-    val triggersDeleteConfirmTitle: String
-    val triggersDeleteConfirmBody: String
-    val triggersDeleteConfirmAction: String
-    val triggersDeleteCancelAction: String
-    val triggersCreateTitle: String
-    val triggersKindPickerLabel: String
-    val triggersAtLeastLabel: String get() = "At least"
-    val triggersAtLeastSuffix: String get() = "times"
-    val triggersWindowLabel: String get() = "Within"
-    val triggersWindowSeven: String get() = "7 days"
-    val triggersWindowThirty: String get() = "30 days"
-    val triggersWindowCustom: String get() = "Custom"
-    val triggersWindowCustomHint: String get() = "Days"
-    val triggersSilentLabel: String
-    val triggersSilentSuffix: String get() = "days"
-    val triggersSaveButton: String
-    val triggersCancelButton: String
-    val triggersDecreaseCountDescription: String
-    val triggersIncreaseCountDescription: String
+    val notificationsDeleteConfirmTitle: String
+    val notificationsDeleteConfirmBody: String
+    val notificationsDeleteConfirmAction: String
+    val notificationsDeleteCancelAction: String
+    val notificationsCreateTitle: String
+    val notificationsKindPickerLabel: String
+    val notificationsOftenLabel: String get() = "At least"
+    val notificationsOftenSuffix: String get() = "times"
+    val notificationsWindowLabel: String get() = "Within"
+    val notificationsWindowSeven: String get() = "7 days"
+    val notificationsWindowThirty: String get() = "30 days"
+    val notificationsWindowCustom: String get() = "Custom"
+    val notificationsWindowCustomHint: String get() = "Days"
+    val notificationsQuietLabel: String
+    val notificationsQuietSuffix: String get() = "days"
+    val notificationsSaveButton: String
+    val notificationsCancelButton: String
+    val notificationsDecreaseCountDescription: String
+    val notificationsIncreaseCountDescription: String
 
     // ---- Notifications (Phase 9, spec §11) ----
 
@@ -792,7 +792,7 @@ interface Voice {
     val notificationChannelName: String
     val notificationChannelDescription: String
 
-    fun triggerFiredNotificationTitle(caseName: String): String
+    fun notificationFiredTitle(caseName: String): String
 
     fun checkInDueNotificationTitle(caseName: String): String
 
@@ -802,7 +802,7 @@ interface Voice {
     val notificationLogAction: String
     val notificationAllQuietAction: String
 
-    /** Title of the Android group summary that bundles HODITH's trigger and check-in notifications (spec §11). */
+    /** Title of the Android group summary that bundles HODITH's notification and check-in notifications (spec §11). */
     fun notificationsGroupSummaryTitle(count: Int): String
 
     val notificationsDeniedBannerMessage: String
@@ -1453,50 +1453,50 @@ object PlainVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("Based on $activeDayCount active days over $windowDays days.", tier)
 
-    override val triggersScreenTitle = "Triggers"
-    override val triggersOpenDescription = "Open triggers"
-    override val triggersFabDescription = "New trigger"
-    override val triggersEmptyTitle = "No triggers yet"
-    override val triggersEmptyBody = "Get a nudge when something happens too often, or goes quiet too long."
-    override val triggersEmptyCta = "Add a trigger"
+    override val notificationsScreenTitle = "Triggers"
+    override val notificationsOpenDescription = "Open triggers"
+    override val notificationsFabDescription = "New trigger"
+    override val notificationsEmptyTitle = "No triggers yet"
+    override val notificationsEmptyBody = "Get a nudge when something happens too often, or goes quiet too long."
+    override val notificationsEmptyCta = "Add a trigger"
 
-    override fun triggerKindLabel(kind: TriggerKind) =
+    override fun notificationKindLabel(kind: NotificationKind) =
         when (kind) {
-            TriggerKind.AT_LEAST -> "Happens too often"
-            TriggerKind.SILENT_FOR -> "Goes quiet too long"
+            NotificationKind.OFTEN -> "Happens too often"
+            NotificationKind.QUIET -> "Goes quiet too long"
         }
 
-    override fun triggerSummary(
-        kind: TriggerKind,
+    override fun notificationSummary(
+        kind: NotificationKind,
         threshold: Int,
         windowDays: Int?,
     ) = when (kind) {
-        TriggerKind.AT_LEAST -> "$threshold+ times in $windowDays days"
-        TriggerKind.SILENT_FOR -> "No events for $threshold days"
+        NotificationKind.OFTEN -> "$threshold+ times in $windowDays days"
+        NotificationKind.QUIET -> "No events for $threshold days"
     }
 
-    override fun triggerFiredAgo(daysAgo: Long) = "Fired $daysAgo days ago"
+    override fun notificationFiredAgo(daysAgo: Long) = "Fired $daysAgo days ago"
 
-    override fun triggerToggleDescription(summary: String) = "Toggle trigger: $summary"
+    override fun notificationToggleDescription(summary: String) = "Toggle trigger: $summary"
 
-    override fun triggerDeleteDescription(summary: String) = "Delete trigger: $summary"
+    override fun notificationDeleteDescription(summary: String) = "Delete trigger: $summary"
 
-    override val triggersDeleteConfirmTitle = "Delete this trigger?"
-    override val triggersDeleteConfirmBody = "You won't be notified by it anymore."
-    override val triggersDeleteConfirmAction = "Delete"
-    override val triggersDeleteCancelAction = "Cancel"
-    override val triggersCreateTitle = "New trigger"
-    override val triggersKindPickerLabel = "What should trigger it?"
-    override val triggersSilentLabel = "No events for"
-    override val triggersSaveButton = "Save trigger"
-    override val triggersCancelButton = "Cancel"
-    override val triggersDecreaseCountDescription = "Decrease threshold"
-    override val triggersIncreaseCountDescription = "Increase threshold"
+    override val notificationsDeleteConfirmTitle = "Delete this trigger?"
+    override val notificationsDeleteConfirmBody = "You won't be notified by it anymore."
+    override val notificationsDeleteConfirmAction = "Delete"
+    override val notificationsDeleteCancelAction = "Cancel"
+    override val notificationsCreateTitle = "New trigger"
+    override val notificationsKindPickerLabel = "What should trigger it?"
+    override val notificationsQuietLabel = "No events for"
+    override val notificationsSaveButton = "Save trigger"
+    override val notificationsCancelButton = "Cancel"
+    override val notificationsDecreaseCountDescription = "Decrease threshold"
+    override val notificationsIncreaseCountDescription = "Increase threshold"
 
     override val notificationChannelName = "Notifications"
-    override val notificationChannelDescription = "Trigger and check-in alerts."
+    override val notificationChannelDescription = "Notification and check-in alerts."
 
-    override fun triggerFiredNotificationTitle(caseName: String) = "$caseName trigger"
+    override fun notificationFiredTitle(caseName: String) = "$caseName trigger"
 
     override fun checkInDueNotificationTitle(caseName: String) = "$caseName check-in"
 
@@ -2055,50 +2055,50 @@ object IntenseVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("$activeDayCount active days over $windowDays days.", tier)
 
-    override val triggersScreenTitle = "Alarms"
-    override val triggersOpenDescription = "Tend the alarms"
-    override val triggersFabDescription = "Set a new alarm"
-    override val triggersEmptyTitle = "No alarm is set"
-    override val triggersEmptyBody = "Nothing yet watches this case. Set an alarm, and be warned when the pattern breaks."
-    override val triggersEmptyCta = "Set an alarm"
+    override val notificationsScreenTitle = "Alarms"
+    override val notificationsOpenDescription = "Tend the alarms"
+    override val notificationsFabDescription = "Set a new alarm"
+    override val notificationsEmptyTitle = "No alarm is set"
+    override val notificationsEmptyBody = "Nothing yet watches this case. Set an alarm, and be warned when the pattern breaks."
+    override val notificationsEmptyCta = "Set an alarm"
 
-    override fun triggerKindLabel(kind: TriggerKind) =
+    override fun notificationKindLabel(kind: NotificationKind) =
         when (kind) {
-            TriggerKind.AT_LEAST -> "It comes too often"
-            TriggerKind.SILENT_FOR -> "It falls silent too long"
+            NotificationKind.OFTEN -> "It comes too often"
+            NotificationKind.QUIET -> "It falls silent too long"
         }
 
-    override fun triggerSummary(
-        kind: TriggerKind,
+    override fun notificationSummary(
+        kind: NotificationKind,
         threshold: Int,
         windowDays: Int?,
     ) = when (kind) {
-        TriggerKind.AT_LEAST -> "$threshold or more, within $windowDays days"
-        TriggerKind.SILENT_FOR -> "$threshold days of silence"
+        NotificationKind.OFTEN -> "$threshold or more, within $windowDays days"
+        NotificationKind.QUIET -> "$threshold days of silence"
     }
 
-    override fun triggerFiredAgo(daysAgo: Long) = "Sounded $daysAgo days ago"
+    override fun notificationFiredAgo(daysAgo: Long) = "Sounded $daysAgo days ago"
 
-    override fun triggerToggleDescription(summary: String) = "Toggle the alarm: $summary"
+    override fun notificationToggleDescription(summary: String) = "Toggle the alarm: $summary"
 
-    override fun triggerDeleteDescription(summary: String) = "Silence the alarm: $summary"
+    override fun notificationDeleteDescription(summary: String) = "Silence the alarm: $summary"
 
-    override val triggersDeleteConfirmTitle = "Silence this alarm?"
-    override val triggersDeleteConfirmBody = "It will warn you no longer."
-    override val triggersDeleteConfirmAction = "Silence it"
-    override val triggersDeleteCancelAction = "Abandon"
-    override val triggersCreateTitle = "Set an alarm"
-    override val triggersKindPickerLabel = "What should you be warned of?"
-    override val triggersSilentLabel = "Silence of"
-    override val triggersSaveButton = "Set the alarm"
-    override val triggersCancelButton = "Abandon"
-    override val triggersDecreaseCountDescription = "Diminish the threshold"
-    override val triggersIncreaseCountDescription = "Swell the threshold"
+    override val notificationsDeleteConfirmTitle = "Silence this alarm?"
+    override val notificationsDeleteConfirmBody = "It will warn you no longer."
+    override val notificationsDeleteConfirmAction = "Silence it"
+    override val notificationsDeleteCancelAction = "Abandon"
+    override val notificationsCreateTitle = "Set an alarm"
+    override val notificationsKindPickerLabel = "What should you be warned of?"
+    override val notificationsQuietLabel = "Silence of"
+    override val notificationsSaveButton = "Set the alarm"
+    override val notificationsCancelButton = "Abandon"
+    override val notificationsDecreaseCountDescription = "Diminish the threshold"
+    override val notificationsIncreaseCountDescription = "Swell the threshold"
 
     override val notificationChannelName = "Alarms"
     override val notificationChannelDescription = "What has stirred, and what has gone quiet."
 
-    override fun triggerFiredNotificationTitle(caseName: String) = "$caseName has stirred"
+    override fun notificationFiredTitle(caseName: String) = "$caseName has stirred"
 
     override fun checkInDueNotificationTitle(caseName: String) = "$caseName has gone quiet"
 
@@ -2654,50 +2654,50 @@ object BrightVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("That's $activeDayCount active days out of $windowDays days!", tier)
 
-    override val triggersScreenTitle = "Alerts!"
-    override val triggersOpenDescription = "Check your alerts!"
-    override val triggersFabDescription = "New alert!"
-    override val triggersEmptyTitle = "No alerts yet!"
-    override val triggersEmptyBody = "Want a nudge when something happens a lot, or goes quiet for a while? Set one up!"
-    override val triggersEmptyCta = "Add an alert!"
+    override val notificationsScreenTitle = "Alerts!"
+    override val notificationsOpenDescription = "Check your alerts!"
+    override val notificationsFabDescription = "New alert!"
+    override val notificationsEmptyTitle = "No alerts yet!"
+    override val notificationsEmptyBody = "Want a nudge when something happens a lot, or goes quiet for a while? Set one up!"
+    override val notificationsEmptyCta = "Add an alert!"
 
-    override fun triggerKindLabel(kind: TriggerKind) =
+    override fun notificationKindLabel(kind: NotificationKind) =
         when (kind) {
-            TriggerKind.AT_LEAST -> "Happening a lot"
-            TriggerKind.SILENT_FOR -> "Gone quiet"
+            NotificationKind.OFTEN -> "Happening a lot"
+            NotificationKind.QUIET -> "Gone quiet"
         }
 
-    override fun triggerSummary(
-        kind: TriggerKind,
+    override fun notificationSummary(
+        kind: NotificationKind,
         threshold: Int,
         windowDays: Int?,
     ) = when (kind) {
-        TriggerKind.AT_LEAST -> "$threshold+ times in $windowDays days"
-        TriggerKind.SILENT_FOR -> "Quiet for $threshold days"
+        NotificationKind.OFTEN -> "$threshold+ times in $windowDays days"
+        NotificationKind.QUIET -> "Quiet for $threshold days"
     }
 
-    override fun triggerFiredAgo(daysAgo: Long) = "Popped off $daysAgo days ago!"
+    override fun notificationFiredAgo(daysAgo: Long) = "Popped off $daysAgo days ago!"
 
-    override fun triggerToggleDescription(summary: String) = "Toggle alert: $summary"
+    override fun notificationToggleDescription(summary: String) = "Toggle alert: $summary"
 
-    override fun triggerDeleteDescription(summary: String) = "Remove alert: $summary"
+    override fun notificationDeleteDescription(summary: String) = "Remove alert: $summary"
 
-    override val triggersDeleteConfirmTitle = "Remove this alert?"
-    override val triggersDeleteConfirmBody = "No more heads-up from this one."
-    override val triggersDeleteConfirmAction = "Remove it"
-    override val triggersDeleteCancelAction = "Never mind"
-    override val triggersCreateTitle = "New alert!"
-    override val triggersKindPickerLabel = "What should trigger it?"
-    override val triggersSilentLabel = "Quiet for"
-    override val triggersSaveButton = "Save alert!"
-    override val triggersCancelButton = "Never mind"
-    override val triggersDecreaseCountDescription = "Fewer!"
-    override val triggersIncreaseCountDescription = "More!"
+    override val notificationsDeleteConfirmTitle = "Remove this alert?"
+    override val notificationsDeleteConfirmBody = "No more heads-up from this one."
+    override val notificationsDeleteConfirmAction = "Remove it"
+    override val notificationsDeleteCancelAction = "Never mind"
+    override val notificationsCreateTitle = "New alert!"
+    override val notificationsKindPickerLabel = "What should trigger it?"
+    override val notificationsQuietLabel = "Quiet for"
+    override val notificationsSaveButton = "Save alert!"
+    override val notificationsCancelButton = "Never mind"
+    override val notificationsDecreaseCountDescription = "Fewer!"
+    override val notificationsIncreaseCountDescription = "More!"
 
     override val notificationChannelName = "Nudges"
-    override val notificationChannelDescription = "Heads-up for triggers and check-ins."
+    override val notificationChannelDescription = "Heads-up for notifications and check-ins."
 
-    override fun triggerFiredNotificationTitle(caseName: String) = "$caseName just hit a trigger!"
+    override fun notificationFiredTitle(caseName: String) = "$caseName just hit a trigger!"
 
     override fun checkInDueNotificationTitle(caseName: String) = "Quick check-in: $caseName"
 

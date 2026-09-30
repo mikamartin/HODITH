@@ -21,7 +21,7 @@ import javax.inject.Provider
  * Room database — the one place this repository's own logic (not just DAO queries) matters: the
  * FK-safe insert order and the all-in-one-transaction restore. The notification-evaluation side of
  * [RoomHodithRepository] is irrelevant here (import writes via DAOs directly, bypassing the
- * insert/update wrappers that trigger it), so its [NotificationEvalScheduler]'s evaluator is a
+ * insert/update wrappers that fire it), so its [NotificationEvalScheduler]'s evaluator is a
  * stand-in that's never invoked.
  */
 @RunWith(AndroidJUnit4::class)
@@ -38,7 +38,7 @@ class RoomHodithRepositoryBackupTest {
                 caseDao = db.caseDao(),
                 eventDao = db.eventDao(),
                 tagDao = db.tagDao(),
-                triggerDao = db.triggerDao(),
+                notificationDao = db.notificationDao(),
                 notificationEvalScheduler = unusedScheduler(),
             )
     }
@@ -64,7 +64,7 @@ class RoomHodithRepositoryBackupTest {
             // intentionally-throwing NotificationEvaluator stand-in.
             val eventId = db.eventDao().insert(testEvent(caseId = caseId, occurredAt = 100L))
             repository.addTagToEvent(eventId, "aura")
-            repository.insertTrigger(testTrigger(caseId = caseId))
+            repository.insertNotification(testNotification(caseId = caseId))
 
             val backup = repository.exportBackupData()
 
@@ -76,7 +76,7 @@ class RoomHodithRepositoryBackupTest {
                         caseDao = freshDb.caseDao(),
                         eventDao = freshDb.eventDao(),
                         tagDao = freshDb.tagDao(),
-                        triggerDao = freshDb.triggerDao(),
+                        notificationDao = freshDb.notificationDao(),
                         notificationEvalScheduler = unusedScheduler(),
                     )
 
@@ -99,7 +99,7 @@ class RoomHodithRepositoryBackupTest {
                     tags = emptyList(),
                     events = emptyList(),
                     eventTags = emptyList(),
-                    triggers = emptyList(),
+                    notifications = emptyList(),
                 )
             repository.importBackupData(incoming)
 
@@ -118,7 +118,7 @@ class RoomHodithRepositoryBackupTest {
                     tags = listOf(TagEntity(id = 1L, name = "aura")),
                     events = listOf(testEvent(id = 1L, caseId = 1L, occurredAt = 100L)),
                     eventTags = listOf(EventTagCrossRef(eventId = 1L, tagId = 1L)),
-                    triggers = listOf(testTrigger(caseId = 1L)),
+                    notifications = listOf(testNotification(caseId = 1L)),
                 )
 
             repository.importBackupData(backup)
@@ -143,7 +143,7 @@ class RoomHodithRepositoryBackupTest {
                     tags = emptyList(),
                     events = listOf(testEvent(caseId = 999L, occurredAt = 100L)),
                     eventTags = emptyList(),
-                    triggers = emptyList(),
+                    notifications = emptyList(),
                 )
 
             try {

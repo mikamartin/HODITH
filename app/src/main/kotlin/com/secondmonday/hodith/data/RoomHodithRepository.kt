@@ -16,11 +16,11 @@ class RoomHodithRepository
         private val caseDao: CaseDao,
         private val eventDao: EventDao,
         private val tagDao: TagDao,
-        private val triggerDao: TriggerDao,
+        private val notificationDao: NotificationDao,
         private val notificationEvalScheduler: NotificationEvalScheduler,
     ) : HodithRepository {
         /**
-         * Spec §11: Triggers/check-ins evaluate immediately on every event mutation, not just the
+         * Spec §11: Notifications/check-ins evaluate immediately on every event mutation, not just the
          * ~6h periodic job. [NotificationEvalScheduler] runs it fire-and-forget off the caller's
          * thread — so quick-log/start-stop stay instant — and debounces per Case so a rapid logging
          * burst collapses to one evaluation.
@@ -152,20 +152,22 @@ class RoomHodithRepository
             tagId: Long,
         ) = tagDao.deleteEventTag(EventTagCrossRef(eventId = eventId, tagId = tagId))
 
-        // Trigger
-        override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggerDao.getById(triggerId)
+        // Notification
+        override suspend fun getNotification(notificationId: Long): NotificationEntity? = notificationDao.getById(notificationId)
 
-        override fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>> = triggerDao.observeTriggersForCase(caseId)
+        override fun observeNotificationsForCase(caseId: Long): Flow<List<NotificationEntity>> =
+            notificationDao.observeNotificationsForCase(caseId)
 
-        override suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity> = triggerDao.getTriggersForCase(caseId)
+        override suspend fun getNotificationsForCase(caseId: Long): List<NotificationEntity> =
+            notificationDao.getNotificationsForCase(caseId)
 
-        override suspend fun getEnabledTriggers(): List<TriggerEntity> = triggerDao.getEnabledTriggers()
+        override suspend fun getEnabledNotifications(): List<NotificationEntity> = notificationDao.getEnabledNotifications()
 
-        override suspend fun insertTrigger(trigger: TriggerEntity): Long = triggerDao.insert(trigger)
+        override suspend fun insertNotification(notification: NotificationEntity): Long = notificationDao.insert(notification)
 
-        override suspend fun updateTrigger(trigger: TriggerEntity) = triggerDao.update(trigger)
+        override suspend fun updateNotification(notification: NotificationEntity) = notificationDao.update(notification)
 
-        override suspend fun deleteTrigger(trigger: TriggerEntity) = triggerDao.delete(trigger)
+        override suspend fun deleteNotification(notification: NotificationEntity) = notificationDao.delete(notification)
 
         // Backup
         override suspend fun exportBackupData(): BackupData =
@@ -174,7 +176,7 @@ class RoomHodithRepository
                 tags = tagDao.getAll(),
                 events = eventDao.getAll(),
                 eventTags = tagDao.getAllEventTags(),
-                triggers = triggerDao.getAll(),
+                notifications = notificationDao.getAll(),
             )
 
         override suspend fun importBackupData(backup: BackupData) {
@@ -185,7 +187,7 @@ class RoomHodithRepository
                 backup.tags.forEach { tagDao.insert(it) }
                 backup.events.forEach { eventDao.insert(it) }
                 backup.eventTags.forEach { tagDao.insertEventTag(it) }
-                backup.triggers.forEach { triggerDao.insert(it) }
+                backup.notifications.forEach { notificationDao.insert(it) }
             }
         }
     }

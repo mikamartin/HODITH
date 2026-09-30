@@ -28,8 +28,8 @@ class Converters {
     fun toVerdictMetric(value: String): VerdictMetric = VerdictMetric.valueOf(value)
 
     @TypeConverter
-    fun fromTriggerKind(value: TriggerKind): String = value.name
+    fun fromNotificationKind(value: NotificationKind): String = value.name
 
     @TypeConverter
-    fun toTriggerKind(value: String): TriggerKind = TriggerKind.valueOf(value)
+    fun toNotificationKind(value: String): NotificationKind = NotificationKind.valueOf(value)
 }

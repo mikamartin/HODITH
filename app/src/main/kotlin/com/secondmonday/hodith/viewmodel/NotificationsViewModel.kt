@@ -3,10 +3,12 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
+import com.secondmonday.hodith.data.NotificationEntity
+import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.SettingsRepository
-import com.secondmonday.hodith.data.TriggerEntity
-import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,24 +22,27 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
-data class TriggerRow(
+data class NotificationRow(
     val id: Long,
-    val kind: TriggerKind,
+    val kind: NotificationKind,
     val threshold: Int,
     val windowDays: Int?,
     val enabled: Boolean,
     val firedDaysAgo: Long?,
 )
 
-data class TriggersUiState(
-    val triggers: List<TriggerRow> = emptyList(),
+data class NotificationsUiState(
+    val notifications: List<NotificationRow> = emptyList(),
     val isLoading: Boolean = true,
 )
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
 
+/** Default lookback unit for a newly-created `OFTEN` Notification — later phases surface a picker for this. */
+private val DEFAULT_EXPECTED_PER = ExpectedPer.WEEK
+
 @HiltViewModel
-class TriggersViewModel
+class NotificationsViewModel
     @Inject
     constructor(
         private val repository: HodithRepository,
@@ -48,30 +53,33 @@ class TriggersViewModel
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
 
-        val uiState: StateFlow<TriggersUiState> =
+        val uiState: StateFlow<NotificationsUiState> =
             repository
-                .observeTriggersForCase(caseId)
-                .map { triggers ->
-                    TriggersUiState(triggers = triggerRows(triggers, clock.nowMillis()), isLoading = false)
+                .observeNotificationsForCase(caseId)
+                .map { notifications ->
+                    NotificationsUiState(notifications = notificationRows(notifications, clock.nowMillis()), isLoading = false)
                 }.stateIn(
                     scope = viewModelScope,
                     started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                    initialValue = TriggersUiState(),
+                    initialValue = NotificationsUiState(),
                 )
 
-        fun createTrigger(
-            kind: TriggerKind,
+        fun createNotification(
+            kind: NotificationKind,
             threshold: Int,
             windowDays: Int?,
         ) {
-            if (kind == TriggerKind.AT_LEAST && (windowDays == null || windowDays <= 0)) return
+            if (kind == NotificationKind.OFTEN && (windowDays == null || windowDays <= 0)) return
             viewModelScope.launch {
-                repository.insertTrigger(
-                    TriggerEntity(
+                repository.insertNotification(
+                    NotificationEntity(
                         caseId = caseId,
                         kind = kind,
                         threshold = threshold,
-                        windowDays = if (kind == TriggerKind.AT_LEAST) windowDays else null,
+                        windowDays = if (kind == NotificationKind.OFTEN) windowDays else null,
+                        expectedPer = DEFAULT_EXPECTED_PER,
+                        metric = VerdictMetric.OCCURRENCE_COUNT,
+                        minIntensity = null,
                         enabled = true,
                         lastFiredAt = null,
                     ),
@@ -84,41 +92,41 @@ class TriggersViewModel
         }
 
         fun setEnabled(
-            triggerId: Long,
+            notificationId: Long,
             enabled: Boolean,
         ) {
             viewModelScope.launch {
-                val trigger = repository.getTrigger(triggerId) ?: return@launch
-                repository.updateTrigger(trigger.copy(enabled = enabled))
+                val notification = repository.getNotification(notificationId) ?: return@launch
+                repository.updateNotification(notification.copy(enabled = enabled))
             }
         }
 
-        fun deleteTrigger(triggerId: Long) {
+        fun deleteNotification(notificationId: Long) {
             viewModelScope.launch {
-                val trigger = repository.getTrigger(triggerId) ?: return@launch
-                repository.deleteTrigger(trigger)
+                val notification = repository.getNotification(notificationId) ?: return@launch
+                repository.deleteNotification(notification)
             }
         }
     }
 
 /**
  * Pure mapping so the list-row shape is unit-testable on the JVM without a repository or Hilt,
- * same pattern as [archivedCaseRows]. [TriggerRow.firedDaysAgo] is calendar-day-aware (via
+ * same pattern as [archivedCaseRows]. [NotificationRow.firedDaysAgo] is calendar-day-aware (via
  * [ChronoUnit.DAYS]) rather than a fixed-millis division.
  */
-internal fun triggerRows(
-    triggers: List<TriggerEntity>,
+internal fun notificationRows(
+    notifications: List<NotificationEntity>,
     nowMillis: Long,
     zone: ZoneId = ZoneId.systemDefault(),
-): List<TriggerRow> =
-    triggers.map { trigger ->
-        TriggerRow(
-            id = trigger.id,
-            kind = trigger.kind,
-            threshold = trigger.threshold,
-            windowDays = trigger.windowDays,
-            enabled = trigger.enabled,
-            firedDaysAgo = trigger.lastFiredAt?.let { daysAgo(it, nowMillis, zone) },
+): List<NotificationRow> =
+    notifications.map { notification ->
+        NotificationRow(
+            id = notification.id,
+            kind = notification.kind,
+            threshold = notification.threshold,
+            windowDays = notification.windowDays,
+            enabled = notification.enabled,
+            firedDaysAgo = notification.lastFiredAt?.let { daysAgo(it, nowMillis, zone) },
         )
     }
 

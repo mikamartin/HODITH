@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.notification
 
 import android.Manifest
-import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -13,19 +12,20 @@ import androidx.core.app.NotificationManagerCompat
 import com.secondmonday.hodith.MainActivity
 import com.secondmonday.hodith.R
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.TriggerEntity
+import com.secondmonday.hodith.data.NotificationEntity
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.widget.EXTRA_CASE_ID
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import android.app.Notification as SystemNotification
 
 /** The one Android notification group every HODITH alert joins, so the shade bundles them (spec §11). */
 const val NOTIFICATION_GROUP_KEY = "com.secondmonday.hodith.notifications"
 
 interface Notifier {
-    fun notifyTriggerFired(
+    fun notifyNotificationFired(
         case: CaseEntity,
-        trigger: TriggerEntity,
+        notification: NotificationEntity,
         voice: Voice,
     )
 
@@ -73,15 +73,15 @@ class SystemNotifier
     constructor(
         @param:ApplicationContext private val context: Context,
     ) : Notifier {
-        override fun notifyTriggerFired(
+        override fun notifyNotificationFired(
             case: CaseEntity,
-            trigger: TriggerEntity,
+            notification: NotificationEntity,
             voice: Voice,
         ) {
             post(
-                notificationId = triggerNotificationId(trigger.id),
-                title = voice.triggerFiredNotificationTitle(case.name),
-                text = voice.triggerSummary(trigger.kind, trigger.threshold, trigger.windowDays),
+                notificationId = notificationAndroidId(notification.id),
+                title = voice.notificationFiredTitle(case.name),
+                text = voice.notificationSummary(notification.kind, notification.threshold, notification.windowDays),
                 caseId = case.id,
                 voice = voice,
             )
@@ -133,7 +133,7 @@ class SystemNotifier
         }
 
         /**
-         * Keep the group summary in step with HODITH's posted trigger/check-in notifications. The
+         * Keep the group summary in step with HODITH's posted notification/check-in notifications. The
          * summary is the only member that alerts for the batch ([NotificationCompat.GROUP_ALERT_SUMMARY]
          * on the children) and it alerts once, so a check-in re-posted on each ~6h pass updates the
          * stack silently. Its lines are the children's own titles — already voiced, no extra key.
@@ -191,7 +191,7 @@ class SystemNotifier
             }
         }
 
-        /** id → title for HODITH's posted trigger/check-in notifications, the summary excluded. */
+        /** id → title for HODITH's posted notification/check-in notifications, the summary excluded. */
         private fun activeGroupChildren(): Map<Int, String> {
             val manager = context.getSystemService(NotificationManager::class.java)
             val ours =
@@ -261,7 +261,7 @@ class SystemNotifier
         /** Post [notification] under [id]; returns false (a no-op) when POST_NOTIFICATIONS isn't granted. */
         private fun notify(
             id: Int,
-            notification: Notification,
+            notification: SystemNotification,
         ): Boolean {
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED
@@ -290,7 +290,7 @@ class SystemNotifier
         }
     }
 
-// Distinct ID ranges so a Trigger, a Case's check-in, and the group summary can never collide.
+// Distinct ID ranges so a Notification, a Case's check-in, and the group summary can never collide.
 private const val NOTIFICATION_ID_MODULUS = 100_000
 private const val CHECK_IN_NOTIFICATION_ID_BASE = 1_000_000
 private const val GROUP_SUMMARY_NOTIFICATION_ID = 3_000_000
@@ -302,7 +302,7 @@ private const val GROUP_SUMMARY_MAX_LINES = 6
 private const val GROUP_SYNC_CONFIRM_ATTEMPTS = 15
 private const val GROUP_SYNC_CONFIRM_INTERVAL_MS = 20L
 
-private fun triggerNotificationId(triggerId: Long): Int = (triggerId % NOTIFICATION_ID_MODULUS).toInt()
+private fun notificationAndroidId(notificationId: Long): Int = (notificationId % NOTIFICATION_ID_MODULUS).toInt()
 
 /** `internal` so `NotificationActionReceiverTest` can pass a Case's real check-in id as `EXTRA_NOTIFICATION_ID`. */
 internal fun checkInNotificationId(caseId: Long): Int = CHECK_IN_NOTIFICATION_ID_BASE + (caseId % NOTIFICATION_ID_MODULUS).toInt()

@@ -95,7 +95,7 @@ class CaseDetailInsightsTabTest {
                     onBack = {},
                     onEditCase = {},
                     onEditEvent = onEditEvent,
-                    onOpenTriggers = {},
+                    onOpenNotifications = {},
                     onOpenShare = {},
                     onOpenLogShare = {},
                     onOpenTrends = {},

@@ -18,7 +18,7 @@ import org.junit.Test
 
 /**
  * [AboutScreen] is a stateless composable driven entirely by callbacks, same pattern as
- * `TriggersScreenTest` — no Hilt/Activity/Room needed.
+ * `NotificationsScreenTest` — no Hilt/Activity/Room needed.
  */
 @UiTest
 class AboutScreenTest {

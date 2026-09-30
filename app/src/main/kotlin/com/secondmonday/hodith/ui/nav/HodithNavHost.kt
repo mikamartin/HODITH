@@ -35,6 +35,7 @@ import com.secondmonday.hodith.ui.casedetail.CaseDetailRoute
 import com.secondmonday.hodith.ui.casedetail.trends.TrendsListRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
 import com.secondmonday.hodith.ui.logsheet.LogDetailRoute
+import com.secondmonday.hodith.ui.notifications.NotificationsRoute
 import com.secondmonday.hodith.ui.settings.SettingsRoute
 import com.secondmonday.hodith.ui.share.LogSharePreviewRoute
 import com.secondmonday.hodith.ui.share.SharePreviewRoute
@@ -42,14 +43,13 @@ import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.IconHalo
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
-import com.secondmonday.hodith.ui.triggers.TriggersRoute
 import com.secondmonday.hodith.ui.voice.LocalVoice
 
 private const val CASE_EDIT_ROUTE = "case_edit"
 private const val CASE_DETAIL_ROUTE = "case_detail"
 private const val LOG_EDIT_ROUTE = "log_edit"
 private const val ARCHIVED_CASES_ROUTE = "archived_cases"
-private const val TRIGGERS_ROUTE = "triggers"
+private const val NOTIFICATIONS_ROUTE = "notifications"
 private const val SHARE_ROUTE = "share"
 private const val LOG_SHARE_ROUTE = "log_share"
 private const val TRENDS_ROUTE = "trends"
@@ -66,7 +66,7 @@ fun HodithNavHost(
     val navController = rememberNavController()
     val voice = LocalVoice.current
 
-    // Notification taps (trigger fired / check-in due) and widget Case taps (List/Single-case)
+    // Notification taps (notification fired / check-in due) and widget Case taps (List/Single-case)
     // carry a caseId to land directly on that Case's detail screen. Start destination stays
     // Home; this navigates on top of it once per fresh launch — all of these MainActivity
     // intents use FLAG_ACTIVITY_CLEAR_TASK, guaranteeing a fresh composition each tap, so `Unit`
@@ -88,7 +88,7 @@ fun HodithNavHost(
                 currentRoute?.startsWith(CASE_EDIT_ROUTE) == true ||
                     currentRoute?.startsWith(CASE_DETAIL_ROUTE) == true ||
                     currentRoute?.startsWith(LOG_EDIT_ROUTE) == true ||
-                    currentRoute?.startsWith(TRIGGERS_ROUTE) == true ||
+                    currentRoute?.startsWith(NOTIFICATIONS_ROUTE) == true ||
                     currentRoute?.startsWith(SHARE_ROUTE) == true ||
                     currentRoute?.startsWith(LOG_SHARE_ROUTE) == true ||
                     currentRoute?.startsWith(TRENDS_ROUTE) == true ||
@@ -184,7 +184,7 @@ fun HodithNavHost(
                     onBack = { navController.popBackStack() },
                     onEditCase = { caseId -> navController.navigate("$CASE_EDIT_ROUTE?$CASE_ID_ARG=$caseId") },
                     onEditEvent = { caseId, eventId -> navController.navigate("$LOG_EDIT_ROUTE/$caseId/$eventId") },
-                    onOpenTriggers = { caseId -> navController.navigate("$TRIGGERS_ROUTE/$caseId") },
+                    onOpenNotifications = { caseId -> navController.navigate("$NOTIFICATIONS_ROUTE/$caseId") },
                     onOpenShare = { caseId -> navController.navigate("$SHARE_ROUTE/$caseId") },
                     onOpenLogShare = { caseId -> navController.navigate("$LOG_SHARE_ROUTE/$caseId") },
                     onOpenTrends = { caseId -> navController.navigate("$TRENDS_ROUTE/$caseId") },
@@ -204,10 +204,10 @@ fun HodithNavHost(
                 ArchivedCasesRoute(onBack = { navController.popBackStack() })
             }
             composable(
-                route = "$TRIGGERS_ROUTE/{$CASE_ID_ARG}",
+                route = "$NOTIFICATIONS_ROUTE/{$CASE_ID_ARG}",
                 arguments = listOf(navArgument(CASE_ID_ARG) { type = NavType.LongType }),
             ) {
-                TriggersRoute(onBack = { navController.popBackStack() })
+                NotificationsRoute(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "$SHARE_ROUTE/{$CASE_ID_ARG}",

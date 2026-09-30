@@ -97,7 +97,7 @@ class RoomHodithRepositoryNotificationEvalTest {
                 caseDao = db.caseDao(),
                 eventDao = db.eventDao(),
                 tagDao = db.tagDao(),
-                triggerDao = db.triggerDao(),
+                notificationDao = db.notificationDao(),
                 notificationEvalScheduler = NotificationEvalScheduler(schedulerScope, evaluatorProvider),
             )
         return repository

@@ -8,7 +8,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.testCase
-import com.secondmonday.hodith.data.testTrigger
+import com.secondmonday.hodith.data.testNotification
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -25,12 +25,12 @@ import javax.inject.Inject
 
 /**
  * Drives the real [SystemNotifier] (via the [Notifier] binding) against the real
- * [android.app.NotificationManager] — proves a Trigger fired / check-in due notification actually
+ * [android.app.NotificationManager] — proves a Notification fired / check-in due notification actually
  * posts with the right [PlainVoice] title/body/actions, and that 2+ notifications bundle under one
  * alert-once group summary, without going through [NotificationEvaluator] first.
  *
  * Deliberately doesn't route through [NotificationEvaluator.evaluateAll]/`evaluateCase`: those run
- * against the real, shared on-device repository, which may hold Cases/Triggers left over from
+ * against the real, shared on-device repository, which may hold Cases/Notifications left over from
  * other instrumented tests or manual QA sessions — anything that counts "how many are due" would
  * be flaky here. [NotificationEvaluator]'s own selection logic (posting per due Case, withdrawing
  * the rest) is covered against a fake repository per `TESTING.md`; this layer's job is to prove
@@ -71,17 +71,17 @@ class NotifierContentTest {
     }
 
     @Test
-    fun notifyTriggerFired_postsANotificationWithTheVoiceTitleAndBody() =
+    fun notifyNotificationFired_postsANotificationWithTheVoiceTitleAndBody() =
         runBlocking {
             val case = testCase(id = 501L, name = "Coffee ${System.currentTimeMillis()}")
-            val trigger = testTrigger(caseId = case.id, threshold = 3, windowDays = 7)
+            val notification = testNotification(caseId = case.id, threshold = 3, windowDays = 7)
 
-            notifier.notifyTriggerFired(case, trigger, PlainVoice)
+            notifier.notifyNotificationFired(case, notification, PlainVoice)
 
-            val expectedTitle = PlainVoice.triggerFiredNotificationTitle(case.name)
-            val expectedText = PlainVoice.triggerSummary(trigger.kind, trigger.threshold, trigger.windowDays)
+            val expectedTitle = PlainVoice.notificationFiredTitle(case.name)
+            val expectedText = PlainVoice.notificationSummary(notification.kind, notification.threshold, notification.windowDays)
             val posted = waitForNotification { title, text, _ -> title == expectedTitle && text == expectedText }
-            assertNotNull("Expected a Trigger-fired notification titled '$expectedTitle'", posted)
+            assertNotNull("Expected a Notification-fired notification titled '$expectedTitle'", posted)
         }
 
     @Test

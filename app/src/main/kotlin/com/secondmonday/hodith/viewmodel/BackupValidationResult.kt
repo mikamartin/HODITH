@@ -1,9 +1,9 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.ui.logsheet.TAG_NAME_MAX_LENGTH
-import com.secondmonday.hodith.ui.triggers.THRESHOLD_RANGE
+import com.secondmonday.hodith.ui.notifications.THRESHOLD_RANGE
 
 /** Real-world UTC offsets run from UTC-12:00 to UTC+14:00 — a little headroom past the extremes. */
 internal val VALID_UTC_OFFSET_MINUTES_RANGE = -720..840
@@ -36,7 +36,7 @@ fun validateBackup(backup: BackupData): BackupValidationResult {
     duplicateNonZeroIds(backup.cases) { it.id }.forEach { violations += "Case: duplicate id $it" }
     duplicateNonZeroIds(backup.events) { it.id }.forEach { violations += "Event: duplicate id $it" }
     duplicateNonZeroIds(backup.tags) { it.id }.forEach { violations += "Tag: duplicate id $it" }
-    duplicateNonZeroIds(backup.triggers) { it.id }.forEach { violations += "Trigger: duplicate id $it" }
+    duplicateNonZeroIds(backup.notifications) { it.id }.forEach { violations += "Notification: duplicate id $it" }
 
     backup.cases.forEach { case ->
         if (case.name.isBlank()) violations += "Case ${case.id}: blank name"
@@ -71,17 +71,19 @@ fun validateBackup(backup: BackupData): BackupValidationResult {
         if (crossRef.tagId !in tagIds) violations += "EventTag: tagId ${crossRef.tagId} not present in backup"
     }
 
-    backup.triggers.forEach { trigger ->
-        if (trigger.caseId !in caseIds) violations += "Trigger ${trigger.id}: caseId ${trigger.caseId} not present in backup"
-        if (trigger.threshold !in THRESHOLD_RANGE) violations += "Trigger ${trigger.id}: threshold out of range"
-        when (trigger.kind) {
-            TriggerKind.AT_LEAST ->
-                if (trigger.windowDays == null || trigger.windowDays <= 0) {
-                    violations += "Trigger ${trigger.id}: AT_LEAST requires a positive windowDays"
+    backup.notifications.forEach { notification ->
+        if (notification.caseId !in caseIds) {
+            violations += "Notification ${notification.id}: caseId ${notification.caseId} not present in backup"
+        }
+        if (notification.threshold !in THRESHOLD_RANGE) violations += "Notification ${notification.id}: threshold out of range"
+        when (notification.kind) {
+            NotificationKind.OFTEN ->
+                if (notification.windowDays == null || notification.windowDays <= 0) {
+                    violations += "Notification ${notification.id}: OFTEN requires a positive windowDays"
                 }
-            TriggerKind.SILENT_FOR ->
-                if (trigger.windowDays != null) {
-                    violations += "Trigger ${trigger.id}: SILENT_FOR must not set windowDays"
+            NotificationKind.QUIET ->
+                if (notification.windowDays != null) {
+                    violations += "Notification ${notification.id}: QUIET must not set windowDays"
                 }
         }
     }

@@ -107,20 +107,20 @@ interface HodithRepository {
         tagId: Long,
     )
 
-    // Trigger
-    suspend fun getTrigger(triggerId: Long): TriggerEntity?
+    // Notification
+    suspend fun getNotification(notificationId: Long): NotificationEntity?
 
-    fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>>
+    fun observeNotificationsForCase(caseId: Long): Flow<List<NotificationEntity>>
 
-    suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity>
+    suspend fun getNotificationsForCase(caseId: Long): List<NotificationEntity>
 
-    suspend fun getEnabledTriggers(): List<TriggerEntity>
+    suspend fun getEnabledNotifications(): List<NotificationEntity>
 
-    suspend fun insertTrigger(trigger: TriggerEntity): Long
+    suspend fun insertNotification(notification: NotificationEntity): Long
 
-    suspend fun updateTrigger(trigger: TriggerEntity)
+    suspend fun updateNotification(notification: NotificationEntity)
 
-    suspend fun deleteTrigger(trigger: TriggerEntity)
+    suspend fun deleteNotification(notification: NotificationEntity)
 
     // Backup (spec §16)
     suspend fun exportBackupData(): BackupData

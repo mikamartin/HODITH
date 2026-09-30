@@ -7,7 +7,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * `daysBetween` is the shared calendar-date difference behind `VerdictEngine` / `TriggerEngine` /
+ * `daysBetween` is the shared calendar-date difference behind `VerdictEngine` / `NotificationEngine` /
  * `StatsEngine` / `CheckIn` / `InsightsEngine.computeGapStats`. These pin that it counts calendar
  * days, not elapsed 24-hour chunks, across both daylight-saving transitions — the property every
  * caller relies on and that a raw `millis / MILLIS_PER_DAY` would get wrong. Mirrors

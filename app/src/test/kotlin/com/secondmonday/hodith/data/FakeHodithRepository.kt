@@ -18,13 +18,13 @@ class FakeHodithRepository : HodithRepository {
     private var nextCaseId = 1L
     private var nextEventId = 1L
     private var nextTagId = 1L
-    private var nextTriggerId = 1L
+    private var nextNotificationId = 1L
 
     val cases = MutableStateFlow<List<CaseEntity>>(emptyList())
     val events = MutableStateFlow<List<EventEntity>>(emptyList())
     val tags = MutableStateFlow<List<TagEntity>>(emptyList())
     val eventTags = MutableStateFlow<List<EventTagCrossRef>>(emptyList())
-    val triggers = MutableStateFlow<List<TriggerEntity>>(emptyList())
+    val notifications = MutableStateFlow<List<NotificationEntity>>(emptyList())
 
     // Case
     override fun observeActiveCases(): Flow<List<CaseEntity>> =
@@ -58,7 +58,7 @@ class FakeHodithRepository : HodithRepository {
     override suspend fun deleteCase(case: CaseEntity) {
         cases.update { list -> list.filterNot { it.id == case.id } }
         events.update { list -> list.filterNot { it.caseId == case.id } }
-        triggers.update { list -> list.filterNot { it.caseId == case.id } }
+        notifications.update { list -> list.filterNot { it.caseId == case.id } }
     }
 
     override suspend fun deleteAllArchivedCases() {
@@ -69,7 +69,7 @@ class FakeHodithRepository : HodithRepository {
                 .toSet()
         cases.update { list -> list.filterNot { it.id in archivedIds } }
         events.update { list -> list.filterNot { it.caseId in archivedIds } }
-        triggers.update { list -> list.filterNot { it.caseId in archivedIds } }
+        notifications.update { list -> list.filterNot { it.caseId in archivedIds } }
     }
 
     override suspend fun deleteAllData() {
@@ -77,7 +77,7 @@ class FakeHodithRepository : HodithRepository {
         events.value = emptyList()
         tags.value = emptyList()
         eventTags.value = emptyList()
-        triggers.value = emptyList()
+        notifications.value = emptyList()
     }
 
     override suspend fun deleteEventsOlderThan(cutoff: Long) {
@@ -254,28 +254,29 @@ class FakeHodithRepository : HodithRepository {
         eventTags.update { list -> list.filterNot { it.eventId == eventId && it.tagId == tagId } }
     }
 
-    // Trigger
-    override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggers.value.find { it.id == triggerId }
+    // Notification
+    override suspend fun getNotification(notificationId: Long): NotificationEntity? = notifications.value.find { it.id == notificationId }
 
-    override fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>> =
-        triggers.map { list -> list.filter { it.caseId == caseId } }
+    override fun observeNotificationsForCase(caseId: Long): Flow<List<NotificationEntity>> =
+        notifications.map { list -> list.filter { it.caseId == caseId } }
 
-    override suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity> = triggers.value.filter { it.caseId == caseId }
+    override suspend fun getNotificationsForCase(caseId: Long): List<NotificationEntity> =
+        notifications.value.filter { it.caseId == caseId }
 
-    override suspend fun getEnabledTriggers(): List<TriggerEntity> = triggers.value.filter { it.enabled }
+    override suspend fun getEnabledNotifications(): List<NotificationEntity> = notifications.value.filter { it.enabled }
 
-    override suspend fun insertTrigger(trigger: TriggerEntity): Long {
-        val id = if (trigger.id != 0L) trigger.id else nextTriggerId++
-        triggers.update { it + trigger.copy(id = id) }
+    override suspend fun insertNotification(notification: NotificationEntity): Long {
+        val id = if (notification.id != 0L) notification.id else nextNotificationId++
+        notifications.update { it + notification.copy(id = id) }
         return id
     }
 
-    override suspend fun updateTrigger(trigger: TriggerEntity) {
-        triggers.update { list -> list.map { if (it.id == trigger.id) trigger else it } }
+    override suspend fun updateNotification(notification: NotificationEntity) {
+        notifications.update { list -> list.map { if (it.id == notification.id) notification else it } }
     }
 
-    override suspend fun deleteTrigger(trigger: TriggerEntity) {
-        triggers.update { list -> list.filterNot { it.id == trigger.id } }
+    override suspend fun deleteNotification(notification: NotificationEntity) {
+        notifications.update { list -> list.filterNot { it.id == notification.id } }
     }
 
     // Backup
@@ -285,7 +286,7 @@ class FakeHodithRepository : HodithRepository {
             tags = tags.value,
             events = events.value,
             eventTags = eventTags.value,
-            triggers = triggers.value,
+            notifications = notifications.value,
         )
 
     override suspend fun importBackupData(backup: BackupData) {
@@ -293,6 +294,6 @@ class FakeHodithRepository : HodithRepository {
         tags.value = backup.tags
         events.value = backup.events
         eventTags.value = backup.eventTags
-        triggers.value = backup.triggers
+        notifications.value = backup.notifications
     }
 }

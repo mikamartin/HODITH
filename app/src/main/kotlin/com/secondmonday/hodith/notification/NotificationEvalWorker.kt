@@ -14,8 +14,8 @@ import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
 
 /**
- * Spec §11: evaluates every enabled Trigger and every active Case's check-in on a ~6h cadence, so
- * `SILENT_FOR` triggers and check-ins can fire without any logging happening. Plain constructor +
+ * Spec §11: evaluates every enabled Notification and every active Case's check-in on a ~6h cadence,
+ * so `QUIET` notifications and check-ins can fire without any logging happening. Plain constructor +
  * Hilt [EntryPoint], same pattern as [com.secondmonday.hodith.widget.WidgetRefreshWorker] and for
  * the same reason: a `@HiltWorker`/`HiltWorkerFactory` setup needs `Configuration.Provider` on
  * [com.secondmonday.hodith.HodithApplication], which conflicts with `HiltTestApplication` in

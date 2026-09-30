@@ -2,10 +2,12 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
-import com.secondmonday.hodith.data.TriggerEntity
-import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.NotificationEntity
+import com.secondmonday.hodith.data.NotificationKind
+import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +27,7 @@ import org.junit.Test
 private const val MILLIS_PER_DAY = 86_400_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class TriggersViewModelTest {
+class NotificationsViewModelTest {
     private val repository = FakeHodithRepository()
     private val settingsRepository = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
@@ -42,7 +44,7 @@ class TriggersViewModelTest {
     }
 
     private fun viewModel() =
-        TriggersViewModel(
+        NotificationsViewModel(
             repository,
             settingsRepository,
             clock,
@@ -50,33 +52,36 @@ class TriggersViewModelTest {
             SavedStateHandle(mapOf("caseId" to caseId)),
         )
 
-    private fun atLeastTrigger(
+    private fun oftenNotification(
         id: Long = 1L,
         caseId: Long = this.caseId,
         threshold: Int = 5,
         windowDays: Int? = 7,
         enabled: Boolean = true,
         lastFiredAt: Long? = null,
-    ) = TriggerEntity(
+    ) = NotificationEntity(
         id = id,
         caseId = caseId,
-        kind = TriggerKind.AT_LEAST,
+        kind = NotificationKind.OFTEN,
         threshold = threshold,
         windowDays = windowDays,
+        expectedPer = ExpectedPer.WEEK,
+        metric = VerdictMetric.OCCURRENCE_COUNT,
+        minIntensity = null,
         enabled = enabled,
         lastFiredAt = lastFiredAt,
     )
 
     @Test
-    fun `uiState only includes triggers for this case`() =
+    fun `uiState only includes notifications for this case`() =
         runTest {
-            repository.triggers.value =
-                listOf(atLeastTrigger(id = 1L, caseId = caseId), atLeastTrigger(id = 2L, caseId = 99L))
+            repository.notifications.value =
+                listOf(oftenNotification(id = 1L, caseId = caseId), oftenNotification(id = 2L, caseId = 99L))
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(1, state.triggers.size)
-                assertEquals(1L, state.triggers.single().id)
+                assertEquals(1, state.notifications.size)
+                assertEquals(1L, state.notifications.single().id)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -85,80 +90,80 @@ class TriggersViewModelTest {
     fun `uiState computes firedDaysAgo from lastFiredAt, null when never fired`() =
         runTest {
             val fired = clock.nowMillis() - 3 * MILLIS_PER_DAY
-            repository.triggers.value =
+            repository.notifications.value =
                 listOf(
-                    atLeastTrigger(id = 1L, lastFiredAt = fired),
-                    atLeastTrigger(id = 2L, lastFiredAt = null),
+                    oftenNotification(id = 1L, lastFiredAt = fired),
+                    oftenNotification(id = 2L, lastFiredAt = null),
                 )
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(3L, state.triggers.single { it.id == 1L }.firedDaysAgo)
-                assertNull(state.triggers.single { it.id == 2L }.firedDaysAgo)
+                assertEquals(3L, state.notifications.single { it.id == 1L }.firedDaysAgo)
+                assertNull(state.notifications.single { it.id == 2L }.firedDaysAgo)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `createTrigger inserts an AT_LEAST trigger with its window`() =
+    fun `createNotification inserts an OFTEN notification with its window`() =
         runTest {
-            viewModel().createTrigger(kind = TriggerKind.AT_LEAST, threshold = 5, windowDays = 7)
+            viewModel().createNotification(kind = NotificationKind.OFTEN, threshold = 5, windowDays = 7)
 
-            val inserted = repository.triggers.value.single()
+            val inserted = repository.notifications.value.single()
             assertEquals(caseId, inserted.caseId)
-            assertEquals(TriggerKind.AT_LEAST, inserted.kind)
+            assertEquals(NotificationKind.OFTEN, inserted.kind)
             assertEquals(5, inserted.threshold)
             assertEquals(7, inserted.windowDays)
             assertTrue(inserted.enabled)
         }
 
     @Test
-    fun `createTrigger drops windowDays for SILENT_FOR even if one is passed`() =
+    fun `createNotification drops windowDays for QUIET even if one is passed`() =
         runTest {
-            viewModel().createTrigger(kind = TriggerKind.SILENT_FOR, threshold = 14, windowDays = 30)
+            viewModel().createNotification(kind = NotificationKind.QUIET, threshold = 14, windowDays = 30)
 
-            val inserted = repository.triggers.value.single()
-            assertEquals(TriggerKind.SILENT_FOR, inserted.kind)
+            val inserted = repository.notifications.value.single()
+            assertEquals(NotificationKind.QUIET, inserted.kind)
             assertEquals(14, inserted.threshold)
             assertNull(inserted.windowDays)
         }
 
     @Test
-    fun `createTrigger does not insert an AT_LEAST trigger with a zero-day window`() =
+    fun `createNotification does not insert an OFTEN notification with a zero-day window`() =
         runTest {
-            viewModel().createTrigger(kind = TriggerKind.AT_LEAST, threshold = 5, windowDays = 0)
+            viewModel().createNotification(kind = NotificationKind.OFTEN, threshold = 5, windowDays = 0)
 
-            assertTrue(repository.triggers.value.isEmpty())
+            assertTrue(repository.notifications.value.isEmpty())
         }
 
     @Test
     fun `setEnabled updates only the enabled flag`() =
         runTest {
-            repository.triggers.value = listOf(atLeastTrigger(id = 1L, enabled = true))
+            repository.notifications.value = listOf(oftenNotification(id = 1L, enabled = true))
 
-            viewModel().setEnabled(triggerId = 1L, enabled = false)
+            viewModel().setEnabled(notificationId = 1L, enabled = false)
 
-            val updated = repository.triggers.value.single()
+            val updated = repository.notifications.value.single()
             assertFalse(updated.enabled)
             assertEquals(5, updated.threshold)
         }
 
     @Test
-    fun `deleteTrigger removes it`() =
+    fun `deleteNotification removes it`() =
         runTest {
-            repository.triggers.value = listOf(atLeastTrigger(id = 1L), atLeastTrigger(id = 2L))
+            repository.notifications.value = listOf(oftenNotification(id = 1L), oftenNotification(id = 2L))
 
-            viewModel().deleteTrigger(triggerId = 1L)
+            viewModel().deleteNotification(notificationId = 1L)
 
-            assertEquals(listOf(2L), repository.triggers.value.map { it.id })
+            assertEquals(listOf(2L), repository.notifications.value.map { it.id })
         }
 
     @Test
-    fun `triggerRows maps entities to rows with calendar-day-aware firedDaysAgo`() {
+    fun `notificationRows maps entities to rows with calendar-day-aware firedDaysAgo`() {
         val now = clock.nowMillis()
         val rows =
-            triggerRows(
-                triggers = listOf(atLeastTrigger(id = 1L, lastFiredAt = now - 2 * MILLIS_PER_DAY)),
+            notificationRows(
+                notifications = listOf(oftenNotification(id = 1L, lastFiredAt = now - 2 * MILLIS_PER_DAY)),
                 nowMillis = now,
             )
 

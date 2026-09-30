@@ -14,7 +14,7 @@ private const val DEFAULT_TICK_INTERVAL_MILLIS = 60_000L
  * screen — used to keep an ongoing event's elapsed-time display counting up (spec §6) without
  * threading a timer through the data-driven ViewModel `StateFlow`s. This is UI-only refresh, not
  * business logic, so it deliberately reads [clockNow] directly rather than going through the
- * pattern CLAUDE.md reserves for verdict/trigger/stats' injected `Clock`.
+ * pattern CLAUDE.md reserves for verdict/notification/stats' injected `Clock`.
  */
 @Composable
 fun rememberTickingNow(

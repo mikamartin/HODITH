@@ -34,8 +34,8 @@ private fun rememberNotificationsDenied(): Boolean {
 
 /**
  * Spec §11/§14: shown on Home once the app has asked for notification permission at least once
- * (first Trigger created or first check-in enabled) and it's currently off — Triggers and check-ins
- * still evaluate either way, this is just the in-app fallback for anyone who won't see the alert.
+ * (first Notification created or first check-in enabled) and it's currently off — Notifications and
+ * check-ins still evaluate either way, this is just the in-app fallback for anyone who won't see the alert.
  */
 @Composable
 fun NotificationsDeniedBanner(

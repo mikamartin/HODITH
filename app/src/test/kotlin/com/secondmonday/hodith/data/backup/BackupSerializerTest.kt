@@ -39,7 +39,7 @@ class BackupSerializerTest {
                     EventEntity(id = 1L, caseId = 1L, occurredAt = 100L, endedAt = null, intensity = null, note = null, loggedAt = 100L),
                 ),
             eventTags = emptyList(),
-            triggers = emptyList(),
+            notifications = emptyList(),
         )
 
     @Test
@@ -73,14 +73,14 @@ class BackupSerializerTest {
 
     @Test
     fun `peekSchemaVersion reads a numeric schemaVersion`() {
-        val json = """{"schemaVersion":2,"cases":[],"tags":[],"events":[],"eventTags":[],"triggers":[]}"""
+        val json = """{"schemaVersion":2,"cases":[],"tags":[],"events":[],"eventTags":[],"notifications":[]}"""
 
         assertEquals(2, serializer.peekSchemaVersion(json))
     }
 
     @Test
     fun `peekSchemaVersion defaults to the current version when the key is omitted`() {
-        val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"triggers":[]}"""
+        val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"notifications":[]}"""
 
         assertEquals(BACKUP_SCHEMA_VERSION, serializer.peekSchemaVersion(json))
     }
