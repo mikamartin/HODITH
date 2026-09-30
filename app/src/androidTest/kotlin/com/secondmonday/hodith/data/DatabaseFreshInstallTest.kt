@@ -193,4 +193,43 @@ class DatabaseFreshInstallTest {
                 }
             }
         }
+
+    /**
+     * v11 → v12 auto-migration ([DropHunchesTable]): the `hunches` table is dropped entirely
+     * (Hunch removed); every other table and its rows survive untouched.
+     */
+    @Test
+    fun migrationFrom11To12_dropsHunchesTable_andPreservesOtherTables() =
+        runTest {
+            migrationTestHelper.createDatabase(TEST_DB_NAME, 11).use { db ->
+                db.execSQL(
+                    "INSERT INTO cases (id, name, icon, createdAt, logFlow, durationMode, intensityEnabled, " +
+                        "checkInsEnabled, sortOrder, archived) " +
+                        "VALUES (1, 'Coffee', '☕', 0, 'ONE_TAP', 'NONE', 0, 1, 0, 0)",
+                )
+                db.execSQL(
+                    "INSERT INTO events (id, caseId, occurredAt, endedAt, intensity, note, loggedAt, utcOffsetMinutes) " +
+                        "VALUES (1, 1, 100, NULL, NULL, NULL, 100, 0)",
+                )
+                db.execSQL(
+                    "INSERT INTO hunches (id, caseId, direction, expectedCount, expectedPer, createdAt, " +
+                        "resolvedAt, metric, observationWindow, windowStartDate, resolvedVerdictSnapshotTaken) " +
+                        "VALUES (1, 1, 'TOO_OFTEN', 3, 'WEEK', 0, NULL, 'OCCURRENCE_COUNT', 'SINCE_START', NULL, 0)",
+                )
+            }
+
+            migrationTestHelper.runMigrationsAndValidate(TEST_DB_NAME, 12, true).use { db ->
+                db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'hunches'").use { cursor ->
+                    assertEquals("the hunches table should no longer exist", 0, cursor.count)
+                }
+                db.query("SELECT * FROM cases WHERE id = 1").use { cursor ->
+                    assertTrue("the migrated case row should survive", cursor.moveToFirst())
+                    assertEquals("Coffee", cursor.getString(cursor.getColumnIndexOrThrow("name")))
+                }
+                db.query("SELECT * FROM events WHERE id = 1").use { cursor ->
+                    assertTrue("the migrated event row should survive", cursor.moveToFirst())
+                    assertEquals(100L, cursor.getLong(cursor.getColumnIndexOrThrow("occurredAt")))
+                }
+            }
+        }
 }

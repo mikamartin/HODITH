@@ -3,11 +3,7 @@ package com.secondmonday.hodith.data.backup
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.ObservationWindow
-import com.secondmonday.hodith.data.VerdictMetric
 import com.squareup.moshi.JsonDataException
 import com.squareup.moshi.Moshi
 import org.junit.Assert.assertEquals
@@ -43,35 +39,8 @@ class BackupSerializerTest {
                     EventEntity(id = 1L, caseId = 1L, occurredAt = 100L, endedAt = null, intensity = null, note = null, loggedAt = 100L),
                 ),
             eventTags = emptyList(),
-            hunches = emptyList(),
             triggers = emptyList(),
         )
-
-    @Test
-    fun `fromJson fills the new Hunch metric and window fields with defaults when an older backup omits them`() {
-        val hunch =
-            HunchEntity(
-                id = 1L,
-                caseId = 1L,
-                direction = HunchDirection.TOO_OFTEN,
-                expectedCount = 3,
-                expectedPer = com.secondmonday.hodith.data.ExpectedPer.WEEK,
-                createdAt = 0L,
-                resolvedAt = null,
-            )
-        val currentJson = serializer.toJson(testBackup().copy(hunches = listOf(hunch)))
-        // Strip the three v8 keys, as a backup exported before A10 would not carry them.
-        val olderJson =
-            currentJson
-                .replace(",\"metric\":\"OCCURRENCE_COUNT\"", "")
-                .replace(",\"observationWindow\":\"SINCE_START\"", "")
-
-        val restored = serializer.fromJson(olderJson).hunches.single()
-
-        assertEquals(VerdictMetric.OCCURRENCE_COUNT, restored.metric)
-        assertEquals(ObservationWindow.SINCE_START, restored.observationWindow)
-        assertNull(restored.windowStartDate)
-    }
 
     @Test
     fun `fromJson ignores the removed hunchNudgeDismissed key a pre-v9 backup still carries`() {
@@ -104,16 +73,16 @@ class BackupSerializerTest {
 
     @Test
     fun `peekSchemaVersion reads a numeric schemaVersion`() {
-        val json = """{"schemaVersion":2,"cases":[],"tags":[],"events":[],"eventTags":[],"hunches":[],"triggers":[]}"""
+        val json = """{"schemaVersion":2,"cases":[],"tags":[],"events":[],"eventTags":[],"triggers":[]}"""
 
         assertEquals(2, serializer.peekSchemaVersion(json))
     }
 
     @Test
-    fun `peekSchemaVersion defaults to 1 when the key is omitted`() {
-        val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"hunches":[],"triggers":[]}"""
+    fun `peekSchemaVersion defaults to the current version when the key is omitted`() {
+        val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"triggers":[]}"""
 
-        assertEquals(1, serializer.peekSchemaVersion(json))
+        assertEquals(BACKUP_SCHEMA_VERSION, serializer.peekSchemaVersion(json))
     }
 
     @Test
@@ -129,7 +98,8 @@ class BackupSerializerTest {
     @Test
     fun `fromJson with a declared version below current and no matching upgrade step falls through to strict parsing`() {
         val backup = testBackup()
-        val alreadyValidJson = serializer.toJson(backup).replace("\"schemaVersion\":1", "\"schemaVersion\":0")
+        val alreadyValidJson =
+            serializer.toJson(backup).replace("\"schemaVersion\":$BACKUP_SCHEMA_VERSION", "\"schemaVersion\":0")
 
         val restored = serializer.fromJson(alreadyValidJson, declaredVersion = 0)
 

@@ -4,11 +4,7 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
-import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.TriggerEntity
 import com.secondmonday.hodith.data.TriggerKind
@@ -57,24 +53,6 @@ private fun testEvent(
     utcOffsetMinutes = utcOffsetMinutes,
 )
 
-private fun testHunch(
-    id: Long = 1L,
-    caseId: Long = 1L,
-    expectedCount: Int = 3,
-    observationWindow: ObservationWindow = ObservationWindow.SINCE_START,
-    windowStartDate: Long? = null,
-) = HunchEntity(
-    id = id,
-    caseId = caseId,
-    direction = HunchDirection.JUST_CURIOUS,
-    expectedCount = expectedCount,
-    expectedPer = ExpectedPer.WEEK,
-    createdAt = 0L,
-    resolvedAt = null,
-    observationWindow = observationWindow,
-    windowStartDate = windowStartDate,
-)
-
 private fun testTrigger(
     id: Long = 1L,
     caseId: Long = 1L,
@@ -92,14 +70,13 @@ private fun testTrigger(
     lastFiredAt = null,
 )
 
-/** A minimal, self-referentially-consistent backup: one case, one tagged event, one hunch, one trigger. */
+/** A minimal, self-referentially-consistent backup: one case, one tagged event, one trigger. */
 private fun validBackup() =
     BackupData(
         cases = listOf(testCase()),
         tags = listOf(TagEntity(id = 1L, name = "aura")),
         events = listOf(testEvent()),
         eventTags = listOf(EventTagCrossRef(eventId = 1L, tagId = 1L)),
-        hunches = listOf(testHunch()),
         triggers = listOf(testTrigger()),
     )
 
@@ -195,51 +172,6 @@ class BackupValidationResultTest {
     fun `an event-tag cross-ref with a dangling tagId is rejected`() {
         val backup = validBackup().copy(eventTags = listOf(EventTagCrossRef(eventId = 1L, tagId = 999L)))
         assertTrue(!validateBackup(backup).isValid)
-    }
-
-    @Test
-    fun `a hunch with a dangling caseId is rejected`() {
-        val backup = validBackup().copy(hunches = listOf(testHunch(caseId = 999L)))
-        assertTrue(!validateBackup(backup).isValid)
-    }
-
-    @Test
-    fun `a hunch expectedCount below the allowed range is rejected`() {
-        val backup = validBackup().copy(hunches = listOf(testHunch(expectedCount = 0)))
-        assertTrue(!validateBackup(backup).isValid)
-    }
-
-    @Test
-    fun `a hunch expectedCount above the allowed range is rejected`() {
-        val backup = validBackup().copy(hunches = listOf(testHunch(expectedCount = 100)))
-        assertTrue(!validateBackup(backup).isValid)
-    }
-
-    @Test
-    fun `a hunch with a CUSTOM observation window but no windowStartDate is rejected`() {
-        val backup =
-            validBackup().copy(
-                hunches = listOf(testHunch(observationWindow = ObservationWindow.CUSTOM, windowStartDate = null)),
-            )
-        assertTrue(!validateBackup(backup).isValid)
-    }
-
-    @Test
-    fun `a hunch with a windowStartDate but a non-CUSTOM window is rejected`() {
-        val backup =
-            validBackup().copy(
-                hunches = listOf(testHunch(observationWindow = ObservationWindow.SINCE_START, windowStartDate = 123L)),
-            )
-        assertTrue(!validateBackup(backup).isValid)
-    }
-
-    @Test
-    fun `a hunch with a CUSTOM observation window and a windowStartDate is accepted`() {
-        val backup =
-            validBackup().copy(
-                hunches = listOf(testHunch(observationWindow = ObservationWindow.CUSTOM, windowStartDate = 123L)),
-            )
-        assertTrue(validateBackup(backup).isValid)
     }
 
     @Test

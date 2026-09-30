@@ -95,8 +95,7 @@ internal fun DeleteDataFlow(
  * only — the cutoff date. A plain [AlertDialog] composition, the same idiom
  * `com.secondmonday.hodith.ui.common.ConfirmDialog` and `InfoDialog` both use — neither fits
  * as-is (`ConfirmDialog` takes a fixed body string with no content slot; `InfoDialog` has no
- * confirm/cancel pair), so this stays a one-off local to Settings, same as `HunchCreationSheet`'s
- * `WindowStartDatePickerDialog` is local to its own screen. Proceeding opens the existing
+ * confirm/cancel pair), so this stays a one-off local to Settings. Proceeding opens the existing
  * destructive `ConfirmDialog` as a second step; this dialog itself never deletes anything.
  */
 @Composable
@@ -158,10 +157,9 @@ private fun DeleteDataOptionsDialog(
 
 /**
  * Local-date picker for the logs-only cutoff, capped at [maxDate] ("today," per spec — no future
- * cutoff). Mirrors [com.secondmonday.hodith.ui.casedetail.HunchCreationSheet]'s
- * `WindowStartDatePickerDialog` structure, with
- * [com.secondmonday.hodith.ui.logsheet.LogDetailSheet]'s `LogDetailDatePickerDialog` ceiling
- * predicate (`<=`) used for the max-date cap instead of a floor.
+ * cutoff). Mirrors [com.secondmonday.hodith.ui.logsheet.LogDetailSheet]'s
+ * `LogDetailDatePickerDialog` structure, with its ceiling predicate (`<=`) used for the max-date
+ * cap instead of a floor.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

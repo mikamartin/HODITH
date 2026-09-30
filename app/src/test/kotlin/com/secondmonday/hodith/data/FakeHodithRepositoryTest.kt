@@ -46,16 +46,6 @@ class FakeHodithRepositoryTest {
         loggedAt = occurredAt,
     )
 
-    private fun testHunch(caseId: Long) =
-        HunchEntity(
-            caseId = caseId,
-            direction = HunchDirection.JUST_CURIOUS,
-            expectedCount = 1,
-            expectedPer = ExpectedPer.WEEK,
-            createdAt = 0L,
-            resolvedAt = null,
-        )
-
     private fun testTrigger(caseId: Long) =
         TriggerEntity(
             caseId = caseId,
@@ -136,14 +126,12 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `deleteCase cascades to its events, hunches, and triggers but leaves other cases' alone`() =
+    fun `deleteCase cascades to its events and triggers but leaves other cases' alone`() =
         runTest {
             val deletedId = repository.insertCase(testCase())
             val keptId = repository.insertCase(testCase(name = "Other"))
             repository.insertEvent(testEvent(caseId = deletedId))
             repository.insertEvent(testEvent(caseId = keptId))
-            repository.insertHunch(testHunch(caseId = deletedId))
-            repository.insertHunch(testHunch(caseId = keptId))
             repository.insertTrigger(testTrigger(caseId = deletedId))
             repository.insertTrigger(testTrigger(caseId = keptId))
 
@@ -152,8 +140,6 @@ class FakeHodithRepositoryTest {
             assertNull(repository.getCase(deletedId))
             assertTrue(repository.events.value.none { it.caseId == deletedId })
             assertEquals(1, repository.events.value.count { it.caseId == keptId })
-            assertTrue(repository.hunches.value.none { it.caseId == deletedId })
-            assertEquals(1, repository.hunches.value.count { it.caseId == keptId })
             assertTrue(repository.triggers.value.none { it.caseId == deletedId })
             assertEquals(1, repository.triggers.value.count { it.caseId == keptId })
         }
@@ -438,99 +424,6 @@ class FakeHodithRepositoryTest {
             repository.observeTagsForEvent(eventId).test {
                 assertEquals(listOf("calm"), awaitItem().map { it.name })
             }
-        }
-
-    @Test
-    fun `observeActiveHunch returns only the unresolved hunch for the case`() =
-        runTest {
-            val caseId = 1L
-            repository.insertHunch(
-                HunchEntity(
-                    caseId = caseId,
-                    direction = HunchDirection.TOO_OFTEN,
-                    expectedCount = 1,
-                    expectedPer = ExpectedPer.WEEK,
-                    createdAt = 0L,
-                    resolvedAt = 100L,
-                ),
-            )
-            val activeId =
-                repository.insertHunch(
-                    HunchEntity(
-                        caseId = caseId,
-                        direction = HunchDirection.NOT_ENOUGH,
-                        expectedCount = 1,
-                        expectedPer = ExpectedPer.WEEK,
-                        createdAt = 0L,
-                        resolvedAt = null,
-                    ),
-                )
-
-            repository.observeActiveHunch(caseId).test {
-                assertEquals(activeId, awaitItem()?.id)
-            }
-        }
-
-    @Test
-    fun `backfillResolvedHunchVerdicts snapshots every pending resolved hunch exactly once`() =
-        runTest {
-            val caseId = repository.insertCase(testCase())
-            repository.insertEvent(testEvent(caseId = caseId, occurredAt = 50L))
-            repository.insertEvent(testEvent(caseId = caseId, occurredAt = 150L)) // after resolvedAt, excluded
-            val resolvedId =
-                repository.insertHunch(
-                    HunchEntity(
-                        caseId = caseId,
-                        direction = HunchDirection.TOO_OFTEN,
-                        expectedCount = 1,
-                        expectedPer = ExpectedPer.WEEK,
-                        createdAt = 0L,
-                        resolvedAt = 100L,
-                    ),
-                )
-            val activeId =
-                repository.insertHunch(
-                    HunchEntity(
-                        caseId = caseId,
-                        direction = HunchDirection.NOT_ENOUGH,
-                        expectedCount = 1,
-                        expectedPer = ExpectedPer.WEEK,
-                        createdAt = 0L,
-                        resolvedAt = null,
-                    ),
-                )
-
-            repository.backfillResolvedHunchVerdicts()
-
-            val snapshot = repository.hunches.value.single { it.id == resolvedId }
-            assertTrue(snapshot.resolvedVerdictSnapshotTaken)
-            assertEquals(1, snapshot.resolvedEventCount) // only the pre-resolvedAt event counts
-            val active = repository.hunches.value.single { it.id == activeId }
-            assertFalse(active.resolvedVerdictSnapshotTaken)
-        }
-
-    @Test
-    fun `backfillResolvedHunchVerdicts is a no-op once every resolved hunch is already snapshotted`() =
-        runTest {
-            val caseId = repository.insertCase(testCase())
-            val hunchId =
-                repository.insertHunch(
-                    HunchEntity(
-                        caseId = caseId,
-                        direction = HunchDirection.TOO_OFTEN,
-                        expectedCount = 1,
-                        expectedPer = ExpectedPer.WEEK,
-                        createdAt = 0L,
-                        resolvedAt = 100L,
-                    ),
-                )
-            repository.backfillResolvedHunchVerdicts()
-            val firstPass = repository.hunches.value.single { it.id == hunchId }
-
-            repository.events.value = repository.events.value + testEvent(caseId = caseId, occurredAt = 10L)
-            repository.backfillResolvedHunchVerdicts()
-
-            assertEquals(firstPass, repository.hunches.value.single { it.id == hunchId })
         }
 
     @Test

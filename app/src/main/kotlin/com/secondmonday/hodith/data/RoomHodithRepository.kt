@@ -2,9 +2,6 @@ package com.secondmonday.hodith.data
 
 import androidx.room.withTransaction
 import com.secondmonday.hodith.data.backup.BackupData
-import com.secondmonday.hodith.domain.HUNCH_HISTORY_RETENTION_LIMIT
-import com.secondmonday.hodith.domain.computeVerdict
-import com.secondmonday.hodith.domain.withResolvedVerdictSnapshot
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,7 +16,6 @@ class RoomHodithRepository
         private val caseDao: CaseDao,
         private val eventDao: EventDao,
         private val tagDao: TagDao,
-        private val hunchDao: HunchDao,
         private val triggerDao: TriggerDao,
         private val notificationEvalScheduler: NotificationEvalScheduler,
     ) : HodithRepository {
@@ -156,36 +152,6 @@ class RoomHodithRepository
             tagId: Long,
         ) = tagDao.deleteEventTag(EventTagCrossRef(eventId = eventId, tagId = tagId))
 
-        // Hunch
-        override fun observeActiveHunch(caseId: Long): Flow<HunchEntity?> = hunchDao.observeActiveHunch(caseId)
-
-        override suspend fun getActiveHunch(caseId: Long): HunchEntity? = hunchDao.getActiveHunch(caseId)
-
-        override fun observeHunchHistory(caseId: Long): Flow<List<HunchEntity>> = hunchDao.observeHunchHistory(caseId)
-
-        override suspend fun insertHunch(hunch: HunchEntity): Long = hunchDao.insert(hunch)
-
-        override suspend fun updateHunch(hunch: HunchEntity) = hunchDao.update(hunch)
-
-        override suspend fun deleteHunch(hunch: HunchEntity) = hunchDao.delete(hunch)
-
-        override suspend fun pruneResolvedHunches(caseId: Long) =
-            hunchDao.deleteResolvedHunchesBeyondLimit(caseId, keep = HUNCH_HISTORY_RETENTION_LIMIT)
-
-        override suspend fun backfillResolvedHunchVerdicts() {
-            val pending = hunchDao.getResolvedHunchesMissingSnapshot()
-            if (pending.isEmpty()) return
-            val casesById = caseDao.getAll().associateBy { it.id }
-            val eventsByCaseId = eventDao.getAll().groupBy { it.caseId }
-            for (hunch in pending) {
-                val case = casesById[hunch.caseId] ?: continue
-                val resolvedAt = hunch.resolvedAt ?: continue
-                val eventsAtResolution = eventsByCaseId[hunch.caseId].orEmpty().filter { it.occurredAt <= resolvedAt }
-                val result = computeVerdict(hunch, eventsAtResolution, case.createdAt, resolvedAt, case.durationMode)
-                hunchDao.update(hunch.withResolvedVerdictSnapshot(result))
-            }
-        }
-
         // Trigger
         override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggerDao.getById(triggerId)
 
@@ -208,7 +174,6 @@ class RoomHodithRepository
                 tags = tagDao.getAll(),
                 events = eventDao.getAll(),
                 eventTags = tagDao.getAllEventTags(),
-                hunches = hunchDao.getAll(),
                 triggers = triggerDao.getAll(),
             )
 
@@ -220,7 +185,6 @@ class RoomHodithRepository
                 backup.tags.forEach { tagDao.insert(it) }
                 backup.events.forEach { eventDao.insert(it) }
                 backup.eventTags.forEach { tagDao.insertEventTag(it) }
-                backup.hunches.forEach { hunchDao.insert(it) }
                 backup.triggers.forEach { triggerDao.insert(it) }
             }
         }

@@ -1,6 +1,6 @@
 package com.secondmonday.hodith.data
 
-/** Settings' app-wide default check-in interval (spec §11) for cases without their own Hunch. */
+/** Settings' app-wide default check-in interval (spec §11). */
 enum class CheckInDefaultInterval(
     val days: Int?,
 ) {

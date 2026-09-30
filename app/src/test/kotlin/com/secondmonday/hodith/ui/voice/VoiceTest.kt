@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.ui.voice
 
-import com.secondmonday.hodith.data.HunchDirection
 import com.secondmonday.hodith.domain.ComparisonBand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -62,19 +61,10 @@ class VoiceTest {
     }
 
     @Test
-    fun `hunchHistoryRowOutcome distinguishes a near miss from fully off, not just held-up vs off`() {
-        // Regression guard: this used to collapse every non-ABOUT_RIGHT band to one "way off"
-        // string, so a LESS band at 0.52x read identically to a MUCH_MORE at 3x.
+    fun `verdictHeadline distinguishes every comparison band`() {
         for (voice in voices) {
-            val heldUp = voice.hunchHistoryRowOutcome(ComparisonBand.ABOUT_RIGHT, "2.6x/week")
-            val nearMiss = voice.hunchHistoryRowOutcome(ComparisonBand.LESS, "2.6x/week")
-            val fullyOff = voice.hunchHistoryRowOutcome(ComparisonBand.MUCH_LESS, "2.6x/week")
-
-            assertTrue("$voice: LESS should read differently from ABOUT_RIGHT", nearMiss != heldUp)
-            assertTrue("$voice: LESS should read differently from MUCH_LESS", nearMiss != fullyOff)
-            // LESS/MORE share wording (direction isn't a parameter of this row), same for MUCH_LESS/MUCH_MORE.
-            assertEquals(nearMiss, voice.hunchHistoryRowOutcome(ComparisonBand.MORE, "2.6x/week"))
-            assertEquals(fullyOff, voice.hunchHistoryRowOutcome(ComparisonBand.MUCH_MORE, "2.6x/week"))
+            val headlines = ComparisonBand.entries.map { voice.verdictHeadline(it, "2.6x/week") }
+            assertEquals("$voice: every band should read distinctly", headlines.size, headlines.toSet().size)
         }
     }
 
@@ -85,25 +75,6 @@ class VoiceTest {
             assertEquals("${voice.shareLogDateFromLabel} Sep 3", voice.shareLogRangeNote("Sep 3", null))
             assertEquals("${voice.shareLogDateToLabel} Sep 20", voice.shareLogRangeNote(null, "Sep 20"))
             assertEquals(voice.shareLogRangeAllTimeLabel, voice.shareLogRangeNote(null, null))
-        }
-    }
-
-    @Test
-    fun `sharePunchline never uses first- or second-person pronouns`() {
-        // Share cards are viewed by whoever the card is shared with, not just the user who made
-        // the Hunch — "you"/"your"/"I"/"my" would address the wrong audience once it leaves the app.
-        val pronounPattern = Regex("""\b(I|I'm|I've|I'd|you|your|you're|you've|you'd|my)\b""", RegexOption.IGNORE_CASE)
-
-        for (voice in voices) {
-            for (direction in HunchDirection.entries) {
-                for (band in ComparisonBand.entries) {
-                    val punchline = voice.sharePunchline(direction, band)
-                    assertTrue(
-                        "Expected no first/second-person pronoun in \"$punchline\" ($voice, $direction/$band)",
-                        !pronounPattern.containsMatchIn(punchline),
-                    )
-                }
-            }
         }
     }
 

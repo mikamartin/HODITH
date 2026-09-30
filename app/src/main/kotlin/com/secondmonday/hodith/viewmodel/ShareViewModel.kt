@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HodithRepository
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.share.ShareImageExporter
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,13 +28,11 @@ data class ShareSelection(
     val format: ShareCardFormat = ShareCardFormat.STORY,
     val displayNameOverride: String? = null,
     val selectedSections: Set<ShareInsightsSection> = ShareInsightsSection.entries.toSet(),
-    val showHunchVsReality: Boolean = true,
 )
 
 data class ShareUiState(
     val case: CaseEntity? = null,
     val events: List<EventWithTags> = emptyList(),
-    val activeHunch: HunchEntity? = null,
     val selection: ShareSelection = ShareSelection(),
     val isLoading: Boolean = true,
 )
@@ -60,13 +57,11 @@ class ShareViewModel
             combine(
                 repository.observeCase(caseId),
                 repository.observeEventsWithTagsForCase(caseId),
-                repository.observeActiveHunch(caseId),
                 selection,
-            ) { case, events, activeHunch, selection ->
+            ) { case, events, selection ->
                 ShareUiState(
                     case = case,
                     events = events,
-                    activeHunch = activeHunch,
                     selection = selection,
                     isLoading = false,
                 )
@@ -96,10 +91,6 @@ class ShareViewModel
             selection.update {
                 it.copy(selectedSections = if (selected) it.selectedSections + section else it.selectedSections - section)
             }
-        }
-
-        fun setShowHunchVsReality(show: Boolean) {
-            selection.update { it.copy(showHunchVsReality = show) }
         }
 
         private val _shareRequests = Channel<Uri>(Channel.BUFFERED)

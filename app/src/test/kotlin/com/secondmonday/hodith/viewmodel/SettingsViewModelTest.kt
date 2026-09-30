@@ -248,10 +248,23 @@ class SettingsViewModelTest {
         }
 
     @Test
-    fun `performImport rejects an unsupported schema version`() =
+    fun `performImport rejects a newer schema version`() =
         runTest {
             val viewModel = viewModel()
-            val json = """{"schemaVersion":99,"cases":[],"tags":[],"events":[],"eventTags":[],"hunches":[],"triggers":[]}"""
+            val json = """{"schemaVersion":99,"cases":[],"tags":[],"events":[],"eventTags":[],"triggers":[]}"""
+
+            val result = viewModel.performImport(json)
+
+            assertEquals(BackupEvent.ImportFailure(ImportFailureReason.UNSUPPORTED_VERSION), result)
+        }
+
+    @Test
+    fun `performImport rejects an older schema version`() =
+        runTest {
+            val viewModel = viewModel()
+            // A v1 backup (pre-Hunch-removal) still carrying the retired "hunches" key must be
+            // rejected outright, not silently accepted with that key ignored.
+            val json = """{"schemaVersion":1,"cases":[],"tags":[],"events":[],"eventTags":[],"hunches":[],"triggers":[]}"""
 
             val result = viewModel.performImport(json)
 
@@ -275,7 +288,6 @@ class SettingsViewModelTest {
                             EventEntity(caseId = 999L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L),
                         ),
                     eventTags = emptyList(),
-                    hunches = emptyList(),
                     triggers = emptyList(),
                 )
             val json = backupSerializer.toJson(invalidBackup)
@@ -290,7 +302,7 @@ class SettingsViewModelTest {
     fun `performImport treats an omitted schemaVersion as the current version`() =
         runTest {
             val viewModel = viewModel()
-            val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"hunches":[],"triggers":[]}"""
+            val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"triggers":[]}"""
 
             val result = viewModel.performImport(json)
 

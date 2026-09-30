@@ -9,17 +9,12 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.LogSortOrder
-import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.Clock
-import com.secondmonday.hodith.domain.computeVerdict
-import com.secondmonday.hodith.domain.withResolvedVerdictSnapshot
 import com.secondmonday.hodith.ui.voice.Voice
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,8 +43,6 @@ data class CaseDetailUiState(
     val logDateTo: Long? = null,
     val logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
     val tagSuggestions: List<TagEntity> = emptyList(),
-    val activeHunch: HunchEntity? = null,
-    val hunchHistory: List<HunchEntity> = emptyList(),
     val mostRecentActivityAcrossCasesAt: Long? = null,
     val isLoading: Boolean = true,
 )
@@ -121,15 +114,11 @@ class CaseDetailViewModel
                 repository.observeCase(caseId),
                 repository.observeEventsWithTagsForCase(caseId),
                 repository.observeTagsForCase(caseId),
-                repository.observeActiveHunch(caseId),
-                repository.observeHunchHistory(caseId),
-            ) { case, events, tagSuggestions, activeHunch, hunchHistory ->
+            ) { case, events, tagSuggestions ->
                 CaseDetailUiState(
                     case = case,
                     events = events,
                     tagSuggestions = tagSuggestions,
-                    activeHunch = activeHunch,
-                    hunchHistory = hunchHistory,
                     isLoading = false,
                 )
             }.combine(logPage) { partial, page -> partial.copy(logEvents = page.events, logHasMore = page.hasMore) }
@@ -212,44 +201,6 @@ class CaseDetailViewModel
                 plan.tagDiff.toAdd.forEach { repository.addTagToEvent(eventId, it) }
             }
         }
-
-        fun addHunch(
-            direction: HunchDirection,
-            expectedCount: Int,
-            expectedPer: ExpectedPer,
-            metric: VerdictMetric,
-            observationWindow: ObservationWindow,
-            windowStartDate: Long?,
-        ) {
-            viewModelScope.launch {
-                repository.insertHunch(
-                    HunchEntity(
-                        caseId = caseId,
-                        direction = direction,
-                        expectedCount = expectedCount,
-                        expectedPer = expectedPer,
-                        createdAt = clock.nowMillis(),
-                        resolvedAt = null,
-                        metric = metric,
-                        observationWindow = observationWindow,
-                        windowStartDate = windowStartDate,
-                    ),
-                )
-            }
-        }
-
-        fun resolveHunch(hunch: HunchEntity) {
-            viewModelScope.launch {
-                // Fetched directly rather than via `uiState.value`, which only reflects live data
-                // while something is actively collecting it (`SharingStarted.WhileSubscribed`).
-                val case = repository.getCase(caseId) ?: return@launch
-                val events = repository.observeEventsWithTagsForCase(caseId).first().map { it.event }
-                val resolvedAt = clock.nowMillis()
-                val result = computeVerdict(hunch, events, case.createdAt, resolvedAt, case.durationMode)
-                repository.updateHunch(hunch.copy(resolvedAt = resolvedAt).withResolvedVerdictSnapshot(result))
-                repository.pruneResolvedHunches(caseId)
-            }
-        }
     }
 
 /** "day" / "week" / "month" / "3 months" — the period a rate or expectation is stated against. */
@@ -262,9 +213,9 @@ private fun perUnitLabel(per: ExpectedPer): String =
     }
 
 /**
- * Renders a verdict rate — "2.6×/week" for an occurrence-count Hunch, "5.6 days/week" for a
- * days-active one. Shared by the hunch chip, verdict headline, and history rows so the number
- * always reads the same way everywhere it appears (spec §8).
+ * Renders a verdict rate — "2.6×/week" for an occurrence-count expectation, "5.6 days/week" for a
+ * days-active one. Shared by the expectation chip and verdict headline so the number always reads
+ * the same way everywhere it appears (spec §8).
  */
 internal fun formatRate(
     rate: Double,
@@ -279,8 +230,8 @@ internal fun formatRate(
 }
 
 /**
- * Renders a Hunch's stated expectation — "~5×/week" or "~4 days/week" — the whole-number
- * counterpart of [formatRate], used wherever the Hunch itself (not an observed rate) is quoted back.
+ * Renders a stated expectation — "~5×/week" or "~4 days/week" — the whole-number counterpart of
+ * [formatRate], used wherever the expectation itself (not an observed rate) is quoted back.
  */
 internal fun formatExpectedFrequency(
     expectedCount: Int,

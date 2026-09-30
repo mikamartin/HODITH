@@ -135,10 +135,9 @@ class NotificationEvaluator
             case: CaseEntity,
         ): CheckInDecision? {
             if (!case.checkInsEnabled) return null
-            val hunch = repo.getActiveHunch(case.id)
             val settingsDefaultDays = settingsRepository.getCheckInDefaultInterval().days
             val now = clock.nowMillis()
-            val decision = evaluateCheckIn(case, hunch, settingsDefaultDays, silenceAnchorFor(repo, case, now), now)
+            val decision = evaluateCheckIn(case, settingsDefaultDays, silenceAnchorFor(repo, case, now), now)
             return decision.takeIf { it.due }
         }
 

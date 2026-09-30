@@ -3,12 +3,10 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ChronologicalOrder
-import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.LOG_SHARE_CARD_ENTRY_CAP
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.filterAndSortEvents
@@ -16,7 +14,7 @@ import com.secondmonday.hodith.ui.casedetail.trendsVisibleFindings
 import com.secondmonday.hodith.ui.voice.Voice
 import java.time.ZoneId
 
-/** Spec §13's two share-card canvases — Story allows the toggleable Hunch vs. Reality beat, Square never does. */
+/** Spec §13's two share-card canvases. */
 enum class ShareCardFormat {
     STORY,
     SQUARE,
@@ -33,18 +31,10 @@ enum class ShareInsightsSection {
 }
 
 /**
- * The share card's top beat: either the expected-vs-observed rate pair (only ever on [ShareCardFormat.STORY],
- * and only when there's a resolved-band active Hunch and the user has it toggled on), or the plain
- * event-count/observation-length fallback shown whenever Hunch vs. Reality isn't — spec §13's product-owner
- * call to always have at least one beat rather than risk an empty card.
+ * The share card's top beat: the plain event-count/observation-length summary — spec §13's
+ * product-owner call to always have at least one beat rather than risk an empty card.
  */
 sealed interface ShareTopBeat {
-    data class HunchVsReality(
-        val hunch: HunchEntity,
-        val observedRate: Double,
-        val band: ComparisonBand,
-    ) : ShareTopBeat
-
     data class Reality(
         val eventCount: Int,
         val observedDays: Long,
@@ -102,8 +92,8 @@ sealed interface ShareCardData {
 }
 
 /**
- * Assembles spec §13's share card content purely by filtering the same [insightsTabState]/[hunchTabState]
- * output Case Detail's Insights/Hunch tabs already compute — no new domain math. [displayName] is separate
+ * Assembles spec §13's share card content purely by filtering the same [insightsTabState] output
+ * Case Detail's Insights tab already computes — no new domain math. [displayName] is separate
  * from [CaseEntity.name] so the share screen's editable name field never mutates the actual Case.
  * [eventCount]/[observedDays]
  * mirror the Log tab summary line's inputs (`events.size`/`observationSpanDays`), since [StatsSections.totalEventCount]
@@ -116,35 +106,19 @@ internal fun shareCardState(
     case: CaseEntity,
     displayName: String,
     insightsState: InsightsTabState,
-    hunchState: HunchTabState,
     eventCount: Int,
     observedDays: Long,
     format: ShareCardFormat,
     selectedSections: Set<ShareInsightsSection>,
-    showHunchVsReality: Boolean,
     generatedAtMillis: Long,
 ): ShareCardData.Insights {
     val stats = (insightsState as? InsightsTabState.Ready)?.stats
-
-    val topBeat =
-        if (format == ShareCardFormat.STORY && showHunchVsReality && hunchState is HunchTabState.Verdict) {
-            ShareTopBeat.HunchVsReality(
-                hunch = hunchState.hunch,
-                observedRate = hunchState.result.observedRate,
-                band =
-                    requireNotNull(hunchState.result.comparisonBand) {
-                        "HunchTabState.Verdict is only reached once computeVerdict yields a comparisonBand"
-                    },
-            )
-        } else {
-            ShareTopBeat.Reality(eventCount = eventCount, observedDays = observedDays)
-        }
 
     return ShareCardData.Insights(
         format = format,
         caseIcon = case.icon,
         caseName = displayName,
-        topBeat = topBeat,
+        topBeat = ShareTopBeat.Reality(eventCount = eventCount, observedDays = observedDays),
         frequency = stats?.frequency?.takeIf { ShareInsightsSection.FREQUENCY in selectedSections },
         rhythm = stats?.rhythm?.takeIf { ShareInsightsSection.RHYTHM in selectedSections },
         gaps = stats?.gaps?.takeIf { ShareInsightsSection.GAPS in selectedSections },

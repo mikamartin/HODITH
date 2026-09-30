@@ -55,22 +55,6 @@ fun testEvent(
     utcOffsetMinutes = utcOffsetMinutes,
 )
 
-fun testHunch(
-    caseId: Long,
-    direction: HunchDirection = HunchDirection.JUST_CURIOUS,
-    expectedCount: Int = 1,
-    expectedPer: ExpectedPer = ExpectedPer.WEEK,
-    createdAt: Long = 0L,
-    resolvedAt: Long? = null,
-) = HunchEntity(
-    caseId = caseId,
-    direction = direction,
-    expectedCount = expectedCount,
-    expectedPer = expectedPer,
-    createdAt = createdAt,
-    resolvedAt = resolvedAt,
-)
-
 fun testTrigger(
     caseId: Long,
     kind: TriggerKind = TriggerKind.AT_LEAST,

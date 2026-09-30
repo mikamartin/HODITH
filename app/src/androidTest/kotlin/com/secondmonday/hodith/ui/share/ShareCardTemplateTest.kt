@@ -9,10 +9,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
-import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.ShiftDirection
@@ -102,35 +98,6 @@ class ShareCardTemplateTest {
                 ),
             gaps = null,
             trends = listOf(FREQUENCY_SHIFT_FINDING),
-            duration = null,
-            intensity = null,
-            generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
-        )
-
-    private fun hunchVsRealityData(format: ShareCardFormat) =
-        ShareCardData.Insights(
-            format = format,
-            caseIcon = "☕",
-            caseName = "Perfect coffee",
-            topBeat =
-                ShareTopBeat.HunchVsReality(
-                    hunch =
-                        HunchEntity(
-                            id = 1L,
-                            caseId = 1L,
-                            direction = HunchDirection.TOO_OFTEN,
-                            expectedCount = 2,
-                            expectedPer = ExpectedPer.MONTH,
-                            createdAt = 0L,
-                            resolvedAt = null,
-                        ),
-                    observedRate = 7.0,
-                    band = ComparisonBand.MUCH_MORE,
-                ),
-            frequency = null,
-            rhythm = null,
-            gaps = null,
-            trends = emptyList(),
             duration = null,
             intensity = null,
             generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
@@ -246,21 +213,6 @@ class ShareCardTemplateTest {
                 "a growing gap means rich content is landing short of the card's true bottom edge",
             kotlin.math.abs((sparseGap - richGap).value) < BOUNDS_TOLERANCE_DP,
         )
-    }
-
-    @Test
-    fun squareNeverShowsTheHunchVsRealityBeatEvenWhenDataProvidesIt() {
-        // ShareCardTemplate trusts whatever ShareCardData.topBeat it's given — the actual STORY-only
-        // gating lives in shareCardState (see ShareCardStateTest). This only proves the composable
-        // itself does render a HunchVsReality beat when handed one on Square, so that gating stays
-        // shareCardState's responsibility and can't quietly get "fixed" by the template hiding it too.
-        composeTestRule.setContent {
-            CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                ShareCardTemplate(data = hunchVsRealityData(ShareCardFormat.SQUARE), voice = PlainVoice)
-            }
-        }
-
-        composeTestRule.onNodeWithText(PlainVoice.shareHunchRealityKicker).assertExists()
     }
 
     @Test

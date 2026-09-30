@@ -57,7 +57,7 @@ class CsvBackupSerializerTest {
         events: List<EventEntity> = emptyList(),
         tags: List<TagEntity> = emptyList(),
         eventTags: List<EventTagCrossRef> = emptyList(),
-    ) = BackupData(cases = cases, tags = tags, events = events, eventTags = eventTags, hunches = emptyList(), triggers = emptyList())
+    ) = BackupData(cases = cases, tags = tags, events = events, eventTags = eventTags, triggers = emptyList())
 
     @Test
     fun `an empty backup produces only the header row`() {

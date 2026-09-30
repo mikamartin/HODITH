@@ -18,15 +18,10 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
-import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.HunchDirection
-import com.secondmonday.hodith.data.HunchEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.LogSortOrder
-import com.secondmonday.hodith.data.ObservationWindow
 import com.secondmonday.hodith.data.TimeFormat
-import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
@@ -42,7 +37,6 @@ import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
-import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.startOfDayMillis
 import org.junit.Assert.assertEquals
@@ -87,8 +81,6 @@ class CaseDetailScreenTest {
         logDateFrom: Long? = null,
         logDateTo: Long? = null,
         logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
-        activeHunch: HunchEntity? = null,
-        hunchHistory: List<HunchEntity> = emptyList(),
         onEditCase: (Long) -> Unit = {},
         onOpenTriggers: (Long) -> Unit = {},
         onOpenShare: (Long) -> Unit = {},
@@ -100,9 +92,6 @@ class CaseDetailScreenTest {
         nowMillis: () -> Long = { 10_000L },
         timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
         theme: AppTheme = AppTheme.PLAIN,
-        onAddHunch: (HunchDirection, Int, ExpectedPer, VerdictMetric, ObservationWindow, Long?) -> Unit =
-            { _, _, _, _, _, _ -> },
-        onResolveHunch: (HunchEntity) -> Unit = {},
         onLogSortOrderChange: (LogSortOrder) -> Unit = {},
         onLogDateFromChange: (LocalDate?) -> Unit = {},
         onLogDateToChange: (LocalDate?) -> Unit = {},
@@ -122,8 +111,6 @@ class CaseDetailScreenTest {
                             logDateFrom = logDateFrom,
                             logDateTo = logDateTo,
                             logVisibleFields = logVisibleFields,
-                            activeHunch = activeHunch,
-                            hunchHistory = hunchHistory,
                             isLoading = false,
                         ),
                     onBack = {},
@@ -148,8 +135,6 @@ class CaseDetailScreenTest {
                     onSaveEvent = onSaveEvent,
                     onStopEvent = onStopEvent,
                     nowMillis = nowMillis,
-                    onAddHunch = onAddHunch,
-                    onResolveHunch = onResolveHunch,
                     onLogSortOrderChange = onLogSortOrderChange,
                     onLogDateFromChange = onLogDateFromChange,
                     onLogDateToChange = onLogDateToChange,
@@ -613,7 +598,7 @@ class CaseDetailScreenTest {
     fun logTab_rendersOnlyLogEvents_notTheFullEventHistory() {
         // Regression guard for PROGRESS.md F4: the Log tab's row list must come from the capped,
         // paged uiState.logEvents, not the full uiState.events used by ongoing-event detection and
-        // the Insights/Hunch tabs.
+        // the Insights tab.
         val shown = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, note = "shown row")
         val hidden = testEvent(id = 9L, caseId = 1L, occurredAt = 1_000L, note = "hidden row")
         setCaseDetailScreenContent(
@@ -730,302 +715,4 @@ class CaseDetailScreenTest {
                 emptyList(),
             )
         }
-
-    private fun openHunchTab() {
-        composeTestRule.onNodeWithText(PlainVoice.caseDetailHunchTabLabel).performClick()
-    }
-
-    @Test
-    fun hunchTab_fewEventsNoHunch_showsNoneCardWithoutNudge() {
-        setCaseDetailScreenContent(events = eventsAt(2))
-        openHunchTab()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneTitle).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneDataNote).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeTitle).assertDoesNotExist()
-    }
-
-    @Test
-    fun hunchTab_zeroEvents_stillOffersAddingAHunch() {
-        setCaseDetailScreenContent(events = emptyList())
-        openHunchTab()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchTabNoneDataNote).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.hunchAddButtonLabel).assertExists()
-    }
-
-    @Test
-    fun hunchTab_fiveEventsNoHunch_showsNudgeCard() {
-        setCaseDetailScreenContent(events = eventsAt(5))
-        openHunchTab()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeTitle).assertExists()
-    }
-
-    @Test
-    fun hunchTab_nudgeBody_reflectsTheRealEventCount_notTheFixedThreshold() {
-        setCaseDetailScreenContent(events = eventsAt(8))
-        openHunchTab()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchNudgeBody(startStopCase.icon, startStopCase.name, 8)).assertExists()
-    }
-
-    private data class SavedHunch(
-        val direction: HunchDirection,
-        val count: Int,
-        val per: ExpectedPer,
-        val metric: VerdictMetric,
-        val window: ObservationWindow,
-        val windowStartDate: Long?,
-    )
-
-    private val noneCase =
-        testCase(id = 2L, name = "Coffee", icon = "☕", logFlow = LogFlow.ONE_TAP, durationMode = DurationMode.NONE)
-
-    @Test
-    fun hunchTab_addHunch_opensSheetAndSavesSelectedOptions() {
-        var saved: SavedHunch? = null
-        setCaseDetailScreenContent(
-            onAddHunch = { d, c, p, m, w, s -> saved = SavedHunch(d, c, p, m, w, s) },
-        )
-        openHunchTab()
-
-        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
-        composeTestRule.onNodeWithText(PlainVoice.hunchCreatingSaveButton).performClick()
-
-        assertEquals(HunchDirection.TOO_OFTEN, saved?.direction)
-        assertEquals(ExpectedPer.WEEK, saved?.per)
-        assertEquals(VerdictMetric.OCCURRENCE_COUNT, saved?.metric)
-        assertEquals(ObservationWindow.SINCE_START, saved?.window)
-        assertNull(saved?.windowStartDate)
-    }
-
-    @Test
-    fun hunchCreationSheet_metricPicker_showsForDurationTrackingCase() {
-        setCaseDetailScreenContent(case = startStopCase)
-        openHunchTab()
-        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchCreatingMetricLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.hunchMetricDaysActive).assertExists()
-    }
-
-    @Test
-    fun hunchCreationSheet_metricPicker_absentForNoneCase() {
-        setCaseDetailScreenContent(case = noneCase)
-        openHunchTab()
-        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchCreatingMetricLabel).assertDoesNotExist()
-        // The window picker still shows, whatever the duration mode.
-        composeTestRule.onNodeWithText(PlainVoice.hunchCreatingWindowLabel).assertExists()
-    }
-
-    @Test
-    fun hunchCreationSheet_periodRow_swapsOptionsWhenDaysActiveIsPicked() {
-        setCaseDetailScreenContent(case = startStopCase)
-        openHunchTab()
-        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
-
-        // Occurrence count (default): Day / Week / Month.
-        composeTestRule.onNodeWithText(PlainVoice.hunchExpectedPerDay).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.hunchExpectedPerQuarter).assertDoesNotExist()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchMetricDaysActive).performClick()
-
-        // Days active: Week / Month / 3 Months — Day drops out.
-        composeTestRule.onNodeWithText(PlainVoice.hunchExpectedPerQuarter).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.hunchExpectedPerDay).assertDoesNotExist()
-    }
-
-    @Test
-    fun hunchCreationSheet_customWindow_revealsTheDateField() {
-        setCaseDetailScreenContent(case = startStopCase)
-        openHunchTab()
-        composeTestRule.onAllNodesWithText(PlainVoice.hunchAddButtonLabel)[0].performClick()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchWindowCustomDatePrompt).assertDoesNotExist()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchWindowCustom).performClick()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchWindowCustomDatePrompt).assertExists()
-    }
-
-    @Test
-    fun hunchTab_daysActiveVerdictCard_rendersDaysActiveCopyAndNoHeatmap() {
-        val oneDay = 24 * 60 * 60_000L
-        val hunch =
-            HunchEntity(
-                id = 1L,
-                caseId = 1L,
-                direction = HunchDirection.TOO_OFTEN,
-                expectedCount = 5,
-                expectedPer = ExpectedPer.WEEK,
-                createdAt = 0L,
-                resolvedAt = null,
-                metric = VerdictMetric.DAYS_ACTIVE,
-            )
-        // 5 active days over a 20-day window clears the Preliminary bar; the card renders the
-        // days-active copy set. Kept small so the full 3-tab screen stays light on CI's emulator.
-        val events =
-            List(5) {
-                EventWithTags(
-                    testEvent(id = it.toLong(), caseId = 1L, occurredAt = it * 4 * oneDay, endedAt = it * 4 * oneDay),
-                    emptyList(),
-                )
-            }
-        setCaseDetailScreenContent(activeHunch = hunch, events = events, nowMillis = { 20 * oneDay })
-        openHunchTab()
-
-        // The verdict rate reads as a share of days, not a "×" count.
-        composeTestRule.onAllNodesWithText("days/week", substring = true).onFirst().assertExists()
-        composeTestRule.onAllNodesWithText("active days", substring = true).onFirst().assertExists()
-        // Text-only card: the calendar heatmap belongs to Insights, never the verdict card.
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelHeatmap).assertDoesNotExist()
-    }
-
-    @Test
-    fun hunchTab_activeVerdictHunch_resolveInvokesOnResolveHunch() {
-        val hunch =
-            HunchEntity(
-                id = 1L,
-                caseId = 1L,
-                direction = HunchDirection.TOO_OFTEN,
-                expectedCount = 5,
-                expectedPer = ExpectedPer.WEEK,
-                createdAt = 0L,
-                resolvedAt = null,
-            )
-        var resolved: HunchEntity? = null
-        val thirtyDaysMillis = 30 * 24 * 60 * 60_000L
-        setCaseDetailScreenContent(
-            activeHunch = hunch,
-            events = eventsAt(6),
-            nowMillis = { thirtyDaysMillis },
-            onResolveHunch = { resolved = it },
-        )
-        openHunchTab()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchResolveLabel).performClick()
-
-        assertEquals(hunch, resolved)
-    }
-
-    @Test
-    fun hunchTab_activeVerdict_stillShowsPastHunches() {
-        val activeHunch =
-            HunchEntity(
-                id = 1L,
-                caseId = 1L,
-                direction = HunchDirection.TOO_OFTEN,
-                expectedCount = 5,
-                expectedPer = ExpectedPer.WEEK,
-                createdAt = 0L,
-                resolvedAt = null,
-            )
-        val resolvedHunch =
-            HunchEntity(
-                id = 2L,
-                caseId = 1L,
-                direction = HunchDirection.NOT_ENOUGH,
-                expectedCount = 1,
-                expectedPer = ExpectedPer.DAY,
-                createdAt = 0L,
-                resolvedAt = 20 * 24 * 60 * 60_000L,
-            )
-        val thirtyDaysMillis = 30 * 24 * 60 * 60_000L
-        setCaseDetailScreenContent(
-            activeHunch = activeHunch,
-            hunchHistory = listOf(resolvedHunch),
-            events = eventsAt(6),
-            nowMillis = { thirtyDaysMillis },
-        )
-        openHunchTab()
-
-        // Regression guard: the resolved-Hunch record used to disappear entirely once a new
-        // Hunch went active. It must still render underneath the active verdict card.
-        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryHeader).assertExists()
-    }
-
-    @Test
-    fun hunchTab_historyRow_leadsWithTheMadeAndResolvedStamp() {
-        val resolvedAt = 20 * 24 * 60 * 60_000L
-        val resolvedHunch =
-            HunchEntity(
-                id = 1L,
-                caseId = 1L,
-                direction = HunchDirection.TOO_OFTEN,
-                expectedCount = 1,
-                expectedPer = ExpectedPer.DAY,
-                createdAt = 0L,
-                resolvedAt = resolvedAt,
-            )
-        setCaseDetailScreenContent(
-            hunchHistory = listOf(resolvedHunch),
-            events = eventsAt(6),
-            nowMillis = { 30 * 24 * 60 * 60_000L },
-        )
-        openHunchTab()
-
-        // Regression guard: this used to be `hunchHistoryRowWhen(monthsAgo(resolvedAt))`, which
-        // read "0 months ago" for anything resolved inside its first month.
-        composeTestRule
-            .onNodeWithText(PlainVoice.hunchHistoryRowStamp(formatEventDate(0L), formatEventDate(resolvedAt)))
-            .assertExists()
-    }
-
-    private fun resolvedHunchesForWindowingTests() =
-        (1..7).map { index ->
-            HunchEntity(
-                id = index.toLong(),
-                caseId = 1L,
-                direction = HunchDirection.TOO_OFTEN,
-                expectedCount = 1,
-                expectedPer = ExpectedPer.DAY,
-                createdAt = 0L,
-                resolvedAt = (30L - index) * 24 * 60 * 60_000L,
-            )
-        }
-
-    @Test
-    fun hunchTab_history_showsFirstFiveThenRevealsRestOnShowMore() {
-        val resolvedHunches = resolvedHunchesForWindowingTests()
-        setCaseDetailScreenContent(
-            hunchHistory = resolvedHunches,
-            events = eventsAt(6),
-            nowMillis = { 40 * 24 * 60 * 60_000L },
-        )
-        openHunchTab()
-
-        fun stampFor(hunch: HunchEntity) = PlainVoice.hunchHistoryRowStamp(formatEventDate(0L), formatEventDate(hunch.resolvedAt!!))
-
-        resolvedHunches.take(5).forEach { hunch ->
-            composeTestRule.onNodeWithText(stampFor(hunch)).assertExists()
-        }
-        resolvedHunches.drop(5).forEach { hunch ->
-            composeTestRule.onNodeWithText(stampFor(hunch)).assertDoesNotExist()
-        }
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryShowMoreAction).performClick()
-
-        resolvedHunches.forEach { hunch ->
-            composeTestRule.onNodeWithText(stampFor(hunch)).assertExists()
-        }
-    }
-
-    @Test
-    fun hunchTab_history_retentionNote_onlyShowsOnceFullyExpanded() {
-        setCaseDetailScreenContent(
-            hunchHistory = resolvedHunchesForWindowingTests(),
-            events = eventsAt(6),
-            nowMillis = { 40 * 24 * 60 * 60_000L },
-        )
-        openHunchTab()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryRetentionNote).assertDoesNotExist()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryShowMoreAction).performClick()
-
-        composeTestRule.onNodeWithText(PlainVoice.hunchHistoryRetentionNote).assertExists()
-    }
 }

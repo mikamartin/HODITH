@@ -38,7 +38,6 @@ class RoomHodithRepositoryBackupTest {
                 caseDao = db.caseDao(),
                 eventDao = db.eventDao(),
                 tagDao = db.tagDao(),
-                hunchDao = db.hunchDao(),
                 triggerDao = db.triggerDao(),
                 notificationEvalScheduler = unusedScheduler(),
             )
@@ -65,7 +64,6 @@ class RoomHodithRepositoryBackupTest {
             // intentionally-throwing NotificationEvaluator stand-in.
             val eventId = db.eventDao().insert(testEvent(caseId = caseId, occurredAt = 100L))
             repository.addTagToEvent(eventId, "aura")
-            repository.insertHunch(testHunch(caseId = caseId))
             repository.insertTrigger(testTrigger(caseId = caseId))
 
             val backup = repository.exportBackupData()
@@ -78,7 +76,6 @@ class RoomHodithRepositoryBackupTest {
                         caseDao = freshDb.caseDao(),
                         eventDao = freshDb.eventDao(),
                         tagDao = freshDb.tagDao(),
-                        hunchDao = freshDb.hunchDao(),
                         triggerDao = freshDb.triggerDao(),
                         notificationEvalScheduler = unusedScheduler(),
                     )
@@ -102,7 +99,6 @@ class RoomHodithRepositoryBackupTest {
                     tags = emptyList(),
                     events = emptyList(),
                     eventTags = emptyList(),
-                    hunches = emptyList(),
                     triggers = emptyList(),
                 )
             repository.importBackupData(incoming)
@@ -122,7 +118,6 @@ class RoomHodithRepositoryBackupTest {
                     tags = listOf(TagEntity(id = 1L, name = "aura")),
                     events = listOf(testEvent(id = 1L, caseId = 1L, occurredAt = 100L)),
                     eventTags = listOf(EventTagCrossRef(eventId = 1L, tagId = 1L)),
-                    hunches = listOf(testHunch(caseId = 1L)),
                     triggers = listOf(testTrigger(caseId = 1L)),
                 )
 
@@ -148,7 +143,6 @@ class RoomHodithRepositoryBackupTest {
                     tags = emptyList(),
                     events = listOf(testEvent(caseId = 999L, occurredAt = 100L)),
                     eventTags = emptyList(),
-                    hunches = emptyList(),
                     triggers = emptyList(),
                 )
 

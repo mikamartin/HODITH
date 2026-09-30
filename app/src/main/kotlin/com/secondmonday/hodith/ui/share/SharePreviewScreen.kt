@@ -44,13 +44,11 @@ import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
-import com.secondmonday.hodith.viewmodel.HunchTabState
 import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareInsightsSection
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
-import com.secondmonday.hodith.viewmodel.hunchTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.shareCardState
 import kotlinx.coroutines.flow.collectLatest
@@ -94,7 +92,6 @@ fun SharePreviewRoute(
         onFormatSelect = viewModel::setFormat,
         onDisplayNameChange = viewModel::setDisplayNameOverride,
         onSectionToggle = viewModel::setSectionSelected,
-        onShowHunchVsRealityToggle = viewModel::setShowHunchVsReality,
         onShareClick = { scope.launch { viewModel.share(graphicsLayer.toImageBitmap().asAndroidBitmap()) } },
         modifier = modifier,
     )
@@ -110,7 +107,6 @@ fun SharePreviewScreen(
     onFormatSelect: (ShareCardFormat) -> Unit,
     onDisplayNameChange: (String) -> Unit,
     onSectionToggle: (ShareInsightsSection, Boolean) -> Unit,
-    onShowHunchVsRealityToggle: (Boolean) -> Unit,
     onShareClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -140,7 +136,6 @@ fun SharePreviewScreen(
         // including Story C T4's permutation test.
         val today = remember(now) { Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate() }
         val insightsState = remember(case, uiState.events, today) { insightsTabState(case, uiState.events, now) }
-        val hunchState = hunchTabState(case, uiState.activeHunch, events, history = emptyList(), now = now)
         val selection = uiState.selection
         val displayName = selection.displayNameOverride ?: case.name
 
@@ -149,12 +144,10 @@ fun SharePreviewScreen(
                 case = case,
                 displayName = displayName,
                 insightsState = insightsState,
-                hunchState = hunchState,
                 eventCount = events.size,
                 observedDays = observationSpanDays(events, case.createdAt, now),
                 format = selection.format,
                 selectedSections = selection.selectedSections,
-                showHunchVsReality = selection.showHunchVsReality,
                 generatedAtMillis = now,
             )
 
@@ -178,14 +171,6 @@ fun SharePreviewScreen(
                 selected = selection.format,
                 onSelect = onFormatSelect,
             )
-
-            if (selection.format == ShareCardFormat.STORY && hunchState is HunchTabState.Verdict) {
-                ToggleRow(
-                    label = voice.shareHunchVsRealityToggleLabel,
-                    checked = selection.showHunchVsReality,
-                    onCheckedChange = onShowHunchVsRealityToggle,
-                )
-            }
 
             OutlinedTextField(
                 value = selection.displayNameOverride ?: "",
