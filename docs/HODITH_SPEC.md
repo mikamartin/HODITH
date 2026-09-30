@@ -162,8 +162,7 @@ The switch-*in* conversion uses `endedAt = occurredAt` (the event's own start), 
 
 ## 7. Hunch flow
 
-- Case creation asks: *"Got a feeling about this one?"* — skippable in one tap.
-- A Hunch can be added at any time, even with zero events logged yet — the Hunch tab's invite carries a short aside noting that checking it against reality takes some time, roughly proportionate to the hunch itself.
+- A Hunch is added from Case Detail's Hunch tab, at any time, even with zero events logged yet — Case creation itself stays focused on the Case's own settings — the Hunch tab's invite carries a short aside noting that checking it against reality takes some time, roughly proportionate to the hunch itself.
 - **Nudge:** after 5 logged events on a hunch-less Case, the case detail screen's Hunch tab shows a card inviting a Hunch, in place of the plain "no hunch yet" card. It stays until a Hunch is added — there is no dismiss. The nudge lives in-app only; it never notifies.
 - Creating a Hunch: direction → expected frequency (count + period) → observation window, plus a metric picker for a duration-tracking Case. Voice-flavoured copy throughout. All these choices are made once at creation and stored on the Hunch — the verdict card never re-asks or offers a toggle. Every picker renders flat and always visible when applicable, up to five sections; no "more options" disclosure.
   - **Metric** (`HunchEntity.metric`) — shown only when the Case's `durationMode` tracks duration (`MANUAL`/`START_STOP`); a `NONE` Case sees no picker and its metric is implicitly occurrence count. See §8.
