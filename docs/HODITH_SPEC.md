@@ -29,6 +29,7 @@ Some of these you influence, many you don't. HODITH doesn't care — it just cou
 |---|---|
 | **Case** | The thing being observed ("Kiddo was rude", "Migraine", "Perfect coffee"). |
 | **Event** | One logged occurrence. The voices may dress this up ("evidence" in Intense). |
+| **Watch** | A per-Case condition HODITH keeps an eye on: it fires a notification when an event happens often enough, or goes quiet for long enough (§11). "Watch" is the code and spec term only; the app calls it a **Rule** (Plain), **Alarm** (Intense) or **Alert** (Bright). |
 
 The case → evidence framing is deliberate: it gives all three voices a shared metaphor to play with.
 
@@ -65,14 +66,14 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; each Event als
 | logFlow | `ONE_TAP` \| `DETAIL_SHEET` — what the widget/log button does |
 | durationMode | `NONE` \| `MANUAL` \| `START_STOP` |
 | intensityEnabled | boolean — show 1–5 intensity on the detail sheet |
-| checkInsEnabled | boolean — whether this Case participates in check-ins (§11); the interval itself is always the app-level default from Settings. A Case wanting a custom silence threshold instead gets a `SILENT_FOR` Trigger (§11), which already covers exactly that. |
+| checkInsEnabled | boolean — whether this Case participates in check-ins (§11); the interval itself is always the app-level default from Settings. A Case wanting a custom silence threshold instead gets a `QUIET` Watch (§11), which already covers exactly that. The toggle lives at the top of the Case Detail bell tab (§14), not on the edit screen. |
 | lastCheckInAt | nullable — when a check-in last fired or was answered "all quiet"; used for re-arming |
 | sortOrder | manual ordering on Home and Big Picture |
 | archived | boolean — hidden from Home/widgets/Big Picture, data retained |
 
 Archiving is reversible and non-destructive. **Hard-deleting a Case** is a separate, irreversible
 action, reachable only from the Archived Cases screen (§14) on a case that's already archived —
-never directly from an active Case. It cascades to the case's events and triggers (FK cascade
+never directly from an active Case. It cascades to the case's events and watches (FK cascade
 delete, same as `Event.caseId` below).
 
 ### Event
@@ -89,17 +90,20 @@ delete, same as `Event.caseId` below).
 | loggedAt | when it was recorded (audit; distinguishes retro-logs) |
 | utcOffsetMinutes | the device's UTC offset captured at `occurredAt` (not save time), so a retro-logged entry gets its own historical offset |
 
-### Trigger
+### Watch
 
-Optional, many per Case.
+Optional, many per Case. Table `watches`.
 
 | Field | Notes |
 |---|---|
 | id | PK |
 | caseId | FK |
-| kind | `AT_LEAST` (n+ events within window) \| `SILENT_FOR` (no events for n days) |
-| threshold | n |
-| windowDays | rolling window for `AT_LEAST` (7, 30, or custom) |
+| kind | `OFTEN` (the observed rate over the lookback reaches the expected rate) \| `QUIET` (no events for n days) |
+| threshold | `OFTEN`: the expected count per `expectedPer`; `QUIET`: n days |
+| windowDays | `OFTEN` only: the rolling lookback in days (always rolling; the editor offers presets that scale with `expectedPer`, or a custom number) |
+| expectedPer | `OFTEN` only: the period `threshold` is counted per (day / week / month / quarter) |
+| metric | occurrence count (default) \| days active (`OFTEN` on a duration Case only), same meaning as §8 |
+| minIntensity | nullable 1–5, `OFTEN` only and only on a Case with intensity tracking: events rated below it (or unrated) don't count |
 | enabled | boolean |
 | armed | boolean, defaults true — edge-trigger state: fires (and flips to false) when the condition first becomes true, flips back to true once the condition stops being true. Prevents refiring on every evaluation while the condition remains met. |
 | lastFiredAt | nullable — when it last fired, for notification copy |
@@ -128,11 +132,11 @@ Only `START_STOP` reads an `endedAt == null` event as *ongoing*; under `NONE` an
 
 The switch-*in* conversion uses `endedAt = occurredAt` (the event's own start), not `now`, so a point logged days ago does not become a multi-day span. The switch-*out* conversion uses `now` because a genuinely-running event is being ended. There is no migration for an event left with an inflated `endedAt` by an earlier round-trip — an over-long span is indistinguishable from a real one — so those are fixed by editing the event.
 
-## 8. Comparison math (internal — reused by Notifications, not yet user-facing)
+## 8. Comparison math (internal — feeds Watches)
 
-A pure-Kotlin comparison engine for the Notifications work planned next (see PROGRESS.md's Story N). Nothing currently reaches it from any screen. Inputs: an `Expectation(count, per, metric, windowStart)` value, an event list, the Case's `durationMode`, `now`.
+A pure-Kotlin comparison engine behind a Watch's `OFTEN` condition and the bell tab's Now zone and comparison line (§11, §14). Inputs: an `Expectation(count, per, metric, windowStart)` value, an event list, the Case's `durationMode`, `now`.
 
-- **Observation window** is `[expectation.windowStart, now]` — resolving `windowStart` is the caller's job, not this engine's; a Notification's lookback will always be a rolling day count decided at the call site.
+- **Observation window** is `[expectation.windowStart, now]` — resolving `windowStart` is the caller's job, not this engine's; a Watch's lookback is always a rolling day count decided at the call site.
 - **Window filtering** — an event feeds the count only if its active span (§9) reaches into the window and it started by `now`. A duration event that began before the window but is still active inside it counts (span-overlap, not `occurredAt` alone). Days-active only counts the event's in-window days.
 - **Metric** (`expectation.metric`):
   - **Occurrence count** (default, and the only option for a `NONE` Case) — number of in-window events.
@@ -188,7 +192,7 @@ On the case detail Insights tab, in this order. Trends is shown only when at lea
 - **Trends** — the first card, shown only when at least one finding exists across every detector in the roster below. There is no separate Trend arrow card any more — the former standalone 30-vs-30-day comparison is one of these findings (frequency shift, below), not a distinct feature. Each finding states its shift in real numbers (e.g. "the average gap has grown from 3 days to 6 days"), not just a direction; shows the first 3 by default, with a link to the full (capped) list as its own screen rather than expanding in place. A "went quiet" finding (below), when present, always leads the list — it's the one finding about the Case's current live state rather than settled history, so when it leads, the compact card shows only it plus the link, instead of pairing it with up to two unrelated shift findings. Reliability (Hint/Pattern) and the evidence count are shown per finding — inline on the full list, disclosed via a single shared explanation (not per-row) on the compact card.
 - **Frequency over time** — counts per day/week/month (granularity auto-picked from data density, user-overridable). Hidden entirely for a Case with any multi-day event (§9): a per-bucket count would double-count a long event, and the calendar heatmap already shows the shape honestly.
 - **Rhythm heatmap** — day-of-week × time-of-day grid, cell shade = count, shaded on a finer 20-tier scale than the calendar heatmap or intensity stats for more visible contrast between nearby counts. Always plots each event's start; retitled "Start times" for a Case with any multi-day event (§9), so a span that began late one night doesn't read as "only happens at night".
-- **Gaps & streaks** — longest gap, current gap (silence since the last event *ended* — its start for a point event, and for every event on a Case that no longer tracks duration; reads 0 while *any* event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days each covered by at least one event's active span, §9); "tends to come in bursts" flag when gap variance is high. `SILENT_FOR` triggers and check-ins count silence from the same point.
+- **Gaps & streaks** — longest gap, current gap (silence since the last event *ended* — its start for a point event, and for every event on a Case that no longer tracks duration; reads 0 while *any* event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days each covered by at least one event's active span, §9); "tends to come in bursts" flag when gap variance is high. `QUIET` watches and check-ins count silence from the same point.
 - **Event duration** (if durationMode ≠ NONE) — average, longest, total time; still-running events are excluded until they stop
 - **Intensity stats** (if enabled) — average, distribution mini-bars
 - **Tag breakdown** — counts per tag, shown against the Case's total event count so an individual tag's count reads in proportion rather than in isolation
@@ -199,7 +203,7 @@ The calendar heatmap (§9) follows the tag breakdown as the tab's final section.
 
 The Trends section's current roster of detectors — every one shares the "often follows"/"tends to," never "causes" wording rule, and a `Hint`/`Pattern` reliability tier distinct from §8's `ConfidenceTier` (that measures sample-size adequacy for an average; this measures whether the effect itself has been tested for significance).
 
-- **Went quiet** — the current, still-open silence since the last event is a record for this Case (at least as long as any gap it's ever had), while the user is demonstrably still logging elsewhere (something logged, any Case, within the last week). Unlike every other detector below, this one isn't a shift between two halves of completed history — it's the Case's live state — and its sentence is framed as an open question ("still happening, or has it wound down?", spec §4's "ask rather than silently report"), never a statement that the user did something wrong. A Trends finding, not a notification — it never touches check-ins or `SILENT_FOR` triggers (§11), which stay the only two ways to be alerted about a Case's silence. Always `Hint`.
+- **Went quiet** — the current, still-open silence since the last event is a record for this Case (at least as long as any gap it's ever had), while the user is demonstrably still logging elsewhere (something logged, any Case, within the last week). Unlike every other detector below, this one isn't a shift between two halves of completed history — it's the Case's live state — and its sentence is framed as an open question ("still happening, or has it wound down?", spec §4's "ask rather than silently report"), never a statement that the user did something wrong. A Trends finding, not a notification — it never touches check-ins or `QUIET` watches (§11), which stay the only two ways to be alerted about a Case's silence. Always `Hint`.
 - **Gap shift** — whether the average gap between events has shifted noticeably between the earlier and more recent half of the Case's history (by gap count, not a fixed day window). Always `Hint`: a descriptive dual-threshold check, no significance test behind it.
 - **Streak shift** — as gap shift, over streak-run lengths rather than event-to-event gaps.
 - **Frequency shift** — last 30 days vs the 30 before (needs ≥ 8 weeks of data, otherwise absent). Absent (not shown as "flat") when the two counts are equal — the same "silent when nothing moved" rule as gap/streak shift, rather than reporting a non-finding. Always `Hint`: no significance test, just a direct count comparison.
@@ -222,27 +226,29 @@ Tapping an intensity square, a tag row, or a rhythm cell opens the matching logg
 
 The duration and intensity cards are gated purely on the Case's current `durationMode`/`intensityEnabled` flags — turning either off hides its card but keeps every event's recorded `endedAt`/`intensity` untouched, so turning it back on restores the card with all its history intact. The same `durationMode` gate governs every other duration surface: the Case-detail event row's "lasted …" line (§6) and the Big Picture spans (§9) all treat a `NONE` Case's events as points, reading no stored `endedAt`.
 
-## 11. Triggers, check-ins & notifications
+## 11. Watches, check-ins & notifications
 
-### Triggers (user-configured, about the event)
+### Watches (user-configured, about the event)
 
-- Evaluated (a) immediately on every event insert/edit/delete — a sub-second per-Case debounce collapses a rapid logging burst to one evaluation — and (b) by a WorkManager periodic job (~every 6 h) so `SILENT_FOR` triggers can fire without any logging happening.
-- `AT_LEAST`: fires when the rolling-window count reaches threshold; re-arms when it drops below. Requires a `windowDays` — the kind has no meaning without one, so the create sheet always supplies it.
-- `SILENT_FOR`: fires when the gap since the last event *ended* reaches n days (a duration event's silence starts when it stops; a still-running event counts as no silence at all; a Case that no longer tracks duration counts from `occurredAt`, ignoring any stored `endedAt`, per §9/§10); re-arms on the next event. A Case with no events yet counts from its creation instead, so a never-logged Case still fires.
+- Evaluated (a) immediately on every event insert/edit/delete — a sub-second per-Case debounce collapses a rapid logging burst to one evaluation — and (b) by a WorkManager periodic job (~every 6 h) so `QUIET` watches can fire without any logging happening.
+- Both kinds are edge-triggered: a Watch fires when its condition first becomes true and re-arms once the condition stops being true.
+- `OFTEN`: fires when the observed rate over the lookback, normalised to `expectedPer`, reaches `threshold` ("3+ times per week"). The rate comes from §8's comparison math (span-overlap window filtering, both metrics) after the optional `minIntensity` filter. Firing is not confidence-tier-gated; only the card's comparison line is. Requires a `windowDays`, so the editor always supplies one.
+- `QUIET`: fires when the gap since the last event *ended* reaches n days (a duration event's silence starts when it stops; a still-running event counts as no silence at all; a Case that no longer tracks duration counts from `occurredAt`, ignoring any stored `endedAt`, per §9/§10); re-arms on the next event. A Case with no events yet counts from its creation instead, so a never-logged Case still fires.
 - Notification content is voice-flavoured and factual: icon + count + case name + "tap to see". Information, not advice.
+- The bell tab (§14) shows each Watch as a card in two zones: what it watches for (eyebrow, title, enable switch), then a tinted "Now" zone with the current rate or silence, plus, for `OFTEN` once the lookback clears §8's confidence tiers, a tier badge and comparison line, and a fired line when it has fired. A disabled Watch still shows its Now zone.
 
 ### Check-ins (app-initiated, about the data)
 
 Silence in a Case is ambiguous: did the event stop happening, or did the user stop logging? A check-in resolves that — it's data hygiene, not a nag, and the copy makes the distinction: it asks whether anything went unlogged, never implies the user should "keep it up".
 
 - A check-in fires when a Case has had **zero events for its effective interval** — counting from the latest of: last event's end (its start for a point event or any event on a Case that no longer tracks duration; now if one is still running), last check-in, or case creation. This automatically covers the created-but-never-logged Case ("You opened 🐕 *Dog barking* 14 days ago — nothing logged yet. All quiet, or forgot it exists?").
-- **Timing:** the **app-level default** from Settings (`off / 7 / 14 / 30 days`) — every Case shares it. A Case can opt out entirely (`checkInsEnabled = false`) but has no custom interval of its own — a Case wanting a specific silence threshold gets a `SILENT_FOR` Trigger instead, rather than a second, overlapping way to configure the same idea.
+- **Timing:** the **app-level default** from Settings (`off / 7 / 14 / 30 days`) — every Case shares it. A Case can opt out entirely (`checkInsEnabled = false`) but has no custom interval of its own — a Case wanting a specific silence threshold gets a `QUIET` Watch instead, rather than a second, overlapping way to configure the same idea.
 - Notification actions: **Log** (respects the Case's `logFlow` — one-tap logs directly, detail-sheet opens the sheet) and **All quiet** (re-arms the check-in; no event created).
-- Anti-spam: check-ins are evaluated by the same WorkManager job as triggers. Every HODITH notification — check-ins and fired triggers alike — joins one Android notification group, so the shade bundles them into a single stack under a group summary ("3 cases need a look — tap to review"). Only the summary alerts for a batch (`GROUP_ALERT_SUMMARY`) and it alerts once, so an unanswered check-in re-posted on each ~6h pass updates its "N days quiet" text silently rather than re-alerting. Each due Case keeps its own **Log** / **All quiet** actions in the expanded stack — there's no action-less flattened summary. Re-arming only happens explicitly — via **All quiet**, or a new event moving the anchor forward — never automatically at fire time; and a check-in whose Case has stopped being due has its notification withdrawn on the next pass, so the stack doesn't keep a stale entry.
+- Anti-spam: check-ins are evaluated by the same WorkManager job as watches. Every HODITH notification — check-ins and fired watches alike — joins one Android notification group, so the shade bundles them into a single stack under a group summary ("3 cases need a look — tap to review"). Only the summary alerts for a batch (`GROUP_ALERT_SUMMARY`) and it alerts once, so an unanswered check-in re-posted on each ~6h pass updates its "N days quiet" text silently rather than re-alerting. Each due Case keeps its own **Log** / **All quiet** actions in the expanded stack — there's no action-less flattened summary. Re-arming only happens explicitly — via **All quiet**, or a new event moving the anchor forward — never automatically at fire time; and a check-in whose Case has stopped being due has its notification withdrawn on the next pass, so the stack doesn't keep a stale entry.
 
 ### Permissions
 
-**POST_NOTIFICATIONS** runtime permission is requested when the user creates their first trigger or first enables check-ins — never on first launch. If denied, both triggers and check-ins still evaluate and appear as in-app banners on Home.
+**POST_NOTIFICATIONS** runtime permission is requested when the user creates their first Watch or first enables check-ins — never on first launch. If denied, both watches and check-ins still evaluate and appear as in-app banners on Home.
 
 ## 12. Themes & voices
 
@@ -286,16 +292,15 @@ Bottom navigation: **Home · Big Picture · Settings**.
 
 | Screen | Contents |
 |---|---|
-| **Home** | Case list (drag to reorder): icon, name, description (when set, truncated to two lines), today/this-week count (a duration event counts while its active span is still open into the window, matching the calendar heatmap — §9), quick-log button, ongoing indicator. FAB: new Case. Trigger banners if notifications are denied. Text link to **Archived Cases**, shown only once at least one Case is archived. |
+| **Home** | Case list (drag to reorder): icon, name, description (when set, truncated to two lines), today/this-week count (a duration event counts while its active span is still open into the window, matching the calendar heatmap — §9), quick-log button, ongoing indicator. FAB: new Case. Watch banners if notifications are denied. Text link to **Archived Cases**, shown only once at least one Case is archived. |
 | **Big Picture** | §9 flagship view. |
-| **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10). Header: icon, name, share action (§13, opens the Insight/Log chooser), config access. Description shown below the header, above the tabs, when the Case has one set. |
-| **New/edit Case** | Name (required, capped at 60 characters, must be unique among active Cases case-insensitively), optional description (capped at 90 characters), collapsible icon picker (expanded by default for a new Case, collapsed with an icon summary when editing), logFlow, durationMode, intensity toggle, check-in toggle (on/off). Logging, Duration, and Check-in each carry a tappable info icon opening a plain explanatory dialog. The Logging control's "One tap" option is disabled whenever durationMode is Manual and/or intensity tracking is on (one-tap can't capture a typed duration or intensity rating; Start/stop is unaffected) — an existing Case's logFlow silently corrects to Detail sheet the moment its duration/intensity settings make One tap invalid, whether that happens while editing or because a previously-valid stored value became invalid. Changing durationMode while the Case has open-ended events raises a confirm dialog in either direction — leaving Start/stop stops running events now, entering it collapses open-ended events to instant events (§6 transition contract); cancelling either dialog leaves the mode unchanged. Header also carries an **Archive** action on an existing Case (confirm dialog noting the Case stays intact and pointing to Archived Cases for permanent delete; not shown when creating a new Case) — navigates to Home on confirm. |
-| **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/triggers). Top bar: **Clear archive** (shown only when the list is non-empty; confirm dialog naming the archived-Case count; permanent, cascades the same as per-row delete). Reached via Home's archived-cases link. |
+| **Case detail** | Tabs: **Log** (event list, retro-log, edit/delete), **Insights** (visuals §9 + stats §10), and an icon-only **bell** tab (content description "Rules" / "Alarms" / "Alerts!" per voice) holding the Case's Watches (§11): a check-ins row on top (info icon, switch bound to `checkInsEnabled`), then the Watch cards, an add FAB and an empty state. Tapping a card opens the editor sheet (create and edit, with delete behind a confirm dialog). The editor: kind (happens too often / goes quiet); for `OFTEN`, count, per day/week/month/quarter, the measure (occurrence count / days active, duration Cases only), the lookback (two presets that scale with the chosen period, or custom days), and an "intensity at least" toggle that reveals a 1–5 picker only when switched on (intensity Cases only; tapping a level highlights it and every level above it); for `QUIET`, a day count. Header: icon, name, share action (§13, opens the Insight/Log chooser), config access. Description shown below the header, above the tabs, when the Case has one set. |
+| **New/edit Case** | Name (required, capped at 60 characters, must be unique among active Cases case-insensitively), optional description (capped at 90 characters), collapsible icon picker (expanded by default for a new Case, collapsed with an icon summary when editing), logFlow, durationMode, intensity toggle. Logging and Duration each carry a tappable info icon opening a plain explanatory dialog. The Logging control's "One tap" option is disabled whenever durationMode is Manual and/or intensity tracking is on (one-tap can't capture a typed duration or intensity rating; Start/stop is unaffected) — an existing Case's logFlow silently corrects to Detail sheet the moment its duration/intensity settings make One tap invalid, whether that happens while editing or because a previously-valid stored value became invalid. Changing durationMode while the Case has open-ended events raises a confirm dialog in either direction — leaving Start/stop stops running events now, entering it collapses open-ended events to instant events (§6 transition contract); cancelling either dialog leaves the mode unchanged. Header also carries an **Archive** action on an existing Case (confirm dialog noting the Case stays intact and pointing to Archived Cases for permanent delete; not shown when creating a new Case) — navigates to Home on confirm. |
+| **Archived Cases** | List of archived Cases (icon, name, event count). Per row: **Unarchive** (immediate, reversible) and **Delete forever** (confirm dialog naming the event count; permanent, cascades to events/watches). Top bar: **Clear archive** (shown only when the list is non-empty; confirm dialog naming the archived-Case count; permanent, cascades the same as per-row delete). Reached via Home's archived-cases link. |
 | **Log detail sheet** | §6 — logging a *new* event; reachable from widget (trampoline activity), Home, case detail's Log-tab FAB. |
 | **Edit event** | §6 — full-screen editor for an existing event (`TopAppBar` back arrow + delete action, mirroring New/edit Case). Reached from Case Detail's Log tab by tapping a row. |
 | **Share preview** | §13 — Insight Share: card preview, story/square toggle, editable display name, section toggles, share button (system share sheet). |
 | **Log Share preview** | §13 — sort/date-range/field controls above a capped card preview (deliberately the reverse order of Share preview's own layout, so a long log doesn't crowd the controls off-screen), share button. |
-| **Triggers** | Per Case: list, create, enable/disable, delete (confirm dialog). Reached from Case Detail's header. |
 | **Settings** | Grouped by area, each in its own card: **Support** (About, Rate the app — still a placeholder pending a store listing, Contact us — opens an email compose intent to the developer address); **Appearance** (theme/voice picker with a tappable info icon explaining themes, no live preview; a 12-hour / 24-hour time-format toggle, seeded from the device clock setting until the user picks); **Check-ins** (default interval: off / 7 / 14 / 30 days); **Data** (cloud-backup opt-out toggle with a tappable info icon, default on — export opens a JSON/CSV format-choice dialog, each option with a one-line explainer, filenames timestamped to tell exports apart; import JSON; delete data: a choice between all data or logs before a chosen date, defaulting to today — confirm dialog, permanent); a hidden **Developer Mode** area, unlocked by a tap-pattern gesture on About's version row, currently holding "Load demo data". |
 | **About** | A short "what HODITH is" blurb, Version (a tap-pattern gesture on it unlocks Settings' hidden Developer Mode area), privacy statement — HODITH itself sends nothing anywhere, and explains how Android's own device backup can still carry its data unless opted out via the Data section's toggle — with a link to the full hosted privacy policy, licenses (open-source dependencies and their license). |
 
@@ -342,7 +347,7 @@ The tooling version matrix and gotchas live in DEV_PLAYBOOK §5.
 | Navigation | Navigation Compose |
 | Settings | DataStore Preferences |
 | Serialisation | Moshi (export/import) |
-| Background | WorkManager (trigger & check-in evaluation) |
+| Background | WorkManager (watch & check-in evaluation) |
 | Min SDK | API 31 (Android 12) |
 
 Suggested package: `com.secondmonday.hodith`.

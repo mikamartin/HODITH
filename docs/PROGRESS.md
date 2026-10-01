@@ -6,7 +6,6 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 Items are grouped by how they connect, not by feature area:
 
-- **Story N — Notifications rework** — Hunch removed (done); Triggers reframed as Notifications in a bell tab (N2, remaining).
 - **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
 - **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
@@ -18,56 +17,6 @@ Each item carries:
 - zero or more **tags** — 🎨 *Design decision* (needs a design or product-owner call before implementation) · 🌐 *External action* (work outside this repo) · 🔍 *Investigation* (needs a repro/diagnose pass before the fix is knowable).
 - **Acceptance criteria** — the checklist that says "done".
 - **Plan / Tests / Concern** — detail, unchanged from prior tracking.
-
-## Story N — Notifications rework
-
-Alpha feedback showed Hunch wasn't landing, and it overlapped with `AT_LEAST` Triggers: two similar "N per period" forms, while Triggers sit behind a Case Detail header icon few people find. The call: **remove Hunch entirely and reframe Triggers as Notifications**, shown in a bell-icon tab where the Hunch tab used to be. `chore/remove-hunch` did the first half — Hunch is gone, and the pieces Notifications reuses now live neutrally: `domain/Expectation.kt` (a pure `Expectation(count, per, metric, windowStart)` comparison input), `VerdictEngine.kt`/`Verdict.kt` refactored onto it, `ui/common/FrequencyPickers.kt` (count/period/metric pickers), and `ui/common/ExpectationCards.kt` (neutral tier-badge + headline cards) — none of it wired to a screen yet. Case Detail now has two tabs (Log, Insights); Triggers still live on their own screen.
-
-**Docs sweep** (an acceptance criterion below): grep every `*.md` for `Trigger`/`trigger`/`check-in` and resolve each hit on purpose, leaving unrelated uses alone (Big Picture's `FilterTriggerChip`). CLEANUP_LOG.md's past entries stay as history — this branch adds its own new pass entry after actually walking the checklist.
-
-### N2 · Notifications tab
-
-*Branch: `feat/notifications` · Complexity: L · Priority: Medium · Area: Notifications*
-
-Rename Trigger → Notification everywhere and move it into a bell tab, reusing the pieces `chore/remove-hunch` kept (`Expectation`, `FrequencyPickers.kt`, `ExpectationCards.kt`) — no new visual design; the cards and editor are today's `TriggerListItem`/`TriggerCreationSheet` extended with those pickers and the neutral tier cards.
-
-**Target UX**
-
-- Case Detail tabs: **Log · Insights · 🔔** — icon only, with a Voice content description. The header Triggers action, the Triggers route and `TriggersScreen.kt` go away.
-- Bell tab, top to bottom:
-  1. **Check-ins row** — the same control Case edit has today: `RowWithInfo` (`ui/common/SectionWithInfo.kt`) with the existing check-in label, info dialog and switch bound to `CaseEntity.checkInsEnabled`. Interval is always the Settings default. Removed from `CaseEditScreen.kt`.
-  2. **Notification cards** — title ("3+ times per week" / "Quiet for 14 days"); settings line ("Looking back 30 days · counting times · intensity 3+", measure only on duration Cases, intensity only when set); **Now line** ("Now: 2 per week" / "Now: quiet for 3 days"); for the often kind, a **comparison line** below/about/above the threshold using the existing bands and tier badge, shown only once the lookback clears the existing confidence tiers; last-fired line when set; enable switch (a disabled Notification still shows Now and the comparison); tap to **edit**, with delete (confirm dialog) inside the editor.
-  3. Add FAB and empty state, following `TriggersEmptyState`.
-- **Editor** (create and edit, prefilled when editing) — today's `TriggerCreationSheet` layout:
-  - Kind: `SegmentedChoiceRow` — Happens often / Goes quiet.
-  - Often: count (`NumberStepper`); per day/week/month (`FrequencyPickers.kt`'s period picker); looking back 7 / 30 / 90 / custom days, always rolling; measure times / days active (`FrequencyPickers.kt`'s metric picker, duration Cases only); **intensity at least** off / 1–5 (`SegmentedChoiceRow`, only when the Case has `intensityEnabled` — e.g. "3+ times per week with intensity 3+"; events without an intensity don't count while it's set).
-  - Quiet: days (`NumberStepper`), as today.
-
-**Acceptance criteria**
-
-- [ ] Rename throughout: `NotificationEntity`, `NotificationDao`, table `notifications`, `NotificationKind { OFTEN, QUIET }`, engine, decision type, ViewModel, tests, Voice keys, spec. `android.app.Notification` imported under an alias where a file needs both; `NotificationEvaluator`/`Notifier` keep their names.
-- [ ] New columns `expectedPer`, `metric` (default occurrence count), `minIntensity` (nullable). No hand-written migration: an `AutoMigration` with a `@DeleteTable` spec drops `triggers` and creates `notifications`, so existing test-install triggers are discarded (satisfies `SchemaMigrationCoverageTest`). Test installs are restored from the shared testing backup JSON, adjusted by hand to the new shape on request.
-- [ ] Often condition: observed rate over the lookback, normalised to `per`, ≥ count — through `Expectation`'s comparison math (span-overlap filtering, both metrics) after the intensity filter. Firing is not tier-gated; only the comparison line is. Edge-trigger state machine unchanged. Quiet condition unchanged. `NotificationEvaluator`'s fetch window covers the lookback.
-- [ ] Bell tab, cards, editor and check-in row per Target UX; `CaseDetailScreen.kt` gets new tab state + ViewModel wiring.
-- [ ] Backup `BACKUP_SCHEMA_VERSION` 2 → 3 carrying the new fields and the `notifications` key; a v2 file is rejected through the existing invalid-file path.
-- [ ] Voice ×3: Now, comparison, settings-line and intensity copy; trigger keys renamed. No em dashes, no gamification.
-- [ ] **Demo seed** (`data/demo/DemoDataSeeder.kt` seeds none today): an often Notification per week over 30 days with its comparison line showing, a days-active one on a duration Case, an intensity-filtered one on the migraine seed, a quiet one, one disabled, one Case with none (empty state), one Case with check-ins off. `armed`/`lastFiredAt` consistent with the seeded events so loading demo data doesn't fire a burst.
-- [ ] HODITH_SPEC.md, Notifications half: §2 vocabulary, §5 model, §11, §14 (Case detail tabs, New/edit Case without check-ins, Triggers row removed), §15 if affected.
-- [ ] Docs sweep (above), Notifications half; this story struck from this file in the same commit.
-
-**Plan** — rename + migration first (behaviour-neutral, all green), then the often-condition engine change, then the UI swap, then seed and docs.
-
-**Tests**
-
-- Unit — engine: often condition at/below/above threshold for each `per`; lookback 7/30/90/custom; times vs days active; intensity filter (null excluded, boundary included); span-overlap events; fire / stay quiet / re-arm sequences; quiet condition unchanged (last event end, running event, never-logged Case); `enabled = false` never fires. `TriggerEngineTest` renamed and extended.
-- Unit — card state: Now line for each kind, per and metric; comparison hidden below the tier threshold and shown at each band; settings-line composition.
-- Unit — ViewModel: create, edit, toggle, delete; check-in toggle writes `checkInsEnabled`. `TriggersViewModelTest` renamed and extended.
-- Unit — `NotificationEvaluatorTest`/`NotifierContentTest`: fetch window covers the lookback; copy per kind.
-- Unit — backup v3 round-trip with the new fields; a v2 file rejected.
-- Unit — `DemoDataSeederTest`: each seeded Notification's kind and fields; intensity only on intensity Cases, days active only on duration Cases; the check-ins-off Case; a repeat load adds another full set; nothing left armed with its condition already met.
-- Migration — `MigrationTestHelper`: `triggers` dropped, `notifications` created empty, every other table and its rows intact.
-- Instrumented — new bell-tab screen test: check-in row present and toggling; empty state → create; card fields per kind; Now line; comparison gating; edit prefilled → save; delete confirm; measure picker only on duration Cases, intensity picker only with intensity on; disabled card still shows Now; tab icon content description. `TriggersScreenTest` deleted with its coverage carried over; `TriggerDaoTest` renamed; `CaseEditScreenTest` without the check-in toggle; `CaseDetailScreenTest` with the bell tab and no header Triggers action. All through `HodithComposeContent`, across themes and voices.
-- `VoiceTest` covers every new key ×3.
 
 ## Story B — copy & Voice
 
@@ -118,7 +67,7 @@ The plain Reality beat (event count + days observed) is now the card's only top 
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item (currently B1, B2, and Story N).
+🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item (currently B1 and B2).
 
 Fold these already-drafted key changes into the audit:
 
@@ -128,13 +77,13 @@ Fold these already-drafted key changes into the audit:
 
 **Acceptance criteria**
 
-- [ ] A written rubric: per-voice person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Notification/Check-in vocabulary, and an em-dash policy with per-string calls for Goth/Quirky mid-sentence pivots.
+- [ ] A written rubric: per-voice person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Watch/Check-in vocabulary, and an em-dash policy with per-string calls for Goth/Quirky mid-sentence pivots.
 - [ ] A findings list produced first; fixes in a separate second commit.
 - [ ] Audit done in slices by screen, not by reading `Voice.kt` linearly.
 - [ ] New mechanical `VoiceTest` invariants: vocabulary casing, no gamification vocabulary (streak/score/keep it up/missed — spec §4), length caps on tab/button labels, no double spaces or trailing whitespace.
 - [ ] Confirmed before starting: `androidTest` references `PlainVoice` by constant, not literal, everywhere (grep for hardcoded UI literals).
 
-**Plan** — write the rubric first (person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Notification/Check-in vocabulary), then audit in slices by screen — not top to bottom, since `Voice.kt` is grouped by key. Produce a findings list first; fix in a second commit. Re-tally the per-voice/shared key split and the em-dash count before starting — `chore/remove-hunch` retired dozens of keys and touched dashes in the ones it rewrote, so the prior counts no longer hold.
+**Plan** — write the rubric first (person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Watch/Check-in vocabulary), then audit in slices by screen — not top to bottom, since `Voice.kt` is grouped by key. Produce a findings list first; fix in a second commit. Re-tally the per-voice/shared key split and the em-dash count before starting — `chore/remove-hunch` retired dozens of keys and touched dashes in the ones it rewrote, so the prior counts no longer hold.
 
 **Tests** — `VoiceTest` already checks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. Add mechanical invariants during the audit: vocabulary casing, no gamification vocabulary (spec §4), length caps on tab/button labels, no double spaces or trailing whitespace. Confirm `androidTest` references `PlainVoice` by constant everywhere, not literal, before starting.
 
@@ -237,7 +186,7 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 🔍 **Investigation**
 
-Raises the same question **D1** is deferred pending — app capacity for years of records — but broader than D1's Big Picture-specific scope. `EventDao.observeEventsWithTagsForCase` (unbounded) backs every Insights stats computation (and, after N2, every Notification's Now line) (rhythm, frequency-over-time, trend, duration averages) with no row-count limit; only the Log tab got paged querying (`feat/log-tab-paged-query`). May itself be D1's "real alpha usage" trigger — resolve together with D1 rather than as a separate track.
+Raises the same question **D1** is deferred pending — app capacity for years of records — but broader than D1's Big Picture-specific scope. `EventDao.observeEventsWithTagsForCase` (unbounded) backs every Insights stats computation (and every Watch's Now line) (rhythm, frequency-over-time, trend, duration averages) with no row-count limit; only the Log tab got paged querying (`feat/log-tab-paged-query`). May itself be D1's "real alpha usage" trigger — resolve together with D1 rather than as a separate track.
 
 **Acceptance criteria**
 
@@ -273,21 +222,21 @@ Originally scoped three sub-features: autocorrelation for weekly/~28-day cycles,
 
 **Tests** — none until picked back up.
 
-### D5 · Notification threshold suggestions
+### D5 · Watch threshold suggestions
 
-*Branch: none yet — deferred, needs N2 · Complexity: M · Priority: Low · Area: Notifications*
+*Branch: none yet — deferred, needs alpha usage · Complexity: M · Priority: Low · Area: Notifications*
 
 🎨 **Design decision**
 
-Carried over from the retired Hunch/Trigger feasibility item, re-scoped to Notifications. When creating or editing a quiet Notification, suggest a threshold from the Case's 90th-percentile historical gap — `InsightsEngine.computeGapStats` builds the gap list; this adds a percentile helper over it (none exists today). For either kind, show "would have fired N times in the last year" by replaying the (pure, `now`-parameterised) Notification conditions over the past year's events — a historical loop, no new evaluation logic.
+Carried over from the retired Hunch/Trigger feasibility item, re-scoped to Watches. When creating or editing a quiet Watch, suggest a threshold from the Case's 90th-percentile historical gap — `InsightsEngine.computeGapStats` builds the gap list; this adds a percentile helper over it (none exists today). For either kind, show "would have fired N times in the last year" by replaying the (pure, `now`-parameterised) Watch conditions over the past year's events — a historical loop, no new evaluation logic.
 
-**Deferred rather than pursued next** — the editor's shape settles in N2 first, and real use of the bell tab should show whether people struggle to pick thresholds at all.
+**Deferred rather than pursued next** — the editor's shape has settled, so this is deferred purely pending real alpha use showing whether people struggle to pick thresholds at all.
 
 **Acceptance criteria**
 
-- [ ] Revisit once N2 has shipped and alpha testers have used it.
+- [ ] Revisit once alpha testers have used the Watches tab.
 - [ ] A percentile helper over the gap list, with its own unit tests.
-- [ ] The replay loop reuses the Notification conditions as-is and is unit-tested against a planted event history.
+- [ ] The replay loop reuses the Watch conditions as-is and is unit-tested against a planted event history.
 - [ ] Voice ×3 for the suggestion copy, observational only (no "you should").
 
 **Plan** — none yet.
