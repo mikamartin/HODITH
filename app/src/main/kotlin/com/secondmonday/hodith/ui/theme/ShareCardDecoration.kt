@@ -4,8 +4,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.secondmonday.hodith.data.AppTheme
 
 /**
- * Which structural treatment the share card's chrome uses (spec §13 skin, validated in
- * `docs/mockups/share-cards-prototype.html`) — Plain's top border/divider, Intense's bordered
+ * Which structural treatment the share card's chrome uses (spec §13 skin) — Plain's top border/divider, Intense's bordered
  * "Case File" stamp, Bright's banner header and sticker. Picked centrally here, like
  * [hodithColorScheme]/[hodithTypography]/[hodithShapes] and [bigPictureCellStyle], so
  * `ShareCardTemplate.kt` dispatches on this rather than branching on [AppTheme] itself.

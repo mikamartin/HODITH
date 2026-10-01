@@ -69,7 +69,7 @@ class ShareViewModelTest {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals("Coffee", state.case?.name)
                 assertEquals(1, state.events.size)
-                assertEquals(ShareCardFormat.STORY, state.selection.format)
+                assertEquals(ShareCardFormat.SQUARE, state.selection.format)
                 assertNull(state.selection.displayNameOverride)
                 assertEquals(ShareInsightsSection.entries.toSet(), state.selection.selectedSections)
                 cancelAndIgnoreRemainingEvents()
@@ -84,8 +84,8 @@ class ShareViewModelTest {
 
             vm.uiState.test {
                 awaitLoadedItem { it.isLoading }
-                vm.setFormat(ShareCardFormat.SQUARE)
-                assertEquals(ShareCardFormat.SQUARE, awaitItem().selection.format)
+                vm.setFormat(ShareCardFormat.STORY)
+                assertEquals(ShareCardFormat.STORY, awaitItem().selection.format)
                 cancelAndIgnoreRemainingEvents()
             }
         }

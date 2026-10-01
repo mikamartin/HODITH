@@ -59,6 +59,17 @@ class EventTimeFormatTest {
     }
 
     @Test
+    fun `formatCardTimestamp is the dated year plus the time of day, in both clock formats and the given zone`() {
+        val utc = ZoneId.of("UTC")
+        val millis = ZonedDateTime.of(2026, 10, 1, 14, 32, 0, 0, utc).toInstant().toEpochMilli()
+
+        val twelve = formatCardTimestamp(millis, use24Hour = false, zone = utc)
+        assertTrue("expected the date and year in \"$twelve\"", twelve.startsWith("Oct 1, 2026, 2:32"))
+        assertTrue(twelve.contains("PM"))
+        assertEquals("Oct 1, 2026, 14:32", formatCardTimestamp(millis, use24Hour = true, zone = utc))
+    }
+
+    @Test
     fun `formatWeekdayDayDate is weekday and day-of-month`() {
         assertEquals("Thu 9", formatWeekdayDayDate(LocalDate.of(2026, 7, 9)))
     }

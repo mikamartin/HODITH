@@ -116,7 +116,7 @@ fun SharePreviewScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(voice.shareOpenDescription) },
+                title = { Text(voice.shareInsightScreenTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)
@@ -165,8 +165,8 @@ fun SharePreviewScreen(
             SegmentedChoiceRow(
                 options =
                     listOf(
-                        ShareCardFormat.STORY to voice.shareFormatStoryLabel,
                         ShareCardFormat.SQUARE to voice.shareFormatSquareLabel,
+                        ShareCardFormat.STORY to voice.shareFormatStoryLabel,
                     ),
                 selected = selection.format,
                 onSelect = onFormatSelect,
@@ -180,14 +180,17 @@ fun SharePreviewScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            SectionsPicker(
-                case = case,
-                frequencyAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.frequency != null,
-                trendsAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.trends?.isNotEmpty() == true,
-                selectedSections = selection.selectedSections,
-                voice = voice,
-                onSectionToggle = onSectionToggle,
-            )
+            // Square is a fixed preset built from the Case's own settings; only Story is customizable.
+            if (selection.format == ShareCardFormat.STORY) {
+                SectionsPicker(
+                    case = case,
+                    frequencyAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.frequency != null,
+                    trendsAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.trends?.isNotEmpty() == true,
+                    selectedSections = selection.selectedSections,
+                    voice = voice,
+                    onSectionToggle = onSectionToggle,
+                )
+            }
 
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 ShareCardTemplate(

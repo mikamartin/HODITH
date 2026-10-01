@@ -74,7 +74,7 @@ class ShareCardStateTest {
     // ---- top beat selection ----
 
     @Test
-    fun `Reality is the top beat regardless of format`() {
+    fun `Story keeps Reality as its top beat and Square leads with the Summary beat`() {
         for (format in ShareCardFormat.entries) {
             val data =
                 shareCardState(
@@ -88,7 +88,10 @@ class ShareCardStateTest {
                     generatedAtMillis = millisAtDay(NOW),
                 )
 
-            assertTrue(data.topBeat is ShareTopBeat.Reality)
+            when (format) {
+                ShareCardFormat.STORY -> assertTrue(data.topBeat is ShareTopBeat.Reality)
+                ShareCardFormat.SQUARE -> assertTrue(data.topBeat is ShareTopBeat.Summary)
+            }
         }
     }
 
@@ -101,7 +104,7 @@ class ShareCardStateTest {
                 insightsState = InsightsTabState.NothingLogged,
                 eventCount = 1,
                 observedDays = 3,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = ALL_SECTIONS,
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -109,6 +112,38 @@ class ShareCardStateTest {
         val reality = data.topBeat as ShareTopBeat.Reality
         assertEquals(1, reality.eventCount)
         assertEquals(3L, reality.observedDays)
+    }
+
+    @Test
+    fun `Summary reports the passed-in eventCount and observedDays and carries no rate when nothing is logged`() {
+        val data =
+            shareCardState(
+                case = testCase(),
+                displayName = testCase().name,
+                insightsState = InsightsTabState.NothingLogged,
+                eventCount = 0,
+                observedDays = 3,
+                format = ShareCardFormat.SQUARE,
+                selectedSections = ALL_SECTIONS,
+                generatedAtMillis = millisAtDay(NOW),
+            )
+
+        val summary = data.topBeat as ShareTopBeat.Summary
+        assertEquals(0, summary.eventCount)
+        assertEquals(3L, summary.observedDays)
+        assertNull(summary.rate)
+    }
+
+    @Test
+    fun `Summary carries the hero rate the Insights stats computed`() {
+        val case = testCase()
+        val insightsState = readyInsightsState(case)
+
+        val data = squareState(case, insightsState)
+
+        val summary = data.topBeat as ShareTopBeat.Summary
+        assertEquals((insightsState as InsightsTabState.Ready).stats.heroRate, summary.rate)
+        assertTrue(summary.rate != null)
     }
 
     @Test
@@ -141,7 +176,7 @@ class ShareCardStateTest {
                 insightsState = InsightsTabState.NothingLogged,
                 eventCount = 0,
                 observedDays = 1,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = ALL_SECTIONS,
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -179,7 +214,7 @@ class ShareCardStateTest {
                 insightsState = insightsTabState(case, oneEvent, now = millisAtDay(NOW)),
                 eventCount = 1,
                 observedDays = 60,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = ALL_SECTIONS,
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -200,7 +235,7 @@ class ShareCardStateTest {
                 insightsState = readyInsightsState(case),
                 eventCount = 12,
                 observedDays = 60,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = setOf(ShareInsightsSection.RHYTHM, ShareInsightsSection.TRENDS),
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -223,7 +258,7 @@ class ShareCardStateTest {
                 insightsState = readyInsightsState(case),
                 eventCount = 12,
                 observedDays = 60,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = setOf(ShareInsightsSection.RHYTHM),
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -277,7 +312,7 @@ class ShareCardStateTest {
                 insightsState = insightsState,
                 eventCount = 20,
                 observedDays = 60,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = setOf(ShareInsightsSection.TRENDS),
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -307,7 +342,7 @@ class ShareCardStateTest {
                 insightsState = insightsState,
                 eventCount = 20,
                 observedDays = 60,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = setOf(ShareInsightsSection.TRENDS),
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -325,7 +360,7 @@ class ShareCardStateTest {
                 insightsState = readyInsightsState(case),
                 eventCount = 12,
                 observedDays = 60,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = emptySet(),
                 generatedAtMillis = millisAtDay(123),
             )
@@ -343,7 +378,7 @@ class ShareCardStateTest {
                 insightsState = readyInsightsState(case),
                 eventCount = 12,
                 observedDays = 60,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = ALL_SECTIONS,
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -362,7 +397,7 @@ class ShareCardStateTest {
                 insightsState = readyInsightsState(case),
                 eventCount = 12,
                 observedDays = 60,
-                format = ShareCardFormat.SQUARE,
+                format = ShareCardFormat.STORY,
                 selectedSections = ALL_SECTIONS,
                 generatedAtMillis = millisAtDay(NOW),
             )
@@ -370,6 +405,188 @@ class ShareCardStateTest {
         // durationMode = MANUAL but no MANUAL-duration data was logged on these events, so
         // computeDurationStats legitimately returns null here -- only intensity is asserted non-null.
         assertTrue(data.intensity != null)
+    }
+
+    // ---- Square preset (never driven by selectedSections) ----
+
+    private fun squareState(
+        case: CaseEntity,
+        insightsState: InsightsTabState,
+        selectedSections: Set<ShareInsightsSection> = ALL_SECTIONS,
+        eventCount: Int = 12,
+    ) = shareCardState(
+        case = case,
+        displayName = case.name,
+        insightsState = insightsState,
+        eventCount = eventCount,
+        observedDays = 60,
+        format = ShareCardFormat.SQUARE,
+        selectedSections = selectedSections,
+        generatedAtMillis = millisAtDay(NOW),
+    )
+
+    /** 12 events 5 days apart, each a 30-minute event with intensity 3, so every Case config has data to show. */
+    private fun durationEventsWithTags(): List<EventWithTags> =
+        readyEventsWithTags().map {
+            it.copy(event = it.event.copy(endedAt = it.event.occurredAt + 30 * 60_000L))
+        }
+
+    private fun durationInsightsState(case: CaseEntity): InsightsTabState =
+        insightsTabState(case, durationEventsWithTags(), now = millisAtDay(NOW))
+
+    @Test
+    fun `Square ignores the selected sections entirely`() {
+        val case = testCase()
+        val insightsState = readyInsightsState(case)
+
+        val none = squareState(case, insightsState, selectedSections = emptySet())
+        val all = squareState(case, insightsState, selectedSections = ALL_SECTIONS)
+
+        assertEquals(all, none)
+    }
+
+    @Test
+    fun `Square never carries Frequency or Trends`() {
+        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+
+        val data = squareState(case, durationInsightsState(case))
+
+        assertNull(data.frequency)
+        assertEquals(emptyList<Any>(), data.trends)
+    }
+
+    @Test
+    fun `Square for a Case tracking neither shows Gaps and Rhythm only`() {
+        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
+
+        val data = squareState(case, readyInsightsState(case))
+
+        assertTrue(data.gaps != null)
+        assertTrue(data.rhythm != null)
+        assertNull(data.duration)
+        assertNull(data.intensity)
+    }
+
+    @Test
+    fun `Square for a Case tracking intensity shows Intensity and no Rhythm`() {
+        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = true)
+
+        val data = squareState(case, readyInsightsState(case))
+
+        assertTrue(data.gaps != null)
+        assertTrue(data.intensity != null)
+        assertNull(data.duration)
+        assertNull(data.rhythm)
+    }
+
+    @Test
+    fun `Square for a Case tracking duration shows Duration and no Rhythm`() {
+        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = false)
+
+        val data = squareState(case, durationInsightsState(case))
+
+        assertTrue(data.gaps != null)
+        assertEquals(30L, data.duration!!.shortestMinutes)
+        assertEquals(30L, data.duration.longestMinutes)
+        assertNull(data.intensity)
+        assertNull(data.rhythm)
+    }
+
+    @Test
+    fun `Square for a Case tracking both shows Duration and Intensity and no Rhythm`() {
+        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+
+        val data = squareState(case, durationInsightsState(case))
+
+        assertTrue(data.gaps != null)
+        assertTrue(data.duration != null)
+        assertTrue(data.intensity != null)
+        assertNull(data.rhythm)
+    }
+
+    @Test
+    fun `Square for a duration Case with no finished event yet drops the Duration panel without swapping in Rhythm`() {
+        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = false)
+
+        val data = squareState(case, readyInsightsState(case))
+
+        assertNull(data.duration)
+        assertNull(data.rhythm)
+    }
+
+    @Test
+    fun `Square Gaps carry the shortest gap once a second event exists`() {
+        val case = testCase()
+
+        val data = squareState(case, readyInsightsState(case))
+
+        assertEquals(5L, data.gaps!!.shortestGapDays)
+    }
+
+    @Test
+    fun `Square with nothing logged leaves every panel empty`() {
+        val case = testCase()
+
+        val data = squareState(case, InsightsTabState.NothingLogged, eventCount = 0)
+
+        assertNull(data.gaps)
+        assertNull(data.rhythm)
+        assertNull(data.duration)
+        assertNull(data.intensity)
+        assertNull(data.quietForDays)
+    }
+
+    @Test
+    fun `Square quietForDays is the went-quiet finding's current gap`() {
+        val case = testCase()
+        val wentQuiet =
+            TrendFinding(
+                kind = TrendFindingKind.WENT_QUIET,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.HINT,
+                sampleCount = 6,
+                priorValue = 9.0,
+                recentValue = 14.0,
+            )
+        val insightsState =
+            InsightsTabState.Ready(
+                heatmapMonths = emptyList(),
+                stats = statsWithTrends(listOf(wentQuiet, ordinaryFinding(sampleCount = 6))),
+            )
+
+        val data = squareState(case, insightsState)
+
+        assertEquals(14L, data.quietForDays)
+    }
+
+    @Test
+    fun `Square quietForDays is null when no went-quiet finding exists, even with other findings`() {
+        val case = testCase()
+        val insightsState =
+            InsightsTabState.Ready(heatmapMonths = emptyList(), stats = statsWithTrends(listOf(ordinaryFinding(sampleCount = 6))))
+
+        val data = squareState(case, insightsState)
+
+        assertNull(data.quietForDays)
+    }
+
+    @Test
+    fun `Story never carries quietForDays`() {
+        val case = testCase()
+
+        val data =
+            shareCardState(
+                case = case,
+                displayName = case.name,
+                insightsState = readyInsightsState(case),
+                eventCount = 12,
+                observedDays = 60,
+                format = ShareCardFormat.STORY,
+                selectedSections = ALL_SECTIONS,
+                generatedAtMillis = millisAtDay(NOW),
+            )
+
+        assertNull(data.quietForDays)
     }
 
     // ---- logShareCardState ----
