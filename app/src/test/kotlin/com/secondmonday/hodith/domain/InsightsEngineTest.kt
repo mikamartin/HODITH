@@ -6,6 +6,7 @@ import com.secondmonday.hodith.testsupport.eventAtDay
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
@@ -66,6 +67,28 @@ class InsightsEngineTest {
         val result = computeGapStats(events, now = millisAtDay(20))
 
         assertEquals(4.0, result.averageGapDays, 0.0001)
+    }
+
+    @Test
+    fun `computeGapStats reports the shortest past gap, excluding the current in-progress one`() {
+        // Past gaps: 2, 4, 6 days; the current gap (day 12 to now, day 13) is 1 day and must not count.
+        val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(6), eventAtDay(12))
+
+        val result = computeGapStats(events, now = millisAtDay(13))
+
+        assertEquals(2L, result.shortestGapDays)
+    }
+
+    @Test
+    fun `computeGapStats reports a zero shortest gap for two events on the same day`() {
+        val result = computeGapStats(listOf(eventAtDay(3), eventAtDay(3)), now = millisAtDay(5))
+
+        assertEquals(0L, result.shortestGapDays)
+    }
+
+    @Test
+    fun `computeGapStats has no shortest gap with fewer than two events`() {
+        assertNull(computeGapStats(listOf(eventAtDay(0)), now = millisAtDay(5)).shortestGapDays)
     }
 
     @Test

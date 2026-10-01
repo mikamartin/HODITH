@@ -182,7 +182,7 @@ class InsightsTabTrendsCardTest {
                     TagOutcome.INTENSITY,
                     ShiftDirection.UP,
                     relativeDifferenceLabel = "50%",
-                    withoutTagLabel = "3.0",
+                    withoutTagLabel = "3",
                     withTagLabel = "4.5",
                 ),
             ).assertExists()
@@ -260,7 +260,7 @@ class InsightsTabTrendsCardTest {
 
         composeTestRule
             .onNodeWithText(
-                PlainVoice.insightsTrendSlopeSentence(TagOutcome.INTENSITY, ShiftDirection.UP, priorLabel = "2.0", recentLabel = "4.5"),
+                PlainVoice.insightsTrendSlopeSentence(TagOutcome.INTENSITY, ShiftDirection.UP, priorLabel = "2", recentLabel = "4.5"),
             ).assertExists()
     }
 
@@ -302,7 +302,7 @@ class InsightsTabTrendsCardTest {
 
         composeTestRule
             .onNodeWithText(
-                PlainVoice.insightsTimeOfDaySplitSentence(TagOutcome.INTENSITY, ShiftDirection.UP, dayLabel = "2.0", eveningLabel = "4.0"),
+                PlainVoice.insightsTimeOfDaySplitSentence(TagOutcome.INTENSITY, ShiftDirection.UP, dayLabel = "2", eveningLabel = "4"),
             ).assertExists()
     }
 

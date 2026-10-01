@@ -189,6 +189,7 @@ internal fun computeDurationStats(events: List<EventEntity>): DurationStats? {
     val totalMillis = durationsMillis.sum()
     return DurationStats(
         averageMinutes = (totalMillis.toDouble() / durationsMillis.size) / MILLIS_PER_MINUTE,
+        shortestMinutes = durationsMillis.min() / MILLIS_PER_MINUTE,
         longestMinutes = durationsMillis.max() / MILLIS_PER_MINUTE,
         totalMinutes = totalMillis / MILLIS_PER_MINUTE,
     )

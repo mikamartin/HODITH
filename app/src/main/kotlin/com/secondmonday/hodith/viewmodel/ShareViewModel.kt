@@ -25,7 +25,7 @@ import javax.inject.Inject
 
 /** The share screen's user-editable choices — everything [shareCardState] needs beyond the Case's own data. */
 data class ShareSelection(
-    val format: ShareCardFormat = ShareCardFormat.STORY,
+    val format: ShareCardFormat = ShareCardFormat.SQUARE,
     val displayNameOverride: String? = null,
     val selectedSections: Set<ShareInsightsSection> = ShareInsightsSection.entries.toSet(),
 )

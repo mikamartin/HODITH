@@ -261,6 +261,7 @@ class StatsEngineTest {
         val result = computeDurationStats(events)!!
 
         assertEquals(20.0, result.averageMinutes, 0.0001)
+        assertEquals(10L, result.shortestMinutes)
         assertEquals(30L, result.longestMinutes)
         assertEquals(40L, result.totalMinutes)
     }
@@ -278,6 +279,7 @@ class StatsEngineTest {
         val result = computeDurationStats(events)!!
 
         assertEquals(15.0, result.averageMinutes, 0.0001)
+        assertEquals(15L, result.shortestMinutes)
         assertEquals(15L, result.longestMinutes)
         assertEquals(15L, result.totalMinutes)
     }

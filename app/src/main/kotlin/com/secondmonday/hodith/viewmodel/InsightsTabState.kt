@@ -8,6 +8,7 @@ import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.GapStats
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.HeroRate
 import com.secondmonday.hodith.domain.INSIGHTS_MIN_EVENTS
 import com.secondmonday.hodith.domain.QUIET_SIGNAL_RECENT_ACTIVITY_WINDOW_DAYS
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
@@ -19,6 +20,7 @@ import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.computeDurationStats
 import com.secondmonday.hodith.domain.computeFrequencyStats
 import com.secondmonday.hodith.domain.computeGapStats
+import com.secondmonday.hodith.domain.computeHeroRate
 import com.secondmonday.hodith.domain.computeIntensityStats
 import com.secondmonday.hodith.domain.computeRhythmStats
 import com.secondmonday.hodith.domain.computeStreakStats
@@ -78,6 +80,8 @@ data class StatsSections(
     val tags: List<TagBreakdownEntry>,
     val totalEventCount: Int,
     val trends: List<TrendFinding>,
+    /** `null` until the Case has enough events and days to state a rate; only the Square share card shows it. */
+    val heroRate: HeroRate? = null,
 )
 
 /** One bar of the frequency-over-time chart. [heightFraction] is relative to the busiest bucket shown. */
@@ -122,12 +126,15 @@ data class GapsDisplay(
     val isBursty: Boolean,
     val longestStreakDays: Int,
     val averageStreakDays: Double,
+    /** `null` until a second event exists; only the Square share card shows it. */
+    val shortestGapDays: Long? = null,
 )
 
 data class DurationDisplay(
     val averageMinutes: Double,
     val longestMinutes: Long,
     val totalMinutes: Long,
+    val shortestMinutes: Long,
 )
 
 /** [maxCount] is the busiest single intensity bucket, for normalizing the distribution's mini-bars. */
@@ -271,6 +278,7 @@ private fun statsSections(
             isBursty = gapStats.isBursty,
             longestStreakDays = streakStats.longestStreakDays,
             averageStreakDays = streakStats.averageStreakDays,
+            shortestGapDays = gapStats.shortestGapDays,
         )
 
     // Feeds `trends`' FREQUENCY_SHIFT finding below.
@@ -278,7 +286,7 @@ private fun statsSections(
 
     val duration =
         if (case.durationMode.tracksDuration) {
-            computeDurationStats(events)?.let { DurationDisplay(it.averageMinutes, it.longestMinutes, it.totalMinutes) }
+            computeDurationStats(events)?.let { DurationDisplay(it.averageMinutes, it.longestMinutes, it.totalMinutes, it.shortestMinutes) }
         } else {
             null
         }
@@ -300,6 +308,7 @@ private fun statsSections(
         intensity = intensity,
         tags = computeTagBreakdown(eventsWithTags),
         totalEventCount = events.size,
+        heroRate = computeHeroRate(events.size, spanDays, trendStatsResult),
         trends =
             computeTrendFindings(
                 gapStats,

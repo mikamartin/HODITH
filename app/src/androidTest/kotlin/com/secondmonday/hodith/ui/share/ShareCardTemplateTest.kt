@@ -3,14 +3,20 @@ package com.secondmonday.hodith.ui.share
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.unit.Density
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.HeroRate
+import com.secondmonday.hodith.domain.HeroRateComparison
+import com.secondmonday.hodith.domain.RateUnit
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
@@ -20,17 +26,26 @@ import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.casedetail.formatDays
+import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
+import com.secondmonday.hodith.ui.theme.ShareCardSkin
+import com.secondmonday.hodith.ui.voice.BrightVoice
+import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import com.secondmonday.hodith.ui.voice.Voice
+import com.secondmonday.hodith.viewmodel.DurationDisplay
 import com.secondmonday.hodith.viewmodel.FrequencyBar
 import com.secondmonday.hodith.viewmodel.FrequencyDisplay
+import com.secondmonday.hodith.viewmodel.GapsDisplay
+import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.LogCardRow
 import com.secondmonday.hodith.viewmodel.RhythmCellDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
-import com.secondmonday.hodith.viewmodel.formatEventDate
+import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -45,6 +60,9 @@ private const val BOUNDS_TOLERANCE_DP = 1f
 /** Arbitrary fixed instant — only needs to be self-consistent between what a fixture is built with and what a test formats to compare against, not any particular real date. */
 private const val FIXTURE_GENERATED_AT_MILLIS = 0L
 
+/** What the footer renders for [FIXTURE_GENERATED_AT_MILLIS] under the default 12-hour clock. */
+private val FIXTURE_FOOTER_TIMESTAMP = formatCardTimestamp(FIXTURE_GENERATED_AT_MILLIS, TimeFormat.TWELVE_HOUR.is24Hour)
+
 private val FREQUENCY_SHIFT_FINDING =
     TrendFinding(
         kind = TrendFindingKind.FREQUENCY_SHIFT,
@@ -54,6 +72,30 @@ private val FREQUENCY_SHIFT_FINDING =
         priorValue = 5.0,
         recentValue = 8.0,
     )
+
+private val SAMPLE_RATE =
+    HeroRate(
+        value = 2.1,
+        unit = RateUnit.WEEK,
+        belowOnePerMonth = false,
+        comparison = HeroRateComparison(direction = TrendDirection.UP, priorValue = 1.4),
+    )
+
+private val SAMPLE_GAPS =
+    GapsDisplay(
+        longestGapDays = 9,
+        currentGapDays = 2,
+        averageGapDays = 3.1,
+        isBursty = false,
+        longestStreakDays = 0,
+        averageStreakDays = 0.0,
+        shortestGapDays = 1,
+    )
+
+private val SAMPLE_DURATION = DurationDisplay(averageMinutes = 130.0, longestMinutes = 400, totalMinutes = 4030, shortestMinutes = 25)
+
+private val SAMPLE_INTENSITY =
+    IntensityDisplay(averageIntensity = 3.4, distribution = mapOf(1 to 2, 2 to 6, 3 to 11, 4 to 9, 5 to 3), maxCount = 11)
 
 /** Regression coverage for spec §13's sizing rules (Square keeps its 1:1 floor, Story sizes freely) and the overflow-clip bug they replaced. */
 @UiTest
@@ -103,12 +145,46 @@ class ShareCardTemplateTest {
             generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
         )
 
+    /** The Square preset's data shape: a Summary beat, no Frequency/Trends, and whichever panels the Case's settings called for. */
+    private fun squareData(
+        rate: HeroRate? = null,
+        eventCount: Int = 14,
+        gaps: GapsDisplay? = null,
+        duration: DurationDisplay? = null,
+        intensity: IntensityDisplay? = null,
+        rhythm: RhythmDisplay? = null,
+        quietForDays: Long? = null,
+    ) = ShareCardData.Insights(
+        format = ShareCardFormat.SQUARE,
+        caseIcon = "🤕",
+        caseName = "Headaches",
+        topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = 60, rate = rate),
+        frequency = null,
+        rhythm = rhythm,
+        gaps = gaps,
+        trends = emptyList(),
+        duration = duration,
+        intensity = intensity,
+        quietForDays = quietForDays,
+        generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
+    )
+
+    /** Every Square panel at once, so its no-clip behavior is exercised at the tallest the preset gets. */
+    private fun richSquareData() =
+        squareData(
+            rate = SAMPLE_RATE,
+            gaps = SAMPLE_GAPS,
+            duration = SAMPLE_DURATION,
+            intensity = SAMPLE_INTENSITY,
+            quietForDays = 14,
+        )
+
     @Test
     fun squareHitsItsSquareFloorForSparseContent() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 ShareCardTemplate(
-                    data = realityData(ShareCardFormat.SQUARE),
+                    data = squareData(),
                     voice = PlainVoice,
                     modifier = Modifier.testTag(SQUARE_TAG),
                 )
@@ -131,12 +207,12 @@ class ShareCardTemplateTest {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 Column {
                     ShareCardTemplate(
-                        data = realityData(ShareCardFormat.SQUARE),
+                        data = squareData(),
                         voice = PlainVoice,
                         modifier = Modifier.testTag(SQUARE_TAG),
                     )
                     ShareCardTemplate(
-                        data = richData(ShareCardFormat.SQUARE),
+                        data = richSquareData(),
                         voice = PlainVoice,
                         modifier = Modifier.testTag(RICH_SQUARE_TAG),
                     )
@@ -164,7 +240,7 @@ class ShareCardTemplateTest {
                         modifier = Modifier.testTag(STORY_TAG),
                     )
                     ShareCardTemplate(
-                        data = realityData(ShareCardFormat.SQUARE),
+                        data = squareData(),
                         voice = PlainVoice,
                         modifier = Modifier.testTag(SQUARE_TAG),
                     )
@@ -188,12 +264,12 @@ class ShareCardTemplateTest {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 Column {
                     ShareCardTemplate(
-                        data = realityData(ShareCardFormat.SQUARE),
+                        data = squareData(),
                         voice = PlainVoice,
                         modifier = Modifier.testTag(SQUARE_TAG),
                     )
                     ShareCardTemplate(
-                        data = richData(ShareCardFormat.SQUARE),
+                        data = richSquareData(),
                         voice = PlainVoice,
                         modifier = Modifier.testTag(RICH_SQUARE_TAG),
                     )
@@ -201,7 +277,7 @@ class ShareCardTemplateTest {
             }
         }
 
-        val footers = composeTestRule.onAllNodesWithText(PlainVoice.shareCardFooter(formatEventDate(FIXTURE_GENERATED_AT_MILLIS)))
+        val footers = composeTestRule.onAllNodesWithText(PlainVoice.shareCardFooter(FIXTURE_FOOTER_TIMESTAMP))
         val sparseGap =
             composeTestRule.onNodeWithTag(SQUARE_TAG).getUnclippedBoundsInRoot().bottom - footers[0].getUnclippedBoundsInRoot().bottom
         val richGap =
@@ -219,7 +295,7 @@ class ShareCardTemplateTest {
     fun trendsSectionRendersSentenceOnlyWithNoReliabilityTagOrEvidenceLine() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                ShareCardTemplate(data = richData(ShareCardFormat.SQUARE), voice = PlainVoice)
+                ShareCardTemplate(data = richData(ShareCardFormat.STORY), voice = PlainVoice)
             }
         }
 
@@ -239,7 +315,7 @@ class ShareCardTemplateTest {
                 priorValue = 6.0,
                 recentValue = 3.0,
             )
-        val data = richData(ShareCardFormat.SQUARE).copy(trends = listOf(FREQUENCY_SHIFT_FINDING, gapShiftFinding))
+        val data = richData(ShareCardFormat.STORY).copy(trends = listOf(FREQUENCY_SHIFT_FINDING, gapShiftFinding))
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 ShareCardTemplate(data = data, voice = PlainVoice)
@@ -253,14 +329,317 @@ class ShareCardTemplateTest {
     }
 
     @Test
-    fun footerRendersTheCardsGeneratedDate() {
+    fun footerRendersTheCardsGeneratedDateAndTime() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                ShareCardTemplate(data = realityData(ShareCardFormat.SQUARE), voice = PlainVoice)
+                ShareCardTemplate(data = squareData(), voice = PlainVoice)
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.shareCardFooter(formatEventDate(FIXTURE_GENERATED_AT_MILLIS))).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareCardFooter(FIXTURE_FOOTER_TIMESTAMP)).assertExists()
+    }
+
+    // ---- Square preset ----
+
+    @Test
+    fun squareSummaryShowsTheObservedLineTheRateAndTheTrendPill() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(rate = SAMPLE_RATE), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedLine(60, 14)).assertExists()
+        composeTestRule.onNodeWithText("2.1/week").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendFrom("1.4")).assertExists()
+    }
+
+    @Test
+    fun squareSummaryWithoutARateLeadsWithTheEventCount() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(rate = null, eventCount = 4), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedDays(60)).assertExists()
+        composeTestRule.onNodeWithText("4 events").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedLine(60, 4)).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareSummaryShowsTheBelowOneMarkerForAnUnderOneAMonthRate() {
+        val rare = SAMPLE_RATE.copy(value = 0.0, belowOnePerMonth = true, comparison = null)
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(rate = rare.copy(unit = RateUnit.MONTH)), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareRateBelowOneMarker + PlainVoice.shareRatePerMonthUnit).assertExists()
+    }
+
+    @Test
+    fun squareSummaryShowsTheSameAsLabelWhenTheRateDidNotMove() {
+        val steady = SAMPLE_RATE.copy(comparison = HeroRateComparison(direction = TrendDirection.FLAT, priorValue = 2.1))
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(rate = steady), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendSame).assertExists()
+    }
+
+    @Test
+    fun squareGapsPanelShowsMinAvgMaxAndTheQuietLabel() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(gaps = SAMPLE_GAPS, quietForDays = 14), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertExists()
+        composeTestRule.onNodeWithText("1d").assertExists()
+        composeTestRule.onNodeWithText("3.1d").assertExists()
+        composeTestRule.onNodeWithText("9d").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareQuietLabel("14d")).assertExists()
+    }
+
+    @Test
+    fun squareGapsPanelHasNoQuietLabelUnlessTheCaseWentQuiet() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(gaps = SAMPLE_GAPS, quietForDays = null), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareQuietLabel("14d")).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareGapsPanelExplainsItselfWhenThereIsNoGapYet() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(gaps = SAMPLE_GAPS.copy(shortestGapDays = null)), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsNeedMoreEvents).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareStatMinLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareShowsDurationAndIntensityPanelsWhenGivenThem() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(
+                    data = squareData(gaps = SAMPLE_GAPS, duration = SAMPLE_DURATION, intensity = SAMPLE_INTENSITY),
+                    voice = PlainVoice,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareDurationTitle).assertExists()
+        composeTestRule.onNodeWithText("25m").assertExists()
+        composeTestRule.onNodeWithText("2h 10m").assertExists()
+        composeTestRule.onNodeWithText("6h 40m").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareIntensityAverage("3.4")).assertExists()
+    }
+
+    @Test
+    fun squareShowsAWholeIntensityAverageWithoutATrailingZero() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(intensity = SAMPLE_INTENSITY.copy(averageIntensity = 3.0)), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareIntensityAverage("3")).assertExists()
+    }
+
+    @Test
+    fun squareHidesRhythmUnlessGivenItAndOmitsStorysSections() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(gaps = SAMPLE_GAPS), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareKeepsTheFigureAndTheTrendPillApartAtLargeTextSizes() {
+        composeTestRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalDensity provides Density(density.density, fontScale = 2f)) {
+                ShareCardTemplate(data = squareData(rate = SAMPLE_RATE, gaps = SAMPLE_GAPS), voice = PlainVoice)
+            }
+        }
+
+        val figure = composeTestRule.onNodeWithText("2.1/week").getUnclippedBoundsInRoot()
+        val pill = composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendFrom("1.4")).getUnclippedBoundsInRoot()
+
+        // Side by side, or the pill dropped below the figure: either way the two never overlap.
+        val sideBySide = figure.right <= pill.left
+        val stacked = figure.bottom <= pill.top
+        assertTrue("Expected the pill beside or below the figure (figure=$figure, pill=$pill)", sideBySide || stacked)
+    }
+
+    @Test
+    fun squareSummaryShowsADownPillFromThePriorRate() {
+        val easing = SAMPLE_RATE.copy(value = 1.4, comparison = HeroRateComparison(direction = TrendDirection.DOWN, priorValue = 2.1))
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(rate = easing), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText("1.4/week").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendFrom("2.1")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendSame).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareSummaryStatesTheRatesOwnUnit() {
+        val perDay = SAMPLE_RATE.copy(value = 12.0, unit = RateUnit.DAY, comparison = null)
+        val perMonth = SAMPLE_RATE.copy(value = 3.0, unit = RateUnit.MONTH, comparison = null)
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                Column {
+                    ShareCardTemplate(data = squareData(rate = perDay), voice = PlainVoice)
+                    ShareCardTemplate(data = squareData(rate = perMonth), voice = PlainVoice)
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText("12" + PlainVoice.shareRatePerDayUnit).assertExists()
+        composeTestRule.onNodeWithText("3" + PlainVoice.shareRatePerMonthUnit).assertExists()
+    }
+
+    @Test
+    fun squareSummaryWithoutAComparisonShowsNoPill() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(rate = SAMPLE_RATE.copy(comparison = null)), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText("2.1/week").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendFrom("1.4")).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendSame).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareSummaryWithASingleEventUsesTheSingularNoun() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(rate = null, eventCount = 1), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText("1 event").assertExists()
+    }
+
+    @Test
+    fun squareShowsTheRhythmGridWhenGivenIt() {
+        val rhythm =
+            RhythmDisplay(
+                cells =
+                    DayOfWeek.entries.flatMap { day ->
+                        TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.L2, count = 0) }
+                    },
+                plottedByStart = false,
+            )
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(gaps = SAMPLE_GAPS, rhythm = rhythm), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertExists()
+    }
+
+    @Test
+    fun squareOmitsTheDurationAndIntensityPanelsWhenAbsent() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(gaps = SAMPLE_GAPS), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareDurationTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareWithNothingButTheSummaryStillRenders() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(rate = null, eventCount = 0), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedDays(60)).assertExists()
+        composeTestRule.onNodeWithText("0 events").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun storyKeepsTheRealityBeatAndNeverShowsTheSquareSummary() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = realityData(ShareCardFormat.STORY), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareRealityEventsLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareRealityDaysObservedLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedDays(60)).assertDoesNotExist()
+    }
+
+    @Test
+    fun footerUsesTheTwentyFourHourClockWhenThatIsTheSetting() {
+        val twentyFourHour = formatCardTimestamp(FIXTURE_GENERATED_AT_MILLIS, TimeFormat.TWENTY_FOUR_HOUR.is24Hour)
+        assertTrue("Fixture must read differently in the two clock formats", twentyFourHour != FIXTURE_FOOTER_TIMESTAMP)
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalTimeFormat provides TimeFormat.TWENTY_FOUR_HOUR) {
+                ShareCardTemplate(data = squareData(), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareCardFooter(twentyFourHour)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareCardFooter(FIXTURE_FOOTER_TIMESTAMP)).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareReadsInPlainVoicesWords() = assertSquareReadsInVoice(PlainVoice, ShareCardSkin.PLAIN)
+
+    @Test
+    fun squareReadsInIntenseVoicesWords() = assertSquareReadsInVoice(IntenseVoice, ShareCardSkin.INTENSE)
+
+    @Test
+    fun squareReadsInBrightVoicesWords() = assertSquareReadsInVoice(BrightVoice, ShareCardSkin.BRIGHT)
+
+    /** Titles and the observed line are uppercased under the Intense skin, hence `ignoreCase`; the pill and quiet label are not. */
+    private fun assertSquareReadsInVoice(
+        voice: Voice,
+        skin: ShareCardSkin,
+    ) {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides voice, LocalShareCardSkin provides skin) {
+                ShareCardTemplate(data = squareData(rate = SAMPLE_RATE, gaps = SAMPLE_GAPS, quietForDays = 14), voice = voice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(voice.shareSquareTrendFrom("1.4")).assertExists()
+        composeTestRule.onNodeWithText(voice.shareSquareQuietLabel("14d")).assertExists()
+        composeTestRule.onNodeWithText(voice.shareSquareGapsTitle, ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText(voice.shareSquareObservedLine(60, 14), ignoreCase = true).assertExists()
     }
 
     private fun logData(

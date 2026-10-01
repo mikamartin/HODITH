@@ -19,7 +19,10 @@ data class GapStats(
     val averageGapDays: Double,
     val isBursty: Boolean,
     val pastGaps: List<Long>,
-)
+) {
+    /** The shortest event-to-event gap, `null` until a second event exists. The share card's Min beside [averageGapDays] and [longestGapDays]. */
+    val shortestGapDays: Long? get() = pastGaps.minOrNull()
+}
 
 /**
  * Spec §10 "gaps & streaks" stat card: a streak is a run of consecutive calendar days that each

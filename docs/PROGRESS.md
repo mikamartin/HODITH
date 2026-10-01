@@ -22,57 +22,46 @@ Each item carries:
 
 Three items, plus the tail of nearly everything else. Anything that adds or changes a Voice key must land before B3.
 
-### B1 · Square share format should become a fixed preset
-
-*Branch: `feat/square-share-card-preset` · Complexity: M · Priority: Medium · Area: Share*
-
-🎨 **Design decision** — which sections, and in what fixed order, Square always shows. Touches Voice copy, so before B3.
-
-Story stays the one fully customizable, auto-sizing format. `shareCardState()` applies `selectedSections` identically to both formats, and `SharePreviewScreen.kt`'s `SectionsPicker`/`availableSections` render the same toggles for both — but Square keeps a 1:1 floor while Story sizes freely to content, so selecting every Insights section on Square produces a tall rectangle instead of the predictable square shape it's for.
-
-**Acceptance criteria**
-
-- [ ] A documented fixed section list + order for Square.
-- [ ] `SectionsPicker` renders only when `ShareCardFormat.STORY` is selected.
-- [ ] `shareCardState()` sources Square's sections from the fixed preset, independent of `selectedSections`.
-- [ ] Story keeps full customization and content-sizing.
-- [ ] Any Story-only picker copy goes through Voice ×3.
-- [ ] Tests: `ShareCardStateTest.kt` (Square driven by preset), `SharePreviewScreenTest.kt` (picker only for Story); `ShareCardTemplateTest.kt` Square floor/no-clip still passes.
-- [ ] `docs/mockups/share-cards-prototype.html` deleted and its `ShareCardDecoration.kt` KDoc pointer dropped — it was the last mockup left in that directory, kept only as this item's Story/Square section-layout reference (`chore/prune-design-mockups` removed the other five).
-
-**Plan** — decide Square's fixed section list first. Then gate `SectionsPicker` to `ShareCardFormat.STORY` only, and source Square's sections from the preset in `shareCardState()`.
-
-**Tests** — `ShareCardStateTest.kt` and `SharePreviewScreenTest.kt` cover the preset-driven output and Story-only picker; `ShareCardTemplateTest.kt`'s floor/no-clip tests keep passing unchanged.
-
 ### B2 · Share card summary beat
 
 *Branch: `feat/share-card-summary-beat` · Complexity: M · Priority: Medium · Area: Share*
 
-🎨 **Design decision** — what the summary says and how it reads in each theme's template. Touches Voice copy, so before B3.
+🎨 **Design decision** — how the summary beat reads at the top of a Story card and what surrounds it. Touches Voice copy, so before B3.
 
-The plain Reality beat (event count + days observed) is now the card's only top beat, since `chore/remove-hunch` retired the old Hunch vs. Reality punchline — "I checked: it does NOT always rain on my day off" — and a Case can carry several Notifications, so no single Notification's comparison can stand in for it. Replace Reality with a short summary beat that works for both Story and Square.
+The plain Reality beat (event count + days observed) is now Story's only top beat, since `chore/remove-hunch` retired the old Hunch vs. Reality punchline — "I checked: it does NOT always rain on my day off" — and a Case can carry several Notifications, so no single Notification's comparison can stand in for it.
+
+Square already has a summary beat: `ShareTopBeat.Summary`, a hero with the observed span and event count, the last-30-day rate (overall rate under 56 days of history) and a trend pill, with its own composable and Voice keys, derived from format-independent stats. This item puts the same beat on Story in place of Reality and settles how Story's free-form sections sit around it.
+
+**Open design questions**
+
+- Overlap with Story's optional sections: the hero's rate and trend pill partly restate Frequency, and its quiet pill restates the went-quiet Trends finding. Decide whether those sections stay as-is, hide when the hero already says it, or shift emphasis.
+- Layout in Story's content-sized column: hero width and wrapping at the 360 dp card width, large-text behavior, and spacing to the first picked section.
+- Whether Story shows the Gaps panel's `Quiet for` pill when the user has not picked Gaps.
+- Story with no sections picked: confirm the hero alone is a sensible card.
 
 **Acceptance criteria**
 
-- [ ] A documented summary shape (e.g. overall rate + observed span, with an optional voice-flavoured line), built from data the Insights tab already computes — no new domain math.
-- [ ] Rendered in both Story and Square, in all three theme templates, without breaking Square's 1:1 floor or B1's fixed preset.
+- [ ] A cheap mockup of Story with the Square hero in all three voices, validated before building.
+- [ ] Story's top beat is the Square hero beat in all three theme templates; Reality is removed and `ShareTopBeat.Reality` plus its Voice keys (`shareRealityEventsLabel`, `shareRealityDaysObservedLabel`) retired if nothing else uses them.
+- [ ] Overlap questions above resolved and documented in HODITH_SPEC.md §13.
+- [ ] Square's 1:1 floor, its fixed preset and Square output unchanged by this item.
 - [ ] Voice ×3 for any new copy, impersonal (no "I"/"you" — the viewer isn't the user).
-- [ ] HODITH_SPEC.md §13 updated.
 
-**Plan** — decide the summary shape with a cheap mockup first, then swap it in for Reality in `shareCardState()` and `ShareCardTemplate.kt`.
+**Plan** — mock up Story with the hero first. Then swap the beat in `shareCardState()` (so both formats use the same top beat) and `ShareCardTemplate.kt`, and apply whatever the overlap decisions require to the section picker's defaults and rendering.
 
-**Tests** — `ShareCardStateTest.kt` (summary content for both formats, edge cases: one event, no events), `ShareCardTemplateTest.kt` (fits and no-clip in both formats), `SharePreviewScreenTest.kt` if the preview gains or loses a control.
+**Tests** — `ShareCardStateTest.kt` (Story top beat per data volume and Case settings, edge cases: one event, no events, under 56 days, went quiet), `ShareCardTemplateTest.kt` (Story fits, no clipping, large text), `SharePreviewScreenTest.kt` if the preview gains or loses a control, and removal of Reality-specific assertions.
 
 ### B3 · Review phrasing across all three Voice implementations
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item (currently B1 and B2).
+🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item (currently B2).
 
 Fold these already-drafted key changes into the audit:
 
 - `feat/declutter-nudges` — reworded Serious `checkInDueNotificationBody`; renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle`.
 - `feat/insights-from-first-event` — added `insightsNothingLoggedMessage`, `insightsSingleEventNote` (replacing `insightsNotEnoughDataMessage`).
+- `feat/square-share-card-preset` — added the Square share keys (`shareSquare*`, `shareStat*Label`, `shareRate*`), the structural `shareInsightScreenTitle`, and renamed `shareCardFooter`'s parameter to `timestamp` (the footer now carries date and time).
 - `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
 
 **Acceptance criteria**
@@ -88,6 +77,27 @@ Fold these already-drafted key changes into the audit:
 **Tests** — `VoiceTest` already checks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. Add mechanical invariants during the audit: vocabulary casing, no gamification vocabulary (spec §4), length caps on tab/button labels, no double spaces or trailing whitespace. Confirm `androidTest` references `PlainVoice` by constant everywhere, not literal, before starting.
 
 **Concern** — the audit will change hundreds of lines in one file. Anything else touching `Voice.kt` must land first.
+
+### B4 · Log Share: drop the format toggle and add Name on card
+
+*Branch: `fix/log-share-controls` · Complexity: S · Priority: Medium · Area: Bug*
+
+Log Share drifted from Insight Share. Two fixes bring them in line:
+
+- **Log Share has a Story/Square toggle it should not have.** Format belongs to Insight Share, where Square is a fixed stats preset and Story is the customizable one. Log Share's card is a capped list of entries, so a Square choice only adds a 1:1 height floor under a list that already sizes to its rows. The toggle (`SegmentedChoiceRow` in `LogSharePreviewScreen.kt`, `LogShareSelection.format`, `LogShareViewModel.setFormat`, the `onFormatSelect` parameter) goes, and the Newest first / Oldest first control takes its place in the layout.
+- **Log Share cannot rename the card.** Insight Share has a "Name on card" field (real names can be personal, spec §13); Log Share shows the Case's own name with no way to change it, even though its rows are the most personal data the app shares.
+
+**Acceptance criteria**
+
+- [ ] The Story/Square toggle no longer renders on Log Share, and the `format` choice is gone from `LogShareSelection`, `LogShareViewModel` and the screen's callbacks.
+- [ ] The Log card always renders in its content-sized shape (Story's), with no Square floor; `logShareCardState` and `ShareCardData.Log` carry that single shape.
+- [ ] Log Share's controls read, top to bottom: the name field (the same `shareNameFieldLabel` field Insight Share uses, with the Case's own name as the placeholder), date range, fields, then Newest first / Oldest first where the toggle was, then the card preview. The override lives in `LogShareSelection` and reaches `logShareCardState`'s `displayName`, never mutating the Case.
+- [ ] The `LOG_SHARE_CARD_ENTRY_CAP` and `logShareCardState` KDoc stop describing Square's floor as a reason for the cap, and HODITH_SPEC.md §13 is reworded to match: the Log Share paragraph ("regardless of format") and the preview-screen row, which gains the name field.
+- [ ] Tests: `LogShareViewModelTest` (format assertion and `setFormat` coverage removed; name override set, blanked back to `null`, and carried into the card state), `LogSharePreviewScreenTest` (`formatToggle_selectingSquare_invokesCallback` removed; the name field shown and invoking its callback; the sort control still invoking its callback in its new position), `ShareCardStateTest`'s `logShareCardState` cases (no format parameter, display name used), and `ShareCardTemplateTest`'s Log card cases keep passing. `docs/TESTING.md`'s Log Share and Share preview rows updated.
+
+**Plan** — drop the toggle and its state and pin the Log card to the content-sized shape; add the display-name override to `LogShareSelection` and the view model the way `ShareSelection` already carries it, and render the same name field above the filters; move `SortSection` to the toggle's former slot. Walk the docs and KDoc that mention a Log Share format.
+
+**Tests** — see the criteria above.
 
 ## Standalone
 

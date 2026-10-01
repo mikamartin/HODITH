@@ -8,6 +8,7 @@ import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FrequencyGranularity
+import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
 import com.secondmonday.hodith.domain.ShiftDirection
@@ -869,14 +870,55 @@ interface Voice {
     // ---- Share cards (Phase 10, spec §13) ----
     val shareOpenDescription: String
 
+    /** Insight Share's top-bar title — structural, identical across all three voices, like [shareLogScreenTitle]. The share button keeps [shareOpenDescription]. */
+    val shareInsightScreenTitle: String get() = "Share Insights"
+
     val shareRealityEventsLabel: String get() = "events"
     val shareRealityDaysObservedLabel: String get() = "days observed"
 
-    /** [date] is the card's own generation date — a still-open [com.secondmonday.hodith.domain.TrendFindingKind.WENT_QUIET] finding is only true at the moment the card is made, and dating the whole card (not just that one finding) is the honest reading for every snapshot section on it. */
-    fun shareCardFooter(date: String): String = "counted with HODITH app · $date"
+    /** [timestamp] is the card's own generation date and time — a still-open [com.secondmonday.hodith.domain.TrendFindingKind.WENT_QUIET] finding is only true at the moment the card is made, and dating the whole card (not just that one finding) is the honest reading for every snapshot section on it. */
+    fun shareCardFooter(timestamp: String): String = "counted with HODITH app · $timestamp"
 
     /** Intense skin's rotated corner stamp — structural, like [shareLogCardKicker]; never rendered under Plain/Bright. */
     val shareIntenseStampLabel: String get() = "Case File"
+
+    // ---- Square share preset (spec §13): the labels below are structural, identical across all three voices ----
+    val shareStatMinLabel: String get() = "Min"
+    val shareStatAvgLabel: String get() = "Avg"
+    val shareStatMaxLabel: String get() = "Max"
+    val shareSquareGapsTitle: String get() = "Gaps"
+    val shareSquareGapsNeedMoreEvents: String get() = "2+ events needed."
+    val shareSquareDurationTitle: String get() = "Length"
+
+    /** The headline rate's unit, drawn small after the number; [shareRateBelowOneMarker] stands in for the number under one a month. */
+    val shareRatePerDayUnit: String get() = "/day"
+    val shareRatePerWeekUnit: String get() = "/week"
+    val shareRatePerMonthUnit: String get() = "/month"
+    val shareRateBelowOneMarker: String get() = "<1"
+
+    /** [value] is the already-formatted average, e.g. "3.4" or "3". */
+    fun shareSquareIntensityAverage(value: String): String = "average $value of $INTENSITY_MAX"
+
+    /** The voice's own word for a logged event, agreeing with [eventCount]: "event(s)", "mark(s)", "log(s)". */
+    fun shareSquareEventNoun(eventCount: Int): String
+
+    /** The hero's top line once a rate is shown, e.g. "94d observed · 31 events". */
+    fun shareSquareObservedLine(
+        days: Long,
+        eventCount: Int,
+    ): String = "${days}d observed · $eventCount ${shareSquareEventNoun(eventCount)}"
+
+    /** The hero's top line while there is no rate yet, e.g. "12d observed"; the event count is then the headline itself. */
+    fun shareSquareObservedDays(days: Long): String = "${days}d observed"
+
+    /** The pill beside the headline rate when it moved: [priorRate] is the earlier window's rate, already formatted, in the headline's own unit. */
+    fun shareSquareTrendFrom(priorRate: String): String
+
+    /** The pill beside the headline rate when it did not move. */
+    val shareSquareTrendSame: String
+
+    /** The Gaps panel's top-right label while the went-quiet signal is live; [gap] is the compact day count, e.g. "14d". */
+    fun shareSquareQuietLabel(gap: String): String
 
     /** Frequency section's share-card title, e.g. "Frequency by week" — reuses the granularity chip labels. */
     fun shareFrequencyTitle(granularity: FrequencyGranularity): String =
@@ -1605,6 +1647,15 @@ object PlainVoice : Voice {
 
     override val shareOpenDescription = "Share"
     override val shareNameFieldLabel = "Name on card"
+
+    override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "event" else "events"
+
+    override fun shareSquareTrendFrom(priorRate: String) = "from $priorRate a month ago"
+
+    override val shareSquareTrendSame = "same as a month ago"
+
+    override fun shareSquareQuietLabel(gap: String) = "Quiet for $gap"
+
     override val shareSectionsPickerLabel = "Include in card"
 
     override val shareChooserInsightDescription = "A visual summary of your stats."
@@ -2233,6 +2284,15 @@ object IntenseVoice : Voice {
 
     override val shareOpenDescription = "Share the record"
     override val shareNameFieldLabel = "Name for the record"
+
+    override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "mark" else "marks"
+
+    override fun shareSquareTrendFrom(priorRate: String) = "from $priorRate a month prior"
+
+    override val shareSquareTrendSame = "same as a month prior"
+
+    override fun shareSquareQuietLabel(gap: String) = "Silent for $gap"
+
     override val shareSectionsPickerLabel = "What the record shows"
 
     override val shareChooserInsightDescription = "The verdict, distilled."
@@ -2860,6 +2920,15 @@ object BrightVoice : Voice {
 
     override val shareOpenDescription = "Share it!"
     override val shareNameFieldLabel = "Name it!"
+
+    override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "log" else "logs"
+
+    override fun shareSquareTrendFrom(priorRate: String) = "from $priorRate last month"
+
+    override val shareSquareTrendSame = "same as last month"
+
+    override fun shareSquareQuietLabel(gap: String) = "Quiet for $gap"
+
     override val shareSectionsPickerLabel = "Pick what to show!"
 
     override val shareChooserInsightDescription = "Your stats, made pretty!"

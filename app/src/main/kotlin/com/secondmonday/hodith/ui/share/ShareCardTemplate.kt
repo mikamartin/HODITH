@@ -1,12 +1,16 @@
 package com.secondmonday.hodith.ui.share
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -25,32 +30,50 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
+import com.secondmonday.hodith.domain.HeroRate
+import com.secondmonday.hodith.domain.HeroRateComparison
 import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.domain.INTENSITY_MIN
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
+import com.secondmonday.hodith.domain.RateUnit
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TimeOfDay
+import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.ui.casedetail.formatCompactDecimal
 import com.secondmonday.hodith.ui.casedetail.formatDays
+import com.secondmonday.hodith.ui.casedetail.formatDaysCompact
 import com.secondmonday.hodith.ui.casedetail.formatIntensity
 import com.secondmonday.hodith.ui.casedetail.trendFindingSentence
 import com.secondmonday.hodith.ui.common.toCellColor
 import com.secondmonday.hodith.ui.common.toTextColor
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.theme.ShareCardSkin
 import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.IntenseVoice
@@ -67,7 +90,7 @@ import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
-import com.secondmonday.hodith.viewmodel.formatEventDate
+import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -86,6 +109,16 @@ private const val MINI_RHYTHM_LABEL_WIDTH = 88
 private const val MINI_FREQUENCY_CHART_HEIGHT = 40
 private const val MINI_FREQUENCY_BAR_MAX_HEIGHT_FRACTION = 0.75f
 private const val MINI_FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.04f
+
+/** Square summary beat: the headline figure and its unit, in sp so they track the user's font scale like every other card text. */
+private const val SUMMARY_FIGURE_FONT_SIZE = 40
+private const val SUMMARY_COUNT_FONT_SIZE = 32
+private const val SUMMARY_UNIT_FONT_SIZE = 15
+private const val TREND_TRIANGLE_SIZE = 8
+private const val TREND_TRIANGLE_DOWN_DEGREES = 180f
+private const val TREND_TRIANGLE_FLAT_DEGREES = 90f
+private const val QUIET_LABEL_DASH_ON = 4
+private const val QUIET_LABEL_DASH_OFF = 3
 
 /**
  * Spec §13's share card — one Compose tree reused for both the preview screen and the actual
@@ -154,7 +187,11 @@ private fun InsightsCardBody(
     voice: Voice,
     skin: ShareCardSkin,
 ) {
-    TopBeatContent(data.topBeat, voice)
+    if (data.format == ShareCardFormat.SQUARE) {
+        SquareInsightsBody(data, voice, skin)
+        return
+    }
+    TopBeatContent(data.topBeat, voice, skin)
     data.frequency?.let { MiniFrequencySection(it, voice, skin) }
     data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
     data.gaps?.let { MiniGapsSection(it, voice, skin) }
@@ -269,9 +306,11 @@ private fun BoxScope.IntenseStampBadge(voice: Voice) {
 private fun TopBeatContent(
     topBeat: ShareTopBeat,
     voice: Voice,
+    skin: ShareCardSkin,
 ) {
     when (topBeat) {
         is ShareTopBeat.Reality -> RealityBeat(topBeat, voice)
+        is ShareTopBeat.Summary -> SummaryBeat(topBeat, voice, skin)
     }
 }
 
@@ -296,6 +335,288 @@ private fun RealityBeat(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+/**
+ * The Square preset, top to bottom: the summary beat, Gaps always, then Duration / Intensity when
+ * the Case tracks them (each already `null` otherwise) or the Rhythm grid when it tracks neither.
+ * `squareInsights` in ShareCardState.kt decides which of these are present; this only lays them out.
+ */
+@Composable
+private fun SquareInsightsBody(
+    data: ShareCardData.Insights,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    TopBeatContent(data.topBeat, voice, skin)
+    data.gaps?.let { SquareGapsPanel(it, data.quietForDays, voice, skin) }
+    data.duration?.let { SquareDurationPanel(it, voice, skin) }
+    data.intensity?.let { SquareIntensityPanel(it, voice, skin) }
+    data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
+}
+
+/**
+ * Observed span and event count on top, then the headline figure. With a rate the figure is the
+ * rate (and a trend pill when it moved); without one it is the event count itself. A [FlowRow]
+ * lets the pill drop to its own line when the card is narrow or the text is large, rather than
+ * squeezing or wrapping the figure.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SummaryBeat(
+    beat: ShareTopBeat.Summary,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    val rate = beat.rate
+
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        BeatKicker(
+            text =
+                if (rate != null) {
+                    voice.shareSquareObservedLine(beat.observedDays, beat.eventCount)
+                } else {
+                    voice.shareSquareObservedDays(beat.observedDays)
+                },
+            skin = skin,
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (rate != null) {
+                SummaryFigure(
+                    figure = rate.figureText(voice),
+                    unit = rate.unitText(voice),
+                    figureFontSize = SUMMARY_FIGURE_FONT_SIZE,
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                )
+                rate.comparison?.let { comparison ->
+                    TrendPill(comparison, voice, Modifier.align(Alignment.CenterVertically))
+                }
+            } else {
+                SummaryFigure(
+                    figure = beat.eventCount.toString(),
+                    unit = " " + voice.shareSquareEventNoun(beat.eventCount),
+                    figureFontSize = SUMMARY_COUNT_FONT_SIZE,
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                )
+            }
+        }
+    }
+}
+
+private fun HeroRate.figureText(voice: Voice): String = if (belowOnePerMonth) voice.shareRateBelowOneMarker else formatCompactDecimal(value)
+
+private fun HeroRate.unitText(voice: Voice): String =
+    when (unit) {
+        RateUnit.DAY -> voice.shareRatePerDayUnit
+        RateUnit.WEEK -> voice.shareRatePerWeekUnit
+        RateUnit.MONTH -> voice.shareRatePerMonthUnit
+    }
+
+/** A big figure with its small unit hanging off the end, e.g. "2.1" + "/week". */
+@Composable
+private fun SummaryFigure(
+    figure: String,
+    unit: String,
+    figureFontSize: Int,
+    modifier: Modifier = Modifier,
+) {
+    val figureStyle = SpanStyle(fontSize = figureFontSize.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+    val unitStyle =
+        SpanStyle(
+            fontSize = SUMMARY_UNIT_FONT_SIZE.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+    Text(
+        text =
+            buildAnnotatedString {
+                withStyle(figureStyle) { append(figure) }
+                withStyle(unitStyle) { append(unit) }
+            },
+        style = MaterialTheme.typography.displaySmall,
+        modifier = modifier,
+    )
+}
+
+/** Which way the headline rate moved against the window before it, in the voice's own words; the triangle is drawn, not a font glyph, so every theme's font shows the same shape. */
+@Composable
+private fun TrendPill(
+    comparison: HeroRateComparison,
+    voice: Voice,
+    modifier: Modifier = Modifier,
+) {
+    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+
+    Row(
+        modifier =
+            modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        TrendTriangle(comparison.direction, contentColor)
+        Text(
+            text =
+                if (comparison.direction == TrendDirection.FLAT) {
+                    voice.shareSquareTrendSame
+                } else {
+                    voice.shareSquareTrendFrom(formatCompactDecimal(comparison.priorValue))
+                },
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = contentColor,
+        )
+    }
+}
+
+/** One triangle shape, rotated per direction: up, down, or pointing right for "no change". */
+@Composable
+private fun TrendTriangle(
+    direction: TrendDirection,
+    color: Color,
+) {
+    val degrees =
+        when (direction) {
+            TrendDirection.UP -> 0f
+            TrendDirection.DOWN -> TREND_TRIANGLE_DOWN_DEGREES
+            TrendDirection.FLAT -> TREND_TRIANGLE_FLAT_DEGREES
+        }
+
+    Canvas(modifier = Modifier.size(TREND_TRIANGLE_SIZE.dp)) {
+        val triangle =
+            Path().apply {
+                moveTo(size.width / 2f, size.height * 0.15f)
+                lineTo(size.width * 0.9f, size.height * 0.85f)
+                lineTo(size.width * 0.1f, size.height * 0.85f)
+                close()
+            }
+        rotate(degrees) { drawPath(triangle, color) }
+    }
+}
+
+@Composable
+private fun SquareGapsPanel(
+    display: GapsDisplay,
+    quietForDays: Long?,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    MiniInsightsCard {
+        PanelHeaderRow {
+            MiniSectionTitle(voice.shareSquareGapsTitle, skin)
+            quietForDays?.let { QuietLabel(voice.shareSquareQuietLabel(formatDaysCompact(it.toDouble()))) }
+        }
+        val shortest = display.shortestGapDays
+        if (shortest == null) {
+            Text(
+                text = voice.shareSquareGapsNeedMoreEvents,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            MinAvgMaxRow(
+                voice = voice,
+                min = formatDaysCompact(shortest.toDouble()),
+                avg = formatDaysCompact(display.averageGapDays),
+                max = formatDaysCompact(display.longestGapDays.toDouble()),
+            )
+        }
+    }
+}
+
+/** A panel's title on the left and an optional note on the right. */
+@Composable
+private fun PanelHeaderRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+/** A dashed pill: the Gaps panel's note that the Case has gone quiet (a live signal, so it is drawn lighter than a stat). */
+@Composable
+private fun QuietLabel(text: String) {
+    val color = MaterialTheme.colorScheme.primary
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = color,
+        modifier =
+            Modifier
+                .drawBehind {
+                    val dashes = floatArrayOf(QUIET_LABEL_DASH_ON.dp.toPx(), QUIET_LABEL_DASH_OFF.dp.toPx())
+                    drawRoundRect(
+                        color = color,
+                        cornerRadius = CornerRadius(size.height / 2f),
+                        style = Stroke(width = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(dashes)),
+                    )
+                }.padding(horizontal = 8.dp, vertical = 2.dp),
+    )
+}
+
+@Composable
+private fun SquareDurationPanel(
+    display: DurationDisplay,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    MiniInsightsCard {
+        MiniSectionTitle(voice.shareSquareDurationTitle, skin)
+        MinAvgMaxRow(
+            voice = voice,
+            min = formatMinutesDuration(display.shortestMinutes),
+            avg = formatMinutesDuration(display.averageMinutes.roundToInt().toLong()),
+            max = formatMinutesDuration(display.longestMinutes),
+        )
+    }
+}
+
+@Composable
+private fun SquareIntensityPanel(
+    display: IntensityDisplay,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    MiniInsightsCard {
+        PanelHeaderRow {
+            MiniSectionTitle(voice.insightsSectionLabelIntensity, skin)
+            Text(
+                text = voice.shareSquareIntensityAverage(formatIntensity(display.averageIntensity)),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IntensityDistributionRow(display)
+    }
+}
+
+/** Three equal columns, label over value: the shortest, average and longest of whatever the panel measures. */
+@Composable
+private fun MinAvgMaxRow(
+    voice: Voice,
+    min: String,
+    avg: String,
+    max: String,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(voice.shareStatMinLabel to min, voice.shareStatAvgLabel to avg, voice.shareStatMaxLabel to max).forEach { (label, value) ->
+            Column(modifier = Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -508,21 +829,27 @@ private fun MiniIntensitySection(
     MiniInsightsCard {
         MiniSectionTitle(voice.insightsSectionLabelIntensity, skin)
         MiniStatRow(voice.insightsIntensityAverageLabel, formatIntensity(display.averageIntensity))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
-                val count = display.distribution[value] ?: 0
-                val level = heatmapLevelFor(count, display.maxCount)
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .clip(MaterialTheme.shapes.extraSmall)
-                            .background(level.toCellColor()),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(value.toString(), style = MaterialTheme.typography.labelSmall, color = level.toTextColor())
-                }
+        IntensityDistributionRow(display)
+    }
+}
+
+/** The 1..5 intensity squares, each shaded by how many events landed on that score. */
+@Composable
+private fun IntensityDistributionRow(display: IntensityDisplay) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
+            val count = display.distribution[value] ?: 0
+            val level = heatmapLevelFor(count, display.maxCount)
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .aspectRatio(1f)
+                        .clip(MaterialTheme.shapes.extraSmall)
+                        .background(level.toCellColor()),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(value.toString(), style = MaterialTheme.typography.labelSmall, color = level.toTextColor())
             }
         }
     }
@@ -541,7 +868,7 @@ private fun ShareCardFooter(
         )
     }
     Text(
-        text = voice.shareCardFooter(formatEventDate(generatedAtMillis)),
+        text = voice.shareCardFooter(formatCardTimestamp(generatedAtMillis, LocalTimeFormat.current.is24Hour)),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
@@ -586,6 +913,43 @@ private fun previewData(format: ShareCardFormat): ShareCardData =
         generatedAtMillis = System.currentTimeMillis(),
     )
 
+/** The Square preset for a Case that tracks intensity and duration, mid-trend and gone quiet, so every panel and the pill show. */
+private fun previewSquareData(): ShareCardData =
+    ShareCardData.Insights(
+        format = ShareCardFormat.SQUARE,
+        caseIcon = "🤕",
+        caseName = "Headaches",
+        topBeat =
+            ShareTopBeat.Summary(
+                eventCount = 31,
+                observedDays = 94,
+                rate =
+                    HeroRate(
+                        value = 2.1,
+                        unit = RateUnit.WEEK,
+                        belowOnePerMonth = false,
+                        comparison = HeroRateComparison(direction = TrendDirection.UP, priorValue = 1.4),
+                    ),
+            ),
+        frequency = null,
+        rhythm = null,
+        gaps =
+            GapsDisplay(
+                longestGapDays = 9,
+                currentGapDays = 2,
+                averageGapDays = 3.1,
+                isBursty = false,
+                longestStreakDays = 0,
+                averageStreakDays = 0.0,
+                shortestGapDays = 1,
+            ),
+        trends = emptyList(),
+        duration = DurationDisplay(averageMinutes = 130.0, longestMinutes = 400, totalMinutes = 4030, shortestMinutes = 25),
+        intensity = IntensityDisplay(averageIntensity = 3.4, distribution = mapOf(1 to 2, 2 to 6, 3 to 11, 4 to 9, 5 to 3), maxCount = 11),
+        quietForDays = 14,
+        generatedAtMillis = System.currentTimeMillis(),
+    )
+
 @Preview(name = "Plain - Story", showBackground = true, widthDp = 400, heightDp = 700)
 @Composable
 private fun ShareCardTemplatePlainPreview() {
@@ -594,12 +958,22 @@ private fun ShareCardTemplatePlainPreview() {
     }
 }
 
-/** Same skin/content as [ShareCardTemplatePlainPreview], Square format — compare the two side by side to see the shape difference. */
-@Preview(name = "Plain - Square", showBackground = true, widthDp = 400, heightDp = 500)
+/** The fixed Square preset in Plain — the Case-settings-driven card, not Story's picked sections. */
+@Preview(name = "Plain - Square", showBackground = true, widthDp = 400, heightDp = 640)
 @Composable
 private fun ShareCardTemplatePlainSquarePreview() {
     HodithTheme(theme = AppTheme.PLAIN) {
-        ShareCardTemplate(previewData(ShareCardFormat.SQUARE), PlainVoice)
+        ShareCardTemplate(previewSquareData(), PlainVoice)
+    }
+}
+
+@Preview(name = "Intense - Square", showBackground = true, widthDp = 400, heightDp = 640)
+@Composable
+private fun ShareCardTemplateIntenseSquarePreview() {
+    CompositionLocalProvider(LocalShareCardSkin provides ShareCardSkin.INTENSE) {
+        HodithTheme(theme = AppTheme.INTENSE) {
+            ShareCardTemplate(previewSquareData(), IntenseVoice)
+        }
     }
 }
 
@@ -618,7 +992,17 @@ private fun ShareCardTemplateIntensePreview() {
 private fun ShareCardTemplateBrightPreview() {
     CompositionLocalProvider(LocalShareCardSkin provides ShareCardSkin.BRIGHT) {
         HodithTheme(theme = AppTheme.BRIGHT) {
-            ShareCardTemplate(previewData(ShareCardFormat.SQUARE), BrightVoice)
+            ShareCardTemplate(previewData(ShareCardFormat.STORY), BrightVoice)
+        }
+    }
+}
+
+@Preview(name = "Bright - Square", showBackground = true, widthDp = 400, heightDp = 640)
+@Composable
+private fun ShareCardTemplateBrightSquarePreview() {
+    CompositionLocalProvider(LocalShareCardSkin provides ShareCardSkin.BRIGHT) {
+        HodithTheme(theme = AppTheme.BRIGHT) {
+            ShareCardTemplate(previewSquareData(), BrightVoice)
         }
     }
 }

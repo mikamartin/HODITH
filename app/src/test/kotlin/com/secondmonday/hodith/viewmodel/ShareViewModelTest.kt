@@ -69,7 +69,7 @@ class ShareViewModelTest {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals("Coffee", state.case?.name)
                 assertEquals(1, state.events.size)
-                assertEquals(ShareCardFormat.STORY, state.selection.format)
+                assertEquals(ShareCardFormat.SQUARE, state.selection.format)
                 assertNull(state.selection.displayNameOverride)
                 assertEquals(ShareInsightsSection.entries.toSet(), state.selection.selectedSections)
                 cancelAndIgnoreRemainingEvents()
@@ -84,8 +84,8 @@ class ShareViewModelTest {
 
             vm.uiState.test {
                 awaitLoadedItem { it.isLoading }
-                vm.setFormat(ShareCardFormat.SQUARE)
-                assertEquals(ShareCardFormat.SQUARE, awaitItem().selection.format)
+                vm.setFormat(ShareCardFormat.STORY)
+                assertEquals(ShareCardFormat.STORY, awaitItem().selection.format)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -121,6 +121,28 @@ class ShareViewModelTest {
                 vm.setDisplayNameOverride("a".repeat(CASE_NAME_MAX_LENGTH + 10))
                 assertEquals(CASE_NAME_MAX_LENGTH, awaitItem().selection.displayNameOverride?.length)
 
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `switching format back and forth keeps the Story section choices`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+
+                vm.setSectionSelected(ShareInsightsSection.RHYTHM, selected = false)
+                awaitItem()
+                vm.setFormat(ShareCardFormat.STORY)
+                assertEquals(ShareCardFormat.STORY, awaitItem().selection.format)
+                vm.setFormat(ShareCardFormat.SQUARE)
+                val backOnSquare = awaitItem().selection
+
+                assertEquals(ShareCardFormat.SQUARE, backOnSquare.format)
+                assertFalse(ShareInsightsSection.RHYTHM in backOnSquare.selectedSections)
                 cancelAndIgnoreRemainingEvents()
             }
         }

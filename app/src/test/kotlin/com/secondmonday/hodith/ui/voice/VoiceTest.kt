@@ -87,6 +87,38 @@ class VoiceTest {
         }
     }
 
+    @Test
+    fun `Square share copy states the voice's own event noun and agrees with the count`() {
+        val expected = mapOf(PlainVoice to ("event" to "events"), IntenseVoice to ("mark" to "marks"), BrightVoice to ("log" to "logs"))
+        for ((voice, nouns) in expected) {
+            assertEquals(nouns.first, voice.shareSquareEventNoun(1))
+            assertEquals(nouns.second, voice.shareSquareEventNoun(0))
+            assertEquals(nouns.second, voice.shareSquareEventNoun(31))
+            assertEquals("94d observed · 31 ${nouns.second}", voice.shareSquareObservedLine(94, 31))
+            assertEquals("1d observed · 1 ${nouns.first}", voice.shareSquareObservedLine(1, 1))
+            assertEquals("12d observed", voice.shareSquareObservedDays(12))
+        }
+    }
+
+    @Test
+    fun `Square share structural labels read the same in every voice`() {
+        for (voice in voices) {
+            assertEquals("Min", voice.shareStatMinLabel)
+            assertEquals("Avg", voice.shareStatAvgLabel)
+            assertEquals("Max", voice.shareStatMaxLabel)
+            assertEquals("/week", voice.shareRatePerWeekUnit)
+            assertEquals("average 3 of 5", voice.shareSquareIntensityAverage("3"))
+        }
+    }
+
+    @Test
+    fun `Square share trend and quiet phrases carry their values`() {
+        for (voice in voices) {
+            assertTrue(voice.shareSquareTrendFrom("1.4").contains("1.4"))
+            assertTrue(voice.shareSquareQuietLabel("14d").contains("14d"))
+        }
+    }
+
     companion object {
         private val stringProperties =
             Voice::class.declaredMemberProperties.filter { it.returnType.classifier == String::class }

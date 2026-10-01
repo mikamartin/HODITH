@@ -71,6 +71,13 @@ internal fun formatEventDate(
     zone: ZoneId = ZoneId.systemDefault(),
 ): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(MEDIUM_DATE_FORMATTER)
 
+/** A share card's footer timestamp: the generation date (with its year, since a card outlives the day it was made) and the time of day, e.g. "Oct 1, 2026, 2:32 PM". */
+internal fun formatCardTimestamp(
+    generatedAt: Long,
+    use24Hour: Boolean,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String = "${formatEventDate(generatedAt, zone)}, ${formatEventTimeOfDay(generatedAt, use24Hour, zone)}"
+
 /**
  * A log date-range bound: "MMM d" when [occurredAt] falls in the same calendar year as [now],
  * "MMM d, yyyy" otherwise — the same same-year rationale as [formatEventTime], applied to a bare

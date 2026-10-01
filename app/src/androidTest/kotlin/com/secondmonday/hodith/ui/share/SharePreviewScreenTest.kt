@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.share
 
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -16,14 +17,19 @@ import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareInsightsSection
+import com.secondmonday.hodith.viewmodel.ShareSelection
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
 
 private val ZONE = ZoneId.systemDefault()
+
+/** Square is the default format, and it has no section picker; tests of the picker select Story explicitly. */
+private val STORY_SELECTION = ShareSelection(format = ShareCardFormat.STORY)
 
 private fun millisAtDay(epochDay: Long): Long =
     LocalDate
@@ -69,10 +75,23 @@ class SharePreviewScreenTest {
 
     @Smoke
     @Test
-    fun formatToggle_selectingSquare_invokesCallback() {
+    fun formatToggle_selectingStory_invokesCallback() {
         var selected: ShareCardFormat? = null
         setContent(
             uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false),
+            onFormatSelect = { selected = it },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareFormatStoryLabel).performClick()
+
+        assertEquals(ShareCardFormat.STORY, selected)
+    }
+
+    @Test
+    fun formatToggle_selectingSquareFromStory_invokesCallback() {
+        var selected: ShareCardFormat? = null
+        setContent(
+            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), selection = STORY_SELECTION, isLoading = false),
             onFormatSelect = { selected = it },
         )
 
@@ -82,12 +101,97 @@ class SharePreviewScreenTest {
     }
 
     @Test
+    fun formatToggle_listsSquareBeforeStory() {
+        setContent(uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false))
+
+        val square = composeTestRule.onNodeWithText(PlainVoice.shareFormatSquareLabel).getUnclippedBoundsInRoot()
+        val story = composeTestRule.onNodeWithText(PlainVoice.shareFormatStoryLabel).getUnclippedBoundsInRoot()
+
+        assertTrue("Square should sit left of Story (square=$square, story=$story)", square.left < story.left)
+    }
+
+    @Test
+    fun squareSelection_rendersTheSummaryCardNotTheRealityBeat() {
+        setContent(
+            uiState =
+                ShareUiState(
+                    case = testCase(id = 1L),
+                    events = trendsEligibleEvents(),
+                    selection = ShareSelection(format = ShareCardFormat.SQUARE),
+                    isLoading = false,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareRealityEventsLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertExists()
+    }
+
+    @Test
+    fun storySelection_rendersTheRealityBeatNotTheSquarePanels() {
+        setContent(
+            uiState =
+                ShareUiState(
+                    case = testCase(id = 1L),
+                    events = trendsEligibleEvents(),
+                    selection = STORY_SELECTION,
+                    isLoading = false,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareRealityEventsLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun screenTitle_isShareInsights_andTheShareButtonKeepsItsOwnLabel() {
+        setContent(uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false))
+
+        composeTestRule.onNodeWithText(PlainVoice.shareInsightScreenTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareOpenDescription).assertExists()
+    }
+
+    @Test
+    fun sectionPicker_isShownForStory() {
+        setContent(
+            uiState =
+                ShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = STORY_SELECTION,
+                    isLoading = false,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSectionsPickerLabel).assertExists()
+        composeTestRule.onNodeWithTag(SECTION_TOGGLE_TAG_PREFIX + ShareInsightsSection.RHYTHM.name).assertExists()
+    }
+
+    @Test
+    fun sectionPicker_isHiddenForSquare_whateverTheCaseTracks() {
+        setContent(
+            uiState =
+                ShareUiState(
+                    case = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = true),
+                    events = trendsEligibleEvents(),
+                    selection = ShareSelection(format = ShareCardFormat.SQUARE),
+                    isLoading = false,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSectionsPickerLabel).assertDoesNotExist()
+        ShareInsightsSection.entries.forEach { section ->
+            composeTestRule.onNodeWithTag(SECTION_TOGGLE_TAG_PREFIX + section.name).assertDoesNotExist()
+        }
+    }
+
+    @Test
     fun durationAndIntensityRows_onlyAppearWhenTheCaseTracksThem() {
         setContent(
             uiState =
                 ShareUiState(
                     case = testCase(id = 1L, durationMode = DurationMode.NONE, intensityEnabled = false),
                     events = emptyList(),
+                    selection = STORY_SELECTION,
                     isLoading = false,
                 ),
         )
@@ -103,6 +207,7 @@ class SharePreviewScreenTest {
                 ShareUiState(
                     case = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = true),
                     events = emptyList(),
+                    selection = STORY_SELECTION,
                     isLoading = false,
                 ),
         )
@@ -114,7 +219,7 @@ class SharePreviewScreenTest {
     @Test
     fun trendsRow_hiddenWhenNoTrendsFindingsExist() {
         setContent(
-            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false),
+            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), selection = STORY_SELECTION, isLoading = false),
         )
 
         // By tag, not by the "Trends" label text: with findings present, that text also appears
@@ -126,7 +231,13 @@ class SharePreviewScreenTest {
     @Test
     fun trendsRow_appearsWhenTrendsFindingsExist() {
         setContent(
-            uiState = ShareUiState(case = testCase(id = 1L), events = trendsEligibleEvents(), isLoading = false),
+            uiState =
+                ShareUiState(
+                    case = testCase(id = 1L),
+                    events = trendsEligibleEvents(),
+                    selection = STORY_SELECTION,
+                    isLoading = false,
+                ),
         )
 
         composeTestRule.onNodeWithTag(SECTION_TOGGLE_TAG_PREFIX + ShareInsightsSection.TRENDS.name).assertExists()
@@ -136,7 +247,7 @@ class SharePreviewScreenTest {
     fun sectionChecklist_togglingARow_invokesCallbackWithTheSection() {
         var toggled: Pair<ShareInsightsSection, Boolean>? = null
         setContent(
-            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false),
+            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), selection = STORY_SELECTION, isLoading = false),
             onSectionToggle = { section, selected -> toggled = section to selected },
         )
 
