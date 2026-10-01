@@ -108,6 +108,7 @@ private const val MINI_RHYTHM_CELL_SIZE = 16
 private const val MINI_RHYTHM_LABEL_WIDTH = 88
 private const val MINI_FREQUENCY_CHART_HEIGHT = 40
 private const val MINI_FREQUENCY_BAR_MAX_HEIGHT_FRACTION = 0.75f
+private const val MINI_FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.04f
 
 /** Square summary beat: the headline figure and its unit, in sp so they track the user's font scale like every other card text. */
 private const val SUMMARY_FIGURE_FONT_SIZE = 40
@@ -118,7 +119,6 @@ private const val TREND_TRIANGLE_DOWN_DEGREES = 180f
 private const val TREND_TRIANGLE_FLAT_DEGREES = 90f
 private const val QUIET_LABEL_DASH_ON = 4
 private const val QUIET_LABEL_DASH_OFF = 3
-private const val MINI_FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.04f
 
 /**
  * Spec §13's share card — one Compose tree reused for both the preview screen and the actual
