@@ -37,6 +37,11 @@ class InsightsFormattingTest {
         assertEquals("9.9", formatCompactDecimal(9.94))
     }
 
+    @Test
+    fun `formatCompactDecimal reads ten, not 10 point 0, when rounding carries up to ten`() {
+        assertEquals("10", formatCompactDecimal(9.96))
+    }
+
     // ---- formatIntensity ----
 
     @Test

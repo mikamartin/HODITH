@@ -126,6 +126,28 @@ class ShareViewModelTest {
         }
 
     @Test
+    fun `switching format back and forth keeps the Story section choices`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+
+                vm.setSectionSelected(ShareInsightsSection.RHYTHM, selected = false)
+                awaitItem()
+                vm.setFormat(ShareCardFormat.STORY)
+                assertEquals(ShareCardFormat.STORY, awaitItem().selection.format)
+                vm.setFormat(ShareCardFormat.SQUARE)
+                val backOnSquare = awaitItem().selection
+
+                assertEquals(ShareCardFormat.SQUARE, backOnSquare.format)
+                assertFalse(ShareInsightsSection.RHYTHM in backOnSquare.selectedSections)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `setSectionSelected toggles a single section without disturbing the rest`() =
         runTest {
             repository.cases.value = listOf(testCase())

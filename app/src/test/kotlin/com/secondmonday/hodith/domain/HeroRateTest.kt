@@ -131,6 +131,17 @@ class HeroRateTest {
     }
 
     @Test
+    fun `computeHeroRate keeps a busy last window's rate in the daily unit with no month flag`() {
+        val result = computeHeroRate(200, observedDays = 90, trendStats = trend(recent = 150, prior = 20))!!
+
+        assertEquals(RateUnit.DAY, result.unit)
+        assertEquals(5.0, result.value, 0.0001)
+        assertFalse(result.belowOnePerMonth)
+        assertEquals(TrendDirection.UP, result.comparison!!.direction)
+        assertEquals(20 / 30.0, result.comparison.priorValue, 0.0001)
+    }
+
+    @Test
     fun `computeHeroRate with one event in the last window is exactly one a month, not below it`() {
         val result = computeHeroRate(5, observedDays = 400, trendStats = trend(recent = 1, prior = 0))!!
 

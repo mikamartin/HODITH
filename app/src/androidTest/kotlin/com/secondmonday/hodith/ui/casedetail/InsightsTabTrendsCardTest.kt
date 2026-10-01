@@ -182,7 +182,7 @@ class InsightsTabTrendsCardTest {
                     TagOutcome.INTENSITY,
                     ShiftDirection.UP,
                     relativeDifferenceLabel = "50%",
-                    withoutTagLabel = "3.0",
+                    withoutTagLabel = "3",
                     withTagLabel = "4.5",
                 ),
             ).assertExists()

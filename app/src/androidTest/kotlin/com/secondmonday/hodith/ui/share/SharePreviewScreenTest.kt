@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.share
 
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -19,6 +20,7 @@ import com.secondmonday.hodith.viewmodel.ShareInsightsSection
 import com.secondmonday.hodith.viewmodel.ShareSelection
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
@@ -73,16 +75,71 @@ class SharePreviewScreenTest {
 
     @Smoke
     @Test
-    fun formatToggle_selectingSquare_invokesCallback() {
+    fun formatToggle_selectingStory_invokesCallback() {
         var selected: ShareCardFormat? = null
         setContent(
             uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false),
             onFormatSelect = { selected = it },
         )
 
+        composeTestRule.onNodeWithText(PlainVoice.shareFormatStoryLabel).performClick()
+
+        assertEquals(ShareCardFormat.STORY, selected)
+    }
+
+    @Test
+    fun formatToggle_selectingSquareFromStory_invokesCallback() {
+        var selected: ShareCardFormat? = null
+        setContent(
+            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), selection = STORY_SELECTION, isLoading = false),
+            onFormatSelect = { selected = it },
+        )
+
         composeTestRule.onNodeWithText(PlainVoice.shareFormatSquareLabel).performClick()
 
         assertEquals(ShareCardFormat.SQUARE, selected)
+    }
+
+    @Test
+    fun formatToggle_listsSquareBeforeStory() {
+        setContent(uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false))
+
+        val square = composeTestRule.onNodeWithText(PlainVoice.shareFormatSquareLabel).getUnclippedBoundsInRoot()
+        val story = composeTestRule.onNodeWithText(PlainVoice.shareFormatStoryLabel).getUnclippedBoundsInRoot()
+
+        assertTrue("Square should sit left of Story (square=$square, story=$story)", square.left < story.left)
+    }
+
+    @Test
+    fun squareSelection_rendersTheSummaryCardNotTheRealityBeat() {
+        setContent(
+            uiState =
+                ShareUiState(
+                    case = testCase(id = 1L),
+                    events = trendsEligibleEvents(),
+                    selection = ShareSelection(format = ShareCardFormat.SQUARE),
+                    isLoading = false,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareRealityEventsLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertExists()
+    }
+
+    @Test
+    fun storySelection_rendersTheRealityBeatNotTheSquarePanels() {
+        setContent(
+            uiState =
+                ShareUiState(
+                    case = testCase(id = 1L),
+                    events = trendsEligibleEvents(),
+                    selection = STORY_SELECTION,
+                    isLoading = false,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareRealityEventsLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertDoesNotExist()
     }
 
     @Test
