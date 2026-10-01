@@ -13,6 +13,9 @@ import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.domain.ConfidenceTier
+import com.secondmonday.hodith.domain.VerdictResult
+import com.secondmonday.hodith.domain.computeVerdict
+import com.secondmonday.hodith.domain.expectationInputsFor
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -30,7 +33,7 @@ private const val NOW = 40L * MILLIS_PER_DAY
  * Drives [WatchesTabContent] and [WatchEditorSheet] directly, stateless, same
  * pattern as `CaseDetailScreenTest`/the retired `NotificationsScreenTest` -- no Hilt, since
  * [CaseDetailScreen]'s bell tab owns its own `hiltViewModel<WatchesViewModel>()` instance
- * that this test intentionally never reaches (see PROGRESS.md N2's architecture notes).
+ * that this test intentionally never reaches.
  */
 @UiTest
 class CaseDetailWatchesTabTest {
@@ -190,6 +193,139 @@ class CaseDetailWatchesTabTest {
         setTabContent(watches = listOf(watch), events = emptyList())
 
         composeTestRule.onNodeWithText(PlainVoice.expectationEarlyBadgeLabel).assertExists()
+    }
+
+    // ---- Card two-zone content ----
+
+    private fun spreadEvents(count: Int) = (0 until count).map { i -> oftenAt(i.toLong(), NOW - i * MILLIS_PER_DAY) }
+
+    private fun verdictFor(
+        watch: WatchEntity,
+        events: List<EventEntity>,
+    ): VerdictResult {
+        val (expectation, filtered) = expectationInputsFor(watch, events, NOW)
+        return computeVerdict(expectation, filtered, NOW, DurationMode.NONE)
+    }
+
+    private fun settingsLine(
+        lookbackDays: Int,
+        minIntensity: Int?,
+    ) = PlainVoice.watchSettingsLine(
+        lookbackDays,
+        showMeasure = false,
+        metric = VerdictMetric.OCCURRENCE_COUNT,
+        minIntensity = minIntensity,
+    )
+
+    private fun comparisonLabel(result: VerdictResult) =
+        PlainVoice.watchComparisonLabel(checkNotNull(result.comparisonBand), daysActive = false)
+
+    @Test
+    fun oftenCard_showsBothZoneEyebrowsAndTheSettingsLine() {
+        setTabContent(watches = listOf(oftenWatch(threshold = 3, windowDays = 30)))
+
+        composeTestRule.onNodeWithText(PlainVoice.watchDefinitionEyebrow).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.watchNowEyebrow).assertExists()
+        composeTestRule
+            .onNodeWithText(settingsLine(lookbackDays = 30, minIntensity = null))
+            .assertExists()
+    }
+
+    @Test
+    fun oftenCard_settingsLine_carriesTheIntensityFilterWhenSet() {
+        setTabContent(watches = listOf(oftenWatch(threshold = 3, windowDays = 30, minIntensity = 3)), intensityEnabled = true)
+
+        composeTestRule
+            .onNodeWithText(settingsLine(lookbackDays = 30, minIntensity = 3))
+            .assertExists()
+    }
+
+    @Test
+    fun oftenCard_earlyState_showsProgressTowardTheFirstTierInsteadOfAComparison() {
+        val watch = oftenWatch(threshold = 1, windowDays = 30)
+        val events = listOf(oftenAt(1L, NOW))
+        val result = verdictFor(watch, events)
+        setTabContent(watches = listOf(watch), events = events)
+
+        composeTestRule.onNodeWithText(PlainVoice.expectationEarlyBadgeLabel).assertExists()
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.expectationProgressLabel(result.eventCount, PlainVoice.expectationProgressUnitEvents, result.windowDays),
+            ).assertExists()
+    }
+
+    @Test
+    fun oftenCard_preliminaryState_showsTierBadgeComparisonAndMetaLine() {
+        val watch = oftenWatch(threshold = 1, windowDays = 30)
+        val events = spreadEvents(5)
+        val result = verdictFor(watch, events)
+        setTabContent(watches = listOf(watch), events = events)
+
+        assertEquals(ConfidenceTier.PRELIMINARY, result.tier)
+        composeTestRule.onNodeWithText(PlainVoice.expectationTierBadgeLabel(ConfidenceTier.PRELIMINARY)).assertExists()
+        composeTestRule.onNodeWithText(comparisonLabel(result)).assertExists()
+        composeTestRule
+            .onNodeWithText(PlainVoice.verdictMeta(ConfidenceTier.PRELIMINARY, result.eventCount, result.windowDays))
+            .assertExists()
+    }
+
+    @Test
+    fun oftenCard_confidentState_showsTierBadgeComparisonAndMetaLine() {
+        // 15 events across 30 days clears CONFIDENT_MIN_EVENTS (15) and CONFIDENT_MIN_DAYS (28).
+        val watch = oftenWatch(threshold = 1, windowDays = 30)
+        val events = spreadEvents(15)
+        val result = verdictFor(watch, events)
+        setTabContent(watches = listOf(watch), events = events)
+
+        assertEquals(ConfidenceTier.CONFIDENT, result.tier)
+        composeTestRule.onNodeWithText(PlainVoice.expectationTierBadgeLabel(ConfidenceTier.CONFIDENT)).assertExists()
+        composeTestRule.onNodeWithText(comparisonLabel(result)).assertExists()
+        composeTestRule
+            .onNodeWithText(PlainVoice.verdictMeta(ConfidenceTier.CONFIDENT, result.eventCount, result.windowDays))
+            .assertExists()
+    }
+
+    @Test
+    fun disabledCard_stillShowsItsTierBadgeAndComparison() {
+        val watch = oftenWatch(threshold = 1, windowDays = 30, enabled = false)
+        val events = spreadEvents(5)
+        val result = verdictFor(watch, events)
+        setTabContent(watches = listOf(watch), events = events)
+
+        composeTestRule.onNodeWithText(PlainVoice.expectationTierBadgeLabel(ConfidenceTier.PRELIMINARY)).assertExists()
+        composeTestRule.onNodeWithText(comparisonLabel(result)).assertExists()
+    }
+
+    @Test
+    fun card_firedLine_shownOnlyOnceTheWatchHasFired() {
+        val fired = oftenWatch(id = 1L, threshold = 3, lastFiredAt = NOW - 2 * MILLIS_PER_DAY)
+        setTabContent(watches = listOf(fired))
+        composeTestRule.onNodeWithText(PlainVoice.watchFiredAgo(2L)).assertExists()
+    }
+
+    @Test
+    fun card_firedLine_absentForAWatchThatHasNeverFired() {
+        setTabContent(watches = listOf(oftenWatch(threshold = 3, lastFiredAt = null)))
+        composeTestRule.onNodeWithText(PlainVoice.watchFiredAgo(0L)).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.watchFiredAgo(2L)).assertDoesNotExist()
+    }
+
+    @Test
+    fun quietCard_showsBothEyebrowsButNoSettingsLine() {
+        setTabContent(watches = listOf(quietWatch(threshold = 14)), events = listOf(oftenAt(1L, NOW - 3 * MILLIS_PER_DAY)))
+
+        composeTestRule.onNodeWithText(PlainVoice.watchDefinitionEyebrow).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.watchNowEyebrow).assertExists()
+        composeTestRule
+            .onNodeWithText(settingsLine(lookbackDays = 0, minIntensity = null))
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun disabledQuietCard_stillShowsItsNowLine() {
+        setTabContent(watches = listOf(quietWatch(threshold = 14, enabled = false)), events = listOf(oftenAt(1L, NOW - 3 * MILLIS_PER_DAY)))
+
+        composeTestRule.onNodeWithText(PlainVoice.watchNowLineQuiet(3L)).assertExists()
     }
 
     @Test

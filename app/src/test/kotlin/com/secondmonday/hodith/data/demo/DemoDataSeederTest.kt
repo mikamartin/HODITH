@@ -2,6 +2,8 @@ package com.secondmonday.hodith.data.demo
 
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.ShiftDirection
@@ -9,6 +11,9 @@ import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
+import com.secondmonday.hodith.domain.evaluateOften
+import com.secondmonday.hodith.domain.evaluateQuiet
+import com.secondmonday.hodith.domain.silenceAnchorForEvents
 import com.secondmonday.hodith.testsupport.withoutTags
 import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.insightsTabState
@@ -367,6 +372,101 @@ class DemoDataSeederTest {
             // RECENT_SURGE_DAYS (DemoDataSeeder.kt) is 12 — one event lands on every one of those
             // consecutive days, so the surge alone guarantees a streak at least that long.
             assertTrue(longestConsecutiveRun(activeDates) >= 12)
+        }
+
+    @Test
+    fun `seed gives Coffee a confident often watch already fired and a disabled quiet one`() =
+        runTest {
+            seeder.seed()
+
+            val coffee = repository.cases.value.single { it.name == "Coffee" }
+            val watches = repository.watches.value.filter { it.caseId == coffee.id }
+            val often = watches.single { it.kind == WatchKind.OFTEN }
+            val quiet = watches.single { it.kind == WatchKind.QUIET }
+
+            assertEquals(3, often.threshold)
+            assertEquals(30, often.windowDays)
+            assertTrue(often.enabled)
+            // Condition already met by Coffee's recent surge, so it's stored as fired rather than armed.
+            assertEquals(false, often.armed)
+            assertTrue(often.lastFiredAt != null)
+            assertEquals(false, quiet.enabled)
+        }
+
+    @Test
+    fun `seed gives Nosebleed a quiet watch already fired by its long silence`() =
+        runTest {
+            seeder.seed()
+
+            val nosebleed = repository.cases.value.single { it.name == "Nosebleed" }
+            val watch = repository.watches.value.single { it.caseId == nosebleed.id }
+
+            assertEquals(WatchKind.QUIET, watch.kind)
+            assertEquals(null, watch.windowDays)
+            assertEquals(false, watch.armed)
+            assertTrue(watch.lastFiredAt != null)
+        }
+
+    @Test
+    fun `seed gives Argument no watches so the bell tab's empty state has a Case`() =
+        runTest {
+            seeder.seed()
+
+            val argument = repository.cases.value.single { it.name == "Argument" }
+            assertTrue(repository.watches.value.none { it.caseId == argument.id })
+        }
+
+    @Test
+    fun `seed puts an intensity filter only on intensity Cases and days active only on duration Cases`() =
+        runTest {
+            seeder.seed()
+
+            val casesById = repository.cases.value.associateBy { it.id }
+            val watches = repository.watches.value
+            assertTrue(watches.any { it.minIntensity != null })
+            assertTrue(watches.any { it.metric == VerdictMetric.DAYS_ACTIVE })
+            watches.filter { it.minIntensity != null }.forEach { assertTrue(casesById.getValue(it.caseId).intensityEnabled) }
+            watches
+                .filter { it.metric == VerdictMetric.DAYS_ACTIVE }
+                .forEach { assertTrue(casesById.getValue(it.caseId).durationMode != DurationMode.NONE) }
+        }
+
+    @Test
+    fun `seed turns check-ins off for exactly one Case`() =
+        runTest {
+            seeder.seed()
+
+            val off = repository.cases.value.filterNot { it.checkInsEnabled }
+            assertEquals(listOf("Noisy neighbours"), off.map { it.name })
+        }
+
+    @Test
+    fun `seed called twice adds a second full set of watches`() =
+        runTest {
+            seeder.seed()
+            val firstSetSize = repository.watches.value.size
+            seeder.seed()
+
+            assertEquals(firstSetSize * 2, repository.watches.value.size)
+        }
+
+    @Test
+    fun `seed leaves no enabled watch armed with its condition already met`() =
+        runTest {
+            seeder.seed()
+
+            val casesById = repository.cases.value.associateBy { it.id }
+            repository.watches.value.filter { it.enabled }.forEach { watch ->
+                val case = casesById.getValue(watch.caseId)
+                val events = repository.events.value.filter { it.caseId == case.id }
+                val decision =
+                    when (watch.kind) {
+                        WatchKind.OFTEN -> evaluateOften(watch, events, NOW_MILLIS, case.durationMode)
+                        WatchKind.QUIET ->
+                            evaluateQuiet(watch, silenceAnchorForEvents(events, case.durationMode, NOW_MILLIS), case.createdAt, NOW_MILLIS)
+                    }
+                assertEquals("${case.name} ${watch.kind} would fire on the first evaluation", false, decision.shouldFire)
+            }
         }
 }
 

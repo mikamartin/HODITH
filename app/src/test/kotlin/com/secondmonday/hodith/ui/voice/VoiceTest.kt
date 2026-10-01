@@ -61,6 +61,15 @@ class VoiceTest {
     }
 
     @Test
+    fun `watchesWindowPresetLabel reads short windows in days, longer ones in months, and 90 as Quarter`() {
+        val expected =
+            mapOf(7 to "7 days", 14 to "14 days", 30 to "30 days", 60 to "2mo", 90 to "Quarter", 120 to "4mo", 180 to "6mo")
+        for (voice in voices) {
+            expected.forEach { (days, label) -> assertEquals("$voice: $days days", label, voice.watchesWindowPresetLabel(days)) }
+        }
+    }
+
+    @Test
     fun `watchComparisonLabel distinguishes every comparison band`() {
         for (voice in voices) {
             val labels = ComparisonBand.entries.map { voice.watchComparisonLabel(it, daysActive = false) }

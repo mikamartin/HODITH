@@ -71,7 +71,7 @@ private const val DEFAULT_MIN_INTENSITY = 1
  * be judging it on a slice too short to mean anything. [SHORT]/[LONG] scale with [ExpectedPer] so
  * the two presets always stay sane for whichever rate the "At least" picker is set to.
  */
-private fun windowDaysFor(
+internal fun windowDaysFor(
     per: ExpectedPer,
     preset: WindowPreset,
 ): Int? =
@@ -93,29 +93,7 @@ private fun windowDaysFor(
         WindowPreset.CUSTOM -> null
     }
 
-private fun windowPresetLabel(
-    per: ExpectedPer,
-    preset: WindowPreset,
-): String =
-    when (preset) {
-        WindowPreset.SHORT ->
-            when (per) {
-                ExpectedPer.DAY -> "7 days"
-                ExpectedPer.WEEK -> "14 days"
-                ExpectedPer.MONTH -> "2mo"
-                ExpectedPer.QUARTER -> "4mo"
-            }
-        WindowPreset.LONG ->
-            when (per) {
-                ExpectedPer.DAY -> "14 days"
-                ExpectedPer.WEEK -> "30 days"
-                ExpectedPer.MONTH -> "Quarter"
-                ExpectedPer.QUARTER -> "6mo"
-            }
-        WindowPreset.CUSTOM -> error("Custom has no fixed label — read it from Voice.watchesWindowCustom instead")
-    }
-
-private fun windowPresetFor(
+internal fun windowPresetFor(
     days: Int?,
     per: ExpectedPer,
 ): WindowPreset =
@@ -126,13 +104,22 @@ private fun windowPresetFor(
         else -> WindowPreset.CUSTOM
     }
 
+/** The intensity-at-least switch: on starts at the lowest level (everything counts), off drops the filter entirely. */
+internal fun minIntensityAfterToggle(checked: Boolean): Int? = if (checked) DEFAULT_MIN_INTENSITY else null
+
+/** Tapping level N selects N as the minimum and highlights N and every level above it. */
+internal fun isIntensityLevelHighlighted(
+    level: Int,
+    selected: Int,
+): Boolean = level >= selected
+
 /**
  * Create/edit sheet for a Watch (spec §11/§14) — [editing] null creates, non-null prefills
- * every field from it and adds a delete action. Extends the old `TriggerCreationSheet`'s kind +
- * threshold/window fields with `FrequencyPickers.kt`'s count+per picker, a 14/30-day lookback
- * preset plus custom (duration Cases only get the Measure picker, shown right after the kind
- * picker since it changes what "At least" can even offer), and an intensity-at-least toggle
- * (intensity Cases only) that only reveals its 1..5 picker once switched on.
+ * every field from it and adds a delete action. Holds the kind picker, `FrequencyPickers.kt`'s
+ * count+per picker, a lookback with two presets that scale with the chosen rate plus custom
+ * (duration Cases only get the Measure picker, shown right after the kind picker since it
+ * changes what "At least" can even offer), and an intensity-at-least toggle (intensity Cases
+ * only) that only reveals its 1..5 picker once switched on.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -275,8 +262,10 @@ internal fun WatchEditorSheet(
                     SegmentedChoiceRow(
                         options =
                             listOf(
-                                WindowPreset.SHORT to windowPresetLabel(activePer, WindowPreset.SHORT),
-                                WindowPreset.LONG to windowPresetLabel(activePer, WindowPreset.LONG),
+                                WindowPreset.SHORT to
+                                    voice.watchesWindowPresetLabel(checkNotNull(windowDaysFor(activePer, WindowPreset.SHORT))),
+                                WindowPreset.LONG to
+                                    voice.watchesWindowPresetLabel(checkNotNull(windowDaysFor(activePer, WindowPreset.LONG))),
                                 WindowPreset.CUSTOM to voice.watchesWindowCustom,
                             ),
                         selected = windowPreset,
@@ -302,7 +291,7 @@ internal fun WatchEditorSheet(
                             )
                             Switch(
                                 checked = minIntensity != null,
-                                onCheckedChange = { checked -> minIntensity = if (checked) DEFAULT_MIN_INTENSITY else null },
+                                onCheckedChange = { checked -> minIntensity = minIntensityAfterToggle(checked) },
                                 colors = themedSwitchColors(),
                                 modifier = Modifier.semantics { contentDescription = voice.watchesIntensityToggleDescription },
                             )
@@ -355,6 +344,10 @@ internal fun WatchEditorSheet(
 /**
  * Tapping a level highlights it and every level above it (so 1..5 reads as "this or more"
  * without a "+" suffix cluttering each circle) — [selected] is the current minimum.
+ *
+ * Known gap, deferred: each circle is 36dp, under the 48dp minimum touch target. Fixing it means
+ * re-spacing the row (a visual change to validate on a device), so it stays out of the Watches
+ * rework's wrap-up.
  */
 @Composable
 private fun IntensityAtLeastPicker(
@@ -365,7 +358,7 @@ private fun IntensityAtLeastPicker(
 ) {
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (level in 1..INTENSITY_MAX) {
-            val highlighted = level >= selected
+            val highlighted = isIntensityLevelHighlighted(level, selected)
             Surface(
                 shape = CircleShape,
                 color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,

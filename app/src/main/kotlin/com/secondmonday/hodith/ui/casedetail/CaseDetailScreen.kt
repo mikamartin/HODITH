@@ -327,7 +327,7 @@ fun CaseDetailScreen(
                     }
                 WATCHES_TAB ->
                     if (case != null) {
-                        // Its own hiltViewModel() instance (architecture decision, PROGRESS.md N2):
+                        // Its own hiltViewModel() instance (architecture decision):
                         // re-queries the repository on its own rather than sharing this screen's
                         // CaseDetailViewModel, same as every other full-screen/tab destination.
                         val watchesViewModel: WatchesViewModel = hiltViewModel()

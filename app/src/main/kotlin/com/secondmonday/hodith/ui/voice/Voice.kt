@@ -15,6 +15,10 @@ import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendReliability
 
+private const val DAYS_PER_MONTH = 30
+private const val WINDOW_PRESET_QUARTER_DAYS = 90
+private const val WINDOW_PRESET_MONTHS_FROM_DAYS = 60
+
 /** "day" / "week" / "month" / "3 months" — shared by every voice's Notification card-title copy. */
 private fun perPhrase(per: ExpectedPer): String =
     when (per) {
@@ -783,6 +787,15 @@ interface Voice {
     val watchesWindowLabel: String get() = "Within"
     val watchesWindowCustom: String get() = "Custom"
     val watchesWindowCustomHint: String get() = "Days"
+
+    /** A lookback preset's chip label: "14 days", "2mo", "Quarter". A unit abbreviation, so identical across voices like [watchesQuietSuffix]. */
+    fun watchesWindowPresetLabel(days: Int): String =
+        when {
+            days < WINDOW_PRESET_MONTHS_FROM_DAYS -> "$days days"
+            days == WINDOW_PRESET_QUARTER_DAYS -> "Quarter"
+            else -> "${days / DAYS_PER_MONTH}mo"
+        }
+
     val watchesQuietLabel: String
     val watchesQuietSuffix: String get() = "days"
     val watchesSaveButton: String
