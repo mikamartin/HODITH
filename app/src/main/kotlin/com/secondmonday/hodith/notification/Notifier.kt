@@ -12,7 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.secondmonday.hodith.MainActivity
 import com.secondmonday.hodith.R
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.NotificationEntity
+import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.widget.EXTRA_CASE_ID
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -25,7 +25,7 @@ const val NOTIFICATION_GROUP_KEY = "com.secondmonday.hodith.notifications"
 interface Notifier {
     fun notifyNotificationFired(
         case: CaseEntity,
-        notification: NotificationEntity,
+        watch: WatchEntity,
         voice: Voice,
     )
 
@@ -75,13 +75,13 @@ class SystemNotifier
     ) : Notifier {
         override fun notifyNotificationFired(
             case: CaseEntity,
-            notification: NotificationEntity,
+            watch: WatchEntity,
             voice: Voice,
         ) {
             post(
-                notificationId = notificationAndroidId(notification.id),
+                notificationId = notificationAndroidId(watch.id),
                 title = voice.notificationFiredTitle(case.name),
-                text = voice.notificationSummary(notification.kind, notification.threshold, notification.windowDays),
+                text = voice.watchSummary(watch.kind, watch.threshold, watch.windowDays),
                 caseId = case.id,
                 voice = voice,
             )

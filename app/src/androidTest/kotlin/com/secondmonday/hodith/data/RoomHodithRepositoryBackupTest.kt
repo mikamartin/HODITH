@@ -38,7 +38,7 @@ class RoomHodithRepositoryBackupTest {
                 caseDao = db.caseDao(),
                 eventDao = db.eventDao(),
                 tagDao = db.tagDao(),
-                notificationDao = db.notificationDao(),
+                watchDao = db.watchDao(),
                 notificationEvalScheduler = unusedScheduler(),
             )
     }
@@ -64,7 +64,7 @@ class RoomHodithRepositoryBackupTest {
             // intentionally-throwing NotificationEvaluator stand-in.
             val eventId = db.eventDao().insert(testEvent(caseId = caseId, occurredAt = 100L))
             repository.addTagToEvent(eventId, "aura")
-            repository.insertNotification(testNotification(caseId = caseId))
+            repository.insertWatch(testWatch(caseId = caseId))
 
             val backup = repository.exportBackupData()
 
@@ -76,7 +76,7 @@ class RoomHodithRepositoryBackupTest {
                         caseDao = freshDb.caseDao(),
                         eventDao = freshDb.eventDao(),
                         tagDao = freshDb.tagDao(),
-                        notificationDao = freshDb.notificationDao(),
+                        watchDao = freshDb.watchDao(),
                         notificationEvalScheduler = unusedScheduler(),
                     )
 
@@ -99,7 +99,7 @@ class RoomHodithRepositoryBackupTest {
                     tags = emptyList(),
                     events = emptyList(),
                     eventTags = emptyList(),
-                    notifications = emptyList(),
+                    watches = emptyList(),
                 )
             repository.importBackupData(incoming)
 
@@ -118,7 +118,7 @@ class RoomHodithRepositoryBackupTest {
                     tags = listOf(TagEntity(id = 1L, name = "aura")),
                     events = listOf(testEvent(id = 1L, caseId = 1L, occurredAt = 100L)),
                     eventTags = listOf(EventTagCrossRef(eventId = 1L, tagId = 1L)),
-                    notifications = listOf(testNotification(caseId = 1L)),
+                    watches = listOf(testWatch(caseId = 1L)),
                 )
 
             repository.importBackupData(backup)
@@ -143,7 +143,7 @@ class RoomHodithRepositoryBackupTest {
                     tags = emptyList(),
                     events = listOf(testEvent(caseId = 999L, occurredAt = 100L)),
                     eventTags = emptyList(),
-                    notifications = emptyList(),
+                    watches = emptyList(),
                 )
 
             try {

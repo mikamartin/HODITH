@@ -7,9 +7,9 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
-import com.secondmonday.hodith.data.NotificationEntity
-import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
@@ -32,7 +32,7 @@ import org.junit.Test
 private const val MILLIS_PER_DAY = 86_400_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class NotificationsViewModelTest {
+class WatchesViewModelTest {
     private val repository = FakeHodithRepository()
     private val settingsRepository = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
@@ -49,7 +49,7 @@ class NotificationsViewModelTest {
     }
 
     private fun viewModel() =
-        NotificationsViewModel(
+        WatchesViewModel(
             repository,
             settingsRepository,
             clock,
@@ -57,7 +57,7 @@ class NotificationsViewModelTest {
             SavedStateHandle(mapOf("caseId" to caseId)),
         )
 
-    private fun oftenNotification(
+    private fun oftenWatch(
         id: Long = 1L,
         caseId: Long = this.caseId,
         threshold: Int = 5,
@@ -67,10 +67,10 @@ class NotificationsViewModelTest {
         minIntensity: Int? = null,
         enabled: Boolean = true,
         lastFiredAt: Long? = null,
-    ) = NotificationEntity(
+    ) = WatchEntity(
         id = id,
         caseId = caseId,
-        kind = NotificationKind.OFTEN,
+        kind = WatchKind.OFTEN,
         threshold = threshold,
         windowDays = windowDays,
         expectedPer = expectedPer,
@@ -81,16 +81,16 @@ class NotificationsViewModelTest {
     )
 
     @Test
-    fun `uiState only includes notifications for this case`() =
+    fun `uiState only includes watches for this case`() =
         runTest {
             repository.cases.value = listOf(testCase(id = caseId))
-            repository.notifications.value =
-                listOf(oftenNotification(id = 1L, caseId = caseId), oftenNotification(id = 2L, caseId = 99L))
+            repository.watches.value =
+                listOf(oftenWatch(id = 1L, caseId = caseId), oftenWatch(id = 2L, caseId = 99L))
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(1, state.notifications.size)
-                assertEquals(1L, state.notifications.single().id)
+                assertEquals(1, state.watches.size)
+                assertEquals(1L, state.watches.single().id)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -121,12 +121,12 @@ class NotificationsViewModelTest {
         }
 
     @Test
-    fun `createNotification inserts an OFTEN notification with its window, per, metric and intensity`() =
+    fun `createWatch inserts an OFTEN watch with its window, per, metric and intensity`() =
         runTest {
             repository.cases.value = listOf(testCase(id = caseId))
 
-            viewModel().createNotification(
-                kind = NotificationKind.OFTEN,
+            viewModel().createWatch(
+                kind = WatchKind.OFTEN,
                 threshold = 5,
                 windowDays = 7,
                 expectedPer = ExpectedPer.WEEK,
@@ -134,9 +134,9 @@ class NotificationsViewModelTest {
                 minIntensity = 3,
             )
 
-            val inserted = repository.notifications.value.single()
+            val inserted = repository.watches.value.single()
             assertEquals(caseId, inserted.caseId)
-            assertEquals(NotificationKind.OFTEN, inserted.kind)
+            assertEquals(WatchKind.OFTEN, inserted.kind)
             assertEquals(5, inserted.threshold)
             assertEquals(7, inserted.windowDays)
             assertEquals(ExpectedPer.WEEK, inserted.expectedPer)
@@ -146,12 +146,12 @@ class NotificationsViewModelTest {
         }
 
     @Test
-    fun `createNotification drops windowDays, metric and intensity for QUIET`() =
+    fun `createWatch drops windowDays, metric and intensity for QUIET`() =
         runTest {
             repository.cases.value = listOf(testCase(id = caseId))
 
-            viewModel().createNotification(
-                kind = NotificationKind.QUIET,
+            viewModel().createWatch(
+                kind = WatchKind.QUIET,
                 threshold = 14,
                 windowDays = 30,
                 expectedPer = ExpectedPer.WEEK,
@@ -159,8 +159,8 @@ class NotificationsViewModelTest {
                 minIntensity = 3,
             )
 
-            val inserted = repository.notifications.value.single()
-            assertEquals(NotificationKind.QUIET, inserted.kind)
+            val inserted = repository.watches.value.single()
+            assertEquals(WatchKind.QUIET, inserted.kind)
             assertEquals(14, inserted.threshold)
             assertNull(inserted.windowDays)
             assertEquals(VerdictMetric.OCCURRENCE_COUNT, inserted.metric)
@@ -168,10 +168,10 @@ class NotificationsViewModelTest {
         }
 
     @Test
-    fun `createNotification does not insert an OFTEN notification with a zero-day window`() =
+    fun `createWatch does not insert an OFTEN watch with a zero-day window`() =
         runTest {
-            viewModel().createNotification(
-                kind = NotificationKind.OFTEN,
+            viewModel().createWatch(
+                kind = WatchKind.OFTEN,
                 threshold = 5,
                 windowDays = 0,
                 expectedPer = ExpectedPer.WEEK,
@@ -179,17 +179,17 @@ class NotificationsViewModelTest {
                 minIntensity = null,
             )
 
-            assertTrue(repository.notifications.value.isEmpty())
+            assertTrue(repository.watches.value.isEmpty())
         }
 
     @Test
-    fun `updateNotification edits an existing notification's fields, leaving armed and lastFiredAt alone`() =
+    fun `updateWatch edits an existing watch's fields, leaving armed and lastFiredAt alone`() =
         runTest {
-            repository.notifications.value = listOf(oftenNotification(id = 1L, threshold = 5, windowDays = 7, lastFiredAt = 999L))
+            repository.watches.value = listOf(oftenWatch(id = 1L, threshold = 5, windowDays = 7, lastFiredAt = 999L))
 
-            viewModel().updateNotification(
-                notificationId = 1L,
-                kind = NotificationKind.OFTEN,
+            viewModel().updateWatch(
+                watchId = 1L,
+                kind = WatchKind.OFTEN,
                 threshold = 10,
                 windowDays = 30,
                 expectedPer = ExpectedPer.MONTH,
@@ -197,7 +197,7 @@ class NotificationsViewModelTest {
                 minIntensity = 2,
             )
 
-            val updated = repository.notifications.value.single()
+            val updated = repository.watches.value.single()
             assertEquals(10, updated.threshold)
             assertEquals(30, updated.windowDays)
             assertEquals(ExpectedPer.MONTH, updated.expectedPer)
@@ -207,13 +207,13 @@ class NotificationsViewModelTest {
         }
 
     @Test
-    fun `updateNotification does not persist an OFTEN edit with a zero-day window`() =
+    fun `updateWatch does not persist an OFTEN edit with a zero-day window`() =
         runTest {
-            repository.notifications.value = listOf(oftenNotification(id = 1L, threshold = 5, windowDays = 7))
+            repository.watches.value = listOf(oftenWatch(id = 1L, threshold = 5, windowDays = 7))
 
-            viewModel().updateNotification(
-                notificationId = 1L,
-                kind = NotificationKind.OFTEN,
+            viewModel().updateWatch(
+                watchId = 1L,
+                kind = WatchKind.OFTEN,
                 threshold = 10,
                 windowDays = 0,
                 expectedPer = ExpectedPer.WEEK,
@@ -223,7 +223,7 @@ class NotificationsViewModelTest {
 
             assertEquals(
                 5,
-                repository.notifications.value
+                repository.watches.value
                     .single()
                     .threshold,
             )
@@ -232,23 +232,23 @@ class NotificationsViewModelTest {
     @Test
     fun `setEnabled updates only the enabled flag`() =
         runTest {
-            repository.notifications.value = listOf(oftenNotification(id = 1L, enabled = true))
+            repository.watches.value = listOf(oftenWatch(id = 1L, enabled = true))
 
-            viewModel().setEnabled(notificationId = 1L, enabled = false)
+            viewModel().setEnabled(watchId = 1L, enabled = false)
 
-            val updated = repository.notifications.value.single()
+            val updated = repository.watches.value.single()
             assertFalse(updated.enabled)
             assertEquals(5, updated.threshold)
         }
 
     @Test
-    fun `deleteNotification removes it`() =
+    fun `deleteWatch removes it`() =
         runTest {
-            repository.notifications.value = listOf(oftenNotification(id = 1L), oftenNotification(id = 2L))
+            repository.watches.value = listOf(oftenWatch(id = 1L), oftenWatch(id = 2L))
 
-            viewModel().deleteNotification(notificationId = 1L)
+            viewModel().deleteWatch(watchId = 1L)
 
-            assertEquals(listOf(2L), repository.notifications.value.map { it.id })
+            assertEquals(listOf(2L), repository.watches.value.map { it.id })
         }
 
     @Test
@@ -266,37 +266,37 @@ class NotificationsViewModelTest {
         }
 
     @Test
-    fun `notificationCardState for OFTEN carries the observed rate and a verdict result`() {
-        val notification = oftenNotification(threshold = 1, windowDays = 30)
+    fun `watchCardState for OFTEN carries the observed rate and a verdict result`() {
+        val watch = oftenWatch(threshold = 1, windowDays = 30)
         val now = clock.nowMillis()
         val events = (1..20).map { testEvent(id = it.toLong(), caseId = caseId, occurredAt = now - it * MILLIS_PER_DAY) }
 
-        val state = notificationCardState(notification, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+        val state = watchCardState(watch, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
 
-        assertEquals(NotificationKind.OFTEN, state.kind)
+        assertEquals(WatchKind.OFTEN, state.kind)
         assertTrue((state.observedRate ?: 0.0) > 0.0)
         assertNull(state.silentDays)
         assertEquals(ConfidenceTier.CONFIDENT, state.verdictResult?.tier)
     }
 
     @Test
-    fun `notificationCardState for OFTEN reads NO_VERDICT below the confidence tier, gating the comparison line`() {
-        val notification = oftenNotification(threshold = 1, windowDays = 30)
+    fun `watchCardState for OFTEN reads NO_VERDICT below the confidence tier, gating the comparison line`() {
+        val watch = oftenWatch(threshold = 1, windowDays = 30)
         val now = clock.nowMillis()
         val events = listOf(testEvent(id = 1L, caseId = caseId, occurredAt = now))
 
-        val state = notificationCardState(notification, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+        val state = watchCardState(watch, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
 
         assertEquals(ConfidenceTier.NO_VERDICT, state.verdictResult?.tier)
     }
 
     @Test
-    fun `notificationCardState for QUIET carries silentDays from the latest event, not observedRate`() {
-        val notification =
-            NotificationEntity(
+    fun `watchCardState for QUIET carries silentDays from the latest event, not observedRate`() {
+        val watch =
+            WatchEntity(
                 id = 1L,
                 caseId = caseId,
-                kind = NotificationKind.QUIET,
+                kind = WatchKind.QUIET,
                 threshold = 14,
                 windowDays = null,
                 expectedPer = ExpectedPer.WEEK,
@@ -308,9 +308,9 @@ class NotificationsViewModelTest {
         val now = clock.nowMillis()
         val events = listOf(testEvent(id = 1L, caseId = caseId, occurredAt = now - 3 * MILLIS_PER_DAY))
 
-        val state = notificationCardState(notification, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+        val state = watchCardState(watch, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
 
-        assertEquals(NotificationKind.QUIET, state.kind)
+        assertEquals(WatchKind.QUIET, state.kind)
         assertEquals(3L, state.silentDays)
         assertNull(state.observedRate)
         assertNull(state.expectation)
@@ -318,12 +318,12 @@ class NotificationsViewModelTest {
     }
 
     @Test
-    fun `notificationCardState for QUIET with no events falls back to caseCreatedAt`() {
-        val notification =
-            NotificationEntity(
+    fun `watchCardState for QUIET with no events falls back to caseCreatedAt`() {
+        val watch =
+            WatchEntity(
                 id = 1L,
                 caseId = caseId,
-                kind = NotificationKind.QUIET,
+                kind = WatchKind.QUIET,
                 threshold = 14,
                 windowDays = null,
                 expectedPer = ExpectedPer.WEEK,
@@ -335,8 +335,8 @@ class NotificationsViewModelTest {
         val now = clock.nowMillis()
 
         val state =
-            notificationCardState(
-                notification,
+            watchCardState(
+                watch,
                 emptyList<EventEntity>(),
                 DurationMode.NONE,
                 caseCreatedAt = now - 5 * MILLIS_PER_DAY,
@@ -347,12 +347,12 @@ class NotificationsViewModelTest {
     }
 
     @Test
-    fun `notificationCardState computes firedDaysAgo calendar-day-aware, null when never fired`() {
+    fun `watchCardState computes firedDaysAgo calendar-day-aware, null when never fired`() {
         val now = clock.nowMillis()
-        val fired = oftenNotification(id = 1L, lastFiredAt = now - 2 * MILLIS_PER_DAY)
-        val neverFired = oftenNotification(id = 2L, lastFiredAt = null)
+        val fired = oftenWatch(id = 1L, lastFiredAt = now - 2 * MILLIS_PER_DAY)
+        val neverFired = oftenWatch(id = 2L, lastFiredAt = null)
 
-        assertEquals(2L, notificationCardState(fired, emptyList(), DurationMode.NONE, 0L, now).firedDaysAgo)
-        assertNull(notificationCardState(neverFired, emptyList(), DurationMode.NONE, 0L, now).firedDaysAgo)
+        assertEquals(2L, watchCardState(fired, emptyList(), DurationMode.NONE, 0L, now).firedDaysAgo)
+        assertNull(watchCardState(neverFired, emptyList(), DurationMode.NONE, 0L, now).firedDaysAgo)
     }
 }

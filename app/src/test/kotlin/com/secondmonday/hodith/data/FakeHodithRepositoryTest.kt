@@ -46,10 +46,10 @@ class FakeHodithRepositoryTest {
         loggedAt = occurredAt,
     )
 
-    private fun testNotification(caseId: Long) =
-        NotificationEntity(
+    private fun testWatch(caseId: Long) =
+        WatchEntity(
             caseId = caseId,
-            kind = NotificationKind.OFTEN,
+            kind = WatchKind.OFTEN,
             threshold = 3,
             windowDays = 7,
             expectedPer = ExpectedPer.WEEK,
@@ -135,16 +135,16 @@ class FakeHodithRepositoryTest {
             val keptId = repository.insertCase(testCase(name = "Other"))
             repository.insertEvent(testEvent(caseId = deletedId))
             repository.insertEvent(testEvent(caseId = keptId))
-            repository.insertNotification(testNotification(caseId = deletedId))
-            repository.insertNotification(testNotification(caseId = keptId))
+            repository.insertWatch(testWatch(caseId = deletedId))
+            repository.insertWatch(testWatch(caseId = keptId))
 
             repository.deleteCase(repository.getCase(deletedId)!!)
 
             assertNull(repository.getCase(deletedId))
             assertTrue(repository.events.value.none { it.caseId == deletedId })
             assertEquals(1, repository.events.value.count { it.caseId == keptId })
-            assertTrue(repository.notifications.value.none { it.caseId == deletedId })
-            assertEquals(1, repository.notifications.value.count { it.caseId == keptId })
+            assertTrue(repository.watches.value.none { it.caseId == deletedId })
+            assertEquals(1, repository.watches.value.count { it.caseId == keptId })
         }
 
     @Test
@@ -430,12 +430,12 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `getEnabledNotifications filters out disabled notifications across all cases`() =
+    fun `getEnabledWatches filters out disabled watches across all cases`() =
         runTest {
-            repository.insertNotification(
-                NotificationEntity(
+            repository.insertWatch(
+                WatchEntity(
                     caseId = 1L,
-                    kind = NotificationKind.OFTEN,
+                    kind = WatchKind.OFTEN,
                     threshold = 3,
                     windowDays = 7,
                     expectedPer = ExpectedPer.WEEK,
@@ -445,10 +445,10 @@ class FakeHodithRepositoryTest {
                     lastFiredAt = null,
                 ),
             )
-            repository.insertNotification(
-                NotificationEntity(
+            repository.insertWatch(
+                WatchEntity(
                     caseId = 2L,
-                    kind = NotificationKind.QUIET,
+                    kind = WatchKind.QUIET,
                     threshold = 1,
                     windowDays = null,
                     expectedPer = ExpectedPer.WEEK,
@@ -459,7 +459,7 @@ class FakeHodithRepositoryTest {
                 ),
             )
 
-            val enabled = repository.getEnabledNotifications()
+            val enabled = repository.getEnabledWatches()
 
             assertEquals(1, enabled.size)
             assertTrue(enabled.single().enabled)

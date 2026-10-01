@@ -39,7 +39,7 @@ class BackupSerializerTest {
                     EventEntity(id = 1L, caseId = 1L, occurredAt = 100L, endedAt = null, intensity = null, note = null, loggedAt = 100L),
                 ),
             eventTags = emptyList(),
-            notifications = emptyList(),
+            watches = emptyList(),
         )
 
     @Test

@@ -14,7 +14,7 @@ import java.time.LocalDate
  * [WENT_QUIET] is the one kind not about a shift between two halves of completed history — it's
  * whether the Case's current, still-open silence is a record for that Case, while the user is
  * still active elsewhere (spec's "Case quiet vs. abandoned" resolution: a Trends finding, not a
- * notification, so it never touches check-ins or [com.secondmonday.hodith.data.NotificationKind]).
+ * notification, so it never touches check-ins or [com.secondmonday.hodith.data.WatchKind]).
  * `priorValue`/`recentValue` hold the longest-past-gap/current-gap pair (days), the same
  * days-based convention [GAP_SHIFT] uses, and [TrendFinding.direction] is always [ShiftDirection.UP]
  * (silence only ever grows until a new event closes it).

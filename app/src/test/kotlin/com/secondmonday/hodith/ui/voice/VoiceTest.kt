@@ -61,10 +61,10 @@ class VoiceTest {
     }
 
     @Test
-    fun `verdictHeadline distinguishes every comparison band`() {
+    fun `watchComparisonLabel distinguishes every comparison band`() {
         for (voice in voices) {
-            val headlines = ComparisonBand.entries.map { voice.verdictHeadline(it, "2.6x/week") }
-            assertEquals("$voice: every band should read distinctly", headlines.size, headlines.toSet().size)
+            val labels = ComparisonBand.entries.map { voice.watchComparisonLabel(it, daysActive = false) }
+            assertEquals("$voice: every band should read distinctly", labels.size, labels.toSet().size)
         }
     }
 

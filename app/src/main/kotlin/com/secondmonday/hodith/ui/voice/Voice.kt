@@ -3,8 +3,8 @@ package com.secondmonday.hodith.ui.voice
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.domain.ComparisonBand
 import com.secondmonday.hodith.domain.ConfidenceTier
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -256,12 +256,11 @@ interface Voice {
     val expectedPerDay: String get() = "Day"
     val expectedPerWeek: String get() = "Week"
     val expectedPerMonth: String get() = "Month"
-    val expectedPerQuarter: String get() = "3 Months"
+    val expectedPerQuarter: String get() = "Quarter"
 
     /** Metric picker — shown only for a duration-tracking Case; one line, no jargon. */
     val metricOccurrenceLabel: String
     val metricDaysActiveLabel: String
-    val expectationEarlyHeadline: String
     val caseDetailLogTabLabel: String get() = "Log"
     val caseDetailInsightsTabLabel: String get() = "Insights"
 
@@ -690,9 +689,6 @@ interface Voice {
 
     fun bigPictureFilterCount(selected: Int): String = "$selected"
 
-    /** "3+ times per week" — [expectedFrequencyLabel] is pre-formatted (see `formatExpectedFrequency`). */
-    fun expectationChipLabel(expectedFrequencyLabel: String): String
-
     /** The unit an expectation's Early-days progress is counted in for the occurrence metric — "events" / "entries" / "logs". */
     val expectationProgressUnitEvents: String
 
@@ -706,20 +702,15 @@ interface Voice {
         windowDays: Long,
     ): String = "$observedCount of $PRELIMINARY_MIN_EVENTS $unit · $windowDays of $PRELIMINARY_MIN_DAYS days"
 
-    /** The confirmed band-only verdict headline; [observedRateLabel] is pre-formatted. */
-    fun verdictHeadline(
-        band: ComparisonBand,
-        observedRateLabel: String,
-    ): String
-
     /**
-     * The days-active counterpart of [verdictHeadline] — same band-only shape, phrased as a share
-     * of days ("how much of the time") rather than a count of occurrences. [observedRateLabel] is
-     * pre-formatted (e.g. "5.6 days/week").
+     * Short comparison fragment for a Watch card's tinted Now zone — "well over expected" /
+     * "far above the expected rate" / "way more than expected" depending on voice; [daysActive]
+     * prepends the voice's "active" qualifier when the Watch counts active days rather than raw
+     * occurrences.
      */
-    fun verdictHeadlineDaysActive(
+    fun watchComparisonLabel(
         band: ComparisonBand,
-        observedRateLabel: String,
+        daysActive: Boolean,
     ): String
 
     /** Appended to a Preliminary-tier verdict meta line by both [verdictMeta] and [verdictMetaDaysActive]. */
@@ -745,95 +736,100 @@ interface Voice {
         windowDays: Long,
     ): String
 
-    /** Badge text on an expectation card — identical across all three voices, like the nav/tab labels. */
-    val expectationEarlyBadgeLabel: String get() = "Early days"
+    /** Badge text for a Watch card's Now zone before any verdict exists — "Early days" / "Undecided" / "Too soon to say". */
+    val expectationEarlyBadgeLabel: String
 
-    fun expectationTierBadgeLabel(tier: ConfidenceTier): String =
-        when (tier) {
-            ConfidenceTier.PRELIMINARY -> "Preliminary"
-            else -> "Confident"
-        }
+    /** Badge text once a verdict exists — "Established"/"Early read" (Plain), "Confirmed"/"Suspected" (Intense), "Locked in!"/"First peek!" (Bright). */
+    fun expectationTierBadgeLabel(tier: ConfidenceTier): String
+
+    /** A Watch card's two-zone layout: the eyebrow above the title — "Watching for" / "The watch" / "Eyes on". */
+    val watchDefinitionEyebrow: String
+
+    /** The eyebrow above the tinted Now zone — "Now" / "As it stands" / "Right now". */
+    val watchNowEyebrow: String
 
     // ---- Notifications (Phase 9, spec §11/§14) ----
-    val notificationsTabDescription: String
-    val notificationsFabDescription: String
-    val notificationsEmptyTitle: String
-    val notificationsEmptyBody: String
-    val notificationsEmptyCta: String
+    val watchesTabDescription: String
+    val watchesFabDescription: String
+    val watchesEmptyTitle: String
+    val watchesEmptyBody: String
+    val watchesEmptyCta: String
 
-    fun notificationKindLabel(kind: NotificationKind): String
+    fun watchKindLabel(kind: WatchKind): String
 
-    /** [windowDays] only applies to [NotificationKind.OFTEN]; ignored for [NotificationKind.QUIET]. */
-    fun notificationSummary(
-        kind: NotificationKind,
+    /** [windowDays] only applies to [WatchKind.OFTEN]; ignored for [WatchKind.QUIET]. */
+    fun watchSummary(
+        kind: WatchKind,
         threshold: Int,
         windowDays: Int?,
     ): String
 
-    fun notificationFiredAgo(daysAgo: Long): String
+    fun watchFiredAgo(daysAgo: Long): String
 
-    fun notificationToggleDescription(summary: String): String
+    fun watchToggleDescription(summary: String): String
 
-    fun notificationDeleteDescription(summary: String): String
+    fun watchDeleteDescription(summary: String): String
 
-    val notificationsDeleteConfirmTitle: String
-    val notificationsDeleteConfirmBody: String
-    val notificationsDeleteConfirmAction: String
-    val notificationsDeleteCancelAction: String
-    val notificationsCreateTitle: String
+    val watchesDeleteConfirmTitle: String
+    val watchesDeleteConfirmBody: String
+    val watchesDeleteConfirmAction: String
+    val watchesDeleteCancelAction: String
+    val watchesCreateTitle: String
 
-    /** Bell tab editor's title when editing an existing Notification, as opposed to [notificationsCreateTitle]. */
-    val notificationsEditTitle: String
-    val notificationsKindPickerLabel: String
-    val notificationsOftenLabel: String get() = "At least"
-    val notificationsWindowLabel: String get() = "Within"
-    val notificationsWindowSeven: String get() = "7 days"
-    val notificationsWindowThirty: String get() = "30 days"
-    val notificationsWindowNinety: String get() = "90 days"
-    val notificationsWindowCustom: String get() = "Custom"
-    val notificationsWindowCustomHint: String get() = "Days"
-    val notificationsQuietLabel: String
-    val notificationsQuietSuffix: String get() = "days"
-    val notificationsSaveButton: String
-    val notificationsCancelButton: String
-    val notificationsDecreaseCountDescription: String
-    val notificationsIncreaseCountDescription: String
+    /** Bell tab editor's title when editing an existing Notification, as opposed to [watchesCreateTitle]. */
+    val watchesEditTitle: String
+    val watchesKindPickerLabel: String
+    val watchesOftenLabel: String get() = "At least"
+    val watchesWindowLabel: String get() = "Within"
+    val watchesWindowCustom: String get() = "Custom"
+    val watchesWindowCustomHint: String get() = "Days"
+    val watchesQuietLabel: String
+    val watchesQuietSuffix: String get() = "days"
+    val watchesSaveButton: String
+    val watchesCancelButton: String
+    val watchesDecreaseCountDescription: String
+    val watchesIncreaseCountDescription: String
 
     /** Editor's metric-picker section label, shown only for a duration-tracking Case; options are [metricOccurrenceLabel]/[metricDaysActiveLabel]. */
-    val notificationsMetricLabel: String get() = "Measure"
+    val watchesMetricLabel: String get() = "Measure"
 
     /** Editor's intensity-at-least picker label, shown only when the Case has intensity tracking on. */
-    val notificationsIntensityLabel: String get() = "Intensity at least"
+    val watchesIntensityLabel: String get() = "Minimum intensity"
 
-    /** An intensity-at-least option's label — null is "off", otherwise "1+".."5+". Structural, identical across all three voices. */
-    fun notificationsIntensityOption(level: Int?): String = if (level == null) "Off" else "$level+"
+    /** The intensity-at-least toggle's accessible description — structural, identical across all three voices. */
+    val watchesIntensityToggleDescription: String get() = "Filter by intensity"
 
-    /** Bell-tab card title for an OFTEN Notification — "3+ times per week"; [per] is pre-labeled via a per-voice unit word. */
-    fun notificationCardTitleOften(
+    /** One intensity-level circle's accessible description, e.g. "At least 2". Structural, identical across all three voices. */
+    fun watchesIntensityOptionDescription(level: Int): String = "At least $level"
+
+    /**
+     * Bell-tab card title for an OFTEN Notification — "3 times or more per week" for
+     * [VerdictMetric.OCCURRENCE_COUNT], "3 active days or more per week" for
+     * [VerdictMetric.DAYS_ACTIVE]; [per] is pre-labeled via a per-voice unit word.
+     */
+    fun watchCardTitleOften(
         threshold: Int,
         per: ExpectedPer,
+        metric: VerdictMetric,
     ): String
 
     /** Bell-tab card title for a QUIET Notification — "Quiet for 14 days". */
-    fun notificationCardTitleQuiet(threshold: Int): String
+    fun watchCardTitleQuiet(threshold: Int): String
 
     /**
      * Bell-tab card settings line — lookback plus, only on a duration-tracking Case
      * ([showMeasure]), what's being counted, plus an intensity clause when [minIntensity] is set.
      * Quiet Notifications have no settings line beyond their own card title.
      */
-    fun notificationSettingsLine(
+    fun watchSettingsLine(
         lookbackDays: Int,
         showMeasure: Boolean,
         metric: VerdictMetric,
         minIntensity: Int?,
     ): String
 
-    /** Bell-tab card's always-shown Now line for OFTEN — "Now: 2.6x/week"; [rateLabel] is pre-formatted via `formatRate`. */
-    fun notificationNowLineOften(rateLabel: String): String
-
-    /** Bell-tab card's always-shown Now line for QUIET — "Now: quiet for 3 days". */
-    fun notificationNowLineQuiet(silentDays: Long): String
+    /** QUIET Watch card's Now-zone line — "quiet for 3 days" (the zone's own eyebrow already says "Now"/etc., so no prefix here). */
+    fun watchNowLineQuiet(silentDays: Long): String
 
     // ---- Notifications (Phase 9, spec §11) ----
 
@@ -1161,11 +1157,10 @@ object PlainVoice : Voice {
     override val aboutLicensesBody =
         "HODITH is built with open-source libraries — AndroidX Jetpack, Hilt, Room, Moshi, Glance, " +
             "WorkManager, and Kotlin Coroutines — each licensed under the Apache License 2.0."
-    override val expectationEarlyHeadline = "Not enough data yet to judge this expectation."
     override val frequencyDecreaseCountDescription = "Decrease count"
     override val frequencyIncreaseCountDescription = "Increase count"
-    override val metricOccurrenceLabel = "How often it starts"
-    override val metricDaysActiveLabel = "How many days it's active"
+    override val metricOccurrenceLabel = "How often it happens"
+    override val metricDaysActiveLabel = "How long it's active"
 
     override val insightsNothingLoggedMessage = "Log an event to see insights."
     override val insightsSingleEventNote = "One event logged so far."
@@ -1454,38 +1449,21 @@ object PlainVoice : Voice {
         end: String,
     ) = "Lasted $start – $end"
 
-    override fun expectationChipLabel(expectedFrequencyLabel: String) = "Expected: $expectedFrequencyLabel"
-
     override val expectationProgressUnitEvents = "events"
 
-    override fun verdictHeadline(
+    override fun watchComparisonLabel(
         band: ComparisonBand,
-        observedRateLabel: String,
+        daysActive: Boolean,
     ): String {
-        val comparison =
+        val phrase =
             when (band) {
-                ComparisonBand.MUCH_LESS -> "well under the expected rate"
-                ComparisonBand.LESS -> "a bit under the expected rate"
-                ComparisonBand.ABOUT_RIGHT -> "right around the expected rate"
-                ComparisonBand.MORE -> "a bit over the expected rate"
-                ComparisonBand.MUCH_MORE -> "well over the expected rate"
+                ComparisonBand.MUCH_LESS -> "well under expected"
+                ComparisonBand.LESS -> "a bit under expected"
+                ComparisonBand.ABOUT_RIGHT -> "about right"
+                ComparisonBand.MORE -> "a bit over expected"
+                ComparisonBand.MUCH_MORE -> "well over expected"
             }
-        return "Observed: $observedRateLabel — $comparison."
-    }
-
-    override fun verdictHeadlineDaysActive(
-        band: ComparisonBand,
-        observedRateLabel: String,
-    ): String {
-        val comparison =
-            when (band) {
-                ComparisonBand.MUCH_LESS -> "active well under the expected share of days"
-                ComparisonBand.LESS -> "active a bit under the expected share of days"
-                ComparisonBand.ABOUT_RIGHT -> "active right around the expected share of days"
-                ComparisonBand.MORE -> "active a bit over the expected share of days"
-                ComparisonBand.MUCH_MORE -> "active well over the expected share of days"
-            }
-        return "Observed: $observedRateLabel — $comparison."
+        return if (daysActive) "active $phrase" else phrase
     }
 
     override val verdictPreliminaryTail = "A few more weeks will sharpen this."
@@ -1502,54 +1480,69 @@ object PlainVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("Based on $activeDayCount active days over $windowDays days.", tier)
 
-    override val notificationsTabDescription = "Triggers"
-    override val notificationsFabDescription = "New trigger"
-    override val notificationsEmptyTitle = "No triggers yet"
-    override val notificationsEmptyBody = "Get a nudge when something happens too often, or goes quiet too long."
-    override val notificationsEmptyCta = "Add a trigger"
+    override val expectationEarlyBadgeLabel = "Early days"
 
-    override fun notificationKindLabel(kind: NotificationKind) =
-        when (kind) {
-            NotificationKind.OFTEN -> "Happens too often"
-            NotificationKind.QUIET -> "Goes quiet too long"
+    override fun expectationTierBadgeLabel(tier: ConfidenceTier) =
+        when (tier) {
+            ConfidenceTier.PRELIMINARY -> "Early read"
+            else -> "Established"
         }
 
-    override fun notificationSummary(
-        kind: NotificationKind,
+    override val watchDefinitionEyebrow = "Watching for"
+    override val watchNowEyebrow = "Now"
+
+    override val watchesTabDescription = "Rules"
+    override val watchesFabDescription = "New rule"
+    override val watchesEmptyTitle = "Nothing set up yet"
+    override val watchesEmptyBody = "Set up a rule to alert you when this happens too often, or goes quiet for too long."
+    override val watchesEmptyCta = "Set up a rule"
+
+    override fun watchKindLabel(kind: WatchKind) =
+        when (kind) {
+            WatchKind.OFTEN -> "Happens too often"
+            WatchKind.QUIET -> "Goes quiet too long"
+        }
+
+    override fun watchSummary(
+        kind: WatchKind,
         threshold: Int,
         windowDays: Int?,
     ) = when (kind) {
-        NotificationKind.OFTEN -> "$threshold+ times in $windowDays days"
-        NotificationKind.QUIET -> "No events for $threshold days"
+        WatchKind.OFTEN -> "$threshold+ times in $windowDays days"
+        WatchKind.QUIET -> "No events for $threshold days"
     }
 
-    override fun notificationFiredAgo(daysAgo: Long) = "Fired $daysAgo days ago"
+    override fun watchFiredAgo(daysAgo: Long) = if (daysAgo == 0L) "Fired today" else "Fired $daysAgo days ago"
 
-    override fun notificationToggleDescription(summary: String) = "Toggle trigger: $summary"
+    override fun watchToggleDescription(summary: String) = "Toggle rule: $summary"
 
-    override fun notificationDeleteDescription(summary: String) = "Delete trigger: $summary"
+    override fun watchDeleteDescription(summary: String) = "Delete rule: $summary"
 
-    override val notificationsDeleteConfirmTitle = "Delete this trigger?"
-    override val notificationsDeleteConfirmBody = "You won't be notified by it anymore."
-    override val notificationsDeleteConfirmAction = "Delete"
-    override val notificationsDeleteCancelAction = "Cancel"
-    override val notificationsCreateTitle = "New trigger"
-    override val notificationsEditTitle = "Edit trigger"
-    override val notificationsKindPickerLabel = "What should trigger it?"
-    override val notificationsQuietLabel = "No events for"
-    override val notificationsSaveButton = "Save trigger"
-    override val notificationsCancelButton = "Cancel"
-    override val notificationsDecreaseCountDescription = "Decrease threshold"
-    override val notificationsIncreaseCountDescription = "Increase threshold"
+    override val watchesDeleteConfirmTitle = "Delete this rule?"
+    override val watchesDeleteConfirmBody = "You won't be notified by it anymore."
+    override val watchesDeleteConfirmAction = "Delete"
+    override val watchesDeleteCancelAction = "Cancel"
+    override val watchesCreateTitle = "Set up a rule"
+    override val watchesEditTitle = "Edit this rule"
+    override val watchesKindPickerLabel = "What should set it off?"
+    override val watchesQuietLabel = "No events for"
+    override val watchesSaveButton = "Save"
+    override val watchesCancelButton = "Cancel"
+    override val watchesDecreaseCountDescription = "Decrease threshold"
+    override val watchesIncreaseCountDescription = "Increase threshold"
 
-    override fun notificationCardTitleOften(
+    override fun watchCardTitleOften(
         threshold: Int,
         per: ExpectedPer,
-    ) = "$threshold+ times per ${perPhrase(per)}"
+        metric: VerdictMetric,
+    ) = when (metric) {
+        VerdictMetric.OCCURRENCE_COUNT -> "$threshold times or more per ${perPhrase(per)}"
+        VerdictMetric.DAYS_ACTIVE -> "$threshold active days or more per ${perPhrase(per)}"
+    }
 
-    override fun notificationCardTitleQuiet(threshold: Int) = "No events for $threshold days"
+    override fun watchCardTitleQuiet(threshold: Int) = "No events for $threshold days"
 
-    override fun notificationSettingsLine(
+    override fun watchSettingsLine(
         lookbackDays: Int,
         showMeasure: Boolean,
         metric: VerdictMetric,
@@ -1563,14 +1556,12 @@ object PlainVoice : Voice {
         return parts.joinToString(" · ")
     }
 
-    override fun notificationNowLineOften(rateLabel: String) = "Now: $rateLabel"
-
-    override fun notificationNowLineQuiet(silentDays: Long) = "Now: quiet for $silentDays days"
+    override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "logged today" else "quiet for $silentDays days"
 
     override val notificationChannelName = "Notifications"
     override val notificationChannelDescription = "Notification and check-in alerts."
 
-    override fun notificationFiredTitle(caseName: String) = "$caseName trigger"
+    override fun notificationFiredTitle(caseName: String) = "$caseName rule"
 
     override fun checkInDueNotificationTitle(caseName: String) = "$caseName check-in"
 
@@ -1583,7 +1574,7 @@ object PlainVoice : Voice {
     override fun notificationsGroupSummaryTitle(count: Int) = "$count cases need a look — tap to review"
 
     override val notificationsDeniedBannerMessage =
-        "Notifications are off, so triggers and check-ins won't alert you — check back here instead."
+        "Notifications are off, so rules and check-ins won't alert you — check back here instead."
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick Cases for this widget"
@@ -1804,7 +1795,6 @@ object IntenseVoice : Voice {
     override val aboutLicensesBody =
         "This app stands on borrowed bones: AndroidX, Hilt, Room, Moshi, Glance, WorkManager, and " +
             "Kotlin Coroutines — each bound by the Apache License 2.0."
-    override val expectationEarlyHeadline = "The evidence is yet insufficient for despair or joy."
     override val frequencyDecreaseCountDescription = "Diminish the count"
     override val frequencyIncreaseCountDescription = "Swell the count"
     override val metricOccurrenceLabel = "How often it begins"
@@ -2087,33 +2077,22 @@ object IntenseVoice : Voice {
         end: String,
     ) = "Ran $start to $end"
 
-    override fun expectationChipLabel(expectedFrequencyLabel: String) = "The claim: $expectedFrequencyLabel"
-
     override val expectationProgressUnitEvents = "entries"
 
-    override fun verdictHeadline(
+    override fun watchComparisonLabel(
         band: ComparisonBand,
-        observedRateLabel: String,
-    ): String =
-        when (band) {
-            ComparisonBand.MUCH_LESS -> "The record answered — $observedRateLabel, far below the expected rate."
-            ComparisonBand.LESS -> "The record answered — $observedRateLabel, a little below the expected rate."
-            ComparisonBand.ABOUT_RIGHT -> "The record answered — $observedRateLabel, near enough to the expected rate."
-            ComparisonBand.MORE -> "The record answered — $observedRateLabel, a little above the expected rate."
-            ComparisonBand.MUCH_MORE -> "The record answered — $observedRateLabel, far above the expected rate."
-        }
-
-    override fun verdictHeadlineDaysActive(
-        band: ComparisonBand,
-        observedRateLabel: String,
-    ): String =
-        when (band) {
-            ComparisonBand.MUCH_LESS -> "The record answered — active $observedRateLabel, far below the expected share."
-            ComparisonBand.LESS -> "The record answered — active $observedRateLabel, a little below the expected share."
-            ComparisonBand.ABOUT_RIGHT -> "The record answered — active $observedRateLabel, near enough to the expected share."
-            ComparisonBand.MORE -> "The record answered — active $observedRateLabel, a little above the expected share."
-            ComparisonBand.MUCH_MORE -> "The record answered — active $observedRateLabel, far above the expected share."
-        }
+        daysActive: Boolean,
+    ): String {
+        val phrase =
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "far below the expected rate"
+                ComparisonBand.LESS -> "a little below the expected rate"
+                ComparisonBand.ABOUT_RIGHT -> "near enough to the expected rate"
+                ComparisonBand.MORE -> "a little above the expected rate"
+                ComparisonBand.MUCH_MORE -> "far above the expected rate"
+            }
+        return if (daysActive) "active $phrase" else phrase
+    }
 
     override val verdictPreliminaryTail = "More time will harden this into certainty."
 
@@ -2129,54 +2108,70 @@ object IntenseVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("$activeDayCount active days over $windowDays days.", tier)
 
-    override val notificationsTabDescription = "Alarms"
-    override val notificationsFabDescription = "Set a new alarm"
-    override val notificationsEmptyTitle = "No alarm is set"
-    override val notificationsEmptyBody = "Nothing yet watches this case. Set an alarm, and be warned when the pattern breaks."
-    override val notificationsEmptyCta = "Set an alarm"
+    override val expectationEarlyBadgeLabel = "Undecided"
 
-    override fun notificationKindLabel(kind: NotificationKind) =
-        when (kind) {
-            NotificationKind.OFTEN -> "It comes too often"
-            NotificationKind.QUIET -> "It falls silent too long"
+    override fun expectationTierBadgeLabel(tier: ConfidenceTier) =
+        when (tier) {
+            ConfidenceTier.PRELIMINARY -> "Suspected"
+            else -> "Confirmed"
         }
 
-    override fun notificationSummary(
-        kind: NotificationKind,
+    override val watchDefinitionEyebrow = "The watch"
+    override val watchNowEyebrow = "As it stands"
+
+    override val watchesTabDescription = "Alarms"
+    override val watchesFabDescription = "Set a new alarm"
+    override val watchesEmptyTitle = "No alarm is set"
+    override val watchesEmptyBody =
+        "Set an alarm and the record will warn you — the moment this happens too often, or falls silent too long."
+    override val watchesEmptyCta = "Set an alarm"
+
+    override fun watchKindLabel(kind: WatchKind) =
+        when (kind) {
+            WatchKind.OFTEN -> "It comes too often"
+            WatchKind.QUIET -> "It falls silent too long"
+        }
+
+    override fun watchSummary(
+        kind: WatchKind,
         threshold: Int,
         windowDays: Int?,
     ) = when (kind) {
-        NotificationKind.OFTEN -> "$threshold or more, within $windowDays days"
-        NotificationKind.QUIET -> "$threshold days of silence"
+        WatchKind.OFTEN -> "$threshold or more, within $windowDays days"
+        WatchKind.QUIET -> "$threshold days of silence"
     }
 
-    override fun notificationFiredAgo(daysAgo: Long) = "Sounded $daysAgo days ago"
+    override fun watchFiredAgo(daysAgo: Long) = if (daysAgo == 0L) "Sounded today" else "Sounded $daysAgo days ago"
 
-    override fun notificationToggleDescription(summary: String) = "Toggle the alarm: $summary"
+    override fun watchToggleDescription(summary: String) = "Toggle the alarm: $summary"
 
-    override fun notificationDeleteDescription(summary: String) = "Silence the alarm: $summary"
+    override fun watchDeleteDescription(summary: String) = "Silence the alarm: $summary"
 
-    override val notificationsDeleteConfirmTitle = "Silence this alarm?"
-    override val notificationsDeleteConfirmBody = "It will warn you no longer."
-    override val notificationsDeleteConfirmAction = "Silence it"
-    override val notificationsDeleteCancelAction = "Abandon"
-    override val notificationsCreateTitle = "Set an alarm"
-    override val notificationsEditTitle = "Tend the alarm"
-    override val notificationsKindPickerLabel = "What should you be warned of?"
-    override val notificationsQuietLabel = "Silence of"
-    override val notificationsSaveButton = "Set the alarm"
-    override val notificationsCancelButton = "Abandon"
-    override val notificationsDecreaseCountDescription = "Diminish the threshold"
-    override val notificationsIncreaseCountDescription = "Swell the threshold"
+    override val watchesDeleteConfirmTitle = "Silence this alarm?"
+    override val watchesDeleteConfirmBody = "It will warn you no longer."
+    override val watchesDeleteConfirmAction = "Silence it"
+    override val watchesDeleteCancelAction = "Abandon"
+    override val watchesCreateTitle = "Set an alarm"
+    override val watchesEditTitle = "Tend the alarm"
+    override val watchesKindPickerLabel = "What should you be warned of?"
+    override val watchesQuietLabel = "Silence of"
+    override val watchesSaveButton = "Save"
+    override val watchesCancelButton = "Abandon"
+    override val watchesDecreaseCountDescription = "Diminish the threshold"
+    override val watchesIncreaseCountDescription = "Swell the threshold"
 
-    override fun notificationCardTitleOften(
+    override fun watchCardTitleOften(
         threshold: Int,
         per: ExpectedPer,
-    ) = "$threshold or more, per ${perPhrase(per)}"
+        metric: VerdictMetric,
+    ) = when (metric) {
+        VerdictMetric.OCCURRENCE_COUNT -> "$threshold times or more, per ${perPhrase(per)}"
+        VerdictMetric.DAYS_ACTIVE -> "$threshold active days or more, per ${perPhrase(per)}"
+    }
 
-    override fun notificationCardTitleQuiet(threshold: Int) = "$threshold days of silence"
+    override fun watchCardTitleQuiet(threshold: Int) = "$threshold days of silence"
 
-    override fun notificationSettingsLine(
+    override fun watchSettingsLine(
         lookbackDays: Int,
         showMeasure: Boolean,
         metric: VerdictMetric,
@@ -2190,9 +2185,7 @@ object IntenseVoice : Voice {
         return parts.joinToString(" · ")
     }
 
-    override fun notificationNowLineOften(rateLabel: String) = "As it stands, $rateLabel"
-
-    override fun notificationNowLineQuiet(silentDays: Long) = "As it stands, $silentDays days of silence"
+    override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "stirred today" else "$silentDays days of silence"
 
     override val notificationChannelName = "Alarms"
     override val notificationChannelDescription = "What has stirred, and what has gone quiet."
@@ -2426,7 +2419,6 @@ object BrightVoice : Voice {
     override val aboutLicensesBody =
         "HODITH is built on awesome open-source stuff — AndroidX Jetpack, Hilt, Room, Moshi, Glance, " +
             "WorkManager, and Kotlin Coroutines — all under the Apache License 2.0!"
-    override val expectationEarlyHeadline = "Too soon to tell — feed me more moments!"
     override val frequencyDecreaseCountDescription = "Fewer!"
     override val frequencyIncreaseCountDescription = "More!"
     override val metricOccurrenceLabel = "How often it kicks off"
@@ -2711,33 +2703,24 @@ object BrightVoice : Voice {
         end: String,
     ) = "Went on $start–$end"
 
-    override fun expectationChipLabel(expectedFrequencyLabel: String) = "The goal: $expectedFrequencyLabel"
-
     override val expectationProgressUnitEvents = "logs"
 
-    override fun verdictHeadline(
+    // ABOUT_RIGHT deliberately avoids "Nailed it"/"on target" framing (spec §4): a Watch just as
+    // often flags something unwanted, so hitting the expected rate isn't an achievement to praise.
+    override fun watchComparisonLabel(
         band: ComparisonBand,
-        observedRateLabel: String,
-    ): String =
-        when (band) {
-            ComparisonBand.MUCH_LESS -> "Turns out: $observedRateLabel — way less than expected!"
-            ComparisonBand.LESS -> "Turns out: $observedRateLabel — a bit less than expected!"
-            ComparisonBand.ABOUT_RIGHT -> "Nailed it: $observedRateLabel — right on target!"
-            ComparisonBand.MORE -> "Turns out: $observedRateLabel — a bit more than expected!"
-            ComparisonBand.MUCH_MORE -> "Plot twist: $observedRateLabel — way more than expected!"
-        }
-
-    override fun verdictHeadlineDaysActive(
-        band: ComparisonBand,
-        observedRateLabel: String,
-    ): String =
-        when (band) {
-            ComparisonBand.MUCH_LESS -> "Turns out: active $observedRateLabel — way fewer days than expected!"
-            ComparisonBand.LESS -> "Turns out: active $observedRateLabel — a few fewer days than expected!"
-            ComparisonBand.ABOUT_RIGHT -> "Nailed it: active $observedRateLabel — right on target!"
-            ComparisonBand.MORE -> "Turns out: active $observedRateLabel — a few more days than expected!"
-            ComparisonBand.MUCH_MORE -> "Plot twist: active $observedRateLabel — way more days than expected!"
-        }
+        daysActive: Boolean,
+    ): String {
+        val phrase =
+            when (band) {
+                ComparisonBand.MUCH_LESS -> "way less than expected"
+                ComparisonBand.LESS -> "a bit less than expected"
+                ComparisonBand.ABOUT_RIGHT -> "right in line with expected"
+                ComparisonBand.MORE -> "a bit more than expected"
+                ComparisonBand.MUCH_MORE -> "way more than expected"
+            }
+        return if (daysActive) "active $phrase" else phrase
+    }
 
     override val verdictPreliminaryTail = "Give it a few more weeks to be sure!"
 
@@ -2753,54 +2736,69 @@ object BrightVoice : Voice {
         windowDays: Long,
     ) = verdictMetaLine("That's $activeDayCount active days out of $windowDays days!", tier)
 
-    override val notificationsTabDescription = "Alerts!"
-    override val notificationsFabDescription = "New alert!"
-    override val notificationsEmptyTitle = "No alerts yet!"
-    override val notificationsEmptyBody = "Want a nudge when something happens a lot, or goes quiet for a while? Set one up!"
-    override val notificationsEmptyCta = "Add an alert!"
+    override val expectationEarlyBadgeLabel = "Too soon to say"
 
-    override fun notificationKindLabel(kind: NotificationKind) =
-        when (kind) {
-            NotificationKind.OFTEN -> "Happening a lot"
-            NotificationKind.QUIET -> "Gone quiet"
+    override fun expectationTierBadgeLabel(tier: ConfidenceTier) =
+        when (tier) {
+            ConfidenceTier.PRELIMINARY -> "First peek!"
+            else -> "Locked in!"
         }
 
-    override fun notificationSummary(
-        kind: NotificationKind,
+    override val watchDefinitionEyebrow = "Eyes on"
+    override val watchNowEyebrow = "Right now"
+
+    override val watchesTabDescription = "Alerts!"
+    override val watchesFabDescription = "New alert!"
+    override val watchesEmptyTitle = "No alerts yet!"
+    override val watchesEmptyBody = "Get pinged when this happens a lot, or goes quiet for a while — you choose!"
+    override val watchesEmptyCta = "Add an alert!"
+
+    override fun watchKindLabel(kind: WatchKind) =
+        when (kind) {
+            WatchKind.OFTEN -> "Happening a lot"
+            WatchKind.QUIET -> "Gone quiet"
+        }
+
+    override fun watchSummary(
+        kind: WatchKind,
         threshold: Int,
         windowDays: Int?,
     ) = when (kind) {
-        NotificationKind.OFTEN -> "$threshold+ times in $windowDays days"
-        NotificationKind.QUIET -> "Quiet for $threshold days"
+        WatchKind.OFTEN -> "$threshold+ times in $windowDays days"
+        WatchKind.QUIET -> "Quiet for $threshold days"
     }
 
-    override fun notificationFiredAgo(daysAgo: Long) = "Popped off $daysAgo days ago!"
+    override fun watchFiredAgo(daysAgo: Long) = if (daysAgo == 0L) "Popped off today!" else "Popped off $daysAgo days ago!"
 
-    override fun notificationToggleDescription(summary: String) = "Toggle alert: $summary"
+    override fun watchToggleDescription(summary: String) = "Toggle alert: $summary"
 
-    override fun notificationDeleteDescription(summary: String) = "Remove alert: $summary"
+    override fun watchDeleteDescription(summary: String) = "Remove alert: $summary"
 
-    override val notificationsDeleteConfirmTitle = "Remove this alert?"
-    override val notificationsDeleteConfirmBody = "No more heads-up from this one."
-    override val notificationsDeleteConfirmAction = "Remove it"
-    override val notificationsDeleteCancelAction = "Never mind"
-    override val notificationsCreateTitle = "New alert!"
-    override val notificationsEditTitle = "Edit alert!"
-    override val notificationsKindPickerLabel = "What should trigger it?"
-    override val notificationsQuietLabel = "Quiet for"
-    override val notificationsSaveButton = "Save alert!"
-    override val notificationsCancelButton = "Never mind"
-    override val notificationsDecreaseCountDescription = "Fewer!"
-    override val notificationsIncreaseCountDescription = "More!"
+    override val watchesDeleteConfirmTitle = "Remove this alert?"
+    override val watchesDeleteConfirmBody = "No more heads-up from this one."
+    override val watchesDeleteConfirmAction = "Remove it"
+    override val watchesDeleteCancelAction = "Never mind"
+    override val watchesCreateTitle = "New alert!"
+    override val watchesEditTitle = "Edit alert!"
+    override val watchesKindPickerLabel = "What sets it off?!"
+    override val watchesQuietLabel = "Quiet for"
+    override val watchesSaveButton = "Save!"
+    override val watchesCancelButton = "Never mind"
+    override val watchesDecreaseCountDescription = "Fewer!"
+    override val watchesIncreaseCountDescription = "More!"
 
-    override fun notificationCardTitleOften(
+    override fun watchCardTitleOften(
         threshold: Int,
         per: ExpectedPer,
-    ) = "$threshold+ times per ${perPhrase(per)}"
+        metric: VerdictMetric,
+    ) = when (metric) {
+        VerdictMetric.OCCURRENCE_COUNT -> "$threshold times or more per ${perPhrase(per)}"
+        VerdictMetric.DAYS_ACTIVE -> "$threshold active days or more per ${perPhrase(per)}"
+    }
 
-    override fun notificationCardTitleQuiet(threshold: Int) = "Quiet for $threshold days"
+    override fun watchCardTitleQuiet(threshold: Int) = "Quiet for $threshold days"
 
-    override fun notificationSettingsLine(
+    override fun watchSettingsLine(
         lookbackDays: Int,
         showMeasure: Boolean,
         metric: VerdictMetric,
@@ -2814,14 +2812,12 @@ object BrightVoice : Voice {
         return parts.joinToString(" · ")
     }
 
-    override fun notificationNowLineOften(rateLabel: String) = "Right now: $rateLabel"
-
-    override fun notificationNowLineQuiet(silentDays: Long) = "Right now: quiet for $silentDays days"
+    override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "logged today!" else "quiet for $silentDays days"
 
     override val notificationChannelName = "Nudges"
     override val notificationChannelDescription = "Heads-up for notifications and check-ins."
 
-    override fun notificationFiredTitle(caseName: String) = "$caseName just hit a trigger!"
+    override fun notificationFiredTitle(caseName: String) = "$caseName's alert fired!"
 
     override fun checkInDueNotificationTitle(caseName: String) = "Quick check-in: $caseName"
 
@@ -2833,7 +2829,7 @@ object BrightVoice : Voice {
     override fun notificationsGroupSummaryTitle(count: Int) = "$count cases want your eyes 👀"
 
     override val notificationsDeniedBannerMessage =
-        "Notifications are off, so trigger and check-in nudges can't reach you — swing by here instead!"
+        "Notifications are off, so watch and check-in alerts can't reach you — swing by here instead!"
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick your widget's stars!"

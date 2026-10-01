@@ -8,7 +8,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.testCase
-import com.secondmonday.hodith.data.testNotification
+import com.secondmonday.hodith.data.testWatch
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -74,12 +74,12 @@ class NotifierContentTest {
     fun notifyNotificationFired_postsANotificationWithTheVoiceTitleAndBody() =
         runBlocking {
             val case = testCase(id = 501L, name = "Coffee ${System.currentTimeMillis()}")
-            val notification = testNotification(caseId = case.id, threshold = 3, windowDays = 7)
+            val watch = testWatch(caseId = case.id, threshold = 3, windowDays = 7)
 
-            notifier.notifyNotificationFired(case, notification, PlainVoice)
+            notifier.notifyNotificationFired(case, watch, PlainVoice)
 
             val expectedTitle = PlainVoice.notificationFiredTitle(case.name)
-            val expectedText = PlainVoice.notificationSummary(notification.kind, notification.threshold, notification.windowDays)
+            val expectedText = PlainVoice.watchSummary(watch.kind, watch.threshold, watch.windowDays)
             val posted = waitForNotification { title, text, _ -> title == expectedTitle && text == expectedText }
             assertNotNull("Expected a Notification-fired notification titled '$expectedTitle'", posted)
         }

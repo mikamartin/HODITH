@@ -24,12 +24,14 @@ import androidx.room.migration.Migration
  * UTC until re-logged. v12 drops the `hunches` table entirely (see [DropHunchesTable]) now Hunch
  * is removed. v13 drops the `triggers` table entirely (see [DropTriggersTable]) now Trigger is
  * renamed to Notification; `notifications` is a fresh table with three additional columns rather
- * than a migrated `triggers`, so existing trigger rows are discarded. `@Database.version` can't be
- * read back via reflection (Room's annotation uses [AnnotationRetention.BINARY]), so this is the
- * one place migration-guard tests should get the current version from instead of a second
- * hardcoded literal.
+ * than a migrated `triggers`, so existing trigger rows are discarded. v14 drops the `notifications`
+ * table entirely (see [DropNotificationsTable]) now Notification is renamed to Watch; `watches` is
+ * a same-shape fresh table, so existing Notification rows are discarded (no production installs
+ * exist yet). `@Database.version` can't be read back via reflection (Room's annotation uses
+ * [AnnotationRetention.BINARY]), so this is the one place migration-guard tests should get the
+ * current version from instead of a second hardcoded literal.
  */
-const val HODITH_DATABASE_VERSION = 13
+const val HODITH_DATABASE_VERSION = 14
 
 /** Schema versions at or below this shipped without migrations; every version past it needs one. */
 const val SCHEMA_FREEZE_POINT = 6
@@ -50,13 +52,17 @@ class DropHunchesTable : AutoMigrationSpec
 @DeleteTable(tableName = "triggers")
 class DropTriggersTable : AutoMigrationSpec
 
+/** v13 → v14: `notifications` dropped entirely (Notification renamed to Watch). */
+@DeleteTable(tableName = "notifications")
+class DropNotificationsTable : AutoMigrationSpec
+
 @Database(
     entities = [
         CaseEntity::class,
         EventEntity::class,
         TagEntity::class,
         EventTagCrossRef::class,
-        NotificationEntity::class,
+        WatchEntity::class,
     ],
     version = HODITH_DATABASE_VERSION,
     autoMigrations = [
@@ -67,6 +73,7 @@ class DropTriggersTable : AutoMigrationSpec
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12, spec = DropHunchesTable::class),
         AutoMigration(from = 12, to = 13, spec = DropTriggersTable::class),
+        AutoMigration(from = 13, to = 14, spec = DropNotificationsTable::class),
     ],
     exportSchema = true,
 )
@@ -78,7 +85,7 @@ abstract class HodithDatabase : RoomDatabase() {
 
     abstract fun tagDao(): TagDao
 
-    abstract fun notificationDao(): NotificationDao
+    abstract fun watchDao(): WatchDao
 
     companion object {
         val MIGRATIONS: Array<Migration> = arrayOf()
@@ -88,6 +95,6 @@ abstract class HodithDatabase : RoomDatabase() {
          * annotation directly), so the schema-coverage guard counts them here. Bump when adding an
          * `AutoMigration` entry above.
          */
-        const val AUTO_MIGRATION_COUNT = 7
+        const val AUTO_MIGRATION_COUNT = 8
     }
 }

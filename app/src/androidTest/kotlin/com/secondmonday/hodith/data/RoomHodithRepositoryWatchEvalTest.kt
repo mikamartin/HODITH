@@ -40,7 +40,7 @@ private const val AWAIT_POLL_MILLIS = 20L
  * cross-thread work actually finishes. [awaitNotification] instead polls for the real side effect.
  */
 @RunWith(AndroidJUnit4::class)
-class RoomHodithRepositoryNotificationEvalTest {
+class RoomHodithRepositoryWatchEvalTest {
     private lateinit var db: HodithDatabase
     private lateinit var schedulerScope: CoroutineScope
 
@@ -97,7 +97,7 @@ class RoomHodithRepositoryNotificationEvalTest {
                 caseDao = db.caseDao(),
                 eventDao = db.eventDao(),
                 tagDao = db.tagDao(),
-                notificationDao = db.notificationDao(),
+                watchDao = db.watchDao(),
                 notificationEvalScheduler = NotificationEvalScheduler(schedulerScope, evaluatorProvider),
             )
         return repository

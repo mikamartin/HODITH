@@ -107,20 +107,20 @@ interface HodithRepository {
         tagId: Long,
     )
 
-    // Notification
-    suspend fun getNotification(notificationId: Long): NotificationEntity?
+    // Watch
+    suspend fun getWatch(watchId: Long): WatchEntity?
 
-    fun observeNotificationsForCase(caseId: Long): Flow<List<NotificationEntity>>
+    fun observeWatchesForCase(caseId: Long): Flow<List<WatchEntity>>
 
-    suspend fun getNotificationsForCase(caseId: Long): List<NotificationEntity>
+    suspend fun getWatchesForCase(caseId: Long): List<WatchEntity>
 
-    suspend fun getEnabledNotifications(): List<NotificationEntity>
+    suspend fun getEnabledWatches(): List<WatchEntity>
 
-    suspend fun insertNotification(notification: NotificationEntity): Long
+    suspend fun insertWatch(watch: WatchEntity): Long
 
-    suspend fun updateNotification(notification: NotificationEntity)
+    suspend fun updateWatch(watch: WatchEntity)
 
-    suspend fun deleteNotification(notification: NotificationEntity)
+    suspend fun deleteWatch(watch: WatchEntity)
 
     // Backup (spec §16)
     suspend fun exportBackupData(): BackupData

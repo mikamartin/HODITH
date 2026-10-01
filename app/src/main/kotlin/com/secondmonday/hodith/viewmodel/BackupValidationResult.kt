@@ -1,6 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.NotificationKind
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.ui.logsheet.TAG_NAME_MAX_LENGTH
 
@@ -35,7 +35,7 @@ fun validateBackup(backup: BackupData): BackupValidationResult {
     duplicateNonZeroIds(backup.cases) { it.id }.forEach { violations += "Case: duplicate id $it" }
     duplicateNonZeroIds(backup.events) { it.id }.forEach { violations += "Event: duplicate id $it" }
     duplicateNonZeroIds(backup.tags) { it.id }.forEach { violations += "Tag: duplicate id $it" }
-    duplicateNonZeroIds(backup.notifications) { it.id }.forEach { violations += "Notification: duplicate id $it" }
+    duplicateNonZeroIds(backup.watches) { it.id }.forEach { violations += "Watch: duplicate id $it" }
 
     backup.cases.forEach { case ->
         if (case.name.isBlank()) violations += "Case ${case.id}: blank name"
@@ -70,19 +70,19 @@ fun validateBackup(backup: BackupData): BackupValidationResult {
         if (crossRef.tagId !in tagIds) violations += "EventTag: tagId ${crossRef.tagId} not present in backup"
     }
 
-    backup.notifications.forEach { notification ->
-        if (notification.caseId !in caseIds) {
-            violations += "Notification ${notification.id}: caseId ${notification.caseId} not present in backup"
+    backup.watches.forEach { watch ->
+        if (watch.caseId !in caseIds) {
+            violations += "Watch ${watch.id}: caseId ${watch.caseId} not present in backup"
         }
-        if (notification.threshold !in THRESHOLD_RANGE) violations += "Notification ${notification.id}: threshold out of range"
-        when (notification.kind) {
-            NotificationKind.OFTEN ->
-                if (notification.windowDays == null || notification.windowDays <= 0) {
-                    violations += "Notification ${notification.id}: OFTEN requires a positive windowDays"
+        if (watch.threshold !in THRESHOLD_RANGE) violations += "Watch ${watch.id}: threshold out of range"
+        when (watch.kind) {
+            WatchKind.OFTEN ->
+                if (watch.windowDays == null || watch.windowDays <= 0) {
+                    violations += "Watch ${watch.id}: OFTEN requires a positive windowDays"
                 }
-            NotificationKind.QUIET ->
-                if (notification.windowDays != null) {
-                    violations += "Notification ${notification.id}: QUIET must not set windowDays"
+            WatchKind.QUIET ->
+                if (watch.windowDays != null) {
+                    violations += "Watch ${watch.id}: QUIET must not set windowDays"
                 }
         }
     }

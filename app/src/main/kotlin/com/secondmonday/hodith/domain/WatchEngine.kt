@@ -2,30 +2,30 @@ package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
-import com.secondmonday.hodith.data.NotificationEntity
+import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.tracksDuration
 
 /**
- * Spec §11: both Notification kinds are edge-triggered — fire once when their condition first
+ * Spec §11: both Watch kinds are edge-triggered — fire once when their condition first
  * becomes true, then stay quiet (re-armed only once the condition stops being true) rather than
  * firing on every subsequent evaluation. That's a single state machine; [evaluateOften] and
- * [evaluateQuiet] only differ in how they compute [conditionMet]. Never mutates [notification] —
- * callers persist [NotificationDecision.newArmed]/[NotificationDecision.newLastFiredAt] back to it.
+ * [evaluateQuiet] only differ in how they compute [conditionMet]. Never mutates [watch] —
+ * callers persist [WatchDecision.newArmed]/[WatchDecision.newLastFiredAt] back to it.
  */
-fun evaluateNotification(
-    notification: NotificationEntity,
+fun evaluateWatch(
+    watch: WatchEntity,
     conditionMet: Boolean,
     now: Long,
-): NotificationDecision =
+): WatchDecision =
     when {
-        !notification.enabled ->
-            NotificationDecision(shouldFire = false, newArmed = notification.armed, newLastFiredAt = notification.lastFiredAt)
-        notification.armed && conditionMet ->
-            NotificationDecision(shouldFire = true, newArmed = false, newLastFiredAt = now)
-        !notification.armed && !conditionMet ->
-            NotificationDecision(shouldFire = false, newArmed = true, newLastFiredAt = notification.lastFiredAt)
+        !watch.enabled ->
+            WatchDecision(shouldFire = false, newArmed = watch.armed, newLastFiredAt = watch.lastFiredAt)
+        watch.armed && conditionMet ->
+            WatchDecision(shouldFire = true, newArmed = false, newLastFiredAt = now)
+        !watch.armed && !conditionMet ->
+            WatchDecision(shouldFire = false, newArmed = true, newLastFiredAt = watch.lastFiredAt)
         else ->
-            NotificationDecision(shouldFire = false, newArmed = notification.armed, newLastFiredAt = notification.lastFiredAt)
+            WatchDecision(shouldFire = false, newArmed = watch.armed, newLastFiredAt = watch.lastFiredAt)
     }
 
 /** Rolling-window start for `OFTEN` (spec §11): shared by [evaluateOften]'s own count and `NotificationEvaluator`'s fetch, so the two can't silently diverge. */
@@ -44,19 +44,19 @@ fun oftenWindowStart(
  * filtering and needs to see events whose span started before the window but still reaches into it.
  */
 fun expectationInputsFor(
-    notification: NotificationEntity,
+    watch: WatchEntity,
     allEvents: List<EventEntity>,
     now: Long,
 ): Pair<Expectation, List<EventEntity>> {
-    val windowStart = oftenWindowStart(now, notification.windowDays)
+    val windowStart = oftenWindowStart(now, watch.windowDays)
     val expectation =
         Expectation(
-            count = notification.threshold,
-            per = notification.expectedPer,
-            metric = notification.metric,
+            count = watch.threshold,
+            per = watch.expectedPer,
+            metric = watch.metric,
             windowStart = windowStart,
         )
-    val minIntensity = notification.minIntensity
+    val minIntensity = watch.minIntensity
     val filteredEvents =
         if (minIntensity == null) {
             allEvents
@@ -67,20 +67,20 @@ fun expectationInputsFor(
 }
 
 /**
- * `OFTEN`'s condition (spec §11): the observed rate over the notification's lookback window has
+ * `OFTEN`'s condition (spec §11): the observed rate over the watch's lookback window has
  * reached the expected rate. Firing is never tier-gated — [computeVerdict]'s `ConfidenceTier` and
  * `comparisonBand` play no role in this boolean decision, only in what a later UI displays; a
  * `NO_VERDICT` case can still fire if its raw observed-vs-expected rate clears the bar.
  */
 fun evaluateOften(
-    notification: NotificationEntity,
+    watch: WatchEntity,
     allEvents: List<EventEntity>,
     now: Long,
     durationMode: DurationMode,
-): NotificationDecision {
-    val (expectation, filteredEvents) = expectationInputsFor(notification, allEvents, now)
+): WatchDecision {
+    val (expectation, filteredEvents) = expectationInputsFor(watch, allEvents, now)
     val result = computeVerdict(expectation, filteredEvents, now, durationMode)
-    return evaluateNotification(notification, conditionMet = result.observedRate >= result.expectedRate, now = now)
+    return evaluateWatch(watch, conditionMet = result.observedRate >= result.expectedRate, now = now)
 }
 
 /**
@@ -106,16 +106,16 @@ fun silenceAnchorForEvents(
     return events.maxOf { it.endedAt ?: it.occurredAt }
 }
 
-/** `QUIET`'s condition (spec §11): days since the latest of last event / case creation has reached [NotificationEntity.threshold]. */
+/** `QUIET`'s condition (spec §11): days since the latest of last event / case creation has reached [WatchEntity.threshold]. */
 fun evaluateQuiet(
-    notification: NotificationEntity,
+    watch: WatchEntity,
     mostRecentEventAt: Long?,
     caseCreatedAt: Long,
     now: Long,
-): NotificationDecision {
+): WatchDecision {
     // anchor-vs-now: "now" has no captured offset by definition, so daysBetween's default
     // device-current-zone resolution is already correct here — see computeGapStats's doc comment
     // for the general per-event-vs-now rule this follows.
     val silentDays = daysBetween(mostRecentEventAt ?: caseCreatedAt, now)
-    return evaluateNotification(notification, conditionMet = silentDays >= notification.threshold, now = now)
+    return evaluateWatch(watch, conditionMet = silentDays >= watch.threshold, now = now)
 }

@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 import com.squareup.moshi.JsonClass
 
 @Entity(
-    tableName = "notifications",
+    tableName = "watches",
     foreignKeys = [
         ForeignKey(
             entity = CaseEntity::class,
@@ -19,10 +19,10 @@ import com.squareup.moshi.JsonClass
     indices = [Index("caseId")],
 )
 @JsonClass(generateAdapter = true)
-data class NotificationEntity(
+data class WatchEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val caseId: Long,
-    val kind: NotificationKind,
+    val kind: WatchKind,
     val threshold: Int,
     val windowDays: Int?,
     val expectedPer: ExpectedPer,

@@ -210,7 +210,7 @@ class CaseEditViewModel
 
                 if (current != null) {
                     // checkInsEnabled is deliberately not copied here -- the form no longer asks
-                    // for it (it's a live setting on the bell tab now, NotificationsViewModel.
+                    // for it (it's a live setting on the bell tab now, WatchesViewModel.
                     // setCheckInsEnabled), so .copy() leaves the Case's persisted value untouched.
                     repository.updateCase(
                         current.copy(

@@ -3,9 +3,9 @@ package com.secondmonday.hodith.notification
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
-import com.secondmonday.hodith.data.NotificationEntity
-import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.SettingsRepository
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.CheckInDecision
 import com.secondmonday.hodith.domain.Clock
@@ -39,7 +39,7 @@ class NotificationEvaluator
             val case = repo.getCase(caseId) ?: return
             if (case.archived) return
             val voice = currentVoice()
-            evaluateNotifications(repo, case, repo.getNotificationsForCase(caseId).filter { it.enabled }, voice)
+            evaluateNotifications(repo, case, repo.getWatchesForCase(caseId).filter { it.enabled }, voice)
             evaluateCheckInForCase(repo, case, voice)
         }
 
@@ -47,7 +47,7 @@ class NotificationEvaluator
         suspend fun evaluateAll() {
             val repo = repository.get()
             val voice = currentVoice()
-            repo.getEnabledNotifications().groupBy { it.caseId }.forEach { (caseId, notifications) ->
+            repo.getEnabledWatches().groupBy { it.caseId }.forEach { (caseId, notifications) ->
                 val case = repo.getCase(caseId)
                 if (case != null && !case.archived) evaluateNotifications(repo, case, notifications, voice)
             }
@@ -82,15 +82,15 @@ class NotificationEvaluator
         private suspend fun evaluateNotifications(
             repo: HodithRepository,
             case: CaseEntity,
-            notifications: List<NotificationEntity>,
+            watches: List<WatchEntity>,
             voice: Voice,
         ) {
-            if (notifications.isEmpty()) return
+            if (watches.isEmpty()) return
             val now = clock.nowMillis()
-            for (notification in notifications) {
+            for (watch in watches) {
                 val decision =
-                    when (notification.kind) {
-                        NotificationKind.OFTEN -> {
+                    when (watch.kind) {
+                        WatchKind.OFTEN -> {
                             // Unbounded fetch, not windowed by the lookback: computeVerdict (via
                             // evaluateOften's expectationInputsFor) does its own span-overlap window
                             // filtering and needs to see every event that could reach into the
@@ -99,17 +99,17 @@ class NotificationEvaluator
                             // ([start, end)) — +1 so an event occurring at exactly `now` (e.g. the
                             // one that just triggered this immediate-eval hook) still counts.
                             val events = repo.eventsInWindow(case.id, 0L, now + 1)
-                            evaluateOften(notification, events, now, case.durationMode)
+                            evaluateOften(watch, events, now, case.durationMode)
                         }
-                        NotificationKind.QUIET -> {
-                            evaluateQuiet(notification, silenceAnchorFor(repo, case, now), case.createdAt, now)
+                        WatchKind.QUIET -> {
+                            evaluateQuiet(watch, silenceAnchorFor(repo, case, now), case.createdAt, now)
                         }
                     }
-                if (decision.newArmed != notification.armed || decision.newLastFiredAt != notification.lastFiredAt) {
-                    repo.updateNotification(notification.copy(armed = decision.newArmed, lastFiredAt = decision.newLastFiredAt))
+                if (decision.newArmed != watch.armed || decision.newLastFiredAt != watch.lastFiredAt) {
+                    repo.updateWatch(watch.copy(armed = decision.newArmed, lastFiredAt = decision.newLastFiredAt))
                 }
                 if (decision.shouldFire) {
-                    notifier.notifyNotificationFired(case, notification, voice)
+                    notifier.notifyNotificationFired(case, watch, voice)
                 }
             }
         }

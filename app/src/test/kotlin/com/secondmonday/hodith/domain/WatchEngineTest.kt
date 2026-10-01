@@ -2,9 +2,9 @@ package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.ExpectedPer
-import com.secondmonday.hodith.data.NotificationEntity
-import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
@@ -31,8 +31,8 @@ private fun millisOnDate(
     .toInstant()
     .toEpochMilli()
 
-private fun notification(
-    kind: NotificationKind = NotificationKind.OFTEN,
+private fun watch(
+    kind: WatchKind = WatchKind.OFTEN,
     threshold: Int = 3,
     windowDays: Int? = 7,
     expectedPer: ExpectedPer = ExpectedPer.WEEK,
@@ -41,7 +41,7 @@ private fun notification(
     enabled: Boolean = true,
     armed: Boolean = true,
     lastFiredAt: Long? = null,
-) = NotificationEntity(
+) = WatchEntity(
     id = 1,
     caseId = 1,
     kind = kind,
@@ -60,12 +60,12 @@ private fun event(
     intensity: Int? = null,
 ) = testEvent(occurredAt = occurredAt, intensity = intensity)
 
-class NotificationEngineTest {
-    // ---- evaluateNotification: the shared armed/fired state machine ----
+class WatchEngineTest {
+    // ---- evaluateWatch: the shared armed/fired state machine ----
 
     @Test
-    fun `evaluateNotification fires and disarms when armed and condition met`() {
-        val result = evaluateNotification(notification(armed = true), conditionMet = true, now = 100L)
+    fun `evaluateWatch fires and disarms when armed and condition met`() {
+        val result = evaluateWatch(watch(armed = true), conditionMet = true, now = 100L)
 
         assertTrue(result.shouldFire)
         assertFalse(result.newArmed)
@@ -73,8 +73,8 @@ class NotificationEngineTest {
     }
 
     @Test
-    fun `evaluateNotification does not refire while unarmed and condition is still met`() {
-        val result = evaluateNotification(notification(armed = false, lastFiredAt = 50L), conditionMet = true, now = 100L)
+    fun `evaluateWatch does not refire while unarmed and condition is still met`() {
+        val result = evaluateWatch(watch(armed = false, lastFiredAt = 50L), conditionMet = true, now = 100L)
 
         assertFalse(result.shouldFire)
         assertFalse(result.newArmed)
@@ -82,8 +82,8 @@ class NotificationEngineTest {
     }
 
     @Test
-    fun `evaluateNotification re-arms without firing once the condition drops`() {
-        val result = evaluateNotification(notification(armed = false, lastFiredAt = 50L), conditionMet = false, now = 100L)
+    fun `evaluateWatch re-arms without firing once the condition drops`() {
+        val result = evaluateWatch(watch(armed = false, lastFiredAt = 50L), conditionMet = false, now = 100L)
 
         assertFalse(result.shouldFire)
         assertTrue(result.newArmed)
@@ -91,8 +91,8 @@ class NotificationEngineTest {
     }
 
     @Test
-    fun `evaluateNotification stays armed and quiet while armed and condition is not met`() {
-        val result = evaluateNotification(notification(armed = true), conditionMet = false, now = 100L)
+    fun `evaluateWatch stays armed and quiet while armed and condition is not met`() {
+        val result = evaluateWatch(watch(armed = true), conditionMet = false, now = 100L)
 
         assertFalse(result.shouldFire)
         assertTrue(result.newArmed)
@@ -100,8 +100,8 @@ class NotificationEngineTest {
     }
 
     @Test
-    fun `evaluateNotification never fires a disabled notification even when armed and condition met`() {
-        val result = evaluateNotification(notification(enabled = false, armed = true), conditionMet = true, now = 100L)
+    fun `evaluateWatch never fires a disabled watch even when armed and condition met`() {
+        val result = evaluateWatch(watch(enabled = false, armed = true), conditionMet = true, now = 100L)
 
         assertFalse(result.shouldFire)
         assertTrue(result.newArmed)
@@ -122,7 +122,7 @@ class NotificationEngineTest {
         val events = List(3) { event(millisAtDay(9)) }
 
         val result =
-            evaluateOften(notification(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
+            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
 
         assertTrue(result.shouldFire)
     }
@@ -133,7 +133,7 @@ class NotificationEngineTest {
         val events = List(2) { event(millisAtDay(9)) }
 
         val result =
-            evaluateOften(notification(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
+            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
 
         assertFalse(result.shouldFire)
     }
@@ -144,14 +144,14 @@ class NotificationEngineTest {
         val events = List(3) { event(millisAtDay(2)) }
 
         val result =
-            evaluateOften(notification(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
+            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
 
         assertFalse(result.shouldFire)
     }
 
     @Test
     fun `evaluateOften re-arms once the rate ages back below threshold`() {
-        val alreadyFired = notification(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(10))
+        val alreadyFired = watch(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(10))
 
         val result = evaluateOften(alreadyFired, allEvents = emptyList(), now = millisAtDay(20), durationMode = DurationMode.NONE)
 
@@ -162,7 +162,7 @@ class NotificationEngineTest {
     @Test
     fun `evaluateOften re-arms when a previously-counted event is deleted, without waiting for the window to age`() {
         val now = millisAtDay(10)
-        val alreadyFired = notification(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(9))
+        val alreadyFired = watch(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(9))
         val eventsAfterDeletion = List(2) { event(millisAtDay(9)) } // one of the original 3 events was deleted
 
         val result = evaluateOften(alreadyFired, allEvents = eventsAfterDeletion, now = now, durationMode = DurationMode.NONE)
@@ -178,7 +178,7 @@ class NotificationEngineTest {
 
         val result =
             evaluateOften(
-                notification(threshold = 1, windowDays = 7, enabled = false),
+                watch(threshold = 1, windowDays = 7, enabled = false),
                 allEvents = events,
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -196,7 +196,7 @@ class NotificationEngineTest {
 
         val result =
             evaluateOften(
-                notification(threshold = 3, windowDays = 7, armed = true),
+                watch(threshold = 3, windowDays = 7, armed = true),
                 allEvents = events,
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -211,7 +211,7 @@ class NotificationEngineTest {
     fun `evaluateOften does not refire while disarmed and the rate is still at or above threshold`() {
         val now = millisAtDay(10)
         val events = List(3) { event(millisAtDay(9)) }
-        val alreadyFired = notification(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(9))
+        val alreadyFired = watch(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(9))
 
         val result = evaluateOften(alreadyFired, allEvents = events, now = now, durationMode = DurationMode.NONE)
 
@@ -228,7 +228,7 @@ class NotificationEngineTest {
 
         fun fires(eventCount: Int) =
             evaluateOften(
-                notification(threshold = 1, windowDays = 7, expectedPer = ExpectedPer.DAY),
+                watch(threshold = 1, windowDays = 7, expectedPer = ExpectedPer.DAY),
                 allEvents = List(eventCount) { event(millisAtDay(9)) },
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -245,7 +245,7 @@ class NotificationEngineTest {
 
         fun fires(eventCount: Int) =
             evaluateOften(
-                notification(threshold = 7, windowDays = 7, expectedPer = ExpectedPer.WEEK),
+                watch(threshold = 7, windowDays = 7, expectedPer = ExpectedPer.WEEK),
                 allEvents = List(eventCount) { event(millisAtDay(9)) },
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -262,7 +262,7 @@ class NotificationEngineTest {
 
         fun fires(eventCount: Int) =
             evaluateOften(
-                notification(threshold = 30, windowDays = 7, expectedPer = ExpectedPer.MONTH),
+                watch(threshold = 30, windowDays = 7, expectedPer = ExpectedPer.MONTH),
                 allEvents = List(eventCount) { event(millisAtDay(9)) },
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -279,7 +279,7 @@ class NotificationEngineTest {
 
         fun fires(eventCount: Int) =
             evaluateOften(
-                notification(threshold = 90, windowDays = 7, expectedPer = ExpectedPer.QUARTER),
+                watch(threshold = 90, windowDays = 7, expectedPer = ExpectedPer.QUARTER),
                 allEvents = List(eventCount) { event(millisAtDay(9)) },
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -304,7 +304,7 @@ class NotificationEngineTest {
         listOf(7, 30, 90).forEach { windowDays ->
             fun fires(eventCount: Int) =
                 evaluateOften(
-                    notification(threshold = 1, windowDays = windowDays, expectedPer = ExpectedPer.DAY),
+                    watch(threshold = 1, windowDays = windowDays, expectedPer = ExpectedPer.DAY),
                     allEvents = List(eventCount) { event(eventDay) },
                     now = now,
                     durationMode = DurationMode.NONE,
@@ -325,7 +325,7 @@ class NotificationEngineTest {
 
         val result =
             evaluateOften(
-                notification(threshold = 3, windowDays = 10, expectedPer = ExpectedPer.WEEK),
+                watch(threshold = 3, windowDays = 10, expectedPer = ExpectedPer.WEEK),
                 allEvents = events,
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -350,14 +350,14 @@ class NotificationEngineTest {
 
         val occurrenceResult =
             evaluateOften(
-                notification(threshold = 4, windowDays = 30, expectedPer = ExpectedPer.MONTH, metric = VerdictMetric.OCCURRENCE_COUNT),
+                watch(threshold = 4, windowDays = 30, expectedPer = ExpectedPer.MONTH, metric = VerdictMetric.OCCURRENCE_COUNT),
                 allEvents = events,
                 now = now,
                 durationMode = DurationMode.START_STOP,
             )
         val daysActiveResult =
             evaluateOften(
-                notification(threshold = 4, windowDays = 30, expectedPer = ExpectedPer.MONTH, metric = VerdictMetric.DAYS_ACTIVE),
+                watch(threshold = 4, windowDays = 30, expectedPer = ExpectedPer.MONTH, metric = VerdictMetric.DAYS_ACTIVE),
                 allEvents = events,
                 now = now,
                 durationMode = DurationMode.START_STOP,
@@ -376,7 +376,7 @@ class NotificationEngineTest {
 
         val result =
             evaluateOften(
-                notification(threshold = 1, windowDays = 7, minIntensity = 3),
+                watch(threshold = 1, windowDays = 7, minIntensity = 3),
                 allEvents = events,
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -392,7 +392,7 @@ class NotificationEngineTest {
 
         val result =
             evaluateOften(
-                notification(threshold = 1, windowDays = 7, minIntensity = 3),
+                watch(threshold = 1, windowDays = 7, minIntensity = 3),
                 allEvents = events,
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -408,7 +408,7 @@ class NotificationEngineTest {
 
         val result =
             evaluateOften(
-                notification(threshold = 1, windowDays = 7, minIntensity = 3),
+                watch(threshold = 1, windowDays = 7, minIntensity = 3),
                 allEvents = events,
                 now = now,
                 durationMode = DurationMode.NONE,
@@ -429,7 +429,7 @@ class NotificationEngineTest {
 
         val result =
             evaluateOften(
-                notification(threshold = 1, windowDays = 7),
+                watch(threshold = 1, windowDays = 7),
                 allEvents = listOf(stillActiveDuringWindow),
                 now = now,
                 durationMode = DurationMode.MANUAL,
@@ -445,7 +445,7 @@ class NotificationEngineTest {
 
         val result =
             evaluateOften(
-                notification(threshold = 1, windowDays = 7),
+                watch(threshold = 1, windowDays = 7),
                 allEvents = listOf(endedBeforeWindow),
                 now = now,
                 durationMode = DurationMode.MANUAL,
@@ -458,11 +458,11 @@ class NotificationEngineTest {
 
     @Test
     fun `evaluateQuiet fires at exactly the threshold day gap since the last event`() {
-        val quietNotification = notification(kind = NotificationKind.QUIET, threshold = 30, windowDays = null)
+        val quietWatch = watch(kind = WatchKind.QUIET, threshold = 30, windowDays = null)
 
         val result =
             evaluateQuiet(
-                quietNotification,
+                quietWatch,
                 mostRecentEventAt = millisAtDay(0),
                 caseCreatedAt = millisAtDay(0),
                 now = millisAtDay(30),
@@ -473,11 +473,11 @@ class NotificationEngineTest {
 
     @Test
     fun `evaluateQuiet does not fire one day short of the threshold gap`() {
-        val quietNotification = notification(kind = NotificationKind.QUIET, threshold = 30, windowDays = null)
+        val quietWatch = watch(kind = WatchKind.QUIET, threshold = 30, windowDays = null)
 
         val result =
             evaluateQuiet(
-                quietNotification,
+                quietWatch,
                 mostRecentEventAt = millisAtDay(0),
                 caseCreatedAt = millisAtDay(0),
                 now = millisAtDay(29),
@@ -488,11 +488,11 @@ class NotificationEngineTest {
 
     @Test
     fun `evaluateQuiet falls back to case creation for a Case with no events yet`() {
-        val quietNotification = notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null)
+        val quietWatch = watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null)
 
         val result =
             evaluateQuiet(
-                quietNotification,
+                quietWatch,
                 mostRecentEventAt = null,
                 caseCreatedAt = millisAtDay(0),
                 now = millisAtDay(14),
@@ -504,7 +504,7 @@ class NotificationEngineTest {
     @Test
     fun `evaluateQuiet re-arms once a new event resets the gap to zero`() {
         val alreadyFired =
-            notification(kind = NotificationKind.QUIET, threshold = 30, windowDays = null, armed = false, lastFiredAt = millisAtDay(30))
+            watch(kind = WatchKind.QUIET, threshold = 30, windowDays = null, armed = false, lastFiredAt = millisAtDay(30))
 
         val result =
             evaluateQuiet(

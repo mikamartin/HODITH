@@ -172,7 +172,7 @@ class CaseDetailScreenTest {
     fun notificationsTab_iconOnly_hasVoiceContentDescription() {
         setCaseDetailScreenContent()
 
-        composeTestRule.onNodeWithContentDescription(PlainVoice.notificationsTabDescription).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.watchesTabDescription).assertExists()
     }
 
     @Test

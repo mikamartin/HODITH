@@ -7,9 +7,9 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.NotificationEntity
-import com.secondmonday.hodith.data.NotificationKind
 import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
@@ -55,16 +55,16 @@ class NotificationEvaluatorTest {
         archived = archived,
     )
 
-    private fun notification(
+    private fun watch(
         id: Long = 1L,
         caseId: Long = 1L,
-        kind: NotificationKind = NotificationKind.OFTEN,
+        kind: WatchKind = WatchKind.OFTEN,
         threshold: Int = 3,
         windowDays: Int? = 7,
         enabled: Boolean = true,
         armed: Boolean = true,
         lastFiredAt: Long? = null,
-    ) = NotificationEntity(
+    ) = WatchEntity(
         id = id,
         caseId = caseId,
         kind = kind,
@@ -89,13 +89,13 @@ class NotificationEvaluatorTest {
     fun `evaluateCase fires an OFTEN notification once its window count reaches threshold`() =
         runTest {
             repository.cases.value = listOf(case())
-            repository.notifications.value = listOf(notification(threshold = 3, windowDays = 7))
+            repository.watches.value = listOf(watch(threshold = 3, windowDays = 7))
             repository.events.value = (1..3).map { event(id = it.toLong(), occurredAt = clock.nowMillis()) }
 
             evaluator.evaluateCase(1L)
 
             assertEquals(1, notifier.firedNotifications.size)
-            val updated = repository.notifications.value.single()
+            val updated = repository.watches.value.single()
             assertTrue(!updated.armed)
             assertEquals(clock.nowMillis(), updated.lastFiredAt)
         }
@@ -104,7 +104,7 @@ class NotificationEvaluatorTest {
     fun `evaluateCase does not fire an OFTEN notification below threshold`() =
         runTest {
             repository.cases.value = listOf(case())
-            repository.notifications.value = listOf(notification(threshold = 3, windowDays = 7))
+            repository.watches.value = listOf(watch(threshold = 3, windowDays = 7))
             repository.events.value = listOf(event(occurredAt = clock.nowMillis()))
 
             evaluator.evaluateCase(1L)
@@ -121,7 +121,7 @@ class NotificationEvaluatorTest {
             // it. Event runs days 0..40; the 7-day lookback from day 30 only opens at day 23 — an
             // occurredAt-only windowed fetch would never have handed this event to the evaluator.
             repository.cases.value = listOf(case(durationMode = DurationMode.MANUAL))
-            repository.notifications.value = listOf(notification(threshold = 1, windowDays = 7))
+            repository.watches.value = listOf(watch(threshold = 1, windowDays = 7))
             repository.events.value = listOf(event(occurredAt = millisAtDay(0), endedAt = millisAtDay(40)))
 
             evaluator.evaluateCase(1L)
@@ -133,7 +133,7 @@ class NotificationEvaluatorTest {
     fun `evaluateCase ignores a disabled notification`() =
         runTest {
             repository.cases.value = listOf(case())
-            repository.notifications.value = listOf(notification(threshold = 1, windowDays = 7, enabled = false))
+            repository.watches.value = listOf(watch(threshold = 1, windowDays = 7, enabled = false))
             repository.events.value = listOf(event(occurredAt = clock.nowMillis()))
 
             evaluator.evaluateCase(1L)
@@ -145,7 +145,7 @@ class NotificationEvaluatorTest {
     fun `evaluateCase fires a QUIET notification based on the most recent event`() =
         runTest {
             repository.cases.value = listOf(case(createdAt = 0L))
-            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
+            repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(16)))
 
             evaluator.evaluateCase(1L)
@@ -159,7 +159,7 @@ class NotificationEvaluatorTest {
             // Event ran days 2..20 and stopped; now is day 30, so 10 quiet days — under the 14-day threshold.
             // Measured from the day-2 start it would be 28 days and would fire.
             repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.MANUAL))
-            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
+            repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
 
             evaluator.evaluateCase(1L)
@@ -172,7 +172,7 @@ class NotificationEvaluatorTest {
         runTest {
             // Started day 2, never stopped; now is day 30. A running event is not silence.
             repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
-            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
+            repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = null))
 
             evaluator.evaluateCase(1L)
@@ -186,7 +186,7 @@ class NotificationEvaluatorTest {
             // Two concurrent open events (retro-log / fast restart, spec §6). The Case is running,
             // so the silence anchor pins to now regardless of how many events are open.
             repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
-            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
+            repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value =
                 listOf(
                     event(id = 1L, occurredAt = millisAtDay(2), endedAt = null),
@@ -219,7 +219,7 @@ class NotificationEvaluatorTest {
             // §9/§10 read it as a point: silence counts from the day-2 start = 28 quiet days, which
             // clears the 14-day threshold and fires. Reading the stored day-20 endedAt would give 10.
             repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.NONE))
-            repository.notifications.value = listOf(notification(kind = NotificationKind.QUIET, threshold = 14, windowDays = null))
+            repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
 
             evaluator.evaluateCase(1L)
@@ -240,7 +240,7 @@ class NotificationEvaluatorTest {
     fun `evaluateCase skips an archived case entirely`() =
         runTest {
             repository.cases.value = listOf(case(archived = true, checkInsEnabled = true))
-            repository.notifications.value = listOf(notification(threshold = 1, windowDays = 7))
+            repository.watches.value = listOf(watch(threshold = 1, windowDays = 7))
             repository.events.value = listOf(event(occurredAt = clock.nowMillis()))
 
             evaluator.evaluateCase(1L)
@@ -347,7 +347,7 @@ class NotificationEvaluatorTest {
                     case(id = 1L, createdAt = 0L, checkInsEnabled = true),
                     case(id = 2L, createdAt = 0L, checkInsEnabled = false),
                 )
-            repository.notifications.value = listOf(notification(id = 1L, caseId = 2L, threshold = 1, windowDays = 7))
+            repository.watches.value = listOf(watch(id = 1L, caseId = 2L, threshold = 1, windowDays = 7))
             repository.events.value = listOf(event(id = 1L, caseId = 2L, occurredAt = clock.nowMillis()))
 
             evaluator.evaluateAll()

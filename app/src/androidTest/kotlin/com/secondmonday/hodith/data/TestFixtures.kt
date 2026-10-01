@@ -55,9 +55,9 @@ fun testEvent(
     utcOffsetMinutes = utcOffsetMinutes,
 )
 
-fun testNotification(
+fun testWatch(
     caseId: Long,
-    kind: NotificationKind = NotificationKind.OFTEN,
+    kind: WatchKind = WatchKind.OFTEN,
     threshold: Int = 3,
     windowDays: Int? = 7,
     expectedPer: ExpectedPer = ExpectedPer.WEEK,
@@ -66,7 +66,7 @@ fun testNotification(
     enabled: Boolean = true,
     armed: Boolean = true,
     lastFiredAt: Long? = null,
-) = NotificationEntity(
+) = WatchEntity(
     caseId = caseId,
     kind = kind,
     threshold = threshold,

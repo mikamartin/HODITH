@@ -288,7 +288,7 @@ class SettingsViewModelTest {
                             EventEntity(caseId = 999L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L),
                         ),
                     eventTags = emptyList(),
-                    notifications = emptyList(),
+                    watches = emptyList(),
                 )
             val json = backupSerializer.toJson(invalidBackup)
 
@@ -302,7 +302,7 @@ class SettingsViewModelTest {
     fun `performImport treats an omitted schemaVersion as the current version`() =
         runTest {
             val viewModel = viewModel()
-            val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"notifications":[]}"""
+            val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"watches":[]}"""
 
             val result = viewModel.performImport(json)
 

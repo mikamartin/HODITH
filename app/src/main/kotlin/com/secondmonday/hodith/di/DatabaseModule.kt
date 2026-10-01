@@ -5,8 +5,8 @@ import androidx.room.Room
 import com.secondmonday.hodith.data.CaseDao
 import com.secondmonday.hodith.data.EventDao
 import com.secondmonday.hodith.data.HodithDatabase
-import com.secondmonday.hodith.data.NotificationDao
 import com.secondmonday.hodith.data.TagDao
+import com.secondmonday.hodith.data.WatchDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -37,5 +37,5 @@ object DatabaseModule {
     fun provideTagDao(database: HodithDatabase): TagDao = database.tagDao()
 
     @Provides
-    fun provideNotificationDao(database: HodithDatabase): NotificationDao = database.notificationDao()
+    fun provideWatchDao(database: HodithDatabase): WatchDao = database.watchDao()
 }
