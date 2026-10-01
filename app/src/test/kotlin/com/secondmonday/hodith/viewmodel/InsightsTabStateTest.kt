@@ -6,11 +6,13 @@ import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
+import com.secondmonday.hodith.domain.RateUnit
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TREND_SLOPE_MIN_SAMPLE_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
+import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.durationEvent
@@ -660,6 +662,69 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
         assertEquals(30L, state.stats.duration?.longestMinutes)
+    }
+
+    @Test
+    fun `duration card carries the shortest finished duration alongside the longest`() {
+        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val events =
+            listOf(
+                testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L),
+                testEvent(occurredAt = millisAtDay(2), endedAt = millisAtDay(2) + 5 * 60_000L),
+            )
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertEquals(5L, state.stats.duration?.shortestMinutes)
+        assertEquals(30L, state.stats.duration?.longestMinutes)
+    }
+
+    @Test
+    fun `hero rate is absent below the minimum events and days`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val events = listOf(eventAtDay(0), eventAtDay(3), eventAtDay(6))
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
+
+        assertNull(state.stats.heroRate)
+    }
+
+    @Test
+    fun `hero rate is the overall rate with no comparison under the trend's minimum span`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val events = (0L..4L).map { eventAtDay(it * 4) }
+
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
+
+        val rate = state.stats.heroRate!!
+        assertEquals(RateUnit.WEEK, rate.unit)
+        assertNull(rate.comparison)
+    }
+
+    @Test
+    fun `hero rate headlines the last 30 days and compares the 30 before once the trend applies`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val prior = listOf(eventAtDay(40), eventAtDay(45), eventAtDay(50))
+        val recent = listOf(eventAtDay(65), eventAtDay(70), eventAtDay(75), eventAtDay(80), eventAtDay(85), eventAtDay(88))
+
+        val state = insightsTabState(case, (prior + recent).withoutTags(), now = millisAtDay(90)) as InsightsTabState.Ready
+
+        val rate = state.stats.heroRate!!
+        assertEquals(TrendDirection.UP, rate.comparison!!.direction)
+        assertEquals(6 * 7 / 30.0, rate.value, 0.0001)
+        assertEquals(3 * 7 / 30.0, rate.comparison.priorValue, 0.0001)
+    }
+
+    @Test
+    fun `gaps display carries the shortest past gap, and none with a single event`() {
+        val case = testCase(createdAt = millisAtDay(0))
+
+        val several =
+            insightsTabState(case, listOf(eventAtDay(0), eventAtDay(2), eventAtDay(9)).withoutTags(), now = millisAtDay(10))
+        val single = insightsTabState(case, listOf(eventAtDay(0)).withoutTags(), now = millisAtDay(10))
+
+        assertEquals(2L, (several as InsightsTabState.Ready).stats.gaps.shortestGapDays)
+        assertNull((single as InsightsTabState.Ready).stats.gaps.shortestGapDays)
     }
 
     @Test

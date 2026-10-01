@@ -57,6 +57,7 @@ data class TrendStats(
 /** Spec §10 duration stats — only meaningful when the Case's `durationMode != NONE`. */
 data class DurationStats(
     val averageMinutes: Double,
+    val shortestMinutes: Long,
     val longestMinutes: Long,
     val totalMinutes: Long,
 )
