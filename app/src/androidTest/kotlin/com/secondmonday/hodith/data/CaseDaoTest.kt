@@ -114,18 +114,18 @@ class CaseDaoTest {
         }
 
     @Test
-    fun deletingCase_cascadesToEventsAndTriggers() =
+    fun deletingCase_cascadesToEventsAndWatches() =
         runTest {
             val caseId = caseDao.insert(testCase())
             val eventDao = db.eventDao()
-            val triggerDao = db.triggerDao()
+            val watchDao = db.watchDao()
             eventDao.insert(testEvent(caseId = caseId))
-            triggerDao.insert(testTrigger(caseId = caseId))
+            watchDao.insert(testWatch(caseId = caseId))
 
             caseDao.delete(caseDao.getById(caseId)!!)
 
             assertEquals(emptyList<EventEntity>(), eventDao.observeEventsForCase(caseId).first())
-            assertEquals(emptyList<TriggerEntity>(), triggerDao.observeTriggersForCase(caseId).first())
+            assertEquals(emptyList<WatchEntity>(), watchDao.observeWatchesForCase(caseId).first())
         }
 
     @Test
@@ -148,19 +148,19 @@ class CaseDaoTest {
     fun deleteAllArchived_removesOnlyArchivedCasesAndCascades() =
         runTest {
             val eventDao = db.eventDao()
-            val triggerDao = db.triggerDao()
+            val watchDao = db.watchDao()
             val activeId = caseDao.insert(testCase(name = "Active"))
             val archivedId = caseDao.insert(testCase(name = "Archived", archived = true))
             eventDao.insert(testEvent(caseId = activeId))
             eventDao.insert(testEvent(caseId = archivedId))
-            triggerDao.insert(testTrigger(caseId = archivedId))
+            watchDao.insert(testWatch(caseId = archivedId))
 
             caseDao.deleteAllArchived()
 
             assertEquals(listOf("Active"), caseDao.getAll().map { it.name })
             assertEquals(1, eventDao.observeEventsForCase(activeId).first().size)
             assertEquals(emptyList<EventEntity>(), eventDao.observeEventsForCase(archivedId).first())
-            assertEquals(emptyList<TriggerEntity>(), triggerDao.observeTriggersForCase(archivedId).first())
+            assertEquals(emptyList<WatchEntity>(), watchDao.observeWatchesForCase(archivedId).first())
         }
 
     @Test

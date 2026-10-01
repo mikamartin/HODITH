@@ -15,9 +15,9 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 
 ### Decoupling
 - [ ] Do composables contain business logic that belongs in the ViewModel or Repository?
-- [ ] **Is any time-dependent logic calling `System.currentTimeMillis()` directly instead of the injected `Clock`?** (Breaks verdict/trigger/stats testability.)
+- [ ] **Is any time-dependent logic calling `System.currentTimeMillis()` directly instead of the injected `Clock`?** (Breaks verdict/watch/stats testability.)
 - [ ] Does new day-bucketing or elapsed-time logic use the event's captured `utcOffsetMinutes` rather than the device's current offset (§5/§9)?
-- [ ] **Does verdict/trigger/stats code import anything from `android.*`?** These modules stay pure Kotlin.
+- [ ] **Does verdict/watch/stats code import anything from `android.*`?** These modules stay pure Kotlin.
 - [ ] Does the ViewModel directly reference UI types (Color, Dp, Composable functions)?
 - [ ] Does the data layer reference ViewModel or UI concerns?
 - [ ] Are new screens receiving the full ViewModel when they only need a subset? Pass specific lambdas or state instead.
@@ -50,7 +50,7 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] New tooling/config files: do they belong in the repo (shared) or in `.gitignore` (local setup)?
 
 ### Naming Consistency
-- [ ] New files follow `*Screen.kt`, `*ViewModel.kt`, `*Repository.kt` patterns and sit in the right package (`data/`, `di/`, `domain/` (verdict/trigger/stats engines), `ui/`, `viewmodel/`, `widget/`)?
+- [ ] New files follow `*Screen.kt`, `*ViewModel.kt`, `*Repository.kt` patterns and sit in the right package (`data/`, `di/`, `domain/` (verdict/watch/stats engines), `ui/`, `viewmodel/`, `widget/`)?
 - [ ] New composables PascalCase, descriptive, no abbreviations?
 - [ ] New `Voice` keys named consistently and added to **all three** voices in the same commit?
 
@@ -68,13 +68,13 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] New entity or column added? Room migration, `BACKUP_SCHEMA_VERSION` bump, and import validation all updated together (§17's "three changes, not one")?
 - [ ] Schema version bumped without a matching Room `Migration`? (`SchemaMigrationCoverageTest` should fail rather than falling back to a destructive migration.)
 - [ ] Export/import (JSON) shape and referential-integrity validation still mirror the current schema?
-- [ ] FK cascade-delete relationships (Case → Event/Trigger) still correct after schema changes?
+- [ ] FK cascade-delete relationships (Case → Event/Watch) still correct after schema changes?
 - [ ] Share card still excludes notes and tags (§13) — no new field reaches it without deliberately updating that exclusion?
 
 ### Background Work, Widgets & Notifications
-- [ ] Trigger/check-in evaluation still debounced and idempotent on repeated runs (a logging burst, the ~6h WorkManager pass)?
+- [ ] Watch/check-in evaluation still debounced and idempotent on repeated runs (a logging burst, the ~6h WorkManager pass)?
 - [ ] Notifications still join the single HODITH group with summary-only alerting, not one alert per Case?
-- [ ] `POST_NOTIFICATIONS` still requested contextually (first trigger created / first check-in enabled), never on launch?
+- [ ] `POST_NOTIFICATIONS` still requested contextually (first Watch created / first check-in enabled), never on launch?
 - [ ] Widget code (Glance) respects the Plain-light-only theming constraint and each Case's `logFlow` (one-tap vs. detail-sheet trampoline)?
 
 ### Deprecated APIs

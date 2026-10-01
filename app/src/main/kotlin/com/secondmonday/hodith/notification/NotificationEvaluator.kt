@@ -4,15 +4,14 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
-import com.secondmonday.hodith.data.TriggerEntity
-import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.CheckInDecision
 import com.secondmonday.hodith.domain.Clock
-import com.secondmonday.hodith.domain.atLeastWindowStart
-import com.secondmonday.hodith.domain.evaluateAtLeast
 import com.secondmonday.hodith.domain.evaluateCheckIn
-import com.secondmonday.hodith.domain.evaluateSilentFor
+import com.secondmonday.hodith.domain.evaluateOften
+import com.secondmonday.hodith.domain.evaluateQuiet
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import kotlinx.coroutines.flow.first
@@ -20,7 +19,7 @@ import javax.inject.Inject
 import javax.inject.Provider
 
 /**
- * Evaluates Triggers and check-ins against real data (spec §11) and posts notifications for
+ * Evaluates Notifications and check-ins against real data (spec §11) and posts notifications for
  * anything due. Takes [HodithRepository] via [Provider], not directly: [HodithRepository]'s real
  * implementation depends on this class (to evaluate immediately on event insert/edit/delete), so a
  * direct dependency here would make the Dagger graph circular. [Provider] defers resolution until
@@ -40,17 +39,17 @@ class NotificationEvaluator
             val case = repo.getCase(caseId) ?: return
             if (case.archived) return
             val voice = currentVoice()
-            evaluateTriggers(repo, case, repo.getTriggersForCase(caseId).filter { it.enabled }, voice)
+            evaluateNotifications(repo, case, repo.getWatchesForCase(caseId).filter { it.enabled }, voice)
             evaluateCheckInForCase(repo, case, voice)
         }
 
-        /** For the periodic job: every enabled Trigger and every active Case's check-in. */
+        /** For the periodic job: every enabled Notification and every active Case's check-in. */
         suspend fun evaluateAll() {
             val repo = repository.get()
             val voice = currentVoice()
-            repo.getEnabledTriggers().groupBy { it.caseId }.forEach { (caseId, triggers) ->
+            repo.getEnabledWatches().groupBy { it.caseId }.forEach { (caseId, notifications) ->
                 val case = repo.getCase(caseId)
-                if (case != null && !case.archived) evaluateTriggers(repo, case, triggers, voice)
+                if (case != null && !case.archived) evaluateNotifications(repo, case, notifications, voice)
             }
             evaluateCheckIns(repo, voice)
         }
@@ -80,34 +79,37 @@ class NotificationEvaluator
 
         private suspend fun currentVoice(): Voice = voiceFor(settingsRepository.observeTheme().first())
 
-        private suspend fun evaluateTriggers(
+        private suspend fun evaluateNotifications(
             repo: HodithRepository,
             case: CaseEntity,
-            triggers: List<TriggerEntity>,
+            watches: List<WatchEntity>,
             voice: Voice,
         ) {
-            if (triggers.isEmpty()) return
+            if (watches.isEmpty()) return
             val now = clock.nowMillis()
-            for (trigger in triggers) {
+            for (watch in watches) {
                 val decision =
-                    when (trigger.kind) {
-                        TriggerKind.AT_LEAST -> {
-                            val windowStart = atLeastWindowStart(now, trigger.windowDays)
-                            // eventsInWindow's range is half-open ([start, end)) — +1 so an event
-                            // occurring at exactly `now` (e.g. the one that just triggered this
-                            // immediate-eval hook) still counts.
-                            val events = repo.eventsInWindow(case.id, windowStart, now + 1)
-                            evaluateAtLeast(trigger, events, now)
+                    when (watch.kind) {
+                        WatchKind.OFTEN -> {
+                            // Unbounded fetch, not windowed by the lookback: computeVerdict (via
+                            // evaluateOften's expectationInputsFor) does its own span-overlap window
+                            // filtering and needs to see every event that could reach into the
+                            // window, including a duration event that started before it but is
+                            // still active inside it. eventsInWindow's range is half-open
+                            // ([start, end)) — +1 so an event occurring at exactly `now` (e.g. the
+                            // one that just triggered this immediate-eval hook) still counts.
+                            val events = repo.eventsInWindow(case.id, 0L, now + 1)
+                            evaluateOften(watch, events, now, case.durationMode)
                         }
-                        TriggerKind.SILENT_FOR -> {
-                            evaluateSilentFor(trigger, silenceAnchorFor(repo, case, now), case.createdAt, now)
+                        WatchKind.QUIET -> {
+                            evaluateQuiet(watch, silenceAnchorFor(repo, case, now), case.createdAt, now)
                         }
                     }
-                if (decision.newArmed != trigger.armed || decision.newLastFiredAt != trigger.lastFiredAt) {
-                    repo.updateTrigger(trigger.copy(armed = decision.newArmed, lastFiredAt = decision.newLastFiredAt))
+                if (decision.newArmed != watch.armed || decision.newLastFiredAt != watch.lastFiredAt) {
+                    repo.updateWatch(watch.copy(armed = decision.newArmed, lastFiredAt = decision.newLastFiredAt))
                 }
                 if (decision.shouldFire) {
-                    notifier.notifyTriggerFired(case, trigger, voice)
+                    notifier.notifyNotificationFired(case, watch, voice)
                 }
             }
         }
@@ -142,14 +144,19 @@ class NotificationEvaluator
         }
 
         /**
-         * The moment the silence clock counts from for `SILENT_FOR` and check-ins: the latest point
+         * The moment the silence clock counts from for `QUIET` and check-ins: the latest point
          * any event on the Case ended (spec §10 — a duration event's quiet stretch starts when it
          * *ended*, not when it began), or [now] while a `START_STOP` Case has an event still running,
          * so an active stretch never reads as silence. A Case that no longer tracks duration
          * (`durationMode == NONE`, spec §9) reads every event as a point: silence counts from the
-         * latest `occurredAt`, ignoring any stored `endedAt`, so the trigger/check-in clock agrees
-         * with the heatmap, gaps card and Big Picture, all of which collapse a non-tracking Case's
-         * spans. Null (⇒ count from Case creation) with no events.
+         * latest `occurredAt`, ignoring any stored `endedAt`, so the notification/check-in clock
+         * agrees with the heatmap, gaps card and Big Picture, all of which collapse a non-tracking
+         * Case's spans. Null (⇒ count from Case creation) with no events.
+         *
+         * [com.secondmonday.hodith.domain.silenceAnchorForEvents] implements this same rule from an
+         * in-memory event list for the bell tab's Now line, which already holds the Case's full
+         * event history and has no reason to make these three suspend calls. Keep the two in sync
+         * by hand.
          */
         private suspend fun silenceAnchorFor(
             repo: HodithRepository,

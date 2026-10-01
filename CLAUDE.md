@@ -22,7 +22,7 @@ This repo is also a portfolio piece, built with heavy AI assistance. This file i
 
 - **Every user-visible string goes through the `Voice` layer** and must be added to all three voices (Serious, Goth, Quirky) in the same commit. No inline UI strings, ever.
 - **No gamification language or mechanics** — no streaks, scores, "keep it up!", "you missed a day". HODITH observes; it does not push behaviour change (spec §4). If a feature idea drifts that way, stop and raise it.
-- **Verdict, trigger, and stats code stays pure Kotlin** (`domain/` package): no `android.*` imports, all time via injected `Clock`.
+- **Verdict, watch, and stats code stays pure Kotlin** (`domain/` package): no `android.*` imports, all time via injected `Clock`.
 - Product constants (confidence tiers, comparison bands) live as named constants in the domain layer — never inline magic numbers.
 
 ## Git hygiene (public repo)

@@ -26,7 +26,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * [notificationPermissionRequests] is collected here, at the app root, rather than inside whichever
- * screen requests it (Case Edit, Triggers) — Case Edit navigates away the instant a save completes,
+ * screen requests it (Case Edit, Notifications) — Case Edit navigates away the instant a save completes,
  * which could dispose that screen's own effect before it gets a chance to launch the system dialog.
  */
 @Composable

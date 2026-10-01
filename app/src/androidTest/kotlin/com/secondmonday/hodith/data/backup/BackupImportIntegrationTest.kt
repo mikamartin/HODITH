@@ -6,7 +6,7 @@ import com.secondmonday.hodith.data.RoomHodithRepository
 import com.secondmonday.hodith.data.createInMemoryDatabase
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
-import com.secondmonday.hodith.data.testTrigger
+import com.secondmonday.hodith.data.testWatch
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import com.secondmonday.hodith.testtags.Smoke
 import com.squareup.moshi.Moshi
@@ -55,7 +55,7 @@ class BackupImportIntegrationTest {
             // evaluation as a fire-and-forget side effect, which this test doesn't need.
             val eventId = db.eventDao().insert(testEvent(caseId = caseId, occurredAt = 100L))
             repository.addTagToEvent(eventId, "aura")
-            repository.insertTrigger(testTrigger(caseId = caseId))
+            repository.insertWatch(testWatch(caseId = caseId))
 
             val json = backupSerializer.toJson(repository.exportBackupData())
 
@@ -80,7 +80,7 @@ class BackupImportIntegrationTest {
             caseDao = database.caseDao(),
             eventDao = database.eventDao(),
             tagDao = database.tagDao(),
-            triggerDao = database.triggerDao(),
+            watchDao = database.watchDao(),
             notificationEvalScheduler =
                 NotificationEvalScheduler(
                     scope = CoroutineScope(Dispatchers.Unconfined),

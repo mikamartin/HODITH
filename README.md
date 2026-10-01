@@ -24,7 +24,7 @@ Open a **Case** on the thing you've noticed — a teenager snapping at you, a mi
 - **Check-ins.** Silence is ambiguous — did it stop happening, or did you stop logging? A quiet nudge asks, never nags.
 - **The Big Picture.** Every Case on one shared timeline, occurrences as dots aligned by date. When your "unbearable day" dots stack above your "kiddo was rude" dots, you can see it — the app draws, you conclude.
 - **Per-case visuals and stats.** A dot timeline showing bursts and droughts, a year-in-pixels calendar, a day-of-week × time-of-day rhythm heatmap, gaps, trends, durations, intensity.
-- **Triggers.** A factual heads-up when something happens 3+ times in a week, or hasn't happened in 14 days. A count and a name — the rest is up to you.
+- **Rules.** A bell tab on each Case holds rules that give a factual heads-up when something happens 3+ times in a week, or hasn't happened in 14 days, with a live "Now" read of where it stands. A count and a name — the rest is up to you.
 - **Three themes, three voices.** Plain, Intense, and Bright change the colors *and* every word the app says. Intense's take on "How often does it truly happen?": *"How oft dares it truly haunt?"*
 - **Share the reveal.** Turn a Case into a story-style card — the case, the evidence, the stats — styled by your theme, sized for stories or feeds. You preview first, can rename the case on the card, and notes/tags never leave the phone.
 - **Your data stays yours.** HODITH itself doesn't request network permission and sends nothing anywhere; export/import as JSON anytime. Android's own device backup can still include HODITH's data if you have phone backup turned on — a Settings toggle lets you opt out.
@@ -42,7 +42,7 @@ No streaks, scores, or reminders to "do better" — many Cases are about things 
 | Architecture | MVVM — ViewModel + StateFlow |
 | Widgets | Jetpack Glance (list widget + single-case widget) |
 | Storage | Room (SQLite) — local only, no cloud sync |
-| Background | WorkManager (trigger evaluation) |
+| Background | WorkManager (watch evaluation) |
 | DI | Hilt |
 | Navigation | Navigation Compose |
 | Settings | DataStore Preferences |
@@ -51,7 +51,7 @@ No streaks, scores, or reminders to "do better" — many Cases are about things 
 
 ## Architecture
 
-MVVM throughout. `HodithRepository` is the single source of truth over Room. Trigger evaluation and stats live in a pure-Kotlin `domain/` layer with no Android dependencies — time comes in via an injected `Clock` — so the app's riskiest logic is fully unit-testable on the JVM. The Glance widgets and the WorkManager trigger job read the repository directly, independent of the activity lifecycle.
+MVVM throughout. `HodithRepository` is the single source of truth over Room. Watch evaluation and stats live in a pure-Kotlin `domain/` layer with no Android dependencies — time comes in via an injected `Clock` — so the app's riskiest logic is fully unit-testable on the JVM. The Glance widgets and the WorkManager watch job read the repository directly, independent of the activity lifecycle.
 
 ```mermaid
 graph LR
@@ -63,7 +63,7 @@ graph LR
         ViewModels["ViewModels (StateFlow)"]
     end
     subgraph domain["Domain (pure Kotlin)"]
-        Triggers["Trigger Evaluation"]
+        Watches["Watch Evaluation"]
         Stats["Stats"]
     end
     subgraph data["Data Layer"]
@@ -74,7 +74,7 @@ graph LR
     Screens --> ViewModels --> Repo
     ViewModels --> domain
     Widgets --> Repo
-    Work --> Triggers
+    Work --> Watches
     Work --> Repo
     Repo --> DB
 ```

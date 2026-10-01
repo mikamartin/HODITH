@@ -18,13 +18,13 @@ class FakeHodithRepository : HodithRepository {
     private var nextCaseId = 1L
     private var nextEventId = 1L
     private var nextTagId = 1L
-    private var nextTriggerId = 1L
+    private var nextWatchId = 1L
 
     val cases = MutableStateFlow<List<CaseEntity>>(emptyList())
     val events = MutableStateFlow<List<EventEntity>>(emptyList())
     val tags = MutableStateFlow<List<TagEntity>>(emptyList())
     val eventTags = MutableStateFlow<List<EventTagCrossRef>>(emptyList())
-    val triggers = MutableStateFlow<List<TriggerEntity>>(emptyList())
+    val watches = MutableStateFlow<List<WatchEntity>>(emptyList())
 
     // Case
     override fun observeActiveCases(): Flow<List<CaseEntity>> =
@@ -58,7 +58,7 @@ class FakeHodithRepository : HodithRepository {
     override suspend fun deleteCase(case: CaseEntity) {
         cases.update { list -> list.filterNot { it.id == case.id } }
         events.update { list -> list.filterNot { it.caseId == case.id } }
-        triggers.update { list -> list.filterNot { it.caseId == case.id } }
+        watches.update { list -> list.filterNot { it.caseId == case.id } }
     }
 
     override suspend fun deleteAllArchivedCases() {
@@ -69,7 +69,7 @@ class FakeHodithRepository : HodithRepository {
                 .toSet()
         cases.update { list -> list.filterNot { it.id in archivedIds } }
         events.update { list -> list.filterNot { it.caseId in archivedIds } }
-        triggers.update { list -> list.filterNot { it.caseId in archivedIds } }
+        watches.update { list -> list.filterNot { it.caseId in archivedIds } }
     }
 
     override suspend fun deleteAllData() {
@@ -77,7 +77,7 @@ class FakeHodithRepository : HodithRepository {
         events.value = emptyList()
         tags.value = emptyList()
         eventTags.value = emptyList()
-        triggers.value = emptyList()
+        watches.value = emptyList()
     }
 
     override suspend fun deleteEventsOlderThan(cutoff: Long) {
@@ -254,28 +254,27 @@ class FakeHodithRepository : HodithRepository {
         eventTags.update { list -> list.filterNot { it.eventId == eventId && it.tagId == tagId } }
     }
 
-    // Trigger
-    override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggers.value.find { it.id == triggerId }
+    // Watch
+    override suspend fun getWatch(watchId: Long): WatchEntity? = watches.value.find { it.id == watchId }
 
-    override fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>> =
-        triggers.map { list -> list.filter { it.caseId == caseId } }
+    override fun observeWatchesForCase(caseId: Long): Flow<List<WatchEntity>> = watches.map { list -> list.filter { it.caseId == caseId } }
 
-    override suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity> = triggers.value.filter { it.caseId == caseId }
+    override suspend fun getWatchesForCase(caseId: Long): List<WatchEntity> = watches.value.filter { it.caseId == caseId }
 
-    override suspend fun getEnabledTriggers(): List<TriggerEntity> = triggers.value.filter { it.enabled }
+    override suspend fun getEnabledWatches(): List<WatchEntity> = watches.value.filter { it.enabled }
 
-    override suspend fun insertTrigger(trigger: TriggerEntity): Long {
-        val id = if (trigger.id != 0L) trigger.id else nextTriggerId++
-        triggers.update { it + trigger.copy(id = id) }
+    override suspend fun insertWatch(watch: WatchEntity): Long {
+        val id = if (watch.id != 0L) watch.id else nextWatchId++
+        watches.update { it + watch.copy(id = id) }
         return id
     }
 
-    override suspend fun updateTrigger(trigger: TriggerEntity) {
-        triggers.update { list -> list.map { if (it.id == trigger.id) trigger else it } }
+    override suspend fun updateWatch(watch: WatchEntity) {
+        watches.update { list -> list.map { if (it.id == watch.id) watch else it } }
     }
 
-    override suspend fun deleteTrigger(trigger: TriggerEntity) {
-        triggers.update { list -> list.filterNot { it.id == trigger.id } }
+    override suspend fun deleteWatch(watch: WatchEntity) {
+        watches.update { list -> list.filterNot { it.id == watch.id } }
     }
 
     // Backup
@@ -285,7 +284,7 @@ class FakeHodithRepository : HodithRepository {
             tags = tags.value,
             events = events.value,
             eventTags = eventTags.value,
-            triggers = triggers.value,
+            watches = watches.value,
         )
 
     override suspend fun importBackupData(backup: BackupData) {
@@ -293,6 +292,6 @@ class FakeHodithRepository : HodithRepository {
         tags.value = backup.tags
         events.value = backup.events
         eventTags.value = backup.eventTags
-        triggers.value = backup.triggers
+        watches.value = backup.watches
     }
 }

@@ -6,7 +6,7 @@ import com.secondmonday.hodith.data.CaseDao
 import com.secondmonday.hodith.data.EventDao
 import com.secondmonday.hodith.data.HodithDatabase
 import com.secondmonday.hodith.data.TagDao
-import com.secondmonday.hodith.data.TriggerDao
+import com.secondmonday.hodith.data.WatchDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -37,5 +37,5 @@ object DatabaseModule {
     fun provideTagDao(database: HodithDatabase): TagDao = database.tagDao()
 
     @Provides
-    fun provideTriggerDao(database: HodithDatabase): TriggerDao = database.triggerDao()
+    fun provideWatchDao(database: HodithDatabase): WatchDao = database.watchDao()
 }

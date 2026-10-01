@@ -107,20 +107,20 @@ interface HodithRepository {
         tagId: Long,
     )
 
-    // Trigger
-    suspend fun getTrigger(triggerId: Long): TriggerEntity?
+    // Watch
+    suspend fun getWatch(watchId: Long): WatchEntity?
 
-    fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>>
+    fun observeWatchesForCase(caseId: Long): Flow<List<WatchEntity>>
 
-    suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity>
+    suspend fun getWatchesForCase(caseId: Long): List<WatchEntity>
 
-    suspend fun getEnabledTriggers(): List<TriggerEntity>
+    suspend fun getEnabledWatches(): List<WatchEntity>
 
-    suspend fun insertTrigger(trigger: TriggerEntity): Long
+    suspend fun insertWatch(watch: WatchEntity): Long
 
-    suspend fun updateTrigger(trigger: TriggerEntity)
+    suspend fun updateWatch(watch: WatchEntity)
 
-    suspend fun deleteTrigger(trigger: TriggerEntity)
+    suspend fun deleteWatch(watch: WatchEntity)
 
     // Backup (spec §16)
     suspend fun exportBackupData(): BackupData

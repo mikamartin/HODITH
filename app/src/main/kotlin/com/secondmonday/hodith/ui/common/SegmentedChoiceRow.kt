@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -89,9 +90,27 @@ fun <T> SegmentedChoiceRow(
                         selected = selected == option,
                         enabled = enabled(option),
                         onClick = { onSelect(option) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                        // M3's own default baseShape is a fully-rounded pill regardless of theme;
+                        // using the app's own small shape keeps this in step with Plain/Intense's
+                        // actual corner-radius scale instead of a hardcoded rounder default.
+                        shape =
+                            SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = options.size,
+                                baseShape = MaterialTheme.shapes.small,
+                            ),
                         colors = colors,
-                    ) { Text(label, style = textStyle) }
+                        // The active/inactive color swap already reads clearly as selection --
+                        // M3's default checkmark icon on top of that is redundant visual noise.
+                        icon = {},
+                    ) {
+                        // textStyle defaults to labelLarge, which is the theme's bold-weight
+                        // display font (SemiBold/Bold per theme) -- appropriate for a real label,
+                        // but noticeably heavier and wider than this control needs, which was
+                        // making longer options wrap. Forcing Normal weight keeps the same font
+                        // family/size (so it still matches the theme) without the extra bulk.
+                        Text(label, style = textStyle, fontWeight = FontWeight.Normal, modifier = Modifier.padding(horizontal = 6.dp))
+                    }
                 }
             }
         }

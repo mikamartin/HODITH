@@ -16,11 +16,11 @@ class RoomHodithRepository
         private val caseDao: CaseDao,
         private val eventDao: EventDao,
         private val tagDao: TagDao,
-        private val triggerDao: TriggerDao,
+        private val watchDao: WatchDao,
         private val notificationEvalScheduler: NotificationEvalScheduler,
     ) : HodithRepository {
         /**
-         * Spec §11: Triggers/check-ins evaluate immediately on every event mutation, not just the
+         * Spec §11: Watches/check-ins evaluate immediately on every event mutation, not just the
          * ~6h periodic job. [NotificationEvalScheduler] runs it fire-and-forget off the caller's
          * thread — so quick-log/start-stop stay instant — and debounces per Case so a rapid logging
          * burst collapses to one evaluation.
@@ -152,20 +152,20 @@ class RoomHodithRepository
             tagId: Long,
         ) = tagDao.deleteEventTag(EventTagCrossRef(eventId = eventId, tagId = tagId))
 
-        // Trigger
-        override suspend fun getTrigger(triggerId: Long): TriggerEntity? = triggerDao.getById(triggerId)
+        // Watch
+        override suspend fun getWatch(watchId: Long): WatchEntity? = watchDao.getById(watchId)
 
-        override fun observeTriggersForCase(caseId: Long): Flow<List<TriggerEntity>> = triggerDao.observeTriggersForCase(caseId)
+        override fun observeWatchesForCase(caseId: Long): Flow<List<WatchEntity>> = watchDao.observeWatchesForCase(caseId)
 
-        override suspend fun getTriggersForCase(caseId: Long): List<TriggerEntity> = triggerDao.getTriggersForCase(caseId)
+        override suspend fun getWatchesForCase(caseId: Long): List<WatchEntity> = watchDao.getWatchesForCase(caseId)
 
-        override suspend fun getEnabledTriggers(): List<TriggerEntity> = triggerDao.getEnabledTriggers()
+        override suspend fun getEnabledWatches(): List<WatchEntity> = watchDao.getEnabledWatches()
 
-        override suspend fun insertTrigger(trigger: TriggerEntity): Long = triggerDao.insert(trigger)
+        override suspend fun insertWatch(watch: WatchEntity): Long = watchDao.insert(watch)
 
-        override suspend fun updateTrigger(trigger: TriggerEntity) = triggerDao.update(trigger)
+        override suspend fun updateWatch(watch: WatchEntity) = watchDao.update(watch)
 
-        override suspend fun deleteTrigger(trigger: TriggerEntity) = triggerDao.delete(trigger)
+        override suspend fun deleteWatch(watch: WatchEntity) = watchDao.delete(watch)
 
         // Backup
         override suspend fun exportBackupData(): BackupData =
@@ -174,7 +174,7 @@ class RoomHodithRepository
                 tags = tagDao.getAll(),
                 events = eventDao.getAll(),
                 eventTags = tagDao.getAllEventTags(),
-                triggers = triggerDao.getAll(),
+                watches = watchDao.getAll(),
             )
 
         override suspend fun importBackupData(backup: BackupData) {
@@ -185,7 +185,7 @@ class RoomHodithRepository
                 backup.tags.forEach { tagDao.insert(it) }
                 backup.events.forEach { eventDao.insert(it) }
                 backup.eventTags.forEach { tagDao.insertEventTag(it) }
-                backup.triggers.forEach { triggerDao.insert(it) }
+                backup.watches.forEach { watchDao.insert(it) }
             }
         }
     }

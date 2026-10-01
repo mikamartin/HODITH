@@ -3,8 +3,12 @@ package com.secondmonday.hodith.data.demo
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.EVENING_START_HOUR
@@ -13,6 +17,10 @@ import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.domain.MORNING_START_HOUR
 import com.secondmonday.hodith.domain.NIGHT_START_HOUR
+import com.secondmonday.hodith.domain.evaluateOften
+import com.secondmonday.hodith.domain.evaluateQuiet
+import com.secondmonday.hodith.domain.silenceAnchorForEvents
+import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
@@ -29,6 +37,11 @@ private const val MAX_INTENSITY = 5
 private const val NOTE_CHANCE_PERCENT = 45
 private const val TAG_CHANCE_PERCENT = 50
 private const val MAX_TAGS_PER_EVENT = 2
+
+// A seeded Watch whose condition is already met reads as having fired this many days ago (armed = false,
+// lastFiredAt set) rather than left armed, which would make the first evaluation after loading demo data
+// fire a burst of notifications.
+private const val WATCH_FIRED_DAYS_AGO = 2L
 
 // Story C T4 showcase (Migraine's "aura" tag, see [TagOutcomeShiftSeed]): the fraction of a Case's
 // events forced to carry the showcase tag, deterministically and exclusively of the normal tagsFor
@@ -123,6 +136,17 @@ private data class TagTimingShiftSeed(
     val tagName: String,
 )
 
+/** One demo Watch, evaluated against its Case's seeded events so its armed/lastFiredAt state is consistent with them. */
+private data class WatchSeed(
+    val kind: WatchKind,
+    val threshold: Int,
+    val windowDays: Int? = null,
+    val expectedPer: ExpectedPer = ExpectedPer.WEEK,
+    val metric: VerdictMetric = VerdictMetric.OCCURRENCE_COUNT,
+    val minIntensity: Int? = null,
+    val enabled: Boolean = true,
+)
+
 private data class CaseSeed(
     val name: String,
     val icon: String,
@@ -151,6 +175,12 @@ private data class CaseSeed(
     // onto a Saturday or Sunday date (see weekendDateFor), giving the demo Case a real, deliberate
     // weekend clustering for computeWeekdayWeekendFindings to find.
     val weekdayWeekendShift: Boolean = false,
+    // Watches covering the bell tab's states across the Case set: a confident often card, a
+    // days-active one on a duration Case, an intensity-filtered one, a quiet one, and a disabled one.
+    // Cases left empty exercise the empty state.
+    val watches: List<WatchSeed> = emptyList(),
+    // Only one Case opts out, so the bell tab's check-in row shows both switch states.
+    val checkInsEnabled: Boolean = true,
 )
 
 // Deliberately varied on every axis Big Picture and Case Detail's Insights tab need to exercise:
@@ -171,6 +201,12 @@ private val CASE_SEEDS =
             tags = listOf("home", "cafe", "oat-milk", "decaf"),
             description = "Any cup counted, home-brewed or bought",
             recentSurge = true,
+            watches =
+                listOf(
+                    // Coffee's recent surge keeps it well over 3 a week across the 30-day window: a confident tier with a comparison line, condition met.
+                    WatchSeed(WatchKind.OFTEN, threshold = 3, windowDays = 30),
+                    WatchSeed(WatchKind.QUIET, threshold = 7, enabled = false),
+                ),
         ),
         CaseSeed(
             name = "Migraine",
@@ -189,6 +225,8 @@ private val CASE_SEEDS =
             // example): a 60% duration boost gives real margin over both the 20% descriptive floor
             // and the permutation test's significance bar, not a result sitting right at the edge.
             tagOutcomeShift = TagOutcomeShiftSeed(tagName = "aura", durationBoostFactor = 1.6),
+            // Intensity-filtered: only 4+ events count, which Migraine's bursty history rarely sustains weekly.
+            watches = listOf(WatchSeed(WatchKind.OFTEN, threshold = 1, windowDays = 30, minIntensity = 4)),
         ),
         CaseSeed(
             name = "Lost my keys",
@@ -220,6 +258,10 @@ private val CASE_SEEDS =
             notes = listOf("Overtired, probably", "Wrong-color cup incident", "Right before bedtime", "Grocery store meltdown"),
             tags = listOf("overtired", "hungry", "public", "bedtime"),
             durationTrendShift = true,
+            watches =
+                listOf(
+                    WatchSeed(WatchKind.OFTEN, threshold = 4, windowDays = 30, metric = VerdictMetric.DAYS_ACTIVE),
+                ),
         ),
         CaseSeed(
             name = "Nosebleed",
@@ -230,6 +272,8 @@ private val CASE_SEEDS =
             notes = listOf("Dry air, probably", "Right after a sneeze", "Out of nowhere"),
             tags = listOf("dry-weather", "minor", "prolonged"),
             quietSpell = true,
+            // Quiet spell is 60 days, so this one's condition is already met.
+            watches = listOf(WatchSeed(WatchKind.QUIET, threshold = 30)),
         ),
         CaseSeed(
             name = "Noisy neighbours",
@@ -242,6 +286,7 @@ private val CASE_SEEDS =
             // One recent, one left running from yesterday — a Case with more than one event going
             // at once, and old enough on the second to trip the stale-ongoing prompt.
             ongoingEventCount = 2,
+            checkInsEnabled = false,
         ),
         CaseSeed(
             name = "Heartburn",
@@ -285,7 +330,7 @@ class DemoDataSeeder
                             logFlow = LogFlow.ONE_TAP,
                             durationMode = caseSeed.durationMode,
                             intensityEnabled = caseSeed.intensityEnabled,
-                            checkInsEnabled = true,
+                            checkInsEnabled = caseSeed.checkInsEnabled,
                             lastCheckInAt = null,
                             sortOrder = index,
                             archived = false,
@@ -336,7 +381,49 @@ class DemoDataSeeder
                     val startedAt = now - ONGOING_EVENT_AGES_MILLIS[ongoingIndex.coerceAtMost(ONGOING_EVENT_AGES_MILLIS.lastIndex)]
                     insertSeedEvent(caseId, startedAt, endedAt = null, caseSeed = caseSeed, random = random)
                 }
+
+                caseSeed.watches.forEach { seedWatch(caseId, caseSeed, createdAt = spanStart, now = now, watchSeed = it) }
             }
+        }
+
+        /**
+         * Inserts [watchSeed] for the Case, run through the real Watch engine against the Case's
+         * already-seeded events: a condition that's already met is stored as fired (armed = false,
+         * [WATCH_FIRED_DAYS_AGO] days ago) so the first evaluation after loading demo data doesn't fire it again.
+         */
+        private suspend fun seedWatch(
+            caseId: Long,
+            caseSeed: CaseSeed,
+            createdAt: Long,
+            now: Long,
+            watchSeed: WatchSeed,
+        ) {
+            val watch =
+                WatchEntity(
+                    caseId = caseId,
+                    kind = watchSeed.kind,
+                    threshold = watchSeed.threshold,
+                    windowDays = watchSeed.windowDays,
+                    expectedPer = watchSeed.expectedPer,
+                    metric = watchSeed.metric,
+                    minIntensity = watchSeed.minIntensity,
+                    enabled = watchSeed.enabled,
+                    lastFiredAt = null,
+                )
+            val events = repository.observeEventsWithTagsForCase(caseId).first().map { it.event }
+            val decision =
+                when (watch.kind) {
+                    WatchKind.OFTEN -> evaluateOften(watch, events, now, caseSeed.durationMode)
+                    WatchKind.QUIET ->
+                        evaluateQuiet(watch, silenceAnchorForEvents(events, caseSeed.durationMode, now), createdAt, now)
+                }
+            repository.insertWatch(
+                if (decision.shouldFire) {
+                    watch.copy(armed = false, lastFiredAt = now - WATCH_FIRED_DAYS_AGO * MILLIS_PER_DAY)
+                } else {
+                    watch
+                },
+            )
         }
 
         /**

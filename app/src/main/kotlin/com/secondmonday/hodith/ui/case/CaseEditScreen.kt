@@ -31,7 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -55,11 +54,9 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.ConfirmDialog
-import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.ToggleRow
-import com.secondmonday.hodith.ui.common.themedSwitchColors
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.IconHalo
@@ -105,7 +102,6 @@ fun CaseEditRoute(
         onConfirmEnterStartStop = viewModel::confirmEnterStartStop,
         onDismissEnterStartStop = viewModel::dismissEnterStartStop,
         onIntensityToggle = viewModel::onIntensityToggle,
-        onCheckInToggle = viewModel::onCheckInToggle,
         onSave = viewModel::save,
         onArchive = viewModel::archive,
         onBack = onDone,
@@ -127,7 +123,6 @@ fun CaseEditScreen(
     onConfirmEnterStartStop: () -> Unit,
     onDismissEnterStartStop: () -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
-    onCheckInToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
     onArchive: () -> Unit,
     onBack: () -> Unit,
@@ -213,7 +208,6 @@ fun CaseEditScreen(
             onLogFlowChange = onLogFlowChange,
             onDurationModeChange = onDurationModeChange,
             onIntensityToggle = onIntensityToggle,
-            onCheckInToggle = onCheckInToggle,
             onSave = onSave,
             modifier = Modifier.padding(contentPadding),
         )
@@ -231,7 +225,6 @@ private fun CaseEditForm(
     onLogFlowChange: (LogFlow) -> Unit,
     onDurationModeChange: (DurationMode) -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
-    onCheckInToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -300,10 +293,6 @@ private fun CaseEditForm(
         }
 
         ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
-
-        RowWithInfo(voice.caseCheckInLabel, voice.caseCheckInInfoTitle, voice.caseCheckInInfoBody, voice.caseSectionInfoDescription) {
-            Switch(checked = uiState.checkInsEnabled, onCheckedChange = onCheckInToggle, colors = themedSwitchColors())
-        }
 
         Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
             Text(voice.caseSaveButton)
@@ -450,7 +439,6 @@ private val previewUiState =
         logFlow = LogFlow.DETAIL_SHEET,
         durationMode = DurationMode.START_STOP,
         intensityEnabled = true,
-        checkInsEnabled = false,
         canArchive = true,
     )
 
@@ -475,7 +463,6 @@ private fun CaseEditScreenBrightLightPreview() {
                 onConfirmEnterStartStop = {},
                 onDismissEnterStartStop = {},
                 onIntensityToggle = {},
-                onCheckInToggle = {},
                 onSave = {},
                 onArchive = {},
                 onBack = {},
@@ -504,7 +491,6 @@ private fun CaseEditScreenBrightDarkPreview() {
                 onConfirmEnterStartStop = {},
                 onDismissEnterStartStop = {},
                 onIntensityToggle = {},
-                onCheckInToggle = {},
                 onSave = {},
                 onArchive = {},
                 onBack = {},

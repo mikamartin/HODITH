@@ -9,7 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Spec §11: POST_NOTIFICATIONS is requested once — the ViewModel decides *when* (first Trigger
+ * Spec §11: POST_NOTIFICATIONS is requested once — the ViewModel decides *when* (first Notification
  * created, first check-in enabled) and marks it requested; this just shows the system dialog when
  * told to. Pre-13 devices have no such runtime permission, so there's nothing to launch.
  */

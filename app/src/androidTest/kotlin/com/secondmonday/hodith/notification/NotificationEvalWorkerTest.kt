@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
  * resolves [NotificationEvaluator] via [dagger.hilt.android.EntryPointAccessors] at `doWork()` time,
  * which requires a real, populated Hilt component. Uses the real [NotificationEvaluator]/repository
  * rather than fakes: a `SUCCEEDED` terminal state already proves `doWork()` ran `evaluateAll()`
- * without throwing against an empty database (no triggers, no cases).
+ * without throwing against an empty database (no notifications, no cases).
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)

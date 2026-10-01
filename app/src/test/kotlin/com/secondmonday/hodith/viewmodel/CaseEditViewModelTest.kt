@@ -64,6 +64,7 @@ class CaseEditViewModelTest {
     private fun existingCase(
         id: Long = 1L,
         durationMode: DurationMode = DurationMode.NONE,
+        checkInsEnabled: Boolean = true,
     ) = Fixtures.case(
         id = id,
         name = "Coffee",
@@ -71,6 +72,7 @@ class CaseEditViewModelTest {
         icon = "☕️",
         logFlow = LogFlow.DETAIL_SHEET,
         durationMode = durationMode,
+        checkInsEnabled = checkInsEnabled,
     )
 
     @Test
@@ -174,16 +176,31 @@ class CaseEditViewModelTest {
         }
 
     @Test
-    fun `onCheckInToggle updates state and is persisted on save`() =
+    fun `save on an existing case leaves checkInsEnabled untouched -- it's a bell-tab setting now`() =
         runTest {
-            repository.cases.value = listOf(existingCase())
+            repository.cases.value = listOf(existingCase(checkInsEnabled = false))
             val vm = editViewModel(caseId = 1L)
 
-            vm.onCheckInToggle(false)
+            vm.onNameChange("Coffee, revised")
             vm.save()
 
-            assertFalse(vm.uiState.value.checkInsEnabled)
             assertFalse(
+                repository.cases.value
+                    .single()
+                    .checkInsEnabled,
+            )
+        }
+
+    @Test
+    fun `save on a new case defaults checkInsEnabled to true`() =
+        runTest {
+            val vm = newCaseViewModel()
+            vm.onNameChange("Espresso")
+            vm.onIconSelect("☕️")
+
+            vm.save()
+
+            assertTrue(
                 repository.cases.value
                     .single()
                     .checkInsEnabled,

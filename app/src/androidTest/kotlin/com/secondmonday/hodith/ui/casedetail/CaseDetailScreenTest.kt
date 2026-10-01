@@ -82,7 +82,6 @@ class CaseDetailScreenTest {
         logDateTo: Long? = null,
         logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
         onEditCase: (Long) -> Unit = {},
-        onOpenTriggers: (Long) -> Unit = {},
         onOpenShare: (Long) -> Unit = {},
         onOpenLogShare: (Long) -> Unit = {},
         onOpenTrends: (Long) -> Unit = {},
@@ -116,7 +115,6 @@ class CaseDetailScreenTest {
                     onBack = {},
                     onEditCase = onEditCase,
                     onEditEvent = onEditEvent,
-                    onOpenTriggers = onOpenTriggers,
                     onOpenShare = onOpenShare,
                     onOpenLogShare = onOpenLogShare,
                     onOpenTrends = onOpenTrends,
@@ -161,19 +159,20 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun headerActions_editAndTriggersIcons_invokeCallbacksWithCaseId() {
+    fun headerActions_editIcon_invokesCallbackWithCaseId() {
         var editedCaseId: Long? = null
-        var triggersCaseId: Long? = null
-        setCaseDetailScreenContent(
-            onEditCase = { editedCaseId = it },
-            onOpenTriggers = { triggersCaseId = it },
-        )
+        setCaseDetailScreenContent(onEditCase = { editedCaseId = it })
 
-        composeTestRule.onNodeWithContentDescription(PlainVoice.triggersOpenDescription).performClick()
         composeTestRule.onNodeWithContentDescription(PlainVoice.caseDetailEditDescription).performClick()
 
-        assertEquals(startStopCase.id, triggersCaseId)
         assertEquals(startStopCase.id, editedCaseId)
+    }
+
+    @Test
+    fun notificationsTab_iconOnly_hasVoiceContentDescription() {
+        setCaseDetailScreenContent()
+
+        composeTestRule.onNodeWithContentDescription(PlainVoice.watchesTabDescription).assertExists()
     }
 
     @Test

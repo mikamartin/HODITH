@@ -18,7 +18,7 @@ interface SettingsRepository {
 
     suspend fun setCheckInDefaultInterval(interval: CheckInDefaultInterval)
 
-    /** Spec §11: POST_NOTIFICATIONS is requested once, on first trigger created or first check-in enabled — never again after. */
+    /** Spec §11: POST_NOTIFICATIONS is requested once, on first notification created or first check-in enabled — never again after. */
     suspend fun hasRequestedNotificationPermission(): Boolean
 
     fun observeHasRequestedNotificationPermission(): Flow<Boolean>

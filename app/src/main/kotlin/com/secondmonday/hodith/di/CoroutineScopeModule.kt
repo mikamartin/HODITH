@@ -15,7 +15,7 @@ object CoroutineScopeModule {
     /**
      * Outlives any single screen — used by
      * [com.secondmonday.hodith.notification.NotificationEvalScheduler] to fire immediate
-     * Trigger/check-in evaluation after an event mutation without making callers (quick-log,
+     * Notification/check-in evaluation after an event mutation without making callers (quick-log,
      * start/stop) wait on it. [SupervisorJob] so one failed evaluation can't cancel others sharing
      * the scope.
      */

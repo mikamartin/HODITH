@@ -4,10 +4,12 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.TagEntity
-import com.secondmonday.hodith.data.TriggerEntity
-import com.secondmonday.hodith.data.TriggerKind
+import com.secondmonday.hodith.data.VerdictMetric
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.ui.logsheet.TAG_NAME_MAX_LENGTH
 import org.junit.Assert.assertTrue
@@ -53,31 +55,34 @@ private fun testEvent(
     utcOffsetMinutes = utcOffsetMinutes,
 )
 
-private fun testTrigger(
+private fun testWatch(
     id: Long = 1L,
     caseId: Long = 1L,
-    kind: TriggerKind = TriggerKind.AT_LEAST,
+    kind: WatchKind = WatchKind.OFTEN,
     threshold: Int = 3,
     windowDays: Int? = 7,
-) = TriggerEntity(
+) = WatchEntity(
     id = id,
     caseId = caseId,
     kind = kind,
     threshold = threshold,
     windowDays = windowDays,
+    expectedPer = ExpectedPer.WEEK,
+    metric = VerdictMetric.OCCURRENCE_COUNT,
+    minIntensity = null,
     enabled = true,
     armed = true,
     lastFiredAt = null,
 )
 
-/** A minimal, self-referentially-consistent backup: one case, one tagged event, one trigger. */
+/** A minimal, self-referentially-consistent backup: one case, one tagged event, one watch. */
 private fun validBackup() =
     BackupData(
         cases = listOf(testCase()),
         tags = listOf(TagEntity(id = 1L, name = "aura")),
         events = listOf(testEvent()),
         eventTags = listOf(EventTagCrossRef(eventId = 1L, tagId = 1L)),
-        triggers = listOf(testTrigger()),
+        watches = listOf(testWatch()),
     )
 
 class BackupValidationResultTest {
@@ -175,32 +180,32 @@ class BackupValidationResultTest {
     }
 
     @Test
-    fun `a trigger with a dangling caseId is rejected`() {
-        val backup = validBackup().copy(triggers = listOf(testTrigger(caseId = 999L)))
+    fun `a watch with a dangling caseId is rejected`() {
+        val backup = validBackup().copy(watches = listOf(testWatch(caseId = 999L)))
         assertTrue(!validateBackup(backup).isValid)
     }
 
     @Test
-    fun `a trigger threshold above the allowed range is rejected`() {
-        val backup = validBackup().copy(triggers = listOf(testTrigger(threshold = 1000)))
+    fun `a watch threshold above the allowed range is rejected`() {
+        val backup = validBackup().copy(watches = listOf(testWatch(threshold = 1000)))
         assertTrue(!validateBackup(backup).isValid)
     }
 
     @Test
-    fun `an AT_LEAST trigger with a null windowDays is rejected`() {
-        val backup = validBackup().copy(triggers = listOf(testTrigger(kind = TriggerKind.AT_LEAST, windowDays = null)))
+    fun `an OFTEN watch with a null windowDays is rejected`() {
+        val backup = validBackup().copy(watches = listOf(testWatch(kind = WatchKind.OFTEN, windowDays = null)))
         assertTrue(!validateBackup(backup).isValid)
     }
 
     @Test
-    fun `an AT_LEAST trigger with a zero windowDays is rejected`() {
-        val backup = validBackup().copy(triggers = listOf(testTrigger(kind = TriggerKind.AT_LEAST, windowDays = 0)))
+    fun `an OFTEN watch with a zero windowDays is rejected`() {
+        val backup = validBackup().copy(watches = listOf(testWatch(kind = WatchKind.OFTEN, windowDays = 0)))
         assertTrue(!validateBackup(backup).isValid)
     }
 
     @Test
-    fun `a SILENT_FOR trigger with a non-null windowDays is rejected`() {
-        val backup = validBackup().copy(triggers = listOf(testTrigger(kind = TriggerKind.SILENT_FOR, windowDays = 7)))
+    fun `a QUIET watch with a non-null windowDays is rejected`() {
+        val backup = validBackup().copy(watches = listOf(testWatch(kind = WatchKind.QUIET, windowDays = 7)))
         assertTrue(!validateBackup(backup).isValid)
     }
 }

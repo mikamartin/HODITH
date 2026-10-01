@@ -61,10 +61,19 @@ class VoiceTest {
     }
 
     @Test
-    fun `verdictHeadline distinguishes every comparison band`() {
+    fun `watchesWindowPresetLabel reads short windows in days, longer ones in months, and 90 as Quarter`() {
+        val expected =
+            mapOf(7 to "7 days", 14 to "14 days", 30 to "30 days", 60 to "2mo", 90 to "Quarter", 120 to "4mo", 180 to "6mo")
         for (voice in voices) {
-            val headlines = ComparisonBand.entries.map { voice.verdictHeadline(it, "2.6x/week") }
-            assertEquals("$voice: every band should read distinctly", headlines.size, headlines.toSet().size)
+            expected.forEach { (days, label) -> assertEquals("$voice: $days days", label, voice.watchesWindowPresetLabel(days)) }
+        }
+    }
+
+    @Test
+    fun `watchComparisonLabel distinguishes every comparison band`() {
+        for (voice in voices) {
+            val labels = ComparisonBand.entries.map { voice.watchComparisonLabel(it, daysActive = false) }
+            assertEquals("$voice: every band should read distinctly", labels.size, labels.toSet().size)
         }
     }
 
@@ -93,6 +102,7 @@ class VoiceTest {
                     kClass == String::class -> listOf("Test Case")
                     kClass == Int::class -> listOf(3)
                     kClass == Long::class -> listOf(5L)
+                    kClass == Boolean::class -> listOf(true, false)
                     else -> error("No sample value strategy for parameter type $kClass")
                 }
             return if (type.isMarkedNullable) base + null else base

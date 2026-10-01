@@ -251,7 +251,7 @@ class SettingsViewModelTest {
     fun `performImport rejects a newer schema version`() =
         runTest {
             val viewModel = viewModel()
-            val json = """{"schemaVersion":99,"cases":[],"tags":[],"events":[],"eventTags":[],"triggers":[]}"""
+            val json = """{"schemaVersion":99,"cases":[],"tags":[],"events":[],"eventTags":[],"notifications":[]}"""
 
             val result = viewModel.performImport(json)
 
@@ -264,7 +264,7 @@ class SettingsViewModelTest {
             val viewModel = viewModel()
             // A v1 backup (pre-Hunch-removal) still carrying the retired "hunches" key must be
             // rejected outright, not silently accepted with that key ignored.
-            val json = """{"schemaVersion":1,"cases":[],"tags":[],"events":[],"eventTags":[],"hunches":[],"triggers":[]}"""
+            val json = """{"schemaVersion":1,"cases":[],"tags":[],"events":[],"eventTags":[],"hunches":[],"notifications":[]}"""
 
             val result = viewModel.performImport(json)
 
@@ -288,7 +288,7 @@ class SettingsViewModelTest {
                             EventEntity(caseId = 999L, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L),
                         ),
                     eventTags = emptyList(),
-                    triggers = emptyList(),
+                    watches = emptyList(),
                 )
             val json = backupSerializer.toJson(invalidBackup)
 
@@ -302,7 +302,7 @@ class SettingsViewModelTest {
     fun `performImport treats an omitted schemaVersion as the current version`() =
         runTest {
             val viewModel = viewModel()
-            val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"triggers":[]}"""
+            val json = """{"cases":[],"tags":[],"events":[],"eventTags":[],"watches":[]}"""
 
             val result = viewModel.performImport(json)
 

@@ -55,19 +55,25 @@ fun testEvent(
     utcOffsetMinutes = utcOffsetMinutes,
 )
 
-fun testTrigger(
+fun testWatch(
     caseId: Long,
-    kind: TriggerKind = TriggerKind.AT_LEAST,
+    kind: WatchKind = WatchKind.OFTEN,
     threshold: Int = 3,
     windowDays: Int? = 7,
+    expectedPer: ExpectedPer = ExpectedPer.WEEK,
+    metric: VerdictMetric = VerdictMetric.OCCURRENCE_COUNT,
+    minIntensity: Int? = null,
     enabled: Boolean = true,
     armed: Boolean = true,
     lastFiredAt: Long? = null,
-) = TriggerEntity(
+) = WatchEntity(
     caseId = caseId,
     kind = kind,
     threshold = threshold,
     windowDays = windowDays,
+    expectedPer = expectedPer,
+    metric = metric,
+    minIntensity = minIntensity,
     enabled = enabled,
     armed = armed,
     lastFiredAt = lastFiredAt,

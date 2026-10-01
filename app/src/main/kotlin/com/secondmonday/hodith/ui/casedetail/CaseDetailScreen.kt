@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -23,18 +27,20 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -54,6 +63,7 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.LogSortOrder
+import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -80,6 +90,7 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
 import com.secondmonday.hodith.viewmodel.CaseDetailViewModel
 import com.secondmonday.hodith.viewmodel.LogDraft
+import com.secondmonday.hodith.viewmodel.WatchesViewModel
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.formatEventTime
@@ -91,6 +102,7 @@ import java.time.ZoneId
 
 private const val LOG_TAB = 0
 private const val INSIGHTS_TAB = 1
+private const val WATCHES_TAB = 2
 
 // Deliberately not colorScheme.outlineVariant: that hue shifts per theme (blue on Plain, warm on
 // Bright), which read as inconsistent. A single fixed neutral gray reads the same everywhere.
@@ -101,7 +113,6 @@ fun CaseDetailRoute(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
-    onOpenTriggers: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
@@ -114,7 +125,6 @@ fun CaseDetailRoute(
         onBack = onBack,
         onEditCase = onEditCase,
         onEditEvent = onEditEvent,
-        onOpenTriggers = onOpenTriggers,
         onOpenShare = onOpenShare,
         onOpenLogShare = onOpenLogShare,
         onOpenTrends = onOpenTrends,
@@ -138,7 +148,6 @@ fun CaseDetailScreen(
     onBack: () -> Unit,
     onEditCase: (Long) -> Unit,
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
-    onOpenTriggers: (Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
@@ -164,6 +173,10 @@ fun CaseDetailScreen(
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
     var showShareChooser by remember { mutableStateOf(false) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
+    // Hoisted above WatchesTabContent so the outer FAB (a sibling of the tab content, not a
+    // nested Scaffold) can open the same create sheet a card tap opens for edit.
+    var showNotificationEditor by remember { mutableStateOf(false) }
+    var editingWatch by remember { mutableStateOf<WatchEntity?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -180,9 +193,6 @@ fun CaseDetailScreen(
                         IconButton(onClick = { showShareChooser = true }) {
                             Icon(Icons.Filled.Share, contentDescription = voice.shareOpenDescription)
                         }
-                        IconButton(onClick = { onOpenTriggers(case.id) }) {
-                            Icon(Icons.Filled.Notifications, contentDescription = voice.triggersOpenDescription)
-                        }
                         IconButton(onClick = { onEditCase(case.id) }) {
                             Icon(Icons.Filled.Edit, contentDescription = voice.caseDetailEditDescription)
                         }
@@ -191,12 +201,24 @@ fun CaseDetailScreen(
             )
         },
         floatingActionButton = {
-            if (selectedTab == LOG_TAB) {
-                FloatingActionButton(
-                    onClick = { newEventSheetNow = now },
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = voice.retroLogEntryDescription)
-                }
+            when (selectedTab) {
+                LOG_TAB ->
+                    FloatingActionButton(
+                        onClick = { newEventSheetNow = now },
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = voice.retroLogEntryDescription)
+                    }
+                WATCHES_TAB ->
+                    if (case != null) {
+                        FloatingActionButton(
+                            onClick = {
+                                editingWatch = null
+                                showNotificationEditor = true
+                            },
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = voice.watchesFabDescription)
+                        }
+                    }
             }
         },
     ) { contentPadding ->
@@ -217,13 +239,39 @@ fun CaseDetailScreen(
                     }
                 }
             }
-            SecondaryTabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == LOG_TAB, onClick = { selectedTab = LOG_TAB }, text = { Text(voice.caseDetailLogTabLabel) })
-                Tab(
-                    selected = selectedTab == INSIGHTS_TAB,
-                    onClick = { selectedTab = INSIGHTS_TAB },
-                    text = { Text(voice.caseDetailInsightsTabLabel) },
-                )
+            // Hand-rolled rather than TabRow/SecondaryTabRow: M3's TabRow always divides its width
+            // equally across every Tab, and the bell tab -- used far less than Log or Insights --
+            // doesn't need an equal share of it. Rebuilds the parts that gave up: the tonal
+            // surface background, a colored indicator bar under whichever tab is active, and a
+            // hairline divider separating the row from the content below.
+            Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
+                        CaseDetailTab(
+                            selected = selectedTab == LOG_TAB,
+                            onClick = { selectedTab = LOG_TAB },
+                            modifier = Modifier.weight(2f),
+                        ) {
+                            Text(voice.caseDetailLogTabLabel)
+                        }
+                        CaseDetailTab(
+                            selected = selectedTab == INSIGHTS_TAB,
+                            onClick = { selectedTab = INSIGHTS_TAB },
+                            modifier = Modifier.weight(2f),
+                        ) {
+                            Text(voice.caseDetailInsightsTabLabel)
+                        }
+                        // Icon only, per Target UX -- a Voice content description carries its accessible name.
+                        CaseDetailTab(
+                            selected = selectedTab == WATCHES_TAB,
+                            onClick = { selectedTab = WATCHES_TAB },
+                            modifier = Modifier.weight(1f).semantics { contentDescription = voice.watchesTabDescription },
+                        ) {
+                            Icon(Icons.Filled.Notifications, contentDescription = null)
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
             }
             when (selectedTab) {
                 LOG_TAB ->
@@ -277,6 +325,66 @@ fun CaseDetailScreen(
                             onOpenTrends = { onOpenTrends(case.id) },
                         )
                     }
+                WATCHES_TAB ->
+                    if (case != null) {
+                        // Its own hiltViewModel() instance (architecture decision):
+                        // re-queries the repository on its own rather than sharing this screen's
+                        // CaseDetailViewModel, same as every other full-screen/tab destination.
+                        val watchesViewModel: WatchesViewModel = hiltViewModel()
+                        val watchesUiState by watchesViewModel.uiState.collectAsStateWithLifecycle()
+                        WatchesTabContent(
+                            uiState = watchesUiState,
+                            now = now,
+                            voice = voice,
+                            onCheckInToggle = watchesViewModel::setCheckInsEnabled,
+                            onSetEnabled = watchesViewModel::setEnabled,
+                            onCreateRequest = {
+                                editingWatch = null
+                                showNotificationEditor = true
+                            },
+                            onCardClick = { watch ->
+                                editingWatch = watch
+                                showNotificationEditor = true
+                            },
+                        )
+                        if (showNotificationEditor) {
+                            WatchEditorSheet(
+                                voice = voice,
+                                durationMode = case.durationMode,
+                                intensityEnabled = case.intensityEnabled,
+                                editing = editingWatch,
+                                onDismiss = { showNotificationEditor = false },
+                                onSave = { kind, threshold, windowDays, expectedPer, metric, minIntensity ->
+                                    val editingId = editingWatch?.id
+                                    if (editingId == null) {
+                                        watchesViewModel.createWatch(
+                                            kind,
+                                            threshold,
+                                            windowDays,
+                                            expectedPer,
+                                            metric,
+                                            minIntensity,
+                                        )
+                                    } else {
+                                        watchesViewModel.updateWatch(
+                                            editingId,
+                                            kind,
+                                            threshold,
+                                            windowDays,
+                                            expectedPer,
+                                            metric,
+                                            minIntensity,
+                                        )
+                                    }
+                                    showNotificationEditor = false
+                                },
+                                onDelete = {
+                                    editingWatch?.let { watchesViewModel.deleteWatch(it.id) }
+                                    showNotificationEditor = false
+                                },
+                            )
+                        }
+                    }
             }
         }
     }
@@ -308,6 +416,38 @@ fun CaseDetailScreen(
                     ShareChoice.LOG -> onOpenLogShare(case.id)
                 }
             },
+        )
+    }
+}
+
+/**
+ * One tab in the hand-rolled row above (see its own doc comment for why it's not TabRow/Tab): the
+ * selected/unselected color swap on [content] plus a colored bar underneath, matching what a real
+ * M3 TabRow would otherwise draw for free.
+ */
+@Composable
+private fun CaseDetailTab(
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier.height(48.dp).selectable(selected = selected, onClick = onClick, role = Role.Tab),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                ProvideTextStyle(MaterialTheme.typography.titleSmall) { content() }
+            }
+        }
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
         )
     }
 }

@@ -75,7 +75,7 @@ which test.
 The real `Notifier` posting a correctly-worded notification (title/body/actions per the active
 `Voice`) is covered by `NotifierContentTest`, and the Log/All quiet action handling by
 `NotificationActionReceiverTest` — both call the real Android APIs (`NotificationManager`, a real
-broadcast) rather than going through `NotificationEvaluator`'s Trigger/check-in *selection* logic
+broadcast) rather than going through `NotificationEvaluator`'s Watch/check-in *selection* logic
 against the shared on-device database, which stays flaky at the instrumented layer (see
 `NotifierContentTest`'s doc comment) but is already covered against a fake repository per
 `TESTING.md`. What's left below is specifically what those tests can't reach: a notification's tap
@@ -83,11 +83,11 @@ target (`PendingIntent` doesn't expose its wrapped `Intent` through any public A
 be checked by actually tapping), a one-time check that the OS honours the grouping/alert flags the
 instrumented tests only assert are set, and the real permission dialog/banner round trip.
 
-1. **Trigger fires a notification: tap target.** Create an `AT_LEAST` Trigger, then log enough
-   events to reach its threshold (or create a `SILENT_FOR` Trigger and wait past its interval, or
+1. **Watch fires a notification: tap target.** Create an `OFTEN` Watch, then log enough
+   events to reach its threshold (or create a `QUIET` Watch and wait past its interval, or
    advance device time). Tapping the notification opens directly on that Case's detail screen (not
    just the app generically). (The notification's voice-flavoured title/body is covered by
-   `NotifierContentTest.notifyTriggerFired_postsANotificationWithTheVoiceTitleAndBody`.)
+   `NotifierContentTest.notifyNotificationFired_postsANotificationWithTheVoiceTitleAndBody`.)
 2. **Check-in fires a notification: tap target.** Enable check-ins on a Case with no recent events
    past the Settings-default interval. Tapping the notification
    body (not an action) opens directly on that Case. (Title/body/Log/All quiet actions are covered
@@ -102,8 +102,8 @@ instrumented tests only assert are set, and the real permission dialog/banner ro
    the sibling surviving an All quiet, silent-repeat, and withdrawal of a no-longer-due check-in are
    covered by `NotifierContentTest` / `NotificationActionReceiverTest` / `NotificationEvaluatorTest`.
 4. **POST_NOTIFICATIONS permission flow.**
-   - First Trigger created, or first Case check-in enabled → the system permission dialog appears
-     (once — creating a second Trigger or enabling check-ins on another Case doesn't ask again).
+   - First Watch created, or first Case check-in enabled → the system permission dialog appears
+     (once — creating a second Watch or enabling check-ins on another Case doesn't ask again).
    - **Deny:** no notifications post; Home shows the "notifications are off" banner; tapping its
      action opens system notification settings; re-enabling there and returning to Home clears the
      banner without restarting the app.
@@ -191,7 +191,7 @@ to"/"open" picker UI itself.
 4. **Import a non-HODITH file.** Pick an arbitrary file (a photo, a text file) via the import picker
    — a "not a valid backup" snackbar appears and existing data is untouched.
 5. **Import across app installs.** Export from one install (or before a fresh reinstall/data wipe),
-   then import that file on the clean install — full restore, including tags and triggers.
+   then import that file on the clean install — full restore, including tags and watches.
 
 Android's own OS-level device backup (separate from the export/import above) can't be exercised by
 an instrumented test — Android's real backup transport isn't available in a test harness. See

@@ -51,11 +51,11 @@ rather than leaving it empty.
       below is hand-picked by "what looks risky," and a class that never looks risky enough to
       pick can go untested for passes at a time with nothing else to catch it.
 - [ ] Select 6-10 unit test files spanning risk tiers: pure domain logic with no collaborators
-      (verdict engine, trigger evaluation, stats, the Trends detectors' statistical tests),
+      (verdict engine, watch evaluation, stats, the Trends detectors' statistical tests),
       domain/ViewModel logic exercised against HODITH's hand-written Fakes
       (`FakeHodithRepository`, `FakeClock`, `FakeNotifier`, `FakeSettingsRepository`, etc. — no
       mocking library in this project), and Room-instrumented DAO tests. Prioritize files backing
-      core mechanics (verdict engine, trigger evaluation, check-in scheduling, notification
+      core mechanics (verdict engine, watch evaluation, check-in scheduling, notification
       evaluation, the Trends detectors' significance tests) and anything touched by recent
       feature work.
 - [ ] For each: introduce one small, targeted mutation in the source under test (flipped
@@ -79,7 +79,7 @@ rather than leaving it empty.
 
 ### 3. Spec cross-reference
 - [ ] Check `HODITH_SPEC.md`'s documented core mechanics (confidence tiers, comparison bands,
-      trigger semantics, check-in scheduling, notification evaluation, the Trends detector
+      watch semantics, check-in scheduling, notification evaluation, the Trends detector
       roster's permutation-test gating and significance thresholds and its shared-engine reuse
       (§10), export/import schema-version semantics (a Room migration, a `BACKUP_SCHEMA_VERSION`
       bump, and import validation staying in sync, §16/§17), or whatever the current spec's

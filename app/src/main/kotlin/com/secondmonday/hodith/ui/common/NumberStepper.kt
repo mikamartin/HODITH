@@ -13,7 +13,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-/** Shared +/- stepper for a bounded Int with a trailing unit suffix (a stated expectation's count, Trigger's threshold). */
+/** Shared +/- stepper for a bounded Int with a trailing unit suffix (a stated expectation's count, Notification's threshold). */
 @Composable
 fun NumberStepper(
     value: Int,
