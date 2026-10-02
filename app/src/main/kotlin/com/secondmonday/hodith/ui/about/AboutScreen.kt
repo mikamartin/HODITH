@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.ui.about
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.secondmonday.hodith.BuildConfig
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -48,7 +48,7 @@ fun AboutRoute(
         unlockEvents = viewModel.unlockEvents,
         onVersionTapped = viewModel::onVersionTapped,
         onOpenPrivacyPolicy = {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)))
+            context.startActivity(Intent(Intent.ACTION_VIEW, PRIVACY_POLICY_URL.toUri()))
         },
         modifier = modifier,
     )

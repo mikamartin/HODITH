@@ -123,6 +123,23 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none for the audit itself.
 
+### SegmentedChoiceRow's `modifier` parameter defaults to more than `Modifier`
+
+*Branch: `fix/segmented-choice-row-modifier-default` · Complexity: S · Priority: Low · Area: Bug*
+
+Lint (`ModifierParameter`) flags `SegmentedChoiceRow.kt`'s `modifier` parameter defaulting to `Modifier.fillMaxWidth().padding(top = 8.dp)` instead of plain `Modifier`. The compliant shape applies a composable's own default sizing/padding inside the function body, appended after the caller's modifier — not baked into the parameter's default value. As written, a caller who passes a modifier for an unrelated reason (a test tag, semantics) silently loses the fillMaxWidth/padding instead of keeping it alongside their own.
+
+**Acceptance criteria**
+
+- [ ] `modifier` parameter defaults to plain `Modifier`.
+- [ ] The row's own `fillMaxWidth()`/`padding(top = 8.dp)` applied inside the function body, gated on `stretchToFill` (already the flag distinguishing "stretch to fill" from "sit inline" for the Bright variant), ahead of the caller's modifier in the chain.
+- [ ] Every call site re-verified to render identically: Case Edit's logFlow/durationMode/check-in, Settings' theme picker, Insights' frequency granularity, and the Log tab's inline Sort control — the Log tab currently passes `modifier = Modifier` and `stretchToFill = false` specifically to opt out of the old default; confirm it can drop the now-redundant explicit `modifier = Modifier` once `stretchToFill` alone governs that.
+- [ ] `./gradlew lintDebug` clean of this warning.
+
+**Plan** — move `.fillMaxWidth().padding(top = 8.dp)` out of the parameter default and into the function body behind `stretchToFill`; default `modifier` to `Modifier`; re-check every call site via Compose Preview.
+
+**Tests** — none existing cover this row's own layout/sizing directly; Preview-verify the four call sites after the change.
+
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
