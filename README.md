@@ -26,7 +26,7 @@ Open a **Case** on the thing you've noticed — a teenager snapping at you, a mi
 - **Per-case visuals and stats.** A dot timeline showing bursts and droughts, a year-in-pixels calendar, a day-of-week × time-of-day rhythm heatmap, gaps, trends, durations, intensity.
 - **Rules.** A bell tab on each Case holds rules that give a factual heads-up when something happens 3+ times in a week, or hasn't happened in 14 days, with a live "Now" read of where it stands. A count and a name — the rest is up to you.
 - **Three themes, three voices.** Plain, Intense, and Bright change the colors *and* every word the app says. Intense's take on "How often does it truly happen?": *"How oft dares it truly haunt?"*
-- **Share the reveal.** Turn a Case into a story-style card — the case, the evidence, the stats — styled by your theme, sized for stories or feeds. You preview first, can rename the case on the card, and notes/tags never leave the phone.
+- **Share the reveal.** Turn a Case into a story-style card — the case, the evidence, the stats — styled by your theme, sized for stories or feeds. You preview first, can rename the case on the card, and notes never reach the card (tags only as an opt-in top-three list).
 - **Your data stays yours.** HODITH itself doesn't request network permission and sends nothing anywhere; export/import as JSON anytime. Android's own device backup can still include HODITH's data if you have phone backup turned on — a Settings toggle lets you opt out.
 
 ## By design, it leaves out

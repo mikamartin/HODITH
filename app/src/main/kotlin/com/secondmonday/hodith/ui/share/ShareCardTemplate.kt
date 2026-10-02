@@ -12,16 +12,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,7 +45,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.HeroRate
 import com.secondmonday.hodith.domain.HeroRateComparison
@@ -58,6 +53,7 @@ import com.secondmonday.hodith.domain.INTENSITY_MIN
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.RateUnit
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFinding
@@ -65,7 +61,6 @@ import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.heatmapLevelFor
 import com.secondmonday.hodith.ui.casedetail.formatCompactDecimal
-import com.secondmonday.hodith.ui.casedetail.formatDays
 import com.secondmonday.hodith.ui.casedetail.formatDaysCompact
 import com.secondmonday.hodith.ui.casedetail.formatIntensity
 import com.secondmonday.hodith.ui.casedetail.trendFindingSentence
@@ -80,8 +75,6 @@ import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.DurationDisplay
-import com.secondmonday.hodith.viewmodel.FrequencyBar
-import com.secondmonday.hodith.viewmodel.FrequencyDisplay
 import com.secondmonday.hodith.viewmodel.GapsDisplay
 import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.LogCardRow
@@ -93,7 +86,6 @@ import com.secondmonday.hodith.viewmodel.ShareTopBeat
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import java.time.DayOfWeek
-import java.time.LocalDate
 import java.time.format.TextStyle
 import kotlin.math.roundToInt
 
@@ -102,13 +94,16 @@ private val SHARE_CARD_WIDTH = 360.dp
 
 /** Square's 1:1 floor at [SHARE_CARD_WIDTH] — kept because chat/feed shares render whatever aspect ratio they're given, unlike Story's destination apps. */
 private val SQUARE_MIN_HEIGHT = SHARE_CARD_WIDTH
-private const val MINI_RHYTHM_CELL_SIZE = 16
+private const val MINI_RHYTHM_CELL_SIZE = 24
+
+/** Intensity squares are fixed-size, close to what full-width stretching gave, so they sit in scale with the Start times grid. */
+private const val INTENSITY_CELL_SIZE = 48
 
 /** Wide enough for "Afternoon" — the longest time-of-day label — to fit on one line in every theme's display font, Baloo2 Bold (Bright) included. */
 private const val MINI_RHYTHM_LABEL_WIDTH = 88
-private const val MINI_FREQUENCY_CHART_HEIGHT = 40
-private const val MINI_FREQUENCY_BAR_MAX_HEIGHT_FRACTION = 0.75f
-private const val MINI_FREQUENCY_MIN_BAR_HEIGHT_FRACTION = 0.04f
+
+/** Space between the time-of-day labels and the first grid column, so the labels don't crowd the cells. */
+private const val MINI_RHYTHM_LABEL_GAP = 12
 
 /** Square summary beat: the headline figure and its unit, in sp so they track the user's font scale like every other card text. */
 private const val SUMMARY_FIGURE_FONT_SIZE = 40
@@ -122,7 +117,7 @@ private const val QUIET_LABEL_DASH_OFF = 3
 
 /**
  * Spec §13's share card — one Compose tree reused for both the preview screen and the actual
- * export capture (`ComposeShareImageExporter`). Sections are faithful mini-copies of the real
+ * export capture (`ComposeShareImageExporter`). Sections are mini-scale counterparts of the real
  * `InsightsTab.kt` composables (same [com.secondmonday.hodith.ui.common.toCellColor] shading, same
  * [MiniInsightsCard] chrome as [com.secondmonday.hodith.ui.casedetail.InsightsTab]'s `InsightsCard`)
  * rather than the real composables reused directly — the real ones are sized for an adaptive phone
@@ -191,13 +186,7 @@ private fun InsightsCardBody(
         SquareInsightsBody(data, voice, skin)
         return
     }
-    TopBeatContent(data.topBeat, voice, skin)
-    data.frequency?.let { MiniFrequencySection(it, voice, skin) }
-    data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
-    data.gaps?.let { MiniGapsSection(it, voice, skin) }
-    data.trends.takeIf { it.isNotEmpty() }?.let { MiniTrendsSection(it, voice, skin) }
-    data.duration?.let { MiniDurationSection(it, voice, skin) }
-    data.intensity?.let { MiniIntensitySection(it, voice, skin) }
+    StoryInsightsBody(data, voice, skin)
 }
 
 /** Log Share's body: [BeatKicker] (reused as-is), the resolved range as a subtitle, then every row, then an optional truncation note. */
@@ -309,33 +298,7 @@ private fun TopBeatContent(
     skin: ShareCardSkin,
 ) {
     when (topBeat) {
-        is ShareTopBeat.Reality -> RealityBeat(topBeat, voice)
         is ShareTopBeat.Summary -> SummaryBeat(topBeat, voice, skin)
-    }
-}
-
-@Composable
-private fun RealityBeat(
-    beat: ShareTopBeat.Reality,
-    voice: Voice,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(beat.eventCount.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(
-                voice.shareRealityEventsLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(beat.observedDays.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(
-                voice.shareRealityDaysObservedLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
@@ -351,10 +314,30 @@ private fun SquareInsightsBody(
     skin: ShareCardSkin,
 ) {
     TopBeatContent(data.topBeat, voice, skin)
-    data.gaps?.let { SquareGapsPanel(it, data.quietForDays, voice, skin) }
-    data.duration?.let { SquareDurationPanel(it, voice, skin) }
-    data.intensity?.let { SquareIntensityPanel(it, voice, skin) }
+    data.gaps?.let { GapsPanel(it, data.quietForDays, voice, skin) }
+    data.duration?.let { DurationPanel(it, voice, skin) }
+    data.intensity?.let { IntensityPanel(it, voice, skin) }
     data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
+}
+
+/**
+ * Story: the same summary beat, then the sections the user picked in the picker's order — Gaps,
+ * Length, Start times, Intensity, Trends, Tags — each already `null` or empty in [data] when not
+ * picked or not applicable. The panels are the Square ones, so both formats read alike.
+ */
+@Composable
+private fun StoryInsightsBody(
+    data: ShareCardData.Insights,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    TopBeatContent(data.topBeat, voice, skin)
+    data.gaps?.let { GapsPanel(it, data.quietForDays, voice, skin) }
+    data.duration?.let { DurationPanel(it, voice, skin) }
+    data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
+    data.intensity?.let { IntensityPanel(it, voice, skin) }
+    data.trends.takeIf { it.isNotEmpty() }?.let { MiniTrendsSection(it, voice, skin) }
+    data.tags.takeIf { it.isNotEmpty() }?.let { MiniTagsSection(it, voice, skin) }
 }
 
 /**
@@ -504,7 +487,7 @@ private fun TrendTriangle(
 }
 
 @Composable
-private fun SquareGapsPanel(
+private fun GapsPanel(
     display: GapsDisplay,
     quietForDays: Long?,
     voice: Voice,
@@ -512,7 +495,7 @@ private fun SquareGapsPanel(
 ) {
     MiniInsightsCard {
         PanelHeaderRow {
-            MiniSectionTitle(voice.shareSquareGapsTitle, skin)
+            MiniSectionTitle(voice.shareGapsTitle, skin)
             quietForDays?.let { QuietLabel(voice.shareSquareQuietLabel(formatDaysCompact(it.toDouble()))) }
         }
         val shortest = display.shortestGapDays
@@ -568,13 +551,13 @@ private fun QuietLabel(text: String) {
 }
 
 @Composable
-private fun SquareDurationPanel(
+private fun DurationPanel(
     display: DurationDisplay,
     voice: Voice,
     skin: ShareCardSkin,
 ) {
     MiniInsightsCard {
-        MiniSectionTitle(voice.shareSquareDurationTitle, skin)
+        MiniSectionTitle(voice.shareDurationTitle, skin)
         MinAvgMaxRow(
             voice = voice,
             min = formatMinutesDuration(display.shortestMinutes),
@@ -585,7 +568,7 @@ private fun SquareDurationPanel(
 }
 
 @Composable
-private fun SquareIntensityPanel(
+private fun IntensityPanel(
     display: IntensityDisplay,
     voice: Voice,
     skin: ShareCardSkin,
@@ -643,7 +626,7 @@ private fun MiniInsightsCard(content: @Composable () -> Unit) {
                 .clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.surface)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
-                .padding(horizontal = 10.dp, vertical = 9.dp),
+                .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         content()
@@ -674,40 +657,6 @@ private fun MiniStatRow(
 }
 
 @Composable
-private fun MiniFrequencySection(
-    display: FrequencyDisplay,
-    voice: Voice,
-    skin: ShareCardSkin,
-) {
-    MiniInsightsCard {
-        MiniSectionTitle(voice.shareFrequencyTitle(display.granularity), skin)
-        Row(modifier = Modifier.fillMaxWidth().height(MINI_FREQUENCY_CHART_HEIGHT.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            display.bars.forEach { bar ->
-                val barHeight =
-                    MINI_FREQUENCY_CHART_HEIGHT.dp *
-                        bar.heightFraction.coerceAtLeast(MINI_FREQUENCY_MIN_BAR_HEIGHT_FRACTION) *
-                        MINI_FREQUENCY_BAR_MAX_HEIGHT_FRACTION
-                Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (bar.count > 0) {
-                            Text(bar.count.toString(), style = MaterialTheme.typography.labelSmall)
-                        }
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(barHeight)
-                                    .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                                    .background(MaterialTheme.colorScheme.primary),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun MiniRhythmSection(
     display: RhythmDisplay,
     voice: Voice,
@@ -716,12 +665,9 @@ private fun MiniRhythmSection(
     val locale = LocalLocale.current.platformLocale
 
     MiniInsightsCard {
-        MiniSectionTitle(
-            if (display.plottedByStart) voice.insightsSectionLabelRhythmStarts else voice.insightsSectionLabelRhythm,
-            skin,
-        )
+        MiniSectionTitle(voice.insightsSectionLabelRhythmStarts, skin)
         Row {
-            Spacer(modifier = Modifier.width(MINI_RHYTHM_LABEL_WIDTH.dp))
+            Spacer(modifier = Modifier.width((MINI_RHYTHM_LABEL_WIDTH + MINI_RHYTHM_LABEL_GAP).dp))
             DayOfWeek.entries.forEach { day ->
                 Text(
                     text = day.getDisplayName(TextStyle.NARROW, locale),
@@ -736,7 +682,7 @@ private fun MiniRhythmSection(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = timeOfDayLabel(timeOfDay, voice),
-                    modifier = Modifier.width(MINI_RHYTHM_LABEL_WIDTH.dp),
+                    modifier = Modifier.width((MINI_RHYTHM_LABEL_WIDTH + MINI_RHYTHM_LABEL_GAP).dp).padding(end = MINI_RHYTHM_LABEL_GAP.dp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
@@ -769,20 +715,6 @@ private fun timeOfDayLabel(
         TimeOfDay.NIGHT -> voice.insightsTimeOfDayNight
     }
 
-@Composable
-private fun MiniGapsSection(
-    display: GapsDisplay,
-    voice: Voice,
-    skin: ShareCardSkin,
-) {
-    MiniInsightsCard {
-        MiniSectionTitle(voice.insightsSectionLabelGaps, skin)
-        MiniStatRow(voice.insightsGapsLongestLabel, formatDays(display.longestGapDays.toDouble()))
-        MiniStatRow(voice.insightsGapsCurrentLabel, formatDays(display.currentGapDays.toDouble()))
-        MiniStatRow(voice.insightsGapsAverageLabel, formatDays(display.averageGapDays))
-    }
-}
-
 /**
  * Findings rendered as sentence text only — no reliability tag, no evidence line, unlike the
  * Insights tab's own [com.secondmonday.hodith.ui.casedetail.TrendFindingRow]/`TrendFindingPlank` —
@@ -806,45 +738,30 @@ private fun MiniTrendsSection(
     }
 }
 
+/** The Case's busiest tags, one row each: the tag's name and how many events carry it. [tags] arrives already capped and sorted busiest first. */
 @Composable
-private fun MiniDurationSection(
-    display: DurationDisplay,
+private fun MiniTagsSection(
+    tags: List<TagBreakdownEntry>,
     voice: Voice,
     skin: ShareCardSkin,
 ) {
     MiniInsightsCard {
-        MiniSectionTitle(voice.insightsSectionLabelDuration, skin)
-        MiniStatRow(voice.insightsDurationAverageLabel, formatMinutesDuration(display.averageMinutes.roundToInt().toLong()))
-        MiniStatRow(voice.insightsDurationLongestLabel, formatMinutesDuration(display.longestMinutes))
-        MiniStatRow(voice.insightsDurationTotalLabel, formatMinutesDuration(display.totalMinutes))
-    }
-}
-
-@Composable
-private fun MiniIntensitySection(
-    display: IntensityDisplay,
-    voice: Voice,
-    skin: ShareCardSkin,
-) {
-    MiniInsightsCard {
-        MiniSectionTitle(voice.insightsSectionLabelIntensity, skin)
-        MiniStatRow(voice.insightsIntensityAverageLabel, formatIntensity(display.averageIntensity))
-        IntensityDistributionRow(display)
+        MiniSectionTitle(voice.shareTopTagsTitle, skin)
+        tags.forEach { tag -> MiniStatRow(tag.tagName, tag.count.toString()) }
     }
 }
 
 /** The 1..5 intensity squares, each shaded by how many events landed on that score. */
 @Composable
 private fun IntensityDistributionRow(display: IntensityDisplay) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
             val count = display.distribution[value] ?: 0
             val level = heatmapLevelFor(count, display.maxCount)
             Box(
                 modifier =
                     Modifier
-                        .weight(1f)
-                        .aspectRatio(1f)
+                        .size(INTENSITY_CELL_SIZE.dp)
                         .clip(MaterialTheme.shapes.extraSmall)
                         .background(level.toCellColor()),
                 contentAlignment = Alignment.Center,
@@ -882,12 +799,7 @@ private fun previewData(format: ShareCardFormat): ShareCardData =
         format = format,
         caseIcon = "☕",
         caseName = "Perfect coffee",
-        topBeat = ShareTopBeat.Reality(eventCount = 14, observedDays = 60),
-        frequency =
-            FrequencyDisplay(
-                granularity = FrequencyGranularity.WEEK,
-                bars = listOf(3, 5, 2, 7, 4, 9).map { FrequencyBar(LocalDate.now(), it, it / 9f) },
-            ),
+        topBeat = ShareTopBeat.Summary(eventCount = 14, observedDays = 60, rate = null),
         rhythm =
             RhythmDisplay(
                 cells =
@@ -910,6 +822,7 @@ private fun previewData(format: ShareCardFormat): ShareCardData =
             ),
         duration = null,
         intensity = null,
+        tags = listOf(TagBreakdownEntry("espresso", 6), TagBreakdownEntry("oat milk", 4), TagBreakdownEntry("office", 3)),
         generatedAtMillis = System.currentTimeMillis(),
     )
 
@@ -931,7 +844,6 @@ private fun previewSquareData(): ShareCardData =
                         comparison = HeroRateComparison(direction = TrendDirection.UP, priorValue = 1.4),
                     ),
             ),
-        frequency = null,
         rhythm = null,
         gaps =
             GapsDisplay(

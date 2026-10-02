@@ -17,6 +17,29 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/share-card-summary-beat
+
+**Scope:** PROGRESS.md's B2, plus a round of Story card changes asked for alongside it. Story opens with the same summary hero as Square instead of the Reality beat, and its sections follow one order on the picker and the card (Gaps, Length, Start times, Intensity, Trends, Top tags) using the Square panel formatting. Overlap calls made: Frequency is dropped from Story (the hero's rate and pill carry it); went-quiet is left out of Story's Trends (the hero and the Gaps label say it), and the quiet label shows on Story only while Gaps is picked; Story with nothing picked is the hero alone. A new Top tags section lists the three busiest tags with counts, so the spec's "tags never on the card" rule became "only as Story's opt-in Top tags". The picker offers a row only when the Case has data for it. Layout tweaks from review: wider gap and larger cells in the Start times grid, fixed-size intensity squares, more inner padding on section cards, and the card on its own tinted stage below a divider.
+
+**Found & fixed:**
+- Checklist walked against the full diff. The Gaps, Duration and Intensity mini sections, `MiniFrequencySection` with its constants, `RealityBeat`, `ShareTopBeat.Reality`, `ShareCardData.Insights.frequency`, `shareFrequencyTitle` and the two Reality Voice keys were dead after the swap and are deleted; `MiniStatRow` stays because Top tags uses it.
+- The Square panels lost their "Square" prefix (`GapsPanel`, `DurationPanel`, `IntensityPanel`) and their title keys became `shareGapsTitle` and `shareDurationTitle`, since both formats and the picker use them. The other `shareSquare*` hero keys keep their names.
+- The picker's availability rules moved out of the screen into `availableShareSections` (pure, in `ShareCardState.kt`), and the Story trend filter into `storyTrendFindings`, both unit-tested. The top-tag cap is the named domain constant `SHARE_CARD_TOP_TAG_COUNT`.
+- `LogSharePreviewScreen`'s KDoc pointed at the deleted `availableSections`; repointed. The spec, README and checklist statements about tags on the card were updated deliberately, with the checklist item reworded to the new rule.
+- No `android.*` imports or clock reads in `domain/`, no inline strings (`shareTopTagsTitle` is a structural Voice key like the other share labels), no untracked prototype files, no new deprecation warnings.
+
+**Deferred:** nothing deferred.
+
+**Considered and declined:**
+- Renaming the remaining `shareSquare*` hero keys (observed line, trend pill, quiet label, event noun, intensity average) to format-neutral names. They are voiced strings queued for B3's phrasing audit, and a rename now would churn every test that reads them for no behaviour change.
+- A mockup or Compose Preview step: the Square implementation was the reference, and the human checked the result on a device between rounds.
+
+**Docs updated:** SPEC §13 and the Share preview row; TESTING (share card assembly, Share preview); README and CLEANUP_CHECKLIST (tags rule); PROGRESS (B2 struck, B3's key list extended).
+
+**Verified:** `ktlintCheck`, `lintDebug`, `test` and `assembleDebug` run sequentially, all green; `compileDebugAndroidTestKotlin` clean. Not run: the instrumented share tests (`ShareCardTemplateTest`, `SharePreviewScreenTest`) need a device.
+
+---
+
 ## feat/square-share-card-preset
 
 **Scope:** PROGRESS.md's B1. Square share cards become a fixed preset built from the Case's own settings and how much data exists, with no section picker (Story keeps its picker). The design was settled in a three-voice prototype first (hero with a last-30-day rate and trend pill, Gaps, then Duration/Intensity or Rhythm by Case settings, footer with date and time). Judgment calls made along the way: the shared `formatIntensity` now drops a trailing `.0` (so the Insights tab changes too, rather than a share-only formatter); the hero is built as its own `ShareTopBeat.Summary` so B2 can place it on Story without rework; the quiet label reads the existing went-quiet Trends finding instead of adding a second quiet detector.
@@ -154,39 +177,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Instrumented run:** `connectedDebugAndroidTest` scoped to the 14 modified classes on `Pixel_8_API36(AVD)`, split across two runs due to a mid-run emulator crash: 287/287 passing overall (see Tests).
 
 ---
-
-## test/notification-eval-repository-coverage
-
-**Scope:** PROGRESS.md's "No repository-level test coverage for the notification-eval scheduling side effect" — `RoomHodithRepository`'s `insertEvent`/`updateEvent`/`deleteEvent`/`deleteEventById`/`deleteEventsOlderThan` each schedule a fire-and-forget notification-eval side effect, but nothing exercised that chain against a real `RoomHodithRepository`/`HodithDatabase`/`NotificationEvalScheduler`/`NotificationEvaluator` — in particular `deleteEventsOlderThan`'s "fetch affected Case ids before deleting" ordering was unpinned by any test. The blocker: `FakeNotifier`/`FakeClock`/`FakeSettingsRepository` lived in `src/test`, a JVM-only source set invisible to `androidTest`. Asked which of the item's two named fixes to take, the user chose a shared source set over androidTest-local reimplementations, to close the reachability gap for good rather than adding copies to keep in sync.
-
-**Changes:**
-
-- `app/build.gradle.kts`: extended the existing `sourceSets { }` block with `getByName("test").kotlin.srcDirs(...)`/`getByName("androidTest").kotlin.srcDirs(...)` pointing at a new `app/src/sharedTest/kotlin/` directory.
-- `FakeClock.kt`, `FakeNotifier.kt`, `FakeSettingsRepository.kt` moved (`git mv`, package unchanged) from `src/test` into `src/sharedTest`.
-- `app/src/androidTest/kotlin/com/secondmonday/hodith/data/RoomHodithRepositoryNotificationEvalTest.kt` (new): five tests against a real in-memory `HodithDatabase` and a real `NotificationEvalScheduler`/`NotificationEvaluator` (only `Notifier` faked), one per wrapper method, plus the `deleteEventsOlderThan` ordering regression pin (two Cases, only one's event within the cutoff; asserts exactly that Case gets evaluated).
-
-**Checklist walk (against the diff):**
-
-- *Duplication/Decoupling/Complexity* — N/A; no ViewModel/UI/domain production code touched, no new Repository or Dao surface.
-- *Dead code & hygiene* — no unused imports (`ktlintCheck` and `compileDebugAndroidTestKotlin` both passed clean); no throwaway prototype involved.
-- *Repo hygiene* — `git status` showed only the expected changes.
-- *Naming* — new file follows the existing `RoomHodithRepository<Feature>Test.kt` convention, sits in `data/`.
-- *Hardcoded values* — `DAY_MILLIS`/`AWAIT_TIMEOUT_MILLIS`/`AWAIT_POLL_MILLIS` are named local constants, not inlined.
-- *Background work & notifications* — this pass is coverage for the debounced-evaluation contract itself, not a behavior change to it.
-- *Deprecated APIs* — `.kotlin.srcDirs(...)` on `AndroidSourceSet` emits a "use `directories` instead" warning; considered and declined — the file's one pre-existing `sourceSets` line already uses the same deprecated `srcDirs` call, and migrating only the two new lines would leave the block inconsistent for no functional gain.
-- *Spec review* — N/A; this closes a test-coverage gap, not new behavior HODITH_SPEC.md describes.
-- *Tests* — see below; `TESTING.md` updated (new clause on the existing `RoomHodithRepositoryLogEventsTest` bullet in the Room DAOs row).
-
-**Tests:**
-
-- The five new tests initially used `kotlinx-coroutines-test`'s virtual time (`runTest`/`backgroundScope`/`advanceTimeBy`), mirroring `NotificationEvalSchedulerTest` — but `evaluateCase`'s real Room queries cross into Room's own real query-executor threads, which the virtual clock doesn't control, so `advanceTimeBy`/`runCurrent` returned before that cross-thread work actually finished (two tests failed with an empty notifier). Rewritten to a real `CoroutineScope(Dispatchers.Default)` and `runBlocking` with a real polling wait (`awaitNotification`) for the side effect instead.
-- Sanity-checked the regression pin: temporarily swapped `deleteEventsOlderThan`'s fetch/delete order — the new test failed (timed out waiting for the eval) as expected — then reverted (confirmed zero net diff on that file).
-- All 5 new tests plus the 2 sibling `RoomHodithRepository*Test` classes (14 tests total) pass on `Pixel_8_API36(AVD)`.
-
-**Found, unrelated (not fixed here):** running the wider `data` package surfaced `BigPictureQueriesTest` failing on this non-UTC local emulator — its expected `CaseEventDetail` literal leaves `utcOffsetMinutes` at the class default (`0`) instead of computing it the same way `testEvent()` does, unlike the fixture-input fix `TESTING.md` already documents for this exact class of bug. CI defaults to UTC, so it's never surfaced there. Opened a PROGRESS.md item and extended the existing `TESTING.md` "Known environment issues" bullet rather than fixing inline, since it's outside this branch's scope.
-
-**Docs updated:** `PROGRESS.md` (this item struck; new item opened for the `BigPictureQueriesTest` bug found in passing). `TESTING.md` (Room DAOs row gained a clause; "Known environment issues" bullet extended).
-
-**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green.
-
-**Instrumented run:** `connectedDebugAndroidTest` scoped to the new class plus its two `RoomHodithRepository*Test` siblings on `Pixel_8_API36(AVD)`: 14/14 passing.
