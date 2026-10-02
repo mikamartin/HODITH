@@ -377,6 +377,50 @@ class InsightsTabTrendsCardTest {
     }
 
     @Test
+    fun trendsCard_rendersTagShareShiftSentence() {
+        val tagShareShift =
+            TrendFinding(
+                kind = TrendFindingKind.TAG_SHARE_SHIFT,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.HINT,
+                sampleCount = 20,
+                priorValue = 0.20,
+                recentValue = 0.60,
+                tagName = "coffee",
+            )
+        setContent(trends = listOf(tagShareShift))
+
+        composeTestRule
+            .onNodeWithText(
+                PlainVoice.insightsTagShareShiftSentence(
+                    "coffee",
+                    ShiftDirection.UP,
+                    priorShareLabel = "20%",
+                    recentShareLabel = "60%",
+                ),
+            ).assertExists()
+    }
+
+    @Test
+    fun trendsCard_rendersTagComboSentence() {
+        val tagCombo =
+            TrendFinding(
+                kind = TrendFindingKind.TAG_COMBO,
+                direction = ShiftDirection.UP,
+                reliability = TrendReliability.HINT,
+                sampleCount = 6,
+                priorValue = 6.0,
+                recentValue = 10.0,
+                tagNames = listOf("coffee", "late"),
+            )
+        setContent(trends = listOf(tagCombo))
+
+        composeTestRule
+            .onNodeWithText(PlainVoice.insightsTagComboSentence("coffee + late", count = 6, totalEvents = 10))
+            .assertExists()
+    }
+
+    @Test
     fun trendsCard_rendersWeekdayWeekendSentence_weekendHeavy() {
         val weekdayWeekend =
             TrendFinding(
