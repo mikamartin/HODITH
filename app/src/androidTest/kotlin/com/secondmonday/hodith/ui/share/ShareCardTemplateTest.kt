@@ -1,6 +1,8 @@
 package com.secondmonday.hodith.ui.share
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -792,7 +794,8 @@ class ShareCardTemplateTest {
     fun storyWithEverySectionGrowsAndKeepsAConstantFooterGap() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                Column {
+                // Scrollable so the tall card measures at its full height instead of the screen's remainder.
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     ShareCardTemplate(data = storyHeroOnlyData(), voice = PlainVoice, modifier = Modifier.testTag(STORY_TAG))
                     ShareCardTemplate(data = fullStoryData(), voice = PlainVoice, modifier = Modifier.testTag(RICH_SQUARE_TAG))
                 }
