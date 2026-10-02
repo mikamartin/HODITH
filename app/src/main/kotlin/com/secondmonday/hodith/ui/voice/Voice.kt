@@ -463,6 +463,23 @@ interface Voice {
     fun insightsTagShareShiftEvidenceLabel(sampleCount: Int): String
 
     /**
+     * Spec §10 Trends "common tag combos" finding (Story C T9): [tagNamesLabel] is the already-joined
+     * display string (e.g. `"Coffee + Late"`), not a raw list — Voice keys stay plain `String`/`Int`
+     * parameters, the same precedent [insightsTagTimingSentence]'s `bucketPhrase` sets for a
+     * pre-formatted phrase. [count] of [totalEvents] is the literal pair, not formatted ahead of time,
+     * the same shape [insightsTrendSentence]'s event counts use. A descriptive finding, not a tested
+     * one, so no direction to word either way.
+     */
+    fun insightsTagComboSentence(
+        tagNamesLabel: String,
+        count: Int,
+        totalEvents: Int,
+    ): String
+
+    /** As [insightsTagTimingEvidenceLabel], for the tag-combo finding row — keyed on the combo's own co-occurrence count. */
+    fun insightsTagComboEvidenceLabel(sampleCount: Int): String
+
+    /**
      * Spec §10 Trends "recurrence shape" finding (Story C T3): whether this Case's past gaps form
      * an early-spike pattern ([direction] [ShiftDirection.UP] — recurrence usually follows within
      * [thresholdLabel], already formatted e.g. via `formatDays`) or a dead-zone pattern ([direction]
@@ -1324,6 +1341,14 @@ object PlainVoice : Voice {
 
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
 
+    override fun insightsTagComboSentence(
+        tagNamesLabel: String,
+        count: Int,
+        totalEvents: Int,
+    ) = "\"$tagNamesLabel\" tend to show up together — $count of $totalEvents events."
+
+    override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Based on those $sampleCount events."
+
     override fun insightsRecurrenceShapeSentence(
         direction: ShiftDirection,
         thresholdLabel: String,
@@ -1970,6 +1995,14 @@ object IntenseVoice : Voice {
 
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
 
+    override fun insightsTagComboSentence(
+        tagNamesLabel: String,
+        count: Int,
+        totalEvents: Int,
+    ) = "\"$tagNamesLabel\" keep appearing as one — $count of $totalEvents entries carry both."
+
+    override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Drawn from those $sampleCount entries."
+
     override fun insightsRecurrenceShapeSentence(
         direction: ShiftDirection,
         thresholdLabel: String,
@@ -2602,6 +2635,14 @@ object BrightVoice : Voice {
     }
 
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
+
+    override fun insightsTagComboSentence(
+        tagNamesLabel: String,
+        count: Int,
+        totalEvents: Int,
+    ) = "\"$tagNamesLabel\" keep showing up as a pair — $count of $totalEvents events!"
+
+    override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Based on those $sampleCount events!"
 
     override fun insightsRecurrenceShapeSentence(
         direction: ShiftDirection,

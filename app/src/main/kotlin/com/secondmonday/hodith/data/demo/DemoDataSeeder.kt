@@ -84,6 +84,13 @@ private const val TAG_TIMING_SHOWCASE_CHANCE_PERCENT = 25
 // and ...MIN_RELATIVE_SHARE_DIFFERENCE (domain, internal).
 private const val WEEKDAY_WEEKEND_SHOWCASE_CHANCE_PERCENT = 60
 
+// Story C T9 showcase ("Skipped lunch"'s "meeting-ran-over" + "no-time" pair, see
+// [TagComboShowcaseSeed]): the fraction of a Case's events forced to carry BOTH showcase tags
+// together, deterministically and exclusively of the normal tagsFor draw — comfortably over
+// TAG_COMBO_MIN_SUPPORT_COUNT's 5 (domain, internal) at a BURSTY Case's ~85-event count (the same
+// density Migraine/Heartburn/Argument's own showcases use).
+private const val TAG_COMBO_SHOWCASE_CHANCE_PERCENT = 15
+
 // Dense enough that at least one demo Case shows a clear recent uptick — exercises the Trend
 // card's UP direction and gives the calendar heatmap/Rhythm grid a busy recent stretch to shade.
 // One event on every one of these consecutive days also doubles as the Gaps & streaks card's
@@ -136,6 +143,17 @@ private data class TagTimingShiftSeed(
     val tagName: String,
 )
 
+/**
+ * Story C T9 showcase: forces every tag in [tagNames] together onto [TAG_COMBO_SHOWCASE_CHANCE_PERCENT]
+ * of a Case's events (the same "bypass the normal random draw for this tag" shape
+ * [TagOutcomeShiftSeed]/[TagTimingShiftSeed] use, extended to a whole set landing together rather
+ * than one tag) — every other event keeps the normal random [tagsFor] draw, so this gives the demo
+ * Case a real, deliberate recurring combo for `computeCommonTagCombos` to find.
+ */
+private data class TagComboShowcaseSeed(
+    val tagNames: List<String>,
+)
+
 /** One demo Watch, evaluated against its Case's seeded events so its armed/lastFiredAt state is consistent with them. */
 private data class WatchSeed(
     val kind: WatchKind,
@@ -171,6 +189,7 @@ private data class CaseSeed(
     // START_STOP Cases only — a NONE/MANUAL Case never reaches endedAtFor's duration branch at all.
     val durationTrendShift: Boolean = false,
     val tagTimingShift: TagTimingShiftSeed? = null,
+    val tagComboShift: TagComboShowcaseSeed? = null,
     // Story C T8 showcase: forces WEEKDAY_WEEKEND_SHOWCASE_CHANCE_PERCENT of this Case's occurrences
     // onto a Saturday or Sunday date (see weekendDateFor), giving the demo Case a real, deliberate
     // weekend clustering for computeWeekdayWeekendFindings to find.
@@ -302,6 +321,20 @@ private val CASE_SEEDS =
             description = "Burning or discomfort behind the breastbone, however brief",
             tagTimingShift = TagTimingShiftSeed(tagName = "late-dinner"),
         ),
+        CaseSeed(
+            name = "Skipped lunch",
+            icon = "🍽️",
+            durationMode = DurationMode.NONE,
+            intensityEnabled = false,
+            density = SeedDensity.BURSTY,
+            notes = listOf("Meeting ran long", "Forgot entirely", "Too busy to stop", "Ate at my desk instead"),
+            // "meeting-ran-over" and "no-time" are deliberately not in this general pool -- they're
+            // assigned exclusively (and together) via tagComboShift below, so the Story C T9 showcase's
+            // co-occurrence stays clean rather than also picking up random individual hits from the
+            // normal tagsFor draw.
+            tags = listOf("forgot", "too-busy", "ate-at-desk"),
+            tagComboShift = TagComboShowcaseSeed(tagNames = listOf("meeting-ran-over", "no-time")),
+        ),
     )
 
 /**
@@ -349,6 +382,7 @@ class DemoDataSeeder
                 withSurge.sorted().forEach { rawOccurredAt ->
                     val showcaseTag = caseSeed.tagOutcomeShift?.takeIf { random.nextInt(100) < TAG_OUTCOME_SHOWCASE_CHANCE_PERCENT }
                     val showcaseTimingTag = caseSeed.tagTimingShift?.takeIf { random.nextInt(100) < TAG_TIMING_SHOWCASE_CHANCE_PERCENT }
+                    val showcaseCombo = caseSeed.tagComboShift?.takeIf { random.nextInt(100) < TAG_COMBO_SHOWCASE_CHANCE_PERCENT }
                     val showcaseWeekend =
                         caseSeed.weekdayWeekendShift && random.nextInt(100) < WEEKDAY_WEEKEND_SHOWCASE_CHANCE_PERCENT
                     val occurredAt =
@@ -374,6 +408,7 @@ class DemoDataSeeder
                         caseSeed,
                         random,
                         forcedTag = showcaseTag?.tagName ?: showcaseTimingTag?.tagName,
+                        forcedCombo = showcaseCombo?.tagNames,
                     )
                 }
 
@@ -430,7 +465,10 @@ class DemoDataSeeder
          * One synthetic event with this Case's intensity/note/tag mix, [endedAt] `null` for an
          * ongoing one. [forcedTag] (Story C T4's tag→outcome showcase, or Story C T7's tag-timing
          * showcase — never both on the same Case today) replaces the normal random [tagsFor] draw
-         * entirely for this event, keeping the showcase tag's tagged/untagged split clean.
+         * entirely for this event with that one tag, keeping the showcase tag's tagged/untagged split
+         * clean. [forcedCombo] (Story C T9's tag-combo showcase) does the same but with a whole set of
+         * tags landing together instead of one — checked first since a Case only ever sets one of the
+         * two showcase parameters today.
          */
         private suspend fun insertSeedEvent(
             caseId: Long,
@@ -439,6 +477,7 @@ class DemoDataSeeder
             caseSeed: CaseSeed,
             random: Random,
             forcedTag: String? = null,
+            forcedCombo: List<String>? = null,
         ) {
             val eventId =
                 repository.insertEvent(
@@ -452,7 +491,12 @@ class DemoDataSeeder
                         utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(occurredAt),
                     ),
                 )
-            val tags = if (forcedTag != null) listOf(forcedTag) else tagsFor(caseSeed.tags, random)
+            val tags =
+                when {
+                    forcedCombo != null -> forcedCombo
+                    forcedTag != null -> listOf(forcedTag)
+                    else -> tagsFor(caseSeed.tags, random)
+                }
             tags.forEach { tagName -> repository.addTagToEvent(eventId, tagName) }
         }
     }

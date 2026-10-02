@@ -76,6 +76,24 @@ data class TagShareShiftResult(
 )
 
 /**
+ * [computeCommonTagCombos] (Story C T9): a closed, above-floor set of 2+ tags that recurred together
+ * on the same event. [tagNames] is sorted for a stable display order; [count] is how many of the
+ * Case's [totalEvents] carried every tag in [tagNames] together. "Closed" means no larger superset of
+ * [tagNames] shares that same [count] — when a bigger combo always co-occurs with a smaller one (same
+ * support), only the bigger, more specific combo is kept. Unlike every other multi-finding result
+ * here, there's no [ShiftDirection] — a plain co-occurrence count has no up/down, so
+ * [TrendFinding.direction] is set to an unused [ShiftDirection.UP] sentinel at the mapping site in
+ * [computeTrendFindings], the same convention [TagTimingResult] (also direction-less) already
+ * establishes. Always a `Hint` finding — a descriptive support-count check, no significance test
+ * behind it.
+ */
+data class TagComboFinding(
+    val tagNames: List<String>,
+    val count: Int,
+    val totalEvents: Int,
+)
+
+/**
  * [computeRecurrenceShape]: whether this Case's past gaps form an early-spike or dead-zone pattern.
  * [thresholdDays] is the self-relative early-gap boundary this Case's own average gap produced;
  * [earlyShare] the fraction of [sampleCount] past gaps that landed at or under it.

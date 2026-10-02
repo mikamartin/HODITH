@@ -446,6 +446,214 @@ class StatsEngineTest {
         assertEquals(listOf("tagA", "tagB", "tagC"), result.map { it.tagName })
     }
 
+    // ---- computeCommonTagCombos ----
+
+    private fun combo(
+        day: Long,
+        vararg tagNames: String,
+    ): EventWithTags = EventWithTags(eventAtDay(day), tagNames.map { TagEntity(name = it) })
+
+    @Test
+    fun `computeCommonTagCombos finds a single 2-tag combo with its count and the Case's total events`() {
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                if (day < 6) combo(day.toLong(), "coffee", "late") else combo(day.toLong())
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(1, result.size)
+        val finding = result.single()
+        assertEquals(listOf("coffee", "late"), finding.tagNames)
+        assertEquals(6, finding.count)
+        assertEquals(10, finding.totalEvents)
+    }
+
+    @Test
+    fun `computeCommonTagCombos finds combos with more than three tags -- no cap on combo size`() {
+        val eventsWithTags =
+            (0 until 8).map { day ->
+                if (day < 6) combo(day.toLong(), "a", "b", "c", "d") else combo(day.toLong())
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(1, result.size)
+        val finding = result.single()
+        assertEquals(listOf("a", "b", "c", "d"), finding.tagNames)
+        assertEquals(6, finding.count)
+    }
+
+    @Test
+    fun `computeCommonTagCombos drops every subset that shares its superset's exact support`() {
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                if (day < 6) combo(day.toLong(), "coffee", "late", "groggy") else combo(day.toLong())
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(1, result.size)
+        assertEquals(listOf("coffee", "groggy", "late"), result.single().tagNames)
+    }
+
+    @Test
+    fun `computeCommonTagCombos keeps a subset whose support genuinely differs from its superset's`() {
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                if (day < 5) combo(day.toLong(), "coffee", "late") else combo(day.toLong(), "coffee", "late", "groggy")
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+        val byTags = result.associateBy { it.tagNames }
+
+        assertEquals(2, result.size)
+        assertEquals(10, byTags.getValue(listOf("coffee", "late")).count)
+        assertEquals(5, byTags.getValue(listOf("coffee", "groggy", "late")).count)
+    }
+
+    @Test
+    fun `computeCommonTagCombos keeps both combos when they tie in count`() {
+        val eventsWithTags =
+            (0 until 12).map { day ->
+                when {
+                    day < 5 -> combo(day.toLong(), "coffee", "late")
+                    day < 10 -> combo(day.toLong(), "weekend", "rest")
+                    else -> combo(day.toLong())
+                }
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(2, result.size)
+        assertEquals(setOf(listOf("coffee", "late"), listOf("rest", "weekend")), result.map { it.tagNames }.toSet())
+        result.forEach { assertEquals(5, it.count) }
+    }
+
+    @Test
+    fun `computeCommonTagCombos respects the minimum support count floor at and just below the boundary`() {
+        val eventsWithTags =
+            (0 until 20).map { day ->
+                when {
+                    day < TAG_COMBO_MIN_SUPPORT_COUNT -> combo(day.toLong(), "at-floor-a", "at-floor-b")
+                    day < TAG_COMBO_MIN_SUPPORT_COUNT + (TAG_COMBO_MIN_SUPPORT_COUNT - 1) ->
+                        combo(day.toLong(), "below-floor-a", "below-floor-b")
+                    else -> combo(day.toLong())
+                }
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(1, result.size)
+        assertEquals(listOf("at-floor-a", "at-floor-b"), result.single().tagNames)
+        assertEquals(TAG_COMBO_MIN_SUPPORT_COUNT, result.single().count)
+    }
+
+    @Test
+    fun `computeCommonTagCombos caps findings and orders them by count, strongest first`() {
+        val eventsWithTags =
+            (0 until 30).map { day ->
+                when {
+                    day < 9 -> combo(day.toLong(), "a1", "a2") // count 9
+                    day < 17 -> combo(day.toLong(), "b1", "b2") // count 8
+                    day < 24 -> combo(day.toLong(), "c1", "c2") // count 7
+                    day < 30 -> combo(day.toLong(), "d1", "d2") // count 6
+                    else -> combo(day.toLong())
+                }
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(TAG_COMBO_MAX_FINDINGS, result.size)
+        assertEquals(
+            listOf(listOf("a1", "a2"), listOf("b1", "b2"), listOf("c1", "c2")),
+            result.map { it.tagNames },
+        )
+    }
+
+    @Test
+    fun `computeCommonTagCombos is empty with no events`() {
+        assertTrue(computeCommonTagCombos(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun `computeCommonTagCombos is empty when every event has zero or one tag`() {
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                if (day % 2 == 0) combo(day.toLong(), "solo") else combo(day.toLong())
+            }
+
+        assertTrue(computeCommonTagCombos(eventsWithTags).isEmpty())
+    }
+
+    @Test
+    fun `computeCommonTagCombos never reports a lone tag even when its own support clears the floor`() {
+        val eventsWithTags =
+            (0 until 15).map { day ->
+                when {
+                    // appears alone well past the floor on its own, but never paired with anything
+                    day < 8 -> combo(day.toLong(), "frequent-solo")
+                    // a real qualifying 2-tag combo
+                    day < 13 -> combo(day.toLong(), "coffee", "late")
+                    else -> combo(day.toLong())
+                }
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(1, result.size)
+        assertEquals(listOf("coffee", "late"), result.single().tagNames)
+    }
+
+    @Test
+    fun `computeCommonTagCombos' totalEvents reflects the Case's full event count, not just the multi-tag subset`() {
+        val eventsWithTags =
+            (0 until 50).map { day ->
+                if (day < 6) combo(day.toLong(), "coffee", "late") else combo(day.toLong())
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(50, result.single().totalEvents)
+    }
+
+    @Test
+    fun `computeCommonTagCombos ranks a higher-count pair above a lower-count triple`() {
+        val eventsWithTags =
+            (0 until 20).map { day ->
+                when {
+                    day < 9 -> combo(day.toLong(), "coffee", "late") // 2-tag, count 9
+                    day < 15 -> combo(day.toLong(), "x", "y", "z") // 3-tag, count 6
+                    else -> combo(day.toLong())
+                }
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(listOf(listOf("coffee", "late"), listOf("x", "y", "z")), result.map { it.tagNames })
+    }
+
+    @Test
+    fun `computeCommonTagCombos reports every frequent pair without inventing a triple that never actually occurred`() {
+        // a-b, b-c, and a-c are each frequent pairs on their own, but a/b/c never all three land on
+        // the same event -- the "triangle trap" a buggy itemset miner might mishandle by assuming
+        // the triple is implied from its frequent pairwise subsets.
+        val eventsWithTags =
+            (0 until 15).map { day ->
+                when {
+                    day < 5 -> combo(day.toLong(), "a", "b")
+                    day < 10 -> combo(day.toLong(), "b", "c")
+                    else -> combo(day.toLong(), "a", "c")
+                }
+            }
+
+        val result = computeCommonTagCombos(eventsWithTags)
+
+        assertEquals(3, result.size)
+        assertEquals(setOf(listOf("a", "b"), listOf("b", "c"), listOf("a", "c")), result.map { it.tagNames }.toSet())
+        result.forEach { assertEquals(5, it.count) }
+    }
+
     // ---- computeTagOutcomeFindings ----
 
     private val aura = TagEntity(id = 1, name = "aura")

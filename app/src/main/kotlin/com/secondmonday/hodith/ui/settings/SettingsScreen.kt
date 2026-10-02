@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.ui.settings
 
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -46,6 +45,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
@@ -126,7 +126,7 @@ fun SettingsRoute(
         onImportConfirm = { importLauncher.launch(arrayOf("*/*")) },
         onOpenAbout = onOpenAbout,
         onContactUs = {
-            context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse(CONTACT_EMAIL_URI)))
+            context.startActivity(Intent(Intent.ACTION_SENDTO, CONTACT_EMAIL_URI.toUri()))
         },
         modifier = modifier,
     )

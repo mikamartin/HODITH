@@ -123,6 +123,23 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none for the audit itself.
 
+### SegmentedChoiceRow's `modifier` parameter defaults to more than `Modifier`
+
+*Branch: `fix/segmented-choice-row-modifier-default` · Complexity: S · Priority: Low · Area: Bug*
+
+Lint (`ModifierParameter`) flags `SegmentedChoiceRow.kt`'s `modifier` parameter defaulting to `Modifier.fillMaxWidth().padding(top = 8.dp)` instead of plain `Modifier`. The compliant shape applies a composable's own default sizing/padding inside the function body, appended after the caller's modifier — not baked into the parameter's default value. As written, a caller who passes a modifier for an unrelated reason (a test tag, semantics) silently loses the fillMaxWidth/padding instead of keeping it alongside their own.
+
+**Acceptance criteria**
+
+- [ ] `modifier` parameter defaults to plain `Modifier`.
+- [ ] The row's own `fillMaxWidth()`/`padding(top = 8.dp)` applied inside the function body, gated on `stretchToFill` (already the flag distinguishing "stretch to fill" from "sit inline" for the Bright variant), ahead of the caller's modifier in the chain.
+- [ ] Every call site re-verified to render identically: Case Edit's logFlow/durationMode/check-in, Settings' theme picker, Insights' frequency granularity, and the Log tab's inline Sort control — the Log tab currently passes `modifier = Modifier` and `stretchToFill = false` specifically to opt out of the old default; confirm it can drop the now-redundant explicit `modifier = Modifier` once `stretchToFill` alone governs that.
+- [ ] `./gradlew lintDebug` clean of this warning.
+
+**Plan** — move `.fillMaxWidth().padding(top = 8.dp)` out of the parameter default and into the function body behind `stretchToFill`; default `modifier` to `Modifier`; re-check every call site via Compose Preview.
+
+**Tests** — none existing cover this row's own layout/sizing directly; Preview-verify the four call sites after the change.
+
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
@@ -222,6 +239,41 @@ Carried over from the retired Hunch/Trigger feasibility item, re-scoped to Watch
 - [ ] Voice ×3 for the suggestion copy, observational only (no "you should").
 
 **Plan** — none yet.
+
+**Tests** — none until picked back up.
+
+### D6 · Detector: combos beyond chance (tag-combo significance)
+
+*Branch: none yet — deferred, needs a design decision · Complexity: M · Priority: Low · Area: Insights*
+
+🎨 **Design decision**
+
+Common tag combos (spec §10) ships as a descriptive `Hint` only. A second finding was spiked
+alongside it — testing whether a combo from that detector's own closed, above-floor candidates
+appears more often than its individual tags' frequencies predict, via a swap-shuffle permutation
+test (preserves each event's tag count and each tag's total frequency) reusing `permutationPValue`.
+
+**Deferred rather than pursued next** — the spike's own fixture surfaced the real blocker: a
+manufactured "co-occurs only because both tags are individually common" pair (lift ≈ 1.09, no
+practical effect) still cleared a raw `p < 0.05` cut, and only a Bonferroni correction (narrowly, and
+sensitive to the permutation engine's own chain-mixing depth) caught it. Every existing `Pattern`-tier
+detector (tag → outcome, trend slope, tag timing, weekday vs. weekend) gates its permutation test
+behind a descriptive floor first (e.g. a 20%+ relative-difference bar) — this detector needs the same
+shape (a minimum-lift floor) before the permutation test runs at all, not just a multiple-comparisons
+correction layered on afterward. That floor's exact value is a statistics/product call, not an
+implementation detail, hence deferred rather than guessed at.
+
+**Acceptance criteria**
+
+- [ ] A minimum-lift (or relative-difference) floor decided and added, checked before the
+  permutation test runs — the same "cheap descriptive floor first" shape every other `Pattern`
+  detector already uses.
+- [ ] Re-run the spike's own fixture (a combo that co-occurs only because both tags are individually
+  common) against the floor to confirm it's excluded without the correction needing to do the work.
+- [ ] A `TrendFindingKind` addition, Voice ×3, and the same test-coverage bar `TAG_COMBO`'s own
+  detector sets.
+
+**Plan** — none yet; needs the floor value decided first.
 
 **Tests** — none until picked back up.
 

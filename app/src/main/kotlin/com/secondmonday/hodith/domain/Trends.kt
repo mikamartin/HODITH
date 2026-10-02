@@ -24,6 +24,16 @@ import java.time.LocalDate
  * set (every other kind leaves it `null`), and `priorValue`/`recentValue` hold the tag's share as a
  * fraction (0.0–1.0), not days or a count.
  *
+ * [TAG_COMBO] (Story C T9) is a closed, above-floor set of 2+ tags that recur together on the same
+ * event — a descriptive support-count check, no significance test, so always [TrendReliability.HINT].
+ * [TrendFinding.tagNames] carries the whole set (every other kind leaves it empty, and unlike every
+ * per-tag kind above, [TrendFinding.tagName] itself is left `null` here); `priorValue`/`recentValue`
+ * hold the combo's own co-occurrence count and the Case's total event count (real numbers, not a
+ * fraction). Like [TAG_SHARE_SHIFT], this can surface more than one finding per Case (up to 3,
+ * strongest — i.e. most frequent — first). A plain co-occurrence count has no up/down, so
+ * [TrendFinding.direction] is always an unused [ShiftDirection.UP] sentinel, the same convention
+ * [TAG_TIMING] (below) already sets for its own direction-less claim.
+ *
  * [RECURRENCE_SHAPE] (Story C T3) is a distribution-shape claim over the Case's full past-gap
  * history, not a shift between two halves of it — `priorValue` holds the self-relative early-gap day
  * boundary this Case's own average gap produced ([RECURRENCE_SHAPE_EARLY_FRACTION_OF_MEAN] of it),
@@ -103,6 +113,7 @@ enum class TrendFindingKind {
     STREAK_SHIFT,
     FREQUENCY_SHIFT,
     TAG_SHARE_SHIFT,
+    TAG_COMBO,
     RECURRENCE_SHAPE,
     TAG_OUTCOME,
     CHANGE_POINT,
@@ -144,6 +155,8 @@ enum class TrendReliability {
  * and the Case's own observed weekend share, same fraction convention.
  * [tagName] is set for [TrendFindingKind.TAG_SHARE_SHIFT], [TrendFindingKind.TAG_OUTCOME], and
  * [TrendFindingKind.TAG_TIMING] — `null` for every other kind, which isn't about one specific tag.
+ * [tagNames] is set only for [TrendFindingKind.TAG_COMBO] (a set, not one tag, so it gets its own
+ * field rather than overloading [tagName]) — empty for every other kind.
  * [outcome] is set for [TrendFindingKind.TAG_OUTCOME], [TrendFindingKind.TREND_SLOPE], and
  * [TrendFindingKind.TIME_OF_DAY_SPLIT] — `null` for every other kind. [changePointDate] is only set
  * for [TrendFindingKind.CHANGE_POINT] — `null` for every other kind, none of which need a specific
@@ -163,4 +176,5 @@ data class TrendFinding(
     val changePointDate: LocalDate? = null,
     val weekday: DayOfWeek? = null,
     val timeOfDay: TimeOfDay? = null,
+    val tagNames: List<String> = emptyList(),
 )
