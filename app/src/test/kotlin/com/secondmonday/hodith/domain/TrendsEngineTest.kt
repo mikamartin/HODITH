@@ -220,6 +220,30 @@ class TrendsEngineTest {
         assertEquals(listOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT), findings.map { it.kind })
     }
 
+    @Test
+    fun `computeTrendFindings places tag-combo findings after tag share shift`() {
+        val decaf = TagEntity(id = 1, name = "decaf")
+        val coffee = TagEntity(id = 2, name = "coffee")
+        val late = TagEntity(id = 3, name = "late")
+        // Stable 3-of-5/3-of-5 split -- no tag-share-shift of its own, but the pair's combined count
+        // (6) clears the combo floor.
+        val comboDays = setOf(0, 1, 2, 5, 6, 7)
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                val tags = mutableListOf<TagEntity>()
+                if (day == 4 || day in 5..8) tags += decaf // prior 1 of 5, recent 4 of 5 -- the tag-share-shift trigger
+                if (day in comboDays) {
+                    tags += coffee
+                    tags += late
+                }
+                EventWithTags(testEvent(occurredAt = millisAtDay(day.toLong())), tags)
+            }
+
+        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = eventsWithTags)
+
+        assertEquals(listOf(TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.TAG_COMBO), findings.map { it.kind })
+    }
+
     // ---- computeTrendFindings: recurrence shape ----
 
     // Ten short gaps at 2, two long ones at 20 -- one long gap in each literal half so

@@ -17,6 +17,32 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feature/tag-combo-trends
+
+**Scope:** PROGRESS.md's "common tag combos" idea, spiked last session (`domain/TagComboSpike.kt`/`TagComboSpikeTest.kt`, never committed) as two candidate findings — a descriptive closed-itemset miner and a permutation-significance test on top of it. This pass promotes only the first (common tag combos) to a real `TrendFindingKind.TAG_COMBO` detector; the second (combos beyond chance) stays deferred — the spike's own fixture showed a near-1 lift pair still clearing a raw `p < 0.05` cut, meaning it needs a descriptive floor before the permutation test runs, the same shape every other `Pattern`-tier detector already uses, not just a multiple-comparisons correction (logged as PROGRESS.md's D6).
+
+**Found & fixed:**
+- Checklist walked against the full diff. The spike's two files were deleted outright (their logic promoted into the same files their sibling detectors already live in — `Insights.kt`, `StatsEngine.kt`), satisfying the "throwaway prototype cleared out" item.
+- No `android.*` imports or clock reads in the new `domain/` code (pure count-based itemset mining, no time dependency at all).
+- `TAG_COMBO_MIN_SUPPORT_COUNT`/`TAG_COMBO_MAX_FINDINGS` are named domain constants, not inline magic numbers; the demo seeder's `TAG_COMBO_SHOWCASE_CHANCE_PERCENT` follows the same existing-showcase-constant pattern.
+- New `Voice` keys (`insightsTagComboSentence`/`insightsTagComboEvidenceLabel`) landed in the interface and all three voices in this same pass; `VoiceTest`'s reflection coverage picked them up with no new test code needed.
+- `TrendFinding.tagNames` (a new field, since every existing per-tag kind only carries a singular `tagName`) is documented in the same KDoc style as `weekday`/`timeOfDay`/`changePointDate`.
+- Adding a 9th demo `CaseSeed` ("Skipped lunch") broke two existing `DemoDataSeederTest` assertions by count (`eight cases` → nine, `16` → `18` on double-seed) — both caught by the scoped test run and fixed, not just patched to pass.
+- No new entity/column/migration needed — `TrendFinding` is computed live, never persisted, same as every other Trends finding.
+
+**Deferred:**
+- Finding 2 (combos beyond chance / significance test) — see Scope above and PROGRESS.md's new D6.
+
+**Considered and declined:**
+- Grafting the demo showcase onto an existing Case (Coffee) instead of adding a new one — Coffee's own test comment explicitly keeps it a "clean two-finding showcase," and every other detector got its own dedicated Case, so "Skipped lunch" followed that precedent instead.
+- A tag-vocabulary size cap before mining — no existing detector limits input vocabulary (only output-finding counts), and PROGRESS.md's own D1/D3/D4 defer performance questions until real alpha usage exists rather than guessing upfront.
+
+**Docs updated:** `HODITH_SPEC.md` §10 (new "Common tag combos" bullet); `TESTING.md` (Stats & visual data prep row); `PROGRESS.md` (new D6 deferred item for finding 2).
+
+**Verified:** `ktlintCheck` → `lintDebug` → `test` (scoped to the 4 changed/new test classes, then the full suite) → `assembleDebug`, sequential, all green. No instrumented run needed — no production UI/Compose code touched beyond two `when`-branch additions that only route to already-tested generic rendering, matching the zero-instrumented-coverage precedent `TAG_SHARE_SHIFT`/`TAG_TIMING` already set.
+
+---
+
 ## feat/share-card-summary-beat
 
 **Scope:** PROGRESS.md's B2, plus a round of Story card changes asked for alongside it. Story opens with the same summary hero as Square instead of the Reality beat, and its sections follow one order on the picker and the card (Gaps, Length, Start times, Intensity, Trends, Top tags) using the Square panel formatting. Overlap calls made: Frequency is dropped from Story (the hero's rate and pill carry it); went-quiet is left out of Story's Trends (the hero and the Gaps label say it), and the quiet label shows on Story only while Gaps is picked; Story with nothing picked is the hero alone. A new Top tags section lists the three busiest tags with counts, so the spec's "tags never on the card" rule became "only as Story's opt-in Top tags". The picker offers a row only when the Case has data for it. Layout tweaks from review: wider gap and larger cells in the Start times grid, fixed-size intensity squares, more inner padding on section cards, and the card on its own tinted stage below a divider.
@@ -140,40 +166,5 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `HODITH_SPEC.md` (§1–3, §5, §7, §8, §11, §13, §14), `README.md` (idea, features, architecture, diagram), `TESTING.md` (Verdict engine, Check-in, Share card, Export/import, Room DAOs, Room migrations, Compose UI, Share preview, manual-journey list, date-picker deferral), `MANUAL_TEST_PLAN.md` (two check-in/import references), `CLAUDE.md` (vocabulary line, product-constants example), `CLEANUP_CHECKLIST.md` (cascade-relationship line), `PROGRESS.md` (N1 struck, Story N intro rewritten, B2/B3 updated, N1 self-references in N2 replaced with direct pointers).
 
 **Verified:** `ktlintCheck` → `lintDebug` → `test` → `assembleDebug` sequential, all green. `test` covers the full JVM suite: 907/907 passing across 58 classes, zero failures. `connectedDebugAndroidTest`: 128/128 passing (one flaky teardown failure, confirmed non-reproducing on rerun).
-
----
-
-## chore/ui-test-voice-theme-coverage
-
-**Scope:** PROGRESS.md's "UI test suite never renders real theme colors, and covers only Plain's copy" — no `androidTest` file applied real `HodithTheme` colors, almost every `*ScreenTest.kt` hardcoded `LocalVoice provides PlainVoice`, and only `BigPictureScreenTest` varied decoration/cell style (with voice still pinned to Plain regardless). A session survey found the gap wider than the item's own text named: 13 composables structurally branch on decoration/cell style, not just the BigPicture chips, and production (`HodithApp.kt`) drives `LocalVoice`/`LocalBigPictureCellStyle`/`LocalCardDecorationStyle`/`LocalShareCardSkin` all from one `AppTheme` via matching mapper functions (`voiceFor`/`bigPictureCellStyle`/`cardDecorationStyle`/`shareCardSkin`) — no test reproduced that combination. User chose a targeted scope over a full per-screen smoke pass: one Bright (and, where genuinely 3-way distinct, Intense) rendering+interaction test per structurally-branching composable, wherever it's most naturally hosted, rather than fanning out to every consuming screen of a shared component.
-
-**Changes:**
-- `ui/common/HodithComposeContent.kt` (new): `ComposeContentTestRule.setHodithContent(theme, darkTheme, content)`, mirroring `HodithApp.kt`'s own composition — real `HodithTheme` colors plus every theme-driven composition local, all from one `AppTheme`.
-- All 12 `*ScreenTest.kt` files: `setContent` helpers now delegate to `setHodithContent`, replacing their ad hoc `CompositionLocalProvider(LocalVoice provides PlainVoice)` — every screen test now renders through real theme colors, not Compose's Material3 defaults.
-- `BigPictureScreenTest.kt`: migrated its existing Bright/Intense `cellStyle`/`decorationStyle` tests to the new `theme` param. This surfaced that they'd been asserting on hardcoded `PlainVoice` text while rendering Bright/Intense styling — an inauthentic combination the real app can never produce — fixed to assert the matching voice's text (`BrightVoice.infoDialogDismissAction`/`bigPictureAllCasesLabel`/`bigPictureUntaggedOnlyLabel`/`bigPictureDetailEditDescription`/`eventIntensityLabel`).
-- New Bright/Intense coverage, one test per structurally-branching composable: `CaseDetailScreenTest` (`SegmentedChoiceRow`+`FilterTriggerChip` via the Sort control, `EventRow`), `CaseDetailInsightsTabTest` (`InsightsCard`), `CaseEditScreenTest` (`IconChoice`), `HomeScreenTest` (`HomeCaseListItem`'s 3-way dispatch, Bright + Intense), `SettingsScreenTest` (`Plank`'s 3-way dispatch plus `ActionRow`, Intense + Bright), `TrendsListScreenTest` (`TrendFindingPlank`).
-- `ShareCardTemplateTest.kt`: `onNodeWithText("All time")` → `PlainVoice.shareLogRangeAllTimeLabel`. `BigPictureScreenTest.kt`: removed a stale `assertDoesNotExist()` against a retired Voice string's old literal.
-
-**Checklist walk (against the diff):**
-- *Duplication/Decoupling* — N/A; no production code touched. The one pre-existing hardcoded literal found (`ShareCardTemplateTest`) was fixed, not reintroduced elsewhere.
-- *Complexity & pattern health* — the new harness is a 15-line extension function called from all 14 modified files, not a single-caller helper. No new `LaunchedEffect`/`remember` patterns introduced.
-- *Dead code & hygiene* — `ktlintCheck` and `compileDebugAndroidTestKotlin` (rerun with `--rerun` to force full output) both clean, no unused imports/params/deprecation warnings. `git status` showed only the 14 modified files plus the one new harness file.
-- *Repo hygiene* — no secrets, no local paths, nothing untracked beyond the intended new file.
-- *Naming* — `HodithComposeContent.kt` sits under `ui/common/` alongside the repo's other test-support files (`CenteredEmptyStateTest.kt`, `RectOverlap.kt`); `setHodithContent` mirrors the existing `setContent` naming convention.
-- *Hardcoded values / Accessibility / Data model / Background work / Deprecated APIs* — N/A, no production code touched.
-- *Spec review* — N/A; no behavior changed, `HODITH_SPEC.md` unaffected.
-- *Tests* — see below. `TESTING.md`'s Big Picture row corrected: "the only test in the app that provides `LocalCardDecorationStyle`" is no longer true now that the shared harness provides it everywhere.
-
-**Tests:**
-- Sanity-checked one new test's theme-sensitivity directly: temporarily pointed `HomeScreenTest`'s new `rowTapAndQuickLogButton_areDistinctTargets_underBrightTheme` at `AppTheme.PLAIN` while keeping its `BrightVoice` assertion — failed as expected (`"Log One Tap Case!"` not found), then reverted.
-- All 14 modified classes run against a real emulator in two scoped batches (287 tests total): first batch (176/177 completed) hit a mid-run emulator crash (`INSTRUMENTATION_ABORTED: System has crashed`) that aborted the run right after `CaseDetailScreenTest.logShowMoreButton_tap_invokesOnShowMoreLogEvents` reported failed with no captured logcat; reran that one test alone and it passed cleanly, confirming the emulator crash, not a regression. Second batch covered the 8 classes the crash cut off before they ran (105/105 passing). Combined: 287/287 passing.
-
-**Deferred:** nothing found requiring deferral.
-
-**Docs updated:** `PROGRESS.md` (item resolved + removed). `TESTING.md` (Big Picture row's stale "only test" claim corrected).
-
-**Verified:** `ktlintCheck` and `compileDebugAndroidTestKotlin` both green (no production code, so `lintDebug`/`assembleDebug` untouched by this diff).
-
-**Instrumented run:** `connectedDebugAndroidTest` scoped to the 14 modified classes on `Pixel_8_API36(AVD)`, split across two runs due to a mid-run emulator crash: 287/287 passing overall (see Tests).
 
 ---

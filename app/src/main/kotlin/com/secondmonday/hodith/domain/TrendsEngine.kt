@@ -26,7 +26,10 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * here, since the caller already computed it for its own frequency-shift wiring.
  * [eventsWithTags] backs [computeTagShareShift] (Story C T2), placed after gap/streak/frequency
  * shift since it's the one detector that can contribute more than one finding — every other kind is
- * capped at 0..1. [computeRecurrenceShape] (Story C T3) is always
+ * capped at 0..1. [computeCommonTagCombos] (Story C T9) is appended right after tag share shift —
+ * both are tag-based [TrendReliability.HINT] detectors — and can likewise contribute more than one
+ * finding (capped at its own [TAG_COMBO_MAX_FINDINGS]); its direction is an unused sentinel (see
+ * [TrendFinding]'s own KDoc). [computeRecurrenceShape] (Story C T3) is always
  * [TrendReliability.HINT] — a self-relative descriptive threshold check
  * ([RECURRENCE_SHAPE_MIN_SAMPLE_COUNT] and the spike/dead-zone share bars), no significance test.
  * [computeTagOutcomeFindings] (Story C T4) is the first detector able to report
@@ -123,6 +126,18 @@ internal fun computeTrendFindings(
                 priorValue = it.priorShare,
                 recentValue = it.recentShare,
                 tagName = it.tagName,
+            )
+    }
+    computeCommonTagCombos(eventsWithTags).forEach {
+        findings +=
+            TrendFinding(
+                kind = TrendFindingKind.TAG_COMBO,
+                direction = ShiftDirection.UP, // unused sentinel -- see TrendFinding's KDoc.
+                reliability = TrendReliability.HINT,
+                sampleCount = it.count,
+                priorValue = it.count.toDouble(),
+                recentValue = it.totalEvents.toDouble(),
+                tagNames = it.tagNames,
             )
     }
     computeRecurrenceShape(gapStats)?.let {

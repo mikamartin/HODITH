@@ -35,12 +35,12 @@ class DemoDataSeederTest {
     private val seeder = DemoDataSeeder(repository, clock)
 
     @Test
-    fun `seed inserts eight cases with distinct names and events within the seed span`() =
+    fun `seed inserts nine cases with distinct names and events within the seed span`() =
         runTest {
             seeder.seed()
 
             val cases = repository.cases.value
-            assertEquals(8, cases.size)
+            assertEquals(9, cases.size)
             assertEquals(cases.size, cases.map { it.name }.toSet().size)
 
             val spanStart = NOW_MILLIS - SEED_SPAN_DAYS * MILLIS_PER_DAY
@@ -56,7 +56,7 @@ class DemoDataSeederTest {
             seeder.seed()
             seeder.seed()
 
-            assertEquals(16, repository.cases.value.size)
+            assertEquals(18, repository.cases.value.size)
         }
 
     @Test
@@ -294,6 +294,39 @@ class DemoDataSeederTest {
 
             assertEquals(ShiftDirection.UP, finding.direction)
             assertEquals(TrendReliability.PATTERN, finding.reliability)
+        }
+
+    @Test
+    fun `seed gives Skipped lunch at least the minimum co-occurrence count for its tag combo`() =
+        runTest {
+            seeder.seed()
+
+            val skippedLunch = repository.cases.value.single { it.name == "Skipped lunch" }
+            val eventsWithTags = repository.observeEventsWithTagsForCase(skippedLunch.id).first()
+            val comboTagged =
+                eventsWithTags.count { entry ->
+                    entry.tags.any { it.name == "meeting-ran-over" } && entry.tags.any { it.name == "no-time" }
+                }
+
+            // TAG_COMBO_MIN_SUPPORT_COUNT (domain, internal) is 5 -- asserted as a literal here, the
+            // same reasoning Heartburn/Argument's own sample-size tests above use.
+            assertTrue(comboTagged >= 5)
+        }
+
+    @Test
+    fun `seed gives Skipped lunch the Trends tag-combo finding for meeting-ran-over + no-time`() =
+        runTest {
+            seeder.seed()
+
+            val skippedLunch = repository.cases.value.single { it.name == "Skipped lunch" }
+            val eventsWithTags = repository.observeEventsWithTagsForCase(skippedLunch.id).first()
+            val state = insightsTabState(skippedLunch, eventsWithTags, NOW_MILLIS) as InsightsTabState.Ready
+            val finding =
+                state.stats.trends.single {
+                    it.kind == TrendFindingKind.TAG_COMBO && it.tagNames == listOf("meeting-ran-over", "no-time")
+                }
+
+            assertEquals(TrendReliability.HINT, finding.reliability)
         }
 
     @Test

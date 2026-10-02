@@ -752,6 +752,13 @@ internal fun trendFindingSentence(
                 formatPercent(finding.priorValue),
                 formatPercent(finding.recentValue),
             )
+        TrendFindingKind.TAG_COMBO ->
+            // tagNames is always set for this kind -- see TrendFinding's doc comment.
+            voice.insightsTagComboSentence(
+                finding.tagNames.joinToString(" + "),
+                finding.priorValue.roundToInt(),
+                finding.recentValue.roundToInt(),
+            )
         TrendFindingKind.RECURRENCE_SHAPE ->
             voice.insightsRecurrenceShapeSentence(finding.direction, formatDays(finding.priorValue), formatPercent(finding.recentValue))
         TrendFindingKind.TAG_OUTCOME -> {
@@ -835,6 +842,7 @@ private fun trendFindingEvidenceLabel(
         TrendFindingKind.STREAK_SHIFT -> voice.insightsStreakShiftEvidenceLabel(finding.sampleCount)
         TrendFindingKind.FREQUENCY_SHIFT -> voice.insightsFrequencyShiftEvidenceLabel()
         TrendFindingKind.TAG_SHARE_SHIFT -> voice.insightsTagShareShiftEvidenceLabel(finding.sampleCount)
+        TrendFindingKind.TAG_COMBO -> voice.insightsTagComboEvidenceLabel(finding.sampleCount)
         TrendFindingKind.RECURRENCE_SHAPE -> voice.insightsRecurrenceShapeEvidenceLabel(finding.sampleCount)
         TrendFindingKind.TAG_OUTCOME -> voice.insightsTagOutcomeEvidenceLabel(finding.sampleCount)
         TrendFindingKind.CHANGE_POINT -> voice.insightsChangePointEvidenceLabel(finding.sampleCount)

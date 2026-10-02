@@ -259,6 +259,84 @@ private fun tagShareShiftDirectionFor(
 }
 
 /**
+ * Spec §10 Trends "common tag combos" finding (Story C T9): a tag set qualifies once it co-occurs on
+ * at least [TAG_COMBO_MIN_SUPPORT_COUNT] events — an absolute floor, the same shape
+ * [TAG_SHARE_SHIFT_MIN_TAG_COUNT] uses, rather than a share of the Case (a combo is inherently rarer
+ * than a single tag's own share, so a relative floor would need its own separate tuning with no
+ * real precedent to anchor it). [TAG_COMBO_MAX_FINDINGS] caps this detector's own findings, the same
+ * per-detector cap [TAG_SHARE_SHIFT_MAX_FINDINGS]/[TAG_OUTCOME_MAX_FINDINGS]/[TAG_TIMING_MAX_FINDINGS]
+ * already share.
+ */
+internal const val TAG_COMBO_MIN_SUPPORT_COUNT = 5
+internal const val TAG_COMBO_MAX_FINDINGS = 3
+
+/**
+ * Spec §10 Trends "common tag combos" finding (Story C T9): closed frequent itemsets of tag names
+ * over [eventsWithTags] — a plain Apriori walk (join same-size frequent sets sharing all-but-one tag,
+ * prune candidates whose own subsets aren't already frequent, recount support) since a Case's tag
+ * vocabulary is small enough that Eclat's vertical-bitset trick buys nothing here. "Closed" means:
+ * among the frequent itemsets found, drop any whose support exactly matches a proper superset's —
+ * only the maximal set is kept (e.g. {A,B,C} and {A,B} with equal support report only {A,B,C}). Only
+ * itemsets of size 2+ are returned (a lone tag isn't a "combination"); size-1 supports are still
+ * computed internally, as Apriori's own level-1 seed. Ranked by raw count and capped at
+ * [TAG_COMBO_MAX_FINDINGS], ties left in encounter order — the same stable-sort convention every
+ * other multi-finding detector here relies on, with no bespoke tie-break.
+ */
+internal fun computeCommonTagCombos(eventsWithTags: List<EventWithTags>): List<TagComboFinding> {
+    val totalEvents = eventsWithTags.size
+    // Only a 2+-tag event can ever satisfy a 2+-tag itemset, so dropping 0/1-tag events up front is
+    // just an optimization, not a behavior change -- containsAll() could never match them anyway.
+    val transactions = eventsWithTags.map { entry -> entry.tags.map { it.name }.toSet() }.filter { it.size >= 2 }
+    if (transactions.isEmpty()) return emptyList()
+
+    fun supportOf(itemset: Set<String>): Int = transactions.count { it.containsAll(itemset) }
+
+    val allFrequent = mutableMapOf<Set<String>, Int>()
+    var currentLevel: List<Set<String>> =
+        transactions
+            .flatten()
+            .distinct()
+            .map { setOf(it) }
+            .filter { supportOf(it) >= TAG_COMBO_MIN_SUPPORT_COUNT }
+    currentLevel.forEach { allFrequent[it] = supportOf(it) }
+
+    var k = 2
+    while (currentLevel.isNotEmpty()) {
+        val candidates = generateComboCandidates(currentLevel, k)
+        val nextLevel = candidates.filter { supportOf(it) >= TAG_COMBO_MIN_SUPPORT_COUNT }
+        nextLevel.forEach { allFrequent[it] = supportOf(it) }
+        currentLevel = nextLevel
+        k++
+    }
+
+    val closed =
+        allFrequent.filter { (itemset, support) ->
+            allFrequent.none { (other, otherSupport) -> other.size > itemset.size && other.containsAll(itemset) && otherSupport == support }
+        }
+
+    return closed
+        .filterKeys { it.size >= 2 }
+        .map { (itemset, support) -> TagComboFinding(itemset.sorted(), support, totalEvents) }
+        .sortedByDescending { it.count }
+        .take(TAG_COMBO_MAX_FINDINGS)
+}
+
+/** Apriori's join step: every union of two [prevLevel] itemsets that lands at exactly [k] tags, pruned to unions whose every (k-1)-subset is itself in [prevLevel] (downward closure -- an infrequent subset means the union can't be frequent either). */
+private fun generateComboCandidates(
+    prevLevel: List<Set<String>>,
+    k: Int,
+): List<Set<String>> {
+    val joined = mutableSetOf<Set<String>>()
+    for (i in prevLevel.indices) {
+        for (j in i + 1 until prevLevel.size) {
+            val union = prevLevel[i] + prevLevel[j]
+            if (union.size == k) joined += union
+        }
+    }
+    return joined.filter { candidate -> candidate.all { tag -> (candidate - tag) in prevLevel } }
+}
+
+/**
  * Spec §10 Trends "tag → outcome" finding (Story C T4): sample-size floors, gated independently per
  * outcome on events carrying that outcome's value ([TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT] with the
  * tag, [TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT] without) — a tag can qualify for intensity but not
