@@ -294,7 +294,7 @@ private fun FieldsSection(
  */
 internal const val LOG_SHARE_FIELD_TOGGLE_TAG_PREFIX = "log_share_field_toggle_"
 
-/** Notes/Tags always offered; Duration/Intensity only when the Case tracks them — same gating shape as [availableSections]. */
+/** Notes/Tags always offered; Duration/Intensity only when the Case tracks them — same gating shape as [availableShareSections][com.secondmonday.hodith.viewmodel.availableShareSections]. */
 private fun availableLogRowFields(case: CaseEntity): List<LogRowField> =
     buildList {
         add(LogRowField.NOTES)

@@ -72,3 +72,6 @@ data class TagBreakdownEntry(
     val tagName: String,
     val count: Int,
 )
+
+/** How many of the busiest tags the Story share card's Tags section lists — a card has no room for the Insights tab's full breakdown. */
+const val SHARE_CARD_TOP_TAG_COUNT = 3

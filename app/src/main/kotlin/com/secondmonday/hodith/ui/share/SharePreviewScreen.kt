@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.share
 
 import android.content.Intent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.GraphicsLayer
@@ -37,8 +40,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.ToggleRow
@@ -49,6 +50,7 @@ import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareInsightsSection
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
+import com.secondmonday.hodith.viewmodel.availableShareSections
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.shareCardState
 import kotlinx.coroutines.flow.collectLatest
@@ -183,16 +185,26 @@ fun SharePreviewScreen(
             // Square is a fixed preset built from the Case's own settings; only Story is customizable.
             if (selection.format == ShareCardFormat.STORY) {
                 SectionsPicker(
-                    case = case,
-                    frequencyAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.frequency != null,
-                    trendsAvailable = (insightsState as? InsightsTabState.Ready)?.stats?.trends?.isNotEmpty() == true,
+                    availableSections = availableShareSections((insightsState as? InsightsTabState.Ready)?.stats),
                     selectedSections = selection.selectedSections,
                     voice = voice,
                     onSectionToggle = onSectionToggle,
                 )
             }
 
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            // The card sits on its own tinted stage below a divider, so the controls above read as
+            // settings and the card as the thing being shared. Only the card is captured for export.
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.large)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 ShareCardTemplate(
                     data = cardData,
                     voice = voice,
@@ -211,18 +223,19 @@ fun SharePreviewScreen(
     }
 }
 
+/** [availableSections] arrives in card order from [availableShareSections], so only sections the Case has data for get a row; with none, the picker is omitted. */
 @Composable
 private fun SectionsPicker(
-    case: CaseEntity,
-    frequencyAvailable: Boolean,
-    trendsAvailable: Boolean,
+    availableSections: List<ShareInsightsSection>,
     selectedSections: Set<ShareInsightsSection>,
     voice: Voice,
     onSectionToggle: (ShareInsightsSection, Boolean) -> Unit,
 ) {
+    if (availableSections.isEmpty()) return
+
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(voice.shareSectionsPickerLabel, style = MaterialTheme.typography.labelLarge)
-        availableSections(case, frequencyAvailable, trendsAvailable).forEach { section ->
+        availableSections.forEach { section ->
             ToggleRow(
                 label = sectionLabel(section, voice),
                 checked = section in selectedSections,
@@ -233,35 +246,16 @@ private fun SectionsPicker(
     }
 }
 
-/**
- * Frequency is offered only when the Insights tab itself shows it (hidden for a Case with a
- * multi-day event, spec §9); Trends only when at least one finding exists, same
- * `.isNotEmpty()` gate the Insights tab's own `TrendsCard` uses; Duration/Intensity only when the
- * Case tracks them — all four conditionals mirror the real Insights tab.
- */
-private fun availableSections(
-    case: CaseEntity,
-    frequencyAvailable: Boolean,
-    trendsAvailable: Boolean,
-): List<ShareInsightsSection> =
-    buildList {
-        if (frequencyAvailable) add(ShareInsightsSection.FREQUENCY)
-        add(ShareInsightsSection.RHYTHM)
-        add(ShareInsightsSection.GAPS)
-        if (trendsAvailable) add(ShareInsightsSection.TRENDS)
-        if (case.durationMode.tracksDuration) add(ShareInsightsSection.DURATION)
-        if (case.intensityEnabled) add(ShareInsightsSection.INTENSITY)
-    }
-
-private fun sectionLabel(
+/** Each row reads as the title of the card section it toggles. */
+internal fun sectionLabel(
     section: ShareInsightsSection,
     voice: Voice,
 ): String =
     when (section) {
-        ShareInsightsSection.FREQUENCY -> voice.insightsSectionLabelFrequency
-        ShareInsightsSection.RHYTHM -> voice.insightsSectionLabelRhythm
-        ShareInsightsSection.GAPS -> voice.insightsSectionLabelGaps
-        ShareInsightsSection.TRENDS -> voice.insightsSectionLabelTrends
-        ShareInsightsSection.DURATION -> voice.insightsSectionLabelDuration
+        ShareInsightsSection.GAPS -> voice.shareGapsTitle
+        ShareInsightsSection.DURATION -> voice.shareDurationTitle
+        ShareInsightsSection.RHYTHM -> voice.insightsSectionLabelRhythmStarts
         ShareInsightsSection.INTENSITY -> voice.insightsSectionLabelIntensity
+        ShareInsightsSection.TRENDS -> voice.insightsSectionLabelTrends
+        ShareInsightsSection.TAGS -> voice.shareTopTagsTitle
     }

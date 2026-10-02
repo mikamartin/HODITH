@@ -1,10 +1,13 @@
 package com.secondmonday.hodith.ui.share
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -12,12 +15,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Density
 import com.secondmonday.hodith.data.TimeFormat
-import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.HeroRate
 import com.secondmonday.hodith.domain.HeroRateComparison
 import com.secondmonday.hodith.domain.RateUnit
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFinding
@@ -35,8 +38,6 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.DurationDisplay
-import com.secondmonday.hodith.viewmodel.FrequencyBar
-import com.secondmonday.hodith.viewmodel.FrequencyDisplay
 import com.secondmonday.hodith.viewmodel.GapsDisplay
 import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.LogCardRow
@@ -50,12 +51,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.DayOfWeek
-import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 private const val STORY_TAG = "story_card"
 private const val SQUARE_TAG = "square_card"
 private const val RICH_SQUARE_TAG = "rich_square_card"
 private const val BOUNDS_TOLERANCE_DP = 1f
+private const val MIN_RHYTHM_LABEL_GAP_DP = 12f
+private const val STORY_CARD_WIDTH_DP = 360f
 
 /** Arbitrary fixed instant — only needs to be self-consistent between what a fixture is built with and what a test formats to compare against, not any particular real date. */
 private const val FIXTURE_GENERATED_AT_MILLIS = 0L
@@ -97,25 +101,50 @@ private val SAMPLE_DURATION = DurationDisplay(averageMinutes = 130.0, longestMin
 private val SAMPLE_INTENSITY =
     IntensityDisplay(averageIntensity = 3.4, distribution = mapOf(1 to 2, 2 to 6, 3 to 11, 4 to 9, 5 to 3), maxCount = 11)
 
+private val SAMPLE_TAGS = listOf(TagBreakdownEntry("espresso", 6), TagBreakdownEntry("oat milk", 4), TagBreakdownEntry("office", 3))
+
 /** Regression coverage for spec §13's sizing rules (Square keeps its 1:1 floor, Story sizes freely) and the overflow-clip bug they replaced. */
 @UiTest
 class ShareCardTemplateTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private fun realityData(format: ShareCardFormat) =
-        ShareCardData.Insights(
-            format = format,
-            caseIcon = "☕",
-            caseName = "Perfect coffee",
-            topBeat = ShareTopBeat.Reality(eventCount = 14, observedDays = 60),
-            frequency = null,
-            rhythm = null,
-            gaps = null,
-            trends = emptyList(),
-            duration = null,
-            intensity = null,
-            generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
+    /** Story with only the hero: no section picked or none applicable to the Case. */
+    private fun storyHeroOnlyData() = storyData()
+
+    /** The Story format's data shape: the same Summary beat as Square, then whichever sections were picked and apply. */
+    private fun storyData(
+        rate: HeroRate? = null,
+        eventCount: Int = 14,
+        gaps: GapsDisplay? = null,
+        duration: DurationDisplay? = null,
+        rhythm: RhythmDisplay? = null,
+        intensity: IntensityDisplay? = null,
+        trends: List<TrendFinding> = emptyList(),
+        tags: List<TagBreakdownEntry> = emptyList(),
+        quietForDays: Long? = null,
+    ) = ShareCardData.Insights(
+        format = ShareCardFormat.STORY,
+        caseIcon = "☕",
+        caseName = "Perfect coffee",
+        topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = 60, rate = rate),
+        rhythm = rhythm,
+        gaps = gaps,
+        trends = trends,
+        duration = duration,
+        intensity = intensity,
+        tags = tags,
+        quietForDays = quietForDays,
+        generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
+    )
+
+    private fun sampleRhythm() =
+        RhythmDisplay(
+            cells =
+                DayOfWeek.entries.flatMap { day ->
+                    TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.L2, count = 0) }
+                },
+            plottedByStart = false,
         )
 
     /** Enough sections to reliably exceed Square's floor, so its no-clip behavior is actually exercised. */
@@ -124,20 +153,8 @@ class ShareCardTemplateTest {
             format = format,
             caseIcon = "☕",
             caseName = "Perfect coffee",
-            topBeat = ShareTopBeat.Reality(eventCount = 14, observedDays = 60),
-            frequency =
-                FrequencyDisplay(
-                    granularity = FrequencyGranularity.WEEK,
-                    bars = listOf(3, 5, 2, 7, 4, 9).map { FrequencyBar(LocalDate.now(), it, it / 9f) },
-                ),
-            rhythm =
-                RhythmDisplay(
-                    cells =
-                        DayOfWeek.entries.flatMap { day ->
-                            TimeOfDay.entries.map { tod -> RhythmCellDisplay(day, tod, HeatmapLevel.L2, count = 0) }
-                        },
-                    plottedByStart = false,
-                ),
+            topBeat = ShareTopBeat.Summary(eventCount = 14, observedDays = 60, rate = null),
+            rhythm = sampleRhythm(),
             gaps = null,
             trends = listOf(FREQUENCY_SHIFT_FINDING),
             duration = null,
@@ -145,7 +162,20 @@ class ShareCardTemplateTest {
             generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
         )
 
-    /** The Square preset's data shape: a Summary beat, no Frequency/Trends, and whichever panels the Case's settings called for. */
+    /** Every Story section at once, in the order the card lays them out. */
+    private fun fullStoryData() =
+        storyData(
+            rate = SAMPLE_RATE,
+            gaps = SAMPLE_GAPS,
+            duration = SAMPLE_DURATION,
+            rhythm = sampleRhythm(),
+            intensity = SAMPLE_INTENSITY,
+            trends = listOf(FREQUENCY_SHIFT_FINDING),
+            tags = SAMPLE_TAGS,
+            quietForDays = 14,
+        )
+
+    /** The Square preset's data shape: a Summary beat, no Trends or Tags, and whichever panels the Case's settings called for. */
     private fun squareData(
         rate: HeroRate? = null,
         eventCount: Int = 14,
@@ -159,7 +189,6 @@ class ShareCardTemplateTest {
         caseIcon = "🤕",
         caseName = "Headaches",
         topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = 60, rate = rate),
-        frequency = null,
         rhythm = rhythm,
         gaps = gaps,
         trends = emptyList(),
@@ -235,7 +264,7 @@ class ShareCardTemplateTest {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 Column {
                     ShareCardTemplate(
-                        data = realityData(ShareCardFormat.STORY),
+                        data = storyHeroOnlyData(),
                         voice = PlainVoice,
                         modifier = Modifier.testTag(STORY_TAG),
                     )
@@ -399,7 +428,7 @@ class ShareCardTemplateTest {
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareGapsTitle).assertExists()
         composeTestRule.onNodeWithText("1d").assertExists()
         composeTestRule.onNodeWithText("3.1d").assertExists()
         composeTestRule.onNodeWithText("9d").assertExists()
@@ -440,7 +469,7 @@ class ShareCardTemplateTest {
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.shareSquareDurationTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareDurationTitle).assertExists()
         composeTestRule.onNodeWithText("25m").assertExists()
         composeTestRule.onNodeWithText("2h 10m").assertExists()
         composeTestRule.onNodeWithText("6h 40m").assertExists()
@@ -467,7 +496,7 @@ class ShareCardTemplateTest {
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythmStarts).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
     }
 
@@ -560,8 +589,8 @@ class ShareCardTemplateTest {
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythmStarts).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareGapsTitle).assertExists()
     }
 
     @Test
@@ -572,7 +601,7 @@ class ShareCardTemplateTest {
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.shareSquareDurationTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareDurationTitle).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertDoesNotExist()
     }
 
@@ -586,20 +615,281 @@ class ShareCardTemplateTest {
 
         composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedDays(60)).assertExists()
         composeTestRule.onNodeWithText("0 events").assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareGapsTitle).assertDoesNotExist()
+    }
+
+    // ---- Story ----
+
+    private fun setStoryContent(
+        data: ShareCardData = fullStoryData(),
+        voice: Voice = PlainVoice,
+        skin: ShareCardSkin = ShareCardSkin.PLAIN,
+    ) {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides voice, LocalShareCardSkin provides skin) {
+                ShareCardTemplate(data = data, voice = voice)
+            }
+        }
+    }
+
+    private fun top(text: String) = composeTestRule.onNodeWithText(text, ignoreCase = true).getUnclippedBoundsInRoot().top
+
+    @Test
+    fun storyOpensWithTheSameSummaryHeroAsSquare() {
+        setStoryContent(storyData(rate = SAMPLE_RATE))
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedLine(60, 14)).assertExists()
+        composeTestRule.onNodeWithText("2.1/week").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendFrom("1.4")).assertExists()
     }
 
     @Test
-    fun storyKeepsTheRealityBeatAndNeverShowsTheSquareSummary() {
+    fun storyHeroWithoutARateLeadsWithTheEventCount() {
+        setStoryContent(storyData(rate = null, eventCount = 4))
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedDays(60)).assertExists()
+        composeTestRule.onNodeWithText("4 events").assertExists()
+    }
+
+    @Test
+    fun storyWithNoSectionsIsTheHeroAlone() {
+        setStoryContent(storyHeroOnlyData())
+
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedDays(60)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareGapsTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareDurationTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythmStarts).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareTopTagsTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareCardFooter(FIXTURE_FOOTER_TIMESTAMP)).assertExists()
+    }
+
+    @Test
+    fun storyLaysSectionsOutInHeroGapsLengthStartTimesIntensityTrendsTagsOrder() {
+        setStoryContent()
+
+        val tops =
+            listOf(
+                top(PlainVoice.shareSquareObservedLine(60, 14)),
+                top(PlainVoice.shareGapsTitle),
+                top(PlainVoice.shareDurationTitle),
+                top(PlainVoice.insightsSectionLabelRhythmStarts),
+                top(PlainVoice.insightsSectionLabelIntensity),
+                top(PlainVoice.insightsSectionLabelTrends),
+                top(PlainVoice.shareTopTagsTitle),
+            )
+
+        assertTrue(
+            "Expected sections top to bottom in card order, got tops=$tops",
+            tops.zipWithNext().all { (above, below) -> above < below },
+        )
+    }
+
+    @Test
+    fun storyGapsAndLengthUseTheSquareMinAvgMaxFormatting() {
+        setStoryContent(storyData(gaps = SAMPLE_GAPS, duration = SAMPLE_DURATION))
+
+        composeTestRule.onNodeWithText(PlainVoice.shareGapsTitle).assertExists()
+        composeTestRule.onNodeWithText("3.1d").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareDurationTitle).assertExists()
+        composeTestRule.onNodeWithText("2h 10m").assertExists()
+        composeTestRule.onAllNodesWithText(PlainVoice.shareStatMinLabel).assertCountEquals(2)
+        composeTestRule.onAllNodesWithText(PlainVoice.shareStatAvgLabel).assertCountEquals(2)
+        composeTestRule.onAllNodesWithText(PlainVoice.shareStatMaxLabel).assertCountEquals(2)
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelGaps).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelDuration).assertDoesNotExist()
+    }
+
+    @Test
+    fun storyIntensityUsesTheSquareAverageAndDistributionFormatting() {
+        setStoryContent(storyData(intensity = SAMPLE_INTENSITY))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareIntensityAverage("3.4")).assertExists()
+    }
+
+    @Test
+    fun storyGapsPanelShowsTheQuietLabelOnlyWhenGivenIt() {
+        setStoryContent(storyData(gaps = SAMPLE_GAPS, quietForDays = 14))
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareQuietLabel("14d")).assertExists()
+    }
+
+    @Test
+    fun storyGapsPanelHasNoQuietLabelWithoutIt() {
+        setStoryContent(storyData(gaps = SAMPLE_GAPS, quietForDays = null))
+        composeTestRule.onNodeWithText(PlainVoice.shareSquareQuietLabel("14d")).assertDoesNotExist()
+    }
+
+    @Test
+    fun storyStartTimesGridIsTitledStartTimesWhetherOrNotTheCaseHasMultiDayEvents() {
+        setStoryContent(storyData(rhythm = sampleRhythm().copy(plottedByStart = false)))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythmStarts).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythm).assertDoesNotExist()
+    }
+
+    @Test
+    fun startTimesGridSitsClearOfTheTimeOfDayLabels() {
+        setStoryContent(storyData(rhythm = sampleRhythm()))
+
+        val morning = composeTestRule.onNodeWithText(PlainVoice.insightsTimeOfDayMorning).getUnclippedBoundsInRoot()
+        val mondayHeader =
+            composeTestRule
+                .onNodeWithText(DayOfWeek.MONDAY.getDisplayName(TextStyle.NARROW, Locale.getDefault()))
+                .getUnclippedBoundsInRoot()
+        val gap = (mondayHeader.left - morning.right).value
+
+        assertTrue(
+            "Expected at least 12dp between the time-of-day labels and the grid (gap=$gap)",
+            gap >= MIN_RHYTHM_LABEL_GAP_DP - BOUNDS_TOLERANCE_DP,
+        )
+    }
+
+    @Test
+    fun storyTagsSectionListsEachTagWithItsCount() {
+        setStoryContent(storyData(tags = SAMPLE_TAGS))
+
+        composeTestRule.onNodeWithText(PlainVoice.shareTopTagsTitle).assertExists()
+        composeTestRule.onNodeWithText("espresso").assertExists()
+        composeTestRule.onNodeWithText("6").assertExists()
+        composeTestRule.onNodeWithText("oat milk").assertExists()
+        composeTestRule.onNodeWithText("4").assertExists()
+        composeTestRule.onNodeWithText("office").assertExists()
+        composeTestRule.onNodeWithText("3").assertExists()
+    }
+
+    @Test
+    fun storyTagsSectionKeepsTheGivenBusiestFirstOrder() {
+        setStoryContent(storyData(tags = SAMPLE_TAGS))
+
+        assertTrue(top("espresso") < top("oat milk") && top("oat milk") < top("office"))
+    }
+
+    @Test
+    fun storyOmitsTheTagsSectionWhenThereAreNoTags() {
+        setStoryContent(storyData(tags = emptyList()))
+
+        composeTestRule.onNodeWithText(PlainVoice.shareTopTagsTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun storyOmitsTheTrendsSectionWhenThereAreNoFindings() {
+        setStoryContent(storyData(trends = emptyList()))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
+    }
+
+    @Test
+    fun storyNeverShowsTheRetiredFrequencyOrOldSectionLabels() {
+        setStoryContent()
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsLongestLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsDurationTotalLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsIntensityAverageLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun storyWithEverySectionGrowsAndKeepsAConstantFooterGap() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                ShareCardTemplate(data = realityData(ShareCardFormat.STORY), voice = PlainVoice)
+                // Scrollable so the tall card measures at its full height instead of the screen's remainder.
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    ShareCardTemplate(data = storyHeroOnlyData(), voice = PlainVoice, modifier = Modifier.testTag(STORY_TAG))
+                    ShareCardTemplate(data = fullStoryData(), voice = PlainVoice, modifier = Modifier.testTag(RICH_SQUARE_TAG))
+                }
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.shareRealityEventsLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareRealityDaysObservedLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareSquareObservedDays(60)).assertDoesNotExist()
+        val sparse = composeTestRule.onNodeWithTag(STORY_TAG).getUnclippedBoundsInRoot()
+        val rich = composeTestRule.onNodeWithTag(RICH_SQUARE_TAG).getUnclippedBoundsInRoot()
+        val footers = composeTestRule.onAllNodesWithText(PlainVoice.shareCardFooter(FIXTURE_FOOTER_TIMESTAMP))
+        val sparseGap = sparse.bottom - footers[0].getUnclippedBoundsInRoot().bottom
+        val richGap = rich.bottom - footers[1].getUnclippedBoundsInRoot().bottom
+
+        assertTrue(
+            "Expected the full Story ($rich) taller than the hero-only Story ($sparse)",
+            rich.bottom - rich.top > sparse.bottom - sparse.top,
+        )
+        assertTrue(
+            "Expected a constant footer gap (sparse=$sparseGap, rich=$richGap)",
+            kotlin.math.abs((sparseGap - richGap).value) < BOUNDS_TOLERANCE_DP,
+        )
+    }
+
+    @Test
+    fun storyFullCardStaysAtTheFixedCardWidthAtLargeTextSizes() {
+        composeTestRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalDensity provides Density(density.density, fontScale = 2f)) {
+                ShareCardTemplate(data = fullStoryData(), voice = PlainVoice, modifier = Modifier.testTag(STORY_TAG))
+            }
+        }
+
+        val bounds = composeTestRule.onNodeWithTag(STORY_TAG).getUnclippedBoundsInRoot()
+        assertTrue(
+            "Expected the 360dp card width at large text (got ${bounds.right - bounds.left})",
+            kotlin.math.abs((bounds.right - bounds.left).value - STORY_CARD_WIDTH_DP) < BOUNDS_TOLERANCE_DP,
+        )
+    }
+
+    @Test
+    fun storyKeepsTheFigureAndTheTrendPillApartAtLargeTextSizes() {
+        composeTestRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalDensity provides Density(density.density, fontScale = 2f)) {
+                ShareCardTemplate(data = storyData(rate = SAMPLE_RATE, gaps = SAMPLE_GAPS), voice = PlainVoice)
+            }
+        }
+
+        val figure = composeTestRule.onNodeWithText("2.1/week").getUnclippedBoundsInRoot()
+        val pill = composeTestRule.onNodeWithText(PlainVoice.shareSquareTrendFrom("1.4")).getUnclippedBoundsInRoot()
+
+        assertTrue(
+            "Expected the pill beside or below the figure (figure=$figure, pill=$pill)",
+            figure.right <= pill.left || figure.bottom <= pill.top,
+        )
+    }
+
+    @Test
+    fun storyReadsInPlainVoicesWords() = assertStoryReadsInVoice(PlainVoice, ShareCardSkin.PLAIN)
+
+    @Test
+    fun storyReadsInIntenseVoicesWords() = assertStoryReadsInVoice(IntenseVoice, ShareCardSkin.INTENSE)
+
+    @Test
+    fun storyReadsInBrightVoicesWords() = assertStoryReadsInVoice(BrightVoice, ShareCardSkin.BRIGHT)
+
+    /** Titles and the observed line are uppercased under the Intense skin, hence `ignoreCase`; the pill and quiet label are not. */
+    private fun assertStoryReadsInVoice(
+        voice: Voice,
+        skin: ShareCardSkin,
+    ) {
+        setStoryContent(fullStoryData(), voice, skin)
+
+        composeTestRule.onNodeWithText(voice.shareSquareObservedLine(60, 14), ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText(voice.shareSquareTrendFrom("1.4")).assertExists()
+        composeTestRule.onNodeWithText(voice.shareSquareQuietLabel("14d")).assertExists()
+        composeTestRule.onNodeWithText(voice.shareGapsTitle, ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText(voice.shareDurationTitle, ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText(voice.insightsSectionLabelRhythmStarts, ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText(voice.insightsSectionLabelIntensity, ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText(voice.insightsSectionLabelTrends, ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText(voice.shareTopTagsTitle, ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText("espresso").assertExists()
+    }
+
+    @Test
+    fun squareStillHasNoTagsOrTrendsSectionTitles() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(data = squareData(gaps = SAMPLE_GAPS), voice = PlainVoice)
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.shareTopTagsTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertDoesNotExist()
     }
 
     @Test
@@ -638,7 +928,7 @@ class ShareCardTemplateTest {
 
         composeTestRule.onNodeWithText(voice.shareSquareTrendFrom("1.4")).assertExists()
         composeTestRule.onNodeWithText(voice.shareSquareQuietLabel("14d")).assertExists()
-        composeTestRule.onNodeWithText(voice.shareSquareGapsTitle, ignoreCase = true).assertExists()
+        composeTestRule.onNodeWithText(voice.shareGapsTitle, ignoreCase = true).assertExists()
         composeTestRule.onNodeWithText(voice.shareSquareObservedLine(60, 14), ignoreCase = true).assertExists()
     }
 

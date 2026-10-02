@@ -873,22 +873,24 @@ interface Voice {
     /** Insight Share's top-bar title — structural, identical across all three voices, like [shareLogScreenTitle]. The share button keeps [shareOpenDescription]. */
     val shareInsightScreenTitle: String get() = "Share Insights"
 
-    val shareRealityEventsLabel: String get() = "events"
-    val shareRealityDaysObservedLabel: String get() = "days observed"
-
     /** [timestamp] is the card's own generation date and time — a still-open [com.secondmonday.hodith.domain.TrendFindingKind.WENT_QUIET] finding is only true at the moment the card is made, and dating the whole card (not just that one finding) is the honest reading for every snapshot section on it. */
     fun shareCardFooter(timestamp: String): String = "counted with HODITH app · $timestamp"
 
     /** Intense skin's rotated corner stamp — structural, like [shareLogCardKicker]; never rendered under Plain/Bright. */
     val shareIntenseStampLabel: String get() = "Case File"
 
-    // ---- Square share preset (spec §13): the labels below are structural, identical across all three voices ----
+    // ---- Insight share card panels and hero (spec §13): the labels below are structural, identical across all three voices ----
     val shareStatMinLabel: String get() = "Min"
     val shareStatAvgLabel: String get() = "Avg"
     val shareStatMaxLabel: String get() = "Max"
-    val shareSquareGapsTitle: String get() = "Gaps"
+
+    /** Gaps and Length titles — the card's panel headings and the Story picker's row labels alike. */
+    val shareGapsTitle: String get() = "Gaps"
     val shareSquareGapsNeedMoreEvents: String get() = "2+ events needed."
-    val shareSquareDurationTitle: String get() = "Length"
+    val shareDurationTitle: String get() = "Length"
+
+    /** The Story card's Tags section and its picker row: the card lists only the busiest few, so the title says so. */
+    val shareTopTagsTitle: String get() = "Top tags"
 
     /** The headline rate's unit, drawn small after the number; [shareRateBelowOneMarker] stands in for the number under one a month. */
     val shareRatePerDayUnit: String get() = "/day"
@@ -919,16 +921,6 @@ interface Voice {
 
     /** The Gaps panel's top-right label while the went-quiet signal is live; [gap] is the compact day count, e.g. "14d". */
     fun shareSquareQuietLabel(gap: String): String
-
-    /** Frequency section's share-card title, e.g. "Frequency by week" — reuses the granularity chip labels. */
-    fun shareFrequencyTitle(granularity: FrequencyGranularity): String =
-        "Frequency by ${
-            when (granularity) {
-                FrequencyGranularity.DAY -> insightsFrequencyGranularityDay
-                FrequencyGranularity.WEEK -> insightsFrequencyGranularityWeek
-                FrequencyGranularity.MONTH -> insightsFrequencyGranularityMonth
-            }.lowercase()
-        }"
 
     /** Share preview screen's format toggle — structural, identical across all three voices. */
     val shareFormatStoryLabel: String get() = "Story"

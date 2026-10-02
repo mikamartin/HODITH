@@ -69,7 +69,7 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Schema version bumped without a matching Room `Migration`? (`SchemaMigrationCoverageTest` should fail rather than falling back to a destructive migration.)
 - [ ] Export/import (JSON) shape and referential-integrity validation still mirror the current schema?
 - [ ] FK cascade-delete relationships (Case → Event/Watch) still correct after schema changes?
-- [ ] Share card still excludes notes and tags (§13) — no new field reaches it without deliberately updating that exclusion?
+- [ ] Share card still excludes notes, and shows tags only as Story's opt-in Top tags section (§13) — no new field reaches it without deliberately updating that rule?
 
 ### Background Work, Widgets & Notifications
 - [ ] Watch/check-in evaluation still debounced and idempotent on repeated runs (a logging burst, the ~6h WorkManager pass)?

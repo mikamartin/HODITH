@@ -9,6 +9,8 @@ import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.domain.HeroRate
 import com.secondmonday.hodith.domain.LOG_SHARE_CARD_ENTRY_CAP
+import com.secondmonday.hodith.domain.SHARE_CARD_TOP_TAG_COUNT
+import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.filterAndSortEvents
@@ -22,30 +24,27 @@ enum class ShareCardFormat {
     SQUARE,
 }
 
-/** Spec §13's checklist-driven Insights section picker — mirrors [StatsSections]' six optional sections. */
+/**
+ * Spec §13's checklist-driven Story section picker. Declaration order is the order the picker rows
+ * and the card's sections both follow, after the always-present hero beat.
+ */
 enum class ShareInsightsSection {
-    FREQUENCY,
-    RHYTHM,
     GAPS,
-    TRENDS,
     DURATION,
+    RHYTHM,
     INTENSITY,
+    TRENDS,
+    TAGS,
 }
 
 /**
- * The share card's top beat: the plain event-count/observation-length summary — spec §13's
- * product-owner call to always have at least one beat rather than risk an empty card.
+ * The share card's top beat — spec §13's product-owner call to always have at least one beat
+ * rather than risk an empty card.
  */
 sealed interface ShareTopBeat {
-    data class Reality(
-        val eventCount: Int,
-        val observedDays: Long,
-    ) : ShareTopBeat
-
     /**
-     * The Square preset's headline: the observed span and event count, plus the Case's [rate]
-     * (`null` until there are enough events and days to state one). Format-independent, so
-     * Story can adopt it in place of [Reality] without rework.
+     * The headline both formats open with: the observed span and event count, plus the Case's
+     * [rate] (`null` until there are enough events and days to state one).
      */
     data class Summary(
         val eventCount: Int,
@@ -79,13 +78,14 @@ sealed interface ShareCardData {
         override val caseName: String,
         override val generatedAtMillis: Long,
         val topBeat: ShareTopBeat,
-        val frequency: FrequencyDisplay?,
         val rhythm: RhythmDisplay?,
         val gaps: GapsDisplay?,
         val trends: List<TrendFinding>,
         val duration: DurationDisplay?,
         val intensity: IntensityDisplay?,
-        /** Days the Case has been quiet while the went-quiet signal is live; only the Square preset shows it. */
+        /** The Case's busiest tags, at most [SHARE_CARD_TOP_TAG_COUNT]; only Story's Tags section fills it. */
+        val tags: List<TagBreakdownEntry> = emptyList(),
+        /** Days the Case has been quiet while the went-quiet signal is live; shown on the Gaps panel when that panel is on the card. */
         val quietForDays: Long? = null,
     ) : ShareCardData
 
@@ -116,9 +116,9 @@ sealed interface ShareCardData {
  * to show the true count.
  *
  * [ShareCardFormat.STORY] keeps the user's choice: a section is only included when both the caller
- * selected it (spec §13: notes/tags never offered; Duration/Intensity only offered when the Case
- * tracks them) and it's actually present in [insightsState] — sections absent from the Case's config are
- * already `null` in [StatsSections]. [ShareCardFormat.SQUARE] is a preset the user never configures:
+ * selected it and it's actually present in [insightsState] (see [availableShareSections]) —
+ * sections absent from the Case's config are already `null` in [StatsSections]. Both formats open
+ * with the same [ShareTopBeat.Summary] hero. [ShareCardFormat.SQUARE] is a preset the user never configures:
  * [selectedSections] is ignored and the content follows the Case's own settings (see [squareInsights]).
  */
 internal fun shareCardState(
@@ -139,6 +139,45 @@ internal fun shareCardState(
     }
 }
 
+/**
+ * Story's findings for the Trends section: the went-quiet finding is left out because the hero's
+ * and the Gaps panel's quiet signal already carry it (it rides on [ShareCardData.Insights.quietForDays]),
+ * then the list is capped the way the Insights tab's own Trends card caps it.
+ */
+internal fun storyTrendFindings(stats: StatsSections): List<TrendFinding> =
+    trendsVisibleFindings(stats.trends.filterNot { it.kind == TrendFindingKind.WENT_QUIET })
+
+/**
+ * The Story picker's rows for [stats], in card order — only sections the Case has something to
+ * show for: Duration and Intensity are absent from [stats] unless the Case tracks them and logged
+ * data for them, Trends needs at least one finding [storyTrendFindings] would keep, and Tags needs
+ * at least one tagged event. Nothing is offered before the first event (`null` [stats]).
+ */
+internal fun availableShareSections(stats: StatsSections?): List<ShareInsightsSection> {
+    if (stats == null) return emptyList()
+
+    return ShareInsightsSection.entries.filter { section ->
+        when (section) {
+            ShareInsightsSection.GAPS, ShareInsightsSection.RHYTHM -> true
+            ShareInsightsSection.DURATION -> stats.duration != null
+            ShareInsightsSection.INTENSITY -> stats.intensity != null
+            ShareInsightsSection.TRENDS -> storyTrendFindings(stats).isNotEmpty()
+            ShareInsightsSection.TAGS -> stats.tags.isNotEmpty()
+        }
+    }
+}
+
+/** Days the Case has been quiet while the went-quiet signal is live — the finding's current gap — else `null`. */
+private fun StatsSections.quietForDays(): Long? =
+    trends
+        .firstOrNull { it.kind == TrendFindingKind.WENT_QUIET }
+        ?.recentValue
+        ?.toLong()
+
+/**
+ * The hero, then whichever of [selectedSections] the Case has data for. The went-quiet pill shows
+ * on the Gaps panel only when the user picked Gaps, so an unpicked section never leaks onto the card.
+ */
 private fun storyInsights(
     case: CaseEntity,
     displayName: String,
@@ -147,24 +186,33 @@ private fun storyInsights(
     observedDays: Long,
     selectedSections: Set<ShareInsightsSection>,
     generatedAtMillis: Long,
-) = ShareCardData.Insights(
-    format = ShareCardFormat.STORY,
-    caseIcon = case.icon,
-    caseName = displayName,
-    topBeat = ShareTopBeat.Reality(eventCount = eventCount, observedDays = observedDays),
-    frequency = stats?.frequency?.takeIf { ShareInsightsSection.FREQUENCY in selectedSections },
-    rhythm = stats?.rhythm?.takeIf { ShareInsightsSection.RHYTHM in selectedSections },
-    gaps = stats?.gaps?.takeIf { ShareInsightsSection.GAPS in selectedSections },
-    trends =
-        stats
-            ?.trends
-            ?.takeIf { ShareInsightsSection.TRENDS in selectedSections }
-            ?.let { trendsVisibleFindings(it) }
-            ?: emptyList(),
-    duration = stats?.duration?.takeIf { ShareInsightsSection.DURATION in selectedSections },
-    intensity = stats?.intensity?.takeIf { ShareInsightsSection.INTENSITY in selectedSections },
-    generatedAtMillis = generatedAtMillis,
-)
+): ShareCardData.Insights {
+    val gaps = stats?.gaps?.takeIf { ShareInsightsSection.GAPS in selectedSections }
+
+    return ShareCardData.Insights(
+        format = ShareCardFormat.STORY,
+        caseIcon = case.icon,
+        caseName = displayName,
+        topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = observedDays, rate = stats?.heroRate),
+        rhythm = stats?.rhythm?.takeIf { ShareInsightsSection.RHYTHM in selectedSections },
+        gaps = gaps,
+        trends =
+            stats
+                ?.takeIf { ShareInsightsSection.TRENDS in selectedSections }
+                ?.let { storyTrendFindings(it) }
+                ?: emptyList(),
+        duration = stats?.duration?.takeIf { ShareInsightsSection.DURATION in selectedSections },
+        intensity = stats?.intensity?.takeIf { ShareInsightsSection.INTENSITY in selectedSections },
+        tags =
+            stats
+                ?.tags
+                ?.takeIf { ShareInsightsSection.TAGS in selectedSections }
+                ?.take(SHARE_CARD_TOP_TAG_COUNT)
+                ?: emptyList(),
+        quietForDays = if (gaps != null) stats.quietForDays() else null,
+        generatedAtMillis = generatedAtMillis,
+    )
+}
 
 /**
  * The fixed Square preset, top to bottom: the [ShareTopBeat.Summary] headline, then Gaps always,
@@ -189,18 +237,12 @@ private fun squareInsights(
         caseIcon = case.icon,
         caseName = displayName,
         topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = observedDays, rate = stats?.heroRate),
-        frequency = null,
         rhythm = stats?.rhythm?.takeIf { tracksNeither },
         gaps = stats?.gaps,
         trends = emptyList(),
         duration = stats?.duration,
         intensity = stats?.intensity,
-        quietForDays =
-            stats
-                ?.trends
-                ?.firstOrNull { it.kind == TrendFindingKind.WENT_QUIET }
-                ?.recentValue
-                ?.toLong(),
+        quietForDays = stats?.quietForDays(),
         generatedAtMillis = generatedAtMillis,
     )
 }

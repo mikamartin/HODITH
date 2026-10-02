@@ -20,48 +20,20 @@ Each item carries:
 
 ## Story B — copy & Voice
 
-Three items, plus the tail of nearly everything else. Anything that adds or changes a Voice key must land before B3.
-
-### B2 · Share card summary beat
-
-*Branch: `feat/share-card-summary-beat` · Complexity: M · Priority: Medium · Area: Share*
-
-🎨 **Design decision** — how the summary beat reads at the top of a Story card and what surrounds it. Touches Voice copy, so before B3.
-
-The plain Reality beat (event count + days observed) is now Story's only top beat, since `chore/remove-hunch` retired the old Hunch vs. Reality punchline — "I checked: it does NOT always rain on my day off" — and a Case can carry several Notifications, so no single Notification's comparison can stand in for it.
-
-Square already has a summary beat: `ShareTopBeat.Summary`, a hero with the observed span and event count, the last-30-day rate (overall rate under 56 days of history) and a trend pill, with its own composable and Voice keys, derived from format-independent stats. This item puts the same beat on Story in place of Reality and settles how Story's free-form sections sit around it.
-
-**Open design questions**
-
-- Overlap with Story's optional sections: the hero's rate and trend pill partly restate Frequency, and its quiet pill restates the went-quiet Trends finding. Decide whether those sections stay as-is, hide when the hero already says it, or shift emphasis.
-- Layout in Story's content-sized column: hero width and wrapping at the 360 dp card width, large-text behavior, and spacing to the first picked section.
-- Whether Story shows the Gaps panel's `Quiet for` pill when the user has not picked Gaps.
-- Story with no sections picked: confirm the hero alone is a sensible card.
-
-**Acceptance criteria**
-
-- [ ] A cheap mockup of Story with the Square hero in all three voices, validated before building.
-- [ ] Story's top beat is the Square hero beat in all three theme templates; Reality is removed and `ShareTopBeat.Reality` plus its Voice keys (`shareRealityEventsLabel`, `shareRealityDaysObservedLabel`) retired if nothing else uses them.
-- [ ] Overlap questions above resolved and documented in HODITH_SPEC.md §13.
-- [ ] Square's 1:1 floor, its fixed preset and Square output unchanged by this item.
-- [ ] Voice ×3 for any new copy, impersonal (no "I"/"you" — the viewer isn't the user).
-
-**Plan** — mock up Story with the hero first. Then swap the beat in `shareCardState()` (so both formats use the same top beat) and `ShareCardTemplate.kt`, and apply whatever the overlap decisions require to the section picker's defaults and rendering.
-
-**Tests** — `ShareCardStateTest.kt` (Story top beat per data volume and Case settings, edge cases: one event, no events, under 56 days, went quiet), `ShareCardTemplateTest.kt` (Story fits, no clipping, large text), `SharePreviewScreenTest.kt` if the preview gains or loses a control, and removal of Reality-specific assertions.
+Two items, plus the tail of nearly everything else. Anything that adds or changes a Voice key must land before B3.
 
 ### B3 · Review phrasing across all three Voice implementations
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item (currently B2).
+🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item.
 
 Fold these already-drafted key changes into the audit:
 
 - `feat/declutter-nudges` — reworded Serious `checkInDueNotificationBody`; renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle`.
 - `feat/insights-from-first-event` — added `insightsNothingLoggedMessage`, `insightsSingleEventNote` (replacing `insightsNotEnoughDataMessage`).
 - `feat/square-share-card-preset` — added the Square share keys (`shareSquare*`, `shareStat*Label`, `shareRate*`), the structural `shareInsightScreenTitle`, and renamed `shareCardFooter`'s parameter to `timestamp` (the footer now carries date and time).
+- `feat/share-card-summary-beat` — retired `shareRealityEventsLabel` and `shareRealityDaysObservedLabel`; renamed `shareSquareGapsTitle` and `shareSquareDurationTitle` to `shareGapsTitle` and `shareDurationTitle`; added the structural `shareTopTagsTitle`.
 - `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
 
 **Acceptance criteria**
