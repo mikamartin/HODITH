@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.data.EventEntity
+
 /** The period a [HeroRate] is expressed per; [days] is its length in whole days. */
 enum class RateUnit(
     val days: Int,
@@ -89,4 +91,18 @@ internal fun computeHeroRate(
                 HeroRateComparison(direction = it.direction, priorValue = ratePer(unit, it.priorCount, TREND_WINDOW_DAYS))
             },
     )
+}
+
+/**
+ * [computeHeroRate] for a Case's whole history, with the same trend basis Insights uses: the trend
+ * comparison is skipped below [INSIGHTS_MIN_EVENTS], the gate Insights' own stats apply. [spanDays]
+ * is the caller's already-computed [observationSpanDays], so it is not resolved twice.
+ */
+internal fun caseHeroRate(
+    events: List<EventEntity>,
+    spanDays: Long,
+    now: Long,
+): HeroRate? {
+    val trendStats = if (events.size < INSIGHTS_MIN_EVENTS) null else computeTrendStats(events, now, spanDays)
+    return computeHeroRate(events.size, spanDays, trendStats)
 }

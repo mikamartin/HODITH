@@ -17,6 +17,32 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/history-rename-average
+
+**Scope:** PROGRESS.md's "History: rename the Log tab, add a top-line average" item, plus every user-facing "Log" noun for the record (share chooser, Log Share screen, Delete Data copy, Log detail).
+
+**Found & fixed:**
+- Case Detail's History summary line now leads with the Insights hero rate (`2.1/week`, `<1/month`) when the Case has enough data, via a new `caseHeroRate` in `domain/HeroRate.kt`. It reuses `computeHeroRate` and skips the trend comparison below `INSIGHTS_MIN_EVENTS`, as Insights does. The figure and unit formatting moved to internal `figureText`/`unitText` in `ShareCardTemplate.kt`, shared by the share card and the summary line.
+- `Voice.logSummaryLine` takes the preformatted rate (or `null`) as its first argument. Plain, Intense and Bright each prepend it with the existing line unchanged.
+- Renamed to "History" across all voices: the tab label, the share chooser option, "History Share", "Share history", "The history", "History detail", and the Delete Data "History only" / "Delete history" copy. Verbs such as "Log an event" stay.
+- Two stale comments updated: `ShareChooserDialog`'s tag-collision note and the `Voice` KDoc for the tab's Edit icon.
+- The ktlint failure on the new function signature in `ShareCardTemplate.kt` was fixed before the final run.
+- The `figureText + unitText` pairing had been written out inline in the History summary call. It's now `HeroRate.rateText(voice)` in `ShareCardTemplate.kt`, used by the History summary; the share card keeps calling the two pieces separately because it styles them apart.
+
+**Considered and declined:**
+- Reusing `caseHeroRate` inside Insights too. Insights already computes the trend stats for its Trends card, so the History path computes its own rate instead of threading the shared value through.
+- A trend pill on the History summary line. It would lengthen a line that already carries the rate, the count and the span.
+- Checklist items with nothing to act on in this diff: no new colours, icons or Voice keys (accessibility and theme items); no data model, widget or notification changes; no new `System.currentTimeMillis` or `android.*` use in domain code; no new deprecations; no self-updating counts added to TESTING.md.
+
+**Deferred:**
+- A Compose test for the summary line. The rate logic is covered by `HeroRateTest` and the wording by `VoiceTest`. The call site in `CaseDetailScreen` is not covered by any test, which is accepted for now. Revisit if the summary grows logic of its own.
+
+**Docs updated:** PROGRESS.md item struck, and the Delete Data "History only" bullet removed. SPEC §6 and §13 names, the summary-line description in §6, and the chooser option in §13. TESTING.md's Log Share preview row renamed.
+
+**Verified:** `ktlintCheck`, `lintDebug` ("No issues found."), `test` (1060 unit tests, 0 failures), `assembleDebug`, all green, run sequentially. A later rename-only helper extraction was re-checked with `ktlintCheck`, `test` (1060 unit tests) and `assembleDebug`; `lintDebug` was not re-run after it. Not run: instrumented tests and any on-device check.
+
+---
+
 ## fix/segmented-choice-row-modifier-default
 
 **Scope:** PROGRESS.md's "SegmentedChoiceRow's `modifier` parameter defaults to more than `Modifier`" item, the `ModifierParameter` lint warning deferred from the fix/log-share-controls pass.
@@ -114,31 +140,5 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** SPEC §13 and the Share preview row; TESTING (share card assembly, Share preview); README and CLEANUP_CHECKLIST (tags rule); PROGRESS (B2 struck, B3's key list extended).
 
 **Verified:** `ktlintCheck`, `lintDebug`, `test` and `assembleDebug` run sequentially, all green; `compileDebugAndroidTestKotlin` clean. Not run: the instrumented share tests (`ShareCardTemplateTest`, `SharePreviewScreenTest`) need a device.
-
----
-
-## feat/square-share-card-preset
-
-**Scope:** PROGRESS.md's B1. Square share cards become a fixed preset built from the Case's own settings and how much data exists, with no section picker (Story keeps its picker). The design was settled in a three-voice prototype first (hero with a last-30-day rate and trend pill, Gaps, then Duration/Intensity or Rhythm by Case settings, footer with date and time). Judgment calls made along the way: the shared `formatIntensity` now drops a trailing `.0` (so the Insights tab changes too, rather than a share-only formatter); the hero is built as its own `ShareTopBeat.Summary` so B2 can place it on Story without rework; the quiet label reads the existing went-quiet Trends finding instead of adding a second quiet detector.
-
-**Found & fixed:**
-- New domain pieces: `GapStats.shortestGapDays`, `DurationStats.shortestMinutes`, and `HeroRate.kt` (rate unit selection by exact integer comparison, 5-event/14-day eligibility reusing the verdict's preliminary constants, the 30-vs-30 basis). Pure Kotlin, no `android.*` imports (checked by grep), counts passed in rather than a clock read.
-- The `/day` `/week` `/month` unit and the `<1` marker are structural Voice keys; the event noun, trend pill and quiet wording are voiced. All new keys landed in the interface and all three voices.
-- The intensity distribution squares lived inline in `MiniIntensitySection`; extracted to `IntensityDistributionRow` and shared with the Square panel. `PanelHeaderRow` removed the title-plus-note row repeated in two panels.
-- Existing `ShareCardStateTest` cases that exercised the section picker through `SQUARE` were moved to `STORY`, which is where selection now applies; two instrumented Trends tests now expect `2` and `4` where `formatIntensity` used to print `2.0` and `4.0`. Several `ShareCardTemplateTest` cases that built Square from Story's sections now use a Square fixture, and Trends tests moved to Story.
-- Insight Share's screen title now reads "Share Insights" through a new structural `shareInsightScreenTitle` (the top bar had borrowed the share button's label, `shareOpenDescription`); the Square tab is listed first and is the default format.
-- A second walk of the checklist against the full branch diff, after the coverage commit: the Square summary-beat constants had been inserted between the two `MINI_FREQUENCY_*` constants in `ShareCardTemplate.kt`; moved the pair back together. Nothing else found: no `android.*` imports or `currentTimeMillis` in `domain/`, no inline strings, no remaining mockup references, no new deprecation warnings, and the log holds exactly 5 entries.
-- `docs/mockups/share-cards-prototype.html` and its `ShareCardDecoration.kt` KDoc pointer removed (the item's last live reference). The prototype artifact itself lives outside the repo.
-
-**Deferred:** nothing deferred.
-
-**Considered and declined:**
-- The trend pill's direction is a drawn triangle plus the prior rate, with no spoken up/down/same description. The card is shared as an image, and in-app the figure beside it states the prior value; spoken direction would need three more Voice keys per voice for no sighted-user gain.
-- The triangle geometry fractions in `TrendTriangle` stay inline; they are drawing constants for one shape, not product constants.
-- `previewData` still takes a format although every caller now passes Story; left as is since it mirrors `previewSquareData`'s role for the other format.
-
-**Docs updated:** SPEC §13 and the §14 Share preview row; TESTING (stats, time formatting, Voice, share assembly, share preview rows); PROGRESS (B1 struck, B2/B3 reworded for what shipped).
-
-**Verified:** `ktlintCheck`, `lintDebug`, `test` (1009 unit tests), `assembleDebug` run sequentially, all green; `compileDebugAndroidTestKotlin` clean. Not run: the instrumented share tests (`ShareCardTemplateTest`, `SharePreviewScreenTest`, `InsightsTabTrendsCardTest`) need a device, and the light/dark visual pass of the three Square cards is the human's.
 
 ---

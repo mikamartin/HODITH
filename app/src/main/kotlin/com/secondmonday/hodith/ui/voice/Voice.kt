@@ -119,8 +119,12 @@ interface Voice {
     val archivedCasesEmptyState: String
     val eventListEmptyState: String
 
-    /** Log tab's summary line above the event list: total events logged and the Case's observation span so far. */
+    /**
+     * History tab's summary line above the event list: the headline rate (already formatted with its unit, or `null`
+     * below the rate's own minimum), the total events logged, and the Case's observation span so far.
+     */
     fun logSummaryLine(
+        rate: String?,
         eventCount: Int,
         observedDays: Long,
     ): String
@@ -266,7 +270,7 @@ interface Voice {
     /** Metric picker — shown only for a duration-tracking Case; one line, no jargon. */
     val metricOccurrenceLabel: String
     val metricDaysActiveLabel: String
-    val caseDetailLogTabLabel: String get() = "Log"
+    val caseDetailLogTabLabel: String get() = "History"
     val caseDetailInsightsTabLabel: String get() = "Insights"
 
     /**
@@ -279,7 +283,7 @@ interface Voice {
     val logSortByStartLabel: String get() = "Started"
     val logSortByEndLabel: String get() = "Ended"
 
-    /** Log tab's pinned Edit icon (spec §6) — same role as [bigPictureDetailEditDescription], persona-styled to match. Opens [logDetailDialogTitle]'s dialog of Notes/Tags/Duration/Intensity toggles. */
+    /** History tab's pinned Edit icon (spec §6) — same role as [bigPictureDetailEditDescription], persona-styled to match. Opens [logDetailDialogTitle]'s dialog of Notes/Tags/Duration/Intensity toggles. */
     val logDetailEditDescription: String
     val logDetailDialogTitle: String
 
@@ -951,7 +955,7 @@ interface Voice {
 
     /** The entry-point chooser's two options — structural, identical across all three voices, like [shareFormatStoryLabel]. The dialog's own title already says "Share" ([shareOpenDescription]), so these stay short rather than repeating it. */
     val shareChooserInsightOption: String get() = "Insight"
-    val shareChooserLogOption: String get() = "Log"
+    val shareChooserLogOption: String get() = "History"
     val shareChooserCancelAction: String get() = "Cancel"
 
     /** One-line descriptions under each chooser option — the one place this dialog's copy actually carries tone. */
@@ -959,7 +963,7 @@ interface Voice {
     val shareChooserLogDescription: String
 
     /** The Log Share preview screen's own TopAppBar title — distinct from [shareChooserLogOption] (the chooser's short option label) now that the two no longer share a string. */
-    val shareLogScreenTitle: String get() = "Log Share"
+    val shareLogScreenTitle: String get() = "History Share"
 
     /** Log Share's primary button — distinct from [shareLogScreenTitle] (the screen's title), unlike Insight Share where [shareOpenDescription] serves both roles. */
     val shareLogButtonLabel: String
@@ -985,7 +989,7 @@ interface Voice {
     val shareLogRangeAllTimeLabel: String get() = "All time"
 
     /**
-     * The single combined Range control (Log tab's filter chip, Log Share's own trigger) that
+     * The single combined Range control (History tab's filter chip, History Share's own trigger) that
      * replaced separate From/To controls — [shareLogRangeLabel] is its label, and
      * [shareLogRangeSelectedLabel] is the compact chip's collapsed value once a range is set (the
      * actual bounds render separately via [shareLogRangeNote], since a formatted date pair didn't
@@ -1098,9 +1102,10 @@ object PlainVoice : Voice {
     override val eventListEmptyState = "No events logged yet."
 
     override fun logSummaryLine(
+        rate: String?,
         eventCount: Int,
         observedDays: Long,
-    ) = "$eventCount events logged · observed for $observedDays days"
+    ) = listOfNotNull(rate, "$eventCount events logged · observed for $observedDays days").joinToString(" · ")
 
     override val logShowMoreAction = "Show more events"
 
@@ -1162,8 +1167,8 @@ object PlainVoice : Voice {
     override val settingsDeleteDataButton = "Delete data"
     override val settingsDeleteDataOptionsTitle = "What to delete"
     override val settingsDeleteDataOptionAll = "All data"
-    override val settingsDeleteDataOptionLogsOnly = "Logs only"
-    override val settingsDeleteDataDateLabel = "Delete logs before"
+    override val settingsDeleteDataOptionLogsOnly = "History only"
+    override val settingsDeleteDataDateLabel = "Delete history before"
     override val settingsDeleteDataOptionsNextAction = "Continue"
     override val settingsDeleteDataOptionsCancelAction = "Cancel"
     override val settingsDeleteAllDataConfirmTitle = "Delete all data?"
@@ -1171,12 +1176,12 @@ object PlainVoice : Voice {
         "Every case and event will be permanently deleted. This can't be undone."
     override val settingsDeleteAllDataConfirmAction = "Delete everything"
     override val settingsDeleteAllDataCancelAction = "Cancel"
-    override val settingsDeleteDataLogsConfirmTitle = "Delete these logs?"
+    override val settingsDeleteDataLogsConfirmTitle = "Delete this history?"
 
     override fun settingsDeleteDataLogsConfirmBody(dateLabel: String) =
         "Every event logged before $dateLabel will be permanently deleted. This can't be undone."
 
-    override val settingsDeleteDataLogsConfirmAction = "Delete logs"
+    override val settingsDeleteDataLogsConfirmAction = "Delete history"
     override val settingsExportButton = "Export data"
     override val settingsExportFormatDialogTitle = "Choose a format"
     override val settingsExportFormatJsonOption = "JSON backup"
@@ -1677,8 +1682,8 @@ object PlainVoice : Voice {
 
     override val shareChooserInsightDescription = "A visual summary of your stats."
     override val shareChooserLogDescription = "The actual entries, as logged."
-    override val shareLogButtonLabel = "Share log"
-    override val shareLogCardKicker = "The log"
+    override val shareLogButtonLabel = "Share history"
+    override val shareLogCardKicker = "The history"
 
     override fun shareLogTruncationNote(
         shown: Int,
@@ -1687,8 +1692,8 @@ object PlainVoice : Voice {
 
     override val shareLogEmptyRangeMessage = "No entries in this range."
 
-    override val logDetailEditDescription = "Edit which detail the log shows"
-    override val logDetailDialogTitle = "Log detail"
+    override val logDetailEditDescription = "Edit which detail the history shows"
+    override val logDetailDialogTitle = "History detail"
 }
 
 object IntenseVoice : Voice {
@@ -1754,9 +1759,10 @@ object IntenseVoice : Voice {
     override val eventListEmptyState = "No evidence gathered yet."
 
     override fun logSummaryLine(
+        rate: String?,
         eventCount: Int,
         observedDays: Long,
-    ) = "$eventCount marks in the record — $observedDays days under watch"
+    ) = listOfNotNull(rate, "$eventCount marks in the record — $observedDays days under watch").joinToString(" · ")
 
     override val logShowMoreAction = "Exhume more of the record"
 
@@ -2399,9 +2405,10 @@ object BrightVoice : Voice {
     override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
 
     override fun logSummaryLine(
+        rate: String?,
         eventCount: Int,
         observedDays: Long,
-    ) = "$eventCount logs so far, tracked for $observedDays days!"
+    ) = listOfNotNull(rate, "$eventCount logs so far, tracked for $observedDays days!").joinToString(" · ")
 
     override val logShowMoreAction = "Show me more!"
 
@@ -2463,17 +2470,17 @@ object BrightVoice : Voice {
     override val settingsDeleteDataButton = "Nuke data"
     override val settingsDeleteDataOptionsTitle = "What's getting nuked?"
     override val settingsDeleteDataOptionAll = "Everything"
-    override val settingsDeleteDataOptionLogsOnly = "Old logs only"
-    override val settingsDeleteDataDateLabel = "Nuke logs before"
+    override val settingsDeleteDataOptionLogsOnly = "Old history only"
+    override val settingsDeleteDataDateLabel = "Nuke history before"
     override val settingsDeleteDataOptionsNextAction = "Let's go"
     override val settingsDeleteDataOptionsCancelAction = "Nah, never mind"
     override val settingsDeleteAllDataConfirmTitle = "Nuke everything?"
     override val settingsDeleteAllDataConfirmBody = "Every case and event goes poof — for real, no take-backs."
     override val settingsDeleteAllDataConfirmAction = "Yeet it all"
     override val settingsDeleteAllDataCancelAction = "Nah, never mind"
-    override val settingsDeleteDataLogsConfirmTitle = "Nuke these logs?"
+    override val settingsDeleteDataLogsConfirmTitle = "Nuke this history?"
 
-    override fun settingsDeleteDataLogsConfirmBody(dateLabel: String) = "Every log before $dateLabel goes poof — for real, no take-backs."
+    override fun settingsDeleteDataLogsConfirmBody(dateLabel: String) = "Every entry before $dateLabel goes poof — for real, no take-backs."
 
     override val settingsDeleteDataLogsConfirmAction = "Yeet 'em"
     override val settingsExportButton = "Save a backup!"
@@ -2966,7 +2973,7 @@ object BrightVoice : Voice {
 
     override val shareChooserInsightDescription = "Your stats, made pretty!"
     override val shareChooserLogDescription = "Every entry, just as you logged it!"
-    override val shareLogButtonLabel = "Share the log!"
+    override val shareLogButtonLabel = "Share the history!"
     override val shareLogCardKicker = "Every entry!"
 
     override fun shareLogTruncationNote(
@@ -2976,8 +2983,8 @@ object BrightVoice : Voice {
 
     override val shareLogEmptyRangeMessage = "Nothing logged in this range yet!"
 
-    override val logDetailEditDescription = "Pick what each log entry shows!"
-    override val logDetailDialogTitle = "Log detail!"
+    override val logDetailEditDescription = "Pick what each history entry shows!"
+    override val logDetailDialogTitle = "History detail!"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }

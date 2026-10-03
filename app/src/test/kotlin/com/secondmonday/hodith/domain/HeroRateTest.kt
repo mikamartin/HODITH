@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.testsupport.eventAtDay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -160,5 +161,26 @@ class HeroRateTest {
         assertTrue(result.belowOnePerMonth)
         assertEquals(TrendDirection.DOWN, result.comparison!!.direction)
         assertEquals(1.0, result.comparison.priorValue, 0.0001)
+    }
+
+    // ---- caseHeroRate ----
+
+    @Test
+    fun `caseHeroRate is null below the minimum event count`() {
+        val events = (0L until HERO_RATE_MIN_EVENTS - 1).map { eventAtDay(it) }
+
+        assertNull(caseHeroRate(events, spanDays = 400, now = 0L))
+    }
+
+    @Test
+    fun `caseHeroRate on a short span is the overall rate with no comparison`() {
+        // Five events over 20 days is 1.75 a week; a span this short has no trend window to compare.
+        val events = (0L until 5L).map { eventAtDay(it) }
+
+        val result = caseHeroRate(events, spanDays = 20, now = 0L)!!
+
+        assertEquals(RateUnit.WEEK, result.unit)
+        assertEquals(1.75, result.value, 0.0001)
+        assertNull(result.comparison)
     }
 }

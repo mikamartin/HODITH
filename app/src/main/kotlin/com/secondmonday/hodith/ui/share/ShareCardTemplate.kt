@@ -399,9 +399,13 @@ private fun SummaryBeat(
     }
 }
 
-private fun HeroRate.figureText(voice: Voice): String = if (belowOnePerMonth) voice.shareRateBelowOneMarker else formatCompactDecimal(value)
+internal fun HeroRate.figureText(voice: Voice): String =
+    if (belowOnePerMonth) voice.shareRateBelowOneMarker else formatCompactDecimal(value)
 
-private fun HeroRate.unitText(voice: Voice): String =
+/** The figure and unit as one string, e.g. "2.1/week" — for surfaces that show the rate inline rather than as two styled pieces. */
+internal fun HeroRate.rateText(voice: Voice): String = figureText(voice) + unitText(voice)
+
+internal fun HeroRate.unitText(voice: Voice): String =
     when (unit) {
         RateUnit.DAY -> voice.shareRatePerDayUnit
         RateUnit.WEEK -> voice.shareRatePerWeekUnit
