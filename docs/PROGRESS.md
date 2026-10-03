@@ -53,27 +53,6 @@ No tag-management UI, rename, or merge operation exists anywhere today. Tags are
 
 **Tests** — none until the brainstorm and design are done.
 
-### Log Share: drop the format toggle and add Name on card
-
-*Branch: `fix/log-share-controls` · Complexity: S · Priority: Medium · Area: Bug*
-
-Log Share drifted from Insight Share. Two fixes bring them in line:
-
-- **Log Share has a Story/Square toggle it should not have.** Format belongs to Insight Share, where Square is a fixed stats preset and Story is the customizable one. Log Share's card is a capped list of entries, so a Square choice only adds a 1:1 height floor under a list that already sizes to its rows. The toggle (`SegmentedChoiceRow` in `LogSharePreviewScreen.kt`, `LogShareSelection.format`, `LogShareViewModel.setFormat`, the `onFormatSelect` parameter) goes, and the Newest first / Oldest first control takes its place in the layout.
-- **Log Share cannot rename the card.** Insight Share has a "Name on card" field (real names can be personal, spec §13); Log Share shows the Case's own name with no way to change it, even though its rows are the most personal data the app shares.
-
-**Acceptance criteria**
-
-- [ ] The Story/Square toggle no longer renders on Log Share, and the `format` choice is gone from `LogShareSelection`, `LogShareViewModel` and the screen's callbacks.
-- [ ] The Log card always renders in its content-sized shape (Story's), with no Square floor; `logShareCardState` and `ShareCardData.Log` carry that single shape.
-- [ ] Log Share's controls read, top to bottom: the name field (the same `shareNameFieldLabel` field Insight Share uses, with the Case's own name as the placeholder), date range, fields, then Newest first / Oldest first where the toggle was, then the card preview. The override lives in `LogShareSelection` and reaches `logShareCardState`'s `displayName`, never mutating the Case.
-- [ ] The `LOG_SHARE_CARD_ENTRY_CAP` and `logShareCardState` KDoc stop describing Square's floor as a reason for the cap, and HODITH_SPEC.md §13 is reworded to match: the Log Share paragraph ("regardless of format") and the preview-screen row, which gains the name field.
-- [ ] Tests: `LogShareViewModelTest` (format assertion and `setFormat` coverage removed; name override set, blanked back to `null`, and carried into the card state), `LogSharePreviewScreenTest` (`formatToggle_selectingSquare_invokesCallback` removed; the name field shown and invoking its callback; the sort control still invoking its callback in its new position), `ShareCardStateTest`'s `logShareCardState` cases (no format parameter, display name used), and `ShareCardTemplateTest`'s Log card cases keep passing. `docs/TESTING.md`'s Log Share and Share preview rows updated.
-
-**Plan** — drop the toggle and its state and pin the Log card to the content-sized shape; add the display-name override to `LogShareSelection` and the view model the way `ShareSelection` already carries it, and render the same name field above the filters; move `SortSection` to the toggle's former slot. Walk the docs and KDoc that mention a Log Share format.
-
-**Tests** — see the criteria above.
-
 ### Share Insight: render streaks, clarify Name-on-card is editable
 
 *Branch: `fix/share-insight-streaks-name-affordance` · Complexity: S · Priority: Medium · Area: Share*
@@ -117,8 +96,7 @@ Section order is a fixed enum (`ShareInsightsSection`) and `SectionsPicker` is p
 
 🎨 **Design decision**
 
-Summary = the existing Square-format Insight Share, Insights = the existing Story-format Insight Share, History = the existing Log Share. Summary and Insights are already two formats of one screen/viewmodel (`ShareViewModel`/`SharePreviewScreen`); History is the already-separate `LogShareViewModel`/`LogSharePreviewScreen`. **Sequence after "Log Share: drop the format toggle and add Name on card"** above — this item's History tab hosts that screen's controls, so landing that one first avoids rework.
-
+Summary = the existing Square-format Insight Share, Insights = the existing Story-format Insight Share, History = the existing Log Share. Summary and Insights are already two formats of one screen/viewmodel (`ShareViewModel`/`SharePreviewScreen`); History is the already-separate `LogShareViewModel`/`LogSharePreviewScreen`.
 **Acceptance criteria**
 
 - [ ] `ShareChooserDialog` is removed.
@@ -288,6 +266,7 @@ Lint (`ModifierParameter`) flags `SegmentedChoiceRow.kt`'s `modifier` parameter 
 
 - [ ] A written pass over the suite noting duration hot spots, duplicated coverage, and tests asserting pure-logic results through the UI instead of unit-testing the logic directly.
 - [ ] A shortlist of tests to convert to unit tests, de-duplicate, or delete, each with a keep/drop call.
+- [ ] `docs/MANUAL_TEST_PLAN.md` re-checked against the automated suite: any step that an existing or easily added automated test already covers is either removed from the manual plan or noted as redundant, and any check that can be automated is moved into `androidTest`/`test` with a rationale.
 - [ ] Approved changes spun out as their own follow-up item(s).
 
 **Plan** — audit pass first, no code changes; produce a findings list.

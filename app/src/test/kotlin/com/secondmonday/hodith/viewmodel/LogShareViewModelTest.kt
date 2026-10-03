@@ -69,11 +69,11 @@ class LogShareViewModelTest {
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals("Migraine", state.case?.name)
-                assertEquals(ShareCardFormat.STORY, state.selection.format)
                 assertEquals(ChronologicalOrder.NEWEST_FIRST, state.selection.sortOrder)
                 assertNull(state.selection.dateFrom)
                 assertEquals(zone.endOfDayMillis(today), state.selection.dateTo)
                 assertEquals(LogRowField.entries.toSet(), state.selection.fields)
+                assertNull(state.selection.displayNameOverride)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -155,6 +155,55 @@ class LogShareViewModelTest {
                 vm.setFieldSelected(LogRowField.NOTES, selected = true)
                 assertTrue(LogRowField.NOTES in awaitItem().selection.fields)
 
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setDisplayNameOverride stores the name and leaves the Case's own name untouched`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+                vm.setDisplayNameOverride("Sam")
+                assertEquals("Sam", awaitItem().selection.displayNameOverride)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setDisplayNameOverride of blank or null falls back to the Case's own name`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+                vm.setDisplayNameOverride("Sam")
+                awaitItem()
+                vm.setDisplayNameOverride("   ")
+                assertNull(awaitItem().selection.displayNameOverride)
+                vm.setDisplayNameOverride("Sam")
+                awaitItem()
+                vm.setDisplayNameOverride(null)
+                assertNull(awaitItem().selection.displayNameOverride)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setDisplayNameOverride caps the name at CASE_NAME_MAX_LENGTH`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+            val tooLong = "x".repeat(CASE_NAME_MAX_LENGTH + 10)
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+                vm.setDisplayNameOverride(tooLong)
+                assertEquals(CASE_NAME_MAX_LENGTH, awaitItem().selection.displayNameOverride?.length)
                 cancelAndIgnoreRemainingEvents()
             }
         }

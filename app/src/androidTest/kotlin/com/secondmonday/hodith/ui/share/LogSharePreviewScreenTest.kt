@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.testCase
@@ -16,11 +18,11 @@ import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
-import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
@@ -48,7 +50,7 @@ class LogSharePreviewScreenTest {
     private fun setContent(
         uiState: LogShareUiState,
         now: Long = millisAtDay(60),
-        onFormatSelect: (ShareCardFormat) -> Unit = {},
+        onDisplayNameChange: (String?) -> Unit = {},
         onSortOrderSelect: (ChronologicalOrder) -> Unit = {},
         onDateFromPicked: (LocalDate?) -> Unit = {},
         onDateToPicked: (LocalDate) -> Unit = {},
@@ -61,7 +63,7 @@ class LogSharePreviewScreenTest {
                 now = now,
                 graphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
-                onFormatSelect = onFormatSelect,
+                onDisplayNameChange = onDisplayNameChange,
                 onSortOrderSelect = onSortOrderSelect,
                 onDateFromPicked = onDateFromPicked,
                 onDateToPicked = onDateToPicked,
@@ -84,16 +86,36 @@ class LogSharePreviewScreenTest {
 
     @Smoke
     @Test
-    fun formatToggle_selectingSquare_invokesCallback() {
-        var selected: ShareCardFormat? = null
+    fun nameField_typing_invokesCallbackWithTheTypedName() {
+        var typed: String? = null
         setContent(
             uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
-            onFormatSelect = { selected = it },
+            onDisplayNameChange = { typed = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareFormatSquareLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareNameFieldLabel).performTextInput("Sam")
 
-        assertEquals(ShareCardFormat.SQUARE, selected)
+        assertEquals("Sam", typed)
+    }
+
+    @Test
+    fun nameField_isAboveTheSortControl() {
+        setContent(
+            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+        )
+
+        val nameTop =
+            composeTestRule
+                .onNodeWithText(PlainVoice.shareNameFieldLabel)
+                .fetchSemanticsNode()
+                .positionInRoot.y
+        val sortTop =
+            composeTestRule
+                .onNodeWithText(PlainVoice.shareLogSortOldestLabel)
+                .fetchSemanticsNode()
+                .positionInRoot.y
+
+        assertTrue("Name field ($nameTop) should sit above the sort control ($sortTop)", nameTop < sortTop)
     }
 
     @Test
@@ -104,9 +126,19 @@ class LogSharePreviewScreenTest {
             onSortOrderSelect = { selected = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogSortOldestLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareLogSortOldestLabel).performScrollTo().performClick()
 
         assertEquals(ChronologicalOrder.OLDEST_FIRST, selected)
+    }
+
+    @Test
+    fun formatToggle_isGone() {
+        setContent(
+            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.shareFormatSquareLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.shareFormatStoryLabel).assertDoesNotExist()
     }
 
     @Test

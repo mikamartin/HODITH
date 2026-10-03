@@ -66,14 +66,13 @@ data class LogCardRow(
  * theme skin, differing only in body content, hence one sealed type rather than two unrelated ones.
  */
 sealed interface ShareCardData {
-    val format: ShareCardFormat
     val caseIcon: String
     val caseName: String
     val generatedAtMillis: Long
 
     /** A fixed-order subset of the real Insights tab's sections. */
     data class Insights(
-        override val format: ShareCardFormat,
+        val format: ShareCardFormat,
         override val caseIcon: String,
         override val caseName: String,
         override val generatedAtMillis: Long,
@@ -96,7 +95,6 @@ sealed interface ShareCardData {
      * pre-cap match count, for the card's own "+N more" note.
      */
     data class Log(
-        override val format: ShareCardFormat,
         override val caseIcon: String,
         override val caseName: String,
         override val generatedAtMillis: Long,
@@ -250,8 +248,8 @@ private fun squareInsights(
 /**
  * Assembles Log Share's card content: [filterAndSortEvents] (the same reusable filter a future
  * Log-tab-filter item would call) narrows and orders [events], then every match beyond
- * [LOG_SHARE_CARD_ENTRY_CAP] is dropped — a safety ceiling for both formats alike, since Square's
- * `heightIn(min = ...)` is a floor, not a cap, and grows for content exactly like Story (spec §13).
+ * [LOG_SHARE_CARD_ENTRY_CAP] is dropped, so a long range never grows the card past a readable
+ * length (spec §13). The card has one shape, the content-sized one Story uses.
  * Each kept row reuses [eventDetailSummary]'s primitive overload directly: [fields] and the Case's
  * own [CaseEntity.durationMode]/[CaseEntity.intensityEnabled] both gate Duration/Intensity, so
  * neither shows unless the Case tracks it *and* the user left it on. [displayName] arrives
@@ -265,7 +263,6 @@ internal fun logShareCardState(
     case: CaseEntity,
     displayName: String,
     events: List<EventWithTags>,
-    format: ShareCardFormat,
     sortOrder: ChronologicalOrder,
     dateFrom: Long?,
     dateTo: Long,
@@ -280,7 +277,6 @@ internal fun logShareCardState(
     val capped = matches.take(LOG_SHARE_CARD_ENTRY_CAP)
 
     return ShareCardData.Log(
-        format = format,
         caseIcon = case.icon,
         caseName = displayName,
         generatedAtMillis = generatedAtMillis,

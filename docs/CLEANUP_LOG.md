@@ -17,6 +17,31 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/log-share-controls
+
+**Scope:** PROGRESS.md's "Log Share: drop the format toggle and add Name on card" item. Log Share had a Story/Square toggle that only added a 1:1 height floor under a list that already sizes to its rows, and no way to rename the card, even though its rows are the most personal data the app shares.
+
+**Found & fixed:**
+- Checklist walked against the full diff. The format choice is gone from `LogShareSelection`, `LogShareViewModel` and the screen's callbacks. `format` moved off the shared `ShareCardData` interface onto `ShareCardData.Insights` only, since a Log card has no shape to choose. The Square min-height check in `ShareCardTemplate` now keys off Insights, and its modifier was hoisted into a named local so the existing modifier chain keeps its shape.
+- Name on card: `LogShareSelection.displayNameOverride`, set by `LogShareViewModel.setDisplayNameOverride`, which mirrors Insight Share's `setDisplayNameOverride` (same 60-char cap, blank resets to the Case's name). The override reaches `logShareCardState`'s `displayName` and never touches the Case.
+- Controls now read name field, date range, fields, sort, then the card, with the sort control in the old toggle's slot. The sort control had its own "Include in card" heading, duplicating the fields section's, so it was removed and the selector is called directly.
+- `LOG_SHARE_CARD_ENTRY_CAP` and `logShareCardState` KDoc no longer describe Square's floor as a reason for the cap.
+- No new `Voice` keys. The name field reuses `shareNameFieldLabel`, and the sort control reuses its existing labels, so there was no three-voice copy to add.
+- No `android.*` imports or clock reads in the domain code touched (`LogFilter.kt` is a KDoc-only change).
+- Dead-code walk: the `ShareCardFormat` import left `LogSharePreviewScreen.kt` with it; ktlint's unused-import rule passes.
+
+**Deferred:**
+- Nothing deferred.
+
+**Considered and declined:**
+- Pinning `ShareCardData.Log.format` to `STORY` instead of removing it. Declined: a constant that every Log card carries is a field that can be misread, and removing it moves the Square check to where it applies.
+
+**Verified:** `ktlintCheck`, `lintDebug`, `test` (1057/1057 JVM tests, zero failures, forced re-run), `assembleDebug`, and `connectedDebugAndroidTest` scoped to `LogSharePreviewScreenTest` and `ShareCardTemplateTest` (70/70 on the Pixel 8 API 36 emulator). The full instrumented suite was not run, at the user's request.
+
+**Docs updated:** `HODITH_SPEC.md` §13 (Log Share paragraph and preview-screen row); `TESTING.md` (Log Share preview row); `PROGRESS.md` (item struck, and the Share-tabs item's sequencing note removed).
+
+---
+
 ## feature/tag-combo-trends
 
 **Scope:** PROGRESS.md's "common tag combos" idea, spiked last session (`domain/TagComboSpike.kt`/`TagComboSpikeTest.kt`, never committed) as two candidate findings — a descriptive closed-itemset miner and a permutation-significance test on top of it. This pass promotes only the first (common tag combos) to a real `TrendFindingKind.TAG_COMBO` detector; the second (combos beyond chance) stays deferred — the spike's own fixture showed a near-1 lift pair still clearing a raw `p < 0.05` cut, meaning it needs a descriptive floor before the permutation test runs, the same shape every other `Pattern`-tier detector already uses, not just a multiple-comparisons correction (logged as PROGRESS.md's D6).
@@ -118,58 +143,5 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** SPEC §2, §5, §8, §11, §14; TESTING; MANUAL_TEST_PLAN; README; PROGRESS (Story N removed).
 
 **Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. Not run by hand: light/dark visual review of the new card and editor.
-
----
-
-## chore/remove-hunch
-
-**Scope:** PROGRESS.md's Story N, item N1 — "remove Hunch entirely, neutralise the pieces N2's Notifications reuses." Hunch overlapped with `AT_LEAST` Triggers (two similar "N per period" forms) and alpha feedback showed it wasn't landing. Four judgment calls were surfaced to the user before writing code: the verdict headline drops direction-aware framing entirely and reads band-only, since N2's Notifications only ever attach this math to the "Often" kind (no more too-often/not-enough duality); the neutral verdict card's "Resolve" button is dropped rather than kept as an inert hook; every kept `hunch*`-prefixed Voice key is renamed now (`expectation*`/`frequency*`/`expectedPer*`/`metric*`) rather than left for N2; and the count/period picker is bundled into one `FrequencyPicker` composable rather than exposed as separate primitives.
-
-**Changes:**
-- New `domain/Expectation.kt`: a pure `Expectation(count, per, metric, windowStart)` value. `VerdictEngine.kt`/`Verdict.kt` refactored onto it — `windowStartFor` deleted (window-start resolution is now the caller's job), `computeVerdict` drops `caseCreatedAt`, the `HunchEntity.withResolvedVerdictSnapshot`/`resolvedVerdictSnapshotOrNull` extensions deleted (no resolved/frozen concept survives). `domain/CheckIn.kt`'s Hunch-derived interval removed; `effectiveCheckInDays` collapses to toggle + Settings default.
-- New `ui/common/ExpectationCards.kt` (`ExpectationCard`/`ExpectationEarlyCard`/`ExpectationVerdictCard`/`expectationProgressFraction`, moved from `CaseDetailScreen.kt`'s `HunchCard`/`HunchEarlyCard`/`HunchVerdictCard`/`HunchTabState.kt`'s `hunchProgressFraction`) and `ui/common/FrequencyPickers.kt` (`periodOptionsFor`/`coerceExpectedPer`/`expectedPerLabel`/`LabelledSection`, moved from `HunchCreationSheet.kt`, plus a new `FrequencyPicker` composable bundling the count+period stepper/row pairing that sheet inlined). Neither file is wired to a screen yet — both are dormant, kept for N2.
-- Deleted: `HunchEntity`/`HunchDao`/`HunchDirection`/`ObservationWindow`, `HunchCreationSheet.kt`, `viewmodel/HunchTabState.kt`, `CaseDetailScreen.kt`'s Hunch tab and its cards, the Hunch paths in `HodithRepository`/`RoomHodithRepository`/`CaseDetailViewModel`/`FakeHodithRepository`, the share card's `HunchVsReality` beat (`ShareCardState.kt`/`ShareCardTemplate.kt`/`SharePreviewScreen.kt`/`ShareViewModel.kt` — `Reality` is now the only top beat, both formats), and every Hunch-only Voice key.
-- `data/HodithDatabase.kt`: schema v11 → v12, `@DeleteTable(tableName = "hunches")` (`DropHunchesTable`), `AUTO_MIGRATION_COUNT` 5 → 6; `12.json` exported. `data/backup/BackupData.kt`: `BACKUP_SCHEMA_VERSION` 1 → 2, `hunches` field removed. `viewmodel/SettingsViewModel.kt`'s `performImport`: the version guard changed from `declaredVersion > BACKUP_SCHEMA_VERSION` to `!=` — a real bug fix, not cosmetic, since an older file would otherwise silently parse (Moshi ignores its now-unknown `hunches` key) instead of being rejected.
-- `ui/voice/Voice.kt`: every Hunch-tab/creation-sheet/share-beat key deleted; kept keys renamed (`hunchChipLabel`→`expectationChipLabel` etc., dropping the `hunch` prefix throughout); `verdictHeadline`/`verdictHeadlineDaysActive` rewritten band-only (5 branches per voice, not 15) since `direction` no longer exists on `Expectation`.
-- `Converters.kt`: `HunchDirection`/`ObservationWindow`/`ConfidenceTier`/`ComparisonBand` Room `TypeConverter`s removed (the first two because their types are gone; the latter two because `HunchEntity` was the only entity storing them, and nothing else does yet).
-- Docs: `HODITH_SPEC.md` §1–3 rewritten (idea, vocabulary, principles — down to 6 from 7), §5's Hunch model and Case's direction-scoping paragraph removed, §7 removed outright, §8 reframed as dormant comparison math kept for Notifications, §11/§13/§14 updated. `README.md`'s idea/features/architecture sections and Mermaid diagram updated. `TESTING.md`'s Verdict engine/Check-in/Share-card/Export-import/Room-DAO/Compose-UI/Share-preview rows and the manual-journey list trimmed of dead Hunch coverage. `MANUAL_TEST_PLAN.md`, `CLAUDE.md`, `CLEANUP_CHECKLIST.md` each had one stale reference fixed. `PROGRESS.md`: N1 struck (removed entirely, not just checked off), the Story N intro rewritten to describe what shipped, B2/B3 items updated for the now-satisfied dependency and the now-stale key-count/em-dash tally.
-
-**Checklist walk (against the full diff):**
-- *Duplication* — no inline strings; every Voice key change (deletions, renames, the band-only copy rewrite) landed across the interface and all three voices in the same commit. `ExpectationCard`/`FrequencyPicker` are moves, not copies, of the code they replace.
-- *Decoupling* — `VerdictEngine.kt`/`Verdict.kt`/`CheckIn.kt` confirmed zero `android.*` imports after the refactor (re-checked by grep, not assumed); all still take `now`/`windowStart` as plain `Long` params rather than reading the clock directly.
-- *Complexity & pattern health* — `FrequencyPicker` has no callers yet (dormant, kept for N2 per the plan) rather than an accidental unused abstraction — considered and accepted, not flagged. `ExpectationCard`/`ExpectationEarlyCard`/`ExpectationVerdictCard` stayed under 40 lines each, matching the Hunch cards' own size before the move.
-- *Dead code & hygiene* — `ktlintCheck` caught seven unused imports (`ColumnScope`, `rememberScrollState`, `verticalScroll`, `Button`, `LinearProgressIndicator`, `Dp`, `formatEventDate`) left behind in `CaseDetailScreen.kt` by the Hunch-tab deletion; all removed. Swept every doc comment referencing deleted Hunch types across the main source tree (`Color.kt`, `DeleteDataDialogs.kt`, `TriggersScreen.kt`, `InsightsTab.kt`, `LogDetailViewModel.kt`, `StatsEngine.kt`, `HodithRepository.kt`, `EventDao.kt`, `CaseDao.kt`, `ExpectedPer.kt`, `VerdictMetric.kt`, `CheckInDefaultInterval.kt`, `NumberStepper.kt`) rather than leaving stale cross-references. `git status` clean — only the intended files touched; all five new untracked files (`Expectation.kt`, `ExpectationCards.kt`, `FrequencyPickers.kt`, `FrequencyPickersTest.kt`, `12.json`) are the deliberate additions.
-- *Repo hygiene* — no secrets, no local paths, no new tooling/config files.
-- *Naming* — `Expectation.kt` sits in `domain/` next to `VerdictEngine.kt`/`Verdict.kt`; `ExpectationCards.kt`/`FrequencyPickers.kt` sit in `ui/common/` alongside the package's other shared composables; renamed Voice keys drop the `hunch` prefix consistently (`expectation*` for card copy, `frequency*`/`expectedPer*`/`metric*` for picker copy).
-- *Hardcoded values* — none introduced; the confidence-tier/comparison-band constants moved with `VerdictEngine.kt` unchanged, still named constants in `domain/`.
-- *Accessibility* — not applicable this pass — `ExpectationCards.kt`/`FrequencyPickers.kt` render nothing yet (no screen calls them), so there's nothing to verify in either theme until N2 wires them up.
-- *Data model, migrations & privacy* — the three changes travelled together as the checklist requires: Room migration (`@DeleteTable`, v11→v12), `BACKUP_SCHEMA_VERSION` bump (1→2), and import validation (`BackupValidationResult`'s Hunch block removed) all in the same pass. `SchemaMigrationCoverageTest` passes with `AUTO_MIGRATION_COUNT` bumped to 6. FK cascade (Case → Event/Trigger) reconfirmed correct via `CaseDaoTest` now that `hunches` is out of the graph entirely.
-- *Background work, widgets & notifications* — `NotificationEvaluator`'s only touch point was its check-in call site dropping the now-removed `hunch` argument; debounce/grouping/permission-timing logic itself is untouched.
-- *Deprecated APIs* — none introduced by this diff (the one pre-existing Kotlin compiler warning, in `DataStoreSettingsRepository.kt`, belongs to a file this branch never touches).
-- *Spec review* — walked the full spec end to end, not just the sections PROGRESS.md named — found and fixed §5's Case-direction paragraph and the Trigger-section verdict-storage paragraph, neither of which PROGRESS.md's acceptance criteria called out by number.
-- *Tests* — see below.
-
-**Tests:**
-- `VerdictEngineTest` (42 cases) ported to `Expectation`: every case that varied `observationWindow`/`windowStartDate`/`caseCreatedAt` now computes the equivalent `windowStart` directly in the test body (absorbing what the deleted `windowStartFor` used to do) rather than being dropped; window filtering, both metrics, every tier boundary and band cutoff all still covered.
-- `CheckInTest` (8 cases): Hunch-derived-interval cases deleted outright (no domain equivalent left to test); toggle/settings-default cases ported with the `hunch` argument simply removed.
-- `FrequencyPickersTest` (5 cases, renamed/moved from `HunchCreationSheetLogicTest`): unchanged content — the helpers were already Hunch-free.
-- `VoiceTest`: the two hand-written regression tests tied to deleted functions (`hunchHistoryRowOutcome`'s near-miss/fully-off guard, `sharePunchline`'s pronoun guard) replaced with a `verdictHeadline`-distinguishes-every-band test, since the reflection-based non-blank/no-duplicate-string tests already adapt automatically to the interface's new shape.
-- `ShareCardStateTest`/`ShareViewModelTest`: every `HunchVsReality`/`showHunchVsReality` case deleted; a new test asserts `Reality` is the top beat for every `ShareCardFormat`.
-- `SettingsViewModelTest`: added a regression test for the `performImport` version-guard fix — a v1 payload (carrying the now-retired `hunches` key) must be rejected as `UNSUPPORTED_VERSION`, not silently accepted.
-- `BackupSerializerTest`/`BackupValidationResultTest`/`CsvBackupSerializerTest`/`CaseDetailViewModelTest`/`FakeHodithRepositoryTest`/`CaseDaoTest`/`RoomHodithRepositoryBackupTest`/`BackupImportIntegrationTest`/`RoomHodithRepositoryLogEventsTest`/`RoomHodithRepositoryNotificationEvalTest`: Hunch fixtures/cases/DAO-constructor references removed throughout.
-- Deleted outright (no neutral successor): `HunchTabStateTest`, `HunchDaoTest`, `RoomHodithRepositoryHunchBackfillTest`.
-- New: `DatabaseFreshInstallTest.migrationFrom11To12_dropsHunchesTable_andPreservesOtherTables` — seeds a `hunches` row plus a case/event row at v11, migrates to v12, asserts the table is gone from `sqlite_master` and the other rows survive.
-- `CaseDetailScreenTest`: every Hunch-tab test deleted (the file's back half, ~300 lines); `SharePreviewScreenTest`/`ShareCardTemplateTest`: every Hunch-beat/toggle test deleted.
-
-**Deferred:**
-- The kept `ExpectationCard`/`ExpectationVerdictCard`/`ExpectationEarlyCard`/`FrequencyPicker` composables have no rendering test of their own yet — nothing calls them until N2 wires up the Notifications tab, so there's nothing to render.
-
-**Second pass (checklist re-walk plus the deferred instrumented run):**
-- `connectedDebugAndroidTest` run against every changed instrumented test class (`CaseDaoTest`, `DatabaseFreshInstallTest`, `RoomHodithRepositoryBackupTest`, `RoomHodithRepositoryLogEventsTest`, `RoomHodithRepositoryNotificationEvalTest`, `BackupImportIntegrationTest`, `CaseDetailInsightsTabTest`, `CaseDetailScreenTest`, `ShareCardTemplateTest`, `SharePreviewScreenTest`) on a connected emulator: 127/128 passed; `ShareCardTemplateTest.storySizesToContentAndIsShorterThanSquaresFloorForSparseContent` failed on an `ActivityScenario` teardown timeout (`ReferenceQueueDaemon`/`HardwareRenderer` crash after the test body completed, not an assertion failure) — reran in isolation and it passed cleanly, confirming emulator flakiness rather than a regression.
-- Independent re-walk of the full checklist against the diff (fresh read, not from this entry) turned up two further findings, both fixed: `HODITH_SPEC.md` §8 (lines 133, 146) narrated Hunch's retirement inside prose that should read as present-state only — trimmed to state just what the comparison engine does now; `PROGRESS.md`'s N2 section cited "N1" three times with no N1 heading to point to (the Story N intro describes that work in prose, never as a numbered item) — replaced with direct references to `chore/remove-hunch` and `FrequencyPickers.kt`.
-
-**Docs updated:** `HODITH_SPEC.md` (§1–3, §5, §7, §8, §11, §13, §14), `README.md` (idea, features, architecture, diagram), `TESTING.md` (Verdict engine, Check-in, Share card, Export/import, Room DAOs, Room migrations, Compose UI, Share preview, manual-journey list, date-picker deferral), `MANUAL_TEST_PLAN.md` (two check-in/import references), `CLAUDE.md` (vocabulary line, product-constants example), `CLEANUP_CHECKLIST.md` (cascade-relationship line), `PROGRESS.md` (N1 struck, Story N intro rewritten, B2/B3 updated, N1 self-references in N2 replaced with direct pointers).
-
-**Verified:** `ktlintCheck` → `lintDebug` → `test` → `assembleDebug` sequential, all green. `test` covers the full JVM suite: 907/907 passing across 58 classes, zero failures. `connectedDebugAndroidTest`: 128/128 passing (one flaky teardown failure, confirmed non-reproducing on rerun).
 
 ---

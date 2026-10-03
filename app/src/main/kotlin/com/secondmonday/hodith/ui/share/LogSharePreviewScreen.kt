@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -52,7 +53,6 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
 import com.secondmonday.hodith.viewmodel.LogShareViewModel
-import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.logShareCardState
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
@@ -91,7 +91,7 @@ fun LogSharePreviewRoute(
         now = viewModel.nowMillis(),
         graphicsLayer = graphicsLayer,
         onBack = onBack,
-        onFormatSelect = viewModel::setFormat,
+        onDisplayNameChange = viewModel::setDisplayNameOverride,
         onSortOrderSelect = viewModel::setSortOrder,
         onDateFromPicked = viewModel::setDateFrom,
         onDateToPicked = viewModel::setDateTo,
@@ -115,7 +115,7 @@ fun LogSharePreviewScreen(
     now: Long,
     graphicsLayer: GraphicsLayer,
     onBack: () -> Unit,
-    onFormatSelect: (ShareCardFormat) -> Unit,
+    onDisplayNameChange: (String?) -> Unit,
     onSortOrderSelect: (ChronologicalOrder) -> Unit,
     onDateFromPicked: (LocalDate?) -> Unit,
     onDateToPicked: (LocalDate) -> Unit,
@@ -154,26 +154,31 @@ fun LogSharePreviewScreen(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            SortSection(selection.sortOrder, onSortOrderSelect, voice)
+            OutlinedTextField(
+                value = selection.displayNameOverride ?: "",
+                onValueChange = onDisplayNameChange,
+                label = { Text(voice.shareNameFieldLabel) },
+                placeholder = { Text(case.name) },
+                modifier = Modifier.fillMaxWidth(),
+            )
             DateRangeSection(selection, now, zone, onDateFromPicked, onDateToPicked, voice)
             FieldsSection(case, selection.fields, onFieldToggle, voice)
-
+            // No label here: the fields section above already carries the "Include in card" heading.
             SegmentedChoiceRow(
                 options =
                     listOf(
-                        ShareCardFormat.STORY to voice.shareFormatStoryLabel,
-                        ShareCardFormat.SQUARE to voice.shareFormatSquareLabel,
+                        ChronologicalOrder.NEWEST_FIRST to voice.shareLogSortNewestLabel,
+                        ChronologicalOrder.OLDEST_FIRST to voice.shareLogSortOldestLabel,
                     ),
-                selected = selection.format,
-                onSelect = onFormatSelect,
+                selected = selection.sortOrder,
+                onSelect = onSortOrderSelect,
             )
 
             val cardData =
                 logShareCardState(
                     case = case,
-                    displayName = case.name,
+                    displayName = selection.displayNameOverride ?: case.name,
                     events = uiState.events,
-                    format = selection.format,
                     sortOrder = selection.sortOrder,
                     dateFrom = selection.dateFrom,
                     dateTo = selection.dateTo,
@@ -203,26 +208,6 @@ fun LogSharePreviewScreen(
                 Text(voice.shareLogButtonLabel)
             }
         }
-    }
-}
-
-@Composable
-private fun SortSection(
-    sortOrder: ChronologicalOrder,
-    onSortOrderSelect: (ChronologicalOrder) -> Unit,
-    voice: Voice,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(voice.shareSectionsPickerLabel, style = MaterialTheme.typography.labelLarge)
-        SegmentedChoiceRow(
-            options =
-                listOf(
-                    ChronologicalOrder.NEWEST_FIRST to voice.shareLogSortNewestLabel,
-                    ChronologicalOrder.OLDEST_FIRST to voice.shareLogSortOldestLabel,
-                ),
-            selected = sortOrder,
-            onSelect = onSortOrderSelect,
-        )
     }
 }
 

@@ -936,7 +936,6 @@ class ShareCardTemplateTest {
         rows: List<LogCardRow>,
         truncatedTotalCount: Int? = null,
     ) = ShareCardData.Log(
-        format = ShareCardFormat.STORY,
         caseIcon = "🤕",
         caseName = "Migraine",
         generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,

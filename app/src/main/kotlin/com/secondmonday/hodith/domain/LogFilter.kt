@@ -12,8 +12,8 @@ enum class ChronologicalOrder { NEWEST_FIRST, OLDEST_FIRST }
 /**
  * How many entries a Log Share card renders before truncating to the most recent matches (spec
  * §13/§6) — matches the Log tab's own existing initial page size (`EventDao`'s 30-row page), a
- * familiar number rather than an arbitrary new one. Applies to both Story and Square: Square's
- * `heightIn(min = ...)` is a floor, not a ceiling, so it grows for content exactly like Story.
+ * familiar number rather than an arbitrary new one. The card is content-sized, so this cap is what
+ * keeps a long range from growing it past a readable length.
  */
 const val LOG_SHARE_CARD_ENTRY_CAP = 30
 
