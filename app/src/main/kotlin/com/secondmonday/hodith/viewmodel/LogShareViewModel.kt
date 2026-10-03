@@ -36,11 +36,12 @@ import javax.inject.Inject
  * never null (defaults to today, per spec §13, and can't move into the future).
  */
 data class LogShareSelection(
-    val format: ShareCardFormat = ShareCardFormat.STORY,
     val sortOrder: ChronologicalOrder = ChronologicalOrder.NEWEST_FIRST,
     val dateFrom: Long? = null,
     val dateTo: Long,
     val fields: Set<LogRowField> = LogRowField.entries.toSet(),
+    /** `null` means the card shows the Case's own name — see [ShareSelection.displayNameOverride]. */
+    val displayNameOverride: String? = null,
 )
 
 data class LogShareUiState(
@@ -102,8 +103,11 @@ class LogShareViewModel
 
         fun nowMillis(): Long = clock.nowMillis()
 
-        fun setFormat(format: ShareCardFormat) {
-            selection.update { it.copy(format = format) }
+        /** `null` (or blank) means fall back to the Case's own name — see [LogShareSelection.displayNameOverride]. */
+        fun setDisplayNameOverride(name: String?) {
+            selection.update {
+                it.copy(displayNameOverride = name?.take(CASE_NAME_MAX_LENGTH)?.takeIf { override -> override.isNotBlank() })
+            }
         }
 
         fun setSortOrder(order: ChronologicalOrder) {

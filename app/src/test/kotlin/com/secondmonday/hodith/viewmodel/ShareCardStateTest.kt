@@ -904,7 +904,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = events,
-                format = ShareCardFormat.STORY,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
@@ -929,7 +928,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = events,
-                format = ShareCardFormat.STORY,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
@@ -954,7 +952,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = events,
-                format = ShareCardFormat.STORY,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(events.size.toLong()),
@@ -980,7 +977,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = events,
-                format = ShareCardFormat.STORY,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
@@ -1004,7 +1000,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = emptyList(),
-                format = ShareCardFormat.STORY,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
@@ -1028,7 +1023,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = emptyList(),
-                format = ShareCardFormat.STORY,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = millisAtDay(10),
                 dateTo = millisAtDay(20),
@@ -1059,7 +1053,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = emptyList(),
-                format = ShareCardFormat.STORY,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = millisAtDay(-400),
                 dateTo = millisAtDay(20),
@@ -1090,7 +1083,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = emptyList(),
-                format = ShareCardFormat.STORY,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(20),
@@ -1118,7 +1110,6 @@ class ShareCardStateTest {
                 case = case,
                 displayName = case.name,
                 events = events,
-                format = ShareCardFormat.STORY,
                 sortOrder = order,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
@@ -1131,5 +1122,28 @@ class ShareCardStateTest {
             ).rows.map { it.timestamp }
 
         assertEquals(rowsFor(ChronologicalOrder.NEWEST_FIRST), rowsFor(ChronologicalOrder.OLDEST_FIRST).reversed())
+    }
+
+    @Test
+    fun `logShareCardState puts the resolved display name on the card, not the Case's own name`() {
+        val case = testCase()
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = "Sam",
+                events = emptyList(),
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = null,
+                dateTo = millisAtDay(NOW),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertEquals("Sam", data.caseName)
     }
 }

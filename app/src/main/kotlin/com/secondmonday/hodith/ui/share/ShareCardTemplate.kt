@@ -131,12 +131,19 @@ fun ShareCardTemplate(
     modifier: Modifier = Modifier,
 ) {
     val skin = LocalShareCardSkin.current
+    // Square's floor applies to Insights cards only; a Log card is content-sized.
+    val squareFloor =
+        if ((data as? ShareCardData.Insights)?.format == ShareCardFormat.SQUARE) {
+            Modifier.heightIn(min = SQUARE_MIN_HEIGHT)
+        } else {
+            Modifier
+        }
 
     Column(
         modifier =
             modifier
                 .width(SHARE_CARD_WIDTH)
-                .then(if (data.format == ShareCardFormat.SQUARE) Modifier.heightIn(min = SQUARE_MIN_HEIGHT) else Modifier)
+                .then(squareFloor)
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(MaterialTheme.colorScheme.background)
                 .then(
