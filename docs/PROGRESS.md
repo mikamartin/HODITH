@@ -4,29 +4,207 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 ## How this file is organised
 
-Items are grouped by how they connect, not by feature area:
+Items are grouped by status:
 
-- **Story B — copy & Voice** — a short chain that has to land after everything else that touches copy.
-- **Standalone** — isolated items with no cross-dependencies; pick any when resources are thin.
+- **Standalone** — no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
 - **Blocked** — gated on something external; not startable now.
 
-Each item carries:
+Each item carries a **trailer** (*Branch · Complexity · Priority · Area*; Complexity: S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week, same scale as HODITH_SPEC §17; Priority: High gates the first release or corrects something wrong today · Medium worth doing before alpha · Low cosmetic or deferrable · Blocked can't start yet; Area is a loose bucket), zero or more **tags** (🎨 *Design decision* needs a human call before implementation · 🌐 *External action* work outside this repo · 🔍 *Investigation* needs a repro/diagnose pass before the fix is knowable), **Acceptance criteria**, and **Plan / Tests / Concern** detail.
 
-- a **trailer** — *Branch · Complexity · Priority · Area*. Complexity: S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week (same scale as HODITH_SPEC §17). Priority: High gates the first release or corrects something wrong today · Medium worth doing before alpha · Low cosmetic or deferrable · Blocked can't start yet. Area is a loose bucket — Bug / Big Picture / Insights / Notifications / Share / Settings / Voice / Performance / Repo.
-- zero or more **tags** — 🎨 *Design decision* (needs a design or product-owner call before implementation) · 🌐 *External action* (work outside this repo) · 🔍 *Investigation* (needs a repro/diagnose pass before the fix is knowable).
-- **Acceptance criteria** — the checklist that says "done".
-- **Plan / Tests / Concern** — detail, unchanged from prior tracking.
+## Standalone
 
-## Story B — copy & Voice
+No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-Two items, plus the tail of nearly everything else. Anything that adds or changes a Voice key must land before B3.
+### Insights tab: tag list short/expanded view
 
-### B3 · Review phrasing across all three Voice implementations
+*Branch: `feat/tags-short-expanded-view` · Complexity: S–M · Priority: Medium · Area: Insights*
+
+`TagsCard` (Case Detail Insights tab) renders every tag with no cap. Add the short/expanded behaviour testers asked for: ≤5 distinct tags shown in full (name + count each); >5 shows total events, total tag count, and the top 3 — reusing the existing `SHARE_CARD_TOP_TAG_COUNT = 3` pattern already used for the Share card.
+
+**Acceptance criteria**
+
+- [ ] A Case with ≤5 distinct tags shows every tag with its own event count in `TagsCard`.
+- [ ] A Case with >5 distinct tags shows total events, total distinct tag count, and the top 3 tags by count.
+- [ ] A "total distinct tag count" value is surfaced from the domain layer (not currently computed separately from the flattened per-event tag list).
+- [ ] New Voice strings (×3) for the collapsed-summary copy.
+- [ ] The Share Card's `MiniTagsSection`/`SHARE_CARD_TOP_TAG_COUNT` reviewed against the same ≤5-vs-expanded rule and either matched for consistency or left as a documented, deliberate difference (static, non-interactive card).
+
+**Plan** — add a tag-count threshold check alongside the existing tag-breakdown computation; branch `TagsCard`'s rendering on that count. Decide the Share Card question before touching `ShareCardState.kt`.
+
+**Tests** — unit tests for the ≤5 and >5 branches over the tag-breakdown output; Compose tests for `TagsCard` in both states.
+
+### Tags: bulk rename/merge/delete across all events
+
+*Branch: none yet — investigation first · Complexity: L · Priority: Medium · Area: Settings*
+
+🎨 **Design decision** · 🔍 **Investigation**
+
+No tag-management UI, rename, or merge operation exists anywhere today. Tags are global (`TagEntity`, unique index on `name`) attached via a composite-PK join table (`EventTagCrossRef`), not per-Case — "rename everywhere" is global by construction. Testers hit this directly: near-duplicate tag spellings (two options for basically the same thing) with no way to consolidate or fix wording after the fact. Related but distinct from the retired "new-case tag suggestions have no history" item: that one was about *preventing* near-duplicate spellings via better suggestions; this is about *fixing* them after the fact.
+
+**Acceptance criteria**
+
+- [ ] An edge-case brainstorm completed and written down before any implementation: case-insensitive collisions (the DB unique index is case-sensitive, lookups are case-insensitive), merging two tags' `event_tags` composite-PK rows when an event already has both, orphaned-tag cleanup (none exists today), undo/confirmation needs.
+- [ ] A tag-management screen designed (none exists today) with warnings and confirmations appropriate to the data-integrity stakes.
+- [ ] Rename-a-tag-everywhere and merge-two-tags-into-one both implemented, with the brainstormed edge cases covered.
+- [ ] Thorough test coverage given the data-integrity risk: collision handling, cross-ref de-duplication on merge, cascade behaviour.
+
+**Plan** — brainstorm first, no code; then design the management screen and confirmation flow; implement rename/merge against `TagDao`/`EventTagCrossRef` last.
+
+**Tests** — none until the brainstorm and design are done.
+
+### Log Share: drop the format toggle and add Name on card
+
+*Branch: `fix/log-share-controls` · Complexity: S · Priority: Medium · Area: Bug*
+
+Log Share drifted from Insight Share. Two fixes bring them in line:
+
+- **Log Share has a Story/Square toggle it should not have.** Format belongs to Insight Share, where Square is a fixed stats preset and Story is the customizable one. Log Share's card is a capped list of entries, so a Square choice only adds a 1:1 height floor under a list that already sizes to its rows. The toggle (`SegmentedChoiceRow` in `LogSharePreviewScreen.kt`, `LogShareSelection.format`, `LogShareViewModel.setFormat`, the `onFormatSelect` parameter) goes, and the Newest first / Oldest first control takes its place in the layout.
+- **Log Share cannot rename the card.** Insight Share has a "Name on card" field (real names can be personal, spec §13); Log Share shows the Case's own name with no way to change it, even though its rows are the most personal data the app shares.
+
+**Acceptance criteria**
+
+- [ ] The Story/Square toggle no longer renders on Log Share, and the `format` choice is gone from `LogShareSelection`, `LogShareViewModel` and the screen's callbacks.
+- [ ] The Log card always renders in its content-sized shape (Story's), with no Square floor; `logShareCardState` and `ShareCardData.Log` carry that single shape.
+- [ ] Log Share's controls read, top to bottom: the name field (the same `shareNameFieldLabel` field Insight Share uses, with the Case's own name as the placeholder), date range, fields, then Newest first / Oldest first where the toggle was, then the card preview. The override lives in `LogShareSelection` and reaches `logShareCardState`'s `displayName`, never mutating the Case.
+- [ ] The `LOG_SHARE_CARD_ENTRY_CAP` and `logShareCardState` KDoc stop describing Square's floor as a reason for the cap, and HODITH_SPEC.md §13 is reworded to match: the Log Share paragraph ("regardless of format") and the preview-screen row, which gains the name field.
+- [ ] Tests: `LogShareViewModelTest` (format assertion and `setFormat` coverage removed; name override set, blanked back to `null`, and carried into the card state), `LogSharePreviewScreenTest` (`formatToggle_selectingSquare_invokesCallback` removed; the name field shown and invoking its callback; the sort control still invoking its callback in its new position), `ShareCardStateTest`'s `logShareCardState` cases (no format parameter, display name used), and `ShareCardTemplateTest`'s Log card cases keep passing. `docs/TESTING.md`'s Log Share and Share preview rows updated.
+
+**Plan** — drop the toggle and its state and pin the Log card to the content-sized shape; add the display-name override to `LogShareSelection` and the view model the way `ShareSelection` already carries it, and render the same name field above the filters; move `SortSection` to the toggle's former slot. Walk the docs and KDoc that mention a Log Share format.
+
+**Tests** — see the criteria above.
+
+### Share Insight: render streaks, clarify Name-on-card is editable
+
+*Branch: `fix/share-insight-streaks-name-affordance` · Complexity: S · Priority: Medium · Area: Share*
+
+Two small polish fixes on the Insight Share preview screen:
+
+- Streak data already flows into the share pipeline unused — `GapsDisplay` already carries `longestStreakDays`/`averageStreakDays` and `ShareCardState.kt` already passes it through, but `GapsPanel` only renders gap min/avg/max and drops the streak fields.
+- The "Name on card" field has no visual link to the card's rendered name below it, so it doesn't read as editable.
+
+**Acceptance criteria**
+
+- [ ] `GapsPanel` renders a streak row/section alongside its existing gap min/avg/max row; Voice ×3 for any new label.
+- [ ] The Name-on-card field gains an affordance (edit icon, matching border treatment, or similar) tying it visually to the card's rendered name.
+
+**Plan** — extend `GapsPanel`'s layout to include the streak fields already present on `GapsDisplay`; add a small visual connector between the name field and the card preview.
+
+**Tests** — `ShareCardTemplateTest`'s Gaps-panel cases extended to assert streak values render; a Compose test for the name-field affordance if it's interactive.
+
+### Share Insight: reorderable sections
+
+*Branch: `feat/share-insight-section-order` · Complexity: M · Priority: Low · Area: Share*
+
+🎨 **Design decision**
+
+Section order is a fixed enum (`ShareInsightsSection`) and `SectionsPicker` is plain include/exclude toggle rows with no ordering concept. Only 6 sections exist today — weigh drag-and-drop's build cost against that small a list before committing to it.
+
+**Acceptance criteria**
+
+- [ ] A decision made on the reordering UI shape (drag-and-drop vs. simpler up/down controls) weighed against the 6-section list size.
+- [ ] `ShareSelection` carries an ordered list instead of a `Set`.
+- [ ] `SectionsPicker` lets the user reorder included sections.
+- [ ] `ShareCardTemplate` renders sections in the persisted order instead of enum declaration order.
+
+**Plan** — design call first; then add the ordered list to `ShareSelection`, build the reordering UI, and switch `ShareCardTemplate`'s section loop to follow it.
+
+**Tests** — `ShareViewModelTest` for order persistence; `ShareCardTemplateTest` for order-following rendering.
+
+### Share: replace the chooser dialog with Summary / Insights / History tabs
+
+*Branch: `feat/share-tabs` · Complexity: M · Priority: Medium · Area: Share*
+
+🎨 **Design decision**
+
+Summary = the existing Square-format Insight Share, Insights = the existing Story-format Insight Share, History = the existing Log Share. Summary and Insights are already two formats of one screen/viewmodel (`ShareViewModel`/`SharePreviewScreen`); History is the already-separate `LogShareViewModel`/`LogSharePreviewScreen`. **Sequence after "Log Share: drop the format toggle and add Name on card"** above — this item's History tab hosts that screen's controls, so landing that one first avoids rework.
+
+**Acceptance criteria**
+
+- [ ] `ShareChooserDialog` is removed.
+- [ ] One tabbed host screen replaces today's two nav routes (`share/{caseId}`, `log_share/{caseId}`).
+- [ ] Summary and Insights tabs route to `ShareViewModel`'s Square/Story format respectively; History tab routes to `LogShareViewModel`.
+- [ ] Entry points that opened the dialog now open the tabbed screen directly.
+
+**Plan** — build the tabbed host first against the existing two viewmodels unchanged; collapse the nav graph; remove the dialog last once the tabs work end to end.
+
+**Tests** — navigation tests asserting the dialog is gone and each tab reaches the right viewmodel/content; existing `ShareViewModelTest`/`LogShareViewModelTest` unaffected.
+
+### Insights tab: split Gaps/Streaks, restyle Gaps & Duration to match Share Story's pattern
+
+*Branch: `feat/insights-gaps-streaks-split` · Complexity: M · Priority: Medium · Area: Insights*
+
+`GapsCard` combines gaps and streaks under one `SectionWithInfo`; `DurationCard` uses the same vertical `StatRow` stack. The Share Story card already uses a different, more visual pattern for the same stats — separate mini-cards with a three-column min/avg/max row (`MinAvgMaxRow`).
+
+**Acceptance criteria**
+
+- [ ] Gaps and Streaks split into two cards, each with its own `SectionWithInfo` info icon and copy.
+- [ ] Gaps and Duration's stat layout restyled to the min/avg/max row idiom `GapsPanel`/`DurationPanel` already use in Share.
+- [ ] Visual consistency confirmed between the Insights tab and the Share preview for these stats.
+
+**Plan** — split `GapsCard` into `GapsCard`/`StreaksCard`; port the `MinAvgMaxRow` idiom from `ShareCardTemplate.kt` into the Insights tab's Gaps and Duration cards.
+
+**Tests** — `CaseDetailInsightsTabTest` updated for the split cards and new row layout.
+
+### Trends: visual redesign, order by recency/significance
+
+*Branch: `feat/trends-visual-redesign` · Complexity: M · Priority: Medium · Area: Insights*
+
+🎨 **Design decision**
+
+Trend findings render as plain sentence + caption text, not cards, and their order is fixed by detector-execution order, not recency or significance.
+
+**Acceptance criteria**
+
+- [ ] `TrendFindingRow`/`Plank` restyled to a more scannable, visual per-finding treatment.
+- [ ] Findings reordered by significance — a decision made on whether the existing binary `TrendReliability` tier (Pattern before Hint) is sufficient, or whether raw p-values need to be persisted on `TrendFinding` for finer-grained ordering.
+- [ ] "New" label — open sub-question, not blocking the rest of this item: needs a finding-identity/persistence design decision (`TrendFinding` has no id or timestamp today) before it's buildable. Ship the visual redesign and significance ordering first, add the badge once that's decided.
+
+**Plan** — restyle rendering first; add significance-based sort to `TrendsEngine`'s output; revisit "New" once identity/persistence is designed.
+
+**Tests** — `InsightsTabTrendsCardTest`/`TrendsListScreenTest` updated for the new rendering and sort order.
+
+### History: rename the Log tab, add a top-line average
+
+*Branch: `feat/history-rename-average` · Complexity: S · Priority: Medium · Area: Insights / Voice*
+
+🎨 **Design decision**
+
+The rename is tiny: `caseDetailLogTabLabel` has exactly 2 usages. `LogTabContent`'s existing summary line has no average — average gap, average streak, average duration, and average intensity are all already computed elsewhere on the same screen, so adding one here is new UI wiring, not new computation. Open question: which one (or whether it varies by Case).
+
+**Acceptance criteria**
+
+- [ ] `caseDetailLogTabLabel` renamed from "Log" to "History" across all three Voices.
+- [ ] A decision made on which average is "most relevant" for the summary line.
+- [ ] `logSummaryLine` (or a new Voice key) extended to include that average.
+- [ ] Any other UI copy referring to "Log"/"the Log tab" reviewed for consistency with the rename.
+
+**Plan** — rename the Voice key and its 2 usages; decide the average; wire it into the existing summary line.
+
+**Tests** — `VoiceTest` picks up the renamed key automatically; a Compose test for the new summary line content.
+
+### Delete Data: clearer option copy
+
+*Branch: `fix/delete-data-copy` · Complexity: XS · Priority: Medium · Area: Settings / Voice*
+
+`DeleteDataOptionsDialog` uses `settingsDeleteDataOptionAll`/`settingsDeleteDataOptionLogsOnly` (default copy "All data"/"Logs only", plus two theme overrides). "Logs only" currently wraps to 2 lines.
+
+**Acceptance criteria**
+
+- [ ] `settingsDeleteDataOptionAll` reworded to literally list what's deleted, across all three Voices.
+- [ ] `settingsDeleteDataOptionLogsOnly` renamed to "History only" (matching the Log-tab rename above), across all three Voices.
+- [ ] The 2-line wrap resolved by the new, shorter-or-equal copy.
+- [ ] Related confirm-step strings (`settingsDeleteAllDataConfirmTitle`, `settingsDeleteDataLogsConfirmTitle`) updated to match, across all three Voices.
+
+**Plan** — reword the two option strings and the matching confirm-step strings in `Voice.kt` (default + 2 theme overrides each); verify the dialog no longer wraps.
+
+**Tests** — `SettingsScreenTest`/`DeleteDataDialogsTest` assertions updated for the new copy; `VoiceTest` picks up renamed/reworded keys automatically.
+
+### Review phrasing across all three Voice implementations
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
 
-🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item.
+🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item. Anything that adds or changes a Voice key must land before this item — nearly everything else in this file does.
 
 Fold these already-drafted key changes into the audit:
 
@@ -49,48 +227,6 @@ Fold these already-drafted key changes into the audit:
 **Tests** — `VoiceTest` already checks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. Add mechanical invariants during the audit: vocabulary casing, no gamification vocabulary (spec §4), length caps on tab/button labels, no double spaces or trailing whitespace. Confirm `androidTest` references `PlainVoice` by constant everywhere, not literal, before starting.
 
 **Concern** — the audit will change hundreds of lines in one file. Anything else touching `Voice.kt` must land first.
-
-### B4 · Log Share: drop the format toggle and add Name on card
-
-*Branch: `fix/log-share-controls` · Complexity: S · Priority: Medium · Area: Bug*
-
-Log Share drifted from Insight Share. Two fixes bring them in line:
-
-- **Log Share has a Story/Square toggle it should not have.** Format belongs to Insight Share, where Square is a fixed stats preset and Story is the customizable one. Log Share's card is a capped list of entries, so a Square choice only adds a 1:1 height floor under a list that already sizes to its rows. The toggle (`SegmentedChoiceRow` in `LogSharePreviewScreen.kt`, `LogShareSelection.format`, `LogShareViewModel.setFormat`, the `onFormatSelect` parameter) goes, and the Newest first / Oldest first control takes its place in the layout.
-- **Log Share cannot rename the card.** Insight Share has a "Name on card" field (real names can be personal, spec §13); Log Share shows the Case's own name with no way to change it, even though its rows are the most personal data the app shares.
-
-**Acceptance criteria**
-
-- [ ] The Story/Square toggle no longer renders on Log Share, and the `format` choice is gone from `LogShareSelection`, `LogShareViewModel` and the screen's callbacks.
-- [ ] The Log card always renders in its content-sized shape (Story's), with no Square floor; `logShareCardState` and `ShareCardData.Log` carry that single shape.
-- [ ] Log Share's controls read, top to bottom: the name field (the same `shareNameFieldLabel` field Insight Share uses, with the Case's own name as the placeholder), date range, fields, then Newest first / Oldest first where the toggle was, then the card preview. The override lives in `LogShareSelection` and reaches `logShareCardState`'s `displayName`, never mutating the Case.
-- [ ] The `LOG_SHARE_CARD_ENTRY_CAP` and `logShareCardState` KDoc stop describing Square's floor as a reason for the cap, and HODITH_SPEC.md §13 is reworded to match: the Log Share paragraph ("regardless of format") and the preview-screen row, which gains the name field.
-- [ ] Tests: `LogShareViewModelTest` (format assertion and `setFormat` coverage removed; name override set, blanked back to `null`, and carried into the card state), `LogSharePreviewScreenTest` (`formatToggle_selectingSquare_invokesCallback` removed; the name field shown and invoking its callback; the sort control still invoking its callback in its new position), `ShareCardStateTest`'s `logShareCardState` cases (no format parameter, display name used), and `ShareCardTemplateTest`'s Log card cases keep passing. `docs/TESTING.md`'s Log Share and Share preview rows updated.
-
-**Plan** — drop the toggle and its state and pin the Log card to the content-sized shape; add the display-name override to `LogShareSelection` and the view model the way `ShareSelection` already carries it, and render the same name field above the filters; move `SortSection` to the toggle's former slot. Walk the docs and KDoc that mention a Log Share format.
-
-**Tests** — see the criteria above.
-
-## Standalone
-
-No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
-
-### App-icon handle butts directly against the lens ring with no clearance
-
-*Branch: `fix/icon-handle-clearance` · Complexity: S · Priority: Low · Area: Bug*
-
-In `app/src/main/res/drawable/ic_launcher_foreground.xml` the handle's inner edge (midpoint ~(62,62)) sits on the ring's outer stroke band (~63.7 along the diagonal).
-
-**Acceptance criteria**
-
-- [ ] The handle's two inner points (`58.818,65.182` and `65.182,58.818`) pushed outward along the (1,1) diagonal in `ic_launcher_foreground.xml`; mirrored in `ic_launcher_monochrome.xml`.
-- [ ] Visible clearance between handle inner edge and ring outer stroke.
-- [ ] Handle tip stays inside the 66dp adaptive-icon safe zone (shorten the handle or nudge the enclosing `group` scale if needed).
-- [ ] Verified across densities, the Android 13+ themed/monochrome path, and the splash screen (which reuses the foreground).
-
-**Plan** — push the handle's two inner points (`58.818,65.182` and `65.182,58.818`) outward along the (1,1) diagonal; mirror the change in `ic_launcher_monochrome.xml`. The handle tip is already near the 66dp adaptive-icon safe zone, so this may also mean shortening the handle or nudging the enclosing `group` scale (0.9).
-
-**Tests** — none (Previews only, as with the icon-picker item). Verify across densities, the Android 13+ themed/monochrome path, and the splash screen.
 
 ### Audit the hosted privacy policy and Play data-safety form
 
@@ -140,6 +276,24 @@ Lint (`ModifierParameter`) flags `SegmentedChoiceRow.kt`'s `modifier` parameter 
 
 **Tests** — none existing cover this row's own layout/sizing directly; Preview-verify the four call sites after the change.
 
+### UI test suite audit: duration and duplicate coverage
+
+*Branch: `chore/ui-test-suite-audit` · Complexity: S (investigation) · Priority: Medium · Area: Repo*
+
+🔍 **Investigation** — a review pass, not a known fix, same shape as the Intense/Bright theme audit above.
+
+`androidTest` has 48 files, ~11,000 lines, ~500 `@Test`s; only 10 files have genuine Hilt/instrumentation dependencies (widget/notification/backup). Starting leads already found: `CaseDetailInsightsTabTest` re-verifies number-formatting/rounding (intensity decimal truncation, exact gap/streak counts) through full Compose rendering, duplicating logic already unit-tested at the JVM level in `InsightsFormattingTest`; `ShareCardTemplateTest` and `InsightsTabTrendsCardTest` both independently exercise Trends-row rendering.
+
+**Acceptance criteria**
+
+- [ ] A written pass over the suite noting duration hot spots, duplicated coverage, and tests asserting pure-logic results through the UI instead of unit-testing the logic directly.
+- [ ] A shortlist of tests to convert to unit tests, de-duplicate, or delete, each with a keep/drop call.
+- [ ] Approved changes spun out as their own follow-up item(s).
+
+**Plan** — audit pass first, no code changes; produce a findings list.
+
+**Tests** — none for the audit itself.
+
 ## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
@@ -162,22 +316,6 @@ Lint (`ModifierParameter`) flags `SegmentedChoiceRow.kt`'s `modifier` parameter 
 **Tests** — if windowing is taken: `bigPictureUiState` over a windowed event list; a DAO test for the month-range query; Big Picture Compose tests stay green.
 
 **Concern** — scroll-triggered range extension (if taken) must not stutter or flash empty cells on a fast scroll to a distant month.
-
-### D2 · New-case tag suggestions have no history to draw from
-
-*Branch: none — deferred, no fix prescribed · Complexity: S · Priority: Low · Area: Bug*
-
-🔍 **Investigation, deferred**
-
-`TagInput.kt`'s suggestion filtering and case-insensitive dedup (`filterTagSuggestions`) are already correct; every call site (`LogDetailScreenViewModel`, `HomeViewModel`, `WidgetLogSheetViewModel`) sources its candidate list from `repository.observeTagsForCase(caseId)`. A brand-new Case's per-case tag list is empty on its very first tag entry, so nothing suggests, even when the same tag name already exists on other Cases — which is how testers ended up with near-duplicate spellings. Cross-case suggestions were considered and explicitly ruled out, so no fix is prescribed here.
-
-**Acceptance criteria**
-
-- [ ] Revisit with a concrete proposal once one exists — this item exists to hold the observation, not to specify a solution.
-
-**Plan** — none yet; deferred pending a future proposal that doesn't widen tag suggestions across Cases.
-
-**Tests** — none until a proposal is approved.
 
 ### D3 · Investigate app capacity at multi-year logging scale
 
@@ -218,62 +356,6 @@ Originally scoped three sub-features: autocorrelation for weekly/~28-day cycles,
 - [ ] `HODITH_SPEC.md` §10 gains one line per kept signal, or a rationale note here for any dropped.
 
 **Plan** — none yet — the weekday-vs-weekend fallback already covers the cheapest, most useful signal of the original three.
-
-**Tests** — none until picked back up.
-
-### D5 · Watch threshold suggestions
-
-*Branch: none yet — deferred, needs alpha usage · Complexity: M · Priority: Low · Area: Notifications*
-
-🎨 **Design decision**
-
-Carried over from the retired Hunch/Trigger feasibility item, re-scoped to Watches. When creating or editing a quiet Watch, suggest a threshold from the Case's 90th-percentile historical gap — `InsightsEngine.computeGapStats` builds the gap list; this adds a percentile helper over it (none exists today). For either kind, show "would have fired N times in the last year" by replaying the (pure, `now`-parameterised) Watch conditions over the past year's events — a historical loop, no new evaluation logic.
-
-**Deferred rather than pursued next** — the editor's shape has settled, so this is deferred purely pending real alpha use showing whether people struggle to pick thresholds at all.
-
-**Acceptance criteria**
-
-- [ ] Revisit once alpha testers have used the Watches tab.
-- [ ] A percentile helper over the gap list, with its own unit tests.
-- [ ] The replay loop reuses the Watch conditions as-is and is unit-tested against a planted event history.
-- [ ] Voice ×3 for the suggestion copy, observational only (no "you should").
-
-**Plan** — none yet.
-
-**Tests** — none until picked back up.
-
-### D6 · Detector: combos beyond chance (tag-combo significance)
-
-*Branch: none yet — deferred, needs a design decision · Complexity: M · Priority: Low · Area: Insights*
-
-🎨 **Design decision**
-
-Common tag combos (spec §10) ships as a descriptive `Hint` only. A second finding was spiked
-alongside it — testing whether a combo from that detector's own closed, above-floor candidates
-appears more often than its individual tags' frequencies predict, via a swap-shuffle permutation
-test (preserves each event's tag count and each tag's total frequency) reusing `permutationPValue`.
-
-**Deferred rather than pursued next** — the spike's own fixture surfaced the real blocker: a
-manufactured "co-occurs only because both tags are individually common" pair (lift ≈ 1.09, no
-practical effect) still cleared a raw `p < 0.05` cut, and only a Bonferroni correction (narrowly, and
-sensitive to the permutation engine's own chain-mixing depth) caught it. Every existing `Pattern`-tier
-detector (tag → outcome, trend slope, tag timing, weekday vs. weekend) gates its permutation test
-behind a descriptive floor first (e.g. a 20%+ relative-difference bar) — this detector needs the same
-shape (a minimum-lift floor) before the permutation test runs at all, not just a multiple-comparisons
-correction layered on afterward. That floor's exact value is a statistics/product call, not an
-implementation detail, hence deferred rather than guessed at.
-
-**Acceptance criteria**
-
-- [ ] A minimum-lift (or relative-difference) floor decided and added, checked before the
-  permutation test runs — the same "cheap descriptive floor first" shape every other `Pattern`
-  detector already uses.
-- [ ] Re-run the spike's own fixture (a combo that co-occurs only because both tags are individually
-  common) against the floor to confirm it's excluded without the correction needing to do the work.
-- [ ] A `TrendFindingKind` addition, Voice ×3, and the same test-coverage bar `TAG_COMBO`'s own
-  detector sets.
-
-**Plan** — none yet; needs the floor value decided first.
 
 **Tests** — none until picked back up.
 
