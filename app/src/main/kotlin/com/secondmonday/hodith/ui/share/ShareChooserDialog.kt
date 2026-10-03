@@ -65,8 +65,8 @@ internal fun ShareChooserDialog(
 
 /**
  * [ShareChooserDialog]'s two [RadioOptionRow]s need to be findable by tag rather than by label
- * text: the Log option's own label text ("Log") collides with the still-present Case Detail Log
- * tab underneath the dialog, the same class of ambiguity Big Picture/Log tab/Log Share's own field
- * toggles hit and solved the same way.
+ * text: the History option's own label text ("History") collides with the still-present Case
+ * Detail History tab underneath the dialog, the same class of ambiguity Big Picture/History tab/
+ * History Share's own field toggles hit and solved the same way.
  */
 internal const val SHARE_CHOOSER_OPTION_TAG_PREFIX = "share_chooser_option_"

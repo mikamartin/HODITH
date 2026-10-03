@@ -67,6 +67,7 @@ import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
+import com.secondmonday.hodith.domain.caseHeroRate
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.DateRangeFilterDialog
@@ -82,6 +83,7 @@ import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
 import com.secondmonday.hodith.ui.share.ShareChoice
 import com.secondmonday.hodith.ui.share.ShareChooserDialog
+import com.secondmonday.hodith.ui.share.rateText
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
@@ -473,11 +475,15 @@ private fun LogTabContent(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         if (case != null && uiState.events.isNotEmpty()) {
+            val history = uiState.events.map { it.event }
+            val observedDays = observationSpanDays(history, case.createdAt, now)
+            val rate = caseHeroRate(history, observedDays, now)
             Text(
                 text =
                     voice.logSummaryLine(
+                        rate = rate?.rateText(voice),
                         eventCount = uiState.events.size,
-                        observedDays = observationSpanDays(uiState.events.map { it.event }, case.createdAt, now),
+                        observedDays = observedDays,
                     ),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,

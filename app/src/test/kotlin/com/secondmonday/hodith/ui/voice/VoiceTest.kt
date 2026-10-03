@@ -35,6 +35,17 @@ class VoiceTest {
     }
 
     @Test
+    fun `logSummaryLine leads with the rate when there is one and reads the count line without it`() {
+        for (voice in listOf(PlainVoice, IntenseVoice, BrightVoice)) {
+            val withRate = voice.logSummaryLine(rate = "2.1/week", eventCount = 31, observedDays = 94)
+            val withoutRate = voice.logSummaryLine(rate = null, eventCount = 31, observedDays = 94)
+
+            assertTrue(withRate.startsWith("2.1/week · "))
+            assertEquals(withoutRate, withRate.removePrefix("2.1/week · "))
+        }
+    }
+
+    @Test
     fun `no per-voice key returns an identical string across all three voices`() {
         // Structural keys (interface `get() = "literal"` defaults, and defaulted `fun`s built only
         // from those) are meant to be identical and are excluded automatically: they're non-abstract

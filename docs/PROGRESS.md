@@ -142,25 +142,6 @@ Trend findings render as plain sentence + caption text, not cards, and their ord
 
 **Tests** — `InsightsTabTrendsCardTest`/`TrendsListScreenTest` updated for the new rendering and sort order.
 
-### History: rename the Log tab, add a top-line average
-
-*Branch: `feat/history-rename-average` · Complexity: S · Priority: Medium · Area: Insights / Voice*
-
-🎨 **Design decision**
-
-The rename is tiny: `caseDetailLogTabLabel` has exactly 2 usages. `LogTabContent`'s existing summary line has no average — average gap, average streak, average duration, and average intensity are all already computed elsewhere on the same screen, so adding one here is new UI wiring, not new computation. Open question: which one (or whether it varies by Case).
-
-**Acceptance criteria**
-
-- [ ] `caseDetailLogTabLabel` renamed from "Log" to "History" across all three Voices.
-- [ ] A decision made on which average is "most relevant" for the summary line.
-- [ ] `logSummaryLine` (or a new Voice key) extended to include that average.
-- [ ] Any other UI copy referring to "Log"/"the Log tab" reviewed for consistency with the rename.
-
-**Plan** — rename the Voice key and its 2 usages; decide the average; wire it into the existing summary line.
-
-**Tests** — `VoiceTest` picks up the renamed key automatically; a Compose test for the new summary line content.
-
 ### Delete Data: clearer option copy
 
 *Branch: `fix/delete-data-copy` · Complexity: XS · Priority: Medium · Area: Settings / Voice*
@@ -170,7 +151,6 @@ The rename is tiny: `caseDetailLogTabLabel` has exactly 2 usages. `LogTabContent
 **Acceptance criteria**
 
 - [ ] `settingsDeleteDataOptionAll` reworded to literally list what's deleted, across all three Voices.
-- [ ] `settingsDeleteDataOptionLogsOnly` renamed to "History only" (matching the Log-tab rename above), across all three Voices.
 - [ ] The 2-line wrap resolved by the new, shorter-or-equal copy.
 - [ ] Related confirm-step strings (`settingsDeleteAllDataConfirmTitle`, `settingsDeleteDataLogsConfirmTitle`) updated to match, across all three Voices.
 
