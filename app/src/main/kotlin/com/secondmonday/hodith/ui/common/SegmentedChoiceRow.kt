@@ -40,9 +40,10 @@ import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 
 /**
  * Shared shape for a single-choice segmented row (Case Edit's logFlow/durationMode/check-in,
- * Settings' theme picker, Insights' frequency granularity). Defaults to a full-width row with a
- * gap above it, for stacking under a section label; the Log tab passes [modifier] `= Modifier`
- * and [stretchToFill] `= false` to sit inline beside its "Sort" label instead.
+ * Settings' theme picker, Insights' frequency granularity). By default it is a full-width row with
+ * a gap above it, for stacking under a section label; [stretchToFill] `= false` drops both so it
+ * can sit inline beside a label instead. The row's own layout is applied before [modifier], so a
+ * caller's modifier (a test tag, semantics) adds to it rather than replacing it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +51,7 @@ fun <T> SegmentedChoiceRow(
     options: List<Pair<T, String>>,
     selected: T,
     onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    modifier: Modifier = Modifier,
     stretchToFill: Boolean = true,
     enabled: (T) -> Boolean = { true },
     textStyle: TextStyle = MaterialTheme.typography.labelLarge,
@@ -58,13 +59,14 @@ fun <T> SegmentedChoiceRow(
     segmentHorizontalPadding: Dp = if (stretchToFill) 0.dp else 16.dp,
     segmentVerticalPadding: Dp = 7.dp,
 ) {
+    val rowModifier = (if (stretchToFill) Modifier.fillMaxWidth().padding(top = 8.dp) else Modifier).then(modifier)
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT ->
             BrightSegmentedChoiceRow(
                 options = options,
                 selected = selected,
                 onSelect = onSelect,
-                modifier = modifier,
+                modifier = rowModifier,
                 stretchToFill = stretchToFill,
                 enabled = enabled,
                 textStyle = textStyle,
@@ -84,7 +86,7 @@ fun <T> SegmentedChoiceRow(
                 } else {
                     SegmentedButtonDefaults.colors()
                 }
-            SingleChoiceSegmentedButtonRow(modifier = modifier) {
+            SingleChoiceSegmentedButtonRow(modifier = rowModifier) {
                 options.forEachIndexed { index, (option, label) ->
                     SegmentedButton(
                         selected = selected == option,

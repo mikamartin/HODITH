@@ -17,6 +17,27 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/segmented-choice-row-modifier-default
+
+**Scope:** PROGRESS.md's "SegmentedChoiceRow's `modifier` parameter defaults to more than `Modifier`" item, the `ModifierParameter` lint warning deferred from the fix/log-share-controls pass.
+
+**Found & fixed:**
+- `modifier` now defaults to plain `Modifier`. The row's own `fillMaxWidth()` and 8dp top gap moved into the function body, gated on `stretchToFill` and applied before the caller's modifier, so a caller's modifier (test tag, semantics) adds to the layout instead of replacing it.
+- KDoc's reference to the Log tab's inline Sort control removed. That control is now a filter chip that opens a dialog and no longer uses this composable; the PROGRESS item's Log-tab re-check was stale for the same reason.
+- Walked the call sites: none passed `modifier` or `stretchToFill = false`, so no call site renders differently.
+- Added `SegmentedChoiceRowTest` (instrumented): a caller's modifier keeps the full-width layout and 8dp top gap, and `stretchToFill = false` drops both. Mutation-checked: restoring the old default made both caller-modifier tests fail.
+
+**Considered and declined:**
+- Removing the `stretchToFill = false` path. It has no callers today, but it still drives the inline layout and the Bright segment padding default. Dropping it is a separate API change, so it stays.
+
+**Deferred:** nothing deferred.
+
+**Docs updated:** PROGRESS.md item struck; TESTING.md shared-components row names the new test. No SPEC changes.
+
+**Verified:** `ktlintCheck`, `lintDebug` ("No issues found."), `test`, `assembleDebug`, all green, run sequentially. On the emulator: `SegmentedChoiceRowTest` and `SettingsScreenTest` pass, 36/36. A broader run of the seven UI classes that host these call sites (Case Edit, Case Detail, Insights, Watches, both share previews) aborted at 29 of 201 when the emulator crashed, so those were not covered by this pass. One `SettingsScreenTest` case failed on a renderer-finalizer timeout during that run and passed on rerun.
+
+---
+
 ## fix/log-share-controls
 
 **Scope:** PROGRESS.md's "Log Share: drop the format toggle and add Name on card" item. Log Share had a Story/Square toggle that only added a 1:1 height floor under a list that already sizes to its rows, and no way to rename the card, even though its rows are the most personal data the app shares.
@@ -119,29 +140,5 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** SPEC §13 and the §14 Share preview row; TESTING (stats, time formatting, Voice, share assembly, share preview rows); PROGRESS (B1 struck, B2/B3 reworded for what shipped).
 
 **Verified:** `ktlintCheck`, `lintDebug`, `test` (1009 unit tests), `assembleDebug` run sequentially, all green; `compileDebugAndroidTestKotlin` clean. Not run: the instrumented share tests (`ShareCardTemplateTest`, `SharePreviewScreenTest`, `InsightsTabTrendsCardTest`) need a device, and the light/dark visual pass of the three Square cards is the human's.
-
----
-
-## feat/notifications
-
-**Scope:** the Watches rework (Story N, N2): Trigger renamed to Notification and moved into a Case Detail bell tab, Often notifications moved onto span-overlap comparison math, then a second rename to **Watch** (avoiding a collision with `android.app.Notification`) with a redesigned two-zone card and editor. This pass also closes the follow-ups: spec and docs sweep, unit and instrumented coverage for the redesign, a Watch demo seed, and removing Story N from PROGRESS.md.
-
-**Found & fixed:**
-- `WatchEditorSheet`'s `windowPresetLabel` returned hardcoded English strings ("7 days", "2mo", "Quarter"). Replaced by the shared `Voice.watchesWindowPresetLabel(days)`, a structural default like `watchesQuietSuffix`.
-- Editor KDoc still described the retired `TriggerCreationSheet` and a fixed 14/30-day preset; reworded. Two code comments pointing at PROGRESS.md's N2 rewritten to stand alone.
-- The intensity toggle transition and highlight-fill rule lived inline in the composable; extracted to `minIntensityAfterToggle` / `isIntensityLevelHighlighted` and unit-tested, along with the window-preset helpers.
-- `DemoDataSeeder` seeded no Watches (an original N2 criterion that had dropped out of PROGRESS.md). Added: a confident often Watch, a disabled quiet one, a days-active one on a duration Case, an intensity-filtered one, a quiet one on the long-silent Case, one Case with none, one Case with check-ins off. Each is run through the real Watch engine against the seeded events, so a condition that is already met is stored fired and loading demo data doesn't fire a burst.
-- Docs sweep: HODITH_SPEC §2, §5, §8, §11, §14 and the stale `Trigger`/`SILENT_FOR` mentions; README, TESTING, MANUAL_TEST_PLAN, QA_AUDIT_RULES, CLEANUP_CHECKLIST and CLAUDE.md. Remaining `trigger` hits are deliberate (`FilterTriggerChip`, migration-history comments, "edge-triggered", plain verbs).
-
-**Deferred:**
-- Intensity-level circles in the editor are 36dp, under the 48dp touch target; fixing it re-spaces the row and needs a device look. Noted in the picker's KDoc.
-
-**Considered and declined:**
-- `WatchEditorSheet` is over 150 lines; left as is.
-- Preset day counts in `windowDaysFor` stay literal; they are editor preset data scoped to that one function, not product constants.
-
-**Docs updated:** SPEC §2, §5, §8, §11, §14; TESTING; MANUAL_TEST_PLAN; README; PROGRESS (Story N removed).
-
-**Verified:** `ktlintCheck → lintDebug → test → assembleDebug` sequential, all green. Not run by hand: light/dark visual review of the new card and editor.
 
 ---
