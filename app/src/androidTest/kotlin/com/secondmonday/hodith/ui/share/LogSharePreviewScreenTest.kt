@@ -1,11 +1,14 @@
 package com.secondmonday.hodith.ui.share
 
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogRowField
@@ -75,6 +78,14 @@ class LogSharePreviewScreenTest {
 
     private fun defaultSelection(dateTo: Long = millisAtDay(60)) = LogShareSelection(dateTo = dateTo)
 
+    /** The name field's contents. Its text lives in `EditableText`, not `Text`, so `assertTextEquals` can't read it. */
+    private fun nameFieldText(): String =
+        composeTestRule
+            .onNode(hasSetTextAction())
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.EditableText]
+            .text
+
     /**
      * The range button's exact text, including its "Range: " prefix. The live card preview below
      * renders its own range subtitle with the same bare value and no prefix (`logShareRangeLabel`
@@ -93,9 +104,50 @@ class LogSharePreviewScreenTest {
             onDisplayNameChange = { typed = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareNameFieldLabel).performTextInput("Sam")
+        composeTestRule.onNode(hasSetTextAction()).performTextClearance()
+        composeTestRule.onNode(hasSetTextAction()).performTextInput("Sam")
 
         assertEquals("Sam", typed)
+    }
+
+    @Test
+    fun nameField_showsTheCaseNameByDefault() {
+        val case = testCase(id = 1L)
+        setContent(
+            uiState = LogShareUiState(case = case, events = emptyList(), selection = defaultSelection(), isLoading = false),
+        )
+
+        assertEquals(case.name, nameFieldText())
+    }
+
+    @Test
+    fun nameField_showsTheOverrideWhenOneIsSet() {
+        setContent(
+            uiState =
+                LogShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection().copy(displayNameOverride = "Sam's log"),
+                    isLoading = false,
+                ),
+        )
+
+        assertEquals("Sam's log", nameFieldText())
+    }
+
+    @Test
+    fun nameField_clearing_keepsTheFieldEmptyInsteadOfRefillingWithTheCaseName() {
+        var typed: String? = "unset"
+        val case = testCase(id = 1L)
+        setContent(
+            uiState = LogShareUiState(case = case, events = emptyList(), selection = defaultSelection(), isLoading = false),
+            onDisplayNameChange = { typed = it },
+        )
+
+        composeTestRule.onNode(hasSetTextAction()).performTextClearance()
+
+        assertEquals("", typed)
+        assertEquals("", nameFieldText())
     }
 
     @Test

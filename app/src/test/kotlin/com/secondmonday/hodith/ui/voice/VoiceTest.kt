@@ -119,6 +119,8 @@ class VoiceTest {
             assertEquals("Max", voice.shareStatMaxLabel)
             assertEquals("/week", voice.shareRatePerWeekUnit)
             assertEquals("average 3 of 5", voice.shareSquareIntensityAverage("3"))
+            assertEquals("Name on card", voice.shareNameFieldLabel)
+            assertEquals("Streaks", voice.shareStreaksTitle)
         }
     }
 

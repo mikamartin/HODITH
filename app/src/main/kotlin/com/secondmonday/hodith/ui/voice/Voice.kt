@@ -907,7 +907,7 @@ interface Voice {
 
     /** Gaps and Length titles — the card's panel headings and the Story picker's row labels alike. */
     val shareGapsTitle: String get() = "Gaps"
-    val shareSquareGapsNeedMoreEvents: String get() = "2+ events needed."
+    val shareStreaksTitle: String get() = "Streaks"
     val shareDurationTitle: String get() = "Length"
 
     /** The Story card's Tags section and its picker row: the card lists only the busiest few, so the title says so. */
@@ -947,7 +947,7 @@ interface Voice {
     val shareFormatStoryLabel: String get() = "Story"
     val shareFormatSquareLabel: String get() = "Square"
 
-    val shareNameFieldLabel: String
+    val shareNameFieldLabel: String get() = "Name on card"
     val shareSectionsPickerLabel: String
 
     // ---- Log Share (a second share card of the Case's actual entries, not a data export — see
@@ -1668,7 +1668,6 @@ object PlainVoice : Voice {
     override val widgetCaseNotFoundMessage = "This Case is gone. Tap to open HODITH."
 
     override val shareOpenDescription = "Share"
-    override val shareNameFieldLabel = "Name on card"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "event" else "events"
 
@@ -2314,7 +2313,6 @@ object IntenseVoice : Voice {
     override val widgetCaseNotFoundMessage = "This watch has ended. Tap to return to HODITH."
 
     override val shareOpenDescription = "Share the record"
-    override val shareNameFieldLabel = "Name for the record"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "mark" else "marks"
 
@@ -2959,7 +2957,6 @@ object BrightVoice : Voice {
     override val widgetCaseNotFoundMessage = "This Case wandered off! Tap to open HODITH."
 
     override val shareOpenDescription = "Share it!"
-    override val shareNameFieldLabel = "Name it!"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "log" else "logs"
 

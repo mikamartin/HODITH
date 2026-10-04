@@ -83,6 +83,7 @@ import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
+import com.secondmonday.hodith.viewmodel.StreakDisplay
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import java.time.DayOfWeek
@@ -321,7 +322,7 @@ private fun SquareInsightsBody(
     skin: ShareCardSkin,
 ) {
     TopBeatContent(data.topBeat, voice, skin)
-    data.gaps?.let { GapsPanel(it, data.quietForDays, voice, skin) }
+    data.gaps?.let { GapsPanel(it, data.quietForDays, data.streaks, voice, skin) }
     data.duration?.let { DurationPanel(it, voice, skin) }
     data.intensity?.let { IntensityPanel(it, voice, skin) }
     data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
@@ -329,7 +330,7 @@ private fun SquareInsightsBody(
 
 /**
  * Story: the same summary beat, then the sections the user picked in the picker's order — Gaps,
- * Length, Start times, Intensity, Trends, Tags — each already `null` or empty in [data] when not
+ * Streaks, Length, Start times, Intensity, Trends, Tags — each already `null` or empty in [data] when not
  * picked or not applicable. The panels are the Square ones, so both formats read alike.
  */
 @Composable
@@ -339,7 +340,8 @@ private fun StoryInsightsBody(
     skin: ShareCardSkin,
 ) {
     TopBeatContent(data.topBeat, voice, skin)
-    data.gaps?.let { GapsPanel(it, data.quietForDays, voice, skin) }
+    data.gaps?.let { GapsPanel(it, data.quietForDays, streaks = null, voice, skin) }
+    data.streaks?.let { StreaksPanel(it, voice, skin) }
     data.duration?.let { DurationPanel(it, voice, skin) }
     data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
     data.intensity?.let { IntensityPanel(it, voice, skin) }
@@ -497,10 +499,15 @@ private fun TrendTriangle(
     }
 }
 
+/**
+ * The Gaps panel. [streaks] adds the Case's streaks as a second row inside the same card (Square);
+ * Story passes `null` and shows them as its own [StreaksPanel] instead.
+ */
 @Composable
 private fun GapsPanel(
     display: GapsDisplay,
     quietForDays: Long?,
+    streaks: StreakDisplay?,
     voice: Voice,
     skin: ShareCardSkin,
 ) {
@@ -509,14 +516,8 @@ private fun GapsPanel(
             MiniSectionTitle(voice.shareGapsTitle, skin)
             quietForDays?.let { QuietLabel(voice.shareSquareQuietLabel(formatDaysCompact(it.toDouble()))) }
         }
-        val shortest = display.shortestGapDays
-        if (shortest == null) {
-            Text(
-                text = voice.shareSquareGapsNeedMoreEvents,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
+        // Gaps only reaches the card once there are two events (see ShareCardState), so the shortest gap is present here.
+        display.shortestGapDays?.let { shortest ->
             MinAvgMaxRow(
                 voice = voice,
                 min = formatDaysCompact(shortest.toDouble()),
@@ -524,6 +525,32 @@ private fun GapsPanel(
                 max = formatDaysCompact(display.longestGapDays.toDouble()),
             )
         }
+        streaks?.let { StreakRow(it, voice) }
+    }
+}
+
+/** The Story card's own Streaks panel: the same two streak figures as the Square Gaps panel's second row. */
+@Composable
+private fun StreaksPanel(
+    streaks: StreakDisplay,
+    voice: Voice,
+    skin: ShareCardSkin,
+) {
+    MiniInsightsCard {
+        MiniSectionTitle(voice.shareStreaksTitle, skin)
+        StreakRow(streaks, voice)
+    }
+}
+
+/** Longest and average streak, two columns: the same label-over-value idiom as [MinAvgMaxRow]. */
+@Composable
+private fun StreakRow(
+    streaks: StreakDisplay,
+    voice: Voice,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        StatColumn(voice.insightsStreakLongestLabel, formatDaysCompact(streaks.longestStreakDays.toDouble()))
+        StatColumn(voice.insightsStreakAverageLabel, formatDaysCompact(streaks.averageStreakDays))
     }
 }
 
@@ -606,12 +633,21 @@ private fun MinAvgMaxRow(
     max: String,
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(voice.shareStatMinLabel to min, voice.shareStatAvgLabel to avg, voice.shareStatMaxLabel to max).forEach { (label, value) ->
-            Column(modifier = Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-            }
-        }
+        StatColumn(voice.shareStatMinLabel, min)
+        StatColumn(voice.shareStatAvgLabel, avg)
+        StatColumn(voice.shareStatMaxLabel, max)
+    }
+}
+
+/** One label over its value, as a weighted column of a stat row. */
+@Composable
+private fun RowScope.StatColumn(
+    label: String,
+    value: String,
+) {
+    Column(modifier = Modifier.weight(1f)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
     }
 }
 

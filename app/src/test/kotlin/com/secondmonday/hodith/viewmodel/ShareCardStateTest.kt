@@ -18,6 +18,7 @@ import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.ui.casedetail.TRENDS_DEFAULT_VISIBLE_COUNT
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -229,7 +230,7 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `a single-event Case offers Rhythm and Gaps but not Trends or Tags on the share card`() {
+    fun `a single-event Case offers Rhythm but not Gaps, Streaks, Trends or Tags on the share card`() {
         val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
         val oneEvent =
             listOf(
@@ -259,7 +260,8 @@ class ShareCardStateTest {
             )
 
         assertTrue(data.rhythm != null)
-        assertTrue(data.gaps != null)
+        assertNull(data.gaps)
+        assertNull(data.streaks)
         assertEquals(emptyList<Any>(), data.trends)
         assertEquals(emptyList<Any>(), data.tags)
     }
@@ -332,6 +334,9 @@ class ShareCardStateTest {
     )
 
     private fun readyWith(stats: StatsSections) = InsightsTabState.Ready(heatmapMonths = emptyList(), stats = stats)
+
+    /** Gaps (and the quiet label that rides on it) only reach the card once there are two events. */
+    private fun StatsSections.withTwoEvents() = copy(gaps = gaps.copy(shortestGapDays = 2L))
 
     private fun wentQuietFinding(currentGapDays: Double = 14.0) =
         TrendFinding(
@@ -633,7 +638,7 @@ class ShareCardStateTest {
         val insightsState =
             InsightsTabState.Ready(
                 heatmapMonths = emptyList(),
-                stats = statsWithTrends(listOf(wentQuiet, ordinaryFinding(sampleCount = 6))),
+                stats = statsWithTrends(listOf(wentQuiet, ordinaryFinding(sampleCount = 6))).withTwoEvents(),
             )
 
         val data = squareState(case, insightsState)
@@ -656,7 +661,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Story carries quietForDays when Gaps is picked and the Case has gone quiet`() {
-        val insightsState = readyWith(statsWithTrends(listOf(wentQuietFinding(currentGapDays = 21.0))))
+        val insightsState = readyWith(statsWithTrends(listOf(wentQuietFinding(currentGapDays = 21.0))).withTwoEvents())
 
         val data = storyState(testCase(), insightsState, setOf(ShareInsightsSection.GAPS))
 
@@ -747,6 +752,40 @@ class ShareCardStateTest {
     }
 
     @Test
+    fun `Story carries streaks only when the Streaks section is picked, and independently of Gaps`() {
+        val case = testCase()
+        val insightsState = readyInsightsState(case)
+        val gaps = (insightsState as InsightsTabState.Ready).stats.gaps
+
+        assertNull(storyState(case, insightsState, setOf(ShareInsightsSection.GAPS)).streaks)
+
+        val streaksOnly = storyState(case, insightsState, setOf(ShareInsightsSection.STREAKS))
+        assertEquals(StreakDisplay(gaps.longestStreakDays, gaps.averageStreakDays), streaksOnly.streaks)
+        assertNull(streaksOnly.gaps)
+    }
+
+    @Test
+    fun `Story streaks stay hidden before two events even when picked`() {
+        val case = testCase()
+        val stats = (readyInsightsState(case) as InsightsTabState.Ready).stats
+        val oneEvent = readyWith(stats.copy(gaps = stats.gaps.copy(shortestGapDays = null)))
+
+        assertNull(storyState(case, oneEvent, setOf(ShareInsightsSection.STREAKS)).streaks)
+    }
+
+    @Test
+    fun `Square carries the streak figures once there are two events and none before`() {
+        val case = testCase()
+        val stats = (readyInsightsState(case) as InsightsTabState.Ready).stats
+        val oneEvent = readyWith(stats.copy(gaps = stats.gaps.copy(shortestGapDays = null)))
+
+        val square = squareState(case, readyInsightsState(case))
+
+        assertEquals(StreakDisplay(stats.gaps.longestStreakDays, stats.gaps.averageStreakDays), square.streaks)
+        assertNull(squareState(case, oneEvent).streaks)
+    }
+
+    @Test
     fun `Story with nothing logged leaves every section empty and keeps the hero`() {
         val data = storyState(testCase(), InsightsTabState.NothingLogged, eventCount = 0)
 
@@ -765,6 +804,7 @@ class ShareCardStateTest {
         assertEquals(
             listOf(
                 ShareInsightsSection.GAPS,
+                ShareInsightsSection.STREAKS,
                 ShareInsightsSection.DURATION,
                 ShareInsightsSection.RHYTHM,
                 ShareInsightsSection.INTENSITY,
@@ -784,10 +824,19 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `availableShareSections offers only Gaps and Start times for a bare Case`() {
+    fun `availableShareSections offers only Start times for a bare Case with one event`() {
         val stats = statsWithTrends(emptyList())
 
-        assertEquals(listOf(ShareInsightsSection.GAPS, ShareInsightsSection.RHYTHM), availableShareSections(stats))
+        assertEquals(listOf(ShareInsightsSection.RHYTHM), availableShareSections(stats))
+    }
+
+    @Test
+    fun `availableShareSections offers Streaks only once there are two events`() {
+        val oneEvent = statsWithTrends(emptyList())
+        val twoEvents = oneEvent.copy(gaps = oneEvent.gaps.copy(shortestGapDays = 2L))
+
+        assertFalse(ShareInsightsSection.STREAKS in availableShareSections(oneEvent))
+        assertTrue(ShareInsightsSection.STREAKS in availableShareSections(twoEvents))
     }
 
     @Test
@@ -798,7 +847,7 @@ class ShareCardStateTest {
                 tags = listOf(TagBreakdownEntry("alpha", 3)),
                 duration = sampleDuration,
                 intensity = sampleIntensity,
-            )
+            ).let { it.copy(gaps = it.gaps.copy(shortestGapDays = 2L)) } // a second event is what offers Streaks
 
         assertEquals(ShareInsightsSection.entries.toList(), availableShareSections(stats))
     }

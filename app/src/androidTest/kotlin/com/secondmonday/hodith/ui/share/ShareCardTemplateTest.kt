@@ -46,6 +46,7 @@ import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
+import com.secondmonday.hodith.viewmodel.StreakDisplay
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -117,6 +118,7 @@ class ShareCardTemplateTest {
         rate: HeroRate? = null,
         eventCount: Int = 14,
         gaps: GapsDisplay? = null,
+        streaks: StreakDisplay? = null,
         duration: DurationDisplay? = null,
         rhythm: RhythmDisplay? = null,
         intensity: IntensityDisplay? = null,
@@ -130,6 +132,7 @@ class ShareCardTemplateTest {
         topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = 60, rate = rate),
         rhythm = rhythm,
         gaps = gaps,
+        streaks = streaks,
         trends = trends,
         duration = duration,
         intensity = intensity,
@@ -180,6 +183,7 @@ class ShareCardTemplateTest {
         rate: HeroRate? = null,
         eventCount: Int = 14,
         gaps: GapsDisplay? = null,
+        streaks: StreakDisplay? = null,
         duration: DurationDisplay? = null,
         intensity: IntensityDisplay? = null,
         rhythm: RhythmDisplay? = null,
@@ -191,6 +195,7 @@ class ShareCardTemplateTest {
         topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = 60, rate = rate),
         rhythm = rhythm,
         gaps = gaps,
+        streaks = streaks,
         trends = emptyList(),
         duration = duration,
         intensity = intensity,
@@ -447,15 +452,48 @@ class ShareCardTemplateTest {
     }
 
     @Test
-    fun squareGapsPanelExplainsItselfWhenThereIsNoGapYet() {
+    fun squareGapsPanelIsOmittedBeforeTwoEvents() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                ShareCardTemplate(data = squareData(gaps = SAMPLE_GAPS.copy(shortestGapDays = null)), voice = PlainVoice)
+                ShareCardTemplate(data = squareData(gaps = null), voice = PlainVoice)
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.shareSquareGapsNeedMoreEvents).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareGapsTitle).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.shareStatMinLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareGapsPanelShowsTheStreakRowInsideTheGapsCard() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(
+                    data = squareData(gaps = SAMPLE_GAPS, streaks = StreakDisplay(longestStreakDays = 6, averageStreakDays = 2.5)),
+                    voice = PlainVoice,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsStreakLongestLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsStreakAverageLabel).assertExists()
+        composeTestRule.onNodeWithText("6d").assertExists()
+        composeTestRule.onNodeWithText("2.5d").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareStreaksTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun squareGapsPanelShowsNoStreakRowWithoutStreakFigures() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice) {
+                ShareCardTemplate(
+                    data = squareData(gaps = null, streaks = null),
+                    voice = PlainVoice,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsStreakLongestLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText("6d").assertDoesNotExist()
     }
 
     @Test
@@ -719,6 +757,30 @@ class ShareCardTemplateTest {
     fun storyGapsPanelHasNoQuietLabelWithoutIt() {
         setStoryContent(storyData(gaps = SAMPLE_GAPS, quietForDays = null))
         composeTestRule.onNodeWithText(PlainVoice.shareSquareQuietLabel("14d")).assertDoesNotExist()
+    }
+
+    @Test
+    fun storyShowsTheStreaksAsTheirOwnCardWhenTheyArePicked() {
+        setStoryContent(storyData(gaps = SAMPLE_GAPS, streaks = StreakDisplay(longestStreakDays = 6, averageStreakDays = 2.5)))
+
+        composeTestRule.onNodeWithText(PlainVoice.shareStreaksTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsStreakLongestLabel).assertExists()
+        composeTestRule.onNodeWithText("6d").assertExists()
+        composeTestRule.onNodeWithText("2.5d").assertExists()
+    }
+
+    @Test
+    fun storyStreaksCardShowsWithoutTheGapsCardWhenOnlyStreaksArePicked() {
+        setStoryContent(storyData(gaps = null, streaks = StreakDisplay(longestStreakDays = 6, averageStreakDays = 2.5)))
+
+        composeTestRule.onNodeWithText(PlainVoice.shareStreaksTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareGapsTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun storyHasNoStreaksCardWithoutStreaks() {
+        setStoryContent(storyData(gaps = SAMPLE_GAPS, streaks = null))
+        composeTestRule.onNodeWithText(PlainVoice.shareStreaksTitle).assertDoesNotExist()
     }
 
     @Test

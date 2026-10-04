@@ -332,6 +332,7 @@ class SharePreviewScreenTest {
 
         mapOf(
             ShareInsightsSection.GAPS to PlainVoice.shareGapsTitle,
+            ShareInsightsSection.STREAKS to PlainVoice.shareStreaksTitle,
             ShareInsightsSection.DURATION to PlainVoice.shareDurationTitle,
             ShareInsightsSection.RHYTHM to PlainVoice.insightsSectionLabelRhythmStarts,
             ShareInsightsSection.INTENSITY to PlainVoice.insightsSectionLabelIntensity,
@@ -343,12 +344,13 @@ class SharePreviewScreenTest {
     }
 
     @Test
-    fun pickerRows_listGapsLengthStartTimesIntensityTrendsTagsInThatOrder() {
+    fun pickerRows_listGapsStreaksLengthStartTimesIntensityTrendsTagsInThatOrder() {
         setContent(uiState = storyState(case = trackingCase(), events = richEvents()))
 
         val tops =
             listOf(
                 ShareInsightsSection.GAPS,
+                ShareInsightsSection.STREAKS,
                 ShareInsightsSection.DURATION,
                 ShareInsightsSection.RHYTHM,
                 ShareInsightsSection.INTENSITY,
