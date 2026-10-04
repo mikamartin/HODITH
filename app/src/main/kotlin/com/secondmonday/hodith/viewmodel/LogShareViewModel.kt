@@ -40,8 +40,6 @@ data class LogShareSelection(
     val dateFrom: Long? = null,
     val dateTo: Long,
     val fields: Set<LogRowField> = LogRowField.entries.toSet(),
-    /** `null` means the card shows the Case's own name — see [ShareSelection.displayNameOverride]. */
-    val displayNameOverride: String? = null,
 )
 
 data class LogShareUiState(
@@ -102,13 +100,6 @@ class LogShareViewModel
             )
 
         fun nowMillis(): Long = clock.nowMillis()
-
-        /** `null` (or blank) means fall back to the Case's own name — see [LogShareSelection.displayNameOverride]. */
-        fun setDisplayNameOverride(name: String?) {
-            selection.update {
-                it.copy(displayNameOverride = name?.take(CASE_NAME_MAX_LENGTH)?.takeIf { override -> override.isNotBlank() })
-            }
-        }
 
         fun setSortOrder(order: ChronologicalOrder) {
             selection.update { it.copy(sortOrder = order) }

@@ -20,7 +20,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -74,80 +73,7 @@ class ShareViewModelTest {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals("Coffee", state.case?.name)
                 assertEquals(1, state.events.size)
-                assertEquals(ShareCardFormat.SQUARE, state.selection.format)
-                assertNull(state.selection.displayNameOverride)
                 assertEquals(ShareInsightsSection.entries.toSet(), state.selection.selectedSections)
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `setFormat updates the selection`() =
-        runTest {
-            repository.cases.value = listOf(testCase())
-            val vm = viewModel()
-
-            vm.uiState.test {
-                awaitLoadedItem { it.isLoading }
-                vm.setFormat(ShareCardFormat.STORY)
-                assertEquals(ShareCardFormat.STORY, awaitItem().selection.format)
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `setDisplayNameOverride blanks out to null so the Case's own name is used`() =
-        runTest {
-            repository.cases.value = listOf(testCase())
-            val vm = viewModel()
-
-            vm.uiState.test {
-                awaitLoadedItem { it.isLoading }
-
-                vm.setDisplayNameOverride("Custom title")
-                assertEquals("Custom title", awaitItem().selection.displayNameOverride)
-
-                vm.setDisplayNameOverride("   ")
-                assertNull(awaitItem().selection.displayNameOverride)
-
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `setDisplayNameOverride truncates a name beyond the max length`() =
-        runTest {
-            repository.cases.value = listOf(testCase())
-            val vm = viewModel()
-
-            vm.uiState.test {
-                awaitLoadedItem { it.isLoading }
-
-                vm.setDisplayNameOverride("a".repeat(CASE_NAME_MAX_LENGTH + 10))
-                assertEquals(CASE_NAME_MAX_LENGTH, awaitItem().selection.displayNameOverride?.length)
-
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `switching format back and forth keeps the Story section choices`() =
-        runTest {
-            repository.cases.value = listOf(testCase())
-            val vm = viewModel()
-
-            vm.uiState.test {
-                awaitLoadedItem { it.isLoading }
-
-                vm.setSectionSelected(ShareInsightsSection.RHYTHM, selected = false)
-                awaitItem()
-                vm.setFormat(ShareCardFormat.STORY)
-                assertEquals(ShareCardFormat.STORY, awaitItem().selection.format)
-                vm.setFormat(ShareCardFormat.SQUARE)
-                val backOnSquare = awaitItem().selection
-
-                assertEquals(ShareCardFormat.SQUARE, backOnSquare.format)
-                assertFalse(ShareInsightsSection.RHYTHM in backOnSquare.selectedSections)
                 cancelAndIgnoreRemainingEvents()
             }
         }

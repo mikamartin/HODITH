@@ -25,7 +25,7 @@ internal enum class ExportFormat { JSON, CSV }
  * since not every user already knows what either format is for. Replaces the former pair of
  * separate "Export data" / "Export as CSV" rows on the Data plank. A plain [AlertDialog]
  * composition ([RadioOptionRow] rows), same idiom as this package's `DeleteDataOptionsDialog` and
- * the Case-Detail header's Insight/Log Share chooser (`ShareChooserDialog`).
+ * the Case-Detail header's Share screen (`ShareRoute`).
  */
 @Composable
 internal fun ExportFormatDialog(

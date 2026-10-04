@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,12 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -27,20 +23,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +64,8 @@ import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.DateRangeFilterDialog
 import com.secondmonday.hodith.ui.common.FabListBottomClearance
 import com.secondmonday.hodith.ui.common.FilterTriggerChip
+import com.secondmonday.hodith.ui.common.HodithTab
+import com.secondmonday.hodith.ui.common.HodithTabRow
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.OngoingCountText
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
@@ -81,8 +74,6 @@ import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
-import com.secondmonday.hodith.ui.share.ShareChoice
-import com.secondmonday.hodith.ui.share.ShareChooserDialog
 import com.secondmonday.hodith.ui.share.rateText
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
@@ -116,7 +107,6 @@ fun CaseDetailRoute(
     onEditCase: (Long) -> Unit,
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenShare: (Long) -> Unit,
-    onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CaseDetailViewModel = hiltViewModel(),
@@ -128,7 +118,6 @@ fun CaseDetailRoute(
         onEditCase = onEditCase,
         onEditEvent = onEditEvent,
         onOpenShare = onOpenShare,
-        onOpenLogShare = onOpenLogShare,
         onOpenTrends = onOpenTrends,
         newEventDraft = viewModel::newEventDraft,
         onSaveEvent = viewModel::saveNewEvent,
@@ -151,7 +140,6 @@ fun CaseDetailScreen(
     onEditCase: (Long) -> Unit,
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenShare: (Long) -> Unit,
-    onOpenLogShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
     newEventDraft: () -> LogDraft,
     onSaveEvent: (LogDraft) -> Unit,
@@ -173,7 +161,6 @@ fun CaseDetailScreen(
     // Editing an existing event is a separate destination (onEditEvent), not this sheet.
     var newEventSheetNow by remember { mutableStateOf<Long?>(null) }
     var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
-    var showShareChooser by remember { mutableStateOf(false) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
     // Hoisted above WatchesTabContent so the outer FAB (a sibling of the tab content, not a
     // nested Scaffold) can open the same create sheet a card tap opens for edit.
@@ -192,7 +179,7 @@ fun CaseDetailScreen(
                 },
                 actions = {
                     if (case != null) {
-                        IconButton(onClick = { showShareChooser = true }) {
+                        IconButton(onClick = { onOpenShare(case.id) }) {
                             Icon(Icons.Filled.Share, contentDescription = voice.shareOpenDescription)
                         }
                         IconButton(onClick = { onEditCase(case.id) }) {
@@ -241,38 +228,29 @@ fun CaseDetailScreen(
                     }
                 }
             }
-            // Hand-rolled rather than TabRow/SecondaryTabRow: M3's TabRow always divides its width
-            // equally across every Tab, and the bell tab -- used far less than Log or Insights --
-            // doesn't need an equal share of it. Rebuilds the parts that gave up: the tonal
-            // surface background, a colored indicator bar under whichever tab is active, and a
-            // hairline divider separating the row from the content below.
-            Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
-                        CaseDetailTab(
-                            selected = selectedTab == LOG_TAB,
-                            onClick = { selectedTab = LOG_TAB },
-                            modifier = Modifier.weight(2f),
-                        ) {
-                            Text(voice.caseDetailLogTabLabel)
-                        }
-                        CaseDetailTab(
-                            selected = selectedTab == INSIGHTS_TAB,
-                            onClick = { selectedTab = INSIGHTS_TAB },
-                            modifier = Modifier.weight(2f),
-                        ) {
-                            Text(voice.caseDetailInsightsTabLabel)
-                        }
-                        // Icon only, per Target UX -- a Voice content description carries its accessible name.
-                        CaseDetailTab(
-                            selected = selectedTab == WATCHES_TAB,
-                            onClick = { selectedTab = WATCHES_TAB },
-                            modifier = Modifier.weight(1f).semantics { contentDescription = voice.watchesTabDescription },
-                        ) {
-                            Icon(Icons.Filled.Notifications, contentDescription = null)
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            // The bell tab is used far less than Log or Insights, so it takes a narrower share of the width.
+            HodithTabRow {
+                HodithTab(
+                    selected = selectedTab == LOG_TAB,
+                    onClick = { selectedTab = LOG_TAB },
+                    modifier = Modifier.weight(2f),
+                ) {
+                    Text(voice.caseDetailLogTabLabel)
+                }
+                HodithTab(
+                    selected = selectedTab == INSIGHTS_TAB,
+                    onClick = { selectedTab = INSIGHTS_TAB },
+                    modifier = Modifier.weight(2f),
+                ) {
+                    Text(voice.caseDetailInsightsTabLabel)
+                }
+                // Icon only, per Target UX -- a Voice content description carries its accessible name.
+                HodithTab(
+                    selected = selectedTab == WATCHES_TAB,
+                    onClick = { selectedTab = WATCHES_TAB },
+                    modifier = Modifier.weight(1f).semantics { contentDescription = voice.watchesTabDescription },
+                ) {
+                    Icon(Icons.Filled.Notifications, contentDescription = null)
                 }
             }
             when (selectedTab) {
@@ -404,52 +382,6 @@ fun CaseDetailScreen(
                 newEventSheetNow = null
             },
             onDismiss = { newEventSheetNow = null },
-        )
-    }
-
-    if (showShareChooser && case != null) {
-        ShareChooserDialog(
-            voice = voice,
-            onDismiss = { showShareChooser = false },
-            onConfirm = { choice ->
-                showShareChooser = false
-                when (choice) {
-                    ShareChoice.INSIGHT -> onOpenShare(case.id)
-                    ShareChoice.LOG -> onOpenLogShare(case.id)
-                }
-            },
-        )
-    }
-}
-
-/**
- * One tab in the hand-rolled row above (see its own doc comment for why it's not TabRow/Tab): the
- * selected/unselected color swap on [content] plus a colored bar underneath, matching what a real
- * M3 TabRow would otherwise draw for free.
- */
-@Composable
-private fun CaseDetailTab(
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Column(
-        modifier = modifier.height(48.dp).selectable(selected = selected, onClick = onClick, role = Role.Tab),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            CompositionLocalProvider(LocalContentColor provides contentColor) {
-                ProvideTextStyle(MaterialTheme.typography.titleSmall) { content() }
-            }
-        }
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
         )
     }
 }

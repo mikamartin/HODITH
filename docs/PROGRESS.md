@@ -53,23 +53,37 @@ No tag-management UI, rename, or merge operation exists anywhere today. Tags are
 
 **Tests** — none until the brainstorm and design are done.
 
-### Share: replace the chooser dialog with Summary / Insights / History tabs
+### Share History card: range on the title line, and a real "All" range
 
-*Branch: `feat/share-tabs` · Complexity: M · Priority: Medium · Area: Share*
+*Branch: `fix/share-history-range-line` · Complexity: S · Priority: Medium · Area: Share*
 
-🎨 **Design decision**
+The History card's kicker ("The history") and its resolved range sit on two lines. The range should share the title's line. Separately, with no range set the card and the History tab show "All time" rather than the Case's actual span.
 
-Summary = the existing Square-format Insight Share, Insights = the existing Story-format Insight Share, History = the existing Log Share. Summary and Insights are already two formats of one screen/viewmodel (`ShareViewModel`/`SharePreviewScreen`); History is the already-separate `LogShareViewModel`/`LogSharePreviewScreen`.
 **Acceptance criteria**
 
-- [ ] `ShareChooserDialog` is removed.
-- [ ] One tabbed host screen replaces today's two nav routes (`share/{caseId}`, `log_share/{caseId}`).
-- [ ] Summary and Insights tabs route to `ShareViewModel`'s Square/Story format respectively; History tab routes to `LogShareViewModel`.
-- [ ] Entry points that opened the dialog now open the tabbed screen directly.
+- [ ] The History card's kicker and resolved range render on one line, in every voice and both skins (Intense uppercases the kicker, so check the range reads well uppercased).
+- [ ] With no range set ("All"), the range shows the Case's creation date as the start and today's date as the end, instead of "All time". The same resolved range appears on the card and in the Range control.
+- [ ] New or changed Voice strings in all three voices in the same commit. Date formatting follows the existing `formatDateRangeBound` rules.
 
-**Plan** — build the tabbed host first against the existing two viewmodels unchanged; collapse the nav graph; remove the dialog last once the tabs work end to end.
+**Plan** — the one-line change is in `LogCardBody` (`ui/share/ShareCardTemplate.kt`). For the "All" range, resolve the default date-from from `CaseEntity.createdAt` in `logShareCardState`/`LogShareViewModel` rather than leaving it `null`, and retire `shareLogRangeAllTimeLabel` if nothing else uses it. Decide whether the stored date-from is the creation date or stays `null` and is resolved at render time, since `null` currently means "since the beginning" and the filter depends on that.
 
-**Tests** — navigation tests asserting the dialog is gone and each tab reaches the right viewmodel/content; existing `ShareViewModelTest`/`LogShareViewModelTest` unaffected.
+**Tests** — `ShareCardStateTest` for the resolved range label with and without a set range; `LogShareViewModelTest` for the default `dateFrom`; a Compose test for the single-line kicker.
+
+### Case Detail: split the 250-line CaseDetailScreen composable
+
+*Branch: none yet · Complexity: M · Priority: Low · Area: Refactor*
+
+`CaseDetailScreen` is about 250 lines and owns the header, the tab row, the FAB, the three tab bodies and the new-event sheet state. It was already this long before the Share change; that change only removed the chooser from it.
+
+**Acceptance criteria**
+
+- [ ] Each tab body (Log, Insights, Watches) lives in its own composable, with the tab-selection state kept in the screen.
+- [ ] The FAB and the new-event sheet live beside the screen, not inside the tab bodies.
+- [ ] No change in behaviour: `CaseDetailScreenTest` and `CaseDetailInsightsTabTest` pass unchanged.
+
+**Plan** — extract one tab at a time, running those two classes after each.
+
+**Tests** — none new; the existing Case Detail classes are the regression net.
 
 ### Insights tab: split Gaps/Streaks, restyle Gaps & Duration to match Share Story's pattern
 

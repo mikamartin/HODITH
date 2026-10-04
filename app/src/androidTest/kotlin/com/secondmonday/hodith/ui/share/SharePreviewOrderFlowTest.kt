@@ -10,6 +10,8 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
@@ -31,7 +33,8 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.ShareCardFormat
+import com.secondmonday.hodith.viewmodel.LogShareSelection
+import com.secondmonday.hodith.viewmodel.LogShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,7 +51,7 @@ import javax.inject.Provider
 
 /**
  * The full path a reorder takes on a device, minus only Hilt: a real Room database, the real
- * [ShareViewModel] with its DataStore-backed order, and [SharePreviewScreen] driven by a long-press
+ * [ShareViewModel] with its DataStore-backed order, and [ShareScreen] driven by a long-press
  * drag on the picker. Checks that the card follows the reorder.
  */
 @UiTest
@@ -102,7 +105,6 @@ class SharePreviewOrderFlowTest {
                 settingsRepository = settings,
                 savedStateHandle = SavedStateHandle(mapOf("caseId" to caseId)),
             )
-        viewModel.setFormat(ShareCardFormat.STORY)
     }
 
     @After
@@ -115,20 +117,36 @@ class SharePreviewOrderFlowTest {
     fun dragStartTimesToTheTop_movesItsCardSectionToTheTop() {
         composeTestRule.setHodithContent {
             val uiState by viewModel.uiState.collectAsState()
-            SharePreviewScreen(
-                uiState = uiState,
+            ShareScreen(
+                insightState = uiState,
+                logState =
+                    LogShareUiState(
+                        case = uiState.case,
+                        events = uiState.events,
+                        selection =
+                            LogShareSelection(
+                                dateTo =
+                                    DAY_MILLIS * 20,
+                            ),
+                        isLoading = uiState.isLoading,
+                    ),
                 now = DAY_MILLIS * 20,
                 graphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
-                onFormatSelect = {},
-                onDisplayNameChange = {},
                 onSectionToggle = { _, _ -> },
                 onSectionMove = viewModel::moveSection,
-                onShareClick = {},
+                onInsightShareClick = {},
+                onDateFromPicked = {},
+                onDateToPicked = {},
+                onFieldToggle = { _, _ -> },
+                onLogSortOrderSelect = {},
+                onLogShareClick = {},
             )
         }
         composeTestRule.waitUntil { viewModel.uiState.value.case != null }
         composeTestRule.waitForIdle()
+        // The picker lives on the Insights (Story) tab, which is not the screen's default.
+        composeTestRule.onNodeWithText(PlainVoice.shareTabInsightsLabel).performClick()
 
         // Drag from the row's title, not the grip: the whole row is the drag target. The picker comes before the card, so its copy is first.
         composeTestRule.onAllNodesWithText(PlainVoice.insightsSectionLabelRhythmStarts).onFirst().performTouchInput {

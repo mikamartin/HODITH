@@ -15,6 +15,7 @@ import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.ui.voice.DOT_SEPARATOR
 import com.secondmonday.hodith.ui.voice.Voice
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -312,5 +313,5 @@ internal fun eventDetailSummary(
     if (showIntensity) intensity?.let { parts += voice.eventIntensityLabel(it) }
     note?.takeIf { it.isNotBlank() }?.let { parts += it }
     if (tagNames.isNotEmpty()) parts += tagNames.sorted().joinToString(" ") { "#$it" }
-    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(DOT_SEPARATOR)
 }

@@ -22,7 +22,8 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.ShareCardFormat
+import com.secondmonday.hodith.viewmodel.LogShareSelection
+import com.secondmonday.hodith.viewmodel.LogShareUiState
 import com.secondmonday.hodith.viewmodel.ShareSelection
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import org.junit.Assert.assertEquals
@@ -34,8 +35,15 @@ import java.time.ZoneId
 
 private val ZONE = ZoneId.systemDefault()
 
-/** Square is the default format, and it has no section picker; tests of the picker select Story explicitly. */
-private val STORY_SELECTION = ShareSelection(format = ShareCardFormat.STORY)
+/** The Insights tab (Story) is the one with the section picker; tests of the picker select that tab explicitly. */
+private val STORY_SELECTION = ShareSelection()
+
+private fun tabLabel(tab: ShareTab): String =
+    when (tab) {
+        ShareTab.SUMMARY -> PlainVoice.shareTabSummaryLabel
+        ShareTab.INSIGHTS -> PlainVoice.shareTabInsightsLabel
+        ShareTab.HISTORY -> PlainVoice.shareTabHistoryLabel
+    }
 
 private fun millisAtDay(epochDay: Long): Long =
     LocalDate
@@ -79,73 +87,56 @@ internal fun ComposeContentTestRule.cardTitleTop(title: String): Float =
         .positionInRoot.y
 
 /**
- * [SharePreviewScreen] is stateless but needs a real `GraphicsLayer` (tied to composition) for the
- * capture modifier, same reason `ShareCardTemplate` itself needed [UiTest] rather than a plain unit
- * test — otherwise this follows [com.secondmonday.hodith.ui.casedetail.CaseDetailScreenTest]'s
- * pattern of driving the stateless screen directly with fake callbacks and `TestFixtures.kt`.
+ * [ShareScreen] needs a real `GraphicsLayer` (tied to composition) for the capture modifier, same reason
+ * `ShareCardTemplate` itself needed [UiTest] rather than a plain unit test. Drives the stateless host with fake callbacks
+ * and selects the tab under test by clicking its label.
  */
-
 @UiTest
-class SharePreviewScreenTest {
+class InsightShareTabTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
     private fun setContent(
         uiState: ShareUiState,
         now: Long = millisAtDay(60),
-        onFormatSelect: (ShareCardFormat) -> Unit = {},
+        tab: ShareTab = ShareTab.SUMMARY,
         onSectionToggle: (ShareInsightsSection, Boolean) -> Unit = { _, _ -> },
     ) {
         composeTestRule.setHodithContent {
-            SharePreviewScreen(
-                uiState = uiState,
+            ShareScreen(
+                insightState = uiState,
+                logState =
+                    LogShareUiState(
+                        case = uiState.case,
+                        events = uiState.events,
+                        selection = LogShareSelection(dateTo = now),
+                        isLoading = uiState.isLoading,
+                    ),
                 now = now,
                 graphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
-                onFormatSelect = onFormatSelect,
-                onDisplayNameChange = {},
                 onSectionToggle = onSectionToggle,
                 onSectionMove = { _, _, _ -> },
-                onShareClick = {},
+                onInsightShareClick = {},
+                onDateFromPicked = {},
+                onDateToPicked = {},
+                onFieldToggle = { _, _ -> },
+                onLogSortOrderSelect = {},
+                onLogShareClick = {},
             )
         }
+        if (tab != ShareTab.SUMMARY) composeTestRule.onNodeWithText(tabLabel(tab)).performClick()
     }
 
     @Smoke
     @Test
-    fun formatToggle_selectingStory_invokesCallback() {
-        var selected: ShareCardFormat? = null
-        setContent(
-            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false),
-            onFormatSelect = { selected = it },
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.shareFormatStoryLabel).performClick()
-
-        assertEquals(ShareCardFormat.STORY, selected)
-    }
-
-    @Test
-    fun formatToggle_selectingSquareFromStory_invokesCallback() {
-        var selected: ShareCardFormat? = null
-        setContent(
-            uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), selection = STORY_SELECTION, isLoading = false),
-            onFormatSelect = { selected = it },
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.shareFormatSquareLabel).performClick()
-
-        assertEquals(ShareCardFormat.SQUARE, selected)
-    }
-
-    @Test
-    fun formatToggle_listsSquareBeforeStory() {
+    fun tabs_summaryInsightsAndHistory_withSummaryOpenFirst() {
         setContent(uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false))
 
-        val square = composeTestRule.onNodeWithText(PlainVoice.shareFormatSquareLabel).getUnclippedBoundsInRoot()
-        val story = composeTestRule.onNodeWithText(PlainVoice.shareFormatStoryLabel).getUnclippedBoundsInRoot()
-
-        assertTrue("Square should sit left of Story (square=$square, story=$story)", square.left < story.left)
+        composeTestRule.onNodeWithText(PlainVoice.shareTabSummaryLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareTabInsightsLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareTabHistoryLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.sharePreviewLabel).assertExists()
     }
 
     @Test
@@ -155,7 +146,6 @@ class SharePreviewScreenTest {
                 ShareUiState(
                     case = testCase(id = 1L),
                     events = trendsEligibleEvents(),
-                    selection = ShareSelection(format = ShareCardFormat.SQUARE),
                     isLoading = false,
                 ),
         )
@@ -166,7 +156,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun storySelection_rendersTheSameSummaryHeroAndThePickedPanels() {
-        setContent(uiState = storyState())
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState())
 
         composeTestRule.onNodeWithText(OBSERVED_LINE_FRAGMENT, substring = true).assertExists()
         // The picker row and the card's own panel title are the same word: two nodes, not one.
@@ -175,7 +165,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun storySelection_withNothingPicked_rendersTheHeroAlone() {
-        setContent(uiState = storyState(selection = STORY_SELECTION.copy(selectedSections = emptySet())))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(selection = STORY_SELECTION.copy(selectedSections = emptySet())))
 
         composeTestRule.onNodeWithText(OBSERVED_LINE_FRAGMENT, substring = true).assertExists()
         // Only the picker row remains; the card has no Gaps panel.
@@ -183,11 +173,11 @@ class SharePreviewScreenTest {
     }
 
     @Test
-    fun screenTitle_isShareInsights_andTheShareButtonKeepsItsOwnLabel() {
+    fun screenTitle_isShare_andTheShareButtonReadsTheSameWordInPlain() {
         setContent(uiState = ShareUiState(case = testCase(id = 1L), events = emptyList(), isLoading = false))
 
-        composeTestRule.onNodeWithText(PlainVoice.shareInsightScreenTitle).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareOpenDescription).assertExists()
+        // In Plain the title and the Share button are both "Share", so the exact-text lookup finds two nodes.
+        composeTestRule.onAllNodesWithText(PlainVoice.shareScreenTitle).assertCountEquals(2)
     }
 
     private fun storyState(
@@ -200,7 +190,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun sectionPicker_isShownForStory() {
-        setContent(uiState = storyState())
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState())
 
         composeTestRule.onNodeWithText(PlainVoice.shareSectionsPickerLabel).assertExists()
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.RHYTHM)).assertExists()
@@ -212,6 +202,7 @@ class SharePreviewScreenTest {
             listOf(ShareInsightsSection.TAGS, ShareInsightsSection.GAPS) +
                 (ShareInsightsSection.entries - ShareInsightsSection.TAGS - ShareInsightsSection.GAPS)
         setContent(
+            tab = ShareTab.INSIGHTS,
             uiState =
                 ShareUiState(
                     case = trackingCase(),
@@ -227,7 +218,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun sectionPicker_hasADragHandleOnAlwaysAvailableRows() {
-        setContent(uiState = storyState())
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState())
 
         composeTestRule.onNodeWithTag(SECTION_HANDLE_TAG_PREFIX + ShareInsightsSection.GAPS.name).assertExists()
         composeTestRule.onNodeWithTag(SECTION_HANDLE_TAG_PREFIX + ShareInsightsSection.RHYTHM.name).assertExists()
@@ -235,20 +226,19 @@ class SharePreviewScreenTest {
 
     @Test
     fun sectionPicker_isHiddenBeforeTheFirstEvent_becauseThereIsNothingToPick() {
-        setContent(uiState = storyState(events = emptyList()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(events = emptyList()))
 
         composeTestRule.onNodeWithText(PlainVoice.shareSectionsPickerLabel).assertDoesNotExist()
         ShareInsightsSection.entries.forEach { composeTestRule.onNodeWithTag(rowTag(it)).assertDoesNotExist() }
     }
 
     @Test
-    fun sectionPicker_isHiddenForSquare_whateverTheCaseTracks() {
+    fun sectionPicker_isHiddenOnTheSummaryTab_whateverTheCaseTracks() {
         setContent(
             uiState =
                 storyState(
                     case = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = true),
                     events = richEvents(),
-                    selection = ShareSelection(format = ShareCardFormat.SQUARE),
                 ),
         )
 
@@ -258,7 +248,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun sectionPicker_forABareCase_offersOnlyGapsAndStartTimes() {
-        setContent(uiState = storyState(events = bareEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(events = bareEvents()))
 
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.GAPS)).assertExists()
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.RHYTHM)).assertExists()
@@ -269,7 +259,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun lengthAndIntensityRows_appearWhenTheCaseTracksThemAndHasData() {
-        setContent(uiState = storyState(case = trackingCase(), events = richEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(case = trackingCase(), events = richEvents()))
 
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.DURATION)).assertExists()
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.INTENSITY)).assertExists()
@@ -277,7 +267,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun lengthAndIntensityRows_stayHiddenWhenTheCaseTracksThemButNothingWasLogged() {
-        setContent(uiState = storyState(case = trackingCase(), events = bareEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(case = trackingCase(), events = bareEvents()))
 
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.DURATION)).assertDoesNotExist()
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.INTENSITY)).assertDoesNotExist()
@@ -286,6 +276,7 @@ class SharePreviewScreenTest {
     @Test
     fun lengthAndIntensityRows_stayHiddenWhenTheCaseDoesNotTrackThemEvenIfEventsCarryData() {
         setContent(
+            tab = ShareTab.INSIGHTS,
             uiState =
                 storyState(
                     case = testCase(id = 1L, durationMode = DurationMode.NONE, intensityEnabled = false),
@@ -300,6 +291,7 @@ class SharePreviewScreenTest {
     @Test
     fun lengthRow_appearsWithoutAnIntensityRow_whenOnlyDurationIsTracked() {
         setContent(
+            tab = ShareTab.INSIGHTS,
             uiState =
                 storyState(
                     case = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = false),
@@ -313,21 +305,21 @@ class SharePreviewScreenTest {
 
     @Test
     fun tagsRow_appearsWhenAnEventCarriesATag() {
-        setContent(uiState = storyState(events = richEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(events = richEvents()))
 
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.TAGS)).assertExists()
     }
 
     @Test
     fun tagsRow_hiddenWhenNoEventCarriesATag() {
-        setContent(uiState = storyState(events = trendsEligibleEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(events = trendsEligibleEvents()))
 
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.TAGS)).assertDoesNotExist()
     }
 
     @Test
     fun tagsSection_showsTheThreeBusiestTagsOnTheCard_andLeavesTheFourthOut() {
-        setContent(uiState = storyState(events = richEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(events = richEvents()))
 
         composeTestRule.onNodeWithText("alpha").assertExists()
         composeTestRule.onNodeWithText("beta").assertExists()
@@ -338,6 +330,7 @@ class SharePreviewScreenTest {
     @Test
     fun tagsSection_isLeftOffTheCardWhenNotPicked() {
         setContent(
+            tab = ShareTab.INSIGHTS,
             uiState =
                 storyState(
                     events = richEvents(),
@@ -351,7 +344,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun trendsRow_hiddenWhenNoTrendsFindingsExist() {
-        setContent(uiState = storyState(events = emptyList()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(events = emptyList()))
 
         // By tag, not by the "Trends" label text: with findings present, that text also appears
         // in the live card preview above (same reason sectionChecklist_togglingARow_... uses the
@@ -361,14 +354,14 @@ class SharePreviewScreenTest {
 
     @Test
     fun trendsRow_appearsWhenTrendsFindingsExist() {
-        setContent(uiState = storyState(events = trendsEligibleEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(events = trendsEligibleEvents()))
 
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.TRENDS)).assertExists()
     }
 
     @Test
     fun pickerRows_areLabelledWithTheirCardSectionTitles() {
-        setContent(uiState = storyState(case = trackingCase(), events = richEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(case = trackingCase(), events = richEvents()))
 
         mapOf(
             ShareInsightsSection.GAPS to PlainVoice.shareGapsTitle,
@@ -385,7 +378,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun pickerRows_listGapsStreaksLengthStartTimesIntensityTrendsTagsInThatOrder() {
-        setContent(uiState = storyState(case = trackingCase(), events = richEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(case = trackingCase(), events = richEvents()))
 
         val tops =
             listOf(
@@ -403,7 +396,7 @@ class SharePreviewScreenTest {
 
     @Test
     fun pickerRows_neverOfferFrequency() {
-        setContent(uiState = storyState(events = richEvents()))
+        setContent(tab = ShareTab.INSIGHTS, uiState = storyState(events = richEvents()))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
     }
@@ -412,6 +405,7 @@ class SharePreviewScreenTest {
     fun sectionChecklist_togglingARow_invokesCallbackWithTheSection() {
         var toggled: Pair<ShareInsightsSection, Boolean>? = null
         setContent(
+            tab = ShareTab.INSIGHTS,
             uiState = storyState(),
             onSectionToggle = { section, selected -> toggled = section to selected },
         )

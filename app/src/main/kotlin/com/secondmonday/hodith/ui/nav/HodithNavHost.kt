@@ -36,8 +36,7 @@ import com.secondmonday.hodith.ui.casedetail.trends.TrendsListRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
 import com.secondmonday.hodith.ui.logsheet.LogDetailRoute
 import com.secondmonday.hodith.ui.settings.SettingsRoute
-import com.secondmonday.hodith.ui.share.LogSharePreviewRoute
-import com.secondmonday.hodith.ui.share.SharePreviewRoute
+import com.secondmonday.hodith.ui.share.ShareRoute
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.IconHalo
@@ -49,7 +48,6 @@ private const val CASE_DETAIL_ROUTE = "case_detail"
 private const val LOG_EDIT_ROUTE = "log_edit"
 private const val ARCHIVED_CASES_ROUTE = "archived_cases"
 private const val SHARE_ROUTE = "share"
-private const val LOG_SHARE_ROUTE = "log_share"
 private const val TRENDS_ROUTE = "trends"
 private const val ABOUT_ROUTE = "about"
 private const val CASE_ID_ARG = "caseId"
@@ -87,7 +85,6 @@ fun HodithNavHost(
                     currentRoute?.startsWith(CASE_DETAIL_ROUTE) == true ||
                     currentRoute?.startsWith(LOG_EDIT_ROUTE) == true ||
                     currentRoute?.startsWith(SHARE_ROUTE) == true ||
-                    currentRoute?.startsWith(LOG_SHARE_ROUTE) == true ||
                     currentRoute?.startsWith(TRENDS_ROUTE) == true ||
                     currentRoute == ARCHIVED_CASES_ROUTE ||
                     currentRoute == ABOUT_ROUTE
@@ -182,7 +179,6 @@ fun HodithNavHost(
                     onEditCase = { caseId -> navController.navigate("$CASE_EDIT_ROUTE?$CASE_ID_ARG=$caseId") },
                     onEditEvent = { caseId, eventId -> navController.navigate("$LOG_EDIT_ROUTE/$caseId/$eventId") },
                     onOpenShare = { caseId -> navController.navigate("$SHARE_ROUTE/$caseId") },
-                    onOpenLogShare = { caseId -> navController.navigate("$LOG_SHARE_ROUTE/$caseId") },
                     onOpenTrends = { caseId -> navController.navigate("$TRENDS_ROUTE/$caseId") },
                 )
             }
@@ -203,13 +199,7 @@ fun HodithNavHost(
                 route = "$SHARE_ROUTE/{$CASE_ID_ARG}",
                 arguments = listOf(navArgument(CASE_ID_ARG) { type = NavType.LongType }),
             ) {
-                SharePreviewRoute(onBack = { navController.popBackStack() })
-            }
-            composable(
-                route = "$LOG_SHARE_ROUTE/{$CASE_ID_ARG}",
-                arguments = listOf(navArgument(CASE_ID_ARG) { type = NavType.LongType }),
-            ) {
-                LogSharePreviewRoute(onBack = { navController.popBackStack() })
+                ShareRoute(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "$TRENDS_ROUTE/{$CASE_ID_ARG}",

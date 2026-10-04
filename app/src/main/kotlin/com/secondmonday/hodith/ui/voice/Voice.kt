@@ -20,6 +20,9 @@ private const val DAYS_PER_MONTH = 30
 private const val WINDOW_PRESET_QUARTER_DAYS = 90
 private const val WINDOW_PRESET_MONTHS_FROM_DAYS = 60
 
+/** The middle-dot separator joining the parts of one info line, e.g. "3 events · 9 days". */
+internal const val DOT_SEPARATOR = " · "
+
 /** "day" / "week" / "month" / "3 months" — shared by every voice's Notification card-title copy. */
 private fun perPhrase(per: ExpectedPer): String =
     when (per) {
@@ -726,7 +729,7 @@ interface Voice {
         observedCount: Int,
         unit: String,
         windowDays: Long,
-    ): String = "$observedCount of $PRELIMINARY_MIN_EVENTS $unit · $windowDays of $PRELIMINARY_MIN_DAYS days"
+    ): String = "$observedCount of $PRELIMINARY_MIN_EVENTS $unit${DOT_SEPARATOR}$windowDays of $PRELIMINARY_MIN_DAYS days"
 
     /**
      * Short comparison fragment for a Watch card's tinted Now zone — "well over expected" /
@@ -891,11 +894,11 @@ interface Voice {
     // ---- Share cards (Phase 10, spec §13) ----
     val shareOpenDescription: String
 
-    /** Insight Share's top-bar title — structural, identical across all three voices, like [shareLogScreenTitle]. The share button keeps [shareOpenDescription]. */
-    val shareInsightScreenTitle: String get() = "Share Insights"
+    /** The Share screen's top-bar title — structural, identical across all three voices. The share button keeps [shareOpenDescription]. */
+    val shareScreenTitle: String get() = "Share"
 
     /** [timestamp] is the card's own generation date and time — a still-open [com.secondmonday.hodith.domain.TrendFindingKind.WENT_QUIET] finding is only true at the moment the card is made, and dating the whole card (not just that one finding) is the honest reading for every snapshot section on it. */
-    fun shareCardFooter(timestamp: String): String = "counted with HODITH app · $timestamp"
+    fun shareCardFooter(timestamp: String): String = "counted with HODITH app${DOT_SEPARATOR}$timestamp"
 
     /** Intense skin's rotated corner stamp — structural, like [shareLogCardKicker]; never rendered under Plain/Bright. */
     val shareIntenseStampLabel: String get() = "Case File"
@@ -929,7 +932,7 @@ interface Voice {
     fun shareSquareObservedLine(
         days: Long,
         eventCount: Int,
-    ): String = "${days}d observed · $eventCount ${shareSquareEventNoun(eventCount)}"
+    ): String = "${days}d observed${DOT_SEPARATOR}$eventCount ${shareSquareEventNoun(eventCount)}"
 
     /** The hero's top line while there is no rate yet, e.g. "12d observed"; the event count is then the headline itself. */
     fun shareSquareObservedDays(days: Long): String = "${days}d observed"
@@ -943,31 +946,20 @@ interface Voice {
     /** The Gaps panel's top-right label while the went-quiet signal is live; [gap] is the compact day count, e.g. "14d". */
     fun shareSquareQuietLabel(gap: String): String
 
-    /** Share preview screen's format toggle — structural, identical across all three voices. */
-    val shareFormatStoryLabel: String get() = "Story"
-    val shareFormatSquareLabel: String get() = "Square"
+    /** The Share screen's three tabs and the heading above each card's preview — structural, identical across all three voices. */
+    val shareTabSummaryLabel: String get() = "Summary"
+    val shareTabInsightsLabel: String get() = "Insights"
+    val shareTabHistoryLabel: String get() = "History"
+    val sharePreviewLabel: String get() = "Preview"
 
     val shareNameFieldLabel: String get() = "Name on card"
-    val shareSectionsPickerLabel: String
+
+    /** The heading over the Insights and History controls — structural, identical across all three voices. */
+    val shareSectionsPickerLabel: String get() = "Include"
     val shareSectionDragHandleDescription: String
 
     // ---- Log Share (a second share card of the Case's actual entries, not a data export — see
     // PROGRESS.md's "Share button: add a Log Share option" item) ----
-
-    /** The entry-point chooser's two options — structural, identical across all three voices, like [shareFormatStoryLabel]. The dialog's own title already says "Share" ([shareOpenDescription]), so these stay short rather than repeating it. */
-    val shareChooserInsightOption: String get() = "Insight"
-    val shareChooserLogOption: String get() = "History"
-    val shareChooserCancelAction: String get() = "Cancel"
-
-    /** One-line descriptions under each chooser option — the one place this dialog's copy actually carries tone. */
-    val shareChooserInsightDescription: String
-    val shareChooserLogDescription: String
-
-    /** The Log Share preview screen's own TopAppBar title — distinct from [shareChooserLogOption] (the chooser's short option label) now that the two no longer share a string. */
-    val shareLogScreenTitle: String get() = "History Share"
-
-    /** Log Share's primary button — distinct from [shareLogScreenTitle] (the screen's title), unlike Insight Share where [shareOpenDescription] serves both roles. */
-    val shareLogButtonLabel: String
 
     val shareLogCardKicker: String
 
@@ -1106,7 +1098,7 @@ object PlainVoice : Voice {
         rate: String?,
         eventCount: Int,
         observedDays: Long,
-    ) = listOfNotNull(rate, "$eventCount events logged · observed for $observedDays days").joinToString(" · ")
+    ) = listOfNotNull(rate, "$eventCount events logged${DOT_SEPARATOR}observed for $observedDays days").joinToString(DOT_SEPARATOR)
 
     override val logShowMoreAction = "Show more events"
 
@@ -1479,7 +1471,7 @@ object PlainVoice : Voice {
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
-    ) = "Today: $todayCount · This week: $weekCount"
+    ) = "Today: $todayCount${DOT_SEPARATOR}This week: $weekCount"
 
     override fun archivedCasesLink(count: Int) = "Archived cases ($count)"
 
@@ -1631,7 +1623,7 @@ object PlainVoice : Voice {
             parts += if (metric == VerdictMetric.DAYS_ACTIVE) "counting days active" else "counting times"
         }
         if (minIntensity != null) parts += "intensity $minIntensity+"
-        return parts.joinToString(" · ")
+        return parts.joinToString(DOT_SEPARATOR)
     }
 
     override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "logged today" else "quiet for $silentDays days"
@@ -1678,12 +1670,8 @@ object PlainVoice : Voice {
 
     override fun shareSquareQuietLabel(gap: String) = "Quiet for $gap"
 
-    override val shareSectionsPickerLabel = "Include in card"
     override val shareSectionDragHandleDescription = "Drag to reorder"
 
-    override val shareChooserInsightDescription = "A visual summary of your stats."
-    override val shareChooserLogDescription = "The actual entries, as logged."
-    override val shareLogButtonLabel = "Share history"
     override val shareLogCardKicker = "The history"
 
     override fun shareLogTruncationNote(
@@ -1763,7 +1751,7 @@ object IntenseVoice : Voice {
         rate: String?,
         eventCount: Int,
         observedDays: Long,
-    ) = listOfNotNull(rate, "$eventCount marks in the record — $observedDays days under watch").joinToString(" · ")
+    ) = listOfNotNull(rate, "$eventCount marks in the record — $observedDays days under watch").joinToString(DOT_SEPARATOR)
 
     override val logShowMoreAction = "Exhume more of the record"
 
@@ -2278,7 +2266,7 @@ object IntenseVoice : Voice {
             parts += if (metric == VerdictMetric.DAYS_ACTIVE) "counting active days" else "counting every entry"
         }
         if (minIntensity != null) parts += "intensity $minIntensity or worse"
-        return parts.joinToString(" · ")
+        return parts.joinToString(DOT_SEPARATOR)
     }
 
     override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "stirred today" else "$silentDays days of silence"
@@ -2324,12 +2312,8 @@ object IntenseVoice : Voice {
 
     override fun shareSquareQuietLabel(gap: String) = "Silent for $gap"
 
-    override val shareSectionsPickerLabel = "What the record shows"
     override val shareSectionDragHandleDescription = "Drag to rearrange"
 
-    override val shareChooserInsightDescription = "The verdict, distilled."
-    override val shareChooserLogDescription = "The evidence itself, unredacted."
-    override val shareLogButtonLabel = "Release the record"
     override val shareLogCardKicker = "The record"
 
     override fun shareLogTruncationNote(
@@ -2409,7 +2393,7 @@ object BrightVoice : Voice {
         rate: String?,
         eventCount: Int,
         observedDays: Long,
-    ) = listOfNotNull(rate, "$eventCount logs so far, tracked for $observedDays days!").joinToString(" · ")
+    ) = listOfNotNull(rate, "$eventCount logs so far, tracked for $observedDays days!").joinToString(DOT_SEPARATOR)
 
     override val logShowMoreAction = "Show me more!"
 
@@ -2923,7 +2907,7 @@ object BrightVoice : Voice {
             parts += if (metric == VerdictMetric.DAYS_ACTIVE) "counting days active" else "counting times"
         }
         if (minIntensity != null) parts += "intensity $minIntensity+"
-        return parts.joinToString(" · ")
+        return parts.joinToString(DOT_SEPARATOR)
     }
 
     override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "logged today!" else "quiet for $silentDays days"
@@ -2969,12 +2953,8 @@ object BrightVoice : Voice {
 
     override fun shareSquareQuietLabel(gap: String) = "Quiet for $gap"
 
-    override val shareSectionsPickerLabel = "Pick what to show!"
     override val shareSectionDragHandleDescription = "Drag me to a new spot!"
 
-    override val shareChooserInsightDescription = "Your stats, made pretty!"
-    override val shareChooserLogDescription = "Every entry, just as you logged it!"
-    override val shareLogButtonLabel = "Share the history!"
     override val shareLogCardKicker = "Every entry!"
 
     override fun shareLogTruncationNote(
