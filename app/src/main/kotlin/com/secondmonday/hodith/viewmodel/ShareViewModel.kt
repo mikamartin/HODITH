@@ -28,10 +28,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** The share screen's user-editable choices — everything [shareCardState] needs beyond the Case's own data. */
+/**
+ * The Insight share tabs' user-editable choices — what [shareCardState] needs beyond the Case's own data.
+ * The card's name and format are not here: the name lives on the Share screen, and the tab chosen sets the format.
+ */
 data class ShareSelection(
-    val format: ShareCardFormat = ShareCardFormat.SQUARE,
-    val displayNameOverride: String? = null,
     val selectedSections: Set<ShareInsightsSection> = ShareInsightsSection.entries.toSet(),
 )
 
@@ -82,17 +83,6 @@ class ShareViewModel
             )
 
         fun nowMillis(): Long = clock.nowMillis()
-
-        fun setFormat(format: ShareCardFormat) {
-            selection.update { it.copy(format = format) }
-        }
-
-        /** `null` (or blank) means fall back to the Case's own name — see [ShareSelection.displayNameOverride]. */
-        fun setDisplayNameOverride(name: String?) {
-            selection.update {
-                it.copy(displayNameOverride = name?.take(CASE_NAME_MAX_LENGTH)?.takeIf { override -> override.isNotBlank() })
-            }
-        }
 
         fun setSectionSelected(
             section: ShareInsightsSection,

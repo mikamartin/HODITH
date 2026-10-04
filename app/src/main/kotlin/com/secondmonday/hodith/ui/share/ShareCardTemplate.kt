@@ -72,6 +72,7 @@ import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.theme.ShareCardSkin
 import com.secondmonday.hodith.ui.voice.BrightVoice
+import com.secondmonday.hodith.ui.voice.DOT_SEPARATOR
 import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.ui.voice.Voice
@@ -198,21 +199,15 @@ private fun InsightsCardBody(
     StoryInsightsBody(data, voice, skin)
 }
 
-/** Log Share's body: [BeatKicker] (reused as-is), the resolved range as a subtitle, then every row, then an optional truncation note. */
+/** Log Share's body: the kicker with the resolved range on its line, then every row, then an optional truncation note. */
 @Composable
 private fun LogCardBody(
     data: ShareCardData.Log,
     voice: Voice,
     skin: ShareCardSkin,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        BeatKicker(voice.shareLogCardKicker, skin)
-        Text(
-            text = data.rangeLabel,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-        )
-    }
+    // One line: the kicker and the resolved range share a line, so the range reads as part of the title.
+    BeatKicker("${voice.shareLogCardKicker}${DOT_SEPARATOR}${data.rangeLabel}", skin)
     if (data.rows.isEmpty()) {
         Text(text = voice.shareLogEmptyRangeMessage, style = MaterialTheme.typography.labelMedium)
     } else {

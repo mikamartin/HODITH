@@ -7,7 +7,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -29,8 +28,6 @@ import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.DATE_RANGE_ALL_TIME_BUTTON_TAG
 import com.secondmonday.hodith.ui.common.overlapsRect
 import com.secondmonday.hodith.ui.common.setHodithContent
-import com.secondmonday.hodith.ui.share.SHARE_CHOOSER_OPTION_TAG_PREFIX
-import com.secondmonday.hodith.ui.share.ShareChoice
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
@@ -83,7 +80,6 @@ class CaseDetailScreenTest {
         logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
         onEditCase: (Long) -> Unit = {},
         onOpenShare: (Long) -> Unit = {},
-        onOpenLogShare: (Long) -> Unit = {},
         onOpenTrends: (Long) -> Unit = {},
         onEditEvent: (caseId: Long, eventId: Long) -> Unit = { _, _ -> },
         onSaveEvent: (LogDraft) -> Unit = {},
@@ -116,7 +112,6 @@ class CaseDetailScreenTest {
                     onEditCase = onEditCase,
                     onEditEvent = onEditEvent,
                     onOpenShare = onOpenShare,
-                    onOpenLogShare = onOpenLogShare,
                     onOpenTrends = onOpenTrends,
                     newEventDraft = {
                         LogDraft(
@@ -176,67 +171,13 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun shareIcon_opensChooserDialog_ratherThanNavigatingDirectly() {
+    fun shareIcon_opensTheShareScreenForThisCase() {
         var shareCaseId: Long? = null
         setCaseDetailScreenContent(onOpenShare = { shareCaseId = it })
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
 
-        composeTestRule.onNodeWithTag(SHARE_CHOOSER_OPTION_TAG_PREFIX + ShareChoice.INSIGHT.name).assertExists()
-        composeTestRule.onNodeWithTag(SHARE_CHOOSER_OPTION_TAG_PREFIX + ShareChoice.LOG.name).assertExists()
-        assertNull(shareCaseId)
-    }
-
-    @Test
-    fun shareChooser_confirmingTheDefaultInsightOption_invokesOnOpenShare() {
-        var shareCaseId: Long? = null
-        var logShareCaseId: Long? = null
-        setCaseDetailScreenContent(
-            onOpenShare = { shareCaseId = it },
-            onOpenLogShare = { logShareCaseId = it },
-        )
-
-        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
-        // The dialog's title and its confirm button share Insight Share's own "Share" label (same
-        // reuse SharePreviewScreen's title/button already do) -- .onLast() is the confirm button.
-        composeTestRule.onAllNodesWithText(PlainVoice.shareOpenDescription).onLast().performClick()
-
         assertEquals(startStopCase.id, shareCaseId)
-        assertNull(logShareCaseId)
-    }
-
-    @Test
-    fun shareChooser_selectingLogShareThenConfirming_invokesOnOpenLogShare() {
-        var shareCaseId: Long? = null
-        var logShareCaseId: Long? = null
-        setCaseDetailScreenContent(
-            onOpenShare = { shareCaseId = it },
-            onOpenLogShare = { logShareCaseId = it },
-        )
-
-        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
-        composeTestRule.onNodeWithTag(SHARE_CHOOSER_OPTION_TAG_PREFIX + ShareChoice.LOG.name).performClick()
-        composeTestRule.onAllNodesWithText(PlainVoice.shareOpenDescription).onLast().performClick()
-
-        assertEquals(startStopCase.id, logShareCaseId)
-        assertNull(shareCaseId)
-    }
-
-    @Test
-    fun shareChooser_cancel_invokesNeitherCallback() {
-        var shareCaseId: Long? = null
-        var logShareCaseId: Long? = null
-        setCaseDetailScreenContent(
-            onOpenShare = { shareCaseId = it },
-            onOpenLogShare = { logShareCaseId = it },
-        )
-
-        composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.shareChooserCancelAction).performClick()
-
-        composeTestRule.onNodeWithText(PlainVoice.shareChooserInsightOption).assertDoesNotExist()
-        assertNull(shareCaseId)
-        assertNull(logShareCaseId)
     }
 
     @Smoke

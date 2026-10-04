@@ -27,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.ui.voice.DOT_SEPARATOR
 
 /**
  * Bright-only "gradient-wash card": diagonal tint-to-surface gradient, hairline border, soft
@@ -111,7 +112,7 @@ private fun GlowCardDarkPreview() {
     HodithTheme(theme = AppTheme.BRIGHT, darkTheme = true) {
         GlowCard(modifier = Modifier.padding(16.dp), tint = MaterialTheme.colorScheme.secondary) {
             Text("Coffee before noon", style = MaterialTheme.typography.titleMedium)
-            Text("Still going · 1h 12m", style = MaterialTheme.typography.bodyMedium)
+            Text("Still going${DOT_SEPARATOR}1h 12m", style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

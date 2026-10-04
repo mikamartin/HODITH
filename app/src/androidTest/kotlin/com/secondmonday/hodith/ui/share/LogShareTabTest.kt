@@ -2,7 +2,9 @@ package com.secondmonday.hodith.ui.share
 
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -21,6 +23,7 @@ import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
+import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import org.junit.Assert.assertEquals
@@ -41,19 +44,18 @@ private fun millisAtDay(epochDay: Long): Long =
         .toEpochMilli()
 
 /**
- * [LogSharePreviewScreen] needs a real `GraphicsLayer` for the capture modifier, same reason
- * [SharePreviewScreenTest] needs [UiTest] rather than a plain unit test. Mirrors that file's
- * pattern of driving the stateless screen directly with fake callbacks.
+ * The History tab of [ShareScreen]. Needs a real `GraphicsLayer` for the capture modifier, same reason
+ * [InsightShareTabTest] needs [UiTest] rather than a plain unit test. Drives the stateless host with fake
+ * callbacks, then opens the History tab.
  */
 @UiTest
-class LogSharePreviewScreenTest {
+class LogShareTabTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
     private fun setContent(
         uiState: LogShareUiState,
         now: Long = millisAtDay(60),
-        onDisplayNameChange: (String?) -> Unit = {},
         onSortOrderSelect: (ChronologicalOrder) -> Unit = {},
         onDateFromPicked: (LocalDate?) -> Unit = {},
         onDateToPicked: (LocalDate) -> Unit = {},
@@ -61,19 +63,23 @@ class LogSharePreviewScreenTest {
         onShareClick: () -> Unit = {},
     ) {
         composeTestRule.setHodithContent {
-            LogSharePreviewScreen(
-                uiState = uiState,
+            ShareScreen(
+                insightState = ShareUiState(case = uiState.case, events = uiState.events, isLoading = uiState.isLoading),
+                logState = uiState,
                 now = now,
                 graphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
-                onDisplayNameChange = onDisplayNameChange,
-                onSortOrderSelect = onSortOrderSelect,
+                onSectionToggle = { _, _ -> },
+                onSectionMove = { _, _, _ -> },
+                onInsightShareClick = {},
                 onDateFromPicked = onDateFromPicked,
                 onDateToPicked = onDateToPicked,
                 onFieldToggle = onFieldToggle,
-                onShareClick = onShareClick,
+                onLogSortOrderSelect = onSortOrderSelect,
+                onLogShareClick = onShareClick,
             )
         }
+        composeTestRule.onNodeWithText(PlainVoice.shareTabHistoryLabel).performClick()
     }
 
     private fun defaultSelection(dateTo: Long = millisAtDay(60)) = LogShareSelection(dateTo = dateTo)
@@ -97,17 +103,15 @@ class LogSharePreviewScreenTest {
 
     @Smoke
     @Test
-    fun nameField_typing_invokesCallbackWithTheTypedName() {
-        var typed: String? = null
+    fun nameField_typing_keepsTheTypedTextInTheField() {
         setContent(
             uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
-            onDisplayNameChange = { typed = it },
         )
 
         composeTestRule.onNode(hasSetTextAction()).performTextClearance()
         composeTestRule.onNode(hasSetTextAction()).performTextInput("Sam")
 
-        assertEquals("Sam", typed)
+        assertEquals("Sam", nameFieldText())
     }
 
     @Test
@@ -121,32 +125,13 @@ class LogSharePreviewScreenTest {
     }
 
     @Test
-    fun nameField_showsTheOverrideWhenOneIsSet() {
+    fun nameField_clearing_leavesTheFieldEmpty() {
         setContent(
-            uiState =
-                LogShareUiState(
-                    case = testCase(id = 1L),
-                    events = emptyList(),
-                    selection = defaultSelection().copy(displayNameOverride = "Sam's log"),
-                    isLoading = false,
-                ),
-        )
-
-        assertEquals("Sam's log", nameFieldText())
-    }
-
-    @Test
-    fun nameField_clearing_keepsTheFieldEmptyInsteadOfRefillingWithTheCaseName() {
-        var typed: String? = "unset"
-        val case = testCase(id = 1L)
-        setContent(
-            uiState = LogShareUiState(case = case, events = emptyList(), selection = defaultSelection(), isLoading = false),
-            onDisplayNameChange = { typed = it },
+            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
         )
 
         composeTestRule.onNode(hasSetTextAction()).performTextClearance()
 
-        assertEquals("", typed)
         assertEquals("", nameFieldText())
     }
 
@@ -181,16 +166,6 @@ class LogSharePreviewScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.shareLogSortOldestLabel).performScrollTo().performClick()
 
         assertEquals(ChronologicalOrder.OLDEST_FIRST, selected)
-    }
-
-    @Test
-    fun formatToggle_isGone() {
-        setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
-        )
-
-        composeTestRule.onNodeWithText(PlainVoice.shareFormatSquareLabel).assertDoesNotExist()
-        composeTestRule.onNodeWithText(PlainVoice.shareFormatStoryLabel).assertDoesNotExist()
     }
 
     @Test
@@ -256,7 +231,7 @@ class LogSharePreviewScreenTest {
             onShareClick = { clicked = true },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogButtonLabel).performClick()
+        composeTestRule.onNode(hasText(PlainVoice.shareOpenDescription) and hasClickAction()).performClick()
 
         assert(clicked)
     }

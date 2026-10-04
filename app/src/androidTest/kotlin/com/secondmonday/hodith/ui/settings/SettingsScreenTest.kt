@@ -284,7 +284,7 @@ class SettingsScreenTest {
         )
 
         // performScrollTo() first: the Developer Mode plank is the last item in this screen's
-        // scrolling Column, below the fold on typical screen sizes — see SharePreviewScreenTest
+        // scrolling Column, below the fold on typical screen sizes — see InsightShareTabTest
         // for the same pattern.
         composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataButton).performScrollTo().performClick()
 

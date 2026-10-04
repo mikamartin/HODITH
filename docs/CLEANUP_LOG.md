@@ -17,6 +17,49 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/share-tabs
+
+**Scope:** PROGRESS.md's "Share: replace the chooser dialog with Summary / Insights / History tabs" item. The Case Detail Share icon now opens one Share screen with three tabs instead of a chooser dialog and a second route.
+
+**Walked:** every item in CLEANUP_CHECKLIST.md against the diff. Items not listed below were checked and needed nothing.
+
+**Found & fixed:**
+- Case Detail's hand-rolled tab row and the Share screen's tab row were the same code. The row is now `HodithTabRow`/`HodithTab` in `ui/common`, used by both.
+- The share screens each held their own Name-on-card state, and the ViewModels held the name and the card format. The name now lives once on the host, above the tabs. The ViewModels hold neither.
+- The two share routes each launched the share sheet. `ShareRoute` now merges both ViewModels' share requests and launches once.
+- `SharePreviewScreen.kt` and `LogSharePreviewScreen.kt` held only tab content by now. Renamed to `InsightShareTab.kt` and `LogShareTab.kt`, with their tests renamed to match.
+- The middle-dot separator was written inline in 15 places. It's now the `DOT_SEPARATOR` constant in `ui/voice`.
+- Thirteen retired chooser and title keys removed from all three voices. `shareSectionsPickerLabel` is one structural key ("Include"), not three overrides. Every share Voice key is referenced outside `Voice.kt`.
+- Some changed files had LF line endings, left behind by `ktlintFormat`. All changed files are CRLF again, matching the repo.
+- The History title is one line, kicker and range together. Its test asserted the old two-line layout, so it was updated.
+- The name rule (blank or untouched falls back to the Case's name) is a pure function, `shareDisplayName`, with its own unit test.
+- Manual share-card steps 4–7 checked things automation already covers. Removed. Steps 1–2 keep what only a device can check: the capture and the share-sheet handoff.
+- `ShareCardTemplateTest` gained a test that a card draws the name it's given, the one check the removed manual steps had been the only coverage for.
+- `ktlintFormat` import order and line wrapping in touched test files.
+
+**Deferred:**
+- The History card's range on the title line, and a real range for "All" (creation date to today). Both change what the card shows, so they need a decision first. In PROGRESS.md.
+- `CaseDetailScreen` is 251 lines and was already that long before this change. Splitting it is a refactor with its own risk, so it's in PROGRESS.md.
+
+**Considered and declined:**
+- `share(bitmap)` is duplicated in `ShareViewModel` and `LogShareViewModel`, about six lines each. The two differ only in the file-name prefix. Left as is.
+- `CaseDetailViewModel` imports `DOT_SEPARATOR` from `ui/voice`. The ViewModel already imports from `ui` in other files, and the separator is one formatting string, so it stays.
+- `shareDisplayName` has one caller. It's the rule the tests cover, so the extraction earns its keep.
+- `LOG_SHARE_FIELD_TOGGLE_TAG_PREFIX` keeps its name. It names the History field toggles and matches the other `*_TAG_PREFIX` constants.
+- `InsightShareTab` computes `insightsTabState` in the composable, remembered by day. That pattern predates this change. Moving it into the ViewModel is out of scope here.
+- `docs/mockups/log-share-prototype.html` is still referenced by the spec and by `LogShareTab`'s comment, so it stays as design history.
+
+**Not verified here:**
+- Dark mode for the new tabs and the preview stage. Needs a manual check.
+- The 48dp touch target on the Share button. Material's `Button` should enforce it; not measured.
+- `DataStoreSettingsRepository.kt` has a compiler warning about an annotation target. It predates this change and this change doesn't touch the file.
+
+**Checks:** ktlint passes. `lintDebug` passes. 1070 unit tests pass. `assembleDebug` passes. Instrumented, scoped: `ShareScreenTest` 6/6, `InsightShareTabTest` 25/25, `LogShareTabTest` 17/17, `SharePreviewOrderFlowTest` 1/1, `CaseDetailScreenTest` 35/35, `CaseDetailInsightsTabTest` 43/43, `ShareCardTemplateTest` 60/60. The full `connectedDebugAndroidTest` suite has not been run for this change.
+
+**Tests:** `ShareScreenTest` (new) covers the title, the three tabs, the Preview heading on every tab, the Include heading, name carry-over across tabs, and which callback each Share button fires. `InsightShareTabTest` and `LogShareTabTest` are re-pointed at the new host, and the name test moved from `InsightShareTabTest` into `ShareScreenTest`. The chooser tests in `CaseDetailScreenTest` became one test that the Share icon opens the screen. Format-toggle and display-name ViewModel cases were removed with the API they tested. `ShareDisplayNameTest` (new) covers the name rule.
+
+**Docs updated:** HODITH_SPEC §13 (the tabbed screen and entry point), TESTING.md (the Share rows, plus a new Share screen row), MANUAL_TEST_PLAN.md (the Share cards steps), PROGRESS.md (the Share item struck, two items added).
+
 ## feat/share-insight-section-order
 
 **Scope:** PROGRESS.md's "Share Insight: reorderable sections" item. The Story picker's rows are dragged into order, the card follows, and the order is saved device-wide.
@@ -116,30 +159,5 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** PROGRESS.md item struck; TESTING.md shared-components row names the new test. No SPEC changes.
 
 **Verified:** `ktlintCheck`, `lintDebug` ("No issues found."), `test`, `assembleDebug`, all green, run sequentially. On the emulator: `SegmentedChoiceRowTest` and `SettingsScreenTest` pass, 36/36. A broader run of the seven UI classes that host these call sites (Case Edit, Case Detail, Insights, Watches, both share previews) aborted at 29 of 201 when the emulator crashed, so those were not covered by this pass. One `SettingsScreenTest` case failed on a renderer-finalizer timeout during that run and passed on rerun.
-
----
-
-## fix/log-share-controls
-
-**Scope:** PROGRESS.md's "Log Share: drop the format toggle and add Name on card" item. Log Share had a Story/Square toggle that only added a 1:1 height floor under a list that already sizes to its rows, and no way to rename the card, even though its rows are the most personal data the app shares.
-
-**Found & fixed:**
-- Checklist walked against the full diff. The format choice is gone from `LogShareSelection`, `LogShareViewModel` and the screen's callbacks. `format` moved off the shared `ShareCardData` interface onto `ShareCardData.Insights` only, since a Log card has no shape to choose. The Square min-height check in `ShareCardTemplate` now keys off Insights, and its modifier was hoisted into a named local so the existing modifier chain keeps its shape.
-- Name on card: `LogShareSelection.displayNameOverride`, set by `LogShareViewModel.setDisplayNameOverride`, which mirrors Insight Share's `setDisplayNameOverride` (same 60-char cap, blank resets to the Case's name). The override reaches `logShareCardState`'s `displayName` and never touches the Case.
-- Controls now read name field, date range, fields, sort, then the card, with the sort control in the old toggle's slot. The sort control had its own "Include in card" heading, duplicating the fields section's, so it was removed and the selector is called directly.
-- `LOG_SHARE_CARD_ENTRY_CAP` and `logShareCardState` KDoc no longer describe Square's floor as a reason for the cap.
-- No new `Voice` keys. The name field reuses `shareNameFieldLabel`, and the sort control reuses its existing labels, so there was no three-voice copy to add.
-- No `android.*` imports or clock reads in the domain code touched (`LogFilter.kt` is a KDoc-only change).
-- Dead-code walk: the `ShareCardFormat` import left `LogSharePreviewScreen.kt` with it; ktlint's unused-import rule passes.
-
-**Deferred:**
-- Nothing deferred.
-
-**Considered and declined:**
-- Pinning `ShareCardData.Log.format` to `STORY` instead of removing it. Declined: a constant that every Log card carries is a field that can be misread, and removing it moves the Square check to where it applies.
-
-**Verified:** `ktlintCheck`, `lintDebug`, `test` (1057/1057 JVM tests, zero failures, forced re-run), `assembleDebug`, and `connectedDebugAndroidTest` scoped to `LogSharePreviewScreenTest` and `ShareCardTemplateTest` (70/70 on the Pixel 8 API 36 emulator). The full instrumented suite was not run, at the user's request.
-
-**Docs updated:** `HODITH_SPEC.md` §13 (Log Share paragraph and preview-screen row); `TESTING.md` (Log Share preview row); `PROGRESS.md` (item struck, and the Share-tabs item's sequencing note removed).
 
 ---
