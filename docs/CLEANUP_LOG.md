@@ -17,6 +17,31 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/share-insight-section-order
+
+**Scope:** PROGRESS.md's "Share Insight: reorderable sections" item. The Story picker's rows are dragged into order, the card follows, and the order is saved device-wide.
+
+**Found & fixed:**
+- The first instrumented run of the picker's drag was on the grip icon only, so a tap on the row's title did nothing. The gesture now sits on the whole row, and a short tap still toggles the section.
+- The first drag test drove a stateful harness, so it didn't exercise the ViewModel or DataStore. It's removed. `SharePreviewOrderFlowTest` covers the same gesture through a real Room database, the real `ShareViewModel` and a DataStore file, and it's tagged `@Smoke`.
+- The card-position helper was copy-pasted into both instrumented share test files. It's now one `ComposeContentTestRule.cardTitleTop` in `SharePreviewScreenTest.kt`.
+- `ShareInsightsSection` moved from `viewmodel/` to `data/`, next to `LogRowField`, so `SettingsRepository` can persist it without `data` depending on `viewmodel`.
+- SPEC §13 said "drag-to-reorder handles"; it now says rows, with the long-press.
+- TESTING.md's Share card, Share preview, ViewModels rows and manual step 12 now describe the saved order and the new coverage.
+
+**Considered and declined:**
+- Drag state uses `remember`, not `rememberSaveable`. A rotation mid-drag ends the gesture, and that's acceptable for a transient interaction.
+- The grip's geometry (dot positions, 24 dp box) is inline in `DragGrip`. These are layout values, not product constants, so they don't belong in the domain layer.
+- The `ShareCardTemplateTest` order test planned earlier is not written. `ShareCardStateTest` checks the order of `storyOrder`, and the flow test checks the rendered card, so a third test would repeat them.
+- The section order is not in the JSON export. It's a device preference like `LOG_VISIBLE_FIELDS`, which the export also leaves out (TESTING manual step 7).
+- The grip is not a separate tap target. The whole row is, and it's at least the 48 dp minimum set by the row's switch.
+
+**Deferred:** nothing.
+
+**Docs updated:** SPEC §13 (picker, drag wording); TESTING.md (Share card assembly, Compose UI — Share preview, ViewModels, manual step 12); CLEANUP_LOG (this entry; the oldest entry, `feature/tag-combo-trends`, removed to keep five).
+
+---
+
 ## fix/share-insight-streaks-name-affordance
 
 **Scope:** PROGRESS.md's "Share Insight: render streaks, clarify Name-on-card is editable" item, covering the Insight share card's streak display and the Name-on-card field on both share screens.
@@ -118,32 +143,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** `HODITH_SPEC.md` §13 (Log Share paragraph and preview-screen row); `TESTING.md` (Log Share preview row); `PROGRESS.md` (item struck, and the Share-tabs item's sequencing note removed).
 
 ---
-
-## feature/tag-combo-trends
-
-**Scope:** PROGRESS.md's "common tag combos" idea, spiked last session (`domain/TagComboSpike.kt`/`TagComboSpikeTest.kt`, never committed) as two candidate findings — a descriptive closed-itemset miner and a permutation-significance test on top of it. This pass promotes only the first (common tag combos) to a real `TrendFindingKind.TAG_COMBO` detector; the second (combos beyond chance) stays deferred — the spike's own fixture showed a near-1 lift pair still clearing a raw `p < 0.05` cut, meaning it needs a descriptive floor before the permutation test runs, the same shape every other `Pattern`-tier detector already uses, not just a multiple-comparisons correction (logged as PROGRESS.md's D6).
-
-**Found & fixed:**
-- Checklist walked against the full diff. The spike's two files were deleted outright (their logic promoted into the same files their sibling detectors already live in — `Insights.kt`, `StatsEngine.kt`), satisfying the "throwaway prototype cleared out" item.
-- No `android.*` imports or clock reads in the new `domain/` code (pure count-based itemset mining, no time dependency at all).
-- `TAG_COMBO_MIN_SUPPORT_COUNT`/`TAG_COMBO_MAX_FINDINGS` are named domain constants, not inline magic numbers; the demo seeder's `TAG_COMBO_SHOWCASE_CHANCE_PERCENT` follows the same existing-showcase-constant pattern.
-- New `Voice` keys (`insightsTagComboSentence`/`insightsTagComboEvidenceLabel`) landed in the interface and all three voices in this same pass; `VoiceTest`'s reflection coverage picked them up with no new test code needed.
-- `TrendFinding.tagNames` (a new field, since every existing per-tag kind only carries a singular `tagName`) is documented in the same KDoc style as `weekday`/`timeOfDay`/`changePointDate`.
-- Adding a 9th demo `CaseSeed` ("Skipped lunch") broke two existing `DemoDataSeederTest` assertions by count (`eight cases` → nine, `16` → `18` on double-seed) — both caught by the scoped test run and fixed, not just patched to pass.
-- No new entity/column/migration needed — `TrendFinding` is computed live, never persisted, same as every other Trends finding.
-
-**Deferred:**
-- Finding 2 (combos beyond chance / significance test) — see Scope above and PROGRESS.md's new D6.
-
-**Considered and declined:**
-- Grafting the demo showcase onto an existing Case (Coffee) instead of adding a new one — Coffee's own test comment explicitly keeps it a "clean two-finding showcase," and every other detector got its own dedicated Case, so "Skipped lunch" followed that precedent instead.
-- A tag-vocabulary size cap before mining — no existing detector limits input vocabulary (only output-finding counts), and PROGRESS.md's own D1/D3/D4 defer performance questions until real alpha usage exists rather than guessing upfront.
-
-**Docs updated:** `HODITH_SPEC.md` §10 (new "Common tag combos" bullet); `TESTING.md` (Stats & visual data prep row); `PROGRESS.md` (new D6 deferred item for finding 2).
-
-**Follow-up pass — coverage audit, instrumented gap, lint audit:**
-- A dedicated coverage audit mutation-tested the new domain/seeder tests directly: broke the closed-itemset filter, the min-support floor boundary, the `TrendsEngine` wiring, and the demo seeder's `forcedCombo` routing one at a time, confirmed each break was caught by a specific test, then reverted. All four held.
-- The original "no instrumented run needed ... matching the zero-instrumented-coverage precedent `TAG_SHARE_SHIFT`/`TAG_TIMING` already set" call above turned out wrong on inspection — `TAG_TIMING` already had rendering coverage in `InsightsTabTrendsCardTest`; only `TAG_SHARE_SHIFT` was actually uncovered, and `TAG_COMBO` was extending that same gap rather than matching settled precedent. Fixed by adding `trendsCard_rendersTagShareShiftSentence` and `trendsCard_rendersTagComboSentence` (separate `test:` commit) — each mutation-verified on a real device (wrong join separator, swapped percent args; both failed, then reverted) before landing.
-- Same pass surfaced 4 pre-existing `lintDebug` warnings, unrelated to this feature: two `Uri.parse(x)` → `x.toUri()` swaps (`AboutScreen.kt`, `SettingsScreen.kt` — mechanically equivalent, no test surface since the real call sits in each `Route` composable's `context.startActivity` wiring, outside what `AboutScreenTest`/`SettingsScreenTest` exercise against the presentational `Screen`), and an obsolete `mipmap-anydpi-v26` → `mipmap-anydpi` rename (minSdk 31 already exceeds the API 26 the `-v26` qualifier was guarding). Fixed in a separate `chore:` commit. The fourth (`SegmentedChoiceRow`'s `modifier` parameter defaulting to more than plain `Modifier`) is a real behavior-affecting fix across four call sites, not a mechanical one — deferred to its own PROGRESS.md Standalone item rather than risked here.
-
-**Verified:** `ktlintCheck` → `lintDebug` → `test` (scoped, then full suite) → `assembleDebug`, sequential, all green, rerun clean after the lint-fix commit too (a stale `packaged_res` cache briefly broke `lintDebug` on the mipmap rename — resolved by `./gradlew clean`, not a real issue). Instrumented: full-suite `connectedDebugAndroidTest` hit its usual mid-run emulator crash partway through (`INSTRUMENTATION_ABORTED`, consistent with prior entries' precedent); rather than keep re-running the whole 499-test suite, switched to batches scoped to what this branch actually touches. All green: `data`+`backup` (93/93), `notification` (13/13), `about`+`archivedcases` (14/14), `CaseEditScreenTest` (17/17), and the `casedetail` package including `InsightsTabTrendsCardTest`'s two new tests (100/100) — 237/237 total. `BigPictureScreenTest`, `CaseDetailScreenTest`, and the rest of `ui`/`widget` weren't rerun locally: none are touched by this diff, and CI covers full-suite regression anyway.

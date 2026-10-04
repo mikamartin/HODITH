@@ -4,6 +4,7 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogRowField
+import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ChronologicalOrder
@@ -22,20 +23,6 @@ import java.time.ZoneId
 enum class ShareCardFormat {
     STORY,
     SQUARE,
-}
-
-/**
- * Spec §13's checklist-driven Story section picker. Declaration order is the order the picker rows
- * and the card's sections both follow, after the always-present hero beat.
- */
-enum class ShareInsightsSection {
-    GAPS,
-    STREAKS,
-    DURATION,
-    RHYTHM,
-    INTENSITY,
-    TRENDS,
-    TAGS,
 }
 
 /**
@@ -95,6 +82,8 @@ sealed interface ShareCardData {
         val tags: List<TagBreakdownEntry> = emptyList(),
         /** Days the Case has been quiet while the went-quiet signal is live; shown on the Gaps panel when that panel is on the card. */
         val quietForDays: Long? = null,
+        /** Story's picked sections in the user's picker order; the Story body renders panels in this order. Defaults to declaration order, and Square never reads it. */
+        val storyOrder: List<ShareInsightsSection> = ShareInsightsSection.entries,
     ) : ShareCardData
 
     /**
@@ -137,12 +126,14 @@ internal fun shareCardState(
     format: ShareCardFormat,
     selectedSections: Set<ShareInsightsSection>,
     generatedAtMillis: Long,
+    sectionOrder: List<ShareInsightsSection> = ShareInsightsSection.entries,
 ): ShareCardData.Insights {
     val stats = (insightsState as? InsightsTabState.Ready)?.stats
 
     return when (format) {
         ShareCardFormat.SQUARE -> squareInsights(case, displayName, stats, eventCount, observedDays, generatedAtMillis)
-        ShareCardFormat.STORY -> storyInsights(case, displayName, stats, eventCount, observedDays, selectedSections, generatedAtMillis)
+        ShareCardFormat.STORY ->
+            storyInsights(case, displayName, stats, eventCount, observedDays, selectedSections, sectionOrder, generatedAtMillis)
     }
 }
 
@@ -187,8 +178,9 @@ private fun StatsSections.quietForDays(): Long? =
         ?.toLong()
 
 /**
- * The hero, then whichever of [selectedSections] the Case has data for. The went-quiet pill shows
- * on the Gaps panel only when the user picked Gaps, so an unpicked section never leaks onto the card.
+ * The hero, then whichever of [selectedSections] the Case has data for, in [sectionOrder]. The
+ * went-quiet pill shows on the Gaps panel only when the user picked Gaps, so an unpicked section
+ * never leaks onto the card.
  */
 private fun storyInsights(
     case: CaseEntity,
@@ -197,6 +189,7 @@ private fun storyInsights(
     eventCount: Int,
     observedDays: Long,
     selectedSections: Set<ShareInsightsSection>,
+    sectionOrder: List<ShareInsightsSection>,
     generatedAtMillis: Long,
 ): ShareCardData.Insights {
     val gaps = stats?.gaps?.takeIf { ShareInsightsSection.GAPS in selectedSections && it.shortestGapDays != null }
@@ -224,6 +217,7 @@ private fun storyInsights(
                 ?.take(SHARE_CARD_TOP_TAG_COUNT)
                 ?: emptyList(),
         quietForDays = if (gaps != null) stats.quietForDays() else null,
+        storyOrder = sectionOrder.filter { it in selectedSections },
         generatedAtMillis = generatedAtMillis,
     )
 }

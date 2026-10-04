@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.performScrollTo
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
@@ -21,7 +23,6 @@ import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
-import com.secondmonday.hodith.viewmodel.ShareInsightsSection
 import com.secondmonday.hodith.viewmodel.ShareSelection
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import org.junit.Assert.assertEquals
@@ -68,11 +69,22 @@ private fun trackingCase() = testCase(id = 1L, durationMode = DurationMode.MANUA
 private const val OBSERVED_LINE_FRAGMENT = "d observed"
 
 /**
+ * Vertical position of the card's copy of [title]. The picker rows carry the same labels as the card's titles and sit above the
+ * card, so the card's copy is the last match in tree order.
+ */
+internal fun ComposeContentTestRule.cardTitleTop(title: String): Float =
+    onAllNodesWithText(title)
+        .fetchSemanticsNodes()
+        .last()
+        .positionInRoot.y
+
+/**
  * [SharePreviewScreen] is stateless but needs a real `GraphicsLayer` (tied to composition) for the
  * capture modifier, same reason `ShareCardTemplate` itself needed [UiTest] rather than a plain unit
  * test — otherwise this follows [com.secondmonday.hodith.ui.casedetail.CaseDetailScreenTest]'s
  * pattern of driving the stateless screen directly with fake callbacks and `TestFixtures.kt`.
  */
+
 @UiTest
 class SharePreviewScreenTest {
     @get:Rule
@@ -93,6 +105,7 @@ class SharePreviewScreenTest {
                 onFormatSelect = onFormatSelect,
                 onDisplayNameChange = {},
                 onSectionToggle = onSectionToggle,
+                onSectionMove = { _, _, _ -> },
                 onShareClick = {},
             )
         }
@@ -191,6 +204,33 @@ class SharePreviewScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.shareSectionsPickerLabel).assertExists()
         composeTestRule.onNodeWithTag(rowTag(ShareInsightsSection.RHYTHM)).assertExists()
+    }
+
+    @Test
+    fun card_listsStorySectionsInTheSavedOrder() {
+        val order =
+            listOf(ShareInsightsSection.TAGS, ShareInsightsSection.GAPS) +
+                (ShareInsightsSection.entries - ShareInsightsSection.TAGS - ShareInsightsSection.GAPS)
+        setContent(
+            uiState =
+                ShareUiState(
+                    case = trackingCase(),
+                    events = richEvents(),
+                    selection = STORY_SELECTION,
+                    sectionOrder = order,
+                    isLoading = false,
+                ),
+        )
+
+        assertTrue(composeTestRule.cardTitleTop(PlainVoice.shareTopTagsTitle) < composeTestRule.cardTitleTop(PlainVoice.shareGapsTitle))
+    }
+
+    @Test
+    fun sectionPicker_hasADragHandleOnAlwaysAvailableRows() {
+        setContent(uiState = storyState())
+
+        composeTestRule.onNodeWithTag(SECTION_HANDLE_TAG_PREFIX + ShareInsightsSection.GAPS.name).assertExists()
+        composeTestRule.onNodeWithTag(SECTION_HANDLE_TAG_PREFIX + ShareInsightsSection.RHYTHM.name).assertExists()
     }
 
     @Test

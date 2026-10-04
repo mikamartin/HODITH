@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.LogRowField
+import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.domain.LOG_SHARE_CARD_ENTRY_CAP
@@ -354,6 +355,7 @@ class ShareCardStateTest {
         selectedSections: Set<ShareInsightsSection> = ALL_SECTIONS,
         eventCount: Int = 12,
         observedDays: Long = 60,
+        sectionOrder: List<ShareInsightsSection> = ShareInsightsSection.entries,
     ) = shareCardState(
         case = case,
         displayName = case.name,
@@ -363,6 +365,7 @@ class ShareCardStateTest {
         format = ShareCardFormat.STORY,
         selectedSections = selectedSections,
         generatedAtMillis = millisAtDay(NOW),
+        sectionOrder = sectionOrder,
     )
 
     /**
@@ -800,7 +803,33 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `ShareInsightsSection declaration order is the picker and card order`() {
+    fun `Story lists the picked sections in the saved order, skipping unpicked ones`() {
+        val case = testCase()
+        val data =
+            storyState(
+                case,
+                taggedInsightsState(case),
+                selectedSections = setOf(ShareInsightsSection.TAGS, ShareInsightsSection.GAPS),
+                sectionOrder = listOf(ShareInsightsSection.TAGS, ShareInsightsSection.RHYTHM, ShareInsightsSection.GAPS),
+            )
+
+        assertEquals(listOf(ShareInsightsSection.TAGS, ShareInsightsSection.GAPS), data.storyOrder)
+    }
+
+    @Test
+    fun `Story keeps declaration order when no saved order is given`() {
+        val data =
+            storyState(
+                testCase(),
+                readyInsightsState(testCase()),
+                selectedSections = setOf(ShareInsightsSection.TAGS, ShareInsightsSection.GAPS),
+            )
+
+        assertEquals(listOf(ShareInsightsSection.GAPS, ShareInsightsSection.TAGS), data.storyOrder)
+    }
+
+    @Test
+    fun `ShareInsightsSection declaration order is the default order`() {
         assertEquals(
             listOf(
                 ShareInsightsSection.GAPS,

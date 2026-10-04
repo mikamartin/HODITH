@@ -2,6 +2,7 @@ package com.secondmonday.hodith.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 /** Hand-rolled in-memory test double for [SettingsRepository], same style as [FakeHodithRepository]. */
 class FakeSettingsRepository : SettingsRepository {
@@ -19,6 +20,7 @@ class FakeSettingsRepository : SettingsRepository {
     val bigPictureVisibleCaseIds = MutableStateFlow<Set<Long>?>(null)
     val bigPictureVisibleTagNames = MutableStateFlow<Set<String>?>(null)
     val bigPictureSelectedYear = MutableStateFlow<Int?>(null)
+    val shareSectionOrder = MutableStateFlow(orderedShareSections(emptyList()))
 
     override fun observeTheme(): Flow<AppTheme> = theme
 
@@ -88,6 +90,12 @@ class FakeSettingsRepository : SettingsRepository {
 
     override suspend fun setLogVisibleFields(fields: Set<LogRowField>) {
         this.logVisibleFields.value = fields
+    }
+
+    override fun observeShareSectionOrder(): Flow<List<ShareInsightsSection>> = shareSectionOrder.map { orderedShareSections(it) }
+
+    override suspend fun setShareSectionOrder(order: List<ShareInsightsSection>) {
+        this.shareSectionOrder.value = orderedShareSections(order)
     }
 
     override fun observeBigPictureVisibleCaseIds(): Flow<Set<Long>?> = bigPictureVisibleCaseIds

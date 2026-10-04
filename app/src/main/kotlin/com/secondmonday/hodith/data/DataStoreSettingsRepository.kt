@@ -28,6 +28,7 @@ private val BIG_PICTURE_SELECTED_YEAR_KEY = stringPreferencesKey("big_picture_se
 private val LOG_DATE_FROM_KEY = stringPreferencesKey("log_date_from")
 private val LOG_DATE_TO_KEY = stringPreferencesKey("log_date_to")
 private val LOG_VISIBLE_FIELDS_KEY = stringPreferencesKey("log_visible_fields")
+private val SHARE_SECTION_ORDER_KEY = stringPreferencesKey("share_section_order")
 
 @Singleton
 class DataStoreSettingsRepository
@@ -146,6 +147,21 @@ class DataStoreSettingsRepository
 
         override suspend fun setLogVisibleFields(fields: Set<LogRowField>) {
             dataStore.edit { preferences -> preferences[LOG_VISIBLE_FIELDS_KEY] = fields.joinToString(",") { it.name } }
+        }
+
+        /** Absent key reads as declaration order; unknown names in a stored value are dropped rather than failing the whole list. */
+        override fun observeShareSectionOrder(): Flow<List<ShareInsightsSection>> =
+            dataStore.data.map { preferences ->
+                val saved =
+                    preferences[SHARE_SECTION_ORDER_KEY]
+                        ?.split(",")
+                        ?.mapNotNull { name -> runCatching { ShareInsightsSection.valueOf(name) }.getOrNull() }
+                        .orEmpty()
+                orderedShareSections(saved)
+            }
+
+        override suspend fun setShareSectionOrder(order: List<ShareInsightsSection>) {
+            dataStore.edit { preferences -> preferences[SHARE_SECTION_ORDER_KEY] = order.joinToString(",") { it.name } }
         }
 
         override fun observeBigPictureVisibleCaseIds(): Flow<Set<Long>?> =
