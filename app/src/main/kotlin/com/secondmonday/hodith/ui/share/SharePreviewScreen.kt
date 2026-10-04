@@ -18,7 +18,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -174,11 +173,11 @@ fun SharePreviewScreen(
                 onSelect = onFormatSelect,
             )
 
-            OutlinedTextField(
-                value = selection.displayNameOverride ?: "",
-                onValueChange = onDisplayNameChange,
-                label = { Text(voice.shareNameFieldLabel) },
-                placeholder = { Text(case.name) },
+            ShareNameField(
+                caseName = case.name,
+                displayNameOverride = selection.displayNameOverride,
+                label = voice.shareNameFieldLabel,
+                onDisplayNameChange = onDisplayNameChange,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -253,6 +252,7 @@ internal fun sectionLabel(
 ): String =
     when (section) {
         ShareInsightsSection.GAPS -> voice.shareGapsTitle
+        ShareInsightsSection.STREAKS -> voice.shareStreaksTitle
         ShareInsightsSection.DURATION -> voice.shareDurationTitle
         ShareInsightsSection.RHYTHM -> voice.insightsSectionLabelRhythmStarts
         ShareInsightsSection.INTENSITY -> voice.insightsSectionLabelIntensity

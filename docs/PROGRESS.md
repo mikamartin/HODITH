@@ -53,24 +53,6 @@ No tag-management UI, rename, or merge operation exists anywhere today. Tags are
 
 **Tests** — none until the brainstorm and design are done.
 
-### Share Insight: render streaks, clarify Name-on-card is editable
-
-*Branch: `fix/share-insight-streaks-name-affordance` · Complexity: S · Priority: Medium · Area: Share*
-
-Two small polish fixes on the Insight Share preview screen:
-
-- Streak data already flows into the share pipeline unused — `GapsDisplay` already carries `longestStreakDays`/`averageStreakDays` and `ShareCardState.kt` already passes it through, but `GapsPanel` only renders gap min/avg/max and drops the streak fields.
-- The "Name on card" field has no visual link to the card's rendered name below it, so it doesn't read as editable.
-
-**Acceptance criteria**
-
-- [ ] `GapsPanel` renders a streak row/section alongside its existing gap min/avg/max row; Voice ×3 for any new label.
-- [ ] The Name-on-card field gains an affordance (edit icon, matching border treatment, or similar) tying it visually to the card's rendered name.
-
-**Plan** — extend `GapsPanel`'s layout to include the streak fields already present on `GapsDisplay`; add a small visual connector between the name field and the card preview.
-
-**Tests** — `ShareCardTemplateTest`'s Gaps-panel cases extended to assert streak values render; a Compose test for the name-field affordance if it's interactive.
-
 ### Share Insight: reorderable sections
 
 *Branch: `feat/share-insight-section-order` · Complexity: M · Priority: Low · Area: Share*

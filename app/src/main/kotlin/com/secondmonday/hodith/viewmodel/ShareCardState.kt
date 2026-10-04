@@ -30,6 +30,7 @@ enum class ShareCardFormat {
  */
 enum class ShareInsightsSection {
     GAPS,
+    STREAKS,
     DURATION,
     RHYTHM,
     INTENSITY,
@@ -52,6 +53,12 @@ sealed interface ShareTopBeat {
         val rate: HeroRate?,
     ) : ShareTopBeat
 }
+
+/** The longest and average streak, as the share card shows them. */
+data class StreakDisplay(
+    val longestStreakDays: Int,
+    val averageStreakDays: Double,
+)
 
 /** One formatted row on a Log Share card — [detail] is `null` when every field is off or the event carries none of them. */
 data class LogCardRow(
@@ -79,6 +86,8 @@ sealed interface ShareCardData {
         val topBeat: ShareTopBeat,
         val rhythm: RhythmDisplay?,
         val gaps: GapsDisplay?,
+        /** The Case's streak figures. Square shows them inside the Gaps card; Story only when its Streaks section is picked. `null` until there are two events. */
+        val streaks: StreakDisplay? = null,
         val trends: List<TrendFinding>,
         val duration: DurationDisplay?,
         val intensity: IntensityDisplay?,
@@ -156,7 +165,8 @@ internal fun availableShareSections(stats: StatsSections?): List<ShareInsightsSe
 
     return ShareInsightsSection.entries.filter { section ->
         when (section) {
-            ShareInsightsSection.GAPS, ShareInsightsSection.RHYTHM -> true
+            ShareInsightsSection.RHYTHM -> true
+            ShareInsightsSection.GAPS, ShareInsightsSection.STREAKS -> stats.gaps.shortestGapDays != null
             ShareInsightsSection.DURATION -> stats.duration != null
             ShareInsightsSection.INTENSITY -> stats.intensity != null
             ShareInsightsSection.TRENDS -> storyTrendFindings(stats).isNotEmpty()
@@ -164,6 +174,10 @@ internal fun availableShareSections(stats: StatsSections?): List<ShareInsightsSe
         }
     }
 }
+
+/** The streak figures, or `null` until there are two events: a streak needs a gap to sit beside, so the card hides both together. */
+private fun GapsDisplay.streakDisplay(): StreakDisplay? =
+    takeIf { shortestGapDays != null }?.let { StreakDisplay(it.longestStreakDays, it.averageStreakDays) }
 
 /** Days the Case has been quiet while the went-quiet signal is live — the finding's current gap — else `null`. */
 private fun StatsSections.quietForDays(): Long? =
@@ -185,7 +199,8 @@ private fun storyInsights(
     selectedSections: Set<ShareInsightsSection>,
     generatedAtMillis: Long,
 ): ShareCardData.Insights {
-    val gaps = stats?.gaps?.takeIf { ShareInsightsSection.GAPS in selectedSections }
+    val gaps = stats?.gaps?.takeIf { ShareInsightsSection.GAPS in selectedSections && it.shortestGapDays != null }
+    val streaks = stats?.gaps?.takeIf { ShareInsightsSection.STREAKS in selectedSections }?.streakDisplay()
 
     return ShareCardData.Insights(
         format = ShareCardFormat.STORY,
@@ -194,6 +209,7 @@ private fun storyInsights(
         topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = observedDays, rate = stats?.heroRate),
         rhythm = stats?.rhythm?.takeIf { ShareInsightsSection.RHYTHM in selectedSections },
         gaps = gaps,
+        streaks = streaks,
         trends =
             stats
                 ?.takeIf { ShareInsightsSection.TRENDS in selectedSections }
@@ -213,8 +229,9 @@ private fun storyInsights(
 }
 
 /**
- * The fixed Square preset, top to bottom: the [ShareTopBeat.Summary] headline, then Gaps always,
- * then whichever of Duration and Intensity the Case tracks, and Rhythm only when it tracks
+ * The fixed Square preset, top to bottom: the [ShareTopBeat.Summary] headline, then Gaps and its
+ * streak figures once there are two events, then whichever of Duration and Intensity
+ * the Case tracks, and Rhythm only when it tracks
  * neither. The Case's settings pick the panels (not what was logged), so a Case that tracks
  * Duration but has no finished event yet simply shows no Duration panel rather than swapping in
  * Rhythm. Frequency and Trends never appear on Square; the went-quiet signal rides on the Gaps
@@ -229,6 +246,7 @@ private fun squareInsights(
     generatedAtMillis: Long,
 ): ShareCardData.Insights {
     val tracksNeither = !case.durationMode.tracksDuration && !case.intensityEnabled
+    val gaps = stats?.gaps?.takeIf { it.shortestGapDays != null }
 
     return ShareCardData.Insights(
         format = ShareCardFormat.SQUARE,
@@ -236,11 +254,12 @@ private fun squareInsights(
         caseName = displayName,
         topBeat = ShareTopBeat.Summary(eventCount = eventCount, observedDays = observedDays, rate = stats?.heroRate),
         rhythm = stats?.rhythm?.takeIf { tracksNeither },
-        gaps = stats?.gaps,
+        gaps = gaps,
+        streaks = gaps?.streakDisplay(),
         trends = emptyList(),
         duration = stats?.duration,
         intensity = stats?.intensity,
-        quietForDays = stats?.quietForDays(),
+        quietForDays = if (gaps != null) stats.quietForDays() else null,
         generatedAtMillis = generatedAtMillis,
     )
 }

@@ -17,6 +17,36 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/share-insight-streaks-name-affordance
+
+**Scope:** PROGRESS.md's "Share Insight: render streaks, clarify Name-on-card is editable" item, covering the Insight share card's streak display and the Name-on-card field on both share screens.
+
+**Found & fixed:**
+- Square's Gaps card had no streak display, though `GapsDisplay` already carried the streak fields. It now has a second row (Longest streak / Average streak) inside the same card.
+- Gaps and Streaks are both left off the card until the Case has two events. On Square the Gaps card is omitted; on Story the Gaps and Streaks rows aren't offered in the picker. This replaces the earlier "2+ events needed." placeholder, so `shareSquareGapsNeedMoreEvents` is removed. The went-quiet label rides on the Gaps card, so it also waits for the second event.
+- Story has its own Streaks row in the section picker, toggled independently of Gaps and placed after Gaps. The figures travel on a new `ShareCardData.Insights.streaks` field (`StreakDisplay`), so the picker can switch them without touching Gaps. The card builder decides availability (`GapsDisplay.streakDisplay()`, and the `takeIf` on `shortestGapDays`), and `availableShareSections` mirrors it.
+- The Name-on-card field was an `OutlinedTextField` whose placeholder Material3 hides while the field is empty and unfocused, so the label sat inside an apparently blank box. It now shows the name the card will carry (the override, or the Case's own name), with its label on the top border.
+- The Insight and History share screens each had their own copy of that field. Both now use one composable, `ShareNameField`. It holds its text locally, so clearing the field leaves it empty instead of refilling it with the Case name mid-edit (the ViewModel stores blank as `null`). Typed text is capped at `CASE_NAME_MAX_LENGTH`, the same cap the ViewModel applies.
+- The name label is structural: `shareNameFieldLabel` defaults to "Name on card" on the `Voice` interface, and the three per-voice overrides are gone. The new `shareStreaksTitle` is structural too. `VoiceTest` pins both.
+- The label-over-value column was written twice, in `MinAvgMaxRow` and the streak row. It is now `StatColumn`.
+- Test problems found on the first instrumented run: the two name-field assertions read `Text` semantics, which the field doesn't expose, so they failed. The clearing test's `hasText` check would have passed trivially. Both now read `EditableText` through `nameFieldText()`.
+- Two unit fixtures for the went-quiet label used a one-event Case. They now use `withTwoEvents()`.
+
+**Considered and declined:**
+- An edit icon on the name field. The field's label and default value already signal that it's editable.
+- A "2+ events needed." placeholder for streaks, in place of hiding them. Hiding matches the Gaps rule, which is what was asked for.
+- Folding streaks into the Gaps picker row. The Story picker needed a separate selector for streaks.
+- A separate Compose test for the Insight screen's name field. The field is the same composable as the History screen's, which `LogSharePreviewScreenTest` covers directly.
+- Checklist items with nothing to act on in this diff: no new colours, icons or deprecations; no data model, widget or notification changes; no domain or `Clock` changes; the share card still excludes notes, and tags stay on Story's opt-in section.
+
+**Deferred:** nothing.
+
+**Docs updated:** PROGRESS.md item struck. HODITH_SPEC §13: the Story picker's section list and availability rule, the Square Gaps and streak row, the Story Streaks card, and the name-field description. TESTING.md: the Share preview and History Share preview rows, and the share card assembly row. MANUAL_TEST_PLAN.md checked: its typed-name export step still holds.
+
+**Verified:** `ktlintCheck`, `lintDebug`, `test` (unit suite), `compileDebugAndroidTestKotlin` and `assembleDebug`, run sequentially. Instrumented: `connectedDebugAndroidTest` on the Pixel 8 emulator, run per class: `ui.share.ShareCardTemplateTest` (59), `ui.share.SharePreviewScreenTest` (25) and `ui.share.LogSharePreviewScreenTest` (19), all passing. Not run: the rest of the instrumented suite.
+
+---
+
 ## feat/history-rename-average
 
 **Scope:** PROGRESS.md's "History: rename the Log tab, add a top-line average" item, plus every user-facing "Log" noun for the record (share chooser, Log Share screen, Delete Data copy, Log detail).
@@ -117,28 +147,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Same pass surfaced 4 pre-existing `lintDebug` warnings, unrelated to this feature: two `Uri.parse(x)` → `x.toUri()` swaps (`AboutScreen.kt`, `SettingsScreen.kt` — mechanically equivalent, no test surface since the real call sits in each `Route` composable's `context.startActivity` wiring, outside what `AboutScreenTest`/`SettingsScreenTest` exercise against the presentational `Screen`), and an obsolete `mipmap-anydpi-v26` → `mipmap-anydpi` rename (minSdk 31 already exceeds the API 26 the `-v26` qualifier was guarding). Fixed in a separate `chore:` commit. The fourth (`SegmentedChoiceRow`'s `modifier` parameter defaulting to more than plain `Modifier`) is a real behavior-affecting fix across four call sites, not a mechanical one — deferred to its own PROGRESS.md Standalone item rather than risked here.
 
 **Verified:** `ktlintCheck` → `lintDebug` → `test` (scoped, then full suite) → `assembleDebug`, sequential, all green, rerun clean after the lint-fix commit too (a stale `packaged_res` cache briefly broke `lintDebug` on the mipmap rename — resolved by `./gradlew clean`, not a real issue). Instrumented: full-suite `connectedDebugAndroidTest` hit its usual mid-run emulator crash partway through (`INSTRUMENTATION_ABORTED`, consistent with prior entries' precedent); rather than keep re-running the whole 499-test suite, switched to batches scoped to what this branch actually touches. All green: `data`+`backup` (93/93), `notification` (13/13), `about`+`archivedcases` (14/14), `CaseEditScreenTest` (17/17), and the `casedetail` package including `InsightsTabTrendsCardTest`'s two new tests (100/100) — 237/237 total. `BigPictureScreenTest`, `CaseDetailScreenTest`, and the rest of `ui`/`widget` weren't rerun locally: none are touched by this diff, and CI covers full-suite regression anyway.
-
----
-
-## feat/share-card-summary-beat
-
-**Scope:** PROGRESS.md's B2, plus a round of Story card changes asked for alongside it. Story opens with the same summary hero as Square instead of the Reality beat, and its sections follow one order on the picker and the card (Gaps, Length, Start times, Intensity, Trends, Top tags) using the Square panel formatting. Overlap calls made: Frequency is dropped from Story (the hero's rate and pill carry it); went-quiet is left out of Story's Trends (the hero and the Gaps label say it), and the quiet label shows on Story only while Gaps is picked; Story with nothing picked is the hero alone. A new Top tags section lists the three busiest tags with counts, so the spec's "tags never on the card" rule became "only as Story's opt-in Top tags". The picker offers a row only when the Case has data for it. Layout tweaks from review: wider gap and larger cells in the Start times grid, fixed-size intensity squares, more inner padding on section cards, and the card on its own tinted stage below a divider.
-
-**Found & fixed:**
-- Checklist walked against the full diff. The Gaps, Duration and Intensity mini sections, `MiniFrequencySection` with its constants, `RealityBeat`, `ShareTopBeat.Reality`, `ShareCardData.Insights.frequency`, `shareFrequencyTitle` and the two Reality Voice keys were dead after the swap and are deleted; `MiniStatRow` stays because Top tags uses it.
-- The Square panels lost their "Square" prefix (`GapsPanel`, `DurationPanel`, `IntensityPanel`) and their title keys became `shareGapsTitle` and `shareDurationTitle`, since both formats and the picker use them. The other `shareSquare*` hero keys keep their names.
-- The picker's availability rules moved out of the screen into `availableShareSections` (pure, in `ShareCardState.kt`), and the Story trend filter into `storyTrendFindings`, both unit-tested. The top-tag cap is the named domain constant `SHARE_CARD_TOP_TAG_COUNT`.
-- `LogSharePreviewScreen`'s KDoc pointed at the deleted `availableSections`; repointed. The spec, README and checklist statements about tags on the card were updated deliberately, with the checklist item reworded to the new rule.
-- No `android.*` imports or clock reads in `domain/`, no inline strings (`shareTopTagsTitle` is a structural Voice key like the other share labels), no untracked prototype files, no new deprecation warnings.
-
-**Deferred:** nothing deferred.
-
-**Considered and declined:**
-- Renaming the remaining `shareSquare*` hero keys (observed line, trend pill, quiet label, event noun, intensity average) to format-neutral names. They are voiced strings queued for B3's phrasing audit, and a rename now would churn every test that reads them for no behaviour change.
-- A mockup or Compose Preview step: the Square implementation was the reference, and the human checked the result on a device between rounds.
-
-**Docs updated:** SPEC §13 and the Share preview row; TESTING (share card assembly, Share preview); README and CLEANUP_CHECKLIST (tags rule); PROGRESS (B2 struck, B3's key list extended).
-
-**Verified:** `ktlintCheck`, `lintDebug`, `test` and `assembleDebug` run sequentially, all green; `compileDebugAndroidTestKotlin` clean. Not run: the instrumented share tests (`ShareCardTemplateTest`, `SharePreviewScreenTest`) need a device.
-
----
