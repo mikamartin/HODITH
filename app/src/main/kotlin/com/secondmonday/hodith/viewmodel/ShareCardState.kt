@@ -82,8 +82,8 @@ sealed interface ShareCardData {
         val tags: List<TagBreakdownEntry> = emptyList(),
         /** Days the Case has been quiet while the went-quiet signal is live; shown on the Gaps panel when that panel is on the card. */
         val quietForDays: Long? = null,
-        /** Story's picked sections in the user's picker order; the Story body renders panels in this order. Empty for Square. */
-        val storyOrder: List<ShareInsightsSection> = emptyList(),
+        /** Story's picked sections in the user's picker order; the Story body renders panels in this order. Defaults to declaration order, and Square never reads it. */
+        val storyOrder: List<ShareInsightsSection> = ShareInsightsSection.entries,
     ) : ShareCardData
 
     /**

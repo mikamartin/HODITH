@@ -829,13 +829,6 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `Square carries no story order`() {
-        val data = squareState(testCase(), readyInsightsState(testCase()))
-
-        assertEquals(emptyList<ShareInsightsSection>(), data.storyOrder)
-    }
-
-    @Test
     fun `ShareInsightsSection declaration order is the default order`() {
         assertEquals(
             listOf(
