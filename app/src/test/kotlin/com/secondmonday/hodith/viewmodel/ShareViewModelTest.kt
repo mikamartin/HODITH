@@ -6,7 +6,9 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.share.FakeShareImageExporter
 import com.secondmonday.hodith.domain.FakeClock
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +42,10 @@ class ShareViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = ShareViewModel(repository, clock, shareImageExporter, SavedStateHandle(mapOf("caseId" to caseId)))
+    private val settingsRepository = FakeSettingsRepository()
+
+    private fun viewModel() =
+        ShareViewModel(repository, clock, shareImageExporter, settingsRepository, SavedStateHandle(mapOf("caseId" to caseId)))
 
     private fun testCase() =
         CaseEntity(
@@ -163,6 +168,44 @@ class ShareViewModelTest {
 
                 vm.setSectionSelected(ShareInsightsSection.DURATION, selected = true)
                 assertTrue(ShareInsightsSection.DURATION in awaitItem().selection.selectedSections)
+
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `moveSection saves the new order device-wide and the uiState follows it`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            val vm = viewModel()
+
+            vm.uiState.test {
+                awaitLoadedItem { it.isLoading }
+
+                vm.moveSection(available = ShareInsightsSection.entries, from = 0, to = 2)
+
+                val expected =
+                    listOf(ShareInsightsSection.STREAKS, ShareInsightsSection.DURATION, ShareInsightsSection.GAPS) +
+                        ShareInsightsSection.entries.drop(3)
+                assertEquals(expected, settingsRepository.shareSectionOrder.value)
+                assertEquals(expected, awaitItem().sectionOrder)
+
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a saved order from an earlier session is what a new session opens with`() =
+        runTest {
+            repository.cases.value = listOf(testCase())
+            settingsRepository.shareSectionOrder.value = listOf(ShareInsightsSection.TAGS, ShareInsightsSection.GAPS)
+
+            viewModel().uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+
+                assertEquals(ShareInsightsSection.TAGS, state.sectionOrder.first())
+                assertEquals(ShareInsightsSection.GAPS, state.sectionOrder[1])
+                assertEquals(ShareInsightsSection.entries.size, state.sectionOrder.size)
 
                 cancelAndIgnoreRemainingEvents()
             }

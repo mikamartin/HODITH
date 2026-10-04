@@ -949,6 +949,7 @@ interface Voice {
 
     val shareNameFieldLabel: String get() = "Name on card"
     val shareSectionsPickerLabel: String
+    val shareSectionDragHandleDescription: String
 
     // ---- Log Share (a second share card of the Case's actual entries, not a data export — see
     // PROGRESS.md's "Share button: add a Log Share option" item) ----
@@ -1678,6 +1679,7 @@ object PlainVoice : Voice {
     override fun shareSquareQuietLabel(gap: String) = "Quiet for $gap"
 
     override val shareSectionsPickerLabel = "Include in card"
+    override val shareSectionDragHandleDescription = "Drag to reorder"
 
     override val shareChooserInsightDescription = "A visual summary of your stats."
     override val shareChooserLogDescription = "The actual entries, as logged."
@@ -2323,6 +2325,7 @@ object IntenseVoice : Voice {
     override fun shareSquareQuietLabel(gap: String) = "Silent for $gap"
 
     override val shareSectionsPickerLabel = "What the record shows"
+    override val shareSectionDragHandleDescription = "Drag to rearrange"
 
     override val shareChooserInsightDescription = "The verdict, distilled."
     override val shareChooserLogDescription = "The evidence itself, unredacted."
@@ -2967,6 +2970,7 @@ object BrightVoice : Voice {
     override fun shareSquareQuietLabel(gap: String) = "Quiet for $gap"
 
     override val shareSectionsPickerLabel = "Pick what to show!"
+    override val shareSectionDragHandleDescription = "Drag me to a new spot!"
 
     override val shareChooserInsightDescription = "Your stats, made pretty!"
     override val shareChooserLogDescription = "Every entry, just as you logged it!"

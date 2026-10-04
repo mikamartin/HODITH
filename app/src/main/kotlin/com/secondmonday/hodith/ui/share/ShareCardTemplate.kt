@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.HeroRate
 import com.secondmonday.hodith.domain.HeroRateComparison
@@ -329,9 +330,10 @@ private fun SquareInsightsBody(
 }
 
 /**
- * Story: the same summary beat, then the sections the user picked in the picker's order — Gaps,
- * Streaks, Length, Start times, Intensity, Trends, Tags — each already `null` or empty in [data] when not
- * picked or not applicable. The panels are the Square ones, so both formats read alike.
+ * Story: the same summary beat, then the sections the user picked, in the order they arranged them
+ * in the picker ([ShareCardData.Insights.storyOrder]). Each panel is already `null` or empty in [data]
+ * when not picked or not applicable, so a picked-but-empty section simply draws nothing. The panels
+ * are the Square ones, so both formats read alike.
  */
 @Composable
 private fun StoryInsightsBody(
@@ -340,13 +342,17 @@ private fun StoryInsightsBody(
     skin: ShareCardSkin,
 ) {
     TopBeatContent(data.topBeat, voice, skin)
-    data.gaps?.let { GapsPanel(it, data.quietForDays, streaks = null, voice, skin) }
-    data.streaks?.let { StreaksPanel(it, voice, skin) }
-    data.duration?.let { DurationPanel(it, voice, skin) }
-    data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
-    data.intensity?.let { IntensityPanel(it, voice, skin) }
-    data.trends.takeIf { it.isNotEmpty() }?.let { MiniTrendsSection(it, voice, skin) }
-    data.tags.takeIf { it.isNotEmpty() }?.let { MiniTagsSection(it, voice, skin) }
+    data.storyOrder.forEach { section ->
+        when (section) {
+            ShareInsightsSection.GAPS -> data.gaps?.let { GapsPanel(it, data.quietForDays, streaks = null, voice, skin) }
+            ShareInsightsSection.STREAKS -> data.streaks?.let { StreaksPanel(it, voice, skin) }
+            ShareInsightsSection.DURATION -> data.duration?.let { DurationPanel(it, voice, skin) }
+            ShareInsightsSection.RHYTHM -> data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
+            ShareInsightsSection.INTENSITY -> data.intensity?.let { IntensityPanel(it, voice, skin) }
+            ShareInsightsSection.TRENDS -> data.trends.takeIf { it.isNotEmpty() }?.let { MiniTrendsSection(it, voice, skin) }
+            ShareInsightsSection.TAGS -> data.tags.takeIf { it.isNotEmpty() }?.let { MiniTagsSection(it, voice, skin) }
+        }
+    }
 }
 
 /**
