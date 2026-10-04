@@ -8,6 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HodithRepository
+import com.secondmonday.hodith.data.SettingsRepository
+import com.secondmonday.hodith.data.ShareInsightsSection
+import com.secondmonday.hodith.data.orderedShareSections
+import com.secondmonday.hodith.data.reorderVisibleSections
 import com.secondmonday.hodith.data.share.ShareImageExporter
 import com.secondmonday.hodith.domain.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -34,6 +39,8 @@ data class ShareUiState(
     val case: CaseEntity? = null,
     val events: List<EventWithTags> = emptyList(),
     val selection: ShareSelection = ShareSelection(),
+    /** The device-wide Story section order, every section once — see [orderedShareSections]. */
+    val sectionOrder: List<ShareInsightsSection> = ShareInsightsSection.entries,
     val isLoading: Boolean = true,
 )
 
@@ -47,6 +54,7 @@ class ShareViewModel
         private val repository: HodithRepository,
         private val clock: Clock,
         private val shareImageExporter: ShareImageExporter,
+        private val settingsRepository: SettingsRepository,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
@@ -58,11 +66,13 @@ class ShareViewModel
                 repository.observeCase(caseId),
                 repository.observeEventsWithTagsForCase(caseId),
                 selection,
-            ) { case, events, selection ->
+                settingsRepository.observeShareSectionOrder(),
+            ) { case, events, selection, sectionOrder ->
                 ShareUiState(
                     case = case,
                     events = events,
                     selection = selection,
+                    sectionOrder = sectionOrder,
                     isLoading = false,
                 )
             }.stateIn(
@@ -90,6 +100,22 @@ class ShareViewModel
         ) {
             selection.update {
                 it.copy(selectedSections = if (selected) it.selectedSections + section else it.selectedSections - section)
+            }
+        }
+
+        /**
+         * Moves the picker row at [from] to [to], where [available] is the Case's visible sections in
+         * their current order. The new order is saved device-wide, so every Case and every later session
+         * opens with it.
+         */
+        fun moveSection(
+            available: List<ShareInsightsSection>,
+            from: Int,
+            to: Int,
+        ) {
+            viewModelScope.launch {
+                val order = orderedShareSections(settingsRepository.observeShareSectionOrder().first())
+                settingsRepository.setShareSectionOrder(reorderVisibleSections(order, available, from, to))
             }
         }
 

@@ -62,6 +62,11 @@ interface SettingsRepository {
 
     suspend fun setLogVisibleFields(fields: Set<LogRowField>)
 
+    /** The Story share card's section order (spec §13) — device-wide; see [orderedShareSections] for how a partial stored order is completed. */
+    fun observeShareSectionOrder(): Flow<List<ShareInsightsSection>>
+
+    suspend fun setShareSectionOrder(order: List<ShareInsightsSection>)
+
     /**
      * Big Picture's Case/Tag/Year filters (spec §9). `null` means "no filter stored" (everything
      * visible / all years) rather than a literal snapshot, so a Case or tag added later is visible

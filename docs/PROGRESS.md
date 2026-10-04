@@ -53,25 +53,6 @@ No tag-management UI, rename, or merge operation exists anywhere today. Tags are
 
 **Tests** — none until the brainstorm and design are done.
 
-### Share Insight: reorderable sections
-
-*Branch: `feat/share-insight-section-order` · Complexity: M · Priority: Low · Area: Share*
-
-🎨 **Design decision**
-
-Section order is a fixed enum (`ShareInsightsSection`) and `SectionsPicker` is plain include/exclude toggle rows with no ordering concept. Only 6 sections exist today — weigh drag-and-drop's build cost against that small a list before committing to it.
-
-**Acceptance criteria**
-
-- [ ] A decision made on the reordering UI shape (drag-and-drop vs. simpler up/down controls) weighed against the 6-section list size.
-- [ ] `ShareSelection` carries an ordered list instead of a `Set`.
-- [ ] `SectionsPicker` lets the user reorder included sections.
-- [ ] `ShareCardTemplate` renders sections in the persisted order instead of enum declaration order.
-
-**Plan** — design call first; then add the ordered list to `ShareSelection`, build the reordering UI, and switch `ShareCardTemplate`'s section loop to follow it.
-
-**Tests** — `ShareViewModelTest` for order persistence; `ShareCardTemplateTest` for order-following rendering.
-
 ### Share: replace the chooser dialog with Summary / Insights / History tabs
 
 *Branch: `feat/share-tabs` · Complexity: M · Priority: Medium · Area: Share*
