@@ -35,7 +35,7 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Deferred:**
 - The instrumented run (`connectedDebugAndroidTest`) has not been executed: no device is attached. The changed androidTest sources compile. The run needs a device before the PR.
-- The Insights Gaps row layout (the two-line "Current gap" label, and the one-word-free streak labels) is for the human to check on a device.
+- The Insights Gaps row layout (the two-line "Current gap" label and how the streak labels sit beside it) is for the human to check on a device.
 
 **Docs updated:** HODITH_SPEC §10 (Gaps & streaks, Event duration) and §13 (Square panel titles, structural labels); TESTING.md (share-card assembly, Insights tab rows); PROGRESS.md (item struck, Voice audit list gains this branch's key changes).
 
