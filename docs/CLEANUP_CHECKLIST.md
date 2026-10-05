@@ -64,6 +64,9 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Heatmap/chart cells convey information by more than color alone (value on tap / content descriptions)?
 - [ ] New UI verified in both light and dark mode for the themes it appears in, not just the default?
 
+### UI Copy Brevity
+- [ ] **Do new or changed UI labels fit their control in every voice, and match their siblings in length?** Flag any that wrap or run noticeably longer than neighbouring labels. For each flag, suggest two or three shorter alternatives from existing app wording. A human decides: keep, shorten, or defer (to PROGRESS.md). Log the decision in CLEANUP_LOG.md.
+
 ### Data Model, Migrations & Privacy
 - [ ] New entity or column added? Room migration, `BACKUP_SCHEMA_VERSION` bump, and import validation all updated together (§17's "three changes, not one")?
 - [ ] Schema version bumped without a matching Room `Migration`? (`SchemaMigrationCoverageTest` should fail rather than falling back to a destructive migration.)

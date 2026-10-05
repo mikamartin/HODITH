@@ -69,22 +69,6 @@ Trend findings render as plain sentence + caption text, not cards, and their ord
 
 **Tests** — `InsightsTabTrendsCardTest`/`TrendsListScreenTest` updated for the new rendering and sort order.
 
-### Delete Data: clearer option copy
-
-*Branch: `fix/delete-data-copy` · Complexity: XS · Priority: Medium · Area: Settings / Voice*
-
-`DeleteDataOptionsDialog` uses `settingsDeleteDataOptionAll`/`settingsDeleteDataOptionLogsOnly` (default copy "All data"/"Logs only", plus two theme overrides). "Logs only" currently wraps to 2 lines.
-
-**Acceptance criteria**
-
-- [ ] `settingsDeleteDataOptionAll` reworded to literally list what's deleted, across all three Voices.
-- [ ] The 2-line wrap resolved by the new, shorter-or-equal copy.
-- [ ] Related confirm-step strings (`settingsDeleteAllDataConfirmTitle`, `settingsDeleteDataLogsConfirmTitle`) updated to match, across all three Voices.
-
-**Plan** — reword the two option strings and the matching confirm-step strings in `Voice.kt` (default + 2 theme overrides each); verify the dialog no longer wraps.
-
-**Tests** — `SettingsScreenTest`/`DeleteDataDialogsTest` assertions updated for the new copy; `VoiceTest` picks up renamed/reworded keys automatically.
-
 ### Review phrasing across all three Voice implementations
 
 *Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
