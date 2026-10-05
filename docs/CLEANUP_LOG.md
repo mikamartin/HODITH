@@ -21,19 +21,21 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Scope:** PROGRESS.md's "Insights tab: split Gaps/Streaks, restyle Gaps & Duration to match Share Story's pattern" item, reworked: no Gaps/Streaks split. The Insights Gaps card and Duration card take the share card's Min/Avg/Max row, and the Tags totals sit side by side as label-over-value columns. The Insights gap labels spell out "gap"; the streak labels keep "streak", since the combined card covers both. The Summary card keeps the Gaps title, and the Duration card has no total.
 
-**Walked:** CLEANUP_CHECKLIST.md item by item against the real diff. Items not listed were checked and needed nothing.
+**Walked:** CLEANUP_CHECKLIST.md checked against the branch's diff in a second pass, after an earlier pass that was written from memory and missed items. Checked and needing nothing: unused imports and dead helpers (ktlint and lint pass; `StatRow`, `formatDays` and the Share streak keys still have callers); Voice keys in all three voices (every new key is a structural default, and both changed info bodies are overridden in each voice); no inline user-visible strings; no em dashes or gamification words in new copy; `@UiTest` tags on the touched Compose classes; the spec and TESTING.md rows against the built behaviour. Not checked on a device: anything that needs the instrumented run.
 
 **Found & fixed:**
-- The Gaps and Duration figures were formatted inline in two places (Insights and the share card). Both now call `gapsStatRows`/`durationMinAvgMax` in `viewmodel/StatCardRows.kt`, so the two surfaces cannot drift, and the formatting is unit-tested there.
+- The first pass had no test for a single-event Case's Gaps card (Current gap shown, no Min/Avg/Max row). Added `gapsCard_withOneEvent_showsCurrentGap_andNoMinAvgMaxRow`.
+- The Square-fixture figures were unit-tested only as formatting cases. `StatCardRowsTest` now also pins the figures the share card's Gaps panel shows for its fixture. Both surfaces call `gapsStatRows`, so this pins the output rather than proving parity.
+- `formatCompactDecimal` and `formatDaysCompact` lived in `ui/casedetail/InsightsTab.kt`, so `viewmodel/StatCardRows.kt` depended on the UI package. Both moved to `viewmodel/CompactFormat.kt`, and their callers and `InsightsFormattingTest` import them from there.
+- The Gaps and Duration figures were formatted inline in two places (Insights and the share card). Both now call `gapsStatRows`/`durationMinAvgMax`, so the two surfaces cannot drift.
 - `MinAvgMaxRow` and `StatColumn` were private to `ShareCardTemplate.kt`. They moved to `ui/common/StatColumns.kt` so Insights reuses them, and the row takes its labels as a parameter so each surface words its own.
 - `StatRow`'s `valueStyle` parameter had one caller (the Tags totals); with that gone it was dead and was removed.
-- Voice keys with no remaining caller were removed from the interface, which covers all three voices: the Gaps and Duration labels the first pass replaced, and `insightsDurationTotalLabel` once Total left the card. The share card's `shareGapsStreaksTitle` was removed when the Summary panel went back to "Gaps". The Insights streak labels reuse the share card's existing `insightsStreakLongestLabel`/`insightsStreakAverageLabel` keys rather than duplicating them.
-- The Gaps and Duration info bodies described only the old figures. Each of the three voices gained a "Shortest" word on Gaps, and the Duration body lost "total".
-- Compose assertions that duplicated the value formatting sit in `StatCardRowsTest`. The UI tests keep presence checks and one wiring value per card.
+- Voice keys with no remaining caller were removed: the Gaps and Duration labels the first pass replaced, `insightsDurationTotalLabel` once Total left the card, and `shareGapsStreaksTitle` once the Summary panel went back to "Gaps".
+- The Gaps and Duration info bodies described only the old figures. Each voice gained "Shortest" on Gaps, and the Duration body lost "total".
 
 **Deferred:**
-- The instrumented run (`connectedDebugAndroidTest`) was not executed in this pass: no device is attached. The changed androidTest sources compile. The run needs a device before the commit.
-- Visual layout of the Insights Gaps row (the "Current" two-line break, and the one-word streak labels) is for the human to check; nothing was run on a device.
+- The instrumented run (`connectedDebugAndroidTest`) has not been executed: no device is attached. The changed androidTest sources compile. The run needs a device before the PR.
+- The Insights Gaps row layout (the two-line "Current gap" label, and the one-word-free streak labels) is for the human to check on a device.
 
 **Docs updated:** HODITH_SPEC §10 (Gaps & streaks, Event duration) and §13 (Square panel titles, structural labels); TESTING.md (share-card assembly, Insights tab rows); PROGRESS.md (item struck, Voice audit list gains this branch's key changes).
 
