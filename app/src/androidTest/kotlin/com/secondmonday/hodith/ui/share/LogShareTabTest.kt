@@ -362,7 +362,7 @@ class LogShareTabTest {
 
     @Test
     fun rangeDialog_allTimeButton_hiddenWhenNothingIsFilteredYet() {
-        // The range button's own label already reads "Range: All time" when unfiltered, and the
+        // The range button's own label already reads "All time" when unfiltered, and the
         // live card preview below repeats the bare value -- by tag, not by label text, so this
         // doesn't collide with either.
         setContent(

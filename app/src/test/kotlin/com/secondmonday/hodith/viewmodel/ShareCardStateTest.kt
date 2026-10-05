@@ -1070,7 +1070,7 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState range label reads All time when dateFrom is unset and dateTo is today`() {
+    fun `logShareCardState range label spans the Case's creation date to today when dateFrom is unset`() {
         val case = testCase()
 
         val data =
@@ -1089,7 +1089,38 @@ class ShareCardStateTest {
                 zone = ZONE,
             )
 
-        assertEquals(PlainVoice.shareLogRangeAllTimeLabel, data.rangeLabel)
+        assertEquals(
+            "${formatDateRangeBound(
+                case.createdAt,
+                millisAtDay(NOW),
+                ZONE,
+            )} – ${formatDateRangeBound(millisAtDay(NOW), millisAtDay(NOW), ZONE)}",
+            data.rangeLabel,
+        )
+    }
+
+    @Test
+    fun `logShareCardState range label keeps the creation date out of the filter when dateFrom is unset`() {
+        // Created on day 0; the event is backdated to day -30, before the Case existed.
+        val case = testCase()
+
+        val data =
+            logShareCardState(
+                case = case,
+                displayName = case.name,
+                events = listOf(logShareEvent(day = -30)),
+                sortOrder = ChronologicalOrder.NEWEST_FIRST,
+                dateFrom = null,
+                dateTo = millisAtDay(NOW),
+                fields = allLogFields,
+                use24Hour = true,
+                voice = PlainVoice,
+                now = millisAtDay(NOW),
+                generatedAtMillis = millisAtDay(NOW),
+                zone = ZONE,
+            )
+
+        assertEquals(1, data.rows.size)
     }
 
     @Test
@@ -1153,7 +1184,7 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState range label reads a To-labeled bound when dateFrom is unset but dateTo is narrowed`() {
+    fun `logShareCardState range label starts at the Case's creation date when dateFrom is unset but dateTo is narrowed`() {
         val case = testCase()
 
         val data =
@@ -1173,7 +1204,11 @@ class ShareCardStateTest {
             )
 
         assertEquals(
-            "${PlainVoice.shareLogDateToLabel} ${formatDateRangeBound(millisAtDay(20), millisAtDay(NOW), ZONE)}",
+            "${formatDateRangeBound(
+                case.createdAt,
+                millisAtDay(NOW),
+                ZONE,
+            )} – ${formatDateRangeBound(millisAtDay(20), millisAtDay(NOW), ZONE)}",
             data.rangeLabel,
         )
     }

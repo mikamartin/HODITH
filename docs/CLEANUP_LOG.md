@@ -17,6 +17,34 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/share-history-range-line
+
+**Scope:** PROGRESS.md's "Share History card: range on the title line, and a real 'All' range" item. The Log card's kicker is removed, so the resolved range is the card's title line. An unset range resolves to the Case's creation date through today on the card and in the Log tab's note line. The Range selectors (Log tab and Log Share) keep reading "All time" when unset. The filter itself stays unbounded.
+
+**Walked:** CLEANUP_CHECKLIST.md item by item against the diff, in two passes. The first pass was written from memory of the changes and missed the docs; the second, against the real diff, found the stale TESTING.md and spec rows listed below. Items not listed were checked and needed nothing.
+
+**Found & fixed:**
+- The range bounds were formatted in three places (the card, the Log tab note, the Log Share button). They now share `logRangeBounds` in `EventTimeFormat.kt`, so the "unset means creation date / today" rule lives in one function.
+- `Voice.shareLogRangeNote` took nullable bounds and handled the unbounded cases with "From"/"To"/"All time" text. No caller passes null any more, so those branches were dead. The function takes two strings, and the `shareLogDateFromLabel`/`shareLogDateToLabel` keys are gone.
+- The kicker keys `shareLogCardKicker` were removed from all three voices in the same change: "The history", "The record" and "Every entry!".
+- Unused imports left by the change (`DOT_SEPARATOR`, `formatDateRangeBound`) were removed.
+- The Log tab's range note now shows whether or not a range is set, so an unset range reads as the Case's span.
+- The Log Share range selector reads "All time" when unset, matching the Log tab's chip. Its earlier span text was reverted.
+- The Log Share selector's value and the "is the range unset" check moved out of `DateRangeSection` into `logShareSelectorValue` and `isUnsetLogRange` (`ShareCardState.kt`). The Intense capitals moved into `kickerText` (`ShareCardTemplate.kt`). Both are now unit-testable. New unit tests: `LogRangeBoundsTest` (nine cases) and `KickerTextTest`. The Log tab note line and the card title are still checked only through their helpers, not their Compose wiring.
+- TESTING.md's Share card assembly, Compose UI (Log tab filter row) and Log Share card rows still described the old "All time" label, separate From/To chips and the kicker. They now describe the current behaviour.
+- HODITH_SPEC §13's card paragraph said the range was a subtitle. It is the title line.
+
+**Deferred:**
+- The instrumented suite was not run on a device, since none was available. The changed androidTest classes compile. Run `connectedDebugAndroidTest` before merging.
+
+**Considered and declined:**
+- Putting the resolved span into the Range chip itself. A formatted date pair doesn't fit the chip's width, which is the reason the Log tab already puts bounds on a note line. The chip keeps "All time" as its unfiltered value.
+- Storing the Case's creation date as the filter's start. Events can be dated before the Case was created (the log-detail date picker only caps at today), so that would hide them from the "All" view.
+
+**Docs updated:** PROGRESS.md (item removed, since it is resolved). HODITH_SPEC §6: the filter-chip row now describes the combined Range control, the unset-range span, and the unbounded filter. The paragraph had described separate From and To chips, which the combined control replaced earlier.
+
+---
+
 ## feat/tags-short-expanded-view
 
 **Scope:** PROGRESS.md's "Insights tab: tag list short/expanded view" item. The Insights tag card collapses past 5 distinct tags to a summary and the busiest three, with a "see all" link to a new full tag list screen that mirrors the Trends list.
@@ -138,31 +166,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** PROGRESS.md item struck. HODITH_SPEC §13: the Story picker's section list and availability rule, the Square Gaps and streak row, the Story Streaks card, and the name-field description. TESTING.md: the Share preview and History Share preview rows, and the share card assembly row. MANUAL_TEST_PLAN.md checked: its typed-name export step still holds.
 
 **Verified:** `ktlintCheck`, `lintDebug`, `test` (unit suite), `compileDebugAndroidTestKotlin` and `assembleDebug`, run sequentially. Instrumented: `connectedDebugAndroidTest` on the Pixel 8 emulator, run per class: `ui.share.ShareCardTemplateTest` (59), `ui.share.SharePreviewScreenTest` (25) and `ui.share.LogSharePreviewScreenTest` (19), all passing. Not run: the rest of the instrumented suite.
-
----
-
-## feat/history-rename-average
-
-**Scope:** PROGRESS.md's "History: rename the Log tab, add a top-line average" item, plus every user-facing "Log" noun for the record (share chooser, Log Share screen, Delete Data copy, Log detail).
-
-**Found & fixed:**
-- Case Detail's History summary line now leads with the Insights hero rate (`2.1/week`, `<1/month`) when the Case has enough data, via a new `caseHeroRate` in `domain/HeroRate.kt`. It reuses `computeHeroRate` and skips the trend comparison below `INSIGHTS_MIN_EVENTS`, as Insights does. The figure and unit formatting moved to internal `figureText`/`unitText` in `ShareCardTemplate.kt`, shared by the share card and the summary line.
-- `Voice.logSummaryLine` takes the preformatted rate (or `null`) as its first argument. Plain, Intense and Bright each prepend it with the existing line unchanged.
-- Renamed to "History" across all voices: the tab label, the share chooser option, "History Share", "Share history", "The history", "History detail", and the Delete Data "History only" / "Delete history" copy. Verbs such as "Log an event" stay.
-- Two stale comments updated: `ShareChooserDialog`'s tag-collision note and the `Voice` KDoc for the tab's Edit icon.
-- The ktlint failure on the new function signature in `ShareCardTemplate.kt` was fixed before the final run.
-- The `figureText + unitText` pairing had been written out inline in the History summary call. It's now `HeroRate.rateText(voice)` in `ShareCardTemplate.kt`, used by the History summary; the share card keeps calling the two pieces separately because it styles them apart.
-
-**Considered and declined:**
-- Reusing `caseHeroRate` inside Insights too. Insights already computes the trend stats for its Trends card, so the History path computes its own rate instead of threading the shared value through.
-- A trend pill on the History summary line. It would lengthen a line that already carries the rate, the count and the span.
-- Checklist items with nothing to act on in this diff: no new colours, icons or Voice keys (accessibility and theme items); no data model, widget or notification changes; no new `System.currentTimeMillis` or `android.*` use in domain code; no new deprecations; no self-updating counts added to TESTING.md.
-
-**Deferred:**
-- A Compose test for the summary line. The rate logic is covered by `HeroRateTest` and the wording by `VoiceTest`. The call site in `CaseDetailScreen` is not covered by any test, which is accepted for now. Revisit if the summary grows logic of its own.
-
-**Docs updated:** PROGRESS.md item struck, and the Delete Data "History only" bullet removed. SPEC §6 and §13 names, the summary-line description in §6, and the chooser option in §13. TESTING.md's Log Share preview row renamed.
-
-**Verified:** `ktlintCheck`, `lintDebug` ("No issues found."), `test` (1060 unit tests, 0 failures), `assembleDebug`, all green, run sequentially. A later rename-only helper extraction was re-checked with `ktlintCheck`, `test` (1060 unit tests) and `assembleDebug`; `lintDebug` was not re-run after it. Not run: instrumented tests and any on-device check.
-
----

@@ -27,8 +27,9 @@ import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.LogShareSelection
 import com.secondmonday.hodith.viewmodel.LogShareUiState
-import com.secondmonday.hodith.viewmodel.formatDateRangeBound
+import com.secondmonday.hodith.viewmodel.isUnsetLogRange
 import com.secondmonday.hodith.viewmodel.logShareCardState
+import com.secondmonday.hodith.viewmodel.logShareSelectorValue
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import java.time.LocalDate
 import java.time.ZoneId
@@ -56,7 +57,7 @@ internal fun LogShareTab(
     val case = uiState.case ?: return
     val selection = uiState.selection
 
-    DateRangeSection(selection, now, zone, onDateFromPicked, onDateToPicked, voice)
+    DateRangeSection(case.createdAt, selection, now, zone, onDateFromPicked, onDateToPicked, voice)
     FieldsSection(case, selection.fields, onFieldToggle, voice)
     // No label here: the fields section above already carries the "Include" heading.
     SegmentedChoiceRow(
@@ -92,6 +93,7 @@ internal fun LogShareTab(
 
 @Composable
 private fun DateRangeSection(
+    createdAt: Long,
     selection: LogShareSelection,
     now: Long,
     zone: ZoneId,
@@ -100,16 +102,11 @@ private fun DateRangeSection(
     voice: Voice,
 ) {
     var showRangePicker by remember { mutableStateOf(false) }
-    val isDefaultRange = selection.dateFrom == null && selection.dateTo.toLocalDateIn(zone) == now.toLocalDateIn(zone)
+    val isDefaultRange = isUnsetLogRange(selection.dateFrom, selection.dateTo, now, zone)
 
     OutlinedButton(onClick = { showRangePicker = true }, modifier = Modifier.fillMaxWidth()) {
-        Text(
-            "${voice.shareLogRangeLabel}: " +
-                voice.shareLogRangeNote(
-                    selection.dateFrom?.let { formatDateRangeBound(it, now, zone) },
-                    if (isDefaultRange) null else formatDateRangeBound(selection.dateTo, now, zone),
-                ),
-        )
+        // Unset reads "All time", matching Case History's Range chip; the card above carries the resolved span.
+        Text("${voice.shareLogRangeLabel}: ${logShareSelectorValue(createdAt, selection.dateFrom, selection.dateTo, now, zone, voice)}")
     }
 
     if (showRangePicker) {

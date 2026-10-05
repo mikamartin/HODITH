@@ -35,22 +35,6 @@ No tag-management UI, rename, or merge operation exists anywhere today. Tags are
 
 **Tests** — none until the brainstorm and design are done.
 
-### Share History card: range on the title line, and a real "All" range
-
-*Branch: `fix/share-history-range-line` · Complexity: S · Priority: Medium · Area: Share*
-
-The History card's kicker ("The history") and its resolved range sit on two lines. The range should share the title's line. Separately, with no range set the card and the History tab show "All time" rather than the Case's actual span.
-
-**Acceptance criteria**
-
-- [ ] The History card's kicker and resolved range render on one line, in every voice and both skins (Intense uppercases the kicker, so check the range reads well uppercased).
-- [ ] With no range set ("All"), the range shows the Case's creation date as the start and today's date as the end, instead of "All time". The same resolved range appears on the card and in the Range control.
-- [ ] New or changed Voice strings in all three voices in the same commit. Date formatting follows the existing `formatDateRangeBound` rules.
-
-**Plan** — the one-line change is in `LogCardBody` (`ui/share/ShareCardTemplate.kt`). For the "All" range, resolve the default date-from from `CaseEntity.createdAt` in `logShareCardState`/`LogShareViewModel` rather than leaving it `null`, and retire `shareLogRangeAllTimeLabel` if nothing else uses it. Decide whether the stored date-from is the creation date or stays `null` and is resolved at render time, since `null` currently means "since the beginning" and the filter depends on that.
-
-**Tests** — `ShareCardStateTest` for the resolved range label with and without a set range; `LogShareViewModelTest` for the default `dateFrom`; a Compose test for the single-line kicker.
-
 ### Case Detail: split the 250-line CaseDetailScreen composable
 
 *Branch: none yet · Complexity: M · Priority: Low · Area: Refactor*

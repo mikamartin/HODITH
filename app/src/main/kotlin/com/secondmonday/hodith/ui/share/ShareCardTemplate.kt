@@ -72,7 +72,6 @@ import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.theme.ShareCardSkin
 import com.secondmonday.hodith.ui.voice.BrightVoice
-import com.secondmonday.hodith.ui.voice.DOT_SEPARATOR
 import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.ui.voice.Voice
@@ -206,8 +205,8 @@ private fun LogCardBody(
     voice: Voice,
     skin: ShareCardSkin,
 ) {
-    // One line: the kicker and the resolved range share a line, so the range reads as part of the title.
-    BeatKicker("${voice.shareLogCardKicker}${DOT_SEPARATOR}${data.rangeLabel}", skin)
+    // The resolved range is the card's title line.
+    BeatKicker(data.rangeLabel, skin)
     if (data.rows.isEmpty()) {
         Text(text = voice.shareLogEmptyRangeMessage, style = MaterialTheme.typography.labelMedium)
     } else {
@@ -652,13 +651,19 @@ private fun RowScope.StatColumn(
     }
 }
 
+/** The Intense skin sets kicker text in capitals; the other skins keep it as written. */
+internal fun kickerText(
+    text: String,
+    skin: ShareCardSkin,
+): String = if (skin == ShareCardSkin.INTENSE) text.uppercase() else text
+
 @Composable
 private fun BeatKicker(
     text: String,
     skin: ShareCardSkin,
 ) {
     Text(
-        text = if (skin == ShareCardSkin.INTENSE) text.uppercase() else text,
+        text = kickerText(text, skin),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
     )
