@@ -35,22 +35,6 @@ No tag-management UI, rename, or merge operation exists anywhere today. Tags are
 
 **Tests** — none until the brainstorm and design are done.
 
-### Case Detail: split the 250-line CaseDetailScreen composable
-
-*Branch: none yet · Complexity: M · Priority: Low · Area: Refactor*
-
-`CaseDetailScreen` is about 250 lines and owns the header, the tab row, the FAB, the three tab bodies and the new-event sheet state. It was already this long before the Share change; that change only removed the chooser from it.
-
-**Acceptance criteria**
-
-- [ ] Each tab body (Log, Insights, Watches) lives in its own composable, with the tab-selection state kept in the screen.
-- [ ] The FAB and the new-event sheet live beside the screen, not inside the tab bodies.
-- [ ] No change in behaviour: `CaseDetailScreenTest` and `CaseDetailInsightsTabTest` pass unchanged.
-
-**Plan** — extract one tab at a time, running those two classes after each.
-
-**Tests** — none new; the existing Case Detail classes are the regression net.
-
 ### Trends: visual redesign, order by recency/significance
 
 *Branch: `feat/trends-visual-redesign` · Complexity: M · Priority: Medium · Area: Insights*
