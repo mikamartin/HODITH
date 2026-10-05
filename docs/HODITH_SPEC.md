@@ -195,7 +195,7 @@ On the case detail Insights tab, in this order. Trends is shown only when at lea
 - **Gaps & streaks** — longest gap, current gap (silence since the last event *ended* — its start for a point event, and for every event on a Case that no longer tracks duration; reads 0 while *any* event is running on the Case), average gap; longest streak, average streak (a streak is a run of consecutive calendar days each covered by at least one event's active span, §9); "tends to come in bursts" flag when gap variance is high. `QUIET` watches and check-ins count silence from the same point.
 - **Event duration** (if durationMode ≠ NONE) — average, longest, total time; still-running events are excluded until they stop
 - **Intensity stats** (if enabled) — average, distribution mini-bars
-- **Tag breakdown** — counts per tag, shown against the Case's total event count so an individual tag's count reads in proportion rather than in isolation
+- **Tag breakdown** — counts per tag, shown against the Case's total event count so an individual tag's count reads in proportion rather than in isolation. Both the card and the full tag list open with a summary (total events and total tags) set apart from the tag rows by a divider. A Case with up to 5 distinct tags shows every tag. Past 5, the card collapses to the busiest 3 tags, with a "see all" link to the full tag list as its own screen (the same navigate-not-expand pattern as Trends). Every tag row on either screen opens the same drill-down of its events. The Share card's Tags section keeps the busiest 3 at every count, since a static card has no room for a link.
 
 The calendar heatmap (§9) follows the tag breakdown as the tab's final section.
 

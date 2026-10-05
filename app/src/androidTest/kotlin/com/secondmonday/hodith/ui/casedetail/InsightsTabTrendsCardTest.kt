@@ -91,6 +91,7 @@ class InsightsTabTrendsCardTest {
                     onFrequencyGranularityChange = {},
                     onEditEvent = {},
                     onOpenTrends = onOpenTrends,
+                    onOpenTags = {},
                 )
             }
         }

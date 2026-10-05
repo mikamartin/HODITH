@@ -17,6 +17,32 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/tags-short-expanded-view
+
+**Scope:** PROGRESS.md's "Insights tab: tag list short/expanded view" item. The Insights tag card collapses past 5 distinct tags to a summary and the busiest three, with a "see all" link to a new full tag list screen that mirrors the Trends list.
+
+**Walked:** every item in CLEANUP_CHECKLIST.md against the diff. Items not listed below were checked and needed nothing.
+
+**Found & fixed:**
+- The Trends and Tags cards each built their own right-aligned show-more button. It's now `InsightsShowMoreButton`, used by both.
+- The Trends and Tags full-list screens each built their own scaffold (top bar, case subtitle, back arrow, info dialog, scrolling column). It's now `InsightsDetailScaffold`. `TrendsListScreen` moved onto it with no change in behaviour.
+- The Trends and Tags view models each combined the same three repository flows. That combine is now `caseInsightsFlow`, used by both.
+- `StatRow`, `InsightsDrillDownDialog` and `InsightsCard` were private to `InsightsTab.kt`. They're internal now, so the tag list reuses them rather than copying them. The tag-filter drill-down's event filter is `eventsWithTag`, shared by the card and the list.
+- The new helper file held one class. It's named `CaseInsights.kt` to match the rule that a file holding one class is named after it.
+- New and edited files had LF line endings. All changed files are CRLF again, matching HEAD.
+- Import order and line wrapping in touched files, via ktlint.
+- The Tags summary (total events and total tags) sits in one shared composable, `TagsSummary`, used on the card and the full list.
+
+**Deferred:**
+- Nothing deferred from this pass.
+
+**Considered and declined:**
+- `distinctTagCount` on `StatsSections` defaults to `tags.size`. That keeps the existing test fixtures compiling. The production path always passes the real value from `computeTagBreakdown`.
+- `tagsVisibleEntries` has one production caller. It's the compact-card rule the unit tests pin, so the extraction earns its keep, as with `shareDisplayName`.
+- The Tags full-list screen has no `@Preview` composables. Per the instruction to skip separate previews, the working state was checked on the card and screen instead.
+
+**Docs updated:** HODITH_SPEC §10 (tag breakdown: summary, collapsed card, full tag list, Share card difference). TESTING.md Compose UI, Case Detail Insights row. PROGRESS.md item struck.
+
 ## feat/share-tabs
 
 **Scope:** PROGRESS.md's "Share: replace the chooser dialog with Summary / Insights / History tabs" item. The Case Detail Share icon now opens one Share screen with three tabs instead of a chooser dialog and a second route.
@@ -138,26 +164,5 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Docs updated:** PROGRESS.md item struck, and the Delete Data "History only" bullet removed. SPEC §6 and §13 names, the summary-line description in §6, and the chooser option in §13. TESTING.md's Log Share preview row renamed.
 
 **Verified:** `ktlintCheck`, `lintDebug` ("No issues found."), `test` (1060 unit tests, 0 failures), `assembleDebug`, all green, run sequentially. A later rename-only helper extraction was re-checked with `ktlintCheck`, `test` (1060 unit tests) and `assembleDebug`; `lintDebug` was not re-run after it. Not run: instrumented tests and any on-device check.
-
----
-
-## fix/segmented-choice-row-modifier-default
-
-**Scope:** PROGRESS.md's "SegmentedChoiceRow's `modifier` parameter defaults to more than `Modifier`" item, the `ModifierParameter` lint warning deferred from the fix/log-share-controls pass.
-
-**Found & fixed:**
-- `modifier` now defaults to plain `Modifier`. The row's own `fillMaxWidth()` and 8dp top gap moved into the function body, gated on `stretchToFill` and applied before the caller's modifier, so a caller's modifier (test tag, semantics) adds to the layout instead of replacing it.
-- KDoc's reference to the Log tab's inline Sort control removed. That control is now a filter chip that opens a dialog and no longer uses this composable; the PROGRESS item's Log-tab re-check was stale for the same reason.
-- Walked the call sites: none passed `modifier` or `stretchToFill = false`, so no call site renders differently.
-- Added `SegmentedChoiceRowTest` (instrumented): a caller's modifier keeps the full-width layout and 8dp top gap, and `stretchToFill = false` drops both. Mutation-checked: restoring the old default made both caller-modifier tests fail.
-
-**Considered and declined:**
-- Removing the `stretchToFill = false` path. It has no callers today, but it still drives the inline layout and the Bright segment padding default. Dropping it is a separate API change, so it stays.
-
-**Deferred:** nothing deferred.
-
-**Docs updated:** PROGRESS.md item struck; TESTING.md shared-components row names the new test. No SPEC changes.
-
-**Verified:** `ktlintCheck`, `lintDebug` ("No issues found."), `test`, `assembleDebug`, all green, run sequentially. On the emulator: `SegmentedChoiceRowTest` and `SettingsScreenTest` pass, 36/36. A broader run of the seven UI classes that host these call sites (Case Edit, Case Detail, Insights, Watches, both share previews) aborted at 29 of 201 when the emulator crashed, so those were not covered by this pass. One `SettingsScreenTest` case failed on a renderer-finalizer timeout during that run and passed on rerun.
 
 ---

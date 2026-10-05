@@ -434,6 +434,16 @@ interface Voice {
     val insightsTrendsInfoTitle: String
     val insightsTrendsInfoBody: String
 
+    /** Tag card's "see all": navigates to the full tag list, the same navigate-not-expand shape as [insightsTrendsShowMoreAction]. */
+    val insightsTagsSeeAllAction: String
+
+    /** Collapsed tag card's count row for how many distinct tags the Case has, beside [insightsTagsTotalLabel]'s event count. */
+    val insightsTagsDistinctLabel: String
+
+    /** Full tag list screen's info dialog, explaining what each row counts. */
+    val insightsTagsInfoTitle: String
+    val insightsTagsInfoBody: String
+
     /** Trends finding row: the visible reliability tag next to the sentence — structural, identical across all three voices like the stat-row labels above. */
     val trendReliabilityHintLabel: String get() = "Hint"
     val trendReliabilityPatternLabel: String get() = "Pattern"
@@ -1314,6 +1324,11 @@ object PlainVoice : Voice {
             "\"Tends to come in bursts\" shows when the gaps vary a lot."
 
     override val insightsTrendsShowMoreAction = "See all trends"
+    override val insightsTagsSeeAllAction = "See all tags"
+    override val insightsTagsDistinctLabel = "Total tags"
+    override val insightsTagsInfoTitle = "About tags"
+    override val insightsTagsInfoBody =
+        "Each tag counts the logged events it appears on. Tap one to see those events."
 
     override val insightsTrendsInfoTitle = "About trends"
     override val insightsTrendsInfoBody =
@@ -1966,6 +1981,11 @@ object IntenseVoice : Voice {
             "\"It comes in waves, not a rhythm\" appears when the gaps are wildly uneven."
 
     override val insightsTrendsShowMoreAction = "Read the full record"
+    override val insightsTagsSeeAllAction = "Read the full tally"
+    override val insightsTagsDistinctLabel = "Tags in total"
+    override val insightsTagsInfoTitle = "On the tags"
+    override val insightsTagsInfoBody =
+        "Each tag counts the events it appears on. Tap one to read them."
 
     override val insightsTrendsInfoTitle = "On what these mean"
     override val insightsTrendsInfoBody =
@@ -2604,6 +2624,11 @@ object BrightVoice : Voice {
             "\"Comes in bursts!\" pops up when the gaps are all over the place."
 
     override val insightsTrendsShowMoreAction = "See them all!"
+    override val insightsTagsSeeAllAction = "See every tag!"
+    override val insightsTagsDistinctLabel = "Total tags!"
+    override val insightsTagsInfoTitle = "About these tags!"
+    override val insightsTagsInfoBody =
+        "Each tag counts the events it's on. Tap one to see them all!"
 
     override val insightsTrendsInfoTitle = "What these mean!"
     override val insightsTrendsInfoBody =

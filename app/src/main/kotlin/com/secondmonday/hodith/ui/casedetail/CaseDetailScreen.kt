@@ -108,6 +108,7 @@ fun CaseDetailRoute(
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
+    onOpenTags: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CaseDetailViewModel = hiltViewModel(),
 ) {
@@ -119,6 +120,7 @@ fun CaseDetailRoute(
         onEditEvent = onEditEvent,
         onOpenShare = onOpenShare,
         onOpenTrends = onOpenTrends,
+        onOpenTags = onOpenTags,
         newEventDraft = viewModel::newEventDraft,
         onSaveEvent = viewModel::saveNewEvent,
         onStopEvent = viewModel::stopEvent,
@@ -141,6 +143,7 @@ fun CaseDetailScreen(
     onEditEvent: (caseId: Long, eventId: Long) -> Unit,
     onOpenShare: (Long) -> Unit,
     onOpenTrends: (Long) -> Unit,
+    onOpenTags: (Long) -> Unit,
     newEventDraft: () -> LogDraft,
     onSaveEvent: (LogDraft) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
@@ -303,6 +306,7 @@ fun CaseDetailScreen(
                             onFrequencyGranularityChange = { frequencyGranularityOverride = it },
                             onEditEvent = { event -> onEditEvent(case.id, event.id) },
                             onOpenTrends = { onOpenTrends(case.id) },
+                            onOpenTags = { onOpenTags(case.id) },
                         )
                     }
                 WATCHES_TAB ->

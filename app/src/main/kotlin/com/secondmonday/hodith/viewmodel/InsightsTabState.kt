@@ -78,6 +78,8 @@ data class StatsSections(
     val duration: DurationDisplay?,
     val intensity: IntensityDisplay?,
     val tags: List<TagBreakdownEntry>,
+    /** Distinct tags across the Case, which is [tags]' size; the collapsed tag card states it as a count. */
+    val distinctTagCount: Int = tags.size,
     val totalEventCount: Int,
     val trends: List<TrendFinding>,
     /** `null` until the Case has enough events and days to state a rate; only the Square share card shows it. */
@@ -284,6 +286,8 @@ private fun statsSections(
     // Feeds `trends`' FREQUENCY_SHIFT finding below.
     val trendStatsResult = if (belowStatsMinimum) null else computeTrendStats(events, now, spanDays)
 
+    val tagBreakdown = computeTagBreakdown(eventsWithTags)
+
     val duration =
         if (case.durationMode.tracksDuration) {
             computeDurationStats(events)?.let { DurationDisplay(it.averageMinutes, it.longestMinutes, it.totalMinutes, it.shortestMinutes) }
@@ -306,7 +310,8 @@ private fun statsSections(
         gaps = gaps,
         duration = duration,
         intensity = intensity,
-        tags = computeTagBreakdown(eventsWithTags),
+        tags = tagBreakdown,
+        distinctTagCount = tagBreakdown.size,
         totalEventCount = events.size,
         heroRate = computeHeroRate(events.size, spanDays, trendStatsResult),
         trends =

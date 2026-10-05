@@ -441,6 +441,24 @@ class InsightsTabStateTest {
         assertEquals(listOf(TagBreakdownEntry("standup", 2), TagBreakdownEntry("weekend", 1)), state.stats.tags)
     }
 
+    @Test
+    fun `distinctTagCount counts every distinct tag, not just the busiest few`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val eventsWithTags =
+            listOf(
+                EventWithTags(eventAtDay(0), listOf(TagEntity(id = 1, name = "a"), TagEntity(id = 2, name = "b"))),
+                EventWithTags(eventAtDay(1), listOf(TagEntity(id = 3, name = "c"), TagEntity(id = 1, name = "a"))),
+                EventWithTags(eventAtDay(2), listOf(TagEntity(id = 4, name = "d"), TagEntity(id = 5, name = "e"))),
+                EventWithTags(eventAtDay(3), listOf(TagEntity(id = 6, name = "f"))),
+                EventWithTags(eventAtDay(4), emptyList()),
+            )
+
+        val state = insightsTabState(case, eventsWithTags, now = millisAtDay(5)) as InsightsTabState.Ready
+
+        assertEquals(6, state.stats.distinctTagCount)
+        assertEquals(6, state.stats.tags.size)
+    }
+
     // ---- stats.trends (Story C T1) ----
 
     @Test

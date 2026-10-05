@@ -16,24 +16,6 @@ Each item carries a **trailer** (*Branch · Complexity · Priority · Area*; Com
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-### Insights tab: tag list short/expanded view
-
-*Branch: `feat/tags-short-expanded-view` · Complexity: S–M · Priority: Medium · Area: Insights*
-
-`TagsCard` (Case Detail Insights tab) renders every tag with no cap. Add the short/expanded behaviour testers asked for: ≤5 distinct tags shown in full (name + count each); >5 shows total events, total tag count, and the top 3 — reusing the existing `SHARE_CARD_TOP_TAG_COUNT = 3` pattern already used for the Share card.
-
-**Acceptance criteria**
-
-- [ ] A Case with ≤5 distinct tags shows every tag with its own event count in `TagsCard`.
-- [ ] A Case with >5 distinct tags shows total events, total distinct tag count, and the top 3 tags by count.
-- [ ] A "total distinct tag count" value is surfaced from the domain layer (not currently computed separately from the flattened per-event tag list).
-- [ ] New Voice strings (×3) for the collapsed-summary copy.
-- [ ] The Share Card's `MiniTagsSection`/`SHARE_CARD_TOP_TAG_COUNT` reviewed against the same ≤5-vs-expanded rule and either matched for consistency or left as a documented, deliberate difference (static, non-interactive card).
-
-**Plan** — add a tag-count threshold check alongside the existing tag-breakdown computation; branch `TagsCard`'s rendering on that count. Decide the Share Card question before touching `ShareCardState.kt`.
-
-**Tests** — unit tests for the ≤5 and >5 branches over the tag-breakdown output; Compose tests for `TagsCard` in both states.
-
 ### Tags: bulk rename/merge/delete across all events
 
 *Branch: none yet — investigation first · Complexity: L · Priority: Medium · Area: Settings*

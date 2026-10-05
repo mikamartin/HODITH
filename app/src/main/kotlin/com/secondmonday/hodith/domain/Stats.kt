@@ -75,3 +75,13 @@ data class TagBreakdownEntry(
 
 /** How many of the busiest tags the Story share card's Tags section lists — a card has no room for the Insights tab's full breakdown. */
 const val SHARE_CARD_TOP_TAG_COUNT = 3
+
+/** A Case with more distinct tags than this shows the Insights tag card collapsed: a summary plus the busiest few. */
+const val TAGS_COMPACT_MAX = 5
+
+/** How many of the busiest tags the collapsed Insights tag card lists — the same count the Share card's Tags section uses. */
+const val TAGS_COLLAPSED_VISIBLE_COUNT = SHARE_CARD_TOP_TAG_COUNT
+
+/** [tags] as the Insights tag card shows them: every entry up to [TAGS_COMPACT_MAX], otherwise the busiest [TAGS_COLLAPSED_VISIBLE_COUNT]. */
+internal fun tagsVisibleEntries(tags: List<TagBreakdownEntry>): List<TagBreakdownEntry> =
+    if (tags.size <= TAGS_COMPACT_MAX) tags else tags.take(TAGS_COLLAPSED_VISIBLE_COUNT)
