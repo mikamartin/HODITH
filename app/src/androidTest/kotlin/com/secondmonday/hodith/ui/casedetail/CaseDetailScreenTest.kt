@@ -113,6 +113,7 @@ class CaseDetailScreenTest {
                     onEditEvent = onEditEvent,
                     onOpenShare = onOpenShare,
                     onOpenTrends = onOpenTrends,
+                    onOpenTags = {},
                     newEventDraft = {
                         LogDraft(
                             occurredAt = nowMillis(),

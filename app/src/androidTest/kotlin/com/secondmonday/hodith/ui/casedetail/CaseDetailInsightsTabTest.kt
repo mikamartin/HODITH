@@ -97,6 +97,7 @@ class CaseDetailInsightsTabTest {
                     onEditEvent = onEditEvent,
                     onOpenShare = {},
                     onOpenTrends = {},
+                    onOpenTags = {},
                     newEventDraft = {
                         LogDraft(
                             occurredAt = now,

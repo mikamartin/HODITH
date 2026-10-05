@@ -3,9 +3,11 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondmonday.hodith.data.DurationMode
+import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.domain.Clock
-import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TagBreakdownEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,18 +15,22 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
-data class TrendsListUiState(
+data class TagsListUiState(
     val caseIcon: String = "",
     val caseName: String = "",
-    val findings: List<TrendFinding> = emptyList(),
+    val durationMode: DurationMode = DurationMode.NONE,
+    val totalEventCount: Int = 0,
+    val distinctTagCount: Int = 0,
+    val tags: List<TagBreakdownEntry> = emptyList(),
+    val eventsWithTags: List<EventWithTags> = emptyList(),
     val isLoading: Boolean = true,
 )
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
 
-/** Spec §10 Trends section's full-list screen — re-derives [TrendsListUiState.findings] from [insightsTabState] the same way [CaseDetailScreen][com.secondmonday.hodith.ui.casedetail.CaseDetailScreen] does for the compact card, rather than sharing that screen's own ViewModel instance (no destination in this app does; each full-screen route re-queries the repository on its own, see [WatchesViewModel]). */
+/** Insights tag card's full-list screen: every tag, not just the collapsed card's busiest few. Derives its state through [caseInsightsFlow], as [TrendsListViewModel] does. */
 @HiltViewModel
-class TrendsListViewModel
+class TagsListViewModel
     @Inject
     constructor(
         private val repository: HodithRepository,
@@ -33,23 +39,30 @@ class TrendsListViewModel
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
 
-        val uiState: StateFlow<TrendsListUiState> =
+        /** Read by the screen's ticking clock (see [com.secondmonday.hodith.ui.common.rememberTickingNow]) so ongoing events keep their elapsed time current. */
+        fun nowMillis(): Long = clock.nowMillis()
+
+        val uiState: StateFlow<TagsListUiState> =
             caseInsightsFlow(repository, clock, caseId)
                 .map { insights ->
                     if (insights == null) {
-                        TrendsListUiState(isLoading = false)
+                        TagsListUiState(isLoading = false)
                     } else {
-                        val findings = (insights.state as? InsightsTabState.Ready)?.stats?.trends.orEmpty()
-                        TrendsListUiState(
+                        val stats = (insights.state as? InsightsTabState.Ready)?.stats
+                        TagsListUiState(
                             caseIcon = insights.case.icon,
                             caseName = insights.case.name,
-                            findings = findings,
+                            durationMode = insights.case.durationMode,
+                            totalEventCount = stats?.totalEventCount ?: 0,
+                            distinctTagCount = stats?.distinctTagCount ?: 0,
+                            tags = stats?.tags.orEmpty(),
+                            eventsWithTags = insights.eventsWithTags,
                             isLoading = false,
                         )
                     }
                 }.stateIn(
                     scope = viewModelScope,
                     started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                    initialValue = TrendsListUiState(),
+                    initialValue = TagsListUiState(),
                 )
     }

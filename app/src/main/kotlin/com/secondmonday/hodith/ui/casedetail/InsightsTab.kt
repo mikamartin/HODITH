@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,6 +66,7 @@ import com.secondmonday.hodith.domain.MORNING_START_HOUR
 import com.secondmonday.hodith.domain.NIGHT_START_HOUR
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TAGS_COMPACT_MAX
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
@@ -75,6 +77,7 @@ import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.domain.tagsVisibleEntries
 import com.secondmonday.hodith.domain.timeOfDayFor
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.InfoDialog
@@ -161,6 +164,7 @@ internal fun InsightsTabContent(
     onFrequencyGranularityChange: (FrequencyGranularity?) -> Unit,
     onEditEvent: (EventEntity) -> Unit,
     onOpenTrends: () -> Unit,
+    onOpenTags: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
@@ -199,6 +203,7 @@ internal fun InsightsTabContent(
                     onIntensityTap = { selectedIntensity = it },
                     onTagTap = { selectedTag = it },
                     onOpenTrends = onOpenTrends,
+                    onOpenTags = onOpenTags,
                 )
                 CalendarHeatmapCard(state.heatmapMonths, voice, onDayTap = { selectedDay = it })
             }
@@ -246,7 +251,7 @@ internal fun InsightsTabContent(
     selectedTag?.let { tagName ->
         InsightsDrillDownDialog(
             title = voice.insightsTagDrillDownTitle(tagName),
-            events = events.filter { ew -> ew.tags.any { it.name == tagName } }.sortedByDescending { it.event.occurredAt },
+            events = eventsWithTag(events, tagName),
             now = now,
             durationMode = case.durationMode,
             voice = voice,
@@ -288,6 +293,7 @@ private fun StatsSectionCards(
     onIntensityTap: (Int) -> Unit,
     onTagTap: (String) -> Unit,
     onOpenTrends: () -> Unit,
+    onOpenTags: () -> Unit,
 ) {
     if (stats.trends.isNotEmpty()) TrendsCard(stats.trends, voice, onOpenTrends)
     stats.frequency?.let { FrequencyCard(it, frequencyGranularityOverride, onFrequencyGranularityChange, voice) }
@@ -295,7 +301,7 @@ private fun StatsSectionCards(
     GapsCard(stats.gaps, voice)
     stats.duration?.let { DurationCard(it, voice) }
     stats.intensity?.let { IntensityCard(it, voice, onIntensityTap) }
-    if (stats.tags.isNotEmpty()) TagsCard(stats.tags, stats.totalEventCount, voice, onTagTap)
+    if (stats.tags.isNotEmpty()) TagsCard(stats.tags, stats.distinctTagCount, stats.totalEventCount, voice, onTagTap, onOpenTags)
 }
 
 /**
@@ -304,7 +310,7 @@ private fun StatsSectionCards(
  * [com.secondmonday.hodith.ui.home.HomeCaseListItem].
  */
 @Composable
-private fun InsightsCard(content: @Composable ColumnScope.() -> Unit) {
+internal fun InsightsCard(content: @Composable ColumnScope.() -> Unit) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT -> GlowCard(content = content)
         CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
@@ -689,11 +695,7 @@ private fun TrendsCard(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             findings.take(visibleCount).forEach { finding -> TrendFindingRow(finding, voice) }
         }
-        if (findings.size > visibleCount) {
-            TextButton(onClick = onShowMore, modifier = Modifier.align(Alignment.End)) {
-                Text(voice.insightsTrendsShowMoreAction)
-            }
-        }
+        if (findings.size > visibleCount) InsightsShowMoreButton(voice.insightsTrendsShowMoreAction, onShowMore)
     }
 }
 
@@ -979,23 +981,36 @@ private fun IntensityCard(
     }
 }
 
+/** The events carrying [tagName], newest first: the tag drill-down's rows, shared by the card and the full tag list. */
+internal fun eventsWithTag(
+    events: List<EventWithTags>,
+    tagName: String,
+): List<EventWithTags> = events.filter { ew -> ew.tags.any { it.name == tagName } }.sortedByDescending { it.event.occurredAt }
+
 /**
  * Spec §10 tag breakdown: counts per tag, busiest first, against [totalEventCount] so an
  * individual tag's count reads in proportion to the Case's whole history. Card is omitted
  * entirely when no event carries a tag. Every tag row is a drill-down tap target (spec §10) — a
  * tag only ever appears here once it has counted at least one event.
+ *
+ * Past [TAGS_COMPACT_MAX] distinct tags the card collapses to the event and distinct-tag counts
+ * plus the busiest few ([tagsVisibleEntries]), with a "see all" link opening [TagsListScreen] via
+ * [onShowAll] — the same shape as [TrendsCard]'s show-more.
  */
 @Composable
 private fun TagsCard(
     tags: List<TagBreakdownEntry>,
+    distinctTagCount: Int,
     totalEventCount: Int,
     voice: Voice,
     onTagTap: (String) -> Unit,
+    onShowAll: () -> Unit,
 ) {
+    val collapsed = distinctTagCount > TAGS_COMPACT_MAX
     InsightsCard {
         Text(voice.insightsSectionLabelTags, style = MaterialTheme.typography.titleSmall)
-        StatRow(voice.insightsTagsTotalLabel, totalEventCount.toString())
-        tags.forEach { tag ->
+        TagsSummary(totalEventCount, distinctTagCount, voice)
+        tagsVisibleEntries(tags).forEach { tag ->
             StatRow(
                 label = tag.tagName,
                 value = tag.count.toString(),
@@ -1003,15 +1018,44 @@ private fun TagsCard(
                 contentDescription = voice.insightsTagRowTapDescription(tag.tagName),
             )
         }
+        if (collapsed) InsightsShowMoreButton(voice.insightsTagsSeeAllAction, onShowAll)
+    }
+}
+
+/**
+ * The totals above a tag list: the Case's event count and distinct tag count. Set apart from the
+ * tag rows by a divider and by bolder values, so they read as a summary rather than as a tag.
+ * Shared by [TagsCard] and the full tag list screen.
+ */
+@Composable
+internal fun ColumnScope.TagsSummary(
+    totalEventCount: Int,
+    totalTagCount: Int,
+    voice: Voice,
+) {
+    StatRow(voice.insightsTagsTotalLabel, totalEventCount.toString(), valueStyle = MaterialTheme.typography.titleSmall)
+    StatRow(voice.insightsTagsDistinctLabel, totalTagCount.toString(), valueStyle = MaterialTheme.typography.titleSmall)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/** The right-aligned "show more" link under a capped card's rows; shared by [TrendsCard] and [TagsCard]. */
+@Composable
+internal fun ColumnScope.InsightsShowMoreButton(
+    text: String,
+    onClick: () -> Unit,
+) {
+    TextButton(onClick = onClick, modifier = Modifier.align(Alignment.End)) {
+        Text(text)
     }
 }
 
 @Composable
-private fun StatRow(
+internal fun StatRow(
     label: String,
     value: String,
     onClick: (() -> Unit)? = null,
     contentDescription: String? = null,
+    valueStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     Row(
         modifier =
@@ -1025,7 +1069,7 @@ private fun StatRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium)
+        Text(text = value, style = valueStyle)
     }
 }
 
@@ -1041,7 +1085,7 @@ private fun StatRow(
  * day-filtered dialog passes neither, since intensity/tags are still genuinely informative there.
  */
 @Composable
-private fun InsightsDrillDownDialog(
+internal fun InsightsDrillDownDialog(
     title: String,
     events: List<EventWithTags>,
     now: Long,

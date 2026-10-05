@@ -332,6 +332,25 @@ class StatsEngineTest {
         assertTrue(computeTagBreakdown(eventsWithTags).isEmpty())
     }
 
+    // ---- tagsVisibleEntries ----
+
+    /** [count] busiest-first entries, the shape [computeTagBreakdown] returns. */
+    private fun busiestFirstTags(count: Int) = (1..count).map { TagBreakdownEntry("tag$it", count = 100 - it) }
+
+    @Test
+    fun `tagsVisibleEntries shows every tag up to the compact maximum`() {
+        assertEquals(emptyList<TagBreakdownEntry>(), tagsVisibleEntries(busiestFirstTags(0)))
+        assertEquals(busiestFirstTags(1), tagsVisibleEntries(busiestFirstTags(1)))
+        assertEquals(busiestFirstTags(TAGS_COMPACT_MAX), tagsVisibleEntries(busiestFirstTags(TAGS_COMPACT_MAX)))
+    }
+
+    @Test
+    fun `tagsVisibleEntries collapses past the compact maximum to the busiest few`() {
+        val tags = busiestFirstTags(TAGS_COMPACT_MAX + 1)
+
+        assertEquals(tags.take(TAGS_COLLAPSED_VISIBLE_COUNT), tagsVisibleEntries(tags))
+    }
+
     // ---- computeTagShareShift ----
 
     @Test
