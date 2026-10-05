@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.ui.casedetail
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -17,6 +18,8 @@ import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.RhythmCellDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.DayOfWeek
@@ -106,6 +109,19 @@ class InsightsTabTagsCardTest {
         composeTestRule.onNodeWithText("40").assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsTagsDistinctLabel).assertExists()
         composeTestRule.onNodeWithText("5").assertExists()
+    }
+
+    @Test
+    fun tagsCard_totalsSitSideBySideInOneRow_eventsThenTags() {
+        setContent(
+            tags = tags("alpha" to 12, "beta" to 11, "gamma" to 10, "delta" to 4, "epsilon" to 3),
+            totalEventCount = 40,
+        )
+
+        val events = composeTestRule.onNodeWithText(PlainVoice.insightsTagsTotalLabel).getUnclippedBoundsInRoot()
+        val tagsTotal = composeTestRule.onNodeWithText(PlainVoice.insightsTagsDistinctLabel).getUnclippedBoundsInRoot()
+        assertEquals(events.top.value, tagsTotal.top.value, 0.5f)
+        assertTrue(events.left < tagsTotal.left)
     }
 
     @Test

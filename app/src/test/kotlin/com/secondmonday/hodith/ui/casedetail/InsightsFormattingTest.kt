@@ -1,5 +1,7 @@
 package com.secondmonday.hodith.ui.casedetail
 
+import com.secondmonday.hodith.viewmodel.formatCompactDecimal
+import com.secondmonday.hodith.viewmodel.formatDaysCompact
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

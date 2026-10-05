@@ -882,7 +882,7 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `availableShareSections offers Length only when the Case has duration stats`() {
+    fun `availableShareSections offers Duration only when the Case has duration stats`() {
         val without = availableShareSections(statsWithTrends(emptyList()))
         val with = availableShareSections(statsWithTrends(emptyList(), duration = sampleDuration))
 
@@ -920,7 +920,7 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `availableShareSections never offers Length or Intensity for a Case that does not track them`() {
+    fun `availableShareSections never offers Duration or Intensity for a Case that does not track them`() {
         val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
         val stats = (readyInsightsState(case) as InsightsTabState.Ready).stats
 
@@ -931,7 +931,7 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `availableShareSections for a fully tracked, tagged Case lists Length and Intensity and Tags`() {
+    fun `availableShareSections for a fully tracked, tagged Case lists Duration and Intensity and Tags`() {
         val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
         val stats = (taggedInsightsState(case) as InsightsTabState.Ready).stats
 

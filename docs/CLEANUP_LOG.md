@@ -17,6 +17,30 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/insights-gaps-streaks-split
+
+**Scope:** PROGRESS.md's "Insights tab: split Gaps/Streaks, restyle Gaps & Duration to match Share Story's pattern" item, reworked: no Gaps/Streaks split. The Insights Gaps card and Duration card take the share card's Min/Avg/Max row, and the Tags totals sit side by side as label-over-value columns. The Insights gap labels spell out "gap"; the streak labels keep "streak", since the combined card covers both. The Summary card keeps the Gaps title, and the Duration card has no total.
+
+**Walked:** CLEANUP_CHECKLIST.md checked against the branch's diff in a second pass, after an earlier pass that was written from memory and missed items. Checked and needing nothing: unused imports and dead helpers (ktlint and lint pass; `StatRow`, `formatDays` and the Share streak keys still have callers); Voice keys in all three voices (every new key is a structural default, and both changed info bodies are overridden in each voice); no inline user-visible strings; no em dashes or gamification words in new copy; `@UiTest` tags on the touched Compose classes; the spec and TESTING.md rows against the built behaviour. Not checked on a device: anything that needs the instrumented run.
+
+**Found & fixed:**
+- The first pass had no test for a single-event Case's Gaps card (Current gap shown, no Min/Avg/Max row). Added `gapsCard_withOneEvent_showsCurrentGap_andNoMinAvgMaxRow`.
+- The Square-fixture figures were unit-tested only as formatting cases. `StatCardRowsTest` now also pins the figures the share card's Gaps panel shows for its fixture. Both surfaces call `gapsStatRows`, so this pins the output rather than proving parity.
+- `formatCompactDecimal` and `formatDaysCompact` lived in `ui/casedetail/InsightsTab.kt`, so `viewmodel/StatCardRows.kt` depended on the UI package. Both moved to `viewmodel/CompactFormat.kt`, and their callers and `InsightsFormattingTest` import them from there.
+- The Gaps and Duration figures were formatted inline in two places (Insights and the share card). Both now call `gapsStatRows`/`durationMinAvgMax`, so the two surfaces cannot drift.
+- `MinAvgMaxRow` and `StatColumn` were private to `ShareCardTemplate.kt`. They moved to `ui/common/StatColumns.kt` so Insights reuses them, and the row takes its labels as a parameter so each surface words its own.
+- `StatRow`'s `valueStyle` parameter had one caller (the Tags totals); with that gone it was dead and was removed.
+- Voice keys with no remaining caller were removed: the Gaps and Duration labels the first pass replaced, `insightsDurationTotalLabel` once Total left the card, and `shareGapsStreaksTitle` once the Summary panel went back to "Gaps".
+- The Gaps and Duration info bodies described only the old figures. Each voice gained "Shortest" on Gaps, and the Duration body lost "total".
+
+**Deferred:**
+- The instrumented run (`connectedDebugAndroidTest`) has not been executed: no device is attached. The changed androidTest sources compile. The run needs a device before the PR.
+- The Insights Gaps row layout (the two-line "Current gap" label and how the streak labels sit beside it) is for the human to check on a device.
+
+**Docs updated:** HODITH_SPEC §10 (Gaps & streaks, Event duration) and §13 (Square panel titles, structural labels); TESTING.md (share-card assembly, Insights tab rows); PROGRESS.md (item struck, Voice audit list gains this branch's key changes).
+
+---
+
 ## fix/share-history-range-line
 
 **Scope:** PROGRESS.md's "Share History card: range on the title line, and a real 'All' range" item. The Log card's kicker is removed, so the resolved range is the card's title line. An unset range resolves to the Case's creation date through today on the card and in the Log tab's note line. The Range selectors (Log tab and Log Share) keep reading "All time" when unset. The filter itself stays unbounded.
@@ -136,33 +160,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Deferred:** nothing.
 
 **Docs updated:** SPEC §13 (picker, drag wording); TESTING.md (Share card assembly, Compose UI — Share preview, ViewModels, manual step 12); CLEANUP_LOG (this entry; the oldest entry, `feature/tag-combo-trends`, removed to keep five).
-
----
-
-## fix/share-insight-streaks-name-affordance
-
-**Scope:** PROGRESS.md's "Share Insight: render streaks, clarify Name-on-card is editable" item, covering the Insight share card's streak display and the Name-on-card field on both share screens.
-
-**Found & fixed:**
-- Square's Gaps card had no streak display, though `GapsDisplay` already carried the streak fields. It now has a second row (Longest streak / Average streak) inside the same card.
-- Gaps and Streaks are both left off the card until the Case has two events. On Square the Gaps card is omitted; on Story the Gaps and Streaks rows aren't offered in the picker. This replaces the earlier "2+ events needed." placeholder, so `shareSquareGapsNeedMoreEvents` is removed. The went-quiet label rides on the Gaps card, so it also waits for the second event.
-- Story has its own Streaks row in the section picker, toggled independently of Gaps and placed after Gaps. The figures travel on a new `ShareCardData.Insights.streaks` field (`StreakDisplay`), so the picker can switch them without touching Gaps. The card builder decides availability (`GapsDisplay.streakDisplay()`, and the `takeIf` on `shortestGapDays`), and `availableShareSections` mirrors it.
-- The Name-on-card field was an `OutlinedTextField` whose placeholder Material3 hides while the field is empty and unfocused, so the label sat inside an apparently blank box. It now shows the name the card will carry (the override, or the Case's own name), with its label on the top border.
-- The Insight and History share screens each had their own copy of that field. Both now use one composable, `ShareNameField`. It holds its text locally, so clearing the field leaves it empty instead of refilling it with the Case name mid-edit (the ViewModel stores blank as `null`). Typed text is capped at `CASE_NAME_MAX_LENGTH`, the same cap the ViewModel applies.
-- The name label is structural: `shareNameFieldLabel` defaults to "Name on card" on the `Voice` interface, and the three per-voice overrides are gone. The new `shareStreaksTitle` is structural too. `VoiceTest` pins both.
-- The label-over-value column was written twice, in `MinAvgMaxRow` and the streak row. It is now `StatColumn`.
-- Test problems found on the first instrumented run: the two name-field assertions read `Text` semantics, which the field doesn't expose, so they failed. The clearing test's `hasText` check would have passed trivially. Both now read `EditableText` through `nameFieldText()`.
-- Two unit fixtures for the went-quiet label used a one-event Case. They now use `withTwoEvents()`.
-
-**Considered and declined:**
-- An edit icon on the name field. The field's label and default value already signal that it's editable.
-- A "2+ events needed." placeholder for streaks, in place of hiding them. Hiding matches the Gaps rule, which is what was asked for.
-- Folding streaks into the Gaps picker row. The Story picker needed a separate selector for streaks.
-- A separate Compose test for the Insight screen's name field. The field is the same composable as the History screen's, which `LogSharePreviewScreenTest` covers directly.
-- Checklist items with nothing to act on in this diff: no new colours, icons or deprecations; no data model, widget or notification changes; no domain or `Clock` changes; the share card still excludes notes, and tags stay on Story's opt-in section.
-
-**Deferred:** nothing.
-
-**Docs updated:** PROGRESS.md item struck. HODITH_SPEC §13: the Story picker's section list and availability rule, the Square Gaps and streak row, the Story Streaks card, and the name-field description. TESTING.md: the Share preview and History Share preview rows, and the share card assembly row. MANUAL_TEST_PLAN.md checked: its typed-name export step still holds.
-
-**Verified:** `ktlintCheck`, `lintDebug`, `test` (unit suite), `compileDebugAndroidTestKotlin` and `assembleDebug`, run sequentially. Instrumented: `connectedDebugAndroidTest` on the Pixel 8 emulator, run per class: `ui.share.ShareCardTemplateTest` (59), `ui.share.SharePreviewScreenTest` (25) and `ui.share.LogSharePreviewScreenTest` (19), all passing. Not run: the rest of the instrumented suite.

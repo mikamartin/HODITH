@@ -51,22 +51,6 @@ No tag-management UI, rename, or merge operation exists anywhere today. Tags are
 
 **Tests** — none new; the existing Case Detail classes are the regression net.
 
-### Insights tab: split Gaps/Streaks, restyle Gaps & Duration to match Share Story's pattern
-
-*Branch: `feat/insights-gaps-streaks-split` · Complexity: M · Priority: Medium · Area: Insights*
-
-`GapsCard` combines gaps and streaks under one `SectionWithInfo`; `DurationCard` uses the same vertical `StatRow` stack. The Share Story card already uses a different, more visual pattern for the same stats — separate mini-cards with a three-column min/avg/max row (`MinAvgMaxRow`).
-
-**Acceptance criteria**
-
-- [ ] Gaps and Streaks split into two cards, each with its own `SectionWithInfo` info icon and copy.
-- [ ] Gaps and Duration's stat layout restyled to the min/avg/max row idiom `GapsPanel`/`DurationPanel` already use in Share.
-- [ ] Visual consistency confirmed between the Insights tab and the Share preview for these stats.
-
-**Plan** — split `GapsCard` into `GapsCard`/`StreaksCard`; port the `MinAvgMaxRow` idiom from `ShareCardTemplate.kt` into the Insights tab's Gaps and Duration cards.
-
-**Tests** — `CaseDetailInsightsTabTest` updated for the split cards and new row layout.
-
 ### Trends: visual redesign, order by recency/significance
 
 *Branch: `feat/trends-visual-redesign` · Complexity: M · Priority: Medium · Area: Insights*
@@ -114,6 +98,9 @@ Fold these already-drafted key changes into the audit:
 - `feat/square-share-card-preset` — added the Square share keys (`shareSquare*`, `shareStat*Label`, `shareRate*`), the structural `shareInsightScreenTitle`, and renamed `shareCardFooter`'s parameter to `timestamp` (the footer now carries date and time).
 - `feat/share-card-summary-beat` — retired `shareRealityEventsLabel` and `shareRealityDaysObservedLabel`; renamed `shareSquareGapsTitle` and `shareSquareDurationTitle` to `shareGapsTitle` and `shareDurationTitle`; added the structural `shareTopTagsTitle`.
 - `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
+- `feat/insights-gaps-streaks-split` — added `insightsGapsMinLabel`/`insightsGapsAvgLabel`/`insightsGapsMaxLabel` ("Min gap"/"Avg gap"/"Max gap"); `insightsGapsCurrentLabel` reworded to "Current
+gap"; retired `insightsDurationTotalLabel`; reworded the three voices' Duration info body to drop "total" and the Gaps info body to name Shortest.
+gap"; retired `insightsDurationTotalLabel`; reworded the three voices' Duration info body to drop "total" and the Gaps info body to name Shortest.
 
 **Acceptance criteria**
 

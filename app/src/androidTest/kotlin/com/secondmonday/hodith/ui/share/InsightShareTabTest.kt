@@ -289,7 +289,7 @@ class InsightShareTabTest {
     }
 
     @Test
-    fun lengthRow_appearsWithoutAnIntensityRow_whenOnlyDurationIsTracked() {
+    fun durationRow_appearsWithoutAnIntensityRow_whenOnlyDurationIsTracked() {
         setContent(
             tab = ShareTab.INSIGHTS,
             uiState =
@@ -377,7 +377,7 @@ class InsightShareTabTest {
     }
 
     @Test
-    fun pickerRows_listGapsStreaksLengthStartTimesIntensityTrendsTagsInThatOrder() {
+    fun pickerRows_listGapsStreaksDurationStartTimesIntensityTrendsTagsInThatOrder() {
         setContent(tab = ShareTab.INSIGHTS, uiState = storyState(case = trackingCase(), events = richEvents()))
 
         val tops =
