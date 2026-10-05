@@ -89,12 +89,9 @@ class VoiceTest {
     }
 
     @Test
-    fun `shareLogRangeNote combines both bounds, falls back to a labeled single bound, or reads All time`() {
+    fun `shareLogRangeNote joins both formatted bounds with a dash`() {
         for (voice in voices) {
             assertEquals("Sep 3 – Sep 20", voice.shareLogRangeNote("Sep 3", "Sep 20"))
-            assertEquals("${voice.shareLogDateFromLabel} Sep 3", voice.shareLogRangeNote("Sep 3", null))
-            assertEquals("${voice.shareLogDateToLabel} Sep 20", voice.shareLogRangeNote(null, "Sep 20"))
-            assertEquals(voice.shareLogRangeAllTimeLabel, voice.shareLogRangeNote(null, null))
         }
     }
 

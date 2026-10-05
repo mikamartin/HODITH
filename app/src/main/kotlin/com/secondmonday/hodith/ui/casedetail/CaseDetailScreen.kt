@@ -85,9 +85,9 @@ import com.secondmonday.hodith.viewmodel.CaseDetailViewModel
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.WatchesViewModel
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
-import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.insightsTabState
+import com.secondmonday.hodith.viewmodel.logRangeBounds
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
 import java.time.Instant
 import java.time.LocalDate
@@ -549,19 +549,15 @@ private fun LogFilterRow(
             Icon(Icons.Filled.Edit, contentDescription = voice.logDetailEditDescription)
         }
     }
-    if (isRangeFiltered) {
-        Text(
-            text =
-                voice.shareLogRangeNote(
-                    dateFrom?.let { formatDateRangeBound(it, now, zone) },
-                    dateTo?.let { formatDateRangeBound(it, now, zone) },
-                ),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-        )
-    }
+    // Always shown, so an unset range reads as the Case's actual span rather than a bare "All time".
+    val (from, to) = logRangeBounds(case.createdAt, dateFrom, dateTo, now, zone)
+    Text(
+        text = voice.shareLogRangeNote(from, to),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+    )
 
     if (showSortDialog) {
         InfoDialog(title = voice.logSortLabel, onDismiss = { showSortDialog = false }) {

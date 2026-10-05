@@ -268,9 +268,8 @@ private fun squareInsights(
  * neither shows unless the Case tracks it *and* the user left it on. [displayName] arrives
  * pre-resolved, matching how [shareCardState] already takes it resolved rather than deriving it
  * from [CaseEntity.name] itself. [dateFrom]/[dateTo] are the same local-day-boundary millis
- * [LogShareSelection] stores (see [ZoneId.startOfDayMillis]/[ZoneId.endOfDayMillis]); the "All
- * time" vs. explicit-dates wording is resolved here by comparing [dateTo]'s calendar date to
- * [now]'s, the one piece of "today" awareness this function needs.
+ * [LogShareSelection] stores (see [ZoneId.startOfDayMillis]/[ZoneId.endOfDayMillis]); the range
+ * label resolves an unset [dateFrom] to the Case's creation date, via [logRangeBounds].
  */
 internal fun logShareCardState(
     case: CaseEntity,
@@ -293,7 +292,7 @@ internal fun logShareCardState(
         caseIcon = case.icon,
         caseName = displayName,
         generatedAtMillis = generatedAtMillis,
-        rangeLabel = logShareRangeLabel(dateFrom, dateTo, now, zone, voice),
+        rangeLabel = logShareRangeLabel(case.createdAt, dateFrom, dateTo, now, zone, voice),
         rows = capped.map { logCardRow(it, case, fields, use24Hour, now, voice) },
         truncatedTotalCount = matches.size.takeIf { it > LOG_SHARE_CARD_ENTRY_CAP },
     )
@@ -301,18 +300,40 @@ internal fun logShareCardState(
 
 /** Delegates the combining logic to [Voice.shareLogRangeNote], the same function the Log tab's range note and the Log Share button use. */
 private fun logShareRangeLabel(
+    createdAt: Long,
     dateFrom: Long?,
     dateTo: Long,
     now: Long,
     zone: ZoneId,
     voice: Voice,
 ): String {
-    val isDefaultRange = dateFrom == null && dateTo.toLocalDateIn(zone) == now.toLocalDateIn(zone)
-    return voice.shareLogRangeNote(
-        from = dateFrom?.let { formatDateRangeBound(it, now, zone) },
-        to = if (isDefaultRange) null else formatDateRangeBound(dateTo, now, zone),
-    )
+    val (from, to) = logRangeBounds(createdAt, dateFrom, dateTo, now, zone)
+    return voice.shareLogRangeNote(from, to)
 }
+
+/** True when no Log range is set: no start bound and the end bound is today. */
+internal fun isUnsetLogRange(
+    dateFrom: Long?,
+    dateTo: Long,
+    now: Long,
+    zone: ZoneId,
+): Boolean = dateFrom == null && dateTo.toLocalDateIn(zone) == now.toLocalDateIn(zone)
+
+/** The Log Share selector's value: "All time" while unset, otherwise the bounds [logRangeBounds] resolves. */
+internal fun logShareSelectorValue(
+    createdAt: Long,
+    dateFrom: Long?,
+    dateTo: Long,
+    now: Long,
+    zone: ZoneId,
+    voice: Voice,
+): String =
+    if (isUnsetLogRange(dateFrom, dateTo, now, zone)) {
+        voice.shareLogRangeAllTimeLabel
+    } else {
+        val (from, to) = logRangeBounds(createdAt, dateFrom, dateTo, now, zone)
+        voice.shareLogRangeNote(from, to)
+    }
 
 private fun logCardRow(
     eventWithTags: EventWithTags,

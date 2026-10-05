@@ -33,7 +33,6 @@ import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.theme.ShareCardSkin
 import com.secondmonday.hodith.ui.voice.BrightVoice
-import com.secondmonday.hodith.ui.voice.DOT_SEPARATOR
 import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -995,6 +994,8 @@ class ShareCardTemplateTest {
         composeTestRule.onNodeWithText(voice.shareSquareObservedLine(60, 14), ignoreCase = true).assertExists()
     }
 
+    private val logRangeLabel = "Jan 3 – Sep 9"
+
     private fun logData(
         rows: List<LogCardRow>,
         truncatedTotalCount: Int? = null,
@@ -1002,13 +1003,13 @@ class ShareCardTemplateTest {
         caseIcon = "🤕",
         caseName = "Migraine",
         generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
-        rangeLabel = "All time",
+        rangeLabel = logRangeLabel,
         rows = rows,
         truncatedTotalCount = truncatedTotalCount,
     )
 
     @Test
-    fun logCardRendersKickerRangeAndEachRow() {
+    fun logCardRendersRangeAsTitleAndEachRow() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 ShareCardTemplate(
@@ -1018,10 +1019,7 @@ class ShareCardTemplateTest {
             }
         }
 
-        // The kicker and the resolved range share one line.
-        composeTestRule
-            .onNodeWithText(PlainVoice.shareLogCardKicker + DOT_SEPARATOR + PlainVoice.shareLogRangeAllTimeLabel)
-            .assertExists()
+        composeTestRule.onNodeWithText(logRangeLabel).assertExists()
         composeTestRule.onNodeWithText("Wed, Sep 9 · 8:14 PM").assertExists()
         composeTestRule.onNodeWithText("5h 20m · Intensity 4/5").assertExists()
     }

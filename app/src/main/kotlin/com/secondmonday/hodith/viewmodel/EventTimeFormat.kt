@@ -94,6 +94,19 @@ internal fun formatDateRangeBound(
     return zoned.format(if (sameYear) SPAN_DATE_FORMATTER else MEDIUM_DATE_FORMATTER)
 }
 
+/**
+ * The two bounds a Log range shows, formatted. An unset [dateFrom] shows the Case's [createdAt] and an
+ * unset [dateTo] shows [now], so the default range reads as the Case's actual span. Filtering keeps the
+ * raw nullable bounds: events can be dated before [createdAt], so it must never become a filter bound.
+ */
+internal fun logRangeBounds(
+    createdAt: Long,
+    dateFrom: Long?,
+    dateTo: Long?,
+    now: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): Pair<String, String> = formatDateRangeBound(dateFrom ?: createdAt, now, zone) to formatDateRangeBound(dateTo ?: now, now, zone)
+
 /** Time-only counterpart of [formatEventTime], for the log sheet's separate date/time buttons. */
 internal fun formatEventTimeOfDay(
     occurredAt: Long,

@@ -910,7 +910,7 @@ interface Voice {
     /** [timestamp] is the card's own generation date and time — a still-open [com.secondmonday.hodith.domain.TrendFindingKind.WENT_QUIET] finding is only true at the moment the card is made, and dating the whole card (not just that one finding) is the honest reading for every snapshot section on it. */
     fun shareCardFooter(timestamp: String): String = "counted with HODITH app${DOT_SEPARATOR}$timestamp"
 
-    /** Intense skin's rotated corner stamp — structural, like [shareLogCardKicker]; never rendered under Plain/Bright. */
+    /** Intense skin's rotated corner stamp — structural, shown on the Intense skin only; never rendered under Plain/Bright. */
     val shareIntenseStampLabel: String get() = "Case File"
 
     // ---- Insight share card panels and hero (spec §13): the labels below are structural, identical across all three voices ----
@@ -971,8 +971,6 @@ interface Voice {
     // ---- Log Share (a second share card of the Case's actual entries, not a data export — see
     // PROGRESS.md's "Share button: add a Log Share option" item) ----
 
-    val shareLogCardKicker: String
-
     /** [shown]/[total] when the cap (spec §13) trims the match count. */
     fun shareLogTruncationNote(
         shown: Int,
@@ -985,8 +983,6 @@ interface Voice {
     /** Sort/date-range/field-picker labels — structural, identical across all three voices. */
     val shareLogSortNewestLabel: String get() = "Newest first"
     val shareLogSortOldestLabel: String get() = "Oldest first"
-    val shareLogDateFromLabel: String get() = "From"
-    val shareLogDateToLabel: String get() = "To"
     val shareLogFieldNotesLabel: String get() = "Notes"
     val shareLogFieldTagsLabel: String get() = "Tags"
     val shareLogRangeAllTimeLabel: String get() = "All time"
@@ -1001,17 +997,11 @@ interface Voice {
     val shareLogRangeLabel: String get() = "Range"
     val shareLogRangeSelectedLabel: String get() = "Selected"
 
-    /** [from]/[to] are already-formatted dates, or `null` when that side is unbounded. */
+    /** [from]/[to] are already-formatted dates. */
     fun shareLogRangeNote(
-        from: String?,
-        to: String?,
-    ): String =
-        when {
-            from != null && to != null -> "$from – $to"
-            from != null -> "$shareLogDateFromLabel $from"
-            to != null -> "$shareLogDateToLabel $to"
-            else -> shareLogRangeAllTimeLabel
-        }
+        from: String,
+        to: String,
+    ): String = "$from – $to"
 
     /** [com.secondmonday.hodith.widget.ListWidgetConfigureActivity] — shown every time a List
      * widget is added or reconfigured (spec §15); each instance picks its own Cases. */
@@ -1687,8 +1677,6 @@ object PlainVoice : Voice {
 
     override val shareSectionDragHandleDescription = "Drag to reorder"
 
-    override val shareLogCardKicker = "The history"
-
     override fun shareLogTruncationNote(
         shown: Int,
         total: Int,
@@ -2334,8 +2322,6 @@ object IntenseVoice : Voice {
 
     override val shareSectionDragHandleDescription = "Drag to rearrange"
 
-    override val shareLogCardKicker = "The record"
-
     override fun shareLogTruncationNote(
         shown: Int,
         total: Int,
@@ -2979,8 +2965,6 @@ object BrightVoice : Voice {
     override fun shareSquareQuietLabel(gap: String) = "Quiet for $gap"
 
     override val shareSectionDragHandleDescription = "Drag me to a new spot!"
-
-    override val shareLogCardKicker = "Every entry!"
 
     override fun shareLogTruncationNote(
         shown: Int,
