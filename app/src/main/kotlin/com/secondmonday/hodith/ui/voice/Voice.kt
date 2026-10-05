@@ -360,10 +360,15 @@ interface Voice {
 
     fun insightsFrequencyInfoBody(granularity: FrequencyGranularity): String
 
-    /** Gaps & streaks stat-row labels — structural, identical across all three voices. */
-    val insightsGapsLongestLabel: String get() = "Longest gap"
-    val insightsGapsCurrentLabel: String get() = "Current gap"
-    val insightsGapsAverageLabel: String get() = "Average gap"
+    /** Gaps & streaks card's min/avg/max row labels: the gap word is spelled out, unlike the share card's Min/Avg/Max. Structural. */
+    val insightsGapsMinLabel: String get() = "Min gap"
+    val insightsGapsAvgLabel: String get() = "Avg gap"
+    val insightsGapsMaxLabel: String get() = "Max gap"
+
+    /** Gaps & streaks card's figure labels, structural. "Current" breaks onto two lines so it sits level with the streak labels. */
+    val insightsGapsCurrentLabel: String get() = "Current\ngap"
+
+    /** Streak figures on the Gaps & streaks card (Insights and share) and the share card's Streaks card. Structural. */
     val insightsStreakLongestLabel: String get() = "Longest streak"
     val insightsStreakAverageLabel: String get() = "Average streak"
 
@@ -632,11 +637,6 @@ interface Voice {
 
     /** As [insightsGapShiftEvidenceLabel], for the weekday-vs-weekend finding row. */
     fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int): String
-
-    /** Duration stat-row labels — structural, identical across all three voices. */
-    val insightsDurationAverageLabel: String get() = "Average"
-    val insightsDurationLongestLabel: String get() = "Longest"
-    val insightsDurationTotalLabel: String get() = "Total"
 
     /** Duration's info icon: clarifies the average/longest/total figures only count events that have already ended. */
     val insightsDurationInfoTitle: String
@@ -918,10 +918,10 @@ interface Voice {
     val shareStatAvgLabel: String get() = "Avg"
     val shareStatMaxLabel: String get() = "Max"
 
-    /** Gaps and Length titles — the card's panel headings and the Story picker's row labels alike. */
+    /** Gaps, Streaks and Duration titles — the card's panel headings and the Story picker's row labels alike. */
     val shareGapsTitle: String get() = "Gaps"
     val shareStreaksTitle: String get() = "Streaks"
-    val shareDurationTitle: String get() = "Length"
+    val shareDurationTitle: String get() = "Duration"
 
     /** The Story card's Tags section and its picker row: the card lists only the busiest few, so the title says so. */
     val shareTopTagsTitle: String get() = "Top tags"
@@ -1305,7 +1305,8 @@ object PlainVoice : Voice {
 
     override val insightsGapsInfoTitle = "About gaps & streaks"
     override val insightsGapsInfoBody =
-        "Longest gap: the longest stretch with no event active.\n" +
+        "Shortest gap: the shortest stretch between two events.\n" +
+            "Longest gap: the longest stretch with no event active.\n" +
             "Current gap: time since the last event ended, or 0 while one is running.\n" +
             "Average gap: the typical stretch between events.\n" +
             "Longest streak: the most days in a row with at least one event active.\n" +
@@ -1469,7 +1470,7 @@ object PlainVoice : Voice {
 
     override val insightsDurationInfoTitle = "About duration"
     override val insightsDurationInfoBody =
-        "Average, longest, and total time are based on events that have ended. A still-running event isn't counted until it stops."
+        "Shortest, average, and longest time are based on events that have ended. A still-running event isn't counted until it stops."
 
     override val insightsRhythmInfoTitle = "About rhythm"
 
@@ -1960,7 +1961,8 @@ object IntenseVoice : Voice {
 
     override val insightsGapsInfoTitle = "On silences and spells"
     override val insightsGapsInfoBody =
-        "Longest gap: the longest silence with nothing stirring.\n" +
+        "Shortest gap: the briefest silence between two events.\n" +
+            "Longest gap: the longest silence with nothing stirring.\n" +
             "Current gap: how long since the last event ended, or nothing while one still runs.\n" +
             "Average gap: the usual quiet between events.\n" +
             "Longest streak: the most consecutive days something was active.\n" +
@@ -2117,7 +2119,7 @@ object IntenseVoice : Voice {
 
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
-        "Average, longest, and total are drawn only from what has already ended. What still runs is not counted until it is done."
+        "Shortest, average, and longest are drawn only from what has already ended. What still runs is not counted until it is done."
 
     override val insightsRhythmInfoTitle = "On the pull of the clock"
 
@@ -2601,7 +2603,8 @@ object BrightVoice : Voice {
 
     override val insightsGapsInfoTitle = "Gaps & streaks, explained!"
     override val insightsGapsInfoBody =
-        "Longest gap: the biggest quiet stretch with nothing going on.\n" +
+        "Shortest gap: the tiniest pause between two events.\n" +
+            "Longest gap: the biggest quiet stretch with nothing going on.\n" +
             "Current gap: time since the last event wrapped up, or 0 while something's still running.\n" +
             "Average gap: the usual space between events.\n" +
             "Longest streak: the most days in a row with at least one event active.\n" +
@@ -2759,7 +2762,7 @@ object BrightVoice : Voice {
 
     override val insightsDurationInfoTitle = "What counts toward duration!"
     override val insightsDurationInfoBody =
-        "Average, longest, and total time only include events that have wrapped up — anything still running doesn't count yet!"
+        "Shortest, average, and longest time only include events that have wrapped up. Anything still running doesn't count yet!"
 
     override val insightsRhythmInfoTitle = "When does it happen?!"
 

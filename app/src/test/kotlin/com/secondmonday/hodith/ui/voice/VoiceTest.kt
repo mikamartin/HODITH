@@ -122,6 +122,25 @@ class VoiceTest {
     }
 
     @Test
+    fun `insights gaps labels spell out gap and keep the streak labels`() {
+        for (voice in voices) {
+            assertEquals("Min gap", voice.insightsGapsMinLabel)
+            assertEquals("Avg gap", voice.insightsGapsAvgLabel)
+            assertEquals("Max gap", voice.insightsGapsMaxLabel)
+            assertEquals("Longest streak", voice.insightsStreakLongestLabel)
+            assertEquals("Average streak", voice.insightsStreakAverageLabel)
+        }
+    }
+
+    @Test
+    fun `share gaps and duration titles name the panels the way the cards do`() {
+        for (voice in voices) {
+            assertEquals("Gaps", voice.shareGapsTitle)
+            assertEquals("Duration", voice.shareDurationTitle)
+        }
+    }
+
+    @Test
     fun `Square share trend and quiet phrases carry their values`() {
         for (voice in voices) {
             assertTrue(voice.shareSquareTrendFrom("1.4").contains("1.4"))

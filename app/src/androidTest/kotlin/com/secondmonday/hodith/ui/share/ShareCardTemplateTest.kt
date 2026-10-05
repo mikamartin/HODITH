@@ -704,7 +704,7 @@ class ShareCardTemplateTest {
     }
 
     @Test
-    fun storyLaysSectionsOutInHeroGapsLengthStartTimesIntensityTrendsTagsOrder() {
+    fun storyLaysSectionsOutInHeroGapsDurationStartTimesIntensityTrendsTagsOrder() {
         setStoryContent()
 
         val tops =
@@ -725,7 +725,7 @@ class ShareCardTemplateTest {
     }
 
     @Test
-    fun storyGapsAndLengthUseTheSquareMinAvgMaxFormatting() {
+    fun storyGapsAndDurationUseTheSquareMinAvgMaxFormatting() {
         setStoryContent(storyData(gaps = SAMPLE_GAPS, duration = SAMPLE_DURATION))
 
         composeTestRule.onNodeWithText(PlainVoice.shareGapsTitle).assertExists()
@@ -847,8 +847,7 @@ class ShareCardTemplateTest {
         setStoryContent()
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelFrequency).assertDoesNotExist()
-        composeTestRule.onNodeWithText(PlainVoice.insightsGapsLongestLabel).assertDoesNotExist()
-        composeTestRule.onNodeWithText(PlainVoice.insightsDurationTotalLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsCurrentLabel).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsIntensityAverageLabel).assertDoesNotExist()
     }
 

@@ -228,10 +228,13 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
-    fun gapsCard_showsLongestAndAverageStreakLabelsAlongsideGapLabels() {
+    fun gapsCard_isOneCard_titledGapsAndStreaks_withMinAvgMaxCurrentAndStreakLabels() {
         setInsightsTabContent(events = listOf(eventAt(2), eventAt(1)))
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsGapsLongestLabel).assertExists()
+        composeTestRule.onAllNodesWithText(PlainVoice.insightsSectionLabelGaps).assertCountEquals(1)
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsMinLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsAvgLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsMaxLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsGapsCurrentLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsStreakLongestLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsStreakAverageLabel).assertExists()
@@ -253,9 +256,9 @@ class CaseDetailInsightsTabTest {
         )
 
         composeTestRule.onNodeWithText(PlainVoice.insightsGapsCurrentLabel).assertExists()
-        composeTestRule.onNodeWithText("0 days").assertExists()
-        // Longest gap is the 3-day past gap, not the 25-day still-running stretch.
-        composeTestRule.onNodeWithText("3 days").assertExists()
+        composeTestRule.onNodeWithText("0d").assertExists()
+        // Max gap is the 3-day past gap, not the 25-day still-running stretch.
+        composeTestRule.onNodeWithText("3d").assertExists()
     }
 
     @Test
@@ -423,8 +426,8 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
-    fun durationCard_showsAverageLongestAndTotalAsFormattedDurations() {
-        // 90min + 30min -> average (90+30)/2=60 -> "1h 0m", longest 90 -> "1h 30m", total 120 -> "2h 0m".
+    fun durationCard_showsMinAvgMaxRow_andNoTotal() {
+        // 90min + 30min -> min 30 -> "30m", average (90+30)/2=60 -> "1h 0m", max 90 -> "1h 30m". No total row.
         setInsightsTabContent(
             durationMode = DurationMode.START_STOP,
             events =
@@ -434,9 +437,12 @@ class CaseDetailInsightsTabTest {
                 ),
         )
 
+        composeTestRule.onNodeWithText(PlainVoice.shareStatMinLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareStatMaxLabel).assertExists()
+        composeTestRule.onNodeWithText("30m").assertExists()
         composeTestRule.onNodeWithText("1h 0m").assertExists()
         composeTestRule.onNodeWithText("1h 30m").assertExists()
-        composeTestRule.onNodeWithText("2h 0m").assertExists()
+        composeTestRule.onNodeWithText("2h 0m").assertDoesNotExist()
     }
 
     @Test
@@ -481,18 +487,14 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
-    fun gapsCard_showsExactGapAndStreakDayCounts() {
+    fun gapsCard_wiresItsFiguresFromTheStats_inTheShareNotation() {
         // Active days at daysAgo 24,23,22 (a 3-day run), 14, 4 -- "now" sits 4 days past the last one.
-        // Streak runs: [3,1,1] -> longest 3, average (3+1+1)/3 = 1.6667 -> "1.7 days".
-        // Gaps between consecutive events: 1, 1, 8, 10 (past), current = 4.
-        // Longest gap = max(past, current) = 10; average of past gaps = (1+1+8+10)/4 = 5.0; current = 4.
+        // Gaps between consecutive events: 1, 1, 8, 10 (past), current = 4. Max gap = 10.
+        // The figure-by-figure formatting and the min/avg/max choice are unit-tested in StatCardRowsTest;
+        // this checks one value end to end, so the card is wired to the stats it's given.
         setInsightsTabContent(events = listOf(24L, 23L, 22L, 14L, 4L).map { eventAt(it) })
 
-        composeTestRule.onNodeWithText("10 days").assertExists()
-        composeTestRule.onNodeWithText("4 days").assertExists()
-        composeTestRule.onNodeWithText("5 days").assertExists()
-        composeTestRule.onNodeWithText("3 days").assertExists()
-        composeTestRule.onNodeWithText("1.7 days").assertExists()
+        composeTestRule.onNodeWithText("10d").assertExists()
     }
 
     @Test

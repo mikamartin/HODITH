@@ -65,6 +65,9 @@ import com.secondmonday.hodith.ui.casedetail.formatCompactDecimal
 import com.secondmonday.hodith.ui.casedetail.formatDaysCompact
 import com.secondmonday.hodith.ui.casedetail.formatIntensity
 import com.secondmonday.hodith.ui.casedetail.trendFindingSentence
+import com.secondmonday.hodith.ui.common.MinAvgMaxRow
+import com.secondmonday.hodith.ui.common.StatColumn
+import com.secondmonday.hodith.ui.common.shareMinAvgMaxLabels
 import com.secondmonday.hodith.ui.common.toCellColor
 import com.secondmonday.hodith.ui.common.toTextColor
 import com.secondmonday.hodith.ui.theme.HodithTheme
@@ -85,11 +88,11 @@ import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
 import com.secondmonday.hodith.viewmodel.StreakDisplay
+import com.secondmonday.hodith.viewmodel.durationMinAvgMax
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
-import com.secondmonday.hodith.viewmodel.formatMinutesDuration
+import com.secondmonday.hodith.viewmodel.gapsStatRows
 import java.time.DayOfWeek
 import java.time.format.TextStyle
-import kotlin.math.roundToInt
 
 /** Matches the render-pipeline spike's fixed capture width — see PROGRESS.md's Phase 10 share-cards width decision. */
 private val SHARE_CARD_WIDTH = 360.dp
@@ -338,7 +341,8 @@ private fun StoryInsightsBody(
     TopBeatContent(data.topBeat, voice, skin)
     data.storyOrder.forEach { section ->
         when (section) {
-            ShareInsightsSection.GAPS -> data.gaps?.let { GapsPanel(it, data.quietForDays, streaks = null, voice, skin) }
+            ShareInsightsSection.GAPS ->
+                data.gaps?.let { GapsPanel(it, data.quietForDays, streaks = null, voice, skin) }
             ShareInsightsSection.STREAKS -> data.streaks?.let { StreaksPanel(it, voice, skin) }
             ShareInsightsSection.DURATION -> data.duration?.let { DurationPanel(it, voice, skin) }
             ShareInsightsSection.RHYTHM -> data.rhythm?.let { MiniRhythmSection(it, voice, skin) }
@@ -516,15 +520,8 @@ private fun GapsPanel(
             MiniSectionTitle(voice.shareGapsTitle, skin)
             quietForDays?.let { QuietLabel(voice.shareSquareQuietLabel(formatDaysCompact(it.toDouble()))) }
         }
-        // Gaps only reaches the card once there are two events (see ShareCardState), so the shortest gap is present here.
-        display.shortestGapDays?.let { shortest ->
-            MinAvgMaxRow(
-                voice = voice,
-                min = formatDaysCompact(shortest.toDouble()),
-                avg = formatDaysCompact(display.averageGapDays),
-                max = formatDaysCompact(display.longestGapDays.toDouble()),
-            )
-        }
+        // Gaps only reaches the card once there are two events (see ShareCardState), so the min/avg/max row is present here.
+        gapsStatRows(display).minAvgMax?.let { MinAvgMaxRow(voice.shareMinAvgMaxLabels(), it) }
         streaks?.let { StreakRow(it, voice) }
     }
 }
@@ -596,12 +593,7 @@ private fun DurationPanel(
 ) {
     MiniInsightsCard {
         MiniSectionTitle(voice.shareDurationTitle, skin)
-        MinAvgMaxRow(
-            voice = voice,
-            min = formatMinutesDuration(display.shortestMinutes),
-            avg = formatMinutesDuration(display.averageMinutes.roundToInt().toLong()),
-            max = formatMinutesDuration(display.longestMinutes),
-        )
+        MinAvgMaxRow(voice.shareMinAvgMaxLabels(), durationMinAvgMax(display))
     }
 }
 
@@ -621,33 +613,6 @@ private fun IntensityPanel(
             )
         }
         IntensityDistributionRow(display)
-    }
-}
-
-/** Three equal columns, label over value: the shortest, average and longest of whatever the panel measures. */
-@Composable
-private fun MinAvgMaxRow(
-    voice: Voice,
-    min: String,
-    avg: String,
-    max: String,
-) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatColumn(voice.shareStatMinLabel, min)
-        StatColumn(voice.shareStatAvgLabel, avg)
-        StatColumn(voice.shareStatMaxLabel, max)
-    }
-}
-
-/** One label over its value, as a weighted column of a stat row. */
-@Composable
-private fun RowScope.StatColumn(
-    label: String,
-    value: String,
-) {
-    Column(modifier = Modifier.weight(1f)) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
     }
 }
 

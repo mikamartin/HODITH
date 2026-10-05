@@ -81,9 +81,13 @@ import com.secondmonday.hodith.domain.tagsVisibleEntries
 import com.secondmonday.hodith.domain.timeOfDayFor
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.InfoDialog
+import com.secondmonday.hodith.ui.common.MinAvgMaxLabels
+import com.secondmonday.hodith.ui.common.MinAvgMaxRow
 import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.common.StatColumn
+import com.secondmonday.hodith.ui.common.shareMinAvgMaxLabels
 import com.secondmonday.hodith.ui.common.toCellColor
 import com.secondmonday.hodith.ui.common.toTextColor
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
@@ -104,6 +108,7 @@ import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
+import com.secondmonday.hodith.viewmodel.durationMinAvgMax
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatClockTime
 import com.secondmonday.hodith.viewmodel.formatEventTime
@@ -112,6 +117,7 @@ import com.secondmonday.hodith.viewmodel.formatMediumDate
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import com.secondmonday.hodith.viewmodel.frequencyTickCount
 import com.secondmonday.hodith.viewmodel.frequencyTickIndices
+import com.secondmonday.hodith.viewmodel.gapsStatRows
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -638,12 +644,18 @@ private fun RhythmCard(
     }
 }
 
-/** Spec §10 gaps & streaks: longest/current/average gap, longest/average streak, plus the "tends to come in bursts" flag. */
+/**
+ * Spec §10 gaps & streaks, laid out as the Share Summary card's Gaps panel: the min/avg/max gap row,
+ * then the current gap beside the longest and average streak, then the "tends to come in bursts" flag.
+ * The figures come from [gapsStatRows], the same formatting the Share card uses. The row's gap labels
+ * spell out "gap"; the streak labels keep "streak", since the card covers both.
+ */
 @Composable
 private fun GapsCard(
     display: GapsDisplay,
     voice: Voice,
 ) {
+    val rows = gapsStatRows(display)
     InsightsCard {
         SectionWithInfo(
             label = voice.insightsSectionLabelGaps,
@@ -653,12 +665,15 @@ private fun GapsCard(
             labelStyle = MaterialTheme.typography.titleSmall,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatRow(voice.insightsGapsLongestLabel, formatDays(display.longestGapDays.toDouble()))
-                StatRow(voice.insightsGapsCurrentLabel, formatDays(display.currentGapDays.toDouble()))
-                StatRow(voice.insightsGapsAverageLabel, formatDays(display.averageGapDays))
-                StatRow(voice.insightsStreakLongestLabel, formatDays(display.longestStreakDays.toDouble()))
-                StatRow(voice.insightsStreakAverageLabel, formatDays(display.averageStreakDays))
-                if (display.isBursty) {
+                rows.minAvgMax?.let {
+                    MinAvgMaxRow(MinAvgMaxLabels(voice.insightsGapsMinLabel, voice.insightsGapsAvgLabel, voice.insightsGapsMaxLabel), it)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatColumn(voice.insightsGapsCurrentLabel, rows.currentGap)
+                    StatColumn(voice.insightsStreakLongestLabel, rows.longestStreak)
+                    StatColumn(voice.insightsStreakAverageLabel, rows.averageStreak)
+                }
+                if (rows.isBursty) {
                     Text(
                         text = voice.insightsBurstFlagLabel,
                         style = MaterialTheme.typography.labelMedium,
@@ -921,7 +936,10 @@ internal fun TrendFindingPlank(
     }
 }
 
-/** Spec §10 duration stats — only shown when the Case's `durationMode != NONE`. */
+/**
+ * Spec §10 duration stats — only shown when the Case's `durationMode != NONE`. The min/avg/max row
+ * is the Share card's Duration panel ([durationMinAvgMax]), labelled the same way.
+ */
 @Composable
 private fun DurationCard(
     display: DurationDisplay,
@@ -935,9 +953,7 @@ private fun DurationCard(
             infoDescription = voice.caseSectionInfoDescription,
             labelStyle = MaterialTheme.typography.titleSmall,
         ) {
-            StatRow(voice.insightsDurationAverageLabel, formatMinutesDuration(display.averageMinutes.roundToInt().toLong()))
-            StatRow(voice.insightsDurationLongestLabel, formatMinutesDuration(display.longestMinutes))
-            StatRow(voice.insightsDurationTotalLabel, formatMinutesDuration(display.totalMinutes))
+            MinAvgMaxRow(voice.shareMinAvgMaxLabels(), durationMinAvgMax(display))
         }
     }
 }
@@ -1023,9 +1039,10 @@ private fun TagsCard(
 }
 
 /**
- * The totals above a tag list: the Case's event count and distinct tag count. Set apart from the
- * tag rows by a divider and by bolder values, so they read as a summary rather than as a tag.
- * Shared by [TagsCard] and the full tag list screen.
+ * The totals above a tag list: the Case's event count and distinct tag count, side by side as
+ * label-over-value columns (the Share card's Gaps and Duration idiom). Set apart from the tag rows
+ * by a divider, so they read as a summary rather than as a tag. Shared by [TagsCard] and the full
+ * tag list screen.
  */
 @Composable
 internal fun ColumnScope.TagsSummary(
@@ -1033,8 +1050,10 @@ internal fun ColumnScope.TagsSummary(
     totalTagCount: Int,
     voice: Voice,
 ) {
-    StatRow(voice.insightsTagsTotalLabel, totalEventCount.toString(), valueStyle = MaterialTheme.typography.titleSmall)
-    StatRow(voice.insightsTagsDistinctLabel, totalTagCount.toString(), valueStyle = MaterialTheme.typography.titleSmall)
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        StatColumn(voice.insightsTagsTotalLabel, totalEventCount.toString())
+        StatColumn(voice.insightsTagsDistinctLabel, totalTagCount.toString())
+    }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
@@ -1055,7 +1074,6 @@ internal fun StatRow(
     value: String,
     onClick: (() -> Unit)? = null,
     contentDescription: String? = null,
-    valueStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     Row(
         modifier =
@@ -1069,7 +1087,7 @@ internal fun StatRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = valueStyle)
+        Text(text = value, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
