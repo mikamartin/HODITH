@@ -241,6 +241,14 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
+    fun gapsCard_withOneEvent_showsCurrentGap_andNoMinAvgMaxRow() {
+        setInsightsTabContent(events = listOf(eventAt(1)))
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsCurrentLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsGapsMinLabel).assertDoesNotExist()
+    }
+
+    @Test
     fun gapsCard_currentGapReadsZero_whileAnEventIsRunning() {
         // Past gaps 3, 2 days; the newest event (25 days ago) is still open, so the Case is running
         // right now. Current gap is 0, and the 25-day active stretch is kept out of the longest gap

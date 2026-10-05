@@ -61,8 +61,6 @@ import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.heatmapLevelFor
-import com.secondmonday.hodith.ui.casedetail.formatCompactDecimal
-import com.secondmonday.hodith.ui.casedetail.formatDaysCompact
 import com.secondmonday.hodith.ui.casedetail.formatIntensity
 import com.secondmonday.hodith.ui.casedetail.trendFindingSentence
 import com.secondmonday.hodith.ui.common.MinAvgMaxRow
@@ -90,6 +88,8 @@ import com.secondmonday.hodith.viewmodel.ShareTopBeat
 import com.secondmonday.hodith.viewmodel.StreakDisplay
 import com.secondmonday.hodith.viewmodel.durationMinAvgMax
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
+import com.secondmonday.hodith.viewmodel.formatCompactDecimal
+import com.secondmonday.hodith.viewmodel.formatDaysCompact
 import com.secondmonday.hodith.viewmodel.gapsStatRows
 import java.time.DayOfWeek
 import java.time.format.TextStyle

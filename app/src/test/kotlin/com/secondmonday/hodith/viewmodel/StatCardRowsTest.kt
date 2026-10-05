@@ -45,6 +45,16 @@ class StatCardRowsTest {
     }
 
     @Test
+    fun `gaps figures are the share card's Square fixture, read from one function`() {
+        val rows = gapsStatRows(gaps(shortest = 1, current = 2, average = 3.1, longest = 9, longestStreak = 6, averageStreak = 2.5))
+
+        assertEquals(MinAvgMaxValues(min = "1d", avg = "3.1d", max = "9d"), rows.minAvgMax)
+        assertEquals("2d", rows.currentGap)
+        assertEquals("6d", rows.longestStreak)
+        assertEquals("2.5d", rows.averageStreak)
+    }
+
+    @Test
     fun `gaps min avg and max are absent before there are two events`() {
         assertNull(gapsStatRows(gaps(shortest = null)).minAvgMax)
     }

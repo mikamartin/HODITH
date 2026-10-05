@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.ui.casedetail.formatDaysCompact
 import kotlin.math.roundToInt
 
 /** A measure's shortest, average and longest, each already formatted for a card. */
