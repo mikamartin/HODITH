@@ -3,11 +3,9 @@ package com.secondmonday.hodith.ui.settings
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,12 +14,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -42,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -52,6 +46,7 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.Plank
 import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
@@ -90,6 +85,7 @@ private fun csvFileName(nowMillis: Long) = "hodith-export-${exportFileTimestamp(
 @Composable
 fun SettingsRoute(
     onOpenAbout: () -> Unit,
+    onOpenManageTags: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -125,6 +121,7 @@ fun SettingsRoute(
         onExportCsvClick = { exportCsvLauncher.launch(csvFileName(viewModel.nowMillis())) },
         onImportConfirm = { importLauncher.launch(arrayOf("*/*")) },
         onOpenAbout = onOpenAbout,
+        onOpenManageTags = onOpenManageTags,
         onContactUs = {
             context.startActivity(Intent(Intent.ACTION_SENDTO, CONTACT_EMAIL_URI.toUri()))
         },
@@ -149,6 +146,7 @@ fun SettingsScreen(
     onExportCsvClick: () -> Unit,
     onImportConfirm: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenManageTags: () -> Unit,
     onContactUs: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -277,6 +275,7 @@ fun SettingsScreen(
                         modifier = Modifier.semantics { contentDescription = voice.settingsCloudBackupToggleLabel },
                     )
                 }
+                ActionRow(voice.settingsManageTagsButton, onClick = onOpenManageTags)
                 ActionRow(voice.settingsExportButton, onClick = { showExportFormatDialog = true })
                 ActionRow(voice.settingsImportButton, onClick = { showImportConfirm = true })
                 ActionRow(voice.settingsDeleteDataButton, onClick = { showDeleteDataFlow = true }, isDestructive = true)
@@ -359,57 +358,6 @@ private fun CheckInSection(
     ) {
         SegmentedChoiceRow(options = options, selected = interval, onSelect = onCheckInDefaultIntervalSelect)
     }
-}
-
-/**
- * Area grouping for the Settings screen. Bright branches to [GlowCard] (same dispatch as
- * [com.secondmonday.hodith.ui.casedetail.InsightsTab]'s `InsightsCard`); Intense keeps the
- * thin-border [OutlinedCard]; Plain is a borderless white plank on the tinted screen background.
- */
-@Composable
-private fun Plank(
-    title: String?,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    when (LocalCardDecorationStyle.current) {
-        CardDecorationStyle.BRIGHT ->
-            GlowCard {
-                title?.let { AreaHeader(it) }
-                content()
-            }
-        CardDecorationStyle.PLAIN ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            ) { PlankContent(title, content) }
-        CardDecorationStyle.INTENSE ->
-            OutlinedCard(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            ) { PlankContent(title, content) }
-    }
-}
-
-@Composable
-private fun PlankContent(
-    title: String?,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        title?.let { AreaHeader(it) }
-        content()
-    }
-}
-
-@Composable
-private fun AreaHeader(title: String) {
-    Text(
-        title.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.primary,
-        textAlign = TextAlign.Start,
-    )
 }
 
 /**

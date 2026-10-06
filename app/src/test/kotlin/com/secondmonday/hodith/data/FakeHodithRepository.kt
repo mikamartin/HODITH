@@ -236,7 +236,8 @@ class FakeHodithRepository : HodithRepository {
         tagName: String,
     ) {
         val trimmedName = tagName.trim()
-        val existing = tags.value.find { it.name == trimmedName }
+        // Case-insensitive, as the Room lookup is (getByName is COLLATE NOCASE).
+        val existing = tags.value.find { it.name.foldAscii() == trimmedName.foldAscii() }
         val tagId =
             existing?.id ?: run {
                 val id = nextTagId++
@@ -252,6 +253,56 @@ class FakeHodithRepository : HodithRepository {
         tagId: Long,
     ) {
         eventTags.update { list -> list.filterNot { it.eventId == eventId && it.tagId == tagId } }
+    }
+
+    override fun observeTagEventCounts(): Flow<List<TagEventCount>> =
+        eventTags.map { list -> list.groupingBy { it.tagId }.eachCount().map { (tagId, count) -> TagEventCount(tagId, count) } }
+
+    // Matches Room's COLLATE NOCASE lookup, which folds ASCII letters only, so fake-based tests see the same collisions the app does.
+    override suspend fun findOtherTagByName(
+        name: String,
+        excludeId: Long,
+    ): TagEntity? =
+        tags.value
+            .filter { it.id != excludeId && it.name.foldAscii() == name.foldAscii() }
+            .sortedByDescending { it.name == name }
+            .firstOrNull()
+
+    override suspend fun countEventsWithBoth(
+        sourceId: Long,
+        targetId: Long,
+    ): Int {
+        val sourceEvents =
+            eventTags.value
+                .filter { it.tagId == sourceId }
+                .map { it.eventId }
+                .toSet()
+        return eventTags.value.count { it.tagId == targetId && it.eventId in sourceEvents }
+    }
+
+    override suspend fun renameTag(
+        tagId: Long,
+        name: String,
+    ) {
+        tags.update { list -> list.map { if (it.id == tagId) it.copy(name = name.trim()) else it } }
+    }
+
+    override suspend fun mergeTag(
+        sourceId: Long,
+        targetId: Long,
+    ) {
+        val sourceEvents = eventTags.value.filter { it.tagId == sourceId }.map { it.eventId }
+        eventTags.update { list ->
+            val kept = list.filterNot { it.tagId == sourceId }
+            val targetEvents = kept.filter { it.tagId == targetId }.map { it.eventId }.toSet()
+            kept + sourceEvents.filterNot { it in targetEvents }.map { EventTagCrossRef(eventId = it, tagId = targetId) }
+        }
+        tags.update { list -> list.filterNot { it.id == sourceId } }
+    }
+
+    override suspend fun deleteTag(tagId: Long) {
+        tags.update { list -> list.filterNot { it.id == tagId } }
+        eventTags.update { list -> list.filterNot { it.tagId == tagId } }
     }
 
     // Watch
@@ -295,3 +346,6 @@ class FakeHodithRepository : HodithRepository {
         watches.value = backup.watches
     }
 }
+
+/** SQLite's NOCASE folds only A-Z to a-z; Kotlin's ignoreCase would also fold non-ASCII letters. */
+private fun String.foldAscii(): String = map { if (it in 'A'..'Z') it + 32 else it }.joinToString("")

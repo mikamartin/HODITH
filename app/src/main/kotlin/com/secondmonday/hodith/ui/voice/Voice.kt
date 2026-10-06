@@ -247,6 +247,51 @@ interface Voice {
     val settingsDeveloperModeSectionLabel: String
     val settingsLoadDemoDataButton: String
     val settingsDemoDataLoadedMessage: String
+    val settingsManageTagsButton: String
+    val manageTagsScreenTitle: String
+    val manageTagsEmptyState: String
+    val manageTagsFilterPlaceholder: String
+    val manageTagsFilterClearDescription: String
+    val manageTagsNoMatches: String
+
+    fun manageTagsEventCount(count: Int): String
+
+    fun manageTagsEditDescription(tagName: String): String
+
+    fun manageTagsDeleteDescription(tagName: String): String
+
+    val manageTagsRenameDialogTitle: String
+    val manageTagsRenameFieldLabel: String
+    val manageTagsRenameSaveAction: String
+    val manageTagsRenameConfirmTitle: String
+
+    fun manageTagsRenameConfirmBody(
+        fromName: String,
+        toName: String,
+        eventCount: Int,
+    ): String
+
+    val manageTagsRenameConfirmAction: String
+    val manageTagsMergeConfirmTitle: String
+
+    fun manageTagsMergeConfirmBody(
+        sourceName: String,
+        targetName: String,
+        sourceEventCount: Int,
+        overlapCount: Int,
+    ): String
+
+    val manageTagsMergeConfirmAction: String
+    val manageTagsDeleteConfirmTitle: String
+
+    fun manageTagsDeleteConfirmBody(
+        tagName: String,
+        eventCount: Int,
+    ): String
+
+    val manageTagsDeleteConfirmAction: String
+    val manageTagsCancelAction: String
+    val manageTagsWriteFailed: String
     val aboutScreenTitle: String
     val aboutIdeaLabel: String
     val aboutIdeaBody: String
@@ -1202,6 +1247,55 @@ object PlainVoice : Voice {
     override val settingsDeveloperModeSectionLabel = "Developer mode"
     override val settingsLoadDemoDataButton = "Load demo data"
     override val settingsDemoDataLoadedMessage = "Demo data loaded."
+    override val settingsManageTagsButton = "Manage tags"
+    override val manageTagsScreenTitle = "Manage tags"
+    override val manageTagsEmptyState = "No tags yet. Tags appear here once you add them to an event."
+    override val manageTagsFilterPlaceholder = "Filter tags"
+    override val manageTagsFilterClearDescription = "Clear filter"
+    override val manageTagsNoMatches = "No tags match that filter."
+
+    override fun manageTagsEventCount(count: Int) = if (count == 1) "1 event" else "$count events"
+
+    override fun manageTagsEditDescription(tagName: String) = "Rename $tagName"
+
+    override fun manageTagsDeleteDescription(tagName: String) = "Delete $tagName"
+
+    override val manageTagsRenameDialogTitle = "Rename tag"
+    override val manageTagsRenameFieldLabel = "Tag name"
+    override val manageTagsRenameSaveAction = "Save"
+    override val manageTagsRenameConfirmTitle = "Rename this tag?"
+
+    override fun manageTagsRenameConfirmBody(
+        fromName: String,
+        toName: String,
+        eventCount: Int,
+    ) = "\"$fromName\" becomes \"$toName\" on ${manageTagsEventCount(eventCount)} across all Cases, including archived ones."
+
+    override val manageTagsRenameConfirmAction = "Rename"
+    override val manageTagsMergeConfirmTitle = "Merge these tags?"
+
+    override fun manageTagsMergeConfirmBody(
+        sourceName: String,
+        targetName: String,
+        sourceEventCount: Int,
+        overlapCount: Int,
+    ): String {
+        val overlapNote = if (overlapCount == 0) "" else " $overlapCount already have \"$targetName\", so they keep one."
+        return "\"$sourceName\" merges into \"$targetName\" on ${manageTagsEventCount(sourceEventCount)} across all Cases.$overlapNote " +
+            "\"$targetName\" keeps its spelling, and \"$sourceName\" is removed."
+    }
+
+    override val manageTagsMergeConfirmAction = "Merge"
+    override val manageTagsDeleteConfirmTitle = "Delete this tag?"
+
+    override fun manageTagsDeleteConfirmBody(
+        tagName: String,
+        eventCount: Int,
+    ) = "\"$tagName\" is removed from ${manageTagsEventCount(eventCount)} across all Cases. The events stay, with their other tags."
+
+    override val manageTagsDeleteConfirmAction = "Delete"
+    override val manageTagsCancelAction = "Cancel"
+    override val manageTagsWriteFailed = "That change didn't save. The tags are as they were."
     override val aboutScreenTitle = "About"
     override val aboutIdeaLabel = "What HODITH is"
     override val aboutIdeaBody =
@@ -1859,6 +1953,57 @@ object IntenseVoice : Voice {
     override val settingsDeveloperModeSectionLabel = "Behind the curtain"
     override val settingsLoadDemoDataButton = "Conjure phantom cases"
     override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
+    override val settingsManageTagsButton = "Tend the tags"
+    override val manageTagsScreenTitle = "The tags"
+    override val manageTagsEmptyState = "No tags yet. They surface once they are bound to an entry."
+    override val manageTagsFilterPlaceholder = "Search the tags"
+    override val manageTagsFilterClearDescription = "Clear the search"
+    override val manageTagsNoMatches = "No tag answers to that name."
+
+    override fun manageTagsEventCount(count: Int) = if (count == 1) "1 entry" else "$count entries"
+
+    override fun manageTagsEditDescription(tagName: String) = "Reshape $tagName"
+
+    override fun manageTagsDeleteDescription(tagName: String) = "Erase $tagName"
+
+    override val manageTagsRenameDialogTitle = "Rename the tag"
+    override val manageTagsRenameFieldLabel = "Name of the tag"
+    override val manageTagsRenameSaveAction = "Inscribe"
+    override val manageTagsRenameConfirmTitle = "Reshape this tag?"
+
+    override fun manageTagsRenameConfirmBody(
+        fromName: String,
+        toName: String,
+        eventCount: Int,
+    ) = "\"$fromName\" will be inscribed as \"$toName\" on ${manageTagsEventCount(
+        eventCount,
+    )} across all Cases, the archived ones included."
+
+    override val manageTagsRenameConfirmAction = "Rename"
+    override val manageTagsMergeConfirmTitle = "Join these tags?"
+
+    override fun manageTagsMergeConfirmBody(
+        sourceName: String,
+        targetName: String,
+        sourceEventCount: Int,
+        overlapCount: Int,
+    ): String {
+        val overlapNote = if (overlapCount == 0) "" else " $overlapCount already bear \"$targetName\", so they keep one."
+        return "\"$sourceName\" is absorbed into \"$targetName\" across ${manageTagsEventCount(sourceEventCount)}.$overlapNote " +
+            "\"$targetName\" keeps its spelling; \"$sourceName\" is erased."
+    }
+
+    override val manageTagsMergeConfirmAction = "Join"
+    override val manageTagsDeleteConfirmTitle = "Erase this tag?"
+
+    override fun manageTagsDeleteConfirmBody(
+        tagName: String,
+        eventCount: Int,
+    ) = "\"$tagName\" is stripped from ${manageTagsEventCount(eventCount)} across all Cases. The entries remain, with their other tags."
+
+    override val manageTagsDeleteConfirmAction = "Erase"
+    override val manageTagsCancelAction = "Abandon"
+    override val manageTagsWriteFailed = "The change did not take. The tags stand as they were."
     override val aboutScreenTitle = "The record"
     override val aboutIdeaLabel = "The premise"
     override val aboutIdeaBody =
@@ -2501,6 +2646,55 @@ object BrightVoice : Voice {
     override val settingsDeveloperModeSectionLabel = "Nerd mode!"
     override val settingsLoadDemoDataButton = "Load some pretend chaos!"
     override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
+    override val settingsManageTagsButton = "Tidy up the tags!"
+    override val manageTagsScreenTitle = "Tag tidy-up!"
+    override val manageTagsEmptyState = "No tags yet! They'll show up here once you add them to a moment."
+    override val manageTagsFilterPlaceholder = "Find a tag!"
+    override val manageTagsFilterClearDescription = "Clear the search"
+    override val manageTagsNoMatches = "No tags match that. Try another!"
+
+    override fun manageTagsEventCount(count: Int) = if (count == 1) "1 moment" else "$count moments"
+
+    override fun manageTagsEditDescription(tagName: String) = "Rename $tagName"
+
+    override fun manageTagsDeleteDescription(tagName: String) = "Delete $tagName"
+
+    override val manageTagsRenameDialogTitle = "Rename the tag"
+    override val manageTagsRenameFieldLabel = "New name for the tag"
+    override val manageTagsRenameSaveAction = "Save it!"
+    override val manageTagsRenameConfirmTitle = "Rename this tag?"
+
+    override fun manageTagsRenameConfirmBody(
+        fromName: String,
+        toName: String,
+        eventCount: Int,
+    ) = "\"$fromName\" becomes \"$toName\" on ${manageTagsEventCount(eventCount)} across all Cases, archived ones too!"
+
+    override val manageTagsRenameConfirmAction = "Rename it"
+    override val manageTagsMergeConfirmTitle = "Merge these tags?"
+
+    override fun manageTagsMergeConfirmBody(
+        sourceName: String,
+        targetName: String,
+        sourceEventCount: Int,
+        overlapCount: Int,
+    ): String {
+        val overlapNote = if (overlapCount == 0) "" else " $overlapCount already have \"$targetName\", so they keep just one."
+        return "\"$sourceName\" folds into \"$targetName\" on ${manageTagsEventCount(sourceEventCount)}.$overlapNote " +
+            "\"$targetName\" keeps its spelling, and \"$sourceName\" goes away!"
+    }
+
+    override val manageTagsMergeConfirmAction = "Merge them"
+    override val manageTagsDeleteConfirmTitle = "Delete this tag?"
+
+    override fun manageTagsDeleteConfirmBody(
+        tagName: String,
+        eventCount: Int,
+    ) = "\"$tagName\" comes off ${manageTagsEventCount(eventCount)} across all Cases. The moments stay put, with their other tags."
+
+    override val manageTagsDeleteConfirmAction = "Delete it"
+    override val manageTagsCancelAction = "Nah, never mind"
+    override val manageTagsWriteFailed = "Oops, that didn't stick! The tags are just as they were."
     override val aboutScreenTitle = "About HODITH!"
     override val aboutIdeaLabel = "What's this app about?"
     override val aboutIdeaBody =

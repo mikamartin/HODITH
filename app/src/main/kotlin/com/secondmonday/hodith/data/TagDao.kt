@@ -67,4 +67,46 @@ interface TagDao {
 
     @Query("SELECT * FROM event_tags")
     suspend fun getAllEventTags(): List<EventTagCrossRef>
+
+    // Counts span every Case, archived ones included: tags are a global vocabulary, so the
+    // management screen's numbers and warnings describe the same events a rename or merge touches.
+    @Query("SELECT tagId, COUNT(*) AS eventCount FROM event_tags GROUP BY tagId")
+    fun observeTagEventCounts(): Flow<List<TagEventCount>>
+
+    @Query(
+        "SELECT COUNT(*) FROM event_tags source " +
+            "INNER JOIN event_tags target ON target.eventId = source.eventId " +
+            "WHERE source.tagId = :sourceId AND target.tagId = :targetId",
+    )
+    suspend fun countEventsWithBoth(
+        sourceId: Long,
+        targetId: Long,
+    ): Int
+
+    /**
+     * Same case-insensitive lookup as [getByName] (so a rename collides exactly where adding a tag
+     * would), but excludes [excludeId] so a tag renamed only in case doesn't collide with itself.
+     */
+    @Query("SELECT * FROM tags WHERE name = :name COLLATE NOCASE AND id != :excludeId ORDER BY (name = :name) DESC LIMIT 1")
+    suspend fun findOtherTagByName(
+        name: String,
+        excludeId: Long,
+    ): TagEntity?
+
+    @Query("UPDATE tags SET name = :name WHERE id = :id")
+    suspend fun rename(
+        id: Long,
+        name: String,
+    )
+
+    /** Re-points every attachment of [sourceId] at [targetId]; events that already carry both are skipped by IGNORE. */
+    @Query("INSERT OR IGNORE INTO event_tags (eventId, tagId) SELECT eventId, :targetId FROM event_tags WHERE tagId = :sourceId")
+    suspend fun reassignEventTags(
+        sourceId: Long,
+        targetId: Long,
+    )
+
+    // Deleting the tag row cascades its event_tags rows; the events themselves are left alone.
+    @Query("DELETE FROM tags WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

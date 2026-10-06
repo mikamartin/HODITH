@@ -16,25 +16,6 @@ Each item carries a **trailer** (*Branch · Complexity · Priority · Area*; Com
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-### Tags: bulk rename/merge/delete across all events
-
-*Branch: none yet — investigation first · Complexity: L · Priority: Medium · Area: Settings*
-
-🎨 **Design decision** · 🔍 **Investigation**
-
-No tag-management UI, rename, or merge operation exists anywhere today. Tags are global (`TagEntity`, unique index on `name`) attached via a composite-PK join table (`EventTagCrossRef`), not per-Case — "rename everywhere" is global by construction. Testers hit this directly: near-duplicate tag spellings (two options for basically the same thing) with no way to consolidate or fix wording after the fact. Related but distinct from the retired "new-case tag suggestions have no history" item: that one was about *preventing* near-duplicate spellings via better suggestions; this is about *fixing* them after the fact.
-
-**Acceptance criteria**
-
-- [ ] An edge-case brainstorm completed and written down before any implementation: case-insensitive collisions (the DB unique index is case-sensitive, lookups are case-insensitive), merging two tags' `event_tags` composite-PK rows when an event already has both, orphaned-tag cleanup (none exists today), undo/confirmation needs.
-- [ ] A tag-management screen designed (none exists today) with warnings and confirmations appropriate to the data-integrity stakes.
-- [ ] Rename-a-tag-everywhere and merge-two-tags-into-one both implemented, with the brainstormed edge cases covered.
-- [ ] Thorough test coverage given the data-integrity risk: collision handling, cross-ref de-duplication on merge, cascade behaviour.
-
-**Plan** — brainstorm first, no code; then design the management screen and confirmation flow; implement rename/merge against `TagDao`/`EventTagCrossRef` last.
-
-**Tests** — none until the brainstorm and design are done.
-
 ### Trends: visual redesign, order by recency/significance
 
 *Branch: `feat/trends-visual-redesign` · Complexity: M · Priority: Medium · Area: Insights*

@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -412,6 +413,141 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
+    fun `addTagToEvent reuses a tag whose name differs only in case`() =
+        runTest {
+            val eventId = repository.insertEvent(testEvent())
+            repository.addTagToEvent(eventId, "Coffee")
+            repository.addTagToEvent(eventId, "coffee")
+
+            assertEquals(listOf("Coffee"), repository.tags.value.map { it.name })
+        }
+
+    @Test
+    fun `findOtherTagByName matches ignoring case and never returns the excluded tag`() =
+        runTest {
+            val eventId = repository.insertEvent(testEvent())
+            repository.addTagToEvent(eventId, "Coffee")
+            val coffeeId =
+                repository.tags.value
+                    .single()
+                    .id
+
+            assertNull(repository.findOtherTagByName("COFFEE", excludeId = coffeeId))
+            repository.addTagToEvent(eventId, "tea")
+            assertEquals(
+                "Coffee",
+                repository
+                    .findOtherTagByName(
+                        "coffee",
+                        excludeId =
+                            repository.tags.value
+                                .single { it.name == "tea" }
+                                .id,
+                    )?.name,
+            )
+        }
+
+    @Test
+    fun `countEventsWithBoth counts only events carrying both tags`() =
+        runTest {
+            val first = repository.insertEvent(testEvent())
+            val second = repository.insertEvent(testEvent())
+            repository.addTagToEvent(first, "a")
+            repository.addTagToEvent(first, "b")
+            repository.addTagToEvent(second, "a")
+            val aId =
+                repository.tags.value
+                    .single { it.name == "a" }
+                    .id
+            val bId =
+                repository.tags.value
+                    .single { it.name == "b" }
+                    .id
+
+            assertEquals(1, repository.countEventsWithBoth(aId, bId))
+        }
+
+    @Test
+    fun `renameTag changes the name and trims it`() =
+        runTest {
+            val eventId = repository.insertEvent(testEvent())
+            repository.addTagToEvent(eventId, "coffee")
+            val id =
+                repository.tags.value
+                    .single()
+                    .id
+
+            repository.renameTag(id, "  Coffee  ")
+
+            assertEquals(listOf("Coffee"), repository.tags.value.map { it.name })
+        }
+
+    @Test
+    fun `mergeTag keeps one attachment per event and removes the source tag`() =
+        runTest {
+            val first = repository.insertEvent(testEvent())
+            val second = repository.insertEvent(testEvent())
+            repository.addTagToEvent(first, "source")
+            repository.addTagToEvent(first, "target")
+            repository.addTagToEvent(second, "source")
+            val sourceId =
+                repository.tags.value
+                    .single { it.name == "source" }
+                    .id
+            val targetId =
+                repository.tags.value
+                    .single { it.name == "target" }
+                    .id
+
+            repository.mergeTag(sourceId, targetId)
+
+            assertEquals(listOf("target"), repository.tags.value.map { it.name })
+            assertEquals(2, repository.eventTags.value.size)
+            assertTrue(repository.eventTags.value.all { it.tagId == targetId })
+        }
+
+    @Test
+    fun `deleteTag removes the tag from every event and keeps the events`() =
+        runTest {
+            val eventId = repository.insertEvent(testEvent())
+            repository.addTagToEvent(eventId, "focus")
+            repository.addTagToEvent(eventId, "calm")
+            val focusId =
+                repository.tags.value
+                    .single { it.name == "focus" }
+                    .id
+
+            repository.deleteTag(focusId)
+
+            assertEquals(listOf("calm"), repository.tags.value.map { it.name })
+            assertEquals(1, repository.eventTags.value.size)
+            assertNotNull(repository.getEvent(eventId))
+        }
+
+    @Test
+    fun `observeTagEventCounts counts attachments per tag and omits unattached tags`() =
+        runTest {
+            val first = repository.insertEvent(testEvent())
+            val second = repository.insertEvent(testEvent())
+            repository.addTagToEvent(first, "a")
+            repository.addTagToEvent(second, "a")
+            repository.tags.value = repository.tags.value + TagEntity(id = 99, name = "unused")
+
+            repository.observeTagEventCounts().test {
+                val counts = awaitItem().associate { it.tagId to it.eventCount }
+                assertEquals(
+                    2,
+                    counts[
+                        repository.tags.value
+                            .single { it.name == "a" }
+                            .id,
+                    ],
+                )
+                assertNull(counts[99L])
+            }
+        }
+
+    @Test
     fun `removeTagFromEvent removes only the matching cross-ref`() =
         runTest {
             val eventId = repository.insertEvent(testEvent())
@@ -476,5 +612,17 @@ class FakeHodithRepositoryTest {
 
             assertEquals(listOf("Restored"), repository.cases.value.map { it.name })
             assertTrue(repository.events.value.isEmpty())
+        }
+
+    @Test
+    fun `case folding is ASCII-only, so non-ASCII letters that differ in case are distinct tags, as in Room`() =
+        runTest {
+            val eventId = repository.insertEvent(testEvent())
+            repository.addTagToEvent(eventId, "Ä")
+            assertNull(repository.findOtherTagByName("ä", excludeId = 0L))
+
+            repository.addTagToEvent(eventId, "ä")
+
+            assertEquals(listOf("Ä", "ä"), repository.tags.value.map { it.name })
         }
 }

@@ -107,6 +107,35 @@ interface HodithRepository {
         tagId: Long,
     )
 
+    /** Event counts per tag across all Cases; tags with no attachments are absent. */
+    fun observeTagEventCounts(): Flow<List<TagEventCount>>
+
+    /** Case-insensitive lookup of a tag other than [excludeId], the same match [addTagToEvent] uses. */
+    suspend fun findOtherTagByName(
+        name: String,
+        excludeId: Long,
+    ): TagEntity?
+
+    /** Events that carry both [sourceId] and [targetId]; these keep one attachment when the tags merge. */
+    suspend fun countEventsWithBoth(
+        sourceId: Long,
+        targetId: Long,
+    ): Int
+
+    suspend fun renameTag(
+        tagId: Long,
+        name: String,
+    )
+
+    /** Re-points [sourceId]'s events at [targetId] and removes [sourceId], as one transaction. The two ids must differ. */
+    suspend fun mergeTag(
+        sourceId: Long,
+        targetId: Long,
+    )
+
+    /** Removes the tag from every event; the events themselves are kept. */
+    suspend fun deleteTag(tagId: Long)
+
     // Watch
     suspend fun getWatch(watchId: Long): WatchEntity?
 

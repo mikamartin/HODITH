@@ -152,6 +152,38 @@ class RoomHodithRepository
             tagId: Long,
         ) = tagDao.deleteEventTag(EventTagCrossRef(eventId = eventId, tagId = tagId))
 
+        override fun observeTagEventCounts(): Flow<List<TagEventCount>> = tagDao.observeTagEventCounts()
+
+        override suspend fun findOtherTagByName(
+            name: String,
+            excludeId: Long,
+        ): TagEntity? = tagDao.findOtherTagByName(name, excludeId)
+
+        override suspend fun countEventsWithBoth(
+            sourceId: Long,
+            targetId: Long,
+        ): Int = tagDao.countEventsWithBoth(sourceId, targetId)
+
+        override suspend fun renameTag(
+            tagId: Long,
+            name: String,
+        ) = tagDao.rename(tagId, name.trim())
+
+        override suspend fun mergeTag(
+            sourceId: Long,
+            targetId: Long,
+        ) {
+            // Merging a tag into itself would re-point nothing and then delete it, with its attachments.
+            require(sourceId != targetId) { "A tag cannot merge into itself" }
+            database.withTransaction {
+                tagDao.reassignEventTags(sourceId = sourceId, targetId = targetId)
+                // The source's own attachments go with it via the FK cascade on tags.
+                tagDao.deleteById(sourceId)
+            }
+        }
+
+        override suspend fun deleteTag(tagId: Long) = tagDao.deleteById(tagId)
+
         // Watch
         override suspend fun getWatch(watchId: Long): WatchEntity? = watchDao.getById(watchId)
 

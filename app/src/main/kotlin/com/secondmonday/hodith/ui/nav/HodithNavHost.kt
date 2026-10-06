@@ -37,6 +37,7 @@ import com.secondmonday.hodith.ui.casedetail.trends.TrendsListRoute
 import com.secondmonday.hodith.ui.home.HomeRoute
 import com.secondmonday.hodith.ui.logsheet.LogDetailRoute
 import com.secondmonday.hodith.ui.settings.SettingsRoute
+import com.secondmonday.hodith.ui.settings.tags.ManageTagsRoute
 import com.secondmonday.hodith.ui.share.ShareRoute
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
@@ -52,6 +53,7 @@ private const val SHARE_ROUTE = "share"
 private const val TRENDS_ROUTE = "trends"
 private const val TAGS_ROUTE = "tags"
 private const val ABOUT_ROUTE = "about"
+private const val MANAGE_TAGS_ROUTE = "manage_tags"
 private const val CASE_ID_ARG = "caseId"
 private const val EVENT_ID_ARG = "eventId"
 private const val NO_CASE_ID = -1L
@@ -90,7 +92,8 @@ fun HodithNavHost(
                     currentRoute?.startsWith(TRENDS_ROUTE) == true ||
                     currentRoute?.startsWith(TAGS_ROUTE) == true ||
                     currentRoute == ARCHIVED_CASES_ROUTE ||
-                    currentRoute == ABOUT_ROUTE
+                    currentRoute == ABOUT_ROUTE ||
+                    currentRoute == MANAGE_TAGS_ROUTE
             if (!onDetailScreen) {
                 val decorationStyle = LocalCardDecorationStyle.current
                 // Plain only: explicit surface rather than NavigationBar's default containerColor
@@ -156,7 +159,10 @@ fun HodithNavHost(
                 BigPictureRoute(onOpenCase = { caseId -> navController.navigate("$CASE_DETAIL_ROUTE/$caseId") })
             }
             composable(HodithDestination.SETTINGS.route) {
-                SettingsRoute(onOpenAbout = { navController.navigate(ABOUT_ROUTE) })
+                SettingsRoute(
+                    onOpenAbout = { navController.navigate(ABOUT_ROUTE) },
+                    onOpenManageTags = { navController.navigate(MANAGE_TAGS_ROUTE) },
+                )
             }
             composable(
                 route = "$CASE_EDIT_ROUTE?$CASE_ID_ARG={$CASE_ID_ARG}",
@@ -222,6 +228,9 @@ fun HodithNavHost(
             }
             composable(ABOUT_ROUTE) {
                 AboutRoute(onBack = { navController.popBackStack() })
+            }
+            composable(MANAGE_TAGS_ROUTE) {
+                ManageTagsRoute(onBack = { navController.popBackStack() })
             }
         }
     }

@@ -67,6 +67,7 @@ class SettingsScreenTest {
         onExportCsvClick: () -> Unit = {},
         onImportConfirm: () -> Unit = {},
         onOpenAbout: () -> Unit = {},
+        onOpenManageTags: () -> Unit = {},
         onContactUs: () -> Unit = {},
         fontScale: Float = 1f,
         theme: AppTheme = AppTheme.PLAIN,
@@ -91,6 +92,7 @@ class SettingsScreenTest {
                     onExportCsvClick = onExportCsvClick,
                     onImportConfirm = onImportConfirm,
                     onOpenAbout = onOpenAbout,
+                    onOpenManageTags = onOpenManageTags,
                     onContactUs = onContactUs,
                 )
             }
@@ -144,6 +146,16 @@ class SettingsScreenTest {
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
+    }
+
+    @Test
+    fun manageTagsButton_invokesOnOpenManageTags() {
+        var opened = false
+        setContent(onOpenManageTags = { opened = true })
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsManageTagsButton).performScrollTo().performClick()
+
+        assertEquals(true, opened)
     }
 
     @Test
