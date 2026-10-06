@@ -61,8 +61,8 @@ import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.ui.casedetail.TrendFindingBody
 import com.secondmonday.hodith.ui.casedetail.formatIntensity
-import com.secondmonday.hodith.ui.casedetail.trendFindingSentence
 import com.secondmonday.hodith.ui.common.MinAvgMaxRow
 import com.secondmonday.hodith.ui.common.StatColumn
 import com.secondmonday.hodith.ui.common.shareMinAvgMaxLabels
@@ -734,10 +734,10 @@ private fun timeOfDayLabel(
     }
 
 /**
- * Findings rendered as sentence text only — no reliability tag, no evidence line, unlike the
- * Insights tab's own [com.secondmonday.hodith.ui.casedetail.TrendFindingRow]/`TrendFindingPlank` —
- * a share card has no room for tap-revealed detail (spec §13). [findings] arrives already capped
- * by [com.secondmonday.hodith.ui.casedetail.trendsVisibleFindings].
+ * Findings laid out the same way as the Insights tab's Trends card: each row is the shared
+ * [com.secondmonday.hodith.ui.casedetail.TrendFindingBody] (headline, reliability chip, figures and
+ * evidence line), separated by the same divider. [findings] arrives already capped by
+ * [com.secondmonday.hodith.ui.casedetail.trendsVisibleFindings], so both surfaces show the same rows.
  */
 @Composable
 private fun MiniTrendsSection(
@@ -747,11 +747,11 @@ private fun MiniTrendsSection(
 ) {
     MiniInsightsCard {
         MiniSectionTitle(voice.insightsSectionLabelTrends, skin)
-        findings.forEach { finding ->
-            Text(
-                text = trendFindingSentence(finding, voice, LocalLocale.current.platformLocale),
-                style = MaterialTheme.typography.labelMedium,
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            findings.forEachIndexed { index, finding ->
+                if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                TrendFindingBody(finding, voice, modifier = Modifier.fillMaxWidth())
+            }
         }
     }
 }
