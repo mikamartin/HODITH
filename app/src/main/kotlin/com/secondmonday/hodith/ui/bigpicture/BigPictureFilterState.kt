@@ -34,6 +34,28 @@ internal fun <T> normalizeVisibleSelection(
     all: Set<T>,
 ): Set<T>? = if (selected == all) null else selected
 
+/** Whether every item of [all] is in [selected] — drives the bulk toggle's "Clear all" label. */
+internal fun <T> isAllSelected(
+    selected: Set<T>,
+    all: Iterable<T>,
+): Boolean = all.all { it in selected }
+
+/** The stored Case and Tag selections a Case-filter change leaves behind (spec §9). */
+internal data class CaseFilterChange(
+    val visibleCaseIds: Set<Long>?,
+    val visibleTagNames: Set<String>?,
+)
+
+/**
+ * Re-scoping the Case filter always resets the Tag filter to "everything in the new scope" — a tag
+ * only offered by a now-hidden Case would otherwise leave the Cases and Tags filters ANDing down to
+ * nothing (the "empty trap" spec §9 guards against). [selected] is normalized like any other filter.
+ */
+internal fun caseFilterChange(
+    selected: Set<Long>,
+    allCaseIds: Set<Long>,
+): CaseFilterChange = CaseFilterChange(normalizeVisibleSelection(selected, allCaseIds), visibleTagNames = null)
+
 /**
  * The live selection a stored, possibly-stale [stored] value resolves to against what currently
  * exists in [all]: `null` means "no filter stored" (everything visible); a stored set is

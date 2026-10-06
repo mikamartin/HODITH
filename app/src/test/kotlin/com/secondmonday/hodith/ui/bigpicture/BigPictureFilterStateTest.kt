@@ -3,7 +3,9 @@ package com.secondmonday.hodith.ui.bigpicture
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.YearMonth
@@ -198,6 +200,35 @@ class BigPictureFilterStateTest {
     @Test
     fun `resolveVisibleSelection returns a real empty set unchanged, not everything`() {
         assertEquals(emptySet<Long>(), resolveVisibleSelection(emptySet(), setOf(1L, 2L)))
+    }
+
+    @Test
+    fun `isAllSelected is true only when every item is selected`() {
+        assertTrue(isAllSelected(setOf("a", "b"), listOf("a", "b")))
+        assertFalse(isAllSelected(setOf("a"), listOf("a", "b")))
+    }
+
+    @Test
+    fun `isAllSelected ignores a stale selected id that no longer exists`() {
+        // Same size as the full list, but "b" is missing, so it is not all selected.
+        assertFalse(isAllSelected(setOf("a", "stale"), listOf("a", "b")))
+    }
+
+    @Test
+    fun `isAllSelected is vacuously true for an empty list`() {
+        assertTrue(isAllSelected(emptySet<String>(), emptyList()))
+    }
+
+    @Test
+    fun `caseFilterChange always resets the tag filter to null`() {
+        assertNull(caseFilterChange(setOf(1L), setOf(1L, 2L)).visibleTagNames)
+        assertNull(caseFilterChange(setOf(1L, 2L), setOf(1L, 2L)).visibleTagNames)
+    }
+
+    @Test
+    fun `caseFilterChange normalizes a full case selection to null and keeps a partial one`() {
+        assertNull(caseFilterChange(setOf(1L, 2L), setOf(1L, 2L)).visibleCaseIds)
+        assertEquals(setOf(1L), caseFilterChange(setOf(1L), setOf(1L, 2L)).visibleCaseIds)
     }
 
     private fun event(

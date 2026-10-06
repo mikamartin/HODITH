@@ -235,24 +235,30 @@ fun BigPictureGrid(
         if (displayMonths.isNotEmpty()) listState.scrollToItem(0)
     }
 
+    // Every Case-filter change also resets the Tag filter (see [caseFilterChange]).
+    val applyCaseFilterChange: (Set<Long>) -> Unit = { selected ->
+        val change = caseFilterChange(selected, allCaseIds)
+        onSetVisibleCaseIds(change.visibleCaseIds)
+        onSetVisibleTagNames(change.visibleTagNames)
+    }
+
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
         Column {
             FilterSummaryRow(
                 cases = cases,
                 visibleCaseIds = resolvedVisibleCaseIds,
                 onToggleCase = { caseId ->
-                    val next = if (caseId in resolvedVisibleCaseIds) resolvedVisibleCaseIds - caseId else resolvedVisibleCaseIds + caseId
-                    onSetVisibleCaseIds(normalizeVisibleSelection(next, allCaseIds))
-                    // Re-scoping the Case filter always resets the Tag filter back to "everything in
-                    // the new scope" — a tag only offered by a now-hidden Case would otherwise leave
-                    // the Cases and Tags filters ANDing down to nothing (the "empty trap" spec §9
-                    // guards against).
-                    onSetVisibleTagNames(null)
+                    applyCaseFilterChange(
+                        if (caseId in
+                            resolvedVisibleCaseIds
+                        ) {
+                            resolvedVisibleCaseIds - caseId
+                        } else {
+                            resolvedVisibleCaseIds + caseId
+                        },
+                    )
                 },
-                onSetVisibleCaseIds = {
-                    onSetVisibleCaseIds(normalizeVisibleSelection(it, allCaseIds))
-                    onSetVisibleTagNames(null)
-                },
+                onSetVisibleCaseIds = applyCaseFilterChange,
                 allTagNames = allTagNames,
                 visibleTagNames = resolvedVisibleTagNames,
                 onToggleTag = { tag ->
@@ -421,7 +427,7 @@ private fun FilterSummaryRow(
             onDismiss = { showCasesDialog = false },
             leadingAction = {
                 BulkSelectionToggle(
-                    allSelected = visibleCaseIds.size == cases.size,
+                    allSelected = isAllSelected(visibleCaseIds, cases.map { it.id }),
                     onSelectAll = { onSetVisibleCaseIds(cases.map { it.id }.toSet()) },
                     onClearAll = { onSetVisibleCaseIds(emptySet()) },
                 )
@@ -443,7 +449,7 @@ private fun FilterSummaryRow(
             onDismiss = { showTagsDialog = false },
             leadingAction = {
                 BulkSelectionToggle(
-                    allSelected = visibleTagNames.size == allTagNames.size,
+                    allSelected = isAllSelected(visibleTagNames, allTagNames),
                     onSelectAll = { onSetVisibleTagNames(allTagNames.toSet()) },
                     onClearAll = { onSetVisibleTagNames(emptySet()) },
                 )
