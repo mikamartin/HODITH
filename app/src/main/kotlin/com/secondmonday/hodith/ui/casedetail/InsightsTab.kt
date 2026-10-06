@@ -695,8 +695,8 @@ private fun GapsCard(
  * Spec §10 Trends section (Story C T1's scaffold): the first Insights card, shown only when at
  * least one [TrendFinding] exists — mirrors [TagsCard]'s `.isNotEmpty()` gate at the call site. Each row
  * shows its headline, the Pattern/Hint chip, the figures it compares and its evidence count. The full
- * list ([TrendsListScreen] via [onShowMore]) shows the same rows, up to the domain cap. Shows the first [TRENDS_DEFAULT_VISIBLE_COUNT] findings; "show more" is right-aligned under them,
- * matching a trailing/secondary action rather than a primary one. When [TrendFindingKind.WENT_QUIET]
+ * list ([TrendsListScreen] via [onShowMore]) shows the same rows, up to the domain cap. Shows the first
+ * [TRENDS_DEFAULT_VISIBLE_COUNT] findings; "show more" is right-aligned under them, matching a trailing/secondary action rather than a primary one. When [TrendFindingKind.WENT_QUIET]
  * leads (TrendsEngine always prepends it first when it fires), it's shown alone instead — it reports
  * the Case's live, still-unresolved state rather than a settled historical shift like every other
  * detector, so pairing it inline with those would blur two different kinds of claim; "show more"
@@ -869,7 +869,7 @@ internal fun trendFindingSentence(
             )
     }
 
-/** [finding]'s evidence-count line — the small "based on N events" caption below its sentence. Not shown on the share card (see [trendFindingSentence]'s doc comment). */
+/** [finding]'s evidence-count line — the small "based on N events" caption under its figures. Not shown on the share card (see [trendFindingSentence]'s doc comment). */
 private fun trendFindingEvidenceLabel(
     finding: TrendFinding,
     voice: Voice,

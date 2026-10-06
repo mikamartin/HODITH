@@ -43,6 +43,7 @@ Fold these already-drafted key changes into the audit:
 - `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
 - `feat/insights-gaps-streaks-split` — added `insightsGapsMinLabel`/`insightsGapsAvgLabel`/`insightsGapsMaxLabel` ("Min gap"/"Avg gap"/"Max gap"); `insightsGapsCurrentLabel` reworded to "Current
 gap"; retired `insightsDurationTotalLabel`; reworded the three voices' Duration info body to drop "total" and the Gaps info body to name Shortest.
+- `feat/trends-visual-redesign` — added the Trends row headlines (`insightsTrendHeadline`) and the comparison-line keys. Flagged for length in the Trends rows: Plain "Current silence is a record" (alternative "A record silence"), "Episodes running longer" / "Episodes running shorter" (alternatives "Runs got longer" / "Runs got shorter"), "Often comes back quickly" (alternative "Comes back quickly"); Goth "Waking spells lengthening" (alternative "Spells lengthening"), "Lingering longer lately" (alternative "Lingering lately"); Quirky "Rarely comes back fast!" (alternative "Rarely returns fast!"). Also decide whether the sentences should quote tag names as `#Name` like the headlines do; the sentences are shared with the share card, so that is a copy change for this pass.
 
 **Acceptance criteria**
 
