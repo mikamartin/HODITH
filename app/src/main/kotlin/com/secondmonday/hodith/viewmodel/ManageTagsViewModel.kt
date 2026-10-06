@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
+import android.database.SQLException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.HodithRepository
@@ -48,6 +49,8 @@ data class ManageTagsUiState(
     val showFilter: Boolean = false,
     val query: String = "",
     val pending: PendingTagAction? = null,
+    /** Set when a read or write failed at the database. The failed operation wrote nothing; cleared by the next request. */
+    val writeFailed: Boolean = false,
 )
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
@@ -65,9 +68,16 @@ class ManageTagsViewModel
     ) : ViewModel() {
         private val query = MutableStateFlow("")
         private val pending = MutableStateFlow<PendingTagAction?>(null)
+        private val writeFailed = MutableStateFlow(false)
 
         val uiState: StateFlow<ManageTagsUiState> =
-            combine(repository.observeAllTags(), repository.observeTagEventCounts(), query, pending) { tags, counts, filter, action ->
+            combine(
+                repository.observeAllTags(),
+                repository.observeTagEventCounts(),
+                query,
+                pending,
+                writeFailed,
+            ) { tags, counts, filter, action, failed ->
                 val countsByTagId = counts.associate { it.tagId to it.eventCount }
                 val summaries = tags.map { TagSummary(tag = it, eventCount = countsByTagId[it.id] ?: 0) }
                 val showFilter = shouldShowTagFilter(summaries.size)
@@ -78,6 +88,7 @@ class ManageTagsViewModel
                     showFilter = showFilter,
                     query = filter,
                     pending = action,
+                    writeFailed = failed,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -97,48 +108,65 @@ class ManageTagsViewModel
             summary: TagSummary,
             requestedName: String,
         ) {
+            writeFailed.value = false
             viewModelScope.launch {
-                val collision = repository.findOtherTagByName(requestedName.trim(), excludeId = summary.tag.id)
-                when (val outcome = classifyTagRename(summary.tag, requestedName, collision)) {
-                    TagRenameOutcome.NoChange -> Unit
-                    TagRenameOutcome.Rename ->
-                        pending.value = PendingTagAction.Rename(summary.tag, requestedName.trim(), summary.eventCount)
-                    is TagRenameOutcome.Merge -> {
-                        val overlap = repository.countEventsWithBoth(summary.tag.id, outcome.target.id)
-                        pending.value =
-                            PendingTagAction.Merge(
-                                tag = summary.tag,
-                                target = outcome.target,
-                                sourceEventCount = summary.eventCount,
-                                overlapCount = overlap,
-                            )
+                attempt {
+                    val collision = repository.findOtherTagByName(requestedName.trim(), excludeId = summary.tag.id)
+                    when (val outcome = classifyTagRename(summary.tag, requestedName, collision)) {
+                        TagRenameOutcome.NoChange -> Unit
+                        TagRenameOutcome.Rename ->
+                            pending.value = PendingTagAction.Rename(summary.tag, requestedName.trim(), summary.eventCount)
+                        is TagRenameOutcome.Merge -> {
+                            val overlap = repository.countEventsWithBoth(summary.tag.id, outcome.target.id)
+                            pending.value =
+                                PendingTagAction.Merge(
+                                    tag = summary.tag,
+                                    target = outcome.target,
+                                    sourceEventCount = summary.eventCount,
+                                    overlapCount = overlap,
+                                )
+                        }
                     }
                 }
             }
         }
 
         fun onDeleteRequested(summary: TagSummary) {
+            writeFailed.value = false
             pending.value = PendingTagAction.Delete(summary.tag, summary.eventCount)
         }
 
         fun onConfirmPending() {
             val action = pending.value ?: return
             pending.value = null
+            writeFailed.value = false
             viewModelScope.launch {
-                when (action) {
-                    is PendingTagAction.Rename -> {
-                        // Re-checked at confirm time: a tag matching the new name could have appeared since the warning.
-                        // Writing anyway would violate the unique index, so the rename is dropped and the list shows the current state.
-                        val collision = repository.findOtherTagByName(action.newName, excludeId = action.tag.id)
-                        if (collision == null) repository.renameTag(action.tag.id, action.newName)
+                attempt {
+                    when (action) {
+                        is PendingTagAction.Rename -> {
+                            // Re-checked at confirm time: a tag matching the new name could have appeared since the warning.
+                            // Writing anyway would violate the unique index, so the rename is dropped and the list shows the current state.
+                            val collision = repository.findOtherTagByName(action.newName, excludeId = action.tag.id)
+                            if (collision == null) repository.renameTag(action.tag.id, action.newName)
+                        }
+                        // A target deleted since the warning makes the merge throw; the transaction rolls back and [attempt] reports it.
+                        is PendingTagAction.Merge -> repository.mergeTag(sourceId = action.tag.id, targetId = action.target.id)
+                        is PendingTagAction.Delete -> repository.deleteTag(action.tag.id)
                     }
-                    is PendingTagAction.Merge -> repository.mergeTag(sourceId = action.tag.id, targetId = action.target.id)
-                    is PendingTagAction.Delete -> repository.deleteTag(action.tag.id)
                 }
             }
         }
 
         fun onDismissPending() {
             pending.value = null
+        }
+
+        /** Catches only [SQLException], as [com.secondmonday.hodith.viewmodel.SettingsViewModel] does, so cancellation still propagates. */
+        private suspend fun attempt(block: suspend () -> Unit) {
+            try {
+                block()
+            } catch (e: SQLException) {
+                writeFailed.value = true
+            }
         }
     }

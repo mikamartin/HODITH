@@ -291,6 +291,7 @@ interface Voice {
 
     val manageTagsDeleteConfirmAction: String
     val manageTagsCancelAction: String
+    val manageTagsWriteFailed: String
     val aboutScreenTitle: String
     val aboutIdeaLabel: String
     val aboutIdeaBody: String
@@ -1294,6 +1295,7 @@ object PlainVoice : Voice {
 
     override val manageTagsDeleteConfirmAction = "Delete"
     override val manageTagsCancelAction = "Cancel"
+    override val manageTagsWriteFailed = "That change didn't save. The tags are as they were."
     override val aboutScreenTitle = "About"
     override val aboutIdeaLabel = "What HODITH is"
     override val aboutIdeaBody =
@@ -2001,6 +2003,7 @@ object IntenseVoice : Voice {
 
     override val manageTagsDeleteConfirmAction = "Erase"
     override val manageTagsCancelAction = "Abandon"
+    override val manageTagsWriteFailed = "The change did not take. The tags stand as they were."
     override val aboutScreenTitle = "The record"
     override val aboutIdeaLabel = "The premise"
     override val aboutIdeaBody =
@@ -2691,6 +2694,7 @@ object BrightVoice : Voice {
 
     override val manageTagsDeleteConfirmAction = "Delete it"
     override val manageTagsCancelAction = "Nah, never mind"
+    override val manageTagsWriteFailed = "Oops, that didn't stick! The tags are just as they were."
     override val aboutScreenTitle = "About HODITH!"
     override val aboutIdeaLabel = "What's this app about?"
     override val aboutIdeaBody =

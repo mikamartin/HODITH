@@ -173,6 +173,8 @@ class RoomHodithRepository
             sourceId: Long,
             targetId: Long,
         ) {
+            // Merging a tag into itself would re-point nothing and then delete it, with its attachments.
+            require(sourceId != targetId) { "A tag cannot merge into itself" }
             database.withTransaction {
                 tagDao.reassignEventTags(sourceId = sourceId, targetId = targetId)
                 // The source's own attachments go with it via the FK cascade on tags.

@@ -127,7 +127,7 @@ interface HodithRepository {
         name: String,
     )
 
-    /** Re-points [sourceId]'s events at [targetId] and removes [sourceId], as one transaction. */
+    /** Re-points [sourceId]'s events at [targetId] and removes [sourceId], as one transaction. The two ids must differ. */
     suspend fun mergeTag(
         sourceId: Long,
         targetId: Long,

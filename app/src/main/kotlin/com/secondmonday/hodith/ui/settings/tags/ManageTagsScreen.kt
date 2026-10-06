@@ -106,6 +106,9 @@ fun ManageTagsScreen(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (uiState.writeFailed) {
+                Text(voice.manageTagsWriteFailed, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
             if (uiState.showFilter) {
                 TagFilterField(query = uiState.query, voice = voice, onQueryChange = onQueryChange)
             }
