@@ -11,6 +11,8 @@ import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.testtags.UiTest
+import com.secondmonday.hodith.ui.casedetail.formatApproximateMonth
+import com.secondmonday.hodith.ui.casedetail.formatDays
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
@@ -71,12 +73,10 @@ class TrendsListScreenTest {
     fun everyFinding_rendersItsOwnPlank_withReliabilityTag() {
         setContent()
 
-        composeTestRule
-            .onNodeWithText(PlainVoice.insightsGapShiftSentence(ShiftDirection.UP, "3.2 days", "5.8 days"))
-            .assertExists()
-        composeTestRule
-            .onNodeWithText(PlainVoice.insightsStreakShiftSentence(ShiftDirection.DOWN, "4 days", "2 days"))
-            .assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(findings[0], bucketPhrase = "")).assertExists()
+        composeTestRule.onNodeWithText(formatDays(5.8)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendReferenceLine(formatDays(3.2))).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(findings[1], bucketPhrase = "")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityPatternLabel).assertExists()
     }
@@ -87,12 +87,10 @@ class TrendsListScreenTest {
         // confirms real finding text still shows through that structural branch.
         setContent(theme = AppTheme.BRIGHT)
 
-        composeTestRule
-            .onNodeWithText(BrightVoice.insightsGapShiftSentence(ShiftDirection.UP, "3.2 days", "5.8 days"))
-            .assertExists()
-        composeTestRule
-            .onNodeWithText(BrightVoice.insightsStreakShiftSentence(ShiftDirection.DOWN, "4 days", "2 days"))
-            .assertExists()
+        composeTestRule.onNodeWithText(BrightVoice.insightsTrendHeadline(findings[0], bucketPhrase = "")).assertExists()
+        composeTestRule.onNodeWithText(formatDays(5.8)).assertExists()
+        composeTestRule.onNodeWithText(BrightVoice.trendReferenceLine(formatDays(3.2))).assertExists()
+        composeTestRule.onNodeWithText(BrightVoice.insightsTrendHeadline(findings[1], bucketPhrase = "")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityPatternLabel).assertExists()
     }
@@ -111,9 +109,7 @@ class TrendsListScreenTest {
         val wentQuiet = TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)
         setContent(findings = listOf(wentQuiet))
 
-        composeTestRule
-            .onNodeWithText(PlainVoice.insightsWentQuietSentence(currentGapLabel = "20 days", longestPastGapLabel = "5 days"))
-            .assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(wentQuiet, bucketPhrase = "")).assertExists()
     }
 
     @Test
@@ -121,9 +117,9 @@ class TrendsListScreenTest {
         val recurrenceShape = TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.DOWN, TrendReliability.HINT, 10, 7.0, 0.0)
         setContent(findings = listOf(recurrenceShape))
 
-        composeTestRule
-            .onNodeWithText(PlainVoice.insightsRecurrenceShapeSentence(ShiftDirection.DOWN, thresholdLabel = "7 days", shareLabel = "0%"))
-            .assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(recurrenceShape, bucketPhrase = "")).assertExists()
+        composeTestRule.onNodeWithText("0%").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendRecurrenceDetailLabel(formatDays(7.0))).assertExists()
     }
 
     @Test
@@ -141,17 +137,8 @@ class TrendsListScreenTest {
             )
         setContent(findings = listOf(tagOutcome))
 
-        composeTestRule
-            .onNodeWithText(
-                PlainVoice.insightsTagOutcomeSentence(
-                    "decaf",
-                    TagOutcome.DURATION,
-                    ShiftDirection.DOWN,
-                    relativeDifferenceLabel = "50%",
-                    withoutTagLabel = "1h 30m",
-                    withTagLabel = "45m",
-                ),
-            ).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(tagOutcome, bucketPhrase = "")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendRelativeChange("50%")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityPatternLabel).assertExists()
     }
 
@@ -169,14 +156,9 @@ class TrendsListScreenTest {
             )
         setContent(findings = listOf(changePoint))
 
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(changePoint, bucketPhrase = "")).assertExists()
         composeTestRule
-            .onNodeWithText(
-                PlainVoice.insightsChangePointSentence(
-                    ShiftDirection.DOWN,
-                    dateLabel = "late July",
-                    priorLabel = "10 days",
-                    recentLabel = "4 days",
-                ),
-            ).assertExists()
+            .onNodeWithText(PlainVoice.trendChangePointDetail(formatApproximateMonth(LocalDate.of(2026, 7, 22))))
+            .assertExists()
     }
 }

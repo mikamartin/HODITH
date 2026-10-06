@@ -127,6 +127,7 @@ data class TagOutcomeResult(
     val withoutTagMean: Double,
     val withTagMean: Double,
     val sampleCount: Int,
+    val pValue: Double,
 )
 
 /**
@@ -143,6 +144,7 @@ data class ChangePointResult(
     val priorAverageDays: Double,
     val recentAverageDays: Double,
     val sampleCount: Int,
+    val pValue: Double,
 )
 
 /**
@@ -159,6 +161,7 @@ data class TrendSlopeResult(
     val priorValue: Double,
     val recentValue: Double,
     val sampleCount: Int,
+    val pValue: Double,
 )
 
 /**
@@ -177,6 +180,7 @@ data class TimeOfDaySplitResult(
     val dayMean: Double,
     val eveningMean: Double,
     val sampleCount: Int,
+    val pValue: Double,
 )
 
 /** Spec §10 Trends "tag timing" finding (Story C T7): which calendar dimension a tag's events are tested for clustering in. */
@@ -198,6 +202,7 @@ data class TagTimingResult(
     val baselineShare: Double,
     val taggedShare: Double,
     val sampleCount: Int,
+    val pValue: Double,
 )
 
 /**
@@ -215,6 +220,7 @@ data class WeekdayWeekendResult(
     val baselineShare: Double,
     val observedShare: Double,
     val sampleCount: Int,
+    val pValue: Double,
 )
 
 /**

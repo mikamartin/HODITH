@@ -14,6 +14,8 @@ import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 
 private const val DAYS_PER_MONTH = 30
@@ -22,6 +24,9 @@ private const val WINDOW_PRESET_MONTHS_FROM_DAYS = 60
 
 /** The middle-dot separator joining the parts of one info line, e.g. "3 events · 9 days". */
 internal const val DOT_SEPARATOR = " · "
+
+/** A tag combo's names as headline tokens, e.g. "#Coffee + #Walk", matching the `#Name` form the row highlights. */
+private fun comboTagNames(finding: TrendFinding): String = finding.tagNames.joinToString(" + ") { "#$it" }
 
 /** "day" / "week" / "month" / "3 months" — shared by every voice's Notification card-title copy. */
 private fun perPhrase(per: ExpectedPer): String =
@@ -497,6 +502,52 @@ interface Voice {
     /** Trends finding row: the visible reliability tag next to the sentence — structural, identical across all three voices like the stat-row labels above. */
     val trendReliabilityHintLabel: String get() = "Hint"
     val trendReliabilityPatternLabel: String get() = "Pattern"
+
+    /**
+     * Trends row headline: the trend's name, with its tag written as `#Name` so the row can highlight it.
+     * [bucketPhrase] is the already-phrased weekday or time-of-day bucket for [TrendFindingKind.TAG_TIMING]
+     * (e.g. "on Mondays"), and unused by every other kind.
+     */
+    fun insightsTrendHeadline(
+        finding: TrendFinding,
+        bucketPhrase: String,
+    ): String
+
+    /** Joins a trend row's own value to the value it's compared against, e.g. "62% vs 29%". */
+    val trendVsWord: String
+
+    /** The comparison line itself: [trendVsWord] followed by the reference value. */
+    fun trendReferenceLine(reference: String): String = "$trendVsWord $reference"
+
+    /** Reference line for a weekday/weekend split: what chance alone would give. */
+    val trendChanceBaselineLabel: String
+
+    /** Reference line for a tag's timing: the tag's own share, set against the Case's overall share. */
+    fun trendCaseWideReference(share: String): String
+
+    /** A tag combo's count against the Case's total events, e.g. "5 of 8". */
+    fun trendCountOfTotal(
+        count: Int,
+        total: Int,
+    ): String = "$count of $total"
+
+    /**
+     * The bucket a tag-timing headline or sentence names: a weekday ("on Mondays") or a time of day
+     * ("in the morning"). Exactly one of [weekdayName]/[timeOfDayLabel] is the bucket that fired.
+     */
+    fun trendTimingBucket(
+        weekdayName: String?,
+        timeOfDayLabel: String,
+    ): String = weekdayName?.let { "on ${it}s" } ?: "in the ${timeOfDayLabel.lowercase()}"
+
+    /** Detail line for a recurrence-shape row, after its share figure: the gap threshold the share counts gaps under, e.g. "of gaps within 1.5 days". */
+    fun trendRecurrenceDetailLabel(threshold: String): String
+
+    /** Detail line for a tag-outcome row: the relative difference between the two values, e.g. "40% difference". Direction-neutral, since the headline already says up or down. */
+    fun trendRelativeChange(percent: String): String
+
+    /** Detail line for a change-point row: the approximate month the shift is placed in, e.g. "Changed in early March". */
+    fun trendChangePointDetail(month: String): String
 
     /** Gap-shift finding row's evidence line, shown inline (not behind a tap) — phrased like [verdictMeta] but keyed on [sampleCount] (gaps compared) rather than an event-count/day-window pair. */
     fun insightsGapShiftEvidenceLabel(sampleCount: Int): String
@@ -1427,6 +1478,60 @@ object PlainVoice : Voice {
 
     override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before."
 
+    override fun insightsTrendHeadline(
+        finding: TrendFinding,
+        bucketPhrase: String,
+    ): String {
+        val up = finding.direction == ShiftDirection.UP
+        val tag = finding.tagName.orEmpty().let { "#$it" }
+        val duration = finding.outcome == TagOutcome.DURATION
+        return when (finding.kind) {
+            TrendFindingKind.WENT_QUIET -> "Current silence is a record"
+            TrendFindingKind.GAP_SHIFT -> if (up) "Average gap grew" else "Average gap shrank"
+            TrendFindingKind.STREAK_SHIFT -> if (up) "Runs got longer" else "Runs got shorter"
+            TrendFindingKind.FREQUENCY_SHIFT -> if (up) "More events lately" else "Fewer events lately"
+            TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag shows up more" else "$tag shows up less"
+            TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} often logged together"
+            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Often comes back quickly" else "Rarely comes back quickly"
+            TrendFindingKind.TAG_OUTCOME ->
+                when {
+                    duration && up -> "$tag lasts longer"
+                    duration -> "$tag lasts shorter"
+                    up -> "$tag runs more intense"
+                    else -> "$tag runs less intense"
+                }
+            TrendFindingKind.CHANGE_POINT -> if (up) "Gaps widened" else "Gaps narrowed"
+            TrendFindingKind.TREND_SLOPE ->
+                when {
+                    duration && up -> "Episodes running longer"
+                    duration -> "Episodes running shorter"
+                    up -> "Intensity climbing"
+                    else -> "Intensity easing"
+                }
+            TrendFindingKind.TIME_OF_DAY_SPLIT ->
+                when {
+                    duration && up -> "Evenings last longer"
+                    duration -> "Days last longer"
+                    up -> "Evenings run more intense"
+                    else -> "Days run more intense"
+                }
+            TrendFindingKind.TAG_TIMING -> "$tag clusters $bucketPhrase"
+            TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> if (up) "Leans toward weekends" else "Leans toward weekdays"
+        }
+    }
+
+    override val trendVsWord = "vs"
+
+    override fun trendCaseWideReference(share: String) = "$share across the case"
+
+    override val trendChanceBaselineLabel = "2 in 7 by chance"
+
+    override fun trendRecurrenceDetailLabel(threshold: String) = "of gaps within $threshold"
+
+    override fun trendRelativeChange(percent: String) = "$percent difference"
+
+    override fun trendChangePointDetail(month: String) = "Changed in $month"
+
     override fun insightsTagShareShiftSentence(
         tagName: String,
         direction: ShiftDirection,
@@ -2133,6 +2238,60 @@ object IntenseVoice : Voice {
 
     override fun insightsFrequencyShiftEvidenceLabel() = "Weighed against the thirty days before."
 
+    override fun insightsTrendHeadline(
+        finding: TrendFinding,
+        bucketPhrase: String,
+    ): String {
+        val up = finding.direction == ShiftDirection.UP
+        val tag = finding.tagName.orEmpty().let { "#$it" }
+        val duration = finding.outcome == TagOutcome.DURATION
+        return when (finding.kind) {
+            TrendFindingKind.WENT_QUIET -> "A record silence"
+            TrendFindingKind.GAP_SHIFT -> if (up) "Silences lengthened" else "Silences shortened"
+            TrendFindingKind.STREAK_SHIFT -> if (up) "Waking spells lengthening" else "Waking spells shrinking"
+            TrendFindingKind.FREQUENCY_SHIFT -> if (up) "Ramping up" else "Winding down"
+            TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag claims more" else "$tag claims less"
+            TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} keep company"
+            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Returns fast" else "Rarely returns fast"
+            TrendFindingKind.TAG_OUTCOME ->
+                when {
+                    duration && up -> "$tag lingers longer"
+                    duration -> "$tag passes quicker"
+                    up -> "$tag cuts deeper"
+                    else -> "$tag cuts less deep"
+                }
+            TrendFindingKind.CHANGE_POINT -> if (up) "Silences stretched" else "Silences tightened"
+            TrendFindingKind.TREND_SLOPE ->
+                when {
+                    duration && up -> "Lingering longer lately"
+                    duration -> "Passing quicker lately"
+                    up -> "Cutting deeper lately"
+                    else -> "Easing off lately"
+                }
+            TrendFindingKind.TIME_OF_DAY_SPLIT ->
+                when {
+                    duration && up -> "The evening lingers"
+                    duration -> "The day lingers"
+                    up -> "The evening hits harder"
+                    else -> "The day hits harder"
+                }
+            TrendFindingKind.TAG_TIMING -> "$tag gathers $bucketPhrase"
+            TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> if (up) "The weekend pulls" else "The weekday pulls"
+        }
+    }
+
+    override val trendVsWord = "against"
+
+    override fun trendCaseWideReference(share: String) = "$share case-wide"
+
+    override val trendChanceBaselineLabel = "2 in 7 by sheer chance"
+
+    override fun trendRecurrenceDetailLabel(threshold: String) = "of gaps landing within $threshold"
+
+    override fun trendRelativeChange(percent: String) = "$percent apart"
+
+    override fun trendChangePointDetail(month: String) = "Changed in $month"
+
     override fun insightsTagShareShiftSentence(
         tagName: String,
         direction: ShiftDirection,
@@ -2823,6 +2982,60 @@ object BrightVoice : Voice {
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks!"
 
     override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before!"
+
+    override fun insightsTrendHeadline(
+        finding: TrendFinding,
+        bucketPhrase: String,
+    ): String {
+        val up = finding.direction == ShiftDirection.UP
+        val tag = finding.tagName.orEmpty().let { "#$it" }
+        val duration = finding.outcome == TagOutcome.DURATION
+        return when (finding.kind) {
+            TrendFindingKind.WENT_QUIET -> "Record-breaking quiet!"
+            TrendFindingKind.GAP_SHIFT -> if (up) "Gaps got longer!" else "Gaps got shorter!"
+            TrendFindingKind.STREAK_SHIFT -> if (up) "Runs got longer!" else "Runs got shorter!"
+            TrendFindingKind.FREQUENCY_SHIFT -> if (up) "Busier than before!" else "Quieter than before!"
+            TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag is popping up more!" else "$tag is popping up less!"
+            TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} are besties!"
+            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Comes back fast!" else "Rarely comes back fast!"
+            TrendFindingKind.TAG_OUTCOME ->
+                when {
+                    duration && up -> "$tag sticks around longer!"
+                    duration -> "$tag wraps up faster!"
+                    up -> "$tag hits harder!"
+                    else -> "$tag hits softer!"
+                }
+            TrendFindingKind.CHANGE_POINT -> if (up) "Gaps stretched out!" else "Gaps tightened up!"
+            TrendFindingKind.TREND_SLOPE ->
+                when {
+                    duration && up -> "Sticking around longer!"
+                    duration -> "Wrapping up faster!"
+                    up -> "Hitting harder lately!"
+                    else -> "Hitting softer lately!"
+                }
+            TrendFindingKind.TIME_OF_DAY_SPLIT ->
+                when {
+                    duration && up -> "Evenings linger!"
+                    duration -> "Days linger!"
+                    up -> "Evenings hit harder!"
+                    else -> "Days hit harder!"
+                }
+            TrendFindingKind.TAG_TIMING -> "$tag clusters $bucketPhrase!"
+            TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> if (up) "Loves a weekend!" else "Loves a weekday!"
+        }
+    }
+
+    override val trendVsWord = "vs"
+
+    override fun trendCaseWideReference(share: String) = "$share case-wide"
+
+    override val trendChanceBaselineLabel = "2 in 7 by pure luck!"
+
+    override fun trendRecurrenceDetailLabel(threshold: String) = "of gaps came back within $threshold!"
+
+    override fun trendRelativeChange(percent: String) = "$percent apart!"
+
+    override fun trendChangePointDetail(month: String) = "Changed in $month!"
 
     override fun insightsTagShareShiftSentence(
         tagName: String,

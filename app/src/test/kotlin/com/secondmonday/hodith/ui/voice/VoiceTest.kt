@@ -1,6 +1,11 @@
 package com.secondmonday.hodith.ui.voice
 
 import com.secondmonday.hodith.domain.ComparisonBand
+import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TagOutcome
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.TrendReliability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -31,6 +36,31 @@ class VoiceTest {
                     assertTrue("${function.name}$args is blank for $voice", value.isNotBlank())
                 }
             }
+        }
+    }
+
+    @Test
+    fun `trend comparison lines differ in every voice rather than falling back to one shared copy`() {
+        assertEquals(3, voices.map { it.trendChanceBaselineLabel }.toSet().size)
+        assertEquals(3, voices.map { it.trendRecurrenceDetailLabel("3 days") }.toSet().size)
+    }
+
+    @Test
+    fun `tag combo headline names every tag in the combo in all three voices`() {
+        val combo =
+            TrendFinding(
+                TrendFindingKind.TAG_COMBO,
+                ShiftDirection.UP,
+                TrendReliability.HINT,
+                5,
+                5.0,
+                8.0,
+                tagNames = listOf("Coffee", "Walk"),
+            )
+        for (voice in voices) {
+            val headline = voice.insightsTrendHeadline(combo, bucketPhrase = "")
+            assertTrue("$voice headline should name #Coffee: $headline", headline.contains("#Coffee"))
+            assertTrue("$voice headline should name #Walk: $headline", headline.contains("#Walk"))
         }
     }
 
@@ -164,10 +194,21 @@ class VoiceTest {
                     kClass == Int::class -> listOf(3)
                     kClass == Long::class -> listOf(5L)
                     kClass == Boolean::class -> listOf(true, false)
+                    kClass == TrendFinding::class -> trendFindingSamples()
                     else -> error("No sample value strategy for parameter type $kClass")
                 }
             return if (type.isMarkedNullable) base + null else base
         }
+
+        /** Every kind, direction and outcome, so each trend headline branch is checked in all three voices. */
+        private fun trendFindingSamples(): List<TrendFinding> =
+            TrendFindingKind.entries.flatMap { kind ->
+                ShiftDirection.entries.flatMap { direction ->
+                    listOf<TagOutcome?>(null, TagOutcome.INTENSITY, TagOutcome.DURATION).map { outcome ->
+                        TrendFinding(kind, direction, TrendReliability.PATTERN, 3, 2.0, 5.0, tagName = "Test Case", outcome = outcome)
+                    }
+                }
+            }
 
         private fun argumentCombinations(function: KFunction<*>): List<List<Any?>> {
             val params = function.parameters.filter { it.kind == KParameter.Kind.VALUE }

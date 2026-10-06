@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -163,7 +164,8 @@ fun CaseDetailScreen(
     // Non-null while the new-event log sheet is open, holding the `now` captured when it opened.
     // Editing an existing event is a separate destination (onEditEvent), not this sheet.
     var newEventSheetNow by remember { mutableStateOf<Long?>(null) }
-    var selectedTab by remember { mutableIntStateOf(LOG_TAB) }
+    // rememberSaveable, not remember: opening Trends/Tags/Share navigates away and disposes this screen, and the tab should still be Insights on return.
+    var selectedTab by rememberSaveable { mutableIntStateOf(LOG_TAB) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
     // Hoisted above WatchesTabContent so the outer FAB (a sibling of the tab content, not a
     // nested Scaffold) can open the same create sheet a card tap opens for edit.

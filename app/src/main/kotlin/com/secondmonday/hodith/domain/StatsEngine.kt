@@ -465,6 +465,7 @@ private fun tagOutcomeResultFor(
     if (pValue >= TAG_OUTCOME_SIGNIFICANCE_ALPHA) return null
 
     return TagOutcomeResult(
+        pValue = pValue,
         tagName = tagName,
         outcome = outcome,
         direction = if (relativeDifference > 0) ShiftDirection.UP else ShiftDirection.DOWN,
@@ -542,6 +543,7 @@ private fun trendSlopeResultFor(
     if (pValue >= TREND_SLOPE_SIGNIFICANCE_ALPHA) return null
 
     return TrendSlopeResult(
+        pValue = pValue,
         outcome = outcome,
         direction = if (slope > 0) ShiftDirection.UP else ShiftDirection.DOWN,
         priorValue = firstHalf.average(),
@@ -616,6 +618,7 @@ private fun timeOfDaySplitResultFor(
     if (pValue >= TIME_OF_DAY_SPLIT_SIGNIFICANCE_ALPHA) return null
 
     return TimeOfDaySplitResult(
+        pValue = pValue,
         outcome = outcome,
         direction = if (relativeDifference > 0) ShiftDirection.UP else ShiftDirection.DOWN,
         dayMean = dayGroup.average(),
@@ -671,7 +674,7 @@ private fun tagTimingResultFor(
         TagTimingDimension.WEEKDAY -> {
             val buckets = eventsWithTags.map { Instant.ofEpochMilli(it.event.occurredAt).atZone(it.event.loggedZone()).dayOfWeek }
             tagTimingCandidate(DayOfWeek.entries, buckets, taggedIndices, taggedSize, caseId, tagName, dimension)
-                ?.let { (peak, baseline, tagged) ->
+                ?.let { (peak, baseline, tagged, pValue) ->
                     TagTimingResult(
                         tagName,
                         dimension,
@@ -679,13 +682,14 @@ private fun tagTimingResultFor(
                         baselineShare = baseline,
                         taggedShare = tagged,
                         sampleCount = taggedSize,
+                        pValue = pValue,
                     )
                 }
         }
         TagTimingDimension.TIME_OF_DAY -> {
             val buckets = eventsWithTags.map { timeOfDayFor(Instant.ofEpochMilli(it.event.occurredAt).atZone(it.event.loggedZone()).hour) }
             tagTimingCandidate(TimeOfDay.entries, buckets, taggedIndices, taggedSize, caseId, tagName, dimension)
-                ?.let { (peak, baseline, tagged) ->
+                ?.let { (peak, baseline, tagged, pValue) ->
                     TagTimingResult(
                         tagName,
                         dimension,
@@ -693,11 +697,20 @@ private fun tagTimingResultFor(
                         baselineShare = baseline,
                         taggedShare = tagged,
                         sampleCount = taggedSize,
+                        pValue = pValue,
                     )
                 }
         }
     }
 }
+
+/** The fired peak bucket from [tagTimingCandidate], with its baseline/tagged shares and permutation p-value. */
+private data class TagTimingPeak<B>(
+    val bucket: B,
+    val baselineShare: Double,
+    val taggedShare: Double,
+    val pValue: Double,
+)
 
 /**
  * Shared bucket-share/peak-search/permutation logic across both [TagTimingDimension]s — [B] is
@@ -717,7 +730,7 @@ private fun <B> tagTimingCandidate(
     caseId: Long,
     tagName: String,
     dimension: TagTimingDimension,
-): Triple<B, Double, Double>? {
+): TagTimingPeak<B>? {
     val baselineShares = bucketShares(buckets, allBuckets)
     val taggedShares = bucketShares(taggedIndices.map { buckets[it] }, allBuckets)
     val peakBucket = allBuckets.maxBy { taggedShares.getValue(it) - baselineShares.getValue(it) }
@@ -732,7 +745,7 @@ private fun <B> tagTimingCandidate(
         }
     if (pValue >= TAG_TIMING_SIGNIFICANCE_ALPHA) return null
 
-    return Triple(peakBucket, baselineShares.getValue(peakBucket), taggedShares.getValue(peakBucket))
+    return TagTimingPeak(peakBucket, baselineShares.getValue(peakBucket), taggedShares.getValue(peakBucket), pValue)
 }
 
 /** Each of [allBuckets]'s share of [buckets] (fraction, 0.0-1.0, sums to 1.0 across [allBuckets]). */
@@ -824,6 +837,7 @@ internal fun computeWeekdayWeekendFindings(eventsWithTags: List<EventWithTags>):
     if (pValue >= WEEKDAY_WEEKEND_SIGNIFICANCE_ALPHA) return null
 
     return WeekdayWeekendResult(
+        pValue = pValue,
         direction = if (delta > 0) ShiftDirection.UP else ShiftDirection.DOWN,
         baselineShare = WEEKDAY_WEEKEND_BASELINE_SHARE,
         observedShare = observedShare,

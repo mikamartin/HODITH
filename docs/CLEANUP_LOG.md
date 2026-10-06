@@ -17,6 +17,46 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/trends-visual-redesign
+
+**Scope:** the Trends visual redesign: the Insights card row (headline, Pattern/Hint chip, compared figures, evidence count), the full-list row (same row), p-value ordering, and sort-before-cap. PROGRESS.md's Trends item now holds only the open work.
+
+**Walked:** CLEANUP_CHECKLIST.md against the branch's diff, section by section, in two passes. The second pass found the stale instrumented assertions and the log claims corrected below. Verified in this pass: `ktlintCheck`, `test` (1167 unit tests, none failing), `lintDebug` and `assembleDebug` pass; `compileDebugAndroidTestKotlin` compiles. Not run: the instrumented tests (no device this pass), and light and dark mode on a device.
+
+**Found & fixed:**
+- Instrumented tests still asserted sentence text the rows no longer render: every row test in `TrendsListScreenTest`, plus the frequency-shift and gap-shift assertions in `CaseDetailInsightsTabTest`. They now assert the headline and the figures. The compact-card test asserted no reliability chip; the chip appears on both surfaces now, so it asserts the chip exists.
+- Two inline English phrases in the row code moved into `Voice`: the tag combo's "of" (`trendCountOfTotal`) and the tag-timing bucket (`trendTimingBucket`, shared with the sentence through `trendBucketPhrase`). The case-wide reference moved to `trendCaseWideReference`.
+- Stale KDoc in `Trends.kt`, `TrendsEngine.kt` and `InsightsTab.kt`: the Hint/Pattern and "every detector" wording, the Insights card description, and the evidence line, which no longer sits under a sentence. Rewritten to describe the code as it is. One over-long KDoc line reflowed.
+- `VoiceTest` gained a `TrendFinding` sample generator covering every kind, direction and outcome, so the reflection invariants check the headlines.
+- Two order-dependent unit tests asserted detector order, which the sort replaces. Rewritten to assert the new contract. Added: a strong Pattern finding survives the cap, `pValue` is set on Pattern findings and null on Hints, Hints order by relative change, a zero-baseline Hint ranks first, and a tag combo ranks after measured Hints.
+- A `!!` in the new `TrendsEngineTest` assertion was flagged by the compiler as unnecessary. Removed.
+- `CaseDetailScreen`'s tab state changed from `remember` to `rememberSaveable` (commit 22a7e41). Opening Trends, Tags or Share disposes this screen, and the tab used to reset to Log on return. It now stays on Insights.
+
+**Deferred:**
+- Headline copy length and whether sentences quote tag names as `#Name`: moved to PROGRESS.md's voice phrasing audit item, with the flagged labels and their alternatives. The sentences are shared with the share card, so that is a copy change for the audit.
+- Silent fallbacks in the Trends rows: PROGRESS.md. `changePointDate ?: LocalDate.now()` lives in `trendFindingSentence`, the share card's path. The Insights rows read the same date null-safely.
+- Recency tie-break and "New" badge: PROGRESS.md.
+
+**Considered and declined:**
+- `groupRank` and `hintEffectSize` in their own file: private, single-caller, and documented beside the sort they serve.
+- `trendCountOfTotal`, `trendTimingBucket` and `trendReferenceLine` as interface defaults rather than per-voice overrides. They follow the existing `trendReliabilityHintLabel` pattern for structural copy, so their English wording is shared across voices.
+
+**Checks:**
+- Duplication: the compact card and the full list share `TrendFindingBody`. The reliability chip uses `StatusChip`, which the Gaps card's burst flag now uses too.
+- Decoupling: `domain/` has no `android.*` imports and no `System.currentTimeMillis()`, and it takes no ViewModel or UI types.
+- Complexity: `TrendFindingBody` is about 60 lines, the largest new composable, under the split threshold. No new `LaunchedEffect`. The one `remember` changed as recorded above.
+- Dead code: no unused imports (ktlint passes). The share card still uses the sentence functions, so no Voice keys are orphaned. The HTML prototype lives outside the repo.
+- Hygiene: no secrets or local paths in the diff. `git status` shows only intended files.
+- Naming and Voice: every new abstract key is overridden in all three voices. The three interface defaults are structural (see Considered and declined).
+- Hardcoded values: no new colours or product constants. The sort ranks 0/1/2 are ordering only.
+- Accessibility: the chip is text, so the tier is not conveyed by colour alone. No new tap targets.
+- UI copy brevity: flagged labels moved to PROGRESS.md with alternatives.
+- Spec: HODITH_SPEC.md §10 and §13 match the code. The share card is still sentence-only.
+- Data model, widgets and background work: not touched. `widget/` has no trend references.
+- Deprecated APIs: not checked against compiler output in this pass.
+
+**Docs updated:** HODITH_SPEC.md §10 (Trends card contents, info icon placement, ordering); TESTING.md (`TrendFiguresTest` added to the trend sentence row); PROGRESS.md (trends item reduced to its open work; copy review bullet added to the voice phrasing audit item); this entry.
+
 ---
 
 ## feature/manage-tags
@@ -35,6 +75,8 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Cross-Case wording in the warnings ("across all Cases, including archived ones") is pending the owner's review.
 
 **Docs updated:** PROGRESS.md (item struck), HODITH_SPEC §14 (Settings Data row and a Manage tags row), TESTING.md (coverage rows), MANUAL_TEST_PLAN.md (Tags section).
+
+---
 
 ## chore/ui-test-suite-audit
 
@@ -116,31 +158,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Storing the Case's creation date as the filter's start. Events can be dated before the Case was created (the log-detail date picker only caps at today), so that would hide them from the "All" view.
 
 **Docs updated:** PROGRESS.md (item removed, since it is resolved). HODITH_SPEC §6: the filter-chip row now describes the combined Range control, the unset-range span, and the unbounded filter. The paragraph had described separate From and To chips, which the combined control replaced earlier.
-
----
-
-## feat/tags-short-expanded-view
-
-**Scope:** PROGRESS.md's "Insights tab: tag list short/expanded view" item. The Insights tag card collapses past 5 distinct tags to a summary and the busiest three, with a "see all" link to a new full tag list screen that mirrors the Trends list.
-
-**Walked:** every item in CLEANUP_CHECKLIST.md against the diff. Items not listed below were checked and needed nothing.
-
-**Found & fixed:**
-- The Trends and Tags cards each built their own right-aligned show-more button. It's now `InsightsShowMoreButton`, used by both.
-- The Trends and Tags full-list screens each built their own scaffold (top bar, case subtitle, back arrow, info dialog, scrolling column). It's now `InsightsDetailScaffold`. `TrendsListScreen` moved onto it with no change in behaviour.
-- The Trends and Tags view models each combined the same three repository flows. That combine is now `caseInsightsFlow`, used by both.
-- `StatRow`, `InsightsDrillDownDialog` and `InsightsCard` were private to `InsightsTab.kt`. They're internal now, so the tag list reuses them rather than copying them. The tag-filter drill-down's event filter is `eventsWithTag`, shared by the card and the list.
-- The new helper file held one class. It's named `CaseInsights.kt` to match the rule that a file holding one class is named after it.
-- New and edited files had LF line endings. All changed files are CRLF again, matching HEAD.
-- Import order and line wrapping in touched files, via ktlint.
-- The Tags summary (total events and total tags) sits in one shared composable, `TagsSummary`, used on the card and the full list.
-
-**Deferred:**
-- Nothing deferred from this pass.
-
-**Considered and declined:**
-- `distinctTagCount` on `StatsSections` defaults to `tags.size`. That keeps the existing test fixtures compiling. The production path always passes the real value from `computeTagBreakdown`.
-- `tagsVisibleEntries` has one production caller. It's the compact-card rule the unit tests pin, so the extraction earns its keep, as with `shareDisplayName`.
-- The Tags full-list screen has no `@Preview` composables. Per the instruction to skip separate previews, the working state was checked on the card and screen instead.
-
-**Docs updated:** HODITH_SPEC §10 (tag breakdown: summary, collapsed card, full tag list, Share card difference). TESTING.md Compose UI, Case Detail Insights row. PROGRESS.md item struck.
