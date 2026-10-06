@@ -25,6 +25,9 @@ private const val WINDOW_PRESET_MONTHS_FROM_DAYS = 60
 /** The middle-dot separator joining the parts of one info line, e.g. "3 events · 9 days". */
 internal const val DOT_SEPARATOR = " · "
 
+/** A tag combo's names as headline tokens, e.g. "#Coffee + #Walk", matching the `#Name` form the row highlights. */
+private fun comboTagNames(finding: TrendFinding): String = finding.tagNames.joinToString(" + ") { "#$it" }
+
 /** "day" / "week" / "month" / "3 months" — shared by every voice's Notification card-title copy. */
 private fun perPhrase(per: ExpectedPer): String =
     when (per) {
@@ -517,7 +520,7 @@ interface Voice {
     fun trendReferenceLine(reference: String): String = "$trendVsWord $reference"
 
     /** Reference line for a weekday/weekend split: what chance alone would give. */
-    val trendChanceBaselineLabel: String get() = "2 in 7 by chance"
+    val trendChanceBaselineLabel: String
 
     /** Reference line for a tag's timing: the tag's own share, set against the Case's overall share. */
     fun trendCaseWideReference(share: String): String
@@ -537,8 +540,14 @@ interface Voice {
         timeOfDayLabel: String,
     ): String = weekdayName?.let { "on ${it}s" } ?: "in the ${timeOfDayLabel.lowercase()}"
 
-    /** Detail line for a recurrence-shape row, after its share figure. */
-    val trendRecurrenceDetailLabel: String get() = "of gaps under half the usual wait"
+    /** Detail line for a recurrence-shape row, after its share figure: the gap threshold the share counts gaps under, e.g. "of gaps within 1.5 days". */
+    fun trendRecurrenceDetailLabel(threshold: String): String
+
+    /** Detail line for a tag-outcome row: the relative difference between the two values, e.g. "40% difference". Direction-neutral, since the headline already says up or down. */
+    fun trendRelativeChange(percent: String): String
+
+    /** Detail line for a change-point row: the approximate month the shift is placed in, e.g. "Changed in early March". */
+    fun trendChangePointDetail(month: String): String
 
     /** Gap-shift finding row's evidence line, shown inline (not behind a tap) — phrased like [verdictMeta] but keyed on [sampleCount] (gaps compared) rather than an event-count/day-window pair. */
     fun insightsGapShiftEvidenceLabel(sampleCount: Int): String
@@ -1482,7 +1491,7 @@ object PlainVoice : Voice {
             TrendFindingKind.STREAK_SHIFT -> if (up) "Runs got longer" else "Runs got shorter"
             TrendFindingKind.FREQUENCY_SHIFT -> if (up) "More events lately" else "Fewer events lately"
             TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag shows up more" else "$tag shows up less"
-            TrendFindingKind.TAG_COMBO -> "Often logged together"
+            TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} often logged together"
             TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Often comes back quickly" else "Rarely comes back quickly"
             TrendFindingKind.TAG_OUTCOME ->
                 when {
@@ -1514,6 +1523,14 @@ object PlainVoice : Voice {
     override val trendVsWord = "vs"
 
     override fun trendCaseWideReference(share: String) = "$share across the case"
+
+    override val trendChanceBaselineLabel = "2 in 7 by chance"
+
+    override fun trendRecurrenceDetailLabel(threshold: String) = "of gaps within $threshold"
+
+    override fun trendRelativeChange(percent: String) = "$percent difference"
+
+    override fun trendChangePointDetail(month: String) = "Changed in $month"
 
     override fun insightsTagShareShiftSentence(
         tagName: String,
@@ -2234,7 +2251,7 @@ object IntenseVoice : Voice {
             TrendFindingKind.STREAK_SHIFT -> if (up) "Waking spells lengthening" else "Waking spells shrinking"
             TrendFindingKind.FREQUENCY_SHIFT -> if (up) "Ramping up" else "Winding down"
             TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag claims more" else "$tag claims less"
-            TrendFindingKind.TAG_COMBO -> "Paired tags"
+            TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} keep company"
             TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Returns fast" else "Rarely returns fast"
             TrendFindingKind.TAG_OUTCOME ->
                 when {
@@ -2266,6 +2283,14 @@ object IntenseVoice : Voice {
     override val trendVsWord = "against"
 
     override fun trendCaseWideReference(share: String) = "$share case-wide"
+
+    override val trendChanceBaselineLabel = "2 in 7 by sheer chance"
+
+    override fun trendRecurrenceDetailLabel(threshold: String) = "of gaps landing within $threshold"
+
+    override fun trendRelativeChange(percent: String) = "$percent apart"
+
+    override fun trendChangePointDetail(month: String) = "Changed in $month"
 
     override fun insightsTagShareShiftSentence(
         tagName: String,
@@ -2971,7 +2996,7 @@ object BrightVoice : Voice {
             TrendFindingKind.STREAK_SHIFT -> if (up) "Runs got longer!" else "Runs got shorter!"
             TrendFindingKind.FREQUENCY_SHIFT -> if (up) "Busier than before!" else "Quieter than before!"
             TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag is popping up more!" else "$tag is popping up less!"
-            TrendFindingKind.TAG_COMBO -> "A tag pair!"
+            TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} are besties!"
             TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Comes back fast!" else "Rarely comes back fast!"
             TrendFindingKind.TAG_OUTCOME ->
                 when {
@@ -3003,6 +3028,14 @@ object BrightVoice : Voice {
     override val trendVsWord = "vs"
 
     override fun trendCaseWideReference(share: String) = "$share case-wide"
+
+    override val trendChanceBaselineLabel = "2 in 7 by pure luck!"
+
+    override fun trendRecurrenceDetailLabel(threshold: String) = "of gaps came back within $threshold!"
+
+    override fun trendRelativeChange(percent: String) = "$percent apart!"
+
+    override fun trendChangePointDetail(month: String) = "Changed in $month!"
 
     override fun insightsTagShareShiftSentence(
         tagName: String,

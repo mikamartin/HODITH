@@ -40,6 +40,31 @@ class VoiceTest {
     }
 
     @Test
+    fun `trend comparison lines differ in every voice rather than falling back to one shared copy`() {
+        assertEquals(3, voices.map { it.trendChanceBaselineLabel }.toSet().size)
+        assertEquals(3, voices.map { it.trendRecurrenceDetailLabel("3 days") }.toSet().size)
+    }
+
+    @Test
+    fun `tag combo headline names every tag in the combo in all three voices`() {
+        val combo =
+            TrendFinding(
+                TrendFindingKind.TAG_COMBO,
+                ShiftDirection.UP,
+                TrendReliability.HINT,
+                5,
+                5.0,
+                8.0,
+                tagNames = listOf("Coffee", "Walk"),
+            )
+        for (voice in voices) {
+            val headline = voice.insightsTrendHeadline(combo, bucketPhrase = "")
+            assertTrue("$voice headline should name #Coffee: $headline", headline.contains("#Coffee"))
+            assertTrue("$voice headline should name #Walk: $headline", headline.contains("#Walk"))
+        }
+    }
+
+    @Test
     fun `logSummaryLine leads with the rate when there is one and reads the count line without it`() {
         for (voice in listOf(PlainVoice, IntenseVoice, BrightVoice)) {
             val withRate = voice.logSummaryLine(rate = "2.1/week", eventCount = 31, observedDays = 94)

@@ -46,7 +46,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -91,6 +90,7 @@ import com.secondmonday.hodith.ui.common.OngoingElapsedText
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.StatColumn
+import com.secondmonday.hodith.ui.common.StatusChip
 import com.secondmonday.hodith.ui.common.shareMinAvgMaxLabels
 import com.secondmonday.hodith.ui.common.toCellColor
 import com.secondmonday.hodith.ui.common.toTextColor
@@ -99,6 +99,7 @@ import com.secondmonday.hodith.ui.theme.GlowCard
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
+import com.secondmonday.hodith.ui.voice.DOT_SEPARATOR
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
@@ -679,10 +680,10 @@ private fun GapsCard(
                     StatColumn(voice.insightsStreakAverageLabel, rows.averageStreak)
                 }
                 if (rows.isBursty) {
-                    Text(
-                        text = voice.insightsBurstFlagLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                    StatusChip(
+                        label = voice.insightsBurstFlagLabel,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
@@ -693,8 +694,8 @@ private fun GapsCard(
 /**
  * Spec §10 Trends section (Story C T1's scaffold): the first Insights card, shown only when at
  * least one [TrendFinding] exists — mirrors [TagsCard]'s `.isNotEmpty()` gate at the call site. Each row
- * shows its headline, the Pattern/Hint chip, the figures it compares and its evidence count; the full
- * sentence lives on the full-list screen ([TrendsListScreen] via [onShowMore]). Shows the first [TRENDS_DEFAULT_VISIBLE_COUNT] findings; "show more" is right-aligned under them,
+ * shows its headline, the Pattern/Hint chip, the figures it compares and its evidence count. The full
+ * list ([TrendsListScreen] via [onShowMore]) shows the same rows, up to the domain cap. Shows the first [TRENDS_DEFAULT_VISIBLE_COUNT] findings; "show more" is right-aligned under them,
  * matching a trailing/secondary action rather than a primary one. When [TrendFindingKind.WENT_QUIET]
  * leads (TrendsEngine always prepends it first when it fires), it's shown alone instead — it reports
  * the Case's live, still-unresolved state rather than a settled historical shift like every other
@@ -709,11 +710,22 @@ private fun TrendsCard(
 ) {
     val visibleCount = trendsVisibleCount(findings)
     InsightsCard {
-        Text(voice.insightsSectionLabelTrends, style = MaterialTheme.typography.titleSmall)
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            findings.take(visibleCount).forEach { finding -> TrendFindingRow(finding, voice) }
+        SectionWithInfo(
+            label = voice.insightsSectionLabelTrends,
+            infoTitle = voice.insightsTrendsInfoTitle,
+            infoBody = voice.insightsTrendsInfoBody,
+            infoDescription = voice.caseSectionInfoDescription,
+            labelStyle = MaterialTheme.typography.titleSmall,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                findings.take(visibleCount).forEachIndexed { index, finding ->
+                    // The same divider the Tags card draws, here between rows so each trend reads as its own entry.
+                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    TrendFindingRow(finding, voice)
+                }
+            }
+            if (findings.size > visibleCount) InsightsShowMoreButton(voice.insightsTrendsShowMoreAction, onShowMore)
         }
-        if (findings.size > visibleCount) InsightsShowMoreButton(voice.insightsTrendsShowMoreAction, onShowMore)
     }
 }
 
@@ -749,9 +761,7 @@ private fun TrendReliabilityTag(
                     MaterialTheme.colorScheme.onPrimaryContainer,
                 )
         }
-    Surface(color = container, contentColor = content, shape = MaterialTheme.shapes.small) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-    }
+    StatusChip(label = label, containerColor = container, contentColor = content)
 }
 
 /**
@@ -880,11 +890,15 @@ private fun trendFindingEvidenceLabel(
         TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> voice.insightsWeekdayWeekendEvidenceLabel(finding.sampleCount)
     }
 
-/** The figures one [TrendFinding] compares: [primary] is this period's value, [reference] what it's compared against. */
+/**
+ * The figures one [TrendFinding] compares: [primary] is this period's value, [reference] what it's compared against.
+ * [detail] sits on the figures' line unless [detailOnOwnLine] is set, for a detail too long to share a line with them.
+ */
 internal data class TrendFigures(
     val primary: String,
     val reference: String? = null,
     val detail: String? = null,
+    val detailOnOwnLine: Boolean = false,
 )
 
 /** The figures for [finding]'s row, in the same units its sentence uses. */
@@ -896,8 +910,15 @@ internal fun trendFigures(
         TrendFindingKind.WENT_QUIET,
         TrendFindingKind.GAP_SHIFT,
         TrendFindingKind.STREAK_SHIFT,
-        TrendFindingKind.CHANGE_POINT,
         -> TrendFigures(formatDays(finding.recentValue), formatDays(finding.priorValue))
+        // changePointDate is set for this kind in practice; null-safe so a missing date drops the detail line rather than inventing one.
+        TrendFindingKind.CHANGE_POINT ->
+            TrendFigures(
+                formatDays(finding.recentValue),
+                formatDays(finding.priorValue),
+                detail = finding.changePointDate?.let { voice.trendChangePointDetail(formatApproximateMonth(it)) },
+                detailOnOwnLine = true,
+            )
         TrendFindingKind.FREQUENCY_SHIFT ->
             TrendFigures(finding.recentValue.roundToInt().toString(), finding.priorValue.roundToInt().toString())
         TrendFindingKind.TAG_SHARE_SHIFT -> TrendFigures(formatPercent(finding.recentValue), formatPercent(finding.priorValue))
@@ -907,26 +928,33 @@ internal fun trendFigures(
                 voice.trendCountOfTotal(finding.priorValue.roundToInt(), finding.recentValue.roundToInt()),
             )
         TrendFindingKind.RECURRENCE_SHAPE ->
-            TrendFigures(formatPercent(finding.recentValue), detail = voice.trendRecurrenceDetailLabel)
+            TrendFigures(formatPercent(finding.recentValue), detail = voice.trendRecurrenceDetailLabel(formatDays(finding.priorValue)))
         TrendFindingKind.WEEKDAY_WEEKEND_SPLIT ->
             TrendFigures(formatPercent(finding.recentValue), voice.trendChanceBaselineLabel)
         TrendFindingKind.TAG_TIMING ->
             TrendFigures(formatPercent(finding.recentValue), voice.trendCaseWideReference(formatPercent(finding.priorValue)))
-        TrendFindingKind.TAG_OUTCOME,
+        TrendFindingKind.TAG_OUTCOME -> {
+            // priorValue of zero leaves no relative change to state, so the detail line is dropped rather than shown as infinite.
+            val detail =
+                finding.priorValue.takeIf { it != 0.0 }?.let {
+                    voice.trendRelativeChange(formatPercent(abs((finding.recentValue - it) / it)))
+                }
+            outcomeValueFigures(finding).copy(detail = detail)
+        }
         TrendFindingKind.TREND_SLOPE,
         TrendFindingKind.TIME_OF_DAY_SPLIT,
-        -> {
-            val outcome = finding.outcome ?: TagOutcome.INTENSITY
-            when (outcome) {
-                TagOutcome.INTENSITY ->
-                    TrendFigures(formatIntensity(finding.recentValue), formatIntensity(finding.priorValue))
-                TagOutcome.DURATION ->
-                    TrendFigures(
-                        formatMinutesDuration(finding.recentValue.roundToLong()),
-                        formatMinutesDuration(finding.priorValue.roundToLong()),
-                    )
-            }
-        }
+        -> outcomeValueFigures(finding)
+    }
+
+/** The absolute values of an outcome-based row, in its outcome's units: an average intensity or a duration. */
+private fun outcomeValueFigures(finding: TrendFinding): TrendFigures =
+    when (finding.outcome ?: TagOutcome.INTENSITY) {
+        TagOutcome.INTENSITY -> TrendFigures(formatIntensity(finding.recentValue), formatIntensity(finding.priorValue))
+        TagOutcome.DURATION ->
+            TrendFigures(
+                formatMinutesDuration(finding.recentValue.roundToLong()),
+                formatMinutesDuration(finding.priorValue.roundToLong()),
+            )
     }
 
 /** The weekday or time-of-day bucket a [TrendFindingKind.TAG_TIMING] headline names, e.g. "on Mondays" or "in the morning". */
@@ -940,19 +968,19 @@ internal fun trendBucketPhrase(
         timeOfDayLabel = rhythmTimeOfDayLabel(voice, finding.timeOfDay ?: TimeOfDay.MORNING),
     )
 
-/** [headline] with every `#tag` for [tagName] drawn in [color] and bold, so the tag reads apart from the words around it. */
+/** [headline] with every `#tag` for each of [tagNames] drawn in [color], so the tags read apart from the words around them without adding weight. */
 private fun highlightTag(
     headline: String,
-    tagName: String?,
+    tagNames: List<String>,
     color: Color,
 ): AnnotatedString =
     buildAnnotatedString {
         append(headline)
-        if (tagName != null) {
+        tagNames.forEach { tagName ->
             val token = "#$tagName"
             var start = headline.indexOf(token)
             while (start >= 0) {
-                addStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold), start, start + token.length)
+                addStyle(SpanStyle(color = color), start, start + token.length)
                 start = headline.indexOf(token, start + token.length)
             }
         }
@@ -960,14 +988,13 @@ private fun highlightTag(
 
 /**
  * One [TrendFinding] row: the headline with its reliability chip top-right, the figures it compares,
- * and the evidence count. [showSentence] adds the full sentence beneath, used on the full-list screen
- * only, so the compact card stays to headline and figures.
+ * and the evidence count. The figures carry every number the row needs, so there's no separate sentence
+ * restating them, on either the compact card or the full list.
  */
 @Composable
 private fun TrendFindingBody(
     finding: TrendFinding,
     voice: Voice,
-    showSentence: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val locale = LocalLocale.current.platformLocale
@@ -976,28 +1003,48 @@ private fun TrendFindingBody(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
             Text(
-                text = highlightTag(headline, finding.tagName, MaterialTheme.colorScheme.primary),
+                text = highlightTag(headline, listOfNotNull(finding.tagName) + finding.tagNames, MaterialTheme.colorScheme.primary),
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
             TrendReliabilityTag(finding.reliability, voice)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
-            Text(text = figures.primary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        // Each row's headline is body text, and the figures sit one step smaller as supporting evidence, so neither competes with the section title. Baseline alignment keeps the "vs" text on the figure's line.
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = figures.primary,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.alignByBaseline(),
+            )
             figures.reference?.let { reference ->
                 Text(
                     text = voice.trendReferenceLine(reference),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f, fill = false).alignByBaseline(),
+                )
+            }
+            // The detail stays on the figure's line, so a share and what it counts read as one phrase; a dot separates it from a "vs" reference.
+            figures.detail.takeUnless { figures.detailOnOwnLine }?.let { detail ->
+                if (figures.reference != null) {
+                    Text(
+                        text = DOT_SEPARATOR,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.alignByBaseline(),
+                    )
+                }
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // weight with fill = false lets a long detail wrap within the row's leftover width instead of overflowing it.
+                    modifier = Modifier.weight(1f, fill = false).alignByBaseline(),
                 )
             }
         }
-        figures.detail?.let {
+        figures.detail.takeIf { figures.detailOnOwnLine }?.let {
             Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (showSentence) {
-            Text(text = trendFindingSentence(finding, voice, locale), style = MaterialTheme.typography.bodyMedium)
         }
         Text(
             text = trendFindingEvidenceLabel(finding, voice),
@@ -1007,17 +1054,17 @@ private fun TrendFindingBody(
     }
 }
 
-/** One Trends finding inside the compact [TrendsCard]: headline, chip and figures, no sentence (see [TrendFindingBody]). */
+/** One Trends finding inside the compact [TrendsCard] (see [TrendFindingBody]). */
 @Composable
 private fun TrendFindingRow(
     finding: TrendFinding,
     voice: Voice,
 ) {
-    TrendFindingBody(finding, voice, showSentence = false, modifier = Modifier.fillMaxWidth())
+    TrendFindingBody(finding, voice, modifier = Modifier.fillMaxWidth())
 }
 
 /**
- * One Trends finding on the full-list screen, with its sentence (see [TrendFindingBody]). Plain wraps
+ * One Trends finding on the full-list screen (see [TrendFindingBody]). Plain wraps
  * it in its own white plank [Card] on the tinted screen background, matching [EventRow]'s Log-tab
  * convention; Intense and Bright keep a flat row, same split as [EventRow].
  * Internal so [com.secondmonday.hodith.ui.casedetail.trends.TrendsListScreen] can render it.
@@ -1036,7 +1083,6 @@ internal fun TrendFindingPlank(
                 TrendFindingBody(
                     finding,
                     voice,
-                    showSentence = true,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
@@ -1044,7 +1090,6 @@ internal fun TrendFindingPlank(
             TrendFindingBody(
                 finding,
                 voice,
-                showSentence = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             )
     }

@@ -9,6 +9,7 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.LocalDate
 
 class TrendFiguresTest {
     @Test
@@ -88,5 +89,51 @@ class TrendFiguresTest {
 
         assertEquals("45m", figures.primary)
         assertEquals("30m", figures.reference)
+    }
+
+    @Test
+    fun `tag outcome detail states the relative change the sentence used to carry`() {
+        val finding =
+            TrendFinding(
+                TrendFindingKind.TAG_OUTCOME,
+                ShiftDirection.UP,
+                TrendReliability.PATTERN,
+                20,
+                priorValue = 30.0,
+                recentValue = 45.0,
+                tagName = "aura",
+                outcome = TagOutcome.DURATION,
+            )
+
+        val figures = trendFigures(finding, PlainVoice)
+
+        assertEquals(PlainVoice.trendRelativeChange("50%"), figures.detail)
+    }
+
+    @Test
+    fun `change point detail places the shift at its approximate month`() {
+        val finding =
+            TrendFinding(
+                TrendFindingKind.CHANGE_POINT,
+                ShiftDirection.UP,
+                TrendReliability.PATTERN,
+                20,
+                priorValue = 3.0,
+                recentValue = 9.0,
+                changePointDate = LocalDate.of(2026, 3, 14),
+            )
+
+        val figures = trendFigures(finding, PlainVoice)
+
+        assertEquals(PlainVoice.trendChangePointDetail("mid-March"), figures.detail)
+    }
+
+    @Test
+    fun `recurrence detail names the gap threshold the share counts under`() {
+        val finding = TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.73)
+
+        val figures = trendFigures(finding, PlainVoice)
+
+        assertEquals(PlainVoice.trendRecurrenceDetailLabel("3 days"), figures.detail)
     }
 }
