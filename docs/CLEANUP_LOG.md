@@ -17,6 +17,25 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+---
+
+## feature/manage-tags
+
+**Scope:** PROGRESS.md's "Tags: bulk rename/merge/delete across all events" item: brainstorm, a global tag management screen under Settings, and rename, merge and delete with a warning before each write.
+
+**Walked:** every CLEANUP_CHECKLIST.md section against the branch diff. Decoupling: `TagManagement.kt` has no `android.*` imports; the ViewModel imports only lifecycle types. Duplication: the Plank area container moved from `SettingsScreen.kt` into `ui/common/Plank.kt` so both screens share one theme dispatch. Naming and Voice: every new key is in all three voices. Hygiene: no TODO/FIXME or debug output in the diff, no local paths, no narrative dates. Accessibility: every icon button has a Voice content description, and the search icon is decorative. Hardcoded values: the filter threshold is the named constant `TAG_FILTER_THRESHOLD`. Data model: no schema change, so no migration or backup-version bump. Themes: previews cover Plain light, Intense light, and Bright light and dark. Not verified: the screen has not been seen on a device, and the copy-brevity check against neighbouring labels is by reading only. Tests and spec: see below.
+
+**Found & fixed:**
+- `FakeHodithRepository` matched tag names case-sensitively, unlike Room's `COLLATE NOCASE` lookup. The fake now matches Room in both the add path and the new collision lookup.
+- A rename whose target name was taken after its warning was shown would have violated the unique index. The confirm step re-checks and drops the write instead.
+- `VoiceTest` caught two keys identical across all three voices (rename field label, rename confirm title) and one edit description identical across all three. Reworded per voice.
+
+**Deferred:**
+- Instrumented tests (`TagDaoTest` additions, `RoomHodithRepositoryTagManagementTest`, `ManageTagsScreenTest`, the Settings row test) compile but have not run: no emulator here. They need a run in CI or on a device before merge.
+- Cross-Case wording in the warnings ("across all Cases, including archived ones") is pending the owner's review.
+
+**Docs updated:** PROGRESS.md (item struck), HODITH_SPEC §14 (Settings Data row and a Manage tags row), TESTING.md (coverage rows), MANUAL_TEST_PLAN.md (Tags section).
+
 ## chore/ui-test-suite-audit
 
 **Scope:** PROGRESS.md's UI test suite audit item, carried through its fix pass: duplicate UI coverage, pure logic tested through the UI, the manual plan's automatable steps, and why local UI runs were slow.
@@ -125,46 +144,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - The Tags full-list screen has no `@Preview` composables. Per the instruction to skip separate previews, the working state was checked on the card and screen instead.
 
 **Docs updated:** HODITH_SPEC §10 (tag breakdown: summary, collapsed card, full tag list, Share card difference). TESTING.md Compose UI, Case Detail Insights row. PROGRESS.md item struck.
-
-## feat/share-tabs
-
-**Scope:** PROGRESS.md's "Share: replace the chooser dialog with Summary / Insights / History tabs" item. The Case Detail Share icon now opens one Share screen with three tabs instead of a chooser dialog and a second route.
-
-**Walked:** every item in CLEANUP_CHECKLIST.md against the diff. Items not listed below were checked and needed nothing.
-
-**Found & fixed:**
-- Case Detail's hand-rolled tab row and the Share screen's tab row were the same code. The row is now `HodithTabRow`/`HodithTab` in `ui/common`, used by both.
-- The share screens each held their own Name-on-card state, and the ViewModels held the name and the card format. The name now lives once on the host, above the tabs. The ViewModels hold neither.
-- The two share routes each launched the share sheet. `ShareRoute` now merges both ViewModels' share requests and launches once.
-- `SharePreviewScreen.kt` and `LogSharePreviewScreen.kt` held only tab content by now. Renamed to `InsightShareTab.kt` and `LogShareTab.kt`, with their tests renamed to match.
-- The middle-dot separator was written inline in 15 places. It's now the `DOT_SEPARATOR` constant in `ui/voice`.
-- Thirteen retired chooser and title keys removed from all three voices. `shareSectionsPickerLabel` is one structural key ("Include"), not three overrides. Every share Voice key is referenced outside `Voice.kt`.
-- Some changed files had LF line endings, left behind by `ktlintFormat`. All changed files are CRLF again, matching the repo.
-- The History title is one line, kicker and range together. Its test asserted the old two-line layout, so it was updated.
-- The name rule (blank or untouched falls back to the Case's name) is a pure function, `shareDisplayName`, with its own unit test.
-- Manual share-card steps 4–7 checked things automation already covers. Removed. Steps 1–2 keep what only a device can check: the capture and the share-sheet handoff.
-- `ShareCardTemplateTest` gained a test that a card draws the name it's given, the one check the removed manual steps had been the only coverage for.
-- `ktlintFormat` import order and line wrapping in touched test files.
-
-**Deferred:**
-- The History card's range on the title line, and a real range for "All" (creation date to today). Both change what the card shows, so they need a decision first. In PROGRESS.md.
-- `CaseDetailScreen` is 251 lines and was already that long before this change. Splitting it is a refactor with its own risk, so it's in PROGRESS.md.
-
-**Considered and declined:**
-- `share(bitmap)` is duplicated in `ShareViewModel` and `LogShareViewModel`, about six lines each. The two differ only in the file-name prefix. Left as is.
-- `CaseDetailViewModel` imports `DOT_SEPARATOR` from `ui/voice`. The ViewModel already imports from `ui` in other files, and the separator is one formatting string, so it stays.
-- `shareDisplayName` has one caller. It's the rule the tests cover, so the extraction earns its keep.
-- `LOG_SHARE_FIELD_TOGGLE_TAG_PREFIX` keeps its name. It names the History field toggles and matches the other `*_TAG_PREFIX` constants.
-- `InsightShareTab` computes `insightsTabState` in the composable, remembered by day. That pattern predates this change. Moving it into the ViewModel is out of scope here.
-- `docs/mockups/log-share-prototype.html` is still referenced by the spec and by `LogShareTab`'s comment, so it stays as design history.
-
-**Not verified here:**
-- Dark mode for the new tabs and the preview stage. Needs a manual check.
-- The 48dp touch target on the Share button. Material's `Button` should enforce it; not measured.
-- `DataStoreSettingsRepository.kt` has a compiler warning about an annotation target. It predates this change and this change doesn't touch the file.
-
-**Checks:** ktlint passes. `lintDebug` passes. 1070 unit tests pass. `assembleDebug` passes. Instrumented, scoped: `ShareScreenTest` 6/6, `InsightShareTabTest` 25/25, `LogShareTabTest` 17/17, `SharePreviewOrderFlowTest` 1/1, `CaseDetailScreenTest` 35/35, `CaseDetailInsightsTabTest` 43/43, `ShareCardTemplateTest` 60/60. The full `connectedDebugAndroidTest` suite has not been run for this change.
-
-**Tests:** `ShareScreenTest` (new) covers the title, the three tabs, the Preview heading on every tab, the Include heading, name carry-over across tabs, and which callback each Share button fires. `InsightShareTabTest` and `LogShareTabTest` are re-pointed at the new host, and the name test moved from `InsightShareTabTest` into `ShareScreenTest`. The chooser tests in `CaseDetailScreenTest` became one test that the Share icon opens the screen. Format-toggle and display-name ViewModel cases were removed with the API they tested. `ShareDisplayNameTest` (new) covers the name rule.
-
-**Docs updated:** HODITH_SPEC §13 (the tabbed screen and entry point), TESTING.md (the Share rows, plus a new Share screen row), MANUAL_TEST_PLAN.md (the Share cards steps), PROGRESS.md (the Share item struck, two items added).

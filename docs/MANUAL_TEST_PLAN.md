@@ -155,6 +155,13 @@ assert (no Espresso-Intents dependency; see TESTING.md).
 2. **Contact Us.** In Settings' Support section, tap Contact Us — an email app chooser (or the
    device's default mail app) opens with the developer address pre-filled as the recipient.
 
+## Tags
+
+Automated coverage: `ManageTagsViewModelTest`, `TagManagementTest`, `TagDaoTest`, `RoomHodithRepositoryTagManagementTest` and `ManageTagsScreenTest` cover the merge, rename and delete rules, the warning counts, and the filter threshold. What's left is a real merge on real data, and how the screen reads in each theme.
+
+1. **Merge two near-duplicate tags with overlapping events.** Log one event tagged `espresso`, one tagged `coffee`, and one carrying both. In Settings → Manage tags, edit `espresso` and type `Coffee`. The warning should count the events that will move and say that one already carries both. Confirm: `Coffee` keeps its spelling, the `espresso` row is gone, and the event that had both shows a single `Coffee` pill.
+2. **Filter threshold and themes.** With exactly 10 tags, no filter field appears; add an 11th and it does. Type part of a name in a different case and confirm the list narrows. Open the screen and its rename and delete warnings in Plain, Intense and Bright to check the rows and dialogs read correctly in each.
+
 ## Data & backup
 
 The round-trip logic itself (schema-version rejection, malformed-JSON rejection, semantically
