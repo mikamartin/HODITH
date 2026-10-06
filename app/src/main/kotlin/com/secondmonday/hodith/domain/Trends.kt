@@ -127,7 +127,8 @@ enum class TrendFindingKind {
  * Spec §10 Trends section: how much statistical weight a finding carries. Distinct from
  * [ConfidenceTier] — that measures whether there's enough data for a reliable average; this
  * measures whether the *effect itself* has been tested for significance. [HINT] is a detector that
- * crossed its own descriptive threshold with no significance test behind it (every detector today).
+ * crossed its own descriptive threshold with no significance test behind it (gap shift, tag combo, and
+ * the other descriptive detectors).
  * [PATTERN] is reserved for detectors whose permutation/significance test confirms the effect isn't
  * due to chance.
  */
@@ -138,8 +139,8 @@ enum class TrendReliability {
 
 /**
  * Spec §10 Trends section: one finding from one detector, shown as its own row with its own info
- * dialog. [sampleCount] is the evidence size behind the finding — disclosed alongside
- * [reliability], phrased like `Voice.verdictMeta`. [priorValue]/[recentValue] are the two halves
+ * dialog. [sampleCount] is the evidence size behind the finding, shown on the row's evidence line
+ * next to [reliability]. [priorValue]/[recentValue] are the two halves
  * being compared, carried through so the row's own sentence states the shift in real numbers
  * rather than direction alone — days for [TrendFindingKind.GAP_SHIFT]/[TrendFindingKind.STREAK_SHIFT]
  * (from [ShiftResult]'s two half-averages), event counts for [TrendFindingKind.FREQUENCY_SHIFT]
@@ -157,6 +158,8 @@ enum class TrendReliability {
  * [TrendFindingKind.TAG_TIMING] — `null` for every other kind, which isn't about one specific tag.
  * [tagNames] is set only for [TrendFindingKind.TAG_COMBO] (a set, not one tag, so it gets its own
  * field rather than overloading [tagName]) — empty for every other kind.
+ * [pValue] is the permutation p-value a Pattern finding cleared, used to order findings by
+ * significance (see [TREND_FINDING_ORDER]) — `null` for every Hint, which runs no significance test.
  * [outcome] is set for [TrendFindingKind.TAG_OUTCOME], [TrendFindingKind.TREND_SLOPE], and
  * [TrendFindingKind.TIME_OF_DAY_SPLIT] — `null` for every other kind. [changePointDate] is only set
  * for [TrendFindingKind.CHANGE_POINT] — `null` for every other kind, none of which need a specific
@@ -177,4 +180,5 @@ data class TrendFinding(
     val weekday: DayOfWeek? = null,
     val timeOfDay: TimeOfDay? = null,
     val tagNames: List<String> = emptyList(),
+    val pValue: Double? = null,
 )

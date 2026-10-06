@@ -319,13 +319,13 @@ class TrendsEngineTest {
     }
 
     @Test
-    fun `computeTrendFindings places the tag-outcome finding after recurrence shape`() {
+    fun `computeTrendFindings ranks the Pattern tag-outcome finding ahead of the Hint recurrence shape`() {
         val gapStats = gapStatsOf(recurrenceSpikePastGaps)
 
         val findings =
             computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = strongTagOutcomeEventsWithTags())
 
-        assertEquals(listOf(TrendFindingKind.RECURRENCE_SHAPE, TrendFindingKind.TAG_OUTCOME), findings.map { it.kind })
+        assertEquals(listOf(TrendFindingKind.TAG_OUTCOME, TrendFindingKind.RECURRENCE_SHAPE), findings.map { it.kind })
     }
 
     @Test
@@ -380,7 +380,7 @@ class TrendsEngineTest {
     }
 
     @Test
-    fun `computeTrendFindings places the change-point finding after tag share shift`() {
+    fun `computeTrendFindings ranks the Pattern change-point finding ahead of Hint findings`() {
         // The same first-half-tagged pattern risingTagEventsWithTags uses, laid over the planted
         // change-point's own event dates so both detectors fire from one self-consistent gapStats.
         // Also trips gap shift, for the same fixed-midpoint reason as the test above.
@@ -393,9 +393,10 @@ class TrendsEngineTest {
 
         val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = eventsWithTags)
 
+        assertEquals(TrendFindingKind.CHANGE_POINT, findings.first().kind)
         assertEquals(
-            listOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.CHANGE_POINT),
-            findings.map { it.kind },
+            setOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.CHANGE_POINT),
+            findings.map { it.kind }.toSet(),
         )
     }
 
@@ -483,7 +484,7 @@ class TrendsEngineTest {
     }
 
     @Test
-    fun `computeTrendFindings places trend-slope and time-of-day-split findings after change point`() {
+    fun `computeTrendFindings orders trend-slope and change-point findings by p-value`() {
         // Reuses changePointDays' own planted gap-shift shape (unrelated to intensity) so
         // computeChangePoint's gapStats/eventsWithTags correspondence still holds, and additionally
         // splits those same events' intensity early-low/late-high so computeTrendSlopeFindings fires
@@ -504,9 +505,9 @@ class TrendsEngineTest {
                 statsShownOutcomes = setOf(TagOutcome.INTENSITY),
             )
 
-        val changePointIndex = findings.indexOfFirst { it.kind == TrendFindingKind.CHANGE_POINT }
-        val trendSlopeIndex = findings.indexOfFirst { it.kind == TrendFindingKind.TREND_SLOPE }
-        assertTrue(changePointIndex >= 0 && trendSlopeIndex > changePointIndex)
+        val patterns = findings.filter { it.reliability == TrendReliability.PATTERN }
+        assertTrue(patterns.map { it.kind }.containsAll(listOf(TrendFindingKind.CHANGE_POINT, TrendFindingKind.TREND_SLOPE)))
+        assertEquals(patterns.sortedBy { it.pValue }, patterns)
     }
 
     private fun tagTimingWeekdayEventsWithTags(): List<EventWithTags> {
@@ -627,6 +628,53 @@ class TrendsEngineTest {
     }
 
     // ---- capTrendFindings ----
+
+    @Test
+    fun `computeTrendFindings carries the p-value on Pattern findings and leaves it null on Hints`() {
+        val findings =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = strongTagOutcomeEventsWithTags())
+
+        val tagOutcome = findings.single { it.kind == TrendFindingKind.TAG_OUTCOME }
+        assertTrue(tagOutcome.pValue != null && tagOutcome.pValue!! < TAG_OUTCOME_SIGNIFICANCE_ALPHA)
+        assertTrue(findings.filter { it.reliability == TrendReliability.HINT }.all { it.pValue == null })
+    }
+
+    private fun patternFinding(pValue: Double) = syntheticFinding().copy(reliability = TrendReliability.PATTERN, pValue = pValue)
+
+    @Test
+    fun `capTrendFindings orders Pattern findings ahead of Hints`() {
+        val hint = syntheticFinding()
+        val pattern = patternFinding(pValue = 0.04)
+
+        assertEquals(listOf(pattern, hint), capTrendFindings(listOf(hint, pattern)))
+    }
+
+    @Test
+    fun `capTrendFindings orders Pattern findings by ascending p-value`() {
+        val weaker = patternFinding(pValue = 0.04)
+        val stronger = patternFinding(pValue = 0.004)
+
+        assertEquals(listOf(stronger, weaker), capTrendFindings(listOf(weaker, stronger)))
+    }
+
+    @Test
+    fun `capTrendFindings keeps a strong Pattern finding even when Hints fill the cap first`() {
+        val hints = List(TRENDS_MAX_FINDINGS) { syntheticFinding() }
+        val pattern = patternFinding(pValue = 0.01)
+
+        val capped = capTrendFindings(hints + pattern)
+
+        assertEquals(TRENDS_MAX_FINDINGS, capped.size)
+        assertEquals(pattern, capped.first())
+    }
+
+    @Test
+    fun `capTrendFindings orders Hints by relative size of change`() {
+        val small = syntheticFinding().copy(priorValue = 4.0, recentValue = 5.0)
+        val large = syntheticFinding().copy(priorValue = 2.0, recentValue = 5.0)
+
+        assertEquals(listOf(large, small), capTrendFindings(listOf(small, large)))
+    }
 
     private fun syntheticFinding() =
         TrendFinding(

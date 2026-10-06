@@ -341,6 +341,7 @@ internal fun computeChangePoint(
     val changePointDate = Instant.ofEpochMilli(splitEvent.occurredAt).atZone(splitEvent.loggedZone()).toLocalDate()
 
     return ChangePointResult(
+        pValue = pValue,
         direction = if (recentAverage > priorAverage) ShiftDirection.UP else ShiftDirection.DOWN,
         changePointDate = changePointDate,
         priorAverageDays = priorAverage,

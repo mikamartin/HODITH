@@ -2,6 +2,7 @@ package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.EventWithTags
 import java.time.LocalDate
+import kotlin.math.abs
 
 /**
  * Spec §10 Trends section: hard ceiling on findings kept at all, across every detector combined —
@@ -17,12 +18,11 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * are unchanged; this only wraps their output into [TrendFinding]s and applies [capTrendFindings].
  * [TrendFindingKind.WENT_QUIET] is prepended first (when it fires) rather than appended, so it
  * leads the list — the one finding about the Case's live, still-unresolved state, ahead of every
- * other finding's report on settled history. All four are always [TrendReliability.HINT] today —
- * none runs a significance test, just a descriptive threshold check
+ * other finding's report on settled history. The four it shares with the Hint detectors are
+ * [TrendReliability.HINT]: none runs a significance test, just a descriptive threshold check
  * ([QUIET_SIGNAL_MIN_SAMPLE_COUNT]/[GAP_SHIFT_MIN_SAMPLE_COUNT]/[STREAK_SHIFT_MIN_SAMPLE_COUNT] and
  * [SHIFT_MIN_FRACTION]/[SHIFT_MIN_ABSOLUTE_DAYS] for the shift pair; a flat comparison producing no
- * finding at all for frequency shift) — [TrendReliability.PATTERN] is reserved for a future
- * detector (T4+) that adds a significance test. [trendStats] is passed in rather than recomputed
+ * finding at all for frequency shift). [trendStats] is passed in rather than recomputed
  * here, since the caller already computed it for its own frequency-shift wiring.
  * [eventsWithTags] backs [computeTagShareShift] (Story C T2), placed after gap/streak/frequency
  * shift since it's the one detector that can contribute more than one finding — every other kind is
@@ -157,6 +157,7 @@ internal fun computeTrendFindings(
                 kind = TrendFindingKind.TAG_OUTCOME,
                 direction = it.direction,
                 reliability = TrendReliability.PATTERN,
+                pValue = it.pValue,
                 sampleCount = it.sampleCount,
                 priorValue = it.withoutTagMean,
                 recentValue = it.withTagMean,
@@ -170,6 +171,7 @@ internal fun computeTrendFindings(
                 kind = TrendFindingKind.CHANGE_POINT,
                 direction = it.direction,
                 reliability = TrendReliability.PATTERN,
+                pValue = it.pValue,
                 sampleCount = it.sampleCount,
                 priorValue = it.priorAverageDays,
                 recentValue = it.recentAverageDays,
@@ -182,6 +184,7 @@ internal fun computeTrendFindings(
                 kind = TrendFindingKind.TREND_SLOPE,
                 direction = it.direction,
                 reliability = TrendReliability.PATTERN,
+                pValue = it.pValue,
                 sampleCount = it.sampleCount,
                 priorValue = it.priorValue,
                 recentValue = it.recentValue,
@@ -194,6 +197,7 @@ internal fun computeTrendFindings(
                 kind = TrendFindingKind.TIME_OF_DAY_SPLIT,
                 direction = it.direction,
                 reliability = TrendReliability.PATTERN,
+                pValue = it.pValue,
                 sampleCount = it.sampleCount,
                 priorValue = it.dayMean,
                 recentValue = it.eveningMean,
@@ -206,6 +210,7 @@ internal fun computeTrendFindings(
                 kind = TrendFindingKind.TAG_TIMING,
                 direction = ShiftDirection.UP,
                 reliability = TrendReliability.PATTERN,
+                pValue = it.pValue,
                 sampleCount = it.sampleCount,
                 priorValue = it.baselineShare,
                 recentValue = it.taggedShare,
@@ -220,6 +225,7 @@ internal fun computeTrendFindings(
                 kind = TrendFindingKind.WEEKDAY_WEEKEND_SPLIT,
                 direction = it.direction,
                 reliability = TrendReliability.PATTERN,
+                pValue = it.pValue,
                 sampleCount = it.sampleCount,
                 priorValue = it.baselineShare,
                 recentValue = it.observedShare,
@@ -228,5 +234,37 @@ internal fun computeTrendFindings(
     return capTrendFindings(findings)
 }
 
-/** Caps [findings] at [TRENDS_MAX_FINDINGS], factored out so it's unit-testable with synthetic findings today, since only three real detectors exist until T2+. */
-internal fun capTrendFindings(findings: List<TrendFinding>): List<TrendFinding> = findings.take(TRENDS_MAX_FINDINGS)
+/**
+ * Orders [findings] by strength, then caps them at [TRENDS_MAX_FINDINGS]. Sorting comes first so the
+ * cap keeps the strongest findings rather than whichever detector happened to run first.
+ */
+internal fun capTrendFindings(findings: List<TrendFinding>): List<TrendFinding> =
+    findings.sortedWith(TREND_FINDING_ORDER).take(TRENDS_MAX_FINDINGS)
+
+/**
+ * Display order for trend findings: [TrendFindingKind.WENT_QUIET] always leads (it describes the
+ * Case's live state), then Pattern findings by ascending p-value (smaller is stronger), then Hint
+ * findings by descending size of change. Ties keep detector order, since the sort is stable.
+ */
+internal val TREND_FINDING_ORDER: Comparator<TrendFinding> =
+    compareBy<TrendFinding> { groupRank(it) }
+        .thenBy { it.pValue ?: Double.MAX_VALUE }
+        .thenByDescending { hintEffectSize(it) }
+
+private fun groupRank(finding: TrendFinding): Int =
+    when {
+        finding.kind == TrendFindingKind.WENT_QUIET -> 0
+        finding.reliability == TrendReliability.PATTERN -> 1
+        else -> 2
+    }
+
+/**
+ * Relative size of a Hint's before/after change. [TrendFindingKind.TAG_COMBO] and
+ * [TrendFindingKind.RECURRENCE_SHAPE] have no before/after pair on the same scale, so they rank as 0.0.
+ */
+private fun hintEffectSize(finding: TrendFinding): Double =
+    when {
+        finding.kind == TrendFindingKind.TAG_COMBO || finding.kind == TrendFindingKind.RECURRENCE_SHAPE -> 0.0
+        finding.priorValue == 0.0 -> Double.MAX_VALUE
+        else -> abs(finding.recentValue - finding.priorValue) / abs(finding.priorValue)
+    }
