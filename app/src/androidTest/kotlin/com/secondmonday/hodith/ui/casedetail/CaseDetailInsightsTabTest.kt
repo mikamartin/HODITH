@@ -25,7 +25,9 @@ import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.domain.ShiftDirection
-import com.secondmonday.hodith.domain.TrendDirection
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
@@ -222,9 +224,9 @@ class CaseDetailInsightsTabTest {
         )
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertExists()
-        composeTestRule
-            .onNodeWithText(PlainVoice.insightsTrendSentence(TrendDirection.UP, recentCount = 3, priorCount = 1))
-            .assertExists()
+        val frequencyShift = TrendFinding(TrendFindingKind.FREQUENCY_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 4, 1.0, 3.0)
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(frequencyShift, bucketPhrase = "")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendReferenceLine("1")).assertExists()
     }
 
     @Test
@@ -278,9 +280,11 @@ class CaseDetailInsightsTabTest {
         )
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.insightsGapShiftSentence(ShiftDirection.UP, "4 days", "20 days")).assertExists()
-        // No reliability tag on the compact card -- only on the full-list screen.
-        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertDoesNotExist()
+        val gapShift = TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 6, 4.0, 20.0)
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(gapShift, bucketPhrase = "")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendReferenceLine(formatDays(4.0))).assertExists()
+        // The compact card shows the same Hint/Pattern chip as the full-list screen.
+        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertExists()
     }
 
     @Test
