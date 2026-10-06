@@ -133,7 +133,10 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none existing cover this row's own layout/sizing directly; Preview-verify the four call sites after the change.
 
+## Deferred
+
 ### CI: per-shard emulator overhead outside test execution
+*Deferred: moved from Standalone. Revisit when CI wall-clock time matters again.*
 
 *Branch: none yet — investigation first · Complexity: S (investigation) · Priority: Medium · Area: Repo*
 
@@ -154,6 +157,7 @@ Each instrumented shard spends about five minutes outside test execution. On the
 **Concern** — a cached emulator snapshot can hide flakiness that a cold boot exposes, so any caching change needs a few cold-boot runs checked before it's kept.
 
 ### Espresso-intents: verify external intent handoffs in tests
+*Deferred: moved from Standalone. A fair amount of work for a small gain, and it adds a test-only dependency.*
 
 *Branch: `chore/espresso-intents` · Complexity: S · Priority: Low · Area: Repo*
 
@@ -175,8 +179,6 @@ Each instrumented shard spends about five minutes outside test execution. On the
 **Tests** — `AboutScreenTest` (privacy link, Contact Us); `SettingsScreenTest` (Contact Us row); the share-sheet step only if included.
 
 **Concern** — intercepted intents never launch a real app, so resolution to the right app is not proven. The blocked "Rate the app" item would reuse this dependency.
-
-## Deferred
 
 ### D1 · Big Picture's grid query, windowed or not
 
