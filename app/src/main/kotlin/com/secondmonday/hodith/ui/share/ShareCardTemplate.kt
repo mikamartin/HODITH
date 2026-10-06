@@ -749,7 +749,7 @@ private fun MiniTrendsSection(
         MiniSectionTitle(voice.insightsSectionLabelTrends, skin)
         findings.forEach { finding ->
             Text(
-                text = trendFindingSentence(finding, voice),
+                text = trendFindingSentence(finding, voice, LocalLocale.current.platformLocale),
                 style = MaterialTheme.typography.labelMedium,
             )
         }

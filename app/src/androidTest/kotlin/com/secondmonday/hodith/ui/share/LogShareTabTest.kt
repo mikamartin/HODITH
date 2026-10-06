@@ -329,6 +329,42 @@ class LogShareTabTest {
     }
 
     @Test
+    fun rangeDialog_tappingAStartAndEndDay_handsBothDaysBack() {
+        // The shared range dialog (the Log tab's From/To chips use it too) takes day taps, not just
+        // Confirm: a start day then an end day in the displayed month reach both callbacks.
+        val from = millisAtDay(20)
+        val to = millisAtDay(40)
+        val now = millisAtDay(60)
+        var changedFrom: LocalDate? = null
+        var changedTo: LocalDate? = null
+        setContent(
+            uiState =
+                LogShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(dateTo = to).copy(dateFrom = from),
+                    isLoading = false,
+                ),
+            onDateFromPicked = { changedFrom = it },
+            onDateToPicked = { changedTo = it },
+        )
+
+        composeTestRule
+            .onNodeWithText(
+                rangeButtonText(
+                    PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
+                ),
+            ).performClick()
+        // Day cells expose their full date as their text, not the bare day number.
+        composeTestRule.onNodeWithText("Thursday, January 15, 1970").performClick()
+        composeTestRule.onNodeWithText("Friday, January 16, 1970").performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
+
+        assertEquals(LocalDate.of(1970, 1, 15), changedFrom)
+        assertEquals(LocalDate.of(1970, 1, 16), changedTo)
+    }
+
+    @Test
     fun rangeDialog_allTimeTap_clearsBothBoundsInOneTapAndClosesTheDialog() {
         val from = millisAtDay(20)
         val to = millisAtDay(40)

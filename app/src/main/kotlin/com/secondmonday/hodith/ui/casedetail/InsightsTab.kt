@@ -550,7 +550,7 @@ private fun frequencyBarBrush(decorationStyle: CardDecorationStyle): Brush {
 }
 
 /** Shared with [InsightsTabContent] so the drill-down dialog title uses the same wording as the card's own row labels. */
-private fun rhythmTimeOfDayLabel(
+internal fun rhythmTimeOfDayLabel(
     voice: Voice,
     timeOfDay: TimeOfDay,
 ): String =
@@ -745,10 +745,10 @@ private fun TrendReliabilityTag(
  * no reliability tag. Reused by [ShareCardTemplate.kt][com.secondmonday.hodith.ui.share.ShareCardTemplate]'s
  * sentence-only Trends section, so this stays the single place each [TrendFindingKind] is worded.
  */
-@Composable
 internal fun trendFindingSentence(
     finding: TrendFinding,
     voice: Voice,
+    locale: java.util.Locale,
 ): String =
     when (finding.kind) {
         TrendFindingKind.WENT_QUIET -> voice.insightsWentQuietSentence(formatDays(finding.recentValue), formatDays(finding.priorValue))
@@ -830,7 +830,6 @@ internal fun trendFindingSentence(
         }
         TrendFindingKind.TAG_TIMING -> {
             // tagName is always set; exactly one of weekday/timeOfDay is set -- see TrendFinding's KDoc.
-            val locale = LocalLocale.current.platformLocale
             val bucketPhrase =
                 finding.weekday?.let { "on ${it.getDisplayName(TextStyle.FULL, locale)}s" }
                     ?: "in the ${rhythmTimeOfDayLabel(voice, finding.timeOfDay ?: TimeOfDay.MORNING).lowercase()}"
@@ -883,7 +882,7 @@ private fun TrendFindingContent(
     showReliabilityTag: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val sentence = trendFindingSentence(finding, voice)
+    val sentence = trendFindingSentence(finding, voice, LocalLocale.current.platformLocale)
     val evidenceLabel = trendFindingEvidenceLabel(finding, voice)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

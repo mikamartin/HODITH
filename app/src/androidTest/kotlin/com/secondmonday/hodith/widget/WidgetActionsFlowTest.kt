@@ -74,6 +74,7 @@ class WidgetActionsFlowTest {
     private lateinit var context: Context
     private lateinit var host: AppWidgetHost
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var secondWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var insertedCaseId = 0L
 
     @Before
@@ -89,6 +90,9 @@ class WidgetActionsFlowTest {
         runBlocking {
             if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                 host.deleteAppWidgetId(appWidgetId)
+            }
+            if (secondWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                host.deleteAppWidgetId(secondWidgetId)
             }
             host.stopListening()
             if (insertedCaseId != 0L) {
@@ -132,6 +136,24 @@ class WidgetActionsFlowTest {
                         .takeIf { it.size == 2 && it.all { e -> e.endedAt == null } }
                 }
             assertNotNull("Expected the log button to start a second concurrent event", bothRunning)
+        }
+
+    @Test
+    fun logFromOneWidget_refreshesASecondWidgetForTheSameCase() =
+        runBlocking {
+            val caseName = "Coffee ${System.currentTimeMillis()}"
+            insertedCaseId = repository.insertCase(testCase(name = caseName, logFlow = LogFlow.ONE_TAP))
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
+            secondWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
+            val secondBefore = collectText(renderedView(context, host, secondWidgetId))
+
+            val button = waitForClickableWithDescription(PlainVoice.quickLogButtonDescription(caseName), appWidgetId)
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { button.performClick() }
+
+            assertNotNull(waitFor { repository.getMostRecentEventForCase(insertedCaseId) })
+            val secondAfter =
+                waitFor { collectText(renderedView(context, host, secondWidgetId)).takeIf { it != secondBefore } }
+            assertNotNull("The second widget should re-render after logging from the first", secondAfter)
         }
 
     @Test
@@ -220,8 +242,11 @@ class WidgetActionsFlowTest {
             assertEquals(spToPx(context, WidgetPlusGlyphSize.value), plusTextView.textSize, 0.5f)
         }
 
-    private suspend fun waitForClickableWithDescription(description: String): View =
-        waitFor { findClickableAncestorOfDescription(renderedView(context, host, appWidgetId), description) }
+    private suspend fun waitForClickableWithDescription(
+        description: String,
+        widgetId: Int = appWidgetId,
+    ): View =
+        waitFor { findClickableAncestorOfDescription(renderedView(context, host, widgetId), description) }
             ?: throw AssertionError("No clickable ancestor of a View with contentDescription '$description' rendered")
 
     private suspend fun waitForClickableWithText(text: String): View =

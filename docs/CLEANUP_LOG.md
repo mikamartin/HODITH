@@ -17,6 +17,37 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## chore/ui-test-suite-audit
+
+**Scope:** PROGRESS.md's UI test suite audit item, carried through its fix pass: duplicate UI coverage, pure logic tested through the UI, the manual plan's automatable steps, and why local UI runs were slow.
+
+**Walked:** CLEANUP_CHECKLIST.md against the branch's diff. Checked and fixed: ktlint (`ktlintFormat` removed unused imports and fixed import order), unused private helpers in the trimmed test classes (none left), line endings (CRLF, matching the rest of the repo), TESTING.md rows that described removed tests, and MANUAL_TEST_PLAN.md item numbering.
+
+**Found & fixed:**
+- The trend-sentence mapping was `@Composable` with no composition in it. It is now a plain function that takes the locale explicitly. `TrendFindingSentenceTest` covers all 13 kinds.
+- The Tag reset on a Case change was duplicated inline in two composable lambdas. It is now the pure `caseFilterChange`, with JVM tests.
+- The bulk toggle's "all selected" check compared sizes inline. It is now `isAllSelected`, which uses containment. The two only differ for a stale id, and the resolved selection already excludes those.
+- Removed UI tests that re-checked logic covered elsewhere: 2 intensity-formatting, 3 week-dialog row text, 1 stale tag seeding, 1 duplicate reset rule, 5 detail-row toggles and 13 trend-sentence text.
+- Added instrumented coverage for manual-plan steps: Single-case cancel (result code), two Single-case instances, a log refreshing a second Single-case widget, day taps in the shared range picker, and a per-skin capture check.
+- Manual plan: removed the automated steps, narrowed the partly automated ones, and renumbered.
+- PROGRESS.md: removed a duplicated line in the insights-gaps entry, added the CI-overhead and espresso-intents items, and struck this audit item.
+- Found during the pass: no test asserts the import-failure snackbar text, although TESTING.md's description of the Settings tests implies it does. The manual step stays.
+
+**Deferred:**
+- `espresso-intents` (About 1 and 2, Share 1 hand-off): a dependency decision, tracked in PROGRESS.md.
+- CI per-shard overhead: an investigation, tracked in PROGRESS.md.
+- Import-failure snackbar text: no test yet; the manual step stays.
+- List widget rows: their contents can't be read from a test, so those checks stay manual.
+- `storyCapture_isNotBlank_andChangesWithTheSkin`: kept, but it passed once and hit a PixelCopy capture timeout on a later, slower emulator run. Watch it on CI.
+
+**Checks:** `ktlintCheck`, `lintDebug`, `test` (1118 unit tests, no failures) and `assembleDebug` pass. Instrumented, scoped to the changed classes, on the local emulator with animations off: `LogShareTabTest` 18/18, `WidgetActionsFlowTest` 6/6, `SingleCaseWidgetConfigureFlowTest` 3/3, and `ShareCardTemplateTest` 61/61 in one run. Later runs on the same emulator, which was degraded, hit an `ActivityScenario` teardown timeout and the capture timeout above.
+
+**Tests:** new `TrendFindingSentenceTest`; `BigPictureFilterStateTest` (+6); `SingleCaseWidgetConfigureFlowTest` (+2); `WidgetActionsFlowTest` (+1); `LogShareTabTest` (+1); `ShareCardTemplateTest` (+1). The removed tests are listed under Found & fixed.
+
+**Docs updated:** TESTING.md (environment note, coverage rows, deferral), DEV_PLAYBOOK §7 gotcha 10 (animations), MANUAL_TEST_PLAN.md, PROGRESS.md, CLAUDE.md and QA_AUDIT_RULES.md (animation pointers).
+
+---
+
 ## feat/insights-gaps-streaks-split
 
 **Scope:** PROGRESS.md's "Insights tab: split Gaps/Streaks, restyle Gaps & Duration to match Share Story's pattern" item, reworked: no Gaps/Streaks split. The Insights Gaps card and Duration card take the share card's Min/Avg/Max row, and the Tags totals sit side by side as label-over-value columns. The Insights gap labels spell out "gap"; the streak labels keep "streak", since the combined card covers both. The Summary card keeps the Gaps title, and the Duration card has no total.
@@ -137,26 +168,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Tests:** `ShareScreenTest` (new) covers the title, the three tabs, the Preview heading on every tab, the Include heading, name carry-over across tabs, and which callback each Share button fires. `InsightShareTabTest` and `LogShareTabTest` are re-pointed at the new host, and the name test moved from `InsightShareTabTest` into `ShareScreenTest`. The chooser tests in `CaseDetailScreenTest` became one test that the Share icon opens the screen. Format-toggle and display-name ViewModel cases were removed with the API they tested. `ShareDisplayNameTest` (new) covers the name rule.
 
 **Docs updated:** HODITH_SPEC §13 (the tabbed screen and entry point), TESTING.md (the Share rows, plus a new Share screen row), MANUAL_TEST_PLAN.md (the Share cards steps), PROGRESS.md (the Share item struck, two items added).
-
-## feat/share-insight-section-order
-
-**Scope:** PROGRESS.md's "Share Insight: reorderable sections" item. The Story picker's rows are dragged into order, the card follows, and the order is saved device-wide.
-
-**Found & fixed:**
-- The first instrumented run of the picker's drag was on the grip icon only, so a tap on the row's title did nothing. The gesture now sits on the whole row, and a short tap still toggles the section.
-- The first drag test drove a stateful harness, so it didn't exercise the ViewModel or DataStore. It's removed. `SharePreviewOrderFlowTest` covers the same gesture through a real Room database, the real `ShareViewModel` and a DataStore file, and it's tagged `@Smoke`.
-- The card-position helper was copy-pasted into both instrumented share test files. It's now one `ComposeContentTestRule.cardTitleTop` in `SharePreviewScreenTest.kt`.
-- `ShareInsightsSection` moved from `viewmodel/` to `data/`, next to `LogRowField`, so `SettingsRepository` can persist it without `data` depending on `viewmodel`.
-- SPEC §13 said "drag-to-reorder handles"; it now says rows, with the long-press.
-- TESTING.md's Share card, Share preview, ViewModels rows and manual step 12 now describe the saved order and the new coverage.
-
-**Considered and declined:**
-- Drag state uses `remember`, not `rememberSaveable`. A rotation mid-drag ends the gesture, and that's acceptable for a transient interaction.
-- The grip's geometry (dot positions, 24 dp box) is inline in `DragGrip`. These are layout values, not product constants, so they don't belong in the domain layer.
-- The `ShareCardTemplateTest` order test planned earlier is not written. `ShareCardStateTest` checks the order of `storyOrder`, and the flow test checks the rendered card, so a third test would repeat them.
-- The section order is not in the JSON export. It's a device preference like `LOG_VISIBLE_FIELDS`, which the export also leaves out (TESTING manual step 7).
-- The grip is not a separate tap target. The whole row is, and it's at least the 48 dp minimum set by the row's switch.
-
-**Deferred:** nothing.
-
-**Docs updated:** SPEC §13 (picker, drag wording); TESTING.md (Share card assembly, Compose UI — Share preview, ViewModels, manual step 12); CLEANUP_LOG (this entry; the oldest entry, `feature/tag-combo-trends`, removed to keep five).

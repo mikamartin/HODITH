@@ -76,7 +76,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 ## Commands
 
 - Unit tests: `./gradlew test`
-- Instrumented tests: `./gradlew connectedDebugAndroidTest` (device/emulator required)
+- Instrumented tests: `./gradlew connectedDebugAndroidTest` (device/emulator required; turn emulator animations off first, see DEV_PLAYBOOK §7 gotcha 10)
 - Style lint check / autofix: `./gradlew ktlintCheck` / `./gradlew ktlintFormat`
 - Android Lint: `./gradlew lintDebug`
 - Debug build: `./gradlew assembleDebug`

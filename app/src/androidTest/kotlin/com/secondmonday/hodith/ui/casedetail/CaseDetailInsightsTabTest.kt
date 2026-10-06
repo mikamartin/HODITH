@@ -462,26 +462,6 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
-    fun intensityCard_dropsTheTrailingZeroOfAWholeAverage() {
-        // Intensities 3 and 3 -> average 3, shown as "3". A bare "3" also labels a distribution square
-        // and day cells, so this guards the regression ("3.0") rather than locating the figure.
-        setInsightsTabContent(intensityEnabled = true, events = listOf(eventAt(2, intensity = 3), eventAt(1, intensity = 3)))
-
-        composeTestRule.onNodeWithText("3.0").assertDoesNotExist()
-    }
-
-    @Test
-    fun intensityCard_keepsAFractionalAverageOnOneDecimal() {
-        // Intensities 3, 3, 3, 4, 4 -> average 17/5 = 3.4.
-        setInsightsTabContent(
-            intensityEnabled = true,
-            events = listOf(3, 3, 3, 4, 4).mapIndexed { index, intensity -> eventAt((index + 1).toLong(), intensity = intensity) },
-        )
-
-        composeTestRule.onNodeWithText("3.4").assertExists()
-    }
-
-    @Test
     fun frequencyCard_showsPerBucketEventCounts() {
         // 33 events on one day, 34 on another -> those bars read "33"/"34". Deliberately >31 (the
         // heatmap's max day-of-month) so neither literal can collide with a heatmap day cell
