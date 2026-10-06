@@ -16,23 +16,17 @@ Each item carries a **trailer** (*Branch · Complexity · Priority · Area*; Com
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-### Trends: visual redesign, order by recency/significance
+### Trends: recency tie-break and "New" badge
 
-*Branch: `feat/trends-visual-redesign` · Complexity: M · Priority: Medium · Area: Insights*
+*Branch: none yet · Complexity: M · Priority: Low · Area: Insights*
 
-🎨 **Design decision**
+Findings are ordered by significance, with the went-quiet finding first. Still open:
 
-Trend findings render as plain sentence + caption text, not cards, and their order is fixed by detector-execution order, not recency or significance.
+- [ ] Recency tie-break: equal-ranked findings should order by their most recent evidence. `TrendFinding` carries a date only for change points, so each detector needs to supply its evidence date first.
+- [ ] "New" badge: marks findings that appeared since the last view. Needs a finding-identity and persistence design (`TrendFinding` has no id or timestamp), so it isn't buildable yet.
+- [ ] Silent fallbacks in the Trends rows: `changePointDate ?: LocalDate.now()` in `trendFindingSentence` formats a date from the system clock if the field is ever null, and `timeOfDay ?: MORNING` and `outcome ?: INTENSITY` in the row code can hide bad data. Make each fail loudly, or prove it unreachable in a test.
 
-**Acceptance criteria**
-
-- [ ] `TrendFindingRow`/`Plank` restyled to a more scannable, visual per-finding treatment.
-- [ ] Findings reordered by significance — a decision made on whether the existing binary `TrendReliability` tier (Pattern before Hint) is sufficient, or whether raw p-values need to be persisted on `TrendFinding` for finer-grained ordering.
-- [ ] "New" label — open sub-question, not blocking the rest of this item: needs a finding-identity/persistence design decision (`TrendFinding` has no id or timestamp today) before it's buildable. Ship the visual redesign and significance ordering first, add the badge once that's decided.
-
-**Plan** — restyle rendering first; add significance-based sort to `TrendsEngine`'s output; revisit "New" once identity/persistence is designed.
-
-**Tests** — `InsightsTabTrendsCardTest`/`TrendsListScreenTest` updated for the new rendering and sort order.
+**Tests** — none until the design is settled.
 
 ### Review phrasing across all three Voice implementations
 

@@ -1,6 +1,11 @@
 package com.secondmonday.hodith.ui.voice
 
 import com.secondmonday.hodith.domain.ComparisonBand
+import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TagOutcome
+import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.TrendReliability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -164,10 +169,21 @@ class VoiceTest {
                     kClass == Int::class -> listOf(3)
                     kClass == Long::class -> listOf(5L)
                     kClass == Boolean::class -> listOf(true, false)
+                    kClass == TrendFinding::class -> trendFindingSamples()
                     else -> error("No sample value strategy for parameter type $kClass")
                 }
             return if (type.isMarkedNullable) base + null else base
         }
+
+        /** Every kind, direction and outcome, so each trend headline branch is checked in all three voices. */
+        private fun trendFindingSamples(): List<TrendFinding> =
+            TrendFindingKind.entries.flatMap { kind ->
+                ShiftDirection.entries.flatMap { direction ->
+                    listOf<TagOutcome?>(null, TagOutcome.INTENSITY, TagOutcome.DURATION).map { outcome ->
+                        TrendFinding(kind, direction, TrendReliability.PATTERN, 3, 2.0, 5.0, tagName = "Test Case", outcome = outcome)
+                    }
+                }
+            }
 
         private fun argumentCombinations(function: KFunction<*>): List<List<Any?>> {
             val params = function.parameters.filter { it.kind == KParameter.Kind.VALUE }

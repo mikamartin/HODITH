@@ -17,6 +17,47 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feat/trends-visual-redesign
+
+**Scope:** PROGRESS.md's "Trends: visual redesign, order by recency/significance" item: the Insights card row (headline, Pattern/Hint chip, compared figures), the full-list row (adds the sentence), p-value ordering, and sort-before-cap.
+
+**Walked:** CLEANUP_CHECKLIST.md against the branch's diff, section by section. Not run on a device this pass: the instrumented tests compile but have not run, and light and dark have not been checked on a device.
+
+**Found & fixed:**
+- Two English phrases were inline in the row code: the tag combo's "of" and the tag-timing bucket ("on Mondays", "in the morning"). They moved into `Voice` (`trendCountOfTotal`, `trendTimingBucket`), and the case-wide reference moved to `trendCaseWideReference`. The bucket phrase was also duplicated between the sentence and the row, so both now call `trendBucketPhrase`.
+- Stale KDoc in `Trends.kt` and `TrendsEngine.kt`: "every detector today", "PATTERN is reserved for a future detector", "phrased like `Voice.verdictMeta`" (trend findings don't use it), and "all four are always HINT today". Rewritten to describe what the code does now.
+- The Insights card KDoc still described the removed info icon and the sentence layout. Rewritten.
+- `VoiceTest` had no sample generator for `TrendFinding`, so the reflection invariants couldn't check the headlines. Added one covering every kind, direction and outcome.
+- Two order-dependent unit tests asserted detector order, which the sort replaces. Rewritten to assert the new contract.
+- Regression coverage added: sort-before-cap keeps a strong Pattern finding, and `pValue` is set on Pattern findings and null on Hints.
+
+**Deferred:**
+- Headline copy length, to be decided in the trend-by-trend wording review. Flagged labels, with alternatives from existing wording:
+  - Plain: "Current silence is a record" (or "A record silence", the Goth wording); "Episodes running longer" and "Episodes running shorter" (or "Runs got longer" and "Runs got shorter", the streak headlines); "Often comes back quickly" (or "Comes back quickly").
+  - Goth: "Waking spells lengthening" (or "Spells lengthening"); "Lingering longer lately" (or "Lingering lately").
+  - Quirky: "Rarely comes back fast!" (or "Rarely returns fast!").
+  Kept as drafted until that review.
+- Silent fallbacks in the row code: `changePointDate ?: LocalDate.now()` in `trendFindingSentence`, and `timeOfDay ?: MORNING` and `outcome ?: INTENSITY`. The domain sets these for every finding that reads them, so they're unreachable today. Tracked in PROGRESS.md.
+- Recency tie-break and "New" badge: tracked in PROGRESS.md (no date on `TrendFinding`).
+- Sentences still quote tag names ("Stress") while headlines use `#Stress`. The sentences are shared with the share card, so changing them is a copy change for the wording review.
+- The share card's trend section is unchanged (sentence-only), by decision.
+- Considered and declined: pulling `groupRank` and `hintEffectSize` into their own file. They're private, single-caller, and documented beside the sort they serve.
+
+**Checks:**
+- Duplication: the two card and list rows share one `TrendFindingBody`. The plank wrapping matches `EventRow`'s existing convention.
+- Decoupling: domain code has no `android.*` imports, no `System.currentTimeMillis()` and no ViewModel or UI types.
+- Complexity: the largest new composable is about 50 lines. No new `LaunchedEffect` or `remember`.
+- Dead code: no unused imports (ktlint passes), no commented code. The HTML prototype lives outside the repo, so nothing to delete from it.
+- Hygiene: `git status` shows only intended files. No secrets or local paths.
+- Naming and Voice: every new key is in all three voices. Structural keys are interface defaults, so the reflection test skips them.
+- Hardcoded values: no new colours or product constants.
+- Accessibility: chip text and bold tags, so meaning isn't carried by colour alone. No new tap targets.
+- Data model, widgets and background work: not touched. `widget/` has no trend references.
+- Deprecated APIs: no new warnings in the touched files.
+- Tests: `test` passes, 1128 unit tests. `compileDebugAndroidTestKotlin` and `assembleDebug` pass. The instrumented classes `InsightsTabTrendsCardTest` and `TrendsListScreenTest` were updated but have not run on a device.
+
+**Docs updated:** HODITH_SPEC.md §10 (Trends card contents, info icon placement, ordering); TESTING.md (`TrendFiguresTest` added to the trend sentence row); PROGRESS.md (the trends item reduced to its open work); this entry.
+
 ---
 
 ## feature/manage-tags
@@ -35,6 +76,8 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Cross-Case wording in the warnings ("across all Cases, including archived ones") is pending the owner's review.
 
 **Docs updated:** PROGRESS.md (item struck), HODITH_SPEC §14 (Settings Data row and a Manage tags row), TESTING.md (coverage rows), MANUAL_TEST_PLAN.md (Tags section).
+
+---
 
 ## chore/ui-test-suite-audit
 

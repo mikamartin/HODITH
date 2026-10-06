@@ -120,12 +120,12 @@ class InsightsTabTrendsCardTest {
     }
 
     @Test
-    fun trendsCard_rendersWentQuietSentence() {
+    fun trendsCard_rendersWentQuietHeadline() {
         val wentQuiet = TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)
         setContent(trends = listOf(wentQuiet))
 
         composeTestRule
-            .onNodeWithText(PlainVoice.insightsWentQuietSentence(currentGapLabel = "20 days", longestPastGapLabel = "5 days"))
+            .onNodeWithText(PlainVoice.insightsTrendHeadline(wentQuiet, bucketPhrase = ""))
             .assertExists()
     }
 
@@ -136,12 +136,11 @@ class InsightsTabTrendsCardTest {
         setContent(trends = listOf(wentQuiet) + List(5) { syntheticFinding(it) }, onOpenTrends = { opened = true })
 
         composeTestRule
-            .onNodeWithText(PlainVoice.insightsWentQuietSentence(currentGapLabel = "20 days", longestPastGapLabel = "5 days"))
+            .onNodeWithText(PlainVoice.insightsTrendHeadline(wentQuiet, bucketPhrase = ""))
             .assertExists()
         composeTestRule
-            .onNodeWithText(
-                PlainVoice.insightsGapShiftSentence(ShiftDirection.UP, priorAverageLabel = "3 days", recentAverageLabel = "5 days"),
-            ).assertDoesNotExist()
+            .onNodeWithText(PlainVoice.insightsTrendHeadline(syntheticFinding(0), bucketPhrase = ""))
+            .assertDoesNotExist()
 
         composeTestRule.onNodeWithText(PlainVoice.insightsTrendsShowMoreAction).performClick()
 
@@ -149,7 +148,7 @@ class InsightsTabTrendsCardTest {
     }
 
     @Test
-    fun trendsCard_rendersTagOutcomeSentence_forIntensity() {
+    fun trendsCard_rendersTagOutcomeHeadline_forIntensity() {
         val tagOutcome =
             TrendFinding(
                 kind = TrendFindingKind.TAG_OUTCOME,
@@ -164,15 +163,7 @@ class InsightsTabTrendsCardTest {
         setContent(trends = listOf(tagOutcome))
 
         composeTestRule
-            .onNodeWithText(
-                PlainVoice.insightsTagOutcomeSentence(
-                    "aura",
-                    TagOutcome.INTENSITY,
-                    ShiftDirection.UP,
-                    relativeDifferenceLabel = "50%",
-                    withoutTagLabel = "3",
-                    withTagLabel = "4.5",
-                ),
-            ).assertExists()
+            .onNodeWithText(PlainVoice.insightsTrendHeadline(tagOutcome, bucketPhrase = ""))
+            .assertExists()
     }
 }

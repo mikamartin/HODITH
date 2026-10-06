@@ -43,6 +43,10 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -688,11 +692,9 @@ private fun GapsCard(
 
 /**
  * Spec §10 Trends section (Story C T1's scaffold): the first Insights card, shown only when at
- * least one [TrendFinding] exists — mirrors [TagsCard]'s `.isNotEmpty()` gate at the call site. No
- * info icon and no Hint/Pattern tags here — at this level of detail (sentence with real numbers)
- * neither earns its screen space; both live one tap away on the full-list screen
- * ([com.secondmonday.hodith.ui.casedetail.trends.TrendsListScreen] via [onShowMore]) instead. Shows
- * the first [TRENDS_DEFAULT_VISIBLE_COUNT] findings; "show more" is right-aligned under them,
+ * least one [TrendFinding] exists — mirrors [TagsCard]'s `.isNotEmpty()` gate at the call site. Each row
+ * shows its headline, the Pattern/Hint chip, the figures it compares and its evidence count; the full
+ * sentence lives on the full-list screen ([TrendsListScreen] via [onShowMore]). Shows the first [TRENDS_DEFAULT_VISIBLE_COUNT] findings; "show more" is right-aligned under them,
  * matching a trailing/secondary action rather than a primary one. When [TrendFindingKind.WENT_QUIET]
  * leads (TrendsEngine always prepends it first when it fires), it's shown alone instead — it reports
  * the Case's live, still-unresolved state rather than a settled historical shift like every other
@@ -726,18 +728,30 @@ internal fun trendsVisibleCount(findings: List<TrendFinding>): Int =
 /** [findings] trimmed to [trendsVisibleCount] — the actual capped list, for callers that render it directly rather than needing the count separately. */
 internal fun trendsVisibleFindings(findings: List<TrendFinding>): List<TrendFinding> = findings.take(trendsVisibleCount(findings))
 
-/** [TrendFinding]'s reliability tag — plain colored text, the same "flag" idiom [insightsBurstFlagLabel] already uses on the Gaps card, not a filled chip. Pattern reads more prominent than Hint, matching that it carries more statistical weight. Shown only on the full-list screen ([TrendFindingPlank]), not the compact card. */
+/** [TrendFinding]'s reliability chip, shown top-right of every row on both the compact card and the full list. */
 @Composable
 private fun TrendReliabilityTag(
     reliability: TrendReliability,
     voice: Voice,
 ) {
-    val (label, color) =
+    val (label, container, content) =
         when (reliability) {
-            TrendReliability.HINT -> voice.trendReliabilityHintLabel to MaterialTheme.colorScheme.onSurfaceVariant
-            TrendReliability.PATTERN -> voice.trendReliabilityPatternLabel to MaterialTheme.colorScheme.primary
+            TrendReliability.HINT ->
+                Triple(
+                    voice.trendReliabilityHintLabel,
+                    MaterialTheme.colorScheme.surfaceVariant,
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            TrendReliability.PATTERN ->
+                Triple(
+                    voice.trendReliabilityPatternLabel,
+                    MaterialTheme.colorScheme.primaryContainer,
+                    MaterialTheme.colorScheme.onPrimaryContainer,
+                )
         }
-    Text(text = label, style = MaterialTheme.typography.labelSmall, color = color)
+    Surface(color = container, contentColor = content, shape = MaterialTheme.shapes.small) {
+        Text(text = label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+    }
 }
 
 /**
@@ -830,12 +844,9 @@ internal fun trendFindingSentence(
         }
         TrendFindingKind.TAG_TIMING -> {
             // tagName is always set; exactly one of weekday/timeOfDay is set -- see TrendFinding's KDoc.
-            val bucketPhrase =
-                finding.weekday?.let { "on ${it.getDisplayName(TextStyle.FULL, locale)}s" }
-                    ?: "in the ${rhythmTimeOfDayLabel(voice, finding.timeOfDay ?: TimeOfDay.MORNING).lowercase()}"
             voice.insightsTagTimingSentence(
                 finding.tagName.orEmpty(),
-                bucketPhrase,
+                trendBucketPhrase(finding, voice, locale),
                 formatPercent(finding.priorValue),
                 formatPercent(finding.recentValue),
             )
@@ -869,43 +880,146 @@ private fun trendFindingEvidenceLabel(
         TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> voice.insightsWeekdayWeekendEvidenceLabel(finding.sampleCount)
     }
 
-/**
- * One [TrendFinding]'s sentence plus its evidence count on the line below, always visible without
- * a tap. [showReliabilityTag] adds the Hint/Pattern tag alongside the sentence — off for
- * [TrendFindingRow] (compact card, keeps that surface to sentence + numbers only), on for
- * [TrendFindingPlank] (full-list screen, more room and more reason to want the tier at a glance).
- */
-@Composable
-private fun TrendFindingContent(
+/** The figures one [TrendFinding] compares: [primary] is this period's value, [reference] what it's compared against. */
+internal data class TrendFigures(
+    val primary: String,
+    val reference: String? = null,
+    val detail: String? = null,
+)
+
+/** The figures for [finding]'s row, in the same units its sentence uses. */
+internal fun trendFigures(
     finding: TrendFinding,
     voice: Voice,
-    showReliabilityTag: Boolean,
+): TrendFigures =
+    when (finding.kind) {
+        TrendFindingKind.WENT_QUIET,
+        TrendFindingKind.GAP_SHIFT,
+        TrendFindingKind.STREAK_SHIFT,
+        TrendFindingKind.CHANGE_POINT,
+        -> TrendFigures(formatDays(finding.recentValue), formatDays(finding.priorValue))
+        TrendFindingKind.FREQUENCY_SHIFT ->
+            TrendFigures(finding.recentValue.roundToInt().toString(), finding.priorValue.roundToInt().toString())
+        TrendFindingKind.TAG_SHARE_SHIFT -> TrendFigures(formatPercent(finding.recentValue), formatPercent(finding.priorValue))
+        // priorValue holds the shared-event count and recentValue the Case's total events -- see computeTrendFindings.
+        TrendFindingKind.TAG_COMBO ->
+            TrendFigures(
+                voice.trendCountOfTotal(finding.priorValue.roundToInt(), finding.recentValue.roundToInt()),
+            )
+        TrendFindingKind.RECURRENCE_SHAPE ->
+            TrendFigures(formatPercent(finding.recentValue), detail = voice.trendRecurrenceDetailLabel)
+        TrendFindingKind.WEEKDAY_WEEKEND_SPLIT ->
+            TrendFigures(formatPercent(finding.recentValue), voice.trendChanceBaselineLabel)
+        TrendFindingKind.TAG_TIMING ->
+            TrendFigures(formatPercent(finding.recentValue), voice.trendCaseWideReference(formatPercent(finding.priorValue)))
+        TrendFindingKind.TAG_OUTCOME,
+        TrendFindingKind.TREND_SLOPE,
+        TrendFindingKind.TIME_OF_DAY_SPLIT,
+        -> {
+            val outcome = finding.outcome ?: TagOutcome.INTENSITY
+            when (outcome) {
+                TagOutcome.INTENSITY ->
+                    TrendFigures(formatIntensity(finding.recentValue), formatIntensity(finding.priorValue))
+                TagOutcome.DURATION ->
+                    TrendFigures(
+                        formatMinutesDuration(finding.recentValue.roundToLong()),
+                        formatMinutesDuration(finding.priorValue.roundToLong()),
+                    )
+            }
+        }
+    }
+
+/** The weekday or time-of-day bucket a [TrendFindingKind.TAG_TIMING] headline names, e.g. "on Mondays" or "in the morning". */
+internal fun trendBucketPhrase(
+    finding: TrendFinding,
+    voice: Voice,
+    locale: Locale,
+): String =
+    voice.trendTimingBucket(
+        weekdayName = finding.weekday?.getDisplayName(TextStyle.FULL, locale),
+        timeOfDayLabel = rhythmTimeOfDayLabel(voice, finding.timeOfDay ?: TimeOfDay.MORNING),
+    )
+
+/** [headline] with every `#tag` for [tagName] drawn in [color] and bold, so the tag reads apart from the words around it. */
+private fun highlightTag(
+    headline: String,
+    tagName: String?,
+    color: Color,
+): AnnotatedString =
+    buildAnnotatedString {
+        append(headline)
+        if (tagName != null) {
+            val token = "#$tagName"
+            var start = headline.indexOf(token)
+            while (start >= 0) {
+                addStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold), start, start + token.length)
+                start = headline.indexOf(token, start + token.length)
+            }
+        }
+    }
+
+/**
+ * One [TrendFinding] row: the headline with its reliability chip top-right, the figures it compares,
+ * and the evidence count. [showSentence] adds the full sentence beneath, used on the full-list screen
+ * only, so the compact card stays to headline and figures.
+ */
+@Composable
+private fun TrendFindingBody(
+    finding: TrendFinding,
+    voice: Voice,
+    showSentence: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val sentence = trendFindingSentence(finding, voice, LocalLocale.current.platformLocale)
-    val evidenceLabel = trendFindingEvidenceLabel(finding, voice)
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = sentence, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (showReliabilityTag) TrendReliabilityTag(finding.reliability, voice)
+    val locale = LocalLocale.current.platformLocale
+    val headline = voice.insightsTrendHeadline(finding, trendBucketPhrase(finding, voice, locale))
+    val figures = trendFigures(finding, voice)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+            Text(
+                text = highlightTag(headline, finding.tagName, MaterialTheme.colorScheme.primary),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            TrendReliabilityTag(finding.reliability, voice)
         }
-        Text(text = evidenceLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+            Text(text = figures.primary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            figures.reference?.let { reference ->
+                Text(
+                    text = voice.trendReferenceLine(reference),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        figures.detail?.let {
+            Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (showSentence) {
+            Text(text = trendFindingSentence(finding, voice, locale), style = MaterialTheme.typography.bodyMedium)
+        }
+        Text(
+            text = trendFindingEvidenceLabel(finding, voice),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
-/** One Trends finding inside the compact [TrendsCard] — no reliability tag (see [TrendFindingContent]). */
+/** One Trends finding inside the compact [TrendsCard]: headline, chip and figures, no sentence (see [TrendFindingBody]). */
 @Composable
 private fun TrendFindingRow(
     finding: TrendFinding,
     voice: Voice,
 ) {
-    TrendFindingContent(finding, voice, showReliabilityTag = false, modifier = Modifier.fillMaxWidth())
+    TrendFindingBody(finding, voice, showSentence = false, modifier = Modifier.fillMaxWidth())
 }
 
 /**
- * One Trends finding on the full-list screen, with its reliability tag (see [TrendFindingContent]).
- * Plain wraps it in its own white plank [Card] on the tinted screen background, matching
- * [EventRow]'s Log-tab convention; Intense and Bright keep a flat row, same split as [EventRow].
+ * One Trends finding on the full-list screen, with its sentence (see [TrendFindingBody]). Plain wraps
+ * it in its own white plank [Card] on the tinted screen background, matching [EventRow]'s Log-tab
+ * convention; Intense and Bright keep a flat row, same split as [EventRow].
  * Internal so [com.secondmonday.hodith.ui.casedetail.trends.TrendsListScreen] can render it.
  */
 @Composable
@@ -919,18 +1033,18 @@ internal fun TrendFindingPlank(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
-                TrendFindingContent(
+                TrendFindingBody(
                     finding,
                     voice,
-                    showReliabilityTag = true,
+                    showSentence = true,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
         CardDecorationStyle.INTENSE, CardDecorationStyle.BRIGHT ->
-            TrendFindingContent(
+            TrendFindingBody(
                 finding,
                 voice,
-                showReliabilityTag = true,
+                showSentence = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             )
     }
