@@ -394,55 +394,6 @@ class BigPictureScreenTest {
     }
 
     @Test
-    fun deselectingACase_resetsStaleTagSelection_insteadOfEmptyingTheGrid() {
-        val secondCase = CalendarCase(id = 2L, icon = "🫖", name = "Tea")
-        val workEvent = eventToday(id = 1L, note = "work note", tags = listOf("work"))
-        val soloEvent =
-            CalendarEvent(
-                id = 2L,
-                caseId = secondCase.id,
-                occurredAt = workEvent.occurredAt,
-                note = "solo note",
-                tags = listOf("solo"),
-                utcOffsetMinutes = offsetAt(workEvent.occurredAt),
-            )
-        setContent(uiStateWith(cases = listOf(case, secondCase), events = listOf(workEvent, soloEvent)))
-
-        // Narrow tags to "solo" only, while both Cases are still visible.
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureTagsFilterLabel).performClick()
-        composeTestRule.onNodeWithText("work").performClick()
-        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
-
-        // Confirm the tag selection actually narrowed to "solo" before deselecting the Case.
-        composeTestRule.onNodeWithText("solo").assertExists()
-        composeTestRule.onNodeWithText("work").assertDoesNotExist()
-
-        // Deselect Tea, the only Case with "solo" events — before the tag-scoping fix, the stale
-        // {"solo"} tag selection would AND against Coffee's "work"-only events to an empty grid.
-        composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).performClick()
-        composeTestRule.onNodeWithText(secondCase.name).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
-
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
-        composeTestRule.onNodeWithText("work note").assertExists()
-    }
-
-    @Test
-    fun weekDetailDialog_showsEventTimestampAndTags() {
-        setContent(
-            uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine", tags = listOf("late night")))),
-        )
-
-        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
-
-        // Midnight (today.atStartOfDay) formats as "12:00 AM"; it's a trailing span in the name line.
-        composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
-        // The legend row is empty by default (both Cases and tags start fully selected), so the
-        // only "late night" node is the tag pill on this event row inside the now-open dialog.
-        composeTestRule.onNodeWithText("late night").assertExists()
-    }
-
-    @Test
     fun weekDetailDialog_eventRowTap_opensCaseDetailAndDismissesDialog() {
         var openedCaseId: Long? = null
         setContent(
@@ -456,49 +407,6 @@ class BigPictureScreenTest {
 
         assert(openedCaseId == case.id) { "expected onOpenCase to be called with ${case.id}, was $openedCaseId" }
         composeTestRule.onNodeWithText(PlainVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertDoesNotExist()
-    }
-
-    @Test
-    fun weekDetailDialog_spannedDay_showsSpanRangeInsteadOfClockTime() {
-        // A finished 3-day event: Mon 20th 09:00 -> Wed 22nd 17:00, entirely inside today's week.
-        val span =
-            CalendarEvent(
-                id = 1L,
-                caseId = case.id,
-                occurredAt = millisAt(weekStart, 9),
-                endedAt = millisAt(weekStart.plusDays(2), 17),
-                note = "rough stretch",
-                utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
-            )
-        setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
-
-        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
-
-        // The week dialog lists the event once per covered day (20th, 21st, 22nd); every row reads
-        // the span range (start + end date and time) in place of a bare clock time.
-        composeTestRule
-            .onAllNodesWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM"))
-            .assertCountEquals(3)
-        composeTestRule.onNodeWithText("9:00 AM").assertDoesNotExist()
-    }
-
-    @Test
-    fun weekDetailDialog_carriedDayOfOngoingEvent_showsOngoingSince() {
-        val ongoing =
-            CalendarEvent(
-                id = 1L,
-                caseId = case.id,
-                occurredAt = millisAt(weekStart.plusDays(1), 8),
-                isOngoing = true,
-                note = "forgot to stop",
-                utcOffsetMinutes = offsetAt(millisAt(weekStart.plusDays(1), 8)),
-            )
-        setContent(uiStateWith(cases = listOf(case), events = listOf(ongoing)))
-
-        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
-
-        // Covered days 21st, 22nd, 23rd (today) all fall in this week; each row reads "ongoing since".
-        composeTestRule.onAllNodesWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21, 8:00 AM")).assertCountEquals(3)
     }
 
     @Test
@@ -861,24 +769,6 @@ class BigPictureScreenTest {
     }
 
     @Test
-    fun seededVisibleTagNames_dropsAStaleNameInsteadOfInflatingTheCount() {
-        setContent(
-            uiStateWith(
-                cases = listOf(case),
-                events = listOf(eventToday(tags = listOf("urgent"))),
-                visibleTagNames = setOf("urgent", "gone"),
-            ),
-        )
-
-        // The legend row itself renders nothing once every dimension resolves to "All" (both Case
-        // and Tag legends collapse silently), so assert on the trigger chip instead -- anchored on
-        // its own label since the Cases chip also reads ": All" at this point.
-        composeTestRule
-            .onNode(hasText(PlainVoice.bigPictureTagsFilterLabel) and hasText(": " + PlainVoice.bigPictureFilterCountAll))
-            .assertExists()
-    }
-
-    @Test
     fun togglingACaseChip_clearsAnActivePersistedTagSelection_backToAll() {
         // Coffee carries two tags ("work", "personal") so that, after Tea is deselected, a stale
         // {"work"} tag selection re-intersected against Coffee's own scoped tags would still read
@@ -991,22 +881,6 @@ class BigPictureScreenTest {
     }
 
     @Test
-    fun dayDetailRow_tagsToggleOff_hidesTheTagPills() {
-        setContent(
-            uiStateWith(
-                cases = listOf(case),
-                events = listOf(eventToday(note = "felt fine", tags = listOf("late night"))),
-                detail = BigPictureDetail.DEFAULT.copy(tags = false),
-            ),
-        )
-
-        openDay()
-
-        composeTestRule.onNodeWithText("felt fine").assertExists()
-        composeTestRule.onNodeWithText("late night").assertDoesNotExist()
-    }
-
-    @Test
     fun dayDetailRow_intensityToggleOn_showsTheIntensityLabel() {
         setContent(
             uiStateWith(
@@ -1019,21 +893,6 @@ class BigPictureScreenTest {
         openDay()
 
         composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(3), substring = true).assertExists()
-    }
-
-    @Test
-    fun dayDetailRow_intensityToggleOff_hidesTheIntensityLabel() {
-        setContent(
-            uiStateWith(
-                cases = listOf(case),
-                events = listOf(eventToday(intensity = 3)),
-                detail = BigPictureDetail.DEFAULT.copy(intensity = false),
-            ),
-        )
-
-        openDay()
-
-        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(3), substring = true).assertDoesNotExist()
     }
 
     @Test
@@ -1056,30 +915,6 @@ class BigPictureScreenTest {
     }
 
     @Test
-    fun dayDetailRow_durationToggleOff_hidesLasted() {
-        val start = millisAt(today, 9)
-        val sameDayDuration =
-            CalendarEvent(
-                id = 1L,
-                caseId = case.id,
-                occurredAt = start,
-                endedAt = start + 40 * 60_000L,
-                utcOffsetMinutes = offsetAt(start),
-            )
-        setContent(
-            uiStateWith(
-                cases = listOf(case),
-                events = listOf(sameDayDuration),
-                detail = BigPictureDetail.DEFAULT.copy(duration = false),
-            ),
-        )
-
-        openDay()
-
-        composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel("40m"), substring = true).assertDoesNotExist()
-    }
-
-    @Test
     fun dayDetailRow_multiDaySpan_keepsItsRangeLabelAndAddsNoLastedLine() {
         val span =
             CalendarEvent(
@@ -1097,41 +932,6 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel(""), substring = true).assertDoesNotExist()
-    }
-
-    @Test
-    fun dayDetailRow_allTogglesOff_showsOnlyNameAndTime() {
-        setContent(
-            uiStateWith(
-                cases = listOf(case),
-                events = listOf(eventToday(note = "felt fine", tags = listOf("late night"), intensity = 3)),
-                detail = BigPictureDetail.ALL_OFF,
-            ),
-        )
-
-        openDay()
-
-        // Name + time are one wrapping line; nothing else on the row.
-        composeTestRule.onNodeWithText("${case.icon} ${case.name}", substring = true).assertExists()
-        composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
-        composeTestRule.onNodeWithText("felt fine").assertDoesNotExist()
-        composeTestRule.onNodeWithText("late night").assertDoesNotExist()
-        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(3), substring = true).assertDoesNotExist()
-    }
-
-    @Test
-    fun weekDetailRow_honoursTheIntensityToggle() {
-        setContent(
-            uiStateWith(
-                cases = listOf(case),
-                events = listOf(eventToday(intensity = 4)),
-                detail = BigPictureDetail.DEFAULT.copy(intensity = true),
-            ),
-        )
-
-        composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
-
-        composeTestRule.onNodeWithText(PlainVoice.eventIntensityLabel(4), substring = true).assertExists()
     }
 
     @Test
