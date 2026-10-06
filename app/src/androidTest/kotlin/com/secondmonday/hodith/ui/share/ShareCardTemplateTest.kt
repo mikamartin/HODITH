@@ -4,15 +4,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.domain.HeatmapLevel
@@ -48,6 +53,7 @@ import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
 import com.secondmonday.hodith.viewmodel.StreakDisplay
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -668,6 +674,35 @@ class ShareCardTemplateTest {
                 ShareCardTemplate(data = data, voice = voice)
             }
         }
+    }
+
+    @Test
+    fun storyCapture_isNotBlank_andChangesWithTheSkin() {
+        // The card's skin has to survive being rendered into a captured bitmap, not only into the
+        // tree: each skin's capture is non-blank and differs from the other two.
+        var skin by mutableStateOf(ShareCardSkin.PLAIN)
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVoice provides PlainVoice, LocalShareCardSkin provides skin) {
+                ShareCardTemplate(data = fullStoryData(), voice = PlainVoice)
+            }
+        }
+        val plain = capturedRootPixels()
+        composeTestRule.runOnIdle { skin = ShareCardSkin.INTENSE }
+        val intense = capturedRootPixels()
+        composeTestRule.runOnIdle { skin = ShareCardSkin.BRIGHT }
+        val bright = capturedRootPixels()
+
+        assertTrue("Plain capture is blank", plain.any { it != plain[0] })
+        assertFalse("Intense capture matches Plain", intense.contentEquals(plain))
+        assertFalse("Bright capture matches Plain", bright.contentEquals(plain))
+        assertFalse("Bright capture matches Intense", bright.contentEquals(intense))
+    }
+
+    private fun capturedRootPixels(): IntArray {
+        val image = composeTestRule.onRoot().captureToImage()
+        val pixels = IntArray(image.width * image.height)
+        image.readPixels(pixels)
+        return pixels
     }
 
     private fun top(text: String) = composeTestRule.onNodeWithText(text, ignoreCase = true).getUnclippedBoundsInRoot().top

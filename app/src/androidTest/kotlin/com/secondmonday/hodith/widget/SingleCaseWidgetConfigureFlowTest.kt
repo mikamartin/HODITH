@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.widget
 
+import android.app.Activity
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
@@ -21,6 +22,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -56,8 +58,8 @@ class SingleCaseWidgetConfigureFlowTest {
 
     private lateinit var context: Context
     private lateinit var host: AppWidgetHost
-    private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-    private var insertedCaseId = 0L
+    private val allocatedWidgetIds = mutableListOf<Int>()
+    private val insertedCaseIds = mutableListOf<Long>()
 
     @Before
     fun setUp() {
@@ -70,13 +72,9 @@ class SingleCaseWidgetConfigureFlowTest {
     @After
     fun tearDown() =
         runBlocking {
-            if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                host.deleteAppWidgetId(appWidgetId)
-            }
+            allocatedWidgetIds.forEach { host.deleteAppWidgetId(it) }
             host.stopListening()
-            if (insertedCaseId != 0L) {
-                repository.getCase(insertedCaseId)?.let { repository.deleteCase(it) }
-            }
+            insertedCaseIds.forEach { id -> repository.getCase(id)?.let { repository.deleteCase(it) } }
         }
 
     @Test
@@ -84,39 +82,16 @@ class SingleCaseWidgetConfigureFlowTest {
         runBlocking {
             val caseIcon = "🐛"
             val caseName = "Coffee ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, icon = caseIcon))
+            insertedCaseIds += repository.insertCase(testCase(name = caseName, icon = caseIcon))
 
-            appWidgetId = host.allocateAppWidgetId()
-            val provider = ComponentName(context, SingleCaseWidgetReceiver::class.java)
-            val bound = AppWidgetManager.getInstance(context).bindAppWidgetIdIfAllowed(appWidgetId, provider)
-            assertTrue("bindAppWidgetIdIfAllowed failed - is bind permission granted for this package?", bound)
+            val appWidgetId = bindWidgetId()
+            configureWidgetFor(appWidgetId, caseName)
 
-            val intent =
-                Intent(context, SingleCaseWidgetConfigureActivity::class.java)
-                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            val scenario = ActivityScenario.launch<SingleCaseWidgetConfigureActivity>(intent)
-
-            composeTestRule.waitUntil(timeoutMillis = 5_000) {
-                composeTestRule.onAllNodesWithText(caseName, substring = true).fetchSemanticsNodes().isNotEmpty()
-            }
-            composeTestRule.clickRowControl(caseName, isSelectable())
-            composeTestRule.onNodeWithText(PlainVoice.singleCaseWidgetConfigureConfirmAction).performClick()
-
-            var attempts = 0
-            while (scenario.state != Lifecycle.State.DESTROYED && attempts < 50) {
-                Thread.sleep(100)
-                attempts++
-            }
-            assertTrue(
-                "SingleCaseWidgetConfigureActivity never finished after confirming the picker",
-                scenario.state == Lifecycle.State.DESTROYED,
-            )
-
-            var texts = collectRenderedText()
+            var texts = collectRenderedText(appWidgetId)
             var renderAttempts = 0
             while (texts.none { it == caseIcon } && renderAttempts < 30) {
                 Thread.sleep(200)
-                texts = collectRenderedText()
+                texts = collectRenderedText(appWidgetId)
                 renderAttempts++
             }
 
@@ -127,7 +102,107 @@ class SingleCaseWidgetConfigureFlowTest {
             assertTrue("Expected the bound Case's icon '$caseIcon' to render, but saw: $texts", texts.any { it == caseIcon })
         }
 
-    private fun collectRenderedText(): List<String> = collectText(renderedView(context, host, appWidgetId))
+    @Test
+    fun singleCaseWidget_twoInstances_eachShowsItsOwnCase() =
+        runBlocking {
+            val suffix = System.currentTimeMillis()
+            val coffeeIcon = "🐛"
+            val teaIcon = "🫖"
+            val coffeeName = "Coffee $suffix"
+            val teaName = "Tea $suffix"
+            insertedCaseIds += repository.insertCase(testCase(name = coffeeName, icon = coffeeIcon))
+            insertedCaseIds += repository.insertCase(testCase(name = teaName, icon = teaIcon))
+
+            val coffeeWidgetId = bindWidgetId()
+            configureWidgetFor(coffeeWidgetId, coffeeName)
+            val teaWidgetId = bindWidgetId()
+            configureWidgetFor(teaWidgetId, teaName)
+
+            val coffeeTexts = awaitRenderedIcon(coffeeWidgetId, coffeeIcon)
+            val teaTexts = awaitRenderedIcon(teaWidgetId, teaIcon)
+
+            assertTrue("First instance should show only Coffee, but saw: $coffeeTexts", coffeeTexts.none { it == teaIcon })
+            assertTrue("Second instance should show only Tea, but saw: $teaTexts", teaTexts.none { it == coffeeIcon })
+        }
+
+    @Test
+    fun singleCaseWidget_cancelingThePicker_finishesWithResultCanceled() =
+        runBlocking {
+            val caseName = "Coffee ${System.currentTimeMillis()}"
+            insertedCaseIds += repository.insertCase(testCase(name = caseName))
+
+            val appWidgetId = bindWidgetId()
+            val scenario = launchConfigure(appWidgetId)
+
+            composeTestRule.waitUntil(timeoutMillis = 5_000) {
+                composeTestRule.onAllNodesWithText(caseName, substring = true).fetchSemanticsNodes().isNotEmpty()
+            }
+            composeTestRule.onNodeWithText(PlainVoice.widgetConfigureSkipAction).performClick()
+
+            awaitDestroyed(scenario)
+            assertEquals(Activity.RESULT_CANCELED, scenario.result.resultCode)
+        }
+
+    /** Allocates and binds a widget id, tracked so [tearDown] deletes it. */
+    private fun bindWidgetId(): Int {
+        val appWidgetId = host.allocateAppWidgetId()
+        allocatedWidgetIds += appWidgetId
+        val provider = ComponentName(context, SingleCaseWidgetReceiver::class.java)
+        val bound = AppWidgetManager.getInstance(context).bindAppWidgetIdIfAllowed(appWidgetId, provider)
+        assertTrue("bindAppWidgetIdIfAllowed failed - is bind permission granted for this package?", bound)
+        return appWidgetId
+    }
+
+    private fun launchConfigure(appWidgetId: Int): ActivityScenario<SingleCaseWidgetConfigureActivity> {
+        val intent =
+            Intent(context, SingleCaseWidgetConfigureActivity::class.java)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        return ActivityScenario.launchActivityForResult(intent)
+    }
+
+    /** Runs the real picker for [appWidgetId], choosing the Case named [caseName] and confirming. */
+    private fun configureWidgetFor(
+        appWidgetId: Int,
+        caseName: String,
+    ) {
+        val scenario = launchConfigure(appWidgetId)
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(caseName, substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.clickRowControl(caseName, isSelectable())
+        composeTestRule.onNodeWithText(PlainVoice.singleCaseWidgetConfigureConfirmAction).performClick()
+
+        awaitDestroyed(scenario)
+    }
+
+    private fun awaitDestroyed(scenario: ActivityScenario<*>) {
+        var attempts = 0
+        while (scenario.state != Lifecycle.State.DESTROYED && attempts < 50) {
+            Thread.sleep(100)
+            attempts++
+        }
+        assertTrue(
+            "SingleCaseWidgetConfigureActivity never finished",
+            scenario.state == Lifecycle.State.DESTROYED,
+        )
+    }
+
+    private fun awaitRenderedIcon(
+        appWidgetId: Int,
+        icon: String,
+    ): List<String> {
+        var texts = collectRenderedText(appWidgetId)
+        var renderAttempts = 0
+        while (texts.none { it == icon } && renderAttempts < 30) {
+            Thread.sleep(200)
+            texts = collectRenderedText(appWidgetId)
+            renderAttempts++
+        }
+        assertTrue("Expected the icon '$icon' to render, but saw: $texts", texts.any { it == icon })
+        return texts
+    }
+
+    private fun collectRenderedText(appWidgetId: Int): List<String> = collectText(renderedView(context, host, appWidgetId))
 
     companion object {
         private const val HOST_ID = 424243
