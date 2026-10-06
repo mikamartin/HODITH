@@ -635,7 +635,7 @@ class TrendsEngineTest {
             computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = strongTagOutcomeEventsWithTags())
 
         val tagOutcome = findings.single { it.kind == TrendFindingKind.TAG_OUTCOME }
-        assertTrue(tagOutcome.pValue != null && tagOutcome.pValue!! < TAG_OUTCOME_SIGNIFICANCE_ALPHA)
+        assertTrue(tagOutcome.pValue != null && tagOutcome.pValue < TAG_OUTCOME_SIGNIFICANCE_ALPHA)
         assertTrue(findings.filter { it.reliability == TrendReliability.HINT }.all { it.pValue == null })
     }
 
@@ -674,6 +674,22 @@ class TrendsEngineTest {
         val large = syntheticFinding().copy(priorValue = 2.0, recentValue = 5.0)
 
         assertEquals(listOf(large, small), capTrendFindings(listOf(small, large)))
+    }
+
+    @Test
+    fun `capTrendFindings ranks a Hint from a zero baseline ahead of a measured change`() {
+        val measured = syntheticFinding().copy(priorValue = 2.0, recentValue = 5.0)
+        val fromZero = syntheticFinding().copy(priorValue = 0.0, recentValue = 3.0)
+
+        assertEquals(listOf(fromZero, measured), capTrendFindings(listOf(measured, fromZero)))
+    }
+
+    @Test
+    fun `capTrendFindings ranks a tag combo after a Hint with a measured change`() {
+        val combo = syntheticFinding().copy(kind = TrendFindingKind.TAG_COMBO, priorValue = 5.0, recentValue = 8.0)
+        val measured = syntheticFinding().copy(priorValue = 2.0, recentValue = 3.0)
+
+        assertEquals(listOf(measured, combo), capTrendFindings(listOf(combo, measured)))
     }
 
     private fun syntheticFinding() =
