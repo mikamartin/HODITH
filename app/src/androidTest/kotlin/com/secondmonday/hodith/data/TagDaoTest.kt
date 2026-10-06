@@ -212,4 +212,12 @@ class TagDaoTest {
 
             assertEquals(listOf("kept"), tagDao.observeTagsForEvent(eventId).first().map { it.name })
         }
+
+    @Test
+    fun findOtherTagByName_foldsOnlyAsciiCase_soNonAsciiLettersStayDistinct() =
+        runTest {
+            tagDao.insert(TagEntity(name = "Ä"))
+
+            assertNull(tagDao.findOtherTagByName("ä", excludeId = 0L))
+        }
 }

@@ -150,4 +150,36 @@ class RoomHodithRepositoryTagManagementTest {
 
             assertEquals(1, repository.countEventsWithBoth(sourceId = tagId("espresso"), targetId = tagId("coffee")))
         }
+
+    @Test
+    fun mergeTag_intoItself_isRejectedAndKeepsTheAttachments() =
+        runTest {
+            repository.addTagToEvent(eventId, "coffee")
+            val id = tagId("coffee")
+
+            try {
+                repository.mergeTag(sourceId = id, targetId = id)
+                fail("merging a tag into itself should throw")
+            } catch (expected: IllegalArgumentException) {
+                // expected: the guard runs before any write
+            }
+
+            assertEquals(listOf(id), db.tagDao().getAllEventTags().map { it.tagId })
+        }
+
+    @Test
+    fun renameTag_ontoAnExistingExactName_violatesTheUniqueIndex() =
+        runTest {
+            repository.addTagToEvent(eventId, "coffee")
+            repository.addTagToEvent(eventId, "tea")
+
+            try {
+                repository.renameTag(tagId("tea"), "coffee")
+                fail("renaming onto an existing name should throw")
+            } catch (expected: SQLiteConstraintException) {
+                // expected: the ViewModel's collision check exists so this is never reached from the UI
+            }
+
+            assertEquals(listOf("coffee", "tea"), repository.observeAllTags().first().map { it.name })
+        }
 }

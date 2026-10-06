@@ -237,7 +237,7 @@ class FakeHodithRepository : HodithRepository {
     ) {
         val trimmedName = tagName.trim()
         // Case-insensitive, as the Room lookup is (getByName is COLLATE NOCASE).
-        val existing = tags.value.find { it.name.equals(trimmedName, ignoreCase = true) }
+        val existing = tags.value.find { it.name.foldAscii() == trimmedName.foldAscii() }
         val tagId =
             existing?.id ?: run {
                 val id = nextTagId++
@@ -258,13 +258,13 @@ class FakeHodithRepository : HodithRepository {
     override fun observeTagEventCounts(): Flow<List<TagEventCount>> =
         eventTags.map { list -> list.groupingBy { it.tagId }.eachCount().map { (tagId, count) -> TagEventCount(tagId, count) } }
 
-    // Matches Room's COLLATE NOCASE lookup, so fake-based tests see the same collisions the app does.
+    // Matches Room's COLLATE NOCASE lookup, which folds ASCII letters only, so fake-based tests see the same collisions the app does.
     override suspend fun findOtherTagByName(
         name: String,
         excludeId: Long,
     ): TagEntity? =
         tags.value
-            .filter { it.id != excludeId && it.name.equals(name, ignoreCase = true) }
+            .filter { it.id != excludeId && it.name.foldAscii() == name.foldAscii() }
             .sortedByDescending { it.name == name }
             .firstOrNull()
 
@@ -346,3 +346,6 @@ class FakeHodithRepository : HodithRepository {
         watches.value = backup.watches
     }
 }
+
+/** SQLite's NOCASE folds only A-Z to a-z; Kotlin's ignoreCase would also fold non-ASCII letters. */
+private fun String.foldAscii(): String = map { if (it in 'A'..'Z') it + 32 else it }.joinToString("")

@@ -613,4 +613,16 @@ class FakeHodithRepositoryTest {
             assertEquals(listOf("Restored"), repository.cases.value.map { it.name })
             assertTrue(repository.events.value.isEmpty())
         }
+
+    @Test
+    fun `case folding is ASCII-only, so non-ASCII letters that differ in case are distinct tags, as in Room`() =
+        runTest {
+            val eventId = repository.insertEvent(testEvent())
+            repository.addTagToEvent(eventId, "Ä")
+            assertNull(repository.findOtherTagByName("ä", excludeId = 0L))
+
+            repository.addTagToEvent(eventId, "ä")
+
+            assertEquals(listOf("Ä", "ä"), repository.tags.value.map { it.name })
+        }
 }

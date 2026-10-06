@@ -19,6 +19,7 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.ManageTagsUiState
 import com.secondmonday.hodith.viewmodel.PendingTagAction
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -205,5 +206,93 @@ class ManageTagsScreenTest {
         composeTestRule.onNode(hasSetTextAction() and hasText("coffee")).performTextReplacement("   ")
 
         composeTestRule.onNodeWithText(voice.manageTagsRenameSaveAction).assertIsNotEnabled()
+    }
+
+    @Test
+    fun renameWarning_statesTheNewNameAndEventCount() {
+        val coffee = summary(1, "coffee", 2)
+        setContent(
+            ManageTagsUiState(
+                isLoading = false,
+                tags = listOf(coffee),
+                visibleTags = listOf(coffee),
+                pending = PendingTagAction.Rename(coffee.tag, newName = "espresso", eventCount = 2),
+            ),
+        )
+
+        composeTestRule.onNodeWithText(voice.manageTagsRenameConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(voice.manageTagsRenameConfirmBody("coffee", "espresso", 2)).assertExists()
+    }
+
+    @Test
+    fun mergeConfirm_firesOnConfirmPending() {
+        val espresso = summary(1, "espresso", 4)
+        val coffee = summary(2, "coffee", 9)
+        var confirmed = false
+        setContent(
+            ManageTagsUiState(
+                isLoading = false,
+                tags = listOf(coffee, espresso),
+                visibleTags = listOf(coffee, espresso),
+                pending =
+                    PendingTagAction.Merge(
+                        tag = espresso.tag,
+                        target = coffee.tag,
+                        sourceEventCount = 4,
+                        overlapCount = 2,
+                    ),
+            ),
+            onConfirmPending = { confirmed = true },
+        )
+
+        composeTestRule.onNodeWithText(voice.manageTagsMergeConfirmAction).performClick()
+
+        assertTrue(confirmed)
+    }
+
+    @Test
+    fun renameDialog_cancelClosesWithoutRequestingARename() {
+        val coffee = summary(1, "coffee", 2)
+        var requested = false
+        setContent(
+            ManageTagsUiState(isLoading = false, tags = listOf(coffee), visibleTags = listOf(coffee)),
+            onRenameRequested = { _, _ -> requested = true },
+        )
+
+        composeTestRule.onNodeWithContentDescription(voice.manageTagsEditDescription("coffee")).performClick()
+        composeTestRule.onNodeWithText(voice.manageTagsRenameDialogTitle).assertExists()
+        composeTestRule.onNodeWithText(voice.manageTagsCancelAction).performClick()
+
+        composeTestRule.onNodeWithText(voice.manageTagsRenameDialogTitle).assertDoesNotExist()
+        assertFalse(requested)
+    }
+
+    @Test
+    fun clearFilterButton_emptiesTheQuery() {
+        val tags = (1..TAG_FILTER_THRESHOLD + 1).map { summary(it.toLong(), "tag$it", 0) }
+        var typed: String? = null
+        setContent(
+            ManageTagsUiState(isLoading = false, tags = tags, visibleTags = emptyList(), showFilter = true, query = "zzz"),
+            onQueryChange = { typed = it },
+        )
+
+        composeTestRule.onNodeWithContentDescription(voice.manageTagsFilterClearDescription).performClick()
+
+        assertEquals("", typed)
+    }
+
+    @Test
+    fun writeFailure_showsTheFailureMessage() {
+        val coffee = summary(1, "coffee", 1)
+        setContent(ManageTagsUiState(isLoading = false, tags = listOf(coffee), visibleTags = listOf(coffee), writeFailed = true))
+
+        composeTestRule.onNodeWithText(voice.manageTagsWriteFailed).assertExists()
+    }
+
+    @Test
+    fun loading_showsNoContentYet() {
+        setContent(ManageTagsUiState(isLoading = true))
+
+        composeTestRule.onNodeWithText(voice.manageTagsEmptyState).assertDoesNotExist()
     }
 }

@@ -240,4 +240,30 @@ class ManageTagsViewModelTest {
             assertEquals(listOf(tag(1, "focus")), repository.tags.value)
             assertEquals(listOf(attach(10, 1)), repository.eventTags.value)
         }
+
+    @Test
+    fun `merging a tag with no events merges with an overlap of zero`() =
+        runTest {
+            seed(tags = listOf(tag(1, "espresso"), tag(2, "coffee")), attachments = listOf(attach(10, 2)))
+            val viewModel = ManageTagsViewModel(repository)
+
+            viewModel.onRenameRequested(viewModel.summaryNamed("espresso"), "coffee")
+
+            assertEquals(
+                PendingTagAction.Merge(tag(1, "espresso"), tag(2, "coffee"), sourceEventCount = 0, overlapCount = 0),
+                viewModel.loaded().pending,
+            )
+        }
+
+    @Test
+    fun `confirming with nothing pending writes nothing`() =
+        runTest {
+            seed(tags = listOf(tag(1, "focus")), attachments = listOf(attach(10, 1)))
+            val viewModel = ManageTagsViewModel(repository)
+
+            viewModel.onConfirmPending()
+
+            assertEquals(listOf(tag(1, "focus")), repository.tags.value)
+            assertEquals(listOf(attach(10, 1)), repository.eventTags.value)
+        }
 }
