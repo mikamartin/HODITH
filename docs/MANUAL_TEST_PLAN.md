@@ -53,21 +53,19 @@ which test.
 8. **List widget configure flow, per-instance selection.** Add two List widgets to the home
    screen and pick a different set of Cases for each — each shows only its own picks, not the
    other's. Long-press a placed List widget and choose Edit to reopen its picker and change its
-   selection. (Picking Cases via the real configure Activity and confirming is covered by
-   `ListWidgetConfigureFlowTest` for a single instance; this item is about a *second* independent
-   instance and the Edit re-entry path, neither of which has coverage yet.)
-9. **Single-case widget configure flow: Cancel.** Add the Single-case widget and cancel its picker —
-   no widget is placed. (Picking a Case and confirming is covered by
-   `SingleCaseWidgetConfigureFlowTest.singleCaseWidget_showsBoundCase_afterRealConfigureFlow`.)
-10. **Single-case widget: tap the icon/count area to open Case details.** Tapping elsewhere on the
+   selection. (Two Single-case instances with their own Cases are automated by
+   `SingleCaseWidgetConfigureFlowTest.singleCaseWidget_twoInstances_eachShowsItsOwnCase`. A List
+   widget's rows can't be read from a test, so the List checks stay here.)
+9. **Single-case widget: tap the icon/count area to open Case details.** Tapping elsewhere on the
     widget (not the dedicated `+` log button) opens that Case's detail screen. (The `+`/log button
     itself — logging directly for `ONE_TAP`, via the trampoline sheet for `DETAIL_SHEET` — is covered
     by `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase` for the `ONE_TAP` case; the
     `DETAIL_SHEET` case's button tap doesn't have widget-click coverage yet, though the trampoline sheet
     it opens does, via `WidgetLogTrampolineActivityTest`.)
-11. **Add two widgets for the same Case** (e.g. a Single-case widget and the same Case selected on
-    a List widget) — logging from either one refreshes both.
-12. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
+10. **Add two widgets for the same Case, one of them a List widget** — logging from the List
+    widget refreshes the Single-case widget and the reverse. (Two Single-case widgets are automated by
+    `WidgetActionsFlowTest.logFromOneWidget_refreshesASecondWidgetForTheSameCase`.)
+11. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
     afterward, not a reset or stale value.
 
 ## Notifications & permissions
@@ -113,15 +111,12 @@ instrumented tests only assert are set, and the real permission dialog/banner ro
 
 The chip row's own wiring (Sort/From/To chip rendering, each opening its picker directly, the Edit
 icon's field toggles and their gating, the empty-range message, persistence through
-`SettingsRepository`) is covered by `CaseDetailScreenTest`/`CaseDetailViewModelTest`. As with Log
-Share's own date pickers (see Share cards item 6), no instrumented test in this repo drives a real
-Material3 `DatePicker`'s calendar-day tap — only this step below.
+`SettingsRepository`) is covered by `CaseDetailScreenTest`/`CaseDetailViewModelTest`. Day taps on the
+shared range picker both the Log tab and Log Share use are covered by
+`LogShareTabTest.rangeDialog_tappingAStartAndEndDay_handsBothDaysBack`.
 
-1. **Log tab's From/To chips each pick a real date and narrow the row list.** On a Case with events
-   spread across more than one day, open the Log tab, tap the "From" chip (then separately the "To"
-   chip) and pick an actual day on each one's calendar — the row list narrows to that range, and each
-   chip's own collapsed text updates to show the picked date, not just "All time". Confirm the "To"
-   picker refuses a future date the same way the History tab's own "To" picker does.
+1. **Log tab's "To" picker refuses a future date.** Open the Log tab's "To" chip and try to pick a day
+   after today — that day is not selectable, the same way the History tab's own "To" picker refuses it.
 
 ## Share cards
 
@@ -135,9 +130,11 @@ the system share sheet, and how the image looks once it lands somewhere else.
    handful of logged events, tap the Share icon on Case Detail's header — the Share screen opens on
    Summary. Tap Share, and pick a target (e.g. a messenger app, or "Save to Photos") — it produces the
    actual rendered card image, not a blank/corrupt file. Repeat on Insights and on History.
-2. **Every theme's skin survives the capture.** Switch the app's theme (Settings) between
-   Plain/Intense/Bright and share from Summary and History in each — the exported image carries that
-   theme's skin (Intense's stamp, Bright's banner/sticker) and matches the preview on screen.
+2. **The exported image matches the preview, in each theme.** Switch the app's theme (Settings)
+   between Plain/Intense/Bright and share from Summary and History in each — the exported image looks
+   like the on-screen preview, skin included (Intense's stamp, Bright's banner/sticker). That each
+   skin renders differently in a captured bitmap is automated by
+   `ShareCardTemplateTest.storyCapture_isNotBlank_andChangesWithTheSkin`.
 
 What these two steps don't repeat: that the typed name, the section choices, the History filters and
 the entry cap reach the card. Those are checked by `ShareScreenTest` (the typed name across tabs),
@@ -173,24 +170,23 @@ to"/"open" picker UI itself.
 2. **Import (happy path).** Tap Import data → confirm the replace-all-data warning → pick a
    previously exported file in the system picker. A success snackbar appears and every Case/event
    from that file is back, replacing whatever was there before.
-3. **Import cancel.** Tap Import data, then cancel the confirm dialog — no file picker opens, no
-   data changes.
-4. **Import a non-HODITH file.** Pick an arbitrary file (a photo, a text file) via the import picker
-   — a "not a valid backup" snackbar appears and existing data is untouched.
-5. **Import across app installs.** Export from one install (or before a fresh reinstall/data wipe),
+3. **Import a non-HODITH file.** Pick an arbitrary file (a photo, a text file) via the import picker
+   — a "not a valid backup" snackbar appears and existing data is untouched. (The parse result is
+   unit-tested; the snackbar text is not asserted by any instrumented test yet.)
+4. **Import across app installs.** Export from one install (or before a fresh reinstall/data wipe),
    then import that file on the clean install — full restore, including tags and watches.
 
 Android's own OS-level device backup (separate from the export/import above) can't be exercised by
 an instrumented test — Android's real backup transport isn't available in a test harness. See
 DEV_PLAYBOOK.md §6 for the exact `adb shell bmgr` commands behind each journey below.
 
-6. **Cloud backup toggle on.** With the Settings toggle on (the default), log real data, then force
+5. **Cloud backup toggle on.** With the Settings toggle on (the default), log real data, then force
    a backup pass (`adb shell bmgr backupnow`). The command reports success, confirming HODITH's data
    was actually captured.
-7. **Cloud backup toggle off.** Turn the toggle off, then force a backup pass the same way — the
+6. **Cloud backup toggle off.** Turn the toggle off, then force a backup pass the same way — the
    command should report that HODITH was skipped (no data captured), confirming
    `HodithBackupAgent`'s skip actually takes effect rather than only updating the preference.
-8. **Reproduce the underlying bug.** Wipe local data, uninstall, reinstall on the same Google
+7. **Reproduce the underlying bug.** Wipe local data, uninstall, reinstall on the same Google
    account — with the toggle left on beforehand, old data reappears unprompted from the restored
    backup. This is the concrete verification that the About screen's disclosure is accurate, not
    just plausible from the manifest.

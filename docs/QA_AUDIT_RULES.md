@@ -171,7 +171,7 @@ Same build/lint/test/commit discipline as any other change — see `CLAUDE.md`.
 
 - If a connected device/emulator is available, actually run any `androidTest` files touched
   during the audit (structural-review fixes, section 5/6 extractions) via
-  `connectedDebugAndroidTest` rather than relying on read-only review alone.
+  `connectedDebugAndroidTest` rather than relying on read-only review alone. Turn emulator animations off first (DEV_PLAYBOOK §7, gotcha 10).
 - If verification surfaces a failure unrelated to anything the audit changed (e.g. a
   pre-existing flaky or environment-dependent test), don't try to fix it as part of the audit —
   but don't let it live only in conversation either. Note it somewhere durable: a short line in

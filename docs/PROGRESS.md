@@ -84,7 +84,6 @@ Fold these already-drafted key changes into the audit:
 - `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
 - `feat/insights-gaps-streaks-split` — added `insightsGapsMinLabel`/`insightsGapsAvgLabel`/`insightsGapsMaxLabel` ("Min gap"/"Avg gap"/"Max gap"); `insightsGapsCurrentLabel` reworded to "Current
 gap"; retired `insightsDurationTotalLabel`; reworded the three voices' Duration info body to drop "total" and the Gaps info body to name Shortest.
-gap"; retired `insightsDurationTotalLabel`; reworded the three voices' Duration info body to drop "total" and the Gaps info body to name Shortest.
 
 **Acceptance criteria**
 
@@ -134,24 +133,48 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none existing cover this row's own layout/sizing directly; Preview-verify the four call sites after the change.
 
-### UI test suite audit: duration and duplicate coverage
+### CI: per-shard emulator overhead outside test execution
 
-*Branch: `chore/ui-test-suite-audit` · Complexity: S (investigation) · Priority: Medium · Area: Repo*
+*Branch: none yet — investigation first · Complexity: S (investigation) · Priority: Medium · Area: Repo*
 
-🔍 **Investigation** — a review pass, not a known fix, same shape as the Intense/Bright theme audit above.
+🔍 **Investigation**
 
-`androidTest` has 48 files, ~11,000 lines, ~500 `@Test`s; only 10 files have genuine Hilt/instrumentation dependencies (widget/notification/backup). Starting leads already found: `CaseDetailInsightsTabTest` re-verifies number-formatting/rounding (intensity decimal truncation, exact gap/streak counts) through full Compose rendering, duplicating logic already unit-tested at the JVM level in `InsightsFormattingTest`; `ShareCardTemplateTest` and `InsightsTabTrendsCardTest` both independently exercise Trends-row rendering.
+Each instrumented shard spends about five minutes outside test execution. On the `ui` shard the `Run instrumented tests` step takes about 18 minutes against about 12 minutes of JUnit time; on the `repository` shard it takes about 4.6 minutes against about 0.4 minutes. The gap is emulator boot, `installDebug`, and the androidTest APK build. The two shards run in parallel, so the `ui` shard sets wall-clock time, and its overhead is the lever.
 
 **Acceptance criteria**
 
-- [ ] A written pass over the suite noting duration hot spots, duplicated coverage, and tests asserting pure-logic results through the UI instead of unit-testing the logic directly.
-- [ ] A shortlist of tests to convert to unit tests, de-duplicate, or delete, each with a keep/drop call.
-- [ ] `docs/MANUAL_TEST_PLAN.md` re-checked against the automated suite: any step that an existing or easily added automated test already covers is either removed from the manual plan or noted as redundant, and any check that can be automated is moved into `androidTest`/`test` with a rationale.
-- [ ] Approved changes spun out as their own follow-up item(s).
+- [ ] The gap split into emulator boot, installs and Gradle build, from the `Run instrumented tests` step's log timestamps across several recent runs.
+- [ ] Options compared on wall-clock saved, each with a keep/drop call: caching a booted emulator snapshot (checking what `reactivecircus/android-emulator-runner` supports); caching the androidTest build; folding the `repository` shard into the `ui` run only if it removes a boot without lengthening wall-clock time.
+- [ ] The chosen option implemented, with wall-clock before and after measured over the same number of runs.
 
-**Plan** — audit pass first, no code changes; produce a findings list.
+**Plan** — measure from the workflow logs first; no workflow edit until the split is known. Test execution is not the lever here.
 
-**Tests** — none for the audit itself.
+**Tests** — none; verified by the CI job summary timings.
+
+**Concern** — a cached emulator snapshot can hide flakiness that a cold boot exposes, so any caching change needs a few cold-boot runs checked before it's kept.
+
+### Espresso-intents: verify external intent handoffs in tests
+
+*Branch: `chore/espresso-intents` · Complexity: S · Priority: Low · Area: Repo*
+
+🎨 **Design decision** — adds a test-only dependency, so it needs a human call. Downsides: `espresso-intents` must stay aligned with the pinned `espresso-core` 3.7.0, `Intents` is process-wide state that leaks between tests unless released, and intercepted intents prove the Intent the app built, not that a browser or mail app opened.
+
+`MANUAL_TEST_PLAN.md` About 1 (privacy policy link opens the browser) and About 2 (Contact Us builds a mail intent to the developer address) only need the built Intent verified. The external app handoff stays manual.
+
+**Acceptance criteria**
+
+- [ ] `espresso-intents` added to `androidTest` at the same version as `espresso-core`, pinned in `libs.versions.toml` with the same explanation the `espresso-core` pin carries, so the `NoSuchMethodException` on some API levels does not return.
+- [ ] Both CI shards green on the API 36 emulator before merge.
+- [ ] Tests use `IntentsRule` (or init and release per test), so recorded intents don't leak between tests.
+- [ ] The About privacy-policy link and Contact Us assert the built intent's action and URI or address.
+- [ ] Manual plan About 1 and 2 reworded to cover only the external app handoff.
+- [ ] If the share-sheet step is included: the test matches the wrapped chooser intent and the FileProvider URI.
+
+**Plan** — add the dependency and pin, land one smoke test, then the About tests. The share-sheet test comes last, since chooser matching is the most fragile.
+
+**Tests** — `AboutScreenTest` (privacy link, Contact Us); `SettingsScreenTest` (Contact Us row); the share-sheet step only if included.
+
+**Concern** — intercepted intents never launch a real app, so resolution to the right app is not proven. The blocked "Rate the app" item would reuse this dependency.
 
 ## Deferred
 
