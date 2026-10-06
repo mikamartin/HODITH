@@ -76,6 +76,7 @@ private val FIXTURE_FOOTER_TIMESTAMP = formatCardTimestamp(FIXTURE_GENERATED_AT_
 
 private val FREQUENCY_SHIFT_FINDING =
     TrendFinding(
+        latestEvidenceAt = 0L,
         kind = TrendFindingKind.FREQUENCY_SHIFT,
         direction = ShiftDirection.UP,
         reliability = TrendReliability.HINT,
@@ -348,6 +349,7 @@ class ShareCardTemplateTest {
     fun trendsSectionRendersEachSelectedFindingAsItsOwnLine() {
         val gapShiftFinding =
             TrendFinding(
+                latestEvidenceAt = 0L,
                 kind = TrendFindingKind.GAP_SHIFT,
                 direction = ShiftDirection.DOWN,
                 reliability = TrendReliability.HINT,

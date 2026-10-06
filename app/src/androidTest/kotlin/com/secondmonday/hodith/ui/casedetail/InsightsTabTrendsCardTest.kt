@@ -40,6 +40,7 @@ class InsightsTabTrendsCardTest {
 
     private fun syntheticFinding(index: Int) =
         TrendFinding(
+            latestEvidenceAt = 0L,
             kind = if (index % 2 == 0) TrendFindingKind.GAP_SHIFT else TrendFindingKind.STREAK_SHIFT,
             direction = ShiftDirection.UP,
             reliability = TrendReliability.HINT,
@@ -121,7 +122,8 @@ class InsightsTabTrendsCardTest {
 
     @Test
     fun trendsCard_rendersWentQuietHeadline() {
-        val wentQuiet = TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)
+        val wentQuiet =
+            TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0, latestEvidenceAt = 0L)
         setContent(trends = listOf(wentQuiet))
 
         composeTestRule
@@ -131,7 +133,8 @@ class InsightsTabTrendsCardTest {
 
     @Test
     fun trendsCard_wentQuietLeading_showsOnlyWentQuietPlusShowMoreLink() {
-        val wentQuiet = TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)
+        val wentQuiet =
+            TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0, latestEvidenceAt = 0L)
         var opened = false
         setContent(trends = listOf(wentQuiet) + List(5) { syntheticFinding(it) }, onOpenTrends = { opened = true })
 
@@ -151,6 +154,7 @@ class InsightsTabTrendsCardTest {
     fun trendsCard_rendersTagOutcomeHeadline_forIntensity() {
         val tagOutcome =
             TrendFinding(
+                latestEvidenceAt = 0L,
                 kind = TrendFindingKind.TAG_OUTCOME,
                 direction = ShiftDirection.UP,
                 reliability = TrendReliability.PATTERN,

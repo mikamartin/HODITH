@@ -18,6 +18,20 @@ class InsightsEngineTest {
     // ---- computeGapStats ----
 
     @Test
+    fun `computeGapStats reports lastActivityAt as the furthest point reached, a duration's end over its start`() {
+        val events = listOf(eventAtDay(2), durationEvent(startDay = 5, endDay = 9))
+
+        val result = computeGapStats(events, now = millisAtDay(12))
+
+        assertEquals(millisAtDay(9), result.lastActivityAt)
+    }
+
+    @Test
+    fun `computeGapStats reports no lastActivityAt for a Case with no events`() {
+        assertNull(computeGapStats(emptyList(), now = millisAtDay(5)).lastActivityAt)
+    }
+
+    @Test
     fun `computeGapStats reports the current gap from the last event to now`() {
         val events = listOf(eventAtDay(0), eventAtDay(5))
 
@@ -393,6 +407,7 @@ class InsightsEngineTest {
             averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
             isBursty = false,
             pastGaps = pastGaps,
+            lastActivityAt = null,
         )
     }
 

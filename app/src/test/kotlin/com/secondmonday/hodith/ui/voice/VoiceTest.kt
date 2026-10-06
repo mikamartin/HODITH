@@ -56,6 +56,7 @@ class VoiceTest {
                 5.0,
                 8.0,
                 tagNames = listOf("Coffee", "Walk"),
+                latestEvidenceAt = 0L,
             )
         for (voice in voices) {
             val headline = voice.insightsTrendHeadline(combo, bucketPhrase = "")
@@ -205,7 +206,17 @@ class VoiceTest {
             TrendFindingKind.entries.flatMap { kind ->
                 ShiftDirection.entries.flatMap { direction ->
                     listOf<TagOutcome?>(null, TagOutcome.INTENSITY, TagOutcome.DURATION).map { outcome ->
-                        TrendFinding(kind, direction, TrendReliability.PATTERN, 3, 2.0, 5.0, tagName = "Test Case", outcome = outcome)
+                        TrendFinding(
+                            kind,
+                            direction,
+                            TrendReliability.PATTERN,
+                            3,
+                            2.0,
+                            5.0,
+                            tagName = "Test Case",
+                            outcome = outcome,
+                            latestEvidenceAt = 0L,
+                        )
                     }
                 }
             }

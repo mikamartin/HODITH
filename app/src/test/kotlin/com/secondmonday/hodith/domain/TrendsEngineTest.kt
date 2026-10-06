@@ -1,30 +1,37 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
+import com.secondmonday.hodith.data.latestActivityAt
 import com.secondmonday.hodith.testsupport.millisAt
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.DayOfWeek
 import java.time.LocalDate
 
-private fun gapStatsOf(pastGaps: List<Long>) =
-    GapStats(
-        currentGapDays = 0,
-        longestGapDays = pastGaps.maxOrNull() ?: 0,
-        isCurrentGapLongest = false,
-        averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
-        isBursty = false,
-        pastGaps = pastGaps,
-    )
+private fun gapStatsOf(
+    pastGaps: List<Long>,
+    lastActivityAt: Long = FIXTURE_LAST_ACTIVITY_AT,
+) = GapStats(
+    currentGapDays = 0,
+    longestGapDays = pastGaps.maxOrNull() ?: 0,
+    isCurrentGapLongest = false,
+    averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
+    isBursty = false,
+    pastGaps = pastGaps,
+    lastActivityAt = lastActivityAt,
+)
 
 private fun wentQuietGapStatsOf(
     pastGaps: List<Long>,
     currentGapDays: Long,
+    lastActivityAt: Long = FIXTURE_LAST_ACTIVITY_AT,
 ) = GapStats(
     currentGapDays = currentGapDays,
     longestGapDays = maxOf(pastGaps.maxOrNull() ?: 0L, currentGapDays),
@@ -32,7 +39,11 @@ private fun wentQuietGapStatsOf(
     averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
     isBursty = false,
     pastGaps = pastGaps,
+    lastActivityAt = lastActivityAt,
 )
+
+/** An arbitrary, fixed "latest activity" for fixtures that don't assert on evidence recency. */
+private const val FIXTURE_LAST_ACTIVITY_AT = 1_700_000_000_000L
 
 class TrendsEngineTest {
     // ---- computeTrendFindings: went quiet ----
@@ -692,8 +703,185 @@ class TrendsEngineTest {
         assertEquals(listOf(measured, combo), capTrendFindings(listOf(combo, measured)))
     }
 
+    // ---- latestEvidenceAt: each detector reports the most recent event its finding was built from ----
+
+    private fun EventEntity.hasValueFor(outcome: TagOutcome): Boolean =
+        when (outcome) {
+            TagOutcome.INTENSITY -> intensity != null
+            TagOutcome.DURATION -> endedAt != null
+        }
+
+    private fun EventWithTags.carries(tagName: String): Boolean = tags.any { it.name == tagName }
+
+    @Test
+    fun `history-wide shifts report the Case's latest activity as their evidence date`() {
+        val gapStats = gapStatsOf(pastGaps = List(12) { if (it < 6) 2L else 12L }, lastActivityAt = 777L)
+
+        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null)
+
+        assertEquals(777L, findings.single { it.kind == TrendFindingKind.GAP_SHIFT }.latestEvidenceAt)
+    }
+
+    @Test
+    fun `change point reports the Case's latest activity, the newest event behind its gaps`() {
+        val eventsWithTags = changePointDays.map { day -> EventWithTags(testEvent(occurredAt = millisAtDay(day)), emptyList()) }
+        val gapStats = changePointGapStats(eventsWithTags)
+
+        val finding =
+            computeTrendFindings(gapStats, emptyList(), trendStats = null, eventsWithTags = eventsWithTags)
+                .single { it.kind == TrendFindingKind.CHANGE_POINT }
+
+        assertEquals(eventsWithTags.maxOf { it.event.latestActivityAt() }, finding.latestEvidenceAt)
+    }
+
+    @Test
+    fun `tag share shift reports the newest event that carries its tag`() {
+        val events = risingTagEventsWithTags("decaf")
+
+        val finding =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = events)
+                .single { it.kind == TrendFindingKind.TAG_SHARE_SHIFT }
+
+        assertEquals(events.filter { it.carries("decaf") }.maxOf { it.event.latestActivityAt() }, finding.latestEvidenceAt)
+    }
+
+    @Test
+    fun `tag outcome reports the newest tagged event that carries the outcome`() {
+        val events = strongTagOutcomeEventsWithTags("aura")
+
+        val finding =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = events)
+                .single { it.kind == TrendFindingKind.TAG_OUTCOME }
+
+        val outcome = checkNotNull(finding.outcome)
+        val expected = events.filter { it.carries("aura") && it.event.hasValueFor(outcome) }.maxOf { it.event.latestActivityAt() }
+        assertEquals(expected, finding.latestEvidenceAt)
+    }
+
+    @Test
+    fun `trend slope reports the newest event that carries its outcome`() {
+        val events = trendSlopeEventsWithTags()
+
+        val finding =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = events,
+                statsShownOutcomes = TagOutcome.entries.toSet(),
+            ).single { it.kind == TrendFindingKind.TREND_SLOPE }
+
+        val outcome = checkNotNull(finding.outcome)
+        assertEquals(events.filter { it.event.hasValueFor(outcome) }.maxOf { it.event.latestActivityAt() }, finding.latestEvidenceAt)
+    }
+
+    @Test
+    fun `time-of-day split reports the newest event that carries its outcome`() {
+        val events = timeOfDaySplitEventsWithTags()
+
+        val finding =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = events,
+                statsShownOutcomes = TagOutcome.entries.toSet(),
+            ).single { it.kind == TrendFindingKind.TIME_OF_DAY_SPLIT }
+
+        val outcome = checkNotNull(finding.outcome)
+        assertEquals(events.filter { it.event.hasValueFor(outcome) }.maxOf { it.event.latestActivityAt() }, finding.latestEvidenceAt)
+    }
+
+    @Test
+    fun `weekday weekend split reports the Case's newest event`() {
+        val events = weekdayWeekendEventsWithTags(weekendCount = 60, weekdayCount = 40)
+
+        val finding =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = events)
+                .single { it.kind == TrendFindingKind.WEEKDAY_WEEKEND_SPLIT }
+
+        assertEquals(events.maxOf { it.event.latestActivityAt() }, finding.latestEvidenceAt)
+    }
+
+    @Test
+    fun `tag timing reports the newest event that carries its tag`() {
+        val events = tagTimingWeekdayEventsWithTags()
+
+        val finding =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = events)
+                .single { it.kind == TrendFindingKind.TAG_TIMING }
+
+        val tagName = checkNotNull(finding.tagName)
+        assertEquals(events.filter { it.carries(tagName) }.maxOf { it.event.latestActivityAt() }, finding.latestEvidenceAt)
+    }
+
+    @Test
+    fun `a went-quiet finding reports the Case's last event end, not its start`() {
+        val gapStats =
+            wentQuietGapStatsOf(pastGaps = List(QUIET_SIGNAL_MIN_SAMPLE_COUNT) { 5L }, currentGapDays = 20L, lastActivityAt = 555L)
+
+        val finding =
+            computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, recentlyActiveElsewhere = true)
+                .single { it.kind == TrendFindingKind.WENT_QUIET }
+
+        assertEquals(555L, finding.latestEvidenceAt)
+    }
+
+    @Test
+    fun `capTrendFindings breaks a Hint tie by most recent evidence, newest first`() {
+        val older = syntheticFinding().copy(kind = TrendFindingKind.TAG_COMBO, priorValue = 5.0, recentValue = 8.0, latestEvidenceAt = 100L)
+        val newer = syntheticFinding().copy(kind = TrendFindingKind.TAG_COMBO, priorValue = 5.0, recentValue = 8.0, latestEvidenceAt = 200L)
+
+        assertEquals(listOf(newer, older), capTrendFindings(listOf(older, newer)))
+    }
+
+    @Test
+    fun `capTrendFindings breaks a Pattern p-value tie by most recent evidence, newest first`() {
+        val older = patternFinding(pValue = 0.02).copy(latestEvidenceAt = 100L)
+        val newer = patternFinding(pValue = 0.02).copy(latestEvidenceAt = 200L)
+
+        assertEquals(listOf(newer, older), capTrendFindings(listOf(older, newer)))
+    }
+
+    @Test
+    fun `capTrendFindings does not let recency outrank a larger Hint change`() {
+        val largerButOlder = syntheticFinding().copy(priorValue = 2.0, recentValue = 8.0, latestEvidenceAt = 100L)
+        val smallerButNewer = syntheticFinding().copy(priorValue = 4.0, recentValue = 5.0, latestEvidenceAt = 200L)
+
+        assertEquals(listOf(largerButOlder, smallerButNewer), capTrendFindings(listOf(smallerButNewer, largerButOlder)))
+    }
+
+    @Test
+    fun `capTrendFindings keeps went-quiet first even when a newer finding ties with it`() {
+        val wentQuiet = syntheticFinding().copy(kind = TrendFindingKind.WENT_QUIET, latestEvidenceAt = 100L)
+        val newer = syntheticFinding().copy(latestEvidenceAt = 300L)
+
+        assertEquals(listOf(wentQuiet, newer), capTrendFindings(listOf(newer, wentQuiet)))
+    }
+
+    @Test
+    fun `capTrendFindings drops the oldest of a tied group at the cap boundary`() {
+        val oldest = syntheticFinding().copy(kind = TrendFindingKind.TAG_COMBO, priorValue = 5.0, recentValue = 8.0, latestEvidenceAt = 1L)
+        val tied =
+            List(TRENDS_MAX_FINDINGS) { index ->
+                syntheticFinding().copy(
+                    kind = TrendFindingKind.TAG_COMBO,
+                    priorValue = 5.0,
+                    recentValue = 8.0,
+                    latestEvidenceAt =
+                        10L + index,
+                )
+            }
+
+        val capped = capTrendFindings(tied + oldest)
+
+        assertEquals(TRENDS_MAX_FINDINGS, capped.size)
+        assertFalse(capped.contains(oldest))
+    }
+
     private fun syntheticFinding() =
         TrendFinding(
+            latestEvidenceAt = 0L,
             kind = TrendFindingKind.GAP_SHIFT,
             direction = ShiftDirection.UP,
             reliability = TrendReliability.HINT,

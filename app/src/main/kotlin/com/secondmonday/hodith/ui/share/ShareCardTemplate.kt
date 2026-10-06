@@ -830,6 +830,7 @@ private fun previewData(format: ShareCardFormat): ShareCardData =
         trends =
             listOf(
                 TrendFinding(
+                    latestEvidenceAt = 0L,
                     kind = TrendFindingKind.FREQUENCY_SHIFT,
                     direction = ShiftDirection.UP,
                     reliability = TrendReliability.HINT,

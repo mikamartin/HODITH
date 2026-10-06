@@ -160,6 +160,7 @@ internal fun computeGapStats(
         averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
         isBursty = pastGaps.size >= GAP_BURST_MIN_GAP_COUNT && coefficientOfVariation(pastGaps) > GAP_BURST_MIN_COEFFICIENT_OF_VARIATION,
         pastGaps = pastGaps,
+        lastActivityAt = if (sorted.isEmpty()) null else reachedSoFar,
     )
 }
 

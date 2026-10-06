@@ -181,4 +181,12 @@ data class TrendFinding(
     val timeOfDay: TimeOfDay? = null,
     val tagNames: List<String> = emptyList(),
     val pValue: Double? = null,
+    /**
+     * Epoch millis of the most recent event this finding was built from (its latest `endedAt` or
+     * `occurredAt`). Required, with no default, so every detector states it. Shift detectors compare
+     * the Case's history as a whole, so they report the Case's latest activity; tag and sample
+     * detectors report the newest event that carried their evidence. [TREND_FINDING_ORDER] uses it to
+     * break ties, newest first.
+     */
+    val latestEvidenceAt: Long,
 )

@@ -10,6 +10,7 @@ import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -37,6 +38,7 @@ class TrendFindingSentenceTest {
         timeOfDay: TimeOfDay? = null,
         tagNames: List<String> = emptyList(),
     ) = TrendFinding(
+        latestEvidenceAt = 0L,
         kind = kind,
         direction = direction,
         reliability = TrendReliability.PATTERN,
@@ -50,6 +52,45 @@ class TrendFindingSentenceTest {
         timeOfDay = timeOfDay,
         tagNames = tagNames,
     )
+
+    @Test
+    fun changePoint_withoutADate_failsLoudlyInsteadOfUsingTheSystemClock() {
+        assertThrows(IllegalStateException::class.java) {
+            trendFindingSentence(finding(TrendFindingKind.CHANGE_POINT).copy(changePointDate = null), voice, locale)
+        }
+    }
+
+    @Test
+    fun outcomeKinds_withoutAnOutcome_failLoudlyInsteadOfDefaultingToIntensity() {
+        for (kind in listOf(TrendFindingKind.TAG_OUTCOME, TrendFindingKind.TREND_SLOPE, TrendFindingKind.TIME_OF_DAY_SPLIT)) {
+            assertThrows(kind.name, IllegalStateException::class.java) {
+                trendFindingSentence(finding(kind, tagName = "Coffee").copy(outcome = null), voice, locale)
+            }
+        }
+    }
+
+    @Test
+    fun tagTiming_withNeitherWeekdayNorTimeOfDay_failsLoudlyInsteadOfDefaultingToMorning() {
+        assertThrows(IllegalStateException::class.java) {
+            trendBucketPhrase(finding(TrendFindingKind.TAG_TIMING), voice, locale)
+        }
+    }
+
+    @Test
+    fun tagTiming_onAWeekday_namesTheDayAndIgnoresTimeOfDay() {
+        assertEquals(
+            voice.trendTimingBucket(weekdayName = "Monday", timeOfDayLabel = ""),
+            trendBucketPhrase(finding(TrendFindingKind.TAG_TIMING, weekday = DayOfWeek.MONDAY), voice, locale),
+        )
+    }
+
+    @Test
+    fun tagTiming_inATimeOfDayBucket_namesThatBucket() {
+        assertEquals(
+            voice.trendTimingBucket(weekdayName = null, timeOfDayLabel = voice.insightsTimeOfDayEvening),
+            trendBucketPhrase(finding(TrendFindingKind.TAG_TIMING, timeOfDay = TimeOfDay.EVENING), voice, locale),
+        )
+    }
 
     @Test
     fun wentQuiet_readsRecentThenPriorDays() {

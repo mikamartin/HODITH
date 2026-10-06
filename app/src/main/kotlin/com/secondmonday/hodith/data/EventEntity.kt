@@ -53,6 +53,9 @@ fun quickLogEvent(
 /** This event's own captured offset, for bucketing its timestamps into the calendar day/hour they actually occurred in. */
 fun EventEntity.loggedZone(): ZoneOffset = zoneOffsetFromMinutes(utcOffsetMinutes)
 
+/** Epoch millis of this event's latest moment: its `endedAt` when that is later than its `occurredAt`, else its `occurredAt`. Trends uses it as "most recent evidence". */
+fun EventEntity.latestActivityAt(): Long = maxOf(occurredAt, endedAt ?: occurredAt)
+
 /** Shared conversion so every captured-offset holder (this entity, `CalendarEvent`) agrees on the same minutes-to-offset math. */
 fun zoneOffsetFromMinutes(minutes: Int): ZoneOffset = ZoneOffset.ofTotalSeconds(minutes * 60)
 

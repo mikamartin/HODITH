@@ -224,7 +224,8 @@ class CaseDetailInsightsTabTest {
         )
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertExists()
-        val frequencyShift = TrendFinding(TrendFindingKind.FREQUENCY_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 4, 1.0, 3.0)
+        val frequencyShift =
+            TrendFinding(TrendFindingKind.FREQUENCY_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 4, 1.0, 3.0, latestEvidenceAt = 0L)
         composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(frequencyShift, bucketPhrase = "")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReferenceLine("1")).assertExists()
     }
@@ -280,7 +281,8 @@ class CaseDetailInsightsTabTest {
         )
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelTrends).assertExists()
-        val gapShift = TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 6, 4.0, 20.0)
+        val gapShift =
+            TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 6, 4.0, 20.0, latestEvidenceAt = 0L)
         composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(gapShift, bucketPhrase = "")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReferenceLine(formatDays(4.0))).assertExists()
         // The compact card shows the same Hint/Pattern chip as the full-list screen.

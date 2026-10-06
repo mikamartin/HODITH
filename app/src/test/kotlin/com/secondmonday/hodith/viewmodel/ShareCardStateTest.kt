@@ -341,6 +341,7 @@ class ShareCardStateTest {
 
     private fun wentQuietFinding(currentGapDays: Double = 14.0) =
         TrendFinding(
+            latestEvidenceAt = 0L,
             kind = TrendFindingKind.WENT_QUIET,
             direction = ShiftDirection.UP,
             reliability = TrendReliability.HINT,
@@ -383,6 +384,7 @@ class ShareCardStateTest {
 
     private fun ordinaryFinding(sampleCount: Int) =
         TrendFinding(
+            latestEvidenceAt = 0L,
             kind = TrendFindingKind.GAP_SHIFT,
             direction = ShiftDirection.UP,
             reliability = TrendReliability.HINT,
@@ -631,6 +633,7 @@ class ShareCardStateTest {
         val case = testCase()
         val wentQuiet =
             TrendFinding(
+                latestEvidenceAt = 0L,
                 kind = TrendFindingKind.WENT_QUIET,
                 direction = ShiftDirection.UP,
                 reliability = TrendReliability.HINT,
