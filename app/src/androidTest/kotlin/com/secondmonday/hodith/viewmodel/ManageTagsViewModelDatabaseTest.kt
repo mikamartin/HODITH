@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
+import androidx.lifecycle.ViewModelStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.HodithDatabase
 import com.secondmonday.hodith.data.RoomHodithRepository
@@ -35,12 +36,14 @@ import javax.inject.Provider
 class ManageTagsViewModelDatabaseTest {
     private lateinit var db: HodithDatabase
     private lateinit var repository: RoomHodithRepository
+    private lateinit var viewModelStore: ViewModelStore
     private var eventId: Long = 0
 
     @Before
     fun setUp() =
         runBlocking {
             Dispatchers.setMain(UnconfinedTestDispatcher())
+            viewModelStore = ViewModelStore()
             db = createInMemoryDatabase()
             repository =
                 RoomHodithRepository(
@@ -61,9 +64,12 @@ class ManageTagsViewModelDatabaseTest {
 
     @After
     fun tearDown() {
+        viewModelStore.clear()
         Dispatchers.resetMain()
         db.close()
     }
+
+    private fun createViewModel(): ManageTagsViewModel = ManageTagsViewModel(repository).also { viewModelStore.put(VIEW_MODEL_KEY, it) }
 
     private suspend fun awaitState(
         viewModel: ManageTagsViewModel,
@@ -82,7 +88,7 @@ class ManageTagsViewModelDatabaseTest {
         runBlocking {
             repository.addTagToEvent(eventId, "espresso")
             repository.addTagToEvent(eventId, "coffee")
-            val viewModel = ManageTagsViewModel(repository)
+            val viewModel = createViewModel()
             viewModel.onRenameRequested(summaryNamed(viewModel, "espresso"), "coffee")
             awaitState(viewModel) { it.pending is PendingTagAction.Merge }
             // Another writer removes the target while the warning is open.
@@ -101,7 +107,7 @@ class ManageTagsViewModelDatabaseTest {
         runBlocking {
             repository.addTagToEvent(eventId, "espresso")
             repository.addTagToEvent(eventId, "coffee")
-            val viewModel = ManageTagsViewModel(repository)
+            val viewModel = createViewModel()
             viewModel.onRenameRequested(summaryNamed(viewModel, "espresso"), "coffee")
             awaitState(viewModel) { it.pending is PendingTagAction.Merge }
             repository.deleteTag(tagId("coffee"))
@@ -118,7 +124,7 @@ class ManageTagsViewModelDatabaseTest {
     fun aSuccessfulWriteReportsNoFailure() =
         runBlocking {
             repository.addTagToEvent(eventId, "focus")
-            val viewModel = ManageTagsViewModel(repository)
+            val viewModel = createViewModel()
             viewModel.onDeleteRequested(summaryNamed(viewModel, "focus"))
 
             viewModel.onConfirmPending()
@@ -130,5 +136,6 @@ class ManageTagsViewModelDatabaseTest {
 
     private companion object {
         const val STATE_TIMEOUT_MILLIS = 5_000L
+        const val VIEW_MODEL_KEY = "manageTagsViewModel"
     }
 }

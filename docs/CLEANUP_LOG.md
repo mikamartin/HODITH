@@ -17,6 +17,23 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/viewmodel-db-teardown-race
+
+**Scope:** CI run 37693819661 failed with `IllegalStateException: connection pool has been closed`, cascading to fail the next test in the same instrumentation process. Checked against the local (non-committed) FLAKY_TESTS.md flake tracker first — new signature, not a known flake — then found the root cause and fixed it.
+
+**Walked:** CLEANUP_CHECKLIST.md's Tests section against the diff; this pass is itself the origin of one of its new checks.
+
+**Found & fixed:**
+- `ManageTagsViewModelDatabaseTest` and `SharePreviewOrderFlowTest` each construct their ViewModel directly (not via Hilt/`ViewModelProvider`), against a real Room db from `createInMemoryDatabase()`. Both ViewModels build `uiState` with `stateIn(viewModelScope, SharingStarted.WhileSubscribed(...), ...)` over a Room-backed Flow, but nothing ever cancelled `viewModelScope` before `tearDown()` closed the db — a live Room collector racing `db.close()` on every run of either test, not pure environment flake. Fixed by registering each ViewModel in a `ViewModelStore` and clearing the store before `db.close()`. A grep of `app/src/androidTest` for direct `*ViewModel(...)` construction confirmed these were the only two affected call sites.
+
+**Deferred:** nothing.
+
+**Checks:** `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (full unit suite, none failing), `compileDebugAndroidTestKotlin`. Not run: `connectedDebugAndroidTest` — no device/emulator in this environment; needs a scoped run on `ManageTagsViewModelDatabaseTest` and `SharePreviewOrderFlowTest` before merge.
+
+**Docs updated:** CLEANUP_CHECKLIST.md (new Tests-section check: a directly-constructed ViewModel against a real Room db must have its `ViewModelStore` cleared before `db.close()` in `tearDown()`).
+
+---
+
 ## refactor/share-insights-history-dedupe
 
 **Scope:** PROGRESS.md's "Review share card, Insights and History for duplicated implementation" item, worked through on its own branch rather than spun into follow-up items: the duplication findings below, the small merges and the dead-code drop they called for, and the Log→History screen-naming cleanup the review surfaced.
@@ -139,35 +156,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Cross-Case wording in the warnings ("across all Cases, including archived ones") is pending the owner's review.
 
 **Docs updated:** PROGRESS.md (item struck), HODITH_SPEC §14 (Settings Data row and a Manage tags row), TESTING.md (coverage rows), MANUAL_TEST_PLAN.md (Tags section).
-
----
-
-## chore/ui-test-suite-audit
-
-**Scope:** PROGRESS.md's UI test suite audit item, carried through its fix pass: duplicate UI coverage, pure logic tested through the UI, the manual plan's automatable steps, and why local UI runs were slow.
-
-**Walked:** CLEANUP_CHECKLIST.md against the branch's diff. Checked and fixed: ktlint (`ktlintFormat` removed unused imports and fixed import order), unused private helpers in the trimmed test classes (none left), line endings (CRLF, matching the rest of the repo), TESTING.md rows that described removed tests, and MANUAL_TEST_PLAN.md item numbering.
-
-**Found & fixed:**
-- The trend-sentence mapping was `@Composable` with no composition in it. It is now a plain function that takes the locale explicitly. `TrendFindingSentenceTest` covers all 13 kinds.
-- The Tag reset on a Case change was duplicated inline in two composable lambdas. It is now the pure `caseFilterChange`, with JVM tests.
-- The bulk toggle's "all selected" check compared sizes inline. It is now `isAllSelected`, which uses containment. The two only differ for a stale id, and the resolved selection already excludes those.
-- Removed UI tests that re-checked logic covered elsewhere: 2 intensity-formatting, 3 week-dialog row text, 1 stale tag seeding, 1 duplicate reset rule, 5 detail-row toggles and 13 trend-sentence text.
-- Added instrumented coverage for manual-plan steps: Single-case cancel (result code), two Single-case instances, a log refreshing a second Single-case widget, day taps in the shared range picker, and a per-skin capture check.
-- Manual plan: removed the automated steps, narrowed the partly automated ones, and renumbered.
-- PROGRESS.md: removed a duplicated line in the insights-gaps entry, added the CI-overhead and espresso-intents items, and struck this audit item.
-- Found during the pass: no test asserts the import-failure snackbar text, although TESTING.md's description of the Settings tests implies it does. The manual step stays.
-
-**Deferred:**
-- `espresso-intents` (About 1 and 2, Share 1 hand-off): a dependency decision, tracked in PROGRESS.md.
-- CI per-shard overhead: an investigation, tracked in PROGRESS.md.
-- Import-failure snackbar text: no test yet; the manual step stays.
-- List widget rows: their contents can't be read from a test, so those checks stay manual.
-- `storyCapture_isNotBlank_andChangesWithTheSkin`: kept, but it passed once and hit a PixelCopy capture timeout on a later, slower emulator run. Watch it on CI.
-
-**Checks:** `ktlintCheck`, `lintDebug`, `test` (1118 unit tests, no failures) and `assembleDebug` pass. Instrumented, scoped to the changed classes, on the local emulator with animations off: `LogShareTabTest` 18/18, `WidgetActionsFlowTest` 6/6, `SingleCaseWidgetConfigureFlowTest` 3/3, and `ShareCardTemplateTest` 61/61 in one run. Later runs on the same emulator, which was degraded, hit an `ActivityScenario` teardown timeout and the capture timeout above.
-
-**Tests:** new `TrendFindingSentenceTest`; `BigPictureFilterStateTest` (+6); `SingleCaseWidgetConfigureFlowTest` (+2); `WidgetActionsFlowTest` (+1); `LogShareTabTest` (+1); `ShareCardTemplateTest` (+1). The removed tests are listed under Found & fixed.
-
-**Docs updated:** TESTING.md (environment note, coverage rows, deferral), DEV_PLAYBOOK §7 gotcha 10 (animations), MANUAL_TEST_PLAN.md, PROGRESS.md, CLAUDE.md and QA_AUDIT_RULES.md (animation pointers).
 
