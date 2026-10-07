@@ -337,7 +337,7 @@ interface Voice {
 
     /** History tab's pinned Edit icon (spec §6) — same role as [bigPictureDetailEditDescription], persona-styled to match. Opens [historyFieldsDialogTitle]'s dialog of Notes/Tags/Duration/Intensity toggles. */
     val historyFieldsEditDescription: String
-    val historyFieldsDialogTitle: String
+    val historyFieldsDialogTitle: String get() = "Record details"
 
     /** Reveals 50 more History tab events beyond the currently loaded window (spec §6, PROGRESS.md F4). Persona-styled, like [insightsHeatmapShowMoreAction] — a similar "reveal more of the list" CTA. */
     val historyShowMoreAction: String
@@ -964,7 +964,7 @@ object PlainVoice : Voice {
     override val newCaseTitle = "New case"
     override val editCaseTitle = "Edit case"
     override val newCaseFabDescription = "New case"
-    override val caseNameHint = "e.g. Kiddo was rude"
+    override val caseNameHint = "e.g. Dog barked all night"
     override val caseNameRequiredError = "Name is required."
     override val caseNameDuplicateError = "A case with this name already exists."
     override val caseDescriptionHint = "Any more detail worth noting"
@@ -975,7 +975,7 @@ object PlainVoice : Voice {
     override val infoDialogDismissAction = "Got it"
     override val caseLogFlowInfoTitle = "About logging"
     override val caseLogFlowInfoBody =
-        "One tap logs an event instantly with no extra fields — pick it for cases you don't need duration or " +
+        "One tap logs an event instantly with no extra fields. Pick it for cases you don't need duration or " +
             "intensity on. Detail sheet opens a short form for time, duration, intensity, and notes before saving."
     override val caseDurationModeInfoTitle = "About duration"
     override val caseDurationModeInfoBody =
@@ -1224,33 +1224,31 @@ object PlainVoice : Voice {
                 FrequencyGranularity.WEEK -> "weeks"
                 FrequencyGranularity.MONTH -> "months"
             }
-        return "Showing the most recent 12 $unit. The granularity is picked automatically based on how long this case " +
-            "has been tracked, but you can switch it manually above."
+        return "Shows your last 12 $unit. The size is picked for you, but you can change it above."
     }
 
     override val insightsGapsInfoTitle = "About gaps & streaks"
     override val insightsGapsInfoBody =
-        "Shortest gap: the shortest stretch between two events.\n" +
-            "Longest gap: the longest stretch with no event active.\n" +
-            "Current gap: time since the last event ended, or 0 while one is running.\n" +
-            "Average gap: the typical stretch between events.\n" +
-            "Longest streak: the most days in a row with at least one event active.\n" +
-            "Average streak: the typical length of those runs.\n\n" +
-            "A duration event counts on every day it was active, so a single long event can carry a streak on its own. " +
-            "\"Tends to come in bursts\" shows when the gaps vary a lot."
+        "Shortest gap: the smallest break between two events.\n" +
+            "Longest gap: the biggest break with nothing happening.\n" +
+            "Current gap: time since your last event ended. It's 0 if one is happening now.\n" +
+            "Average gap: the usual break between events.\n" +
+            "Longest streak: the most days in a row with an event.\n" +
+            "Average streak: how long those streaks usually last.\n\n" +
+            "A long event counts for every day it runs, so one big event can make its own streak. " +
+            "\"Tends to come in bursts\" means gaps vary a lot."
 
     override val insightsTrendsShowMoreAction = "See all trends"
     override val insightsTagsSeeAllAction = "See all tags"
     override val insightsTagsDistinctLabel = "Total tags"
     override val insightsTagsInfoTitle = "About tags"
     override val insightsTagsInfoBody =
-        "Each tag counts the logged events it appears on. Tap one to see those events."
+        "Each tag counts its logged events. Tap one to see them."
 
     override val insightsTrendsInfoTitle = "About trends"
     override val insightsTrendsInfoBody =
-        "Each row is a shift spotted somewhere in this case's own history — not a prediction, just a description of what changed.\n\n" +
-            "Hint means the shift crossed a basic threshold but hasn't been checked for statistical significance yet. " +
-            "Pattern means it has been checked and holds up."
+        "Each row shows a change found in this case's own history.\n\n" +
+            "A hint is an early signal. A pattern has been checked and confirmed."
 
     override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
 
@@ -1372,11 +1370,10 @@ object PlainVoice : Voice {
     override fun ongoingCountIndicator(count: Int) = "$count running"
 
     override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "Only Start/Stop tracks a running event, so switching away stops all $runningCount of them now, at the current time."
+        "Switching away from Start/Stop stops all $runningCount running events right now."
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
-        "This case has $openEndedCount events with no end time. Under Start/Stop they would look like they are still running, " +
-            "so they will be kept as instant one-time events instead."
+        "$openEndedCount events have no end time. Their end time will be set to match their start time."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
@@ -1429,7 +1426,7 @@ object PlainVoice : Voice {
     override val watchDefinitionEyebrow = "Watching for"
     override val watchNowEyebrow = "Now"
 
-    override val watchesTabDescription = "Rules"
+    override val watchesTabDescription = "Watches"
     override val watchesFabDescription = "New rule"
     override val watchesEmptyTitle = "Nothing set up yet"
     override val watchesEmptyBody = "Set up a rule to alert you when this happens too often, or goes quiet for too long."
@@ -1547,8 +1544,7 @@ object PlainVoice : Voice {
 
     override val shareHistoryEmptyRangeMessage = "No entries in this range."
 
-    override val historyFieldsEditDescription = "Edit which detail the history shows"
-    override val historyFieldsDialogTitle = "History detail"
+    override val historyFieldsEditDescription = "Choose which details show"
 }
 
 object IntenseVoice : Voice {
@@ -1577,16 +1573,16 @@ object IntenseVoice : Voice {
     override val caseNameRequiredError = "It needs a name to be watched."
     override val caseNameDuplicateError = "Another case already bears this name."
     override val caseDescriptionHint = "Say more, if the shadows require it"
-    override val caseIconRequiredError = "Choose a mark for it."
-    override val caseIconSectionExpandDescription = "Reveal the marks"
-    override val caseIconSectionCollapseDescription = "Conceal the marks"
-    override val caseSectionInfoDescription = "Unveil more"
+    override val caseIconRequiredError = "Choose an icon for it."
+    override val caseIconSectionExpandDescription = "Reveal the icons"
+    override val caseIconSectionCollapseDescription = "Conceal the icons"
+    override val caseSectionInfoDescription = "Explain more"
     override val infoDialogDismissAction = "Understood"
     override val caseLogFlowInfoTitle = "On the manner of recording"
     override val caseLogFlowInfoBody =
-        "One tap seals the record the instant you touch it — no further rite required. The detail sheet asks " +
-            "more of you: the hour, its length, its severity, its notes — reserved for cases that demand such detail."
-    override val caseDurationModeInfoTitle = "On the length of things"
+        "One tap records it the moment you touch it. No further rite required. The detail sheet asks " +
+            "more of you: the hour, its length, its severity, its notes, reserved for cases that demand such detail."
+    override val caseDurationModeInfoTitle = "On duration"
     override val caseDurationModeInfoBody =
         "None takes no account of how long a thing lingers. Manual lets you name its length yourself. " +
             "Start/stop watches it unfold in real time, from the moment it begins until you declare it done."
@@ -1594,21 +1590,21 @@ object IntenseVoice : Voice {
     override val caseCheckInInfoBody =
         "When kept, the check-in nudge stirs after this case has lain silent too long, the interval Settings " +
             "decree for all cases. Off silences the nudge for this case alone."
-    override val caseSaveButton = "Seal it"
+    override val caseSaveButton = "Keep it"
     override val caseDetailEditDescription = "Revise the case"
-    override val archiveCaseDescription = "Bury this case"
-    override val archiveCaseConfirmTitle = "Bury this case?"
+    override val archiveCaseDescription = "Retire this case"
+    override val archiveCaseConfirmTitle = "Retire this case?"
     override val archiveCaseConfirmBody =
-        "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed, " +
+        "It will vanish from Home and the record, but nothing is lost. It waits in the archive, ready to be restored, " +
             "or erased forever if you so choose."
-    override val archiveCaseConfirmAction = "Bury it"
+    override val archiveCaseConfirmAction = "Retire it"
     override val archiveCaseCancelAction = "Abandon"
-    override val leaveStartStopConfirmTitle = "Seal what still runs?"
-    override val leaveStartStopConfirmAction = "Seal them and switch"
-    override val leaveStartStopCancelAction = "Leave Start/Stop be"
-    override val enterStartStopConfirmTitle = "Fix them in place?"
-    override val enterStartStopConfirmAction = "Fix them and switch"
-    override val enterStartStopCancelAction = "Leave the mode as it lies"
+    override val leaveStartStopConfirmTitle = "Stop what still runs?"
+    override val leaveStartStopConfirmAction = "Stop them and switch"
+    override val leaveStartStopCancelAction = "Keep Start/Stop"
+    override val enterStartStopConfirmTitle = "Freeze them in place?"
+    override val enterStartStopConfirmAction = "Freeze and switch"
+    override val enterStartStopCancelAction = "Keep current mode"
     override val archivedCasesTitle = "The buried cases"
     override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
@@ -1617,9 +1613,9 @@ object IntenseVoice : Voice {
         rate: String?,
         eventCount: Int,
         observedDays: Long,
-    ) = listOfNotNull(rate, "$eventCount marks in the record — $observedDays days under watch").joinToString(DOT_SEPARATOR)
+    ) = listOfNotNull(rate, "$eventCount entries in the record, $observedDays days under watch").joinToString(DOT_SEPARATOR)
 
-    override val historyShowMoreAction = "Exhume more of the record"
+    override val historyShowMoreAction = "Reveal more of the record"
 
     override val deleteEventConfirmTitle = "Strike this from the record?"
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
@@ -1834,32 +1830,32 @@ object IntenseVoice : Voice {
                 FrequencyGranularity.WEEK -> "weeks"
                 FrequencyGranularity.MONTH -> "months"
             }
-        return "Twelve $unit, no further back — the record does not dwell on distant history. Its grain is chosen by how " +
+        return "Twelve $unit, no further back. The record does not dwell on distant history. Its grain is chosen by how " +
             "long this case has been watched, though you may set it yourself above."
     }
 
     override val insightsGapsInfoTitle = "On silences and spells"
     override val insightsGapsInfoBody =
-        "Shortest gap: the briefest silence between two events.\n" +
+        "Shortest gap: the shortest silence between two events.\n" +
             "Longest gap: the longest silence with nothing stirring.\n" +
-            "Current gap: how long since the last event ended, or nothing while one still runs.\n" +
-            "Average gap: the usual quiet between events.\n" +
-            "Longest streak: the most consecutive days something was active.\n" +
-            "Average streak: how long those spells tend to last.\n\n" +
-            "An event with duration marks every day it was active, so one long event can hold a streak alone. " +
-            "\"It comes in waves, not a rhythm\" appears when the gaps are wildly uneven."
+            "Current gap: time since the last event ended. It's zero while one still runs.\n" +
+            "Average gap: the usual silence between events.\n" +
+            "Longest streak: the most days in a row with something active.\n" +
+            "Average streak: how long those spells usually last.\n\n" +
+            "A long event counts for every day it runs, so one event alone can hold a streak. " +
+            "\"It comes in waves\" means gaps vary a lot."
 
     override val insightsTrendsShowMoreAction = "Read the full record"
     override val insightsTagsSeeAllAction = "Read the full tally"
     override val insightsTagsDistinctLabel = "Tags in total"
     override val insightsTagsInfoTitle = "On the tags"
     override val insightsTagsInfoBody =
-        "Each tag counts the events it appears on. Tap one to read them."
+        "Each tag counts its own events. Tap one to read them."
 
     override val insightsTrendsInfoTitle = "On what these mean"
     override val insightsTrendsInfoBody =
-        "Each line names a shift found somewhere in this case's own past. It is a description, not a forecast.\n\n" +
-            "A hint has crossed a threshold, nothing more. A pattern has been tested, and holds."
+        "Each line names a shift found in this case's own past.\n\n" +
+            "A hint is an early sign. A pattern has been tested and holds."
 
     override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
 
@@ -1948,9 +1944,9 @@ object IntenseVoice : Voice {
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
-    ) = "Today: $todayCount — this week: $weekCount"
+    ) = "Today: $todayCount${DOT_SEPARATOR}this week: $weekCount"
 
-    override fun archivedCasesLink(count: Int) = "The buried ($count)"
+    override fun archivedCasesLink(count: Int) = "Archived and forgotten ($count)"
 
     override fun archivedCaseEventCount(count: Int) = "$count entries in the record"
 
@@ -1979,10 +1975,10 @@ object IntenseVoice : Voice {
     override fun ongoingCountIndicator(count: Int) = "$count still unfolding"
 
     override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "Only Start/Stop keeps a thread open, so leaving it seals all $runningCount that still run — here, now, at this very moment."
+        "Switching away stops all $runningCount that still run, right now."
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
-        "$openEndedCount events end nowhere. Start/Stop would read them as still breathing, so each is fixed to the single moment it happened instead."
+        "$openEndedCount events end nowhere. Each will be fixed to the moment it began."
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
@@ -2153,8 +2149,7 @@ object IntenseVoice : Voice {
 
     override val shareHistoryEmptyRangeMessage = "No evidence in this window."
 
-    override val historyFieldsEditDescription = "Edit which detail the record shows"
-    override val historyFieldsDialogTitle = "Record detail"
+    override val historyFieldsEditDescription = "Choose what the record shows"
 }
 
 object BrightVoice : Voice {
@@ -2190,12 +2185,12 @@ object BrightVoice : Voice {
     override val infoDialogDismissAction = "Got it!"
     override val caseLogFlowInfoTitle = "Logging, explained"
     override val caseLogFlowInfoBody =
-        "One tap logs it the second you tap — zero fuss, zero fields. Detail sheet pops up a quick form for " +
+        "One tap logs it the second you tap. Zero fuss, zero fields. Detail sheet pops up a quick form for " +
             "time, duration, intensity, and notes if you want more detail."
     override val caseDurationModeInfoTitle = "Duration, explained"
     override val caseDurationModeInfoBody =
         "None means duration's not tracked. Manual lets you type in how long it took. Start/stop tracks it " +
-            "live — hit Start, then Stop when it's over."
+            "live. Hit Start, then Stop when it's over."
     override val caseCheckInInfoTitle = "Check-in, explained"
     override val caseCheckInInfoBody =
         "Flip it on and you'll get a nudge after a quiet stretch, whatever Settings says. Off means no " +
@@ -2205,7 +2200,7 @@ object BrightVoice : Voice {
     override val archiveCaseDescription = "Shelve this case"
     override val archiveCaseConfirmTitle = "Shelve this case?"
     override val archiveCaseConfirmBody =
-        "It'll hide from Home and Big Picture, but nothing's deleted here — find it in the archive to bring it back, " +
+        "It'll hide from Home and Big Picture, but nothing's deleted here. Find it in the archive to bring it back, " +
             "or to yeet it forever instead."
     override val archiveCaseConfirmAction = "Shelve it"
     override val archiveCaseCancelAction = "Nah, keep it out"
@@ -2217,7 +2212,7 @@ object BrightVoice : Voice {
     override val enterStartStopCancelAction = "Nope, keep this mode!"
     override val archivedCasesTitle = "The archive"
     override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
-    override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
+    override val eventListEmptyState = "Nothing logged yet!"
 
     override fun historySummaryLine(
         rate: String?,
@@ -2434,32 +2429,32 @@ object BrightVoice : Voice {
                 FrequencyGranularity.WEEK -> "weeks"
                 FrequencyGranularity.MONTH -> "months"
             }
-        return "Just the last 12 $unit — we pick days/weeks/months automatically depending on how long you've been " +
+        return "Just the last 12 $unit! We pick days/weeks/months automatically depending on how long you've been " +
             "tracking, but feel free to flip it yourself up top!"
     }
 
     override val insightsGapsInfoTitle = "Gaps & streaks, explained!"
     override val insightsGapsInfoBody =
-        "Shortest gap: the tiniest pause between two events.\n" +
-            "Longest gap: the biggest quiet stretch with nothing going on.\n" +
-            "Current gap: time since the last event wrapped up, or 0 while something's still running.\n" +
+        "Shortest gap: the smallest break between two events!\n" +
+            "Longest gap: the biggest quiet stretch.\n" +
+            "Current gap: time since your last event. It's 0 if one's happening now!\n" +
             "Average gap: the usual space between events.\n" +
-            "Longest streak: the most days in a row with at least one event active.\n" +
-            "Average streak: how long those runs usually go.\n\n" +
-            "Heads up: a duration event counts on every day it was active, so one long event can fill a whole streak by itself! " +
-            "\"Comes in bursts!\" pops up when the gaps are all over the place."
+            "Longest streak: the most days in a row with an event.\n" +
+            "Average streak: how long those streaks usually go!\n\n" +
+            "A long event counts for every day it runs, so one big event can make its own streak! " +
+            "\"Comes in bursts!\" means gaps vary a lot!"
 
     override val insightsTrendsShowMoreAction = "See them all!"
     override val insightsTagsSeeAllAction = "See every tag!"
     override val insightsTagsDistinctLabel = "Total tags!"
     override val insightsTagsInfoTitle = "About these tags!"
     override val insightsTagsInfoBody =
-        "Each tag counts the events it's on. Tap one to see them all!"
+        "Each tag counts its own events. Tap one to see them all!"
 
     override val insightsTrendsInfoTitle = "What these mean!"
     override val insightsTrendsInfoBody =
-        "Each row is a shift we spotted somewhere in this case's own history, just describing what changed, not what's next.\n\n" +
-            "Hint means it crossed a basic threshold, nothing fancier yet. Pattern means we checked it, and it holds up!"
+        "Each row shows a change we spotted in this case's history!\n\n" +
+            "A hint is an early sign. A pattern's been checked and confirmed!"
 
     override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
 
@@ -2583,7 +2578,7 @@ object BrightVoice : Voice {
         "Start/Stop is the only mode that tracks a live event, so switching away stops all $runningCount running ones right now."
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
-        "You've got $openEndedCount events with no end time. Start/Stop would treat them as still running, so they'll be kept as instant one-offs instead."
+        "$openEndedCount events have no end time. They'll be set to end the moment they started!"
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
@@ -2755,8 +2750,7 @@ object BrightVoice : Voice {
 
     override val shareHistoryEmptyRangeMessage = "Nothing logged in this range yet!"
 
-    override val historyFieldsEditDescription = "Pick what each history entry shows!"
-    override val historyFieldsDialogTitle = "History detail!"
+    override val historyFieldsEditDescription = "Pick what shows!"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }
