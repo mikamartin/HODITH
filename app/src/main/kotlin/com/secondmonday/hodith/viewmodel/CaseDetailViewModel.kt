@@ -8,9 +8,9 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ExpectedPer
+import com.secondmonday.hodith.data.HistoryRowField
+import com.secondmonday.hodith.data.HistorySortOrder
 import com.secondmonday.hodith.data.HodithRepository
-import com.secondmonday.hodith.data.LogRowField
-import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.VerdictMetric
@@ -37,12 +37,12 @@ import javax.inject.Inject
 data class CaseDetailUiState(
     val case: CaseEntity? = null,
     val events: List<EventWithTags> = emptyList(),
-    val logEvents: List<EventWithTags> = emptyList(),
-    val logHasMore: Boolean = false,
-    val logSortOrder: LogSortOrder = LogSortOrder.BY_START,
-    val logDateFrom: Long? = null,
-    val logDateTo: Long? = null,
-    val logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
+    val historyEvents: List<EventWithTags> = emptyList(),
+    val historyHasMore: Boolean = false,
+    val historySortOrder: HistorySortOrder = HistorySortOrder.BY_START,
+    val historyDateFrom: Long? = null,
+    val historyDateTo: Long? = null,
+    val historyVisibleFields: Set<HistoryRowField> = HistoryRowField.entries.toSet(),
     val tagSuggestions: List<TagEntity> = emptyList(),
     val mostRecentActivityAcrossCasesAt: Long? = null,
     val isLoading: Boolean = true,
@@ -50,16 +50,16 @@ data class CaseDetailUiState(
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
 
-/** Log tab paging (spec §6, PROGRESS.md F4) — the row list starts at this many events... */
-private const val LOG_INITIAL_LIMIT = 30
+/** History tab paging (spec §6, PROGRESS.md F4) — the row list starts at this many events... */
+private const val HISTORY_INITIAL_LIMIT = 30
 
 /** ...and each "Show more" tap grows the loaded window by this many, cumulatively (30 → 80 → 130 → ...). */
-private const val LOG_LOAD_MORE_INCREMENT = 50
+private const val HISTORY_LOAD_MORE_INCREMENT = 50
 
-/** [CaseDetailViewModel.logPage]'s combined query key — a named tuple in place of a five-element [Triple]-of-[Triple]s. */
-private data class LogPageQuery(
+/** [CaseDetailViewModel.historyPage]'s combined query key — a named tuple in place of a five-element [Triple]-of-[Triple]s. */
+private data class HistoryPageQuery(
     val case: CaseEntity?,
-    val order: LogSortOrder,
+    val order: HistorySortOrder,
     val dateFrom: Long?,
     val dateTo: Long?,
     val limit: Int,
@@ -77,30 +77,30 @@ class CaseDetailViewModel
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
         private val zone = ZoneId.systemDefault()
 
-        private val logSortOrder = settingsRepository.observeLogSortOrder()
-        private val logDateFrom = settingsRepository.observeLogDateFrom()
-        private val logDateTo = settingsRepository.observeLogDateTo()
-        private val logVisibleFields = settingsRepository.observeLogVisibleFields()
-        private val logLimit = MutableStateFlow(LOG_INITIAL_LIMIT)
+        private val historySortOrder = settingsRepository.observeHistorySortOrder()
+        private val historyDateFrom = settingsRepository.observeHistoryDateFrom()
+        private val historyDateTo = settingsRepository.observeHistoryDateTo()
+        private val historyVisibleFields = settingsRepository.observeHistoryVisibleFields()
+        private val historyLimit = MutableStateFlow(HISTORY_INITIAL_LIMIT)
 
         /**
-         * The Log tab's capped, sorted page — re-queried (not re-sorted client-side) whenever the
-         * sort order, the date range, the loaded limit, or the Case's `durationMode` changes; the
-         * last of those matters because [LogSortOrder.BY_END]'s "is this running?" check is only
-         * meaningful for a `START_STOP` Case (PROGRESS.md F4).
+         * The History tab's capped, sorted page — re-queried (not re-sorted client-side) whenever
+         * the sort order, the date range, the loaded limit, or the Case's `durationMode` changes;
+         * the last of those matters because [HistorySortOrder.BY_END]'s "is this running?" check is
+         * only meaningful for a `START_STOP` Case (PROGRESS.md F4).
          */
         @OptIn(ExperimentalCoroutinesApi::class)
-        private val logPage =
+        private val historyPage =
             combine(
                 repository.observeCase(caseId),
-                logSortOrder,
-                logDateFrom,
-                logDateTo,
-                logLimit,
-            ) { case, order, dateFrom, dateTo, limit -> LogPageQuery(case, order, dateFrom, dateTo, limit) }
+                historySortOrder,
+                historyDateFrom,
+                historyDateTo,
+                historyLimit,
+            ) { case, order, dateFrom, dateTo, limit -> HistoryPageQuery(case, order, dateFrom, dateTo, limit) }
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
-                    repository.observeLogEventsForCase(
+                    repository.observeHistoryEventsForCase(
                         caseId,
                         query.order,
                         query.limit,
@@ -122,11 +122,11 @@ class CaseDetailViewModel
                     tagSuggestions = tagSuggestions,
                     isLoading = false,
                 )
-            }.combine(logPage) { partial, page -> partial.copy(logEvents = page.events, logHasMore = page.hasMore) }
-                .combine(logSortOrder) { partial, order -> partial.copy(logSortOrder = order) }
-                .combine(logDateFrom) { partial, dateFrom -> partial.copy(logDateFrom = dateFrom) }
-                .combine(logDateTo) { partial, dateTo -> partial.copy(logDateTo = dateTo) }
-                .combine(logVisibleFields) { partial, fields -> partial.copy(logVisibleFields = fields) }
+            }.combine(historyPage) { partial, page -> partial.copy(historyEvents = page.events, historyHasMore = page.hasMore) }
+                .combine(historySortOrder) { partial, order -> partial.copy(historySortOrder = order) }
+                .combine(historyDateFrom) { partial, dateFrom -> partial.copy(historyDateFrom = dateFrom) }
+                .combine(historyDateTo) { partial, dateTo -> partial.copy(historyDateTo = dateTo) }
+                .combine(historyVisibleFields) { partial, fields -> partial.copy(historyVisibleFields = fields) }
                 .combine(repository.observeMostRecentLoggedAtAcrossActiveCases()) { partial, mostRecentActivityAcrossCasesAt ->
                     partial.copy(mostRecentActivityAcrossCasesAt = mostRecentActivityAcrossCasesAt)
                 }.stateIn(
@@ -136,41 +136,41 @@ class CaseDetailViewModel
                 )
 
         /**
-         * Switches the Log tab's sort order and resets the loaded window back to
-         * [LOG_INITIAL_LIMIT] — a re-sorted list should read as a fresh top-[LOG_INITIAL_LIMIT], not
+         * Switches the History tab's sort order and resets the loaded window back to
+         * [HISTORY_INITIAL_LIMIT] — a re-sorted list should read as a fresh top-[HISTORY_INITIAL_LIMIT], not
          * keep whatever window size was earned by tapping "Show more" under the old order.
          */
-        fun setLogSortOrder(order: LogSortOrder) {
-            viewModelScope.launch { settingsRepository.setLogSortOrder(order) }
-            logLimit.value = LOG_INITIAL_LIMIT
+        fun setHistorySortOrder(order: HistorySortOrder) {
+            viewModelScope.launch { settingsRepository.setHistorySortOrder(order) }
+            historyLimit.value = HISTORY_INITIAL_LIMIT
         }
 
-        /** Same reset-the-window rationale as [setLogSortOrder]: a newly-narrowed range reads as a fresh top-[LOG_INITIAL_LIMIT]. */
-        fun setLogDateFrom(date: LocalDate?) {
-            viewModelScope.launch { settingsRepository.setLogDateFrom(date?.let { zone.startOfDayMillis(it) }) }
-            logLimit.value = LOG_INITIAL_LIMIT
+        /** Same reset-the-window rationale as [setHistorySortOrder]: a newly-narrowed range reads as a fresh top-[HISTORY_INITIAL_LIMIT]. */
+        fun setHistoryDateFrom(date: LocalDate?) {
+            viewModelScope.launch { settingsRepository.setHistoryDateFrom(date?.let { zone.startOfDayMillis(it) }) }
+            historyLimit.value = HISTORY_INITIAL_LIMIT
         }
 
-        /** See [setLogDateFrom]. `null` clears the upper bound back to "through today". */
-        fun setLogDateTo(date: LocalDate?) {
-            viewModelScope.launch { settingsRepository.setLogDateTo(date?.let { zone.endOfDayMillis(it) }) }
-            logLimit.value = LOG_INITIAL_LIMIT
+        /** See [setHistoryDateFrom]. `null` clears the upper bound back to "through today". */
+        fun setHistoryDateTo(date: LocalDate?) {
+            viewModelScope.launch { settingsRepository.setHistoryDateTo(date?.let { zone.endOfDayMillis(it) }) }
+            historyLimit.value = HISTORY_INITIAL_LIMIT
         }
 
-        /** Flips one field of the persisted Log-tab row-display preference — purely a rendering choice, so it doesn't reset [logLimit]. */
-        fun setLogFieldVisible(
-            field: LogRowField,
+        /** Flips one field of the persisted History-tab row-display preference — purely a rendering choice, so it doesn't reset [historyLimit]. */
+        fun setHistoryFieldVisible(
+            field: HistoryRowField,
             visible: Boolean,
         ) {
             viewModelScope.launch {
-                val current = settingsRepository.observeLogVisibleFields().first()
-                settingsRepository.setLogVisibleFields(if (visible) current + field else current - field)
+                val current = settingsRepository.observeHistoryVisibleFields().first()
+                settingsRepository.setHistoryVisibleFields(if (visible) current + field else current - field)
             }
         }
 
-        /** "Show more" — cumulative, one-directional growth of the Log tab's loaded window. */
-        fun loadMoreLogEvents() {
-            logLimit.update { it + LOG_LOAD_MORE_INCREMENT }
+        /** "Show more" — cumulative, one-directional growth of the History tab's loaded window. */
+        fun loadMoreHistoryEvents() {
+            historyLimit.update { it + HISTORY_LOAD_MORE_INCREMENT }
         }
 
         /** Always immediate, regardless of `logFlow` — see [HomeViewModel.onQuickLogTap]. */
@@ -183,7 +183,7 @@ class CaseDetailViewModel
         fun nowMillis(): Long = clock.nowMillis()
 
         /**
-         * Quick-log / retro-log a *new* event from the Log tab's sheet. Editing an existing event
+         * Quick-log / retro-log a *new* event from the History tab's sheet. Editing an existing event
          * is [com.secondmonday.hodith.viewmodel.LogDetailScreenViewModel]'s job, on its own screen.
          */
         fun saveNewEvent(draft: LogDraft) {
@@ -259,7 +259,7 @@ internal fun formatExpectedFrequency(
  * a Case switched to `NONE`, or a zero-length event (`endedAt == occurredAt`), is a point
  * with no duration line. Stored `endedAt` is never read past this gate, so it survives intact.
  *
- * [showIntensity] defaults to true (the Log tab always shows it); the Insights tab's intensity
+ * [showIntensity] defaults to true (the History tab always shows it); the Insights tab's intensity
  * drill-down dialog (spec §10) passes false, since every row there already shares the intensity
  * the dialog's own title states — repeating it on each row would be pure noise, not information.
  */

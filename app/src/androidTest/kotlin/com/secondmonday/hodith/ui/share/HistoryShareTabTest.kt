@@ -13,7 +13,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.LogRowField
+import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.testtags.Smoke
@@ -21,8 +21,8 @@ import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.DATE_RANGE_ALL_TIME_BUTTON_TAG
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.LogShareSelection
-import com.secondmonday.hodith.viewmodel.LogShareUiState
+import com.secondmonday.hodith.viewmodel.HistoryShareSelection
+import com.secondmonday.hodith.viewmodel.HistoryShareUiState
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
@@ -49,23 +49,23 @@ private fun millisAtDay(epochDay: Long): Long =
  * callbacks, then opens the History tab.
  */
 @UiTest
-class LogShareTabTest {
+class HistoryShareTabTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
     private fun setContent(
-        uiState: LogShareUiState,
+        uiState: HistoryShareUiState,
         now: Long = millisAtDay(60),
         onSortOrderSelect: (ChronologicalOrder) -> Unit = {},
         onDateFromPicked: (LocalDate?) -> Unit = {},
         onDateToPicked: (LocalDate) -> Unit = {},
-        onFieldToggle: (LogRowField, Boolean) -> Unit = { _, _ -> },
+        onFieldToggle: (HistoryRowField, Boolean) -> Unit = { _, _ -> },
         onShareClick: () -> Unit = {},
     ) {
         composeTestRule.setHodithContent {
             ShareScreen(
                 insightState = ShareUiState(case = uiState.case, events = uiState.events, isLoading = uiState.isLoading),
-                logState = uiState,
+                historyState = uiState,
                 now = now,
                 graphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
@@ -75,14 +75,14 @@ class LogShareTabTest {
                 onDateFromPicked = onDateFromPicked,
                 onDateToPicked = onDateToPicked,
                 onFieldToggle = onFieldToggle,
-                onLogSortOrderSelect = onSortOrderSelect,
-                onLogShareClick = onShareClick,
+                onHistorySortOrderSelect = onSortOrderSelect,
+                onHistoryShareClick = onShareClick,
             )
         }
         composeTestRule.onNodeWithText(PlainVoice.shareTabHistoryLabel).performClick()
     }
 
-    private fun defaultSelection(dateTo: Long = millisAtDay(60)) = LogShareSelection(dateTo = dateTo)
+    private fun defaultSelection(dateTo: Long = millisAtDay(60)) = HistoryShareSelection(dateTo = dateTo)
 
     /** The name field's contents. Its text lives in `EditableText`, not `Text`, so `assertTextEquals` can't read it. */
     private fun nameFieldText(): String =
@@ -94,18 +94,24 @@ class LogShareTabTest {
 
     /**
      * The range button's exact text, including its "Range: " prefix. The live card preview below
-     * renders its own range subtitle with the same bare value and no prefix (`logShareRangeLabel`
-     * shares `formatDateRangeBound`/`Voice.shareLogRangeNote` with this button, so the bare value
+     * renders its own range subtitle with the same bare value and no prefix (`historyShareRangeLabel`
+     * shares `formatDateRangeBound`/`Voice.shareHistoryRangeNote` with this button, so the bare value
      * is now identical) -- matching on the bare value alone would be ambiguous, so the prefix is
      * what makes this the button specifically.
      */
-    private fun rangeButtonText(value: String) = "${PlainVoice.shareLogRangeLabel}: $value"
+    private fun rangeButtonText(value: String) = "${PlainVoice.shareHistoryRangeLabel}: $value"
 
     @Smoke
     @Test
     fun nameField_typing_keepsTheTypedTextInTheField() {
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
         )
 
         composeTestRule.onNode(hasSetTextAction()).performTextClearance()
@@ -118,7 +124,7 @@ class LogShareTabTest {
     fun nameField_showsTheCaseNameByDefault() {
         val case = testCase(id = 1L)
         setContent(
-            uiState = LogShareUiState(case = case, events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState = HistoryShareUiState(case = case, events = emptyList(), selection = defaultSelection(), isLoading = false),
         )
 
         assertEquals(case.name, nameFieldText())
@@ -127,7 +133,13 @@ class LogShareTabTest {
     @Test
     fun nameField_clearing_leavesTheFieldEmpty() {
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
         )
 
         composeTestRule.onNode(hasSetTextAction()).performTextClearance()
@@ -138,7 +150,13 @@ class LogShareTabTest {
     @Test
     fun nameField_isAboveTheSortControl() {
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
         )
 
         val nameTop =
@@ -148,7 +166,7 @@ class LogShareTabTest {
                 .positionInRoot.y
         val sortTop =
             composeTestRule
-                .onNodeWithText(PlainVoice.shareLogSortOldestLabel)
+                .onNodeWithText(PlainVoice.shareHistorySortOldestLabel)
                 .fetchSemanticsNode()
                 .positionInRoot.y
 
@@ -159,11 +177,17 @@ class LogShareTabTest {
     fun sortToggle_selectingOldestFirst_invokesCallback() {
         var selected: ChronologicalOrder? = null
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
             onSortOrderSelect = { selected = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogSortOldestLabel).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistorySortOldestLabel).performScrollTo().performClick()
 
         assertEquals(ChronologicalOrder.OLDEST_FIRST, selected)
     }
@@ -172,7 +196,7 @@ class LogShareTabTest {
     fun fieldRows_durationAndIntensity_onlyAppearWhenTheCaseTracksThem() {
         setContent(
             uiState =
-                LogShareUiState(
+                HistoryShareUiState(
                     case = testCase(id = 1L, durationMode = DurationMode.NONE, intensityEnabled = false),
                     events = emptyList(),
                     selection = defaultSelection(),
@@ -182,15 +206,15 @@ class LogShareTabTest {
 
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelDuration).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertDoesNotExist()
-        composeTestRule.onNodeWithText(PlainVoice.shareLogFieldNotesLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareLogFieldTagsLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryFieldNotesLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryFieldTagsLabel).assertExists()
     }
 
     @Test
     fun fieldRows_durationAndIntensity_appearWhenTheCaseTracksThem() {
         setContent(
             uiState =
-                LogShareUiState(
+                HistoryShareUiState(
                     case = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = true),
                     events = emptyList(),
                     selection = defaultSelection(),
@@ -204,10 +228,10 @@ class LogShareTabTest {
 
     @Test
     fun fieldToggle_unchecking_invokesCallbackWithFieldAndFalse() {
-        var toggled: Pair<LogRowField, Boolean>? = null
+        var toggled: Pair<HistoryRowField, Boolean>? = null
         setContent(
             uiState =
-                LogShareUiState(
+                HistoryShareUiState(
                     case = testCase(id = 1L, durationMode = DurationMode.NONE, intensityEnabled = false),
                     events = emptyList(),
                     selection = defaultSelection(),
@@ -217,17 +241,23 @@ class LogShareTabTest {
         )
 
         // By tag, not by label text: the label/Switch semantics don't reliably merge into one
-        // clickable node in every context (see LOG_SHARE_FIELD_TOGGLE_TAG_PREFIX's own doc comment).
-        composeTestRule.onNodeWithTag(LOG_SHARE_FIELD_TOGGLE_TAG_PREFIX + LogRowField.NOTES.name).performClick()
+        // clickable node in every context (see HISTORY_SHARE_FIELD_TOGGLE_TAG_PREFIX's own doc comment).
+        composeTestRule.onNodeWithTag(HISTORY_SHARE_FIELD_TOGGLE_TAG_PREFIX + HistoryRowField.NOTES.name).performClick()
 
-        assertEquals(LogRowField.NOTES to false, toggled)
+        assertEquals(HistoryRowField.NOTES to false, toggled)
     }
 
     @Test
     fun shareButton_click_invokesCallback() {
         var clicked = false
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
             onShareClick = { clicked = true },
         )
 
@@ -240,7 +270,7 @@ class LogShareTabTest {
     fun emptyRangeMessage_showsOnTheCardPreview_whenNoEventsMatch() {
         setContent(
             uiState =
-                LogShareUiState(
+                HistoryShareUiState(
                     case = testCase(id = 1L),
                     events = emptyList(),
                     selection = defaultSelection(),
@@ -248,16 +278,22 @@ class LogShareTabTest {
                 ),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogEmptyRangeMessage).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryEmptyRangeMessage).assertExists()
     }
 
     @Test
     fun rangeButton_defaultsToAllTime() {
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
         )
 
-        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareLogRangeAllTimeLabel)).assertExists()
+        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareHistoryRangeAllTimeLabel)).assertExists()
     }
 
     @Test
@@ -267,7 +303,7 @@ class LogShareTabTest {
         val now = millisAtDay(60)
         setContent(
             uiState =
-                LogShareUiState(
+                HistoryShareUiState(
                     case = testCase(id = 1L),
                     events = emptyList(),
                     selection = defaultSelection(dateTo = to).copy(dateFrom = from),
@@ -278,7 +314,7 @@ class LogShareTabTest {
         composeTestRule
             .onNodeWithText(
                 rangeButtonText(
-                    PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
+                    PlainVoice.shareHistoryRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
                 ),
             ).assertExists()
     }
@@ -286,10 +322,16 @@ class LogShareTabTest {
     @Test
     fun rangeButton_tap_opensOneCombinedRangeDialog() {
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
         )
 
-        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareLogRangeAllTimeLabel)).performClick()
+        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareHistoryRangeAllTimeLabel)).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerCancel).assertExists()
@@ -306,7 +348,7 @@ class LogShareTabTest {
         var changedTo: LocalDate? = null
         setContent(
             uiState =
-                LogShareUiState(
+                HistoryShareUiState(
                     case = testCase(id = 1L),
                     events = emptyList(),
                     selection = defaultSelection(dateTo = to).copy(dateFrom = from),
@@ -319,7 +361,7 @@ class LogShareTabTest {
         composeTestRule
             .onNodeWithText(
                 rangeButtonText(
-                    PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
+                    PlainVoice.shareHistoryRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
                 ),
             ).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
@@ -330,8 +372,8 @@ class LogShareTabTest {
 
     @Test
     fun rangeDialog_tappingAStartAndEndDay_handsBothDaysBack() {
-        // The shared range dialog (the Log tab's From/To chips use it too) takes day taps, not just
-        // Confirm: a start day then an end day in the displayed month reach both callbacks.
+        // The shared range dialog (the History tab's From/To chips use it too) takes day taps, not
+        // just Confirm: a start day then an end day in the displayed month reach both callbacks.
         val from = millisAtDay(20)
         val to = millisAtDay(40)
         val now = millisAtDay(60)
@@ -339,7 +381,7 @@ class LogShareTabTest {
         var changedTo: LocalDate? = null
         setContent(
             uiState =
-                LogShareUiState(
+                HistoryShareUiState(
                     case = testCase(id = 1L),
                     events = emptyList(),
                     selection = defaultSelection(dateTo = to).copy(dateFrom = from),
@@ -352,7 +394,7 @@ class LogShareTabTest {
         composeTestRule
             .onNodeWithText(
                 rangeButtonText(
-                    PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
+                    PlainVoice.shareHistoryRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
                 ),
             ).performClick()
         // Day cells expose their full date as their text, not the bare day number.
@@ -373,7 +415,7 @@ class LogShareTabTest {
         var changedTo: LocalDate? = to.toLocalDateIn(ZONE)
         setContent(
             uiState =
-                LogShareUiState(
+                HistoryShareUiState(
                     case = testCase(id = 1L),
                     events = emptyList(),
                     selection = defaultSelection(dateTo = to).copy(dateFrom = from),
@@ -386,7 +428,7 @@ class LogShareTabTest {
         composeTestRule
             .onNodeWithText(
                 rangeButtonText(
-                    PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
+                    PlainVoice.shareHistoryRangeNote(formatDateRangeBound(from, now, ZONE), formatDateRangeBound(to, now, ZONE)),
                 ),
             ).performClick()
         composeTestRule.onNodeWithTag(DATE_RANGE_ALL_TIME_BUTTON_TAG).performClick()
@@ -402,10 +444,16 @@ class LogShareTabTest {
         // live card preview below repeats the bare value -- by tag, not by label text, so this
         // doesn't collide with either.
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
         )
 
-        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareLogRangeAllTimeLabel)).performClick()
+        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareHistoryRangeAllTimeLabel)).performClick()
 
         composeTestRule.onNodeWithTag(DATE_RANGE_ALL_TIME_BUTTON_TAG).assertDoesNotExist()
     }
@@ -416,11 +464,17 @@ class LogShareTabTest {
         // without touching the calendar should keep it null, not coerce it to some other value.
         var changedFrom: LocalDate? = LocalDate.of(2026, 1, 1)
         setContent(
-            uiState = LogShareUiState(case = testCase(id = 1L), events = emptyList(), selection = defaultSelection(), isLoading = false),
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
             onDateFromPicked = { changedFrom = it },
         )
 
-        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareLogRangeAllTimeLabel)).performClick()
+        composeTestRule.onNodeWithText(rangeButtonText(PlainVoice.shareHistoryRangeAllTimeLabel)).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
 
         assertNull(changedFrom)

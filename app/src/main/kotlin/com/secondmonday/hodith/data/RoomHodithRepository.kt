@@ -64,19 +64,19 @@ class RoomHodithRepository
         // Event
         override fun observeEventsWithTagsForCase(caseId: Long): Flow<List<EventWithTags>> = eventDao.observeEventsWithTagsForCase(caseId)
 
-        override fun observeLogEventsForCase(
+        override fun observeHistoryEventsForCase(
             caseId: Long,
-            order: LogSortOrder,
+            order: HistorySortOrder,
             limit: Int,
             durationMode: DurationMode,
             dateFrom: Long?,
             dateTo: Long?,
-        ): Flow<LogEventsPage> {
+        ): Flow<HistoryEventsPage> {
             val rows =
                 when (order) {
-                    LogSortOrder.BY_START ->
+                    HistorySortOrder.BY_START ->
                         eventDao.observeEventsWithTagsForCasePagedByStart(caseId, dateFrom = dateFrom, dateTo = dateTo, limit = limit + 1)
-                    LogSortOrder.BY_END ->
+                    HistorySortOrder.BY_END ->
                         eventDao.observeEventsWithTagsForCasePagedByEnd(
                             caseId,
                             isStartStopCase = durationMode == DurationMode.START_STOP,
@@ -85,7 +85,7 @@ class RoomHodithRepository
                             limit = limit + 1,
                         )
                 }
-            return rows.map { LogEventsPage(events = it.take(limit), hasMore = it.size > limit) }
+            return rows.map { HistoryEventsPage(events = it.take(limit), hasMore = it.size > limit) }
         }
 
         override fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>> = eventDao.observeActiveCaseEventSpans()

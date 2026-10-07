@@ -33,8 +33,8 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.LogShareSelection
-import com.secondmonday.hodith.viewmodel.LogShareUiState
+import com.secondmonday.hodith.viewmodel.HistoryShareSelection
+import com.secondmonday.hodith.viewmodel.HistoryShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -119,12 +119,12 @@ class SharePreviewOrderFlowTest {
             val uiState by viewModel.uiState.collectAsState()
             ShareScreen(
                 insightState = uiState,
-                logState =
-                    LogShareUiState(
+                historyState =
+                    HistoryShareUiState(
                         case = uiState.case,
                         events = uiState.events,
                         selection =
-                            LogShareSelection(
+                            HistoryShareSelection(
                                 dateTo =
                                     DAY_MILLIS * 20,
                             ),
@@ -139,8 +139,8 @@ class SharePreviewOrderFlowTest {
                 onDateFromPicked = {},
                 onDateToPicked = {},
                 onFieldToggle = { _, _ -> },
-                onLogSortOrderSelect = {},
-                onLogShareClick = {},
+                onHistorySortOrderSelect = {},
+                onHistoryShareClick = {},
             )
         }
         composeTestRule.waitUntil { viewModel.uiState.value.case != null }

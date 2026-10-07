@@ -13,7 +13,6 @@ import com.secondmonday.hodith.domain.PRELIMINARY_MIN_DAYS
 import com.secondmonday.hodith.domain.PRELIMINARY_MIN_EVENTS
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagOutcome
-import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
@@ -131,7 +130,7 @@ interface Voice {
      * History tab's summary line above the event list: the headline rate (already formatted with its unit, or `null`
      * below the rate's own minimum), the total events logged, and the Case's observation span so far.
      */
-    fun logSummaryLine(
+    fun historySummaryLine(
         rate: String?,
         eventCount: Int,
         observedDays: Long,
@@ -323,25 +322,25 @@ interface Voice {
     /** Metric picker — shown only for a duration-tracking Case; one line, no jargon. */
     val metricOccurrenceLabel: String
     val metricDaysActiveLabel: String
-    val caseDetailLogTabLabel: String get() = "History"
+    val caseDetailHistoryTabLabel: String get() = "History"
     val caseDetailInsightsTabLabel: String get() = "Insights"
 
     /**
-     * Log tab's start/end sort toggle — structural, identical across all three voices like
+     * History tab's start/end sort toggle — structural, identical across all three voices like
      * [insightsFrequencyGranularityDay]. Shown only when the Case tracks duration (spec §6):
      * "Started" orders by when each event began, "Ended" floats still-running events to the top
      * then orders the rest by when they finished.
      */
-    val logSortLabel: String get() = "Sort"
-    val logSortByStartLabel: String get() = "Started"
-    val logSortByEndLabel: String get() = "Ended"
+    val historySortLabel: String get() = "Sort"
+    val historySortByStartLabel: String get() = "Started"
+    val historySortByEndLabel: String get() = "Ended"
 
-    /** History tab's pinned Edit icon (spec §6) — same role as [bigPictureDetailEditDescription], persona-styled to match. Opens [logDetailDialogTitle]'s dialog of Notes/Tags/Duration/Intensity toggles. */
-    val logDetailEditDescription: String
-    val logDetailDialogTitle: String
+    /** History tab's pinned Edit icon (spec §6) — same role as [bigPictureDetailEditDescription], persona-styled to match. Opens [historyFieldsDialogTitle]'s dialog of Notes/Tags/Duration/Intensity toggles. */
+    val historyFieldsEditDescription: String
+    val historyFieldsDialogTitle: String
 
-    /** Reveals 50 more Log tab events beyond the currently loaded window (spec §6, PROGRESS.md F4). Persona-styled, like [insightsHeatmapShowMoreAction] — a similar "reveal more of the list" CTA. */
-    val logShowMoreAction: String
+    /** Reveals 50 more History tab events beyond the currently loaded window (spec §6, PROGRESS.md F4). Persona-styled, like [insightsHeatmapShowMoreAction] — a similar "reveal more of the list" CTA. */
+    val historyShowMoreAction: String
 
     /** Insights tab with zero events (spec §9): a flat invitation, never a countdown or a count. */
     val insightsNothingLoggedMessage: String
@@ -429,48 +428,8 @@ interface Voice {
     val insightsGapsInfoTitle: String
     val insightsGapsInfoBody: String
 
-    /** Spec §10 trend arrow: last 30 days vs. the 30 before — purely descriptive, no judgement either way. */
-    fun insightsTrendSentence(
-        direction: TrendDirection,
-        recentCount: Int,
-        priorCount: Int,
-    ): String
-
-    /**
-     * Spec §10 Trends "went quiet" finding: the Case's current, still-open silence
-     * ([currentGapLabel]) has outlasted every past gap it's ever had ([longestPastGapLabel],
-     * already formatted, e.g. via `formatDays`) — framed as an open question per spec §4 ("ask
-     * rather than silently report a trend"), never as a statement that the user did something
-     * wrong. No `direction` parameter, unlike [insightsGapShiftSentence] — this finding only ever
-     * means the silence grew to a record, there's no shrinking case.
-     */
-    fun insightsWentQuietSentence(
-        currentGapLabel: String,
-        longestPastGapLabel: String,
-    ): String
-
     /** Went-quiet finding row's evidence line, shown inline (not behind a tap) — phrased like [insightsGapShiftEvidenceLabel] but keyed on the past gaps the record beat. */
     fun insightsWentQuietEvidenceLabel(sampleCount: Int): String
-
-    /**
-     * Spec §10 Trend card: an optional extra line noting the average gap has shifted noticeably
-     * across the Case's history — descriptive only, absent when
-     * [com.secondmonday.hodith.domain.computeGapShift] finds nothing noticeable. [priorAverageLabel]/
-     * [recentAverageLabel] are the two half-averages (already formatted, e.g. via `formatDays`) so
-     * the sentence states the shift in real numbers, not direction alone.
-     */
-    fun insightsGapShiftSentence(
-        direction: ShiftDirection,
-        priorAverageLabel: String,
-        recentAverageLabel: String,
-    ): String
-
-    /** As [insightsGapShiftSentence], for streak length rather than gap length. */
-    fun insightsStreakShiftSentence(
-        direction: ShiftDirection,
-        priorAverageLabel: String,
-        recentAverageLabel: String,
-    ): String
 
     /** Spec §10 Trends section header — structural, shared with the Share card's own Trends section (`ShareCardTemplate.kt`'s `MiniTrendsSection`). */
     val insightsSectionLabelTrends: String get() = "Trends"
@@ -557,179 +516,34 @@ interface Voice {
 
     /**
      * Frequency-shift finding row's evidence line — states the fixed comparison window rather
-     * than a variable count, since [insightsTrendSentence] (its main sentence) already states
-     * both counts directly.
+     * than a variable count, since the frequency-shift headline already states both counts
+     * directly.
      */
     fun insightsFrequencyShiftEvidenceLabel(): String
-
-    /**
-     * Spec §10 Trends "tag share shift" finding (Story C T2): [tagName]'s share of the Case's own
-     * events has shifted noticeably between the earlier and more recent half of its history —
-     * [priorShareLabel]/[recentShareLabel] are the two half-shares (already formatted, e.g. via
-     * `formatPercent`) so the sentence states the shift in real numbers, not direction alone. Like
-     * every Trends sentence, this describes a correlation the user can investigate, never a cause —
-     * "tends to," not "causes."
-     */
-    fun insightsTagShareShiftSentence(
-        tagName: String,
-        direction: ShiftDirection,
-        priorShareLabel: String,
-        recentShareLabel: String,
-    ): String
 
     /** As [insightsGapShiftEvidenceLabel], for the tag-share-shift finding row — keyed on the events behind the half/half split, not the tag's own occurrence count. */
     fun insightsTagShareShiftEvidenceLabel(sampleCount: Int): String
 
-    /**
-     * Spec §10 Trends "common tag combos" finding (Story C T9): [tagNamesLabel] is the already-joined
-     * display string (e.g. `"Coffee + Late"`), not a raw list — Voice keys stay plain `String`/`Int`
-     * parameters, the same precedent [insightsTagTimingSentence]'s `bucketPhrase` sets for a
-     * pre-formatted phrase. [count] of [totalEvents] is the literal pair, not formatted ahead of time,
-     * the same shape [insightsTrendSentence]'s event counts use. A descriptive finding, not a tested
-     * one, so no direction to word either way.
-     */
-    fun insightsTagComboSentence(
-        tagNamesLabel: String,
-        count: Int,
-        totalEvents: Int,
-    ): String
-
     /** As [insightsTagTimingEvidenceLabel], for the tag-combo finding row — keyed on the combo's own co-occurrence count. */
     fun insightsTagComboEvidenceLabel(sampleCount: Int): String
-
-    /**
-     * Spec §10 Trends "recurrence shape" finding (Story C T3): whether this Case's past gaps form
-     * an early-spike pattern ([direction] [ShiftDirection.UP] — recurrence usually follows within
-     * [thresholdLabel], already formatted e.g. via `formatDays`) or a dead-zone pattern ([direction]
-     * [ShiftDirection.DOWN] — it almost never does). [shareLabel] is the observed share of gaps that
-     * landed at or under [thresholdLabel] (already formatted, e.g. via `formatPercent`). Unlike
-     * [insightsWentQuietSentence] (a claim about the Case's current, still-open silence), this is a
-     * distribution-shape claim true regardless of current state — the two can both appear on the
-     * same Case at once, so the dead-zone wording here describes the *pattern* ("tends to take a
-     * while") rather than echoing went-quiet's "still happening?" framing.
-     */
-    fun insightsRecurrenceShapeSentence(
-        direction: ShiftDirection,
-        thresholdLabel: String,
-        shareLabel: String,
-    ): String
 
     /** As [insightsGapShiftEvidenceLabel], for the recurrence-shape finding row. */
     fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int): String
 
-    /**
-     * Spec §10 Trends "tag → outcome" finding (Story C T4): [tagName]'s events differ from the
-     * Case's other events on [outcome] (intensity or duration) — [direction] [ShiftDirection.UP]
-     * means events with the tag run higher/longer, [ShiftDirection.DOWN] means lower/shorter.
-     * [relativeDifferenceLabel] is the relative difference between the two groups (already formatted,
-     * e.g. via `formatPercent`); [withoutTagLabel]/[withTagLabel] are the two group means, already
-     * formatted in [outcome]'s own unit. Unlike every other Trends sentence, this one describes an
-     * effect that has actually been tested for significance, not just a threshold crossing — still
-     * "tends to," never "causes."
-     */
-    fun insightsTagOutcomeSentence(
-        tagName: String,
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        relativeDifferenceLabel: String,
-        withoutTagLabel: String,
-        withTagLabel: String,
-    ): String
-
     /** As [insightsGapShiftEvidenceLabel], for the tag-outcome finding row. */
     fun insightsTagOutcomeEvidenceLabel(sampleCount: Int): String
-
-    /**
-     * Spec §10 Trends "change point" finding (Story C T5): the typical gap between events has
-     * shifted since a best-supported split point in the Case's own history — [direction]
-     * [ShiftDirection.UP] means the gap grew (happening less often), [ShiftDirection.DOWN] means it
-     * shrank (happening more often). [dateLabel] is the split's approximate date (already formatted
-     * via `formatApproximateMonth`, e.g. "mid-March" — a best-supported estimate, not an exact day);
-     * [priorLabel]/[recentLabel] are the two segments' average gap length (already formatted via
-     * `formatDays`). Like [insightsTagOutcomeSentence], this describes an effect already tested for
-     * significance, not just a threshold crossing — "tends to," never "causes."
-     */
-    fun insightsChangePointSentence(
-        direction: ShiftDirection,
-        dateLabel: String,
-        priorLabel: String,
-        recentLabel: String,
-    ): String
 
     /** As [insightsGapShiftEvidenceLabel], for the change-point finding row. */
     fun insightsChangePointEvidenceLabel(sampleCount: Int): String
 
-    /**
-     * Spec §10 Trends "trend slope" finding (Story C T6): [outcome] (intensity or duration) has a
-     * real slope over the Case's own history — [direction] [ShiftDirection.UP] means it's climbing
-     * (running more intense, or longer), [ShiftDirection.DOWN] means it's easing (less intense, or
-     * shorter). [priorLabel]/[recentLabel] are the time-ordered first-half/second-half averages
-     * (already formatted, in [outcome]'s own unit). Like [insightsTagOutcomeSentence], this describes
-     * an effect already tested for significance — "tends to," never "causes."
-     */
-    fun insightsTrendSlopeSentence(
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        priorLabel: String,
-        recentLabel: String,
-    ): String
-
     /** As [insightsGapShiftEvidenceLabel], for the trend-slope finding row. */
     fun insightsTrendSlopeEvidenceLabel(sampleCount: Int): String
-
-    /**
-     * Spec §10 Trends "time-of-day split" finding (Story C T6): [outcome] (intensity or duration)
-     * differs between day and evening events — [direction] [ShiftDirection.UP] means evening events
-     * run higher/longer, [ShiftDirection.DOWN] means day events do. [dayLabel]/[eveningLabel] are the
-     * two group means (already formatted, in [outcome]'s own unit). Both directions need their own
-     * wording — this isn't only ever "evenings are worse." Like [insightsTagOutcomeSentence], this
-     * describes an effect already tested for significance — "tends to," never "causes."
-     */
-    fun insightsTimeOfDaySplitSentence(
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        dayLabel: String,
-        eveningLabel: String,
-    ): String
 
     /** As [insightsGapShiftEvidenceLabel], for the time-of-day-split finding row. */
     fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int): String
 
-    /**
-     * Spec §10 Trends "tag timing" finding (Story C T7): [tagName]'s own events cluster into
-     * [bucketPhrase] (already formatted and phrase-ready, e.g. "on Tuesdays" or "in the evening")
-     * beyond the Case's overall rhythm there. No `direction` parameter, unlike
-     * [insightsGapShiftSentence] — this finding only ever means the tag concentrates there, never
-     * that it avoids somewhere (T7's feasibility ruling). [baselineLabel]/[taggedLabel] are that
-     * bucket's share of the Case's own events overall vs. the tag's own events (already formatted
-     * via `formatPercent`). Like [insightsTagOutcomeSentence], this describes an effect already
-     * tested for significance — "tends to," never "causes."
-     */
-    fun insightsTagTimingSentence(
-        tagName: String,
-        bucketPhrase: String,
-        baselineLabel: String,
-        taggedLabel: String,
-    ): String
-
     /** As [insightsGapShiftEvidenceLabel], for the tag-timing finding row. */
     fun insightsTagTimingEvidenceLabel(sampleCount: Int): String
-
-    /**
-     * Spec §10 Trends "weekday vs weekend" finding (Story C T8, the scoped fallback from that
-     * item's cycles/seasonality investigation): the Case's own events lean toward weekends
-     * ([direction] [ShiftDirection.UP]) or weekdays ([ShiftDirection.DOWN]) more than the roughly
-     * 2-in-7-day calendar baseline. [weekdayLabel]/[weekendLabel] are the Case's own observed shares
-     * (already formatted via `formatPercent`) — the fixed baseline is a literal in the sentence
-     * text, not a parameter, since it never varies per Case. Both directions need their own
-     * wording, the same [insightsTimeOfDaySplitSentence] rule. Like [insightsTagTimingSentence],
-     * this describes an effect already tested for significance — "tends to," never "causes."
-     */
-    fun insightsWeekdayWeekendSentence(
-        direction: ShiftDirection,
-        weekdayLabel: String,
-        weekendLabel: String,
-    ): String
 
     /** As [insightsGapShiftEvidenceLabel], for the weekday-vs-weekend finding row. */
     fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int): String
@@ -1064,37 +878,37 @@ interface Voice {
     val shareSectionsPickerLabel: String get() = "Include"
     val shareSectionDragHandleDescription: String
 
-    // ---- Log Share (a second share card of the Case's actual entries, not a data export — see
-    // PROGRESS.md's "Share button: add a Log Share option" item) ----
+    // ---- History Share (a second share card of the Case's actual entries, not a data export —
+    // see PROGRESS.md's "Share button: add a Log Share option" item) ----
 
     /** [shown]/[total] when the cap (spec §13) trims the match count. */
-    fun shareLogTruncationNote(
+    fun shareHistoryTruncationNote(
         shown: Int,
         total: Int,
     ): String
 
     /** Shown on the card (and the config screen's preview) when the current filter matches nothing. */
-    val shareLogEmptyRangeMessage: String
+    val shareHistoryEmptyRangeMessage: String
 
     /** Sort/date-range/field-picker labels — structural, identical across all three voices. */
-    val shareLogSortNewestLabel: String get() = "Newest first"
-    val shareLogSortOldestLabel: String get() = "Oldest first"
-    val shareLogFieldNotesLabel: String get() = "Notes"
-    val shareLogFieldTagsLabel: String get() = "Tags"
-    val shareLogRangeAllTimeLabel: String get() = "All time"
+    val shareHistorySortNewestLabel: String get() = "Newest first"
+    val shareHistorySortOldestLabel: String get() = "Oldest first"
+    val shareHistoryFieldNotesLabel: String get() = "Notes"
+    val shareHistoryFieldTagsLabel: String get() = "Tags"
+    val shareHistoryRangeAllTimeLabel: String get() = "All time"
 
     /**
      * The single combined Range control (History tab's filter chip, History Share's own trigger) that
-     * replaced separate From/To controls — [shareLogRangeLabel] is its label, and
-     * [shareLogRangeSelectedLabel] is the compact chip's collapsed value once a range is set (the
-     * actual bounds render separately via [shareLogRangeNote], since a formatted date pair didn't
+     * replaced separate From/To controls — [shareHistoryRangeLabel] is its label, and
+     * [shareHistoryRangeSelectedLabel] is the compact chip's collapsed value once a range is set (the
+     * actual bounds render separately via [shareHistoryRangeNote], since a formatted date pair didn't
      * fit the chip's own width).
      */
-    val shareLogRangeLabel: String get() = "Range"
-    val shareLogRangeSelectedLabel: String get() = "Selected"
+    val shareHistoryRangeLabel: String get() = "Range"
+    val shareHistoryRangeSelectedLabel: String get() = "Selected"
 
     /** [from]/[to] are already-formatted dates. */
-    fun shareLogRangeNote(
+    fun shareHistoryRangeNote(
         from: String,
         to: String,
     ): String = "$from – $to"
@@ -1190,13 +1004,13 @@ object PlainVoice : Voice {
     override val archivedCasesEmptyState = "No archived cases."
     override val eventListEmptyState = "No events logged yet."
 
-    override fun logSummaryLine(
+    override fun historySummaryLine(
         rate: String?,
         eventCount: Int,
         observedDays: Long,
     ) = listOfNotNull(rate, "$eventCount events logged${DOT_SEPARATOR}observed for $observedDays days").joinToString(DOT_SEPARATOR)
 
-    override val logShowMoreAction = "Show more events"
+    override val historyShowMoreAction = "Show more events"
 
     override val deleteEventConfirmTitle = "Delete this event?"
     override val deleteEventConfirmBody = "This can't be undone."
@@ -1399,41 +1213,7 @@ object PlainVoice : Voice {
 
     override val insightsBurstFlagLabel = "Tends to come in bursts"
 
-    override fun insightsTrendSentence(
-        direction: TrendDirection,
-        recentCount: Int,
-        priorCount: Int,
-    ) = when (direction) {
-        TrendDirection.UP -> "$recentCount events in the last 30 days — up from $priorCount the 30 days before."
-        TrendDirection.DOWN -> "$recentCount events in the last 30 days — down from $priorCount the 30 days before."
-        TrendDirection.FLAT -> "$recentCount events in the last 30 days — the same as the 30 days before."
-    }
-
-    override fun insightsWentQuietSentence(
-        currentGapLabel: String,
-        longestPastGapLabel: String,
-    ) =
-        "Nothing logged in $currentGapLabel, past this Case's previous longest gap of $longestPastGapLabel. Still happening, or has it wound down?"
-
     override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
-
-    override fun insightsGapShiftSentence(
-        direction: ShiftDirection,
-        priorAverageLabel: String,
-        recentAverageLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "The average gap has grown from $priorAverageLabel to $recentAverageLabel."
-        ShiftDirection.DOWN -> "The average gap has shrunk from $priorAverageLabel to $recentAverageLabel."
-    }
-
-    override fun insightsStreakShiftSentence(
-        direction: ShiftDirection,
-        priorAverageLabel: String,
-        recentAverageLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "The average streak has grown from $priorAverageLabel to $recentAverageLabel."
-        ShiftDirection.DOWN -> "The average streak has shrunk from $priorAverageLabel to $recentAverageLabel."
-    }
 
     override val insightsFrequencyInfoTitle = "About this chart"
 
@@ -1532,138 +1312,21 @@ object PlainVoice : Voice {
 
     override fun trendChangePointDetail(month: String) = "Changed in $month"
 
-    override fun insightsTagShareShiftSentence(
-        tagName: String,
-        direction: ShiftDirection,
-        priorShareLabel: String,
-        recentShareLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "\"$tagName\" tends to show up more lately, $recentShareLabel of events now, up from $priorShareLabel."
-        ShiftDirection.DOWN -> "\"$tagName\" tends to show up less lately, $recentShareLabel of events now, down from $priorShareLabel."
-    }
-
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
-
-    override fun insightsTagComboSentence(
-        tagNamesLabel: String,
-        count: Int,
-        totalEvents: Int,
-    ) = "\"$tagNamesLabel\" tend to show up together — $count of $totalEvents events."
 
     override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Based on those $sampleCount events."
 
-    override fun insightsRecurrenceShapeSentence(
-        direction: ShiftDirection,
-        thresholdLabel: String,
-        shareLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "This tends to follow quickly, $shareLabel of past gaps landing within $thresholdLabel."
-        ShiftDirection.DOWN -> "This rarely follows quickly, only $shareLabel of past gaps landed within $thresholdLabel."
-    }
-
     override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
-
-    override fun insightsTagOutcomeSentence(
-        tagName: String,
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        relativeDifferenceLabel: String,
-        withoutTagLabel: String,
-        withTagLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP ->
-                    "\"$tagName\" tends to run more intense, averaging $withTagLabel vs $withoutTagLabel without it, " +
-                        "up $relativeDifferenceLabel."
-                ShiftDirection.DOWN ->
-                    "\"$tagName\" tends to run less intense, averaging $withTagLabel vs $withoutTagLabel without it, " +
-                        "down $relativeDifferenceLabel."
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP ->
-                    "\"$tagName\" tends to last longer, averaging $withTagLabel vs $withoutTagLabel without it, " +
-                        "up $relativeDifferenceLabel."
-                ShiftDirection.DOWN ->
-                    "\"$tagName\" tends to last shorter, averaging $withTagLabel vs $withoutTagLabel without it, " +
-                        "down $relativeDifferenceLabel."
-            }
-    }
 
     override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
 
-    override fun insightsChangePointSentence(
-        direction: ShiftDirection,
-        dateLabel: String,
-        priorLabel: String,
-        recentLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "The gap between events has grown, from $priorLabel to $recentLabel, since around $dateLabel."
-        ShiftDirection.DOWN -> "The gap between events has shrunk, from $priorLabel to $recentLabel, since around $dateLabel."
-    }
-
     override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
-
-    override fun insightsTrendSlopeSentence(
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        priorLabel: String,
-        recentLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP -> "Intensity has been climbing, averaging $recentLabel lately vs $priorLabel earlier."
-                ShiftDirection.DOWN -> "Intensity has been easing, averaging $recentLabel lately vs $priorLabel earlier."
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP -> "Episodes have been running longer, averaging $recentLabel lately vs $priorLabel earlier."
-                ShiftDirection.DOWN -> "Episodes have been running shorter, averaging $recentLabel lately vs $priorLabel earlier."
-            }
-    }
 
     override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
 
-    override fun insightsTimeOfDaySplitSentence(
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        dayLabel: String,
-        eveningLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP -> "Evening events tend to run more intense, averaging $eveningLabel vs $dayLabel during the day."
-                ShiftDirection.DOWN -> "Daytime events tend to run more intense, averaging $dayLabel vs $eveningLabel in the evening."
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP -> "Evening events tend to last longer, averaging $eveningLabel vs $dayLabel during the day."
-                ShiftDirection.DOWN -> "Daytime events tend to last longer, averaging $dayLabel vs $eveningLabel in the evening."
-            }
-    }
-
     override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
 
-    override fun insightsTagTimingSentence(
-        tagName: String,
-        bucketPhrase: String,
-        baselineLabel: String,
-        taggedLabel: String,
-    ) = "\"$tagName\" tends to cluster $bucketPhrase, $taggedLabel of its events there vs $baselineLabel case-wide."
-
     override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount tagged events."
-
-    override fun insightsWeekdayWeekendSentence(
-        direction: ShiftDirection,
-        weekdayLabel: String,
-        weekendLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP ->
-            "This Case's events lean toward weekends: $weekendLabel of them land on Saturday or Sunday, more than the roughly 2-in-7 days you'd expect by chance."
-        ShiftDirection.DOWN ->
-            "This Case's events lean toward weekdays: $weekdayLabel of them land Monday through Friday, more than you'd expect by chance."
-    }
 
     override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events."
 
@@ -1877,15 +1540,15 @@ object PlainVoice : Voice {
 
     override val shareSectionDragHandleDescription = "Drag to reorder"
 
-    override fun shareLogTruncationNote(
+    override fun shareHistoryTruncationNote(
         shown: Int,
         total: Int,
     ) = "Showing the most recent $shown of $total. Narrow the range to include more."
 
-    override val shareLogEmptyRangeMessage = "No entries in this range."
+    override val shareHistoryEmptyRangeMessage = "No entries in this range."
 
-    override val logDetailEditDescription = "Edit which detail the history shows"
-    override val logDetailDialogTitle = "History detail"
+    override val historyFieldsEditDescription = "Edit which detail the history shows"
+    override val historyFieldsDialogTitle = "History detail"
 }
 
 object IntenseVoice : Voice {
@@ -1950,13 +1613,13 @@ object IntenseVoice : Voice {
     override val archivedCasesEmptyState = "Nothing lies buried here."
     override val eventListEmptyState = "No evidence gathered yet."
 
-    override fun logSummaryLine(
+    override fun historySummaryLine(
         rate: String?,
         eventCount: Int,
         observedDays: Long,
     ) = listOfNotNull(rate, "$eventCount marks in the record — $observedDays days under watch").joinToString(DOT_SEPARATOR)
 
-    override val logShowMoreAction = "Exhume more of the record"
+    override val historyShowMoreAction = "Exhume more of the record"
 
     override val deleteEventConfirmTitle = "Strike this from the record?"
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
@@ -2160,41 +1823,7 @@ object IntenseVoice : Voice {
 
     override val insightsBurstFlagLabel = "It comes in waves, not a rhythm"
 
-    override fun insightsTrendSentence(
-        direction: TrendDirection,
-        recentCount: Int,
-        priorCount: Int,
-    ) = when (direction) {
-        TrendDirection.UP -> "$recentCount marks in the last thirty days — risen from $priorCount before. It quickens."
-        TrendDirection.DOWN -> "$recentCount marks in the last thirty days — fallen from $priorCount before. It recedes, for now."
-        TrendDirection.FLAT -> "$recentCount marks in the last thirty days — unchanged from what came before. Steady, as ever."
-    }
-
-    override fun insightsWentQuietSentence(
-        currentGapLabel: String,
-        longestPastGapLabel: String,
-    ) =
-        "Silence for $currentGapLabel now, longer than this Case has ever gone quiet before ($longestPastGapLabel was the old record). Still unfolding, or has it already ended?"
-
     override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
-
-    override fun insightsGapShiftSentence(
-        direction: ShiftDirection,
-        priorAverageLabel: String,
-        recentAverageLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "The silences have lengthened, from $priorAverageLabel to $recentAverageLabel."
-        ShiftDirection.DOWN -> "The silences have shortened, from $priorAverageLabel to $recentAverageLabel."
-    }
-
-    override fun insightsStreakShiftSentence(
-        direction: ShiftDirection,
-        priorAverageLabel: String,
-        recentAverageLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "The waking spells now run from $priorAverageLabel to $recentAverageLabel."
-        ShiftDirection.DOWN -> "The waking spells have shrunk from $priorAverageLabel to $recentAverageLabel."
-    }
 
     override val insightsFrequencyInfoTitle = "On the shape of this record"
 
@@ -2292,132 +1921,21 @@ object IntenseVoice : Voice {
 
     override fun trendChangePointDetail(month: String) = "Changed in $month"
 
-    override fun insightsTagShareShiftSentence(
-        tagName: String,
-        direction: ShiftDirection,
-        priorShareLabel: String,
-        recentShareLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "\"$tagName\" claims more of the record now, $recentShareLabel of entries, up from $priorShareLabel."
-        ShiftDirection.DOWN -> "\"$tagName\" claims less of the record now, $recentShareLabel of entries, down from $priorShareLabel."
-    }
-
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
-
-    override fun insightsTagComboSentence(
-        tagNamesLabel: String,
-        count: Int,
-        totalEvents: Int,
-    ) = "\"$tagNamesLabel\" keep appearing as one — $count of $totalEvents entries carry both."
 
     override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Drawn from those $sampleCount entries."
 
-    override fun insightsRecurrenceShapeSentence(
-        direction: ShiftDirection,
-        thresholdLabel: String,
-        shareLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "It returns quickly more often than not, $shareLabel of past silences ending within $thresholdLabel."
-        ShiftDirection.DOWN -> "It rarely returns quickly, only $shareLabel of past silences ended within $thresholdLabel."
-    }
-
     override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
-
-    override fun insightsTagOutcomeSentence(
-        tagName: String,
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        relativeDifferenceLabel: String,
-        withoutTagLabel: String,
-        withTagLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP ->
-                    "\"$tagName\" cuts deeper, $withTagLabel against $withoutTagLabel without it, up $relativeDifferenceLabel."
-                ShiftDirection.DOWN ->
-                    "\"$tagName\" cuts less deep, $withTagLabel against $withoutTagLabel without it, down $relativeDifferenceLabel."
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP ->
-                    "\"$tagName\" lingers longer, $withTagLabel against $withoutTagLabel without it, up $relativeDifferenceLabel."
-                ShiftDirection.DOWN ->
-                    "\"$tagName\" passes quicker, $withTagLabel against $withoutTagLabel without it, down $relativeDifferenceLabel."
-            }
-    }
 
     override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
 
-    override fun insightsChangePointSentence(
-        direction: ShiftDirection,
-        dateLabel: String,
-        priorLabel: String,
-        recentLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "The silence between them has stretched, from $priorLabel to $recentLabel, since around $dateLabel."
-        ShiftDirection.DOWN -> "The silence between them has drawn tighter, from $priorLabel to $recentLabel, since around $dateLabel."
-    }
-
     override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount gaps."
-
-    override fun insightsTrendSlopeSentence(
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        priorLabel: String,
-        recentLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP -> "It's been cutting deeper lately, averaging $recentLabel against $priorLabel before."
-                ShiftDirection.DOWN -> "It's been cutting less deep lately, averaging $recentLabel against $priorLabel before."
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP -> "It's been lingering longer lately, averaging $recentLabel against $priorLabel before."
-                ShiftDirection.DOWN -> "It's been passing quicker lately, averaging $recentLabel against $priorLabel before."
-            }
-    }
 
     override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
 
-    override fun insightsTimeOfDaySplitSentence(
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        dayLabel: String,
-        eveningLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP -> "The evening hits harder, $eveningLabel against $dayLabel by day."
-                ShiftDirection.DOWN -> "The day hits harder, $dayLabel against $eveningLabel by evening."
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP -> "The evening lingers longer, $eveningLabel against $dayLabel by day."
-                ShiftDirection.DOWN -> "The day lingers longer, $dayLabel against $eveningLabel by evening."
-            }
-    }
-
     override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
 
-    override fun insightsTagTimingSentence(
-        tagName: String,
-        bucketPhrase: String,
-        baselineLabel: String,
-        taggedLabel: String,
-    ) = "\"$tagName\" gathers $bucketPhrase, $taggedLabel there against $baselineLabel case-wide."
-
     override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount tagged entries."
-
-    override fun insightsWeekdayWeekendSentence(
-        direction: ShiftDirection,
-        weekdayLabel: String,
-        weekendLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "The weekend pulls harder, $weekendLabel of its events landing there against what chance alone allows."
-        ShiftDirection.DOWN -> "The week itself pulls harder, $weekdayLabel of its events landing on a weekday, more than chance allows."
-    }
 
     override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
 
@@ -2628,15 +2146,15 @@ object IntenseVoice : Voice {
 
     override val shareSectionDragHandleDescription = "Drag to rearrange"
 
-    override fun shareLogTruncationNote(
+    override fun shareHistoryTruncationNote(
         shown: Int,
         total: Int,
     ) = "$shown of $total entered into evidence. Narrow the range for the rest."
 
-    override val shareLogEmptyRangeMessage = "No evidence in this window."
+    override val shareHistoryEmptyRangeMessage = "No evidence in this window."
 
-    override val logDetailEditDescription = "Edit which detail the record shows"
-    override val logDetailDialogTitle = "Record detail"
+    override val historyFieldsEditDescription = "Edit which detail the record shows"
+    override val historyFieldsDialogTitle = "Record detail"
 }
 
 object BrightVoice : Voice {
@@ -2701,13 +2219,13 @@ object BrightVoice : Voice {
     override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
     override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
 
-    override fun logSummaryLine(
+    override fun historySummaryLine(
         rate: String?,
         eventCount: Int,
         observedDays: Long,
     ) = listOfNotNull(rate, "$eventCount logs so far, tracked for $observedDays days!").joinToString(DOT_SEPARATOR)
 
-    override val logShowMoreAction = "Show me more!"
+    override val historyShowMoreAction = "Show me more!"
 
     override val deleteEventConfirmTitle = "Zap this event?"
     override val deleteEventConfirmBody = "Poof — no take-backs."
@@ -2905,41 +2423,7 @@ object BrightVoice : Voice {
 
     override val insightsBurstFlagLabel = "Comes in bursts!"
 
-    override fun insightsTrendSentence(
-        direction: TrendDirection,
-        recentCount: Int,
-        priorCount: Int,
-    ) = when (direction) {
-        TrendDirection.UP -> "$recentCount logs in the last 30 days — up from $priorCount! Busy stretch."
-        TrendDirection.DOWN -> "$recentCount logs in the last 30 days — down from $priorCount! Quieter lately."
-        TrendDirection.FLAT -> "$recentCount logs in the last 30 days — same as before. Steady as she goes!"
-    }
-
-    override fun insightsWentQuietSentence(
-        currentGapLabel: String,
-        longestPastGapLabel: String,
-    ) =
-        "Nothing logged in $currentGapLabel. That beats this Case's old record of $longestPastGapLabel! Still going, or has it quietly wrapped up?"
-
     override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
-
-    override fun insightsGapShiftSentence(
-        direction: ShiftDirection,
-        priorAverageLabel: String,
-        recentAverageLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "Gaps have grown from $priorAverageLabel to $recentAverageLabel!"
-        ShiftDirection.DOWN -> "Gaps have shrunk from $priorAverageLabel to $recentAverageLabel!"
-    }
-
-    override fun insightsStreakShiftSentence(
-        direction: ShiftDirection,
-        priorAverageLabel: String,
-        recentAverageLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "Streaks have grown from $priorAverageLabel to $recentAverageLabel!"
-        ShiftDirection.DOWN -> "Streaks have shrunk from $priorAverageLabel to $recentAverageLabel!"
-    }
 
     override val insightsFrequencyInfoTitle = "What am I looking at?"
 
@@ -3037,133 +2521,21 @@ object BrightVoice : Voice {
 
     override fun trendChangePointDetail(month: String) = "Changed in $month!"
 
-    override fun insightsTagShareShiftSentence(
-        tagName: String,
-        direction: ShiftDirection,
-        priorShareLabel: String,
-        recentShareLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "\"$tagName\" is popping up more lately, now $recentShareLabel of events, up from $priorShareLabel!"
-        ShiftDirection.DOWN -> "\"$tagName\" is popping up less lately, now $recentShareLabel of events, down from $priorShareLabel!"
-    }
-
     override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
-
-    override fun insightsTagComboSentence(
-        tagNamesLabel: String,
-        count: Int,
-        totalEvents: Int,
-    ) = "\"$tagNamesLabel\" keep showing up as a pair — $count of $totalEvents events!"
 
     override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Based on those $sampleCount events!"
 
-    override fun insightsRecurrenceShapeSentence(
-        direction: ShiftDirection,
-        thresholdLabel: String,
-        shareLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "This tends to come back fast, $shareLabel of past gaps landed within $thresholdLabel!"
-        ShiftDirection.DOWN -> "This rarely comes back fast, only $shareLabel of past gaps landed within $thresholdLabel!"
-    }
-
     override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
-
-    override fun insightsTagOutcomeSentence(
-        tagName: String,
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        relativeDifferenceLabel: String,
-        withoutTagLabel: String,
-        withTagLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP ->
-                    "\"$tagName\" hits harder, averaging $withTagLabel vs $withoutTagLabel without it, up $relativeDifferenceLabel!"
-                ShiftDirection.DOWN ->
-                    "\"$tagName\" hits softer, averaging $withTagLabel vs $withoutTagLabel without it, down $relativeDifferenceLabel!"
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP ->
-                    "\"$tagName\" sticks around longer, averaging $withTagLabel vs $withoutTagLabel without it, " +
-                        "up $relativeDifferenceLabel!"
-                ShiftDirection.DOWN ->
-                    "\"$tagName\" wraps up faster, averaging $withTagLabel vs $withoutTagLabel without it, down $relativeDifferenceLabel!"
-            }
-    }
 
     override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
 
-    override fun insightsChangePointSentence(
-        direction: ShiftDirection,
-        dateLabel: String,
-        priorLabel: String,
-        recentLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "The gap between events has stretched out, from $priorLabel to $recentLabel, since around $dateLabel!"
-        ShiftDirection.DOWN -> "The gap between events has tightened up, from $priorLabel to $recentLabel, since around $dateLabel!"
-    }
-
     override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
-
-    override fun insightsTrendSlopeSentence(
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        priorLabel: String,
-        recentLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP -> "Intensity's been climbing, averaging $recentLabel lately vs $priorLabel before!"
-                ShiftDirection.DOWN -> "Intensity's been easing up, averaging $recentLabel lately vs $priorLabel before!"
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP -> "Episodes have been running longer, averaging $recentLabel lately vs $priorLabel before!"
-                ShiftDirection.DOWN -> "Episodes have been wrapping up faster, averaging $recentLabel lately vs $priorLabel before!"
-            }
-    }
 
     override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
 
-    override fun insightsTimeOfDaySplitSentence(
-        outcome: TagOutcome,
-        direction: ShiftDirection,
-        dayLabel: String,
-        eveningLabel: String,
-    ) = when (outcome) {
-        TagOutcome.INTENSITY ->
-            when (direction) {
-                ShiftDirection.UP -> "Evenings hit harder, averaging $eveningLabel vs $dayLabel by day!"
-                ShiftDirection.DOWN -> "Days hit harder, averaging $dayLabel vs $eveningLabel by evening!"
-            }
-        TagOutcome.DURATION ->
-            when (direction) {
-                ShiftDirection.UP -> "Evenings stick around longer, averaging $eveningLabel vs $dayLabel by day!"
-                ShiftDirection.DOWN -> "Days stick around longer, averaging $dayLabel vs $eveningLabel by evening!"
-            }
-    }
-
     override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
 
-    override fun insightsTagTimingSentence(
-        tagName: String,
-        bucketPhrase: String,
-        baselineLabel: String,
-        taggedLabel: String,
-    ) = "\"$tagName\" loves $bucketPhrase, $taggedLabel of its events land there vs $baselineLabel case-wide!"
-
     override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount tagged events!"
-
-    override fun insightsWeekdayWeekendSentence(
-        direction: ShiftDirection,
-        weekdayLabel: String,
-        weekendLabel: String,
-    ) = when (direction) {
-        ShiftDirection.UP -> "This Case loves a weekend: $weekendLabel of its events land on Saturday or Sunday, more than you'd expect!"
-        ShiftDirection.DOWN -> "This Case is a weekday devotee: $weekdayLabel of its events land Monday through Friday!"
-    }
 
     override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount events!"
 
@@ -3376,15 +2748,15 @@ object BrightVoice : Voice {
 
     override val shareSectionDragHandleDescription = "Drag me to a new spot!"
 
-    override fun shareLogTruncationNote(
+    override fun shareHistoryTruncationNote(
         shown: Int,
         total: Int,
     ) = "Showing $shown of $total! Narrow the range to fit the rest!"
 
-    override val shareLogEmptyRangeMessage = "Nothing logged in this range yet!"
+    override val shareHistoryEmptyRangeMessage = "Nothing logged in this range yet!"
 
-    override val logDetailEditDescription = "Pick what each history entry shows!"
-    override val logDetailDialogTitle = "History detail!"
+    override val historyFieldsEditDescription = "Pick what each history entry shows!"
+    override val historyFieldsDialogTitle = "History detail!"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }

@@ -115,11 +115,11 @@ class CaseDetailInsightsTabTest {
                     onSaveEvent = {},
                     onStopEvent = {},
                     nowMillis = { now },
-                    onLogSortOrderChange = {},
-                    onLogDateFromChange = {},
-                    onLogDateToChange = {},
-                    onLogFieldVisibleChange = { _, _ -> },
-                    onShowMoreLogEvents = {},
+                    onHistorySortOrderChange = {},
+                    onHistoryDateFromChange = {},
+                    onHistoryDateToChange = {},
+                    onHistoryFieldVisibleChange = { _, _ -> },
+                    onShowMoreHistoryEvents = {},
                 )
             }
         }

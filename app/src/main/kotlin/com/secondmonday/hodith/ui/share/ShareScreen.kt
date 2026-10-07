@@ -41,7 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.secondmonday.hodith.data.LogRowField
+import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.ui.common.HodithTab
@@ -51,8 +51,8 @@ import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CASE_NAME_MAX_LENGTH
-import com.secondmonday.hodith.viewmodel.LogShareUiState
-import com.secondmonday.hodith.viewmodel.LogShareViewModel
+import com.secondmonday.hodith.viewmodel.HistoryShareUiState
+import com.secondmonday.hodith.viewmodel.HistoryShareViewModel
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
@@ -75,34 +75,34 @@ fun ShareRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     insightViewModel: ShareViewModel = hiltViewModel(),
-    logViewModel: LogShareViewModel = hiltViewModel(),
+    historyViewModel: HistoryShareViewModel = hiltViewModel(),
 ) {
     val insightState by insightViewModel.uiState.collectAsStateWithLifecycle()
-    val logState by logViewModel.uiState.collectAsStateWithLifecycle()
+    val historyState by historyViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val graphicsLayer = rememberGraphicsLayer()
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        merge(insightViewModel.shareRequests, logViewModel.shareRequests).collectLatest { uri ->
+        merge(insightViewModel.shareRequests, historyViewModel.shareRequests).collectLatest { uri ->
             launchShareSheet(context, uri)
         }
     }
 
     ShareScreen(
         insightState = insightState,
-        logState = logState,
+        historyState = historyState,
         now = insightViewModel.nowMillis(),
         graphicsLayer = graphicsLayer,
         onBack = onBack,
         onSectionToggle = insightViewModel::setSectionSelected,
         onSectionMove = insightViewModel::moveSection,
         onInsightShareClick = { scope.launch { insightViewModel.share(graphicsLayer.toImageBitmap().asAndroidBitmap()) } },
-        onDateFromPicked = logViewModel::setDateFrom,
-        onDateToPicked = logViewModel::setDateTo,
-        onFieldToggle = logViewModel::setFieldSelected,
-        onLogSortOrderSelect = logViewModel::setSortOrder,
-        onLogShareClick = { scope.launch { logViewModel.share(graphicsLayer.toImageBitmap().asAndroidBitmap()) } },
+        onDateFromPicked = historyViewModel::setDateFrom,
+        onDateToPicked = historyViewModel::setDateTo,
+        onFieldToggle = historyViewModel::setFieldSelected,
+        onHistorySortOrderSelect = historyViewModel::setSortOrder,
+        onHistoryShareClick = { scope.launch { historyViewModel.share(graphicsLayer.toImageBitmap().asAndroidBitmap()) } },
         modifier = modifier,
     )
 }
@@ -124,7 +124,7 @@ private fun launchShareSheet(
 @Composable
 fun ShareScreen(
     insightState: ShareUiState,
-    logState: LogShareUiState,
+    historyState: HistoryShareUiState,
     now: Long,
     graphicsLayer: GraphicsLayer,
     onBack: () -> Unit,
@@ -133,9 +133,9 @@ fun ShareScreen(
     onInsightShareClick: () -> Unit,
     onDateFromPicked: (LocalDate?) -> Unit,
     onDateToPicked: (LocalDate) -> Unit,
-    onFieldToggle: (LogRowField, Boolean) -> Unit,
-    onLogSortOrderSelect: (ChronologicalOrder) -> Unit,
-    onLogShareClick: () -> Unit,
+    onFieldToggle: (HistoryRowField, Boolean) -> Unit,
+    onHistorySortOrderSelect: (ChronologicalOrder) -> Unit,
+    onHistoryShareClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -166,7 +166,7 @@ fun ShareScreen(
         },
     ) { contentPadding ->
         val case = insightState.case
-        if (insightState.isLoading || logState.isLoading || case == null || logState.case == null) return@Scaffold
+        if (insightState.isLoading || historyState.isLoading || case == null || historyState.case == null) return@Scaffold
 
         Column(modifier = Modifier.padding(contentPadding).fillMaxSize()) {
             HodithTabRow {
@@ -232,20 +232,20 @@ fun ShareScreen(
                             onSectionMove = onSectionMove,
                         )
                     ShareTab.HISTORY ->
-                        LogShareTab(
-                            uiState = logState,
+                        HistoryShareTab(
+                            uiState = historyState,
                             now = now,
                             displayName = displayName,
                             graphicsLayer = graphicsLayer,
                             onDateFromPicked = onDateFromPicked,
                             onDateToPicked = onDateToPicked,
                             onFieldToggle = onFieldToggle,
-                            onSortOrderSelect = onLogSortOrderSelect,
+                            onSortOrderSelect = onHistorySortOrderSelect,
                         )
                 }
 
                 Button(
-                    onClick = if (tab == ShareTab.HISTORY) onLogShareClick else onInsightShareClick,
+                    onClick = if (tab == ShareTab.HISTORY) onHistoryShareClick else onInsightShareClick,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(voice.shareOpenDescription)

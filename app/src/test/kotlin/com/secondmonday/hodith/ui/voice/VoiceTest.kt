@@ -66,10 +66,10 @@ class VoiceTest {
     }
 
     @Test
-    fun `logSummaryLine leads with the rate when there is one and reads the count line without it`() {
+    fun `historySummaryLine leads with the rate when there is one and reads the count line without it`() {
         for (voice in listOf(PlainVoice, IntenseVoice, BrightVoice)) {
-            val withRate = voice.logSummaryLine(rate = "2.1/week", eventCount = 31, observedDays = 94)
-            val withoutRate = voice.logSummaryLine(rate = null, eventCount = 31, observedDays = 94)
+            val withRate = voice.historySummaryLine(rate = "2.1/week", eventCount = 31, observedDays = 94)
+            val withoutRate = voice.historySummaryLine(rate = null, eventCount = 31, observedDays = 94)
 
             assertTrue(withRate.startsWith("2.1/week · "))
             assertEquals(withoutRate, withRate.removePrefix("2.1/week · "))
@@ -120,9 +120,9 @@ class VoiceTest {
     }
 
     @Test
-    fun `shareLogRangeNote joins both formatted bounds with a dash`() {
+    fun `shareHistoryRangeNote joins both formatted bounds with a dash`() {
         for (voice in voices) {
-            assertEquals("Sep 3 – Sep 20", voice.shareLogRangeNote("Sep 3", "Sep 20"))
+            assertEquals("Sep 3 – Sep 20", voice.shareHistoryRangeNote("Sep 3", "Sep 20"))
         }
     }
 

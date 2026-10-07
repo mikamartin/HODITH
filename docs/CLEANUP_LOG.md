@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## refactor/share-insights-history-dedupe
+
+**Scope:** PROGRESS.md's "Review share card, Insights and History for duplicated implementation" item, worked through on its own branch rather than spun into follow-up items: the duplication findings below, the small merges and the dead-code drop they called for, and the Log→History screen-naming cleanup the review surfaced.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. Verified: `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (full unit suite, none failing), and `assembleDebug`. Not run: `connectedDebugAndroidTest` — no device attached this pass; the changed `androidTest` sources compile (`compileDebugAndroidTestKotlin`).
+
+**Found & fixed:**
+- Duplication review: formatting, figures and empty states are already shared across the share card, Insights and History (`EventTimeFormat.kt`, `CompactFormat.kt`, `OngoingEvent.kt`, `StatCardRows.kt`, `ui/common/StatColumns.kt`, `ui/common/HeatmapShading.kt`); the share card computes no stats of its own. Four small duplicates found and merged: the share card's private `timeOfDayLabel` (byte-for-byte `rhythmTimeOfDayLabel`), `MiniStatRow` (now reuses `StatRow` with an added `style` param), the per-square intensity `Box` (now the shared `IntensitySquare`), and `formatIntensity`/`HeroRate.rateText`, which lived in UI files that an unrelated surface was importing from (relocated to `viewmodel/CompactFormat.kt` and `viewmodel/ShareCardState.kt`).
+- `MiniInsightsCard` and `MiniRhythmSection`'s grid loop are kept separate, not merged: the mini chrome deliberately skips Bright's `GlowCard` (a captured share image can't risk elevation-shading differing by skin), and the grid differs in cell size, tap targets and the info icon from the real `RhythmCard`. Recorded as reviewed-and-kept, not an oversight.
+- `trendFindingSentence` (`InsightsTab.kt`) had zero production callers once both surfaces moved to `TrendFindingBody`; removed, along with `TrendFindingSentenceTest.kt`. Its removal orphaned 13 Voice sentence keys (`insightsWentQuietSentence`, `insightsGapShiftSentence`, `insightsTagOutcomeSentence` and ten more) across the interface and all three voices — removed with it, keeping the 13 matching `*EvidenceLabel` keys `TrendFindingBody` still reads.
+- The review surfaced a naming split the spec already draws but the code didn't: "History" names the screen, "Log" names the act of recording (spec §6's "Logging flows" vs. its "History tab"). Renamed the screen-facing identifiers to History throughout — `LogRowField`/`LogSortOrder`/`LogEventsPage` → `History*`, `HodithRepository.observeLogEventsForCase` → `observeHistoryEventsForCase`, `CaseDetailViewModel`'s History-tab paging state, `CaseDetailScreen`'s `HistoryTabContent`/`HistoryFilterRow`, `LogShareTab.kt`/`LogShareViewModel.kt` → `HistoryShareTab.kt`/`HistoryShareViewModel.kt`, and the matching Voice keys (`caseDetailHistoryTabLabel`, `historySummaryLine`, `shareHistoryRangeLabel` and others). Left untouched: `LogDetailSheet`/`LogDetailScreen`/`LogDetailViewModel`, `LogDraft`, `LogFlow`, and the "Log an event"/"retro-log" Voice copy — all genuinely about the act of logging, not the screen.
+- The DataStore preference key *string literals* (`"log_sort_order"`, `"log_date_from"`, `"log_date_to"`, `"log_visible_fields"`) were kept exactly as they were, even though the Kotlin constant names renamed, so existing users' History sort/range/field-visibility preferences survive the upgrade. Only the `testTag` string values (`history_field_toggle_`, `history_share_field_toggle_`) changed, since those aren't persisted.
+
+**Deferred:**
+- `connectedDebugAndroidTest` — no device this pass. The androidTest sources compile; run the suite (or at least `HistoryShareTabTest`, `CaseDetailScreenTest`, `ShareScreenTest`, `ShareCardTemplateTest`, `CaseDetailInsightsTabTest`, `InsightShareTabTest`, `SharePreviewOrderFlowTest`, `RoomHodithRepositoryHistoryEventsTest`) before merge.
+
+**Considered and declined:**
+- Spinning the merges and the rename out as separate follow-up PROGRESS.md items, as the review item's own acceptance criteria suggested. The user asked for them fixed as part of this same item instead, on one branch.
+- Renaming `domain/LogFilter.kt`'s filename. No exported symbol is actually named `LogFilter` (only `ChronologicalOrder`, `filterAndSortEvents` and the entry-cap constant), so there was nothing to disambiguate.
+- Folding the logging-action names (`LogDetailSheet`, "retro-log") into History too. The spec's own verb/noun split — Log is the act, History is the screen — is worth keeping, not flattening into one word.
+
+**Checks:**
+- Duplication: the four small merges above; `MiniInsightsCard`/`MiniRhythmSection` kept separate with a stated reason.
+- Decoupling: the relocated `HeroRate` text helpers (`figureText`/`rateText`/`unitText`) moved to `viewmodel/ShareCardState.kt`, not `domain/HeroRate.kt` — `domain/` still takes no `Voice` import.
+- Dead code: `trendFindingSentence` and its 13 orphaned Voice keys removed; no unused imports (ktlint passes).
+- Naming and Voice: every renamed Voice key kept its three per-voice strings unchanged — these are identifier renames, not new copy, so no new voice authoring was needed.
+- Hygiene: no secrets or local paths in the diff. Persisted DataStore key strings unchanged (see Found & fixed).
+
+**Docs updated:** PROGRESS.md (the duplication-review item struck, resolved rather than spun into follow-ups); this entry.
+
+---
+
 ## Trends recency tie-break, fallbacks and share card layout
 
 **Scope:** the PROGRESS.md Trends item (the "New" badge bullet was dropped): a recency tie-break for equal-ranked findings, the silent fallbacks in the Trends rows, and the share card's Trends section moved onto the Insights card's row layout.
@@ -139,54 +171,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Docs updated:** TESTING.md (environment note, coverage rows, deferral), DEV_PLAYBOOK §7 gotcha 10 (animations), MANUAL_TEST_PLAN.md, PROGRESS.md, CLAUDE.md and QA_AUDIT_RULES.md (animation pointers).
 
----
-
-## feat/insights-gaps-streaks-split
-
-**Scope:** PROGRESS.md's "Insights tab: split Gaps/Streaks, restyle Gaps & Duration to match Share Story's pattern" item, reworked: no Gaps/Streaks split. The Insights Gaps card and Duration card take the share card's Min/Avg/Max row, and the Tags totals sit side by side as label-over-value columns. The Insights gap labels spell out "gap"; the streak labels keep "streak", since the combined card covers both. The Summary card keeps the Gaps title, and the Duration card has no total.
-
-**Walked:** CLEANUP_CHECKLIST.md checked against the branch's diff in a second pass, after an earlier pass that was written from memory and missed items. Checked and needing nothing: unused imports and dead helpers (ktlint and lint pass; `StatRow`, `formatDays` and the Share streak keys still have callers); Voice keys in all three voices (every new key is a structural default, and both changed info bodies are overridden in each voice); no inline user-visible strings; no em dashes or gamification words in new copy; `@UiTest` tags on the touched Compose classes; the spec and TESTING.md rows against the built behaviour. Not checked on a device: anything that needs the instrumented run.
-
-**Found & fixed:**
-- The first pass had no test for a single-event Case's Gaps card (Current gap shown, no Min/Avg/Max row). Added `gapsCard_withOneEvent_showsCurrentGap_andNoMinAvgMaxRow`.
-- The Square-fixture figures were unit-tested only as formatting cases. `StatCardRowsTest` now also pins the figures the share card's Gaps panel shows for its fixture. Both surfaces call `gapsStatRows`, so this pins the output rather than proving parity.
-- `formatCompactDecimal` and `formatDaysCompact` lived in `ui/casedetail/InsightsTab.kt`, so `viewmodel/StatCardRows.kt` depended on the UI package. Both moved to `viewmodel/CompactFormat.kt`, and their callers and `InsightsFormattingTest` import them from there.
-- The Gaps and Duration figures were formatted inline in two places (Insights and the share card). Both now call `gapsStatRows`/`durationMinAvgMax`, so the two surfaces cannot drift.
-- `MinAvgMaxRow` and `StatColumn` were private to `ShareCardTemplate.kt`. They moved to `ui/common/StatColumns.kt` so Insights reuses them, and the row takes its labels as a parameter so each surface words its own.
-- `StatRow`'s `valueStyle` parameter had one caller (the Tags totals); with that gone it was dead and was removed.
-- Voice keys with no remaining caller were removed: the Gaps and Duration labels the first pass replaced, `insightsDurationTotalLabel` once Total left the card, and `shareGapsStreaksTitle` once the Summary panel went back to "Gaps".
-- The Gaps and Duration info bodies described only the old figures. Each voice gained "Shortest" on Gaps, and the Duration body lost "total".
-
-**Deferred:**
-- The instrumented run (`connectedDebugAndroidTest`) has not been executed: no device is attached. The changed androidTest sources compile. The run needs a device before the PR.
-- The Insights Gaps row layout (the two-line "Current gap" label and how the streak labels sit beside it) is for the human to check on a device.
-
-**Docs updated:** HODITH_SPEC §10 (Gaps & streaks, Event duration) and §13 (Square panel titles, structural labels); TESTING.md (share-card assembly, Insights tab rows); PROGRESS.md (item struck, Voice audit list gains this branch's key changes).
-
----
-
-## fix/share-history-range-line
-
-**Scope:** PROGRESS.md's "Share History card: range on the title line, and a real 'All' range" item. The Log card's kicker is removed, so the resolved range is the card's title line. An unset range resolves to the Case's creation date through today on the card and in the Log tab's note line. The Range selectors (Log tab and Log Share) keep reading "All time" when unset. The filter itself stays unbounded.
-
-**Walked:** CLEANUP_CHECKLIST.md item by item against the diff, in two passes. The first pass was written from memory of the changes and missed the docs; the second, against the real diff, found the stale TESTING.md and spec rows listed below. Items not listed were checked and needed nothing.
-
-**Found & fixed:**
-- The range bounds were formatted in three places (the card, the Log tab note, the Log Share button). They now share `logRangeBounds` in `EventTimeFormat.kt`, so the "unset means creation date / today" rule lives in one function.
-- `Voice.shareLogRangeNote` took nullable bounds and handled the unbounded cases with "From"/"To"/"All time" text. No caller passes null any more, so those branches were dead. The function takes two strings, and the `shareLogDateFromLabel`/`shareLogDateToLabel` keys are gone.
-- The kicker keys `shareLogCardKicker` were removed from all three voices in the same change: "The history", "The record" and "Every entry!".
-- Unused imports left by the change (`DOT_SEPARATOR`, `formatDateRangeBound`) were removed.
-- The Log tab's range note now shows whether or not a range is set, so an unset range reads as the Case's span.
-- The Log Share range selector reads "All time" when unset, matching the Log tab's chip. Its earlier span text was reverted.
-- The Log Share selector's value and the "is the range unset" check moved out of `DateRangeSection` into `logShareSelectorValue` and `isUnsetLogRange` (`ShareCardState.kt`). The Intense capitals moved into `kickerText` (`ShareCardTemplate.kt`). Both are now unit-testable. New unit tests: `LogRangeBoundsTest` (nine cases) and `KickerTextTest`. The Log tab note line and the card title are still checked only through their helpers, not their Compose wiring.
-- TESTING.md's Share card assembly, Compose UI (Log tab filter row) and Log Share card rows still described the old "All time" label, separate From/To chips and the kicker. They now describe the current behaviour.
-- HODITH_SPEC §13's card paragraph said the range was a subtitle. It is the title line.
-
-**Deferred:**
-- The instrumented suite was not run on a device, since none was available. The changed androidTest classes compile. Run `connectedDebugAndroidTest` before merging.
-
-**Considered and declined:**
-- Putting the resolved span into the Range chip itself. A formatted date pair doesn't fit the chip's width, which is the reason the Log tab already puts bounds on a note line. The chip keeps "All time" as its unfiltered value.
-- Storing the Case's creation date as the filter's start. Events can be dated before the Case was created (the log-detail date picker only caps at today), so that would hide them from the "All" view.
-
-**Docs updated:** PROGRESS.md (item removed, since it is resolved). HODITH_SPEC §6: the filter-chip row now describes the combined Range control, the unset-range span, and the unbounded filter. The paragraph had described separate From and To chips, which the combined control replaced earlier.

@@ -31,17 +31,17 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 /**
- * The single "tap a start day, then an end day" range picker behind both Log Share's own date
- * range and the Case Detail Log tab's Range filter — replaces an earlier two-dialog From/To
+ * The single "tap a start day, then an end day" range picker behind both History Share's own date
+ * range and the Case Detail History tab's Range filter — replaces an earlier two-dialog From/To
  * pattern (one small single-date picker each) that let "To" land before "From" (nothing capped
  * its lower bound) and squeezed the two trigger controls into wrapped, illegible pills.
  * Material3's own [DateRangePicker] enforces start<=end itself: tapping a date earlier than the
  * current start restarts the range from there instead of producing an invalid one.
  *
  * [isRangeFiltered] is the caller's own "nothing filtered" definition, since it differs by
- * caller: the Log tab treats null/null as all time, while Log Share's [dateTo] is never null
- * (it defaults to today) so its "all time" is null-from/today-to instead. Passing it in, rather
- * than inferring all-time from [dateFrom]/[dateTo] here, is what lets the "All time" shortcut
+ * caller: the History tab treats null/null as all time, while History Share's [dateTo] is never
+ * null (it defaults to today) so its "all time" is null-from/today-to instead. Passing it in,
+ * rather than inferring all-time from [dateFrom]/[dateTo] here, is what lets the "All time" shortcut
  * below react correctly to both definitions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,7 +116,7 @@ fun DateRangeFilterDialog(
                             onClick = { onConfirm(null, null) },
                             modifier = Modifier.testTag(DATE_RANGE_ALL_TIME_BUTTON_TAG),
                         ) {
-                            Text(voice.shareLogRangeAllTimeLabel)
+                            Text(voice.shareHistoryRangeAllTimeLabel)
                         }
                     }
                 }

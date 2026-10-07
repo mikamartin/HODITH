@@ -17,16 +17,16 @@ import org.junit.runner.RunWith
 import javax.inject.Provider
 
 /**
- * [RoomHodithRepository.observeLogEventsForCase] against a real Room database — the DAO-method
- * dispatch by [LogSortOrder], the `durationMode == DurationMode.START_STOP` mapping to the DAO's
+ * [RoomHodithRepository.observeHistoryEventsForCase] against a real Room database — the DAO-method
+ * dispatch by [HistorySortOrder], the `durationMode == DurationMode.START_STOP` mapping to the DAO's
  * `isStartStopCase` parameter, and the `limit + 1` fetch-and-trim that computes
- * [LogEventsPage.hasMore] are this repository's own logic, not proven by [EventDaoTest] (which
+ * [HistoryEventsPage.hasMore] are this repository's own logic, not proven by [EventDaoTest] (which
  * only exercises the raw paged queries with a boolean handed to it directly) or
  * [com.secondmonday.hodith.data.FakeHodithRepositoryTest] (a separate, parallel reimplementation
  * of the same contract, not this code).
  */
 @RunWith(AndroidJUnit4::class)
-class RoomHodithRepositoryLogEventsTest {
+class RoomHodithRepositoryHistoryEventsTest {
     private lateinit var db: HodithDatabase
     private lateinit var repository: RoomHodithRepository
     private var caseId: Long = 0
@@ -50,7 +50,7 @@ class RoomHodithRepositoryLogEventsTest {
     private fun unusedScheduler() =
         NotificationEvalScheduler(
             scope = CoroutineScope(Dispatchers.Unconfined),
-            evaluator = Provider { error("not used by observeLogEventsForCase") },
+            evaluator = Provider { error("not used by observeHistoryEventsForCase") },
         )
 
     @After
@@ -60,15 +60,15 @@ class RoomHodithRepositoryLogEventsTest {
 
     @Smoke
     @Test
-    fun observeLogEventsForCase_capsAtLimitAndReportsHasMore() =
+    fun observeHistoryEventsForCase_capsAtLimitAndReportsHasMore() =
         runTest {
             repeat(5) { i -> db.eventDao().insert(testEvent(caseId = caseId, occurredAt = i.toLong())) }
 
             val page =
                 repository
-                    .observeLogEventsForCase(
+                    .observeHistoryEventsForCase(
                         caseId,
-                        LogSortOrder.BY_START,
+                        HistorySortOrder.BY_START,
                         limit = 3,
                         durationMode = DurationMode.NONE,
                         dateFrom = null,
@@ -80,15 +80,15 @@ class RoomHodithRepositoryLogEventsTest {
         }
 
     @Test
-    fun observeLogEventsForCase_reportsHasMoreFalse_whenEveryEventIsAlreadyLoaded() =
+    fun observeHistoryEventsForCase_reportsHasMoreFalse_whenEveryEventIsAlreadyLoaded() =
         runTest {
             repeat(3) { i -> db.eventDao().insert(testEvent(caseId = caseId, occurredAt = i.toLong())) }
 
             val page =
                 repository
-                    .observeLogEventsForCase(
+                    .observeHistoryEventsForCase(
                         caseId,
-                        LogSortOrder.BY_START,
+                        HistorySortOrder.BY_START,
                         limit = 3,
                         durationMode = DurationMode.NONE,
                         dateFrom = null,
@@ -100,16 +100,16 @@ class RoomHodithRepositoryLogEventsTest {
         }
 
     @Test
-    fun observeLogEventsForCase_BY_END_dispatchesToThePagedByEndQuery() =
+    fun observeHistoryEventsForCase_BY_END_dispatchesToThePagedByEndQuery() =
         runTest {
             val running = db.eventDao().insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
             val finished = db.eventDao().insert(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
 
             val page =
                 repository
-                    .observeLogEventsForCase(
+                    .observeHistoryEventsForCase(
                         caseId,
-                        LogSortOrder.BY_END,
+                        HistorySortOrder.BY_END,
                         limit = 10,
                         durationMode = DurationMode.START_STOP,
                         dateFrom = null,
@@ -120,7 +120,7 @@ class RoomHodithRepositoryLogEventsTest {
         }
 
     @Test
-    fun observeLogEventsForCase_mapsDurationModeToIsStartStopCase_forTheBY_ENDQuery() =
+    fun observeHistoryEventsForCase_mapsDurationModeToIsStartStopCase_forTheBY_ENDQuery() =
         runTest {
             // Same shape as the dispatch test above, but MANUAL rather than START_STOP: the
             // end-less event must NOT float. This proves the repository's own `durationMode ==
@@ -131,9 +131,9 @@ class RoomHodithRepositoryLogEventsTest {
 
             val page =
                 repository
-                    .observeLogEventsForCase(
+                    .observeHistoryEventsForCase(
                         caseId,
-                        LogSortOrder.BY_END,
+                        HistorySortOrder.BY_END,
                         limit = 10,
                         durationMode = DurationMode.MANUAL,
                         dateFrom = null,
@@ -144,15 +144,15 @@ class RoomHodithRepositoryLogEventsTest {
         }
 
     @Test
-    fun observeLogEventsForCase_narrowsToAnInclusiveDateFromDateToRange_unboundedOnEitherNullSide() =
+    fun observeHistoryEventsForCase_narrowsToAnInclusiveDateFromDateToRange_unboundedOnEitherNullSide() =
         runTest {
             repeat(5) { i -> db.eventDao().insert(testEvent(caseId = caseId, occurredAt = i.toLong())) }
 
             val narrowed =
                 repository
-                    .observeLogEventsForCase(
+                    .observeHistoryEventsForCase(
                         caseId,
-                        LogSortOrder.BY_START,
+                        HistorySortOrder.BY_START,
                         limit = 10,
                         durationMode = DurationMode.NONE,
                         dateFrom = 1L,
@@ -163,9 +163,9 @@ class RoomHodithRepositoryLogEventsTest {
 
             val unboundedTo =
                 repository
-                    .observeLogEventsForCase(
+                    .observeHistoryEventsForCase(
                         caseId,
-                        LogSortOrder.BY_START,
+                        HistorySortOrder.BY_START,
                         limit = 10,
                         durationMode = DurationMode.NONE,
                         dateFrom = 3L,

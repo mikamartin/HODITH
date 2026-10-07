@@ -13,10 +13,10 @@ class FakeSettingsRepository : SettingsRepository {
     val developerModeUnlocked = MutableStateFlow(false)
     val cloudBackupEnabled = MutableStateFlow(true)
     val bigPictureDetail = MutableStateFlow(BigPictureDetail.DEFAULT)
-    val logSortOrder = MutableStateFlow(LogSortOrder.BY_START)
-    val logDateFrom = MutableStateFlow<Long?>(null)
-    val logDateTo = MutableStateFlow<Long?>(null)
-    val logVisibleFields = MutableStateFlow(LogRowField.entries.toSet())
+    val historySortOrder = MutableStateFlow(HistorySortOrder.BY_START)
+    val historyDateFrom = MutableStateFlow<Long?>(null)
+    val historyDateTo = MutableStateFlow<Long?>(null)
+    val historyVisibleFields = MutableStateFlow(HistoryRowField.entries.toSet())
     val bigPictureVisibleCaseIds = MutableStateFlow<Set<Long>?>(null)
     val bigPictureVisibleTagNames = MutableStateFlow<Set<String>?>(null)
     val bigPictureSelectedYear = MutableStateFlow<Int?>(null)
@@ -68,28 +68,28 @@ class FakeSettingsRepository : SettingsRepository {
         bigPictureDetail.value = detail
     }
 
-    override fun observeLogSortOrder(): Flow<LogSortOrder> = logSortOrder
+    override fun observeHistorySortOrder(): Flow<HistorySortOrder> = historySortOrder
 
-    override suspend fun setLogSortOrder(order: LogSortOrder) {
-        this.logSortOrder.value = order
+    override suspend fun setHistorySortOrder(order: HistorySortOrder) {
+        this.historySortOrder.value = order
     }
 
-    override fun observeLogDateFrom(): Flow<Long?> = logDateFrom
+    override fun observeHistoryDateFrom(): Flow<Long?> = historyDateFrom
 
-    override suspend fun setLogDateFrom(millis: Long?) {
-        this.logDateFrom.value = millis
+    override suspend fun setHistoryDateFrom(millis: Long?) {
+        this.historyDateFrom.value = millis
     }
 
-    override fun observeLogDateTo(): Flow<Long?> = logDateTo
+    override fun observeHistoryDateTo(): Flow<Long?> = historyDateTo
 
-    override suspend fun setLogDateTo(millis: Long?) {
-        this.logDateTo.value = millis
+    override suspend fun setHistoryDateTo(millis: Long?) {
+        this.historyDateTo.value = millis
     }
 
-    override fun observeLogVisibleFields(): Flow<Set<LogRowField>> = logVisibleFields
+    override fun observeHistoryVisibleFields(): Flow<Set<HistoryRowField>> = historyVisibleFields
 
-    override suspend fun setLogVisibleFields(fields: Set<LogRowField>) {
-        this.logVisibleFields.value = fields
+    override suspend fun setHistoryVisibleFields(fields: Set<HistoryRowField>) {
+        this.historyVisibleFields.value = fields
     }
 
     override fun observeShareSectionOrder(): Flow<List<ShareInsightsSection>> = shareSectionOrder.map { orderedShareSections(it) }

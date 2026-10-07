@@ -22,7 +22,7 @@ import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 
 /**
  * Small trigger chip ("Cases: N ▸") opening a full picker dialog — Big Picture's original pattern
- * (Cases/Tags/Year filters), reused as-is by the Case Detail Log tab's Sort/Range chips rather than
+ * (Cases/Tags/Year filters), reused as-is by the Case Detail History tab's Sort/Range chips rather than
  * a second copy. [isFiltered] draws a highlight border/ring when this dimension is narrowed off its
  * default; otherwise the chip stays the neutral/unselected pill look, since the label+count
  * communicate state, not the chip's own selection styling.

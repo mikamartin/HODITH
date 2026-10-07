@@ -24,7 +24,7 @@ private val RADIO_LABEL_GAP = 12.dp
  * A single-select `AlertDialog` option: a [RadioButton] in a fixed-width slot, a label beside it,
  * and a description indented to line up under the label rather than the dot. Shared by every
  * radio-style chooser dialog in the app (`ExportFormatDialog`'s JSON/CSV choice, the Case-Detail
- * header's Insight/Log Share chooser) — same idiom, previously duplicated per call site.
+ * header's Insight/History Share chooser) — same idiom, previously duplicated per call site.
  */
 @Composable
 fun RadioOptionRow(

@@ -99,14 +99,14 @@ class FakeHodithRepository : HodithRepository {
             }
         }
 
-    override fun observeLogEventsForCase(
+    override fun observeHistoryEventsForCase(
         caseId: Long,
-        order: LogSortOrder,
+        order: HistorySortOrder,
         limit: Int,
         durationMode: DurationMode,
         dateFrom: Long?,
         dateTo: Long?,
-    ): Flow<LogEventsPage> =
+    ): Flow<HistoryEventsPage> =
         combine(events, tags, eventTags) { eventList, tagList, crossRefs ->
             val forCase =
                 eventList.filter {
@@ -116,9 +116,9 @@ class FakeHodithRepository : HodithRepository {
                 }
             val ordered =
                 when (order) {
-                    LogSortOrder.BY_START ->
+                    HistorySortOrder.BY_START ->
                         forCase.sortedWith(compareByDescending<EventEntity> { it.occurredAt }.thenByDescending { it.id })
-                    LogSortOrder.BY_END -> {
+                    HistorySortOrder.BY_END -> {
                         fun isRunning(e: EventEntity) = durationMode == DurationMode.START_STOP && e.endedAt == null
                         forCase.sortedWith(
                             compareByDescending<EventEntity> { isRunning(it) }
@@ -129,7 +129,7 @@ class FakeHodithRepository : HodithRepository {
                     }
                 }
             val page = ordered.take(limit + 1)
-            LogEventsPage(
+            HistoryEventsPage(
                 events =
                     page.take(limit).map { event ->
                         val tagIds = crossRefs.filter { it.eventId == event.id }.map { it.tagId }.toSet()

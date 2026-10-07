@@ -4,12 +4,12 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.ChronologicalOrder
-import com.secondmonday.hodith.domain.LOG_SHARE_CARD_ENTRY_CAP
+import com.secondmonday.hodith.domain.HISTORY_SHARE_CARD_ENTRY_CAP
 import com.secondmonday.hodith.domain.SHARE_CARD_TOP_TAG_COUNT
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TagBreakdownEntry
@@ -953,9 +953,9 @@ class ShareCardStateTest {
         assertEquals(ordinary, storyTrendFindings(stats))
     }
 
-    // ---- logShareCardState ----
+    // ---- historyShareCardState ----
 
-    private fun logShareEvent(
+    private fun historyShareEvent(
         day: Long,
         note: String? = null,
         tags: List<TagEntity> = emptyList(),
@@ -973,22 +973,22 @@ class ShareCardStateTest {
         tags,
     )
 
-    private val allLogFields = LogRowField.entries.toSet()
+    private val allHistoryFields = HistoryRowField.entries.toSet()
 
     @Test
-    fun `logShareCardState suppresses duration and intensity when the Case doesn't track them, even if selected`() {
+    fun `historyShareCardState suppresses duration and intensity when the Case doesn't track them, even if selected`() {
         val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
-        val events = listOf(logShareEvent(day = 0, intensity = 3, durationMinutes = 30))
+        val events = listOf(historyShareEvent(day = 0, intensity = 3, durationMinutes = 30))
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = events,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1000,19 +1000,19 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState omits a field from the row when the user turns it off, even if the Case tracks it`() {
+    fun `historyShareCardState omits a field from the row when the user turns it off, even if the Case tracks it`() {
         val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = true)
-        val events = listOf(logShareEvent(day = 0, intensity = 3))
+        val events = listOf(historyShareEvent(day = 0, intensity = 3))
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = events,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
-                fields = setOf(LogRowField.NOTES, LogRowField.TAGS),
+                fields = setOf(HistoryRowField.NOTES, HistoryRowField.TAGS),
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1024,19 +1024,19 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState caps rows at LOG_SHARE_CARD_ENTRY_CAP and reports the pre-cap match count`() {
+    fun `historyShareCardState caps rows at HISTORY_SHARE_CARD_ENTRY_CAP and reports the pre-cap match count`() {
         val case = testCase()
-        val events = (0 until LOG_SHARE_CARD_ENTRY_CAP + 5L).map { logShareEvent(day = it) }
+        val events = (0 until HISTORY_SHARE_CARD_ENTRY_CAP + 5L).map { historyShareEvent(day = it) }
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = events,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(events.size.toLong()),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(events.size.toLong()),
@@ -1044,24 +1044,24 @@ class ShareCardStateTest {
                 zone = ZONE,
             )
 
-        assertEquals(LOG_SHARE_CARD_ENTRY_CAP, data.rows.size)
+        assertEquals(HISTORY_SHARE_CARD_ENTRY_CAP, data.rows.size)
         assertEquals(events.size, data.truncatedTotalCount)
     }
 
     @Test
-    fun `logShareCardState reports no truncation when matches fit under the cap`() {
+    fun `historyShareCardState reports no truncation when matches fit under the cap`() {
         val case = testCase()
-        val events = listOf(logShareEvent(day = 0), logShareEvent(day = 1))
+        val events = listOf(historyShareEvent(day = 0), historyShareEvent(day = 1))
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = events,
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1073,18 +1073,18 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState range label spans the Case's creation date to today when dateFrom is unset`() {
+    fun `historyShareCardState range label spans the Case's creation date to today when dateFrom is unset`() {
         val case = testCase()
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = emptyList(),
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1103,19 +1103,19 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState range label keeps the creation date out of the filter when dateFrom is unset`() {
+    fun `historyShareCardState range label keeps the creation date out of the filter when dateFrom is unset`() {
         // Created on day 0; the event is backdated to day -30, before the Case existed.
         val case = testCase()
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
-                events = listOf(logShareEvent(day = -30)),
+                events = listOf(historyShareEvent(day = -30)),
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1127,18 +1127,18 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState range label formats explicit bounds once narrowed`() {
+    fun `historyShareCardState range label formats explicit bounds once narrowed`() {
         val case = testCase()
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = emptyList(),
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = millisAtDay(10),
                 dateTo = millisAtDay(20),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1157,18 +1157,18 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState range label includes the year for a bound outside now's calendar year`() {
+    fun `historyShareCardState range label includes the year for a bound outside now's calendar year`() {
         val case = testCase()
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = emptyList(),
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = millisAtDay(-400),
                 dateTo = millisAtDay(20),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1187,18 +1187,18 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState range label starts at the Case's creation date when dateFrom is unset but dateTo is narrowed`() {
+    fun `historyShareCardState range label starts at the Case's creation date when dateFrom is unset but dateTo is narrowed`() {
         val case = testCase()
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = emptyList(),
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(20),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1217,19 +1217,19 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState orders rows by the requested sort direction`() {
+    fun `historyShareCardState orders rows by the requested sort direction`() {
         val case = testCase()
-        val events = listOf(logShareEvent(day = 0), logShareEvent(day = 5), logShareEvent(day = 10))
+        val events = listOf(historyShareEvent(day = 0), historyShareEvent(day = 5), historyShareEvent(day = 10))
 
         fun rowsFor(order: ChronologicalOrder) =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = case.name,
                 events = events,
                 sortOrder = order,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),
@@ -1241,18 +1241,18 @@ class ShareCardStateTest {
     }
 
     @Test
-    fun `logShareCardState puts the resolved display name on the card, not the Case's own name`() {
+    fun `historyShareCardState puts the resolved display name on the card, not the Case's own name`() {
         val case = testCase()
 
         val data =
-            logShareCardState(
+            historyShareCardState(
                 case = case,
                 displayName = "Sam",
                 events = emptyList(),
                 sortOrder = ChronologicalOrder.NEWEST_FIRST,
                 dateFrom = null,
                 dateTo = millisAtDay(NOW),
-                fields = allLogFields,
+                fields = allHistoryFields,
                 use24Hour = true,
                 voice = PlainVoice,
                 now = millisAtDay(NOW),

@@ -272,15 +272,15 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeLogEventsForCase caps at limit and reports hasMore`() =
+    fun `observeHistoryEventsForCase caps at limit and reports hasMore`() =
         runTest {
             val caseId = repository.insertCase(testCase())
             repeat(5) { i -> repository.insertEvent(testEvent(caseId = caseId, occurredAt = i.toLong())) }
 
             repository
-                .observeLogEventsForCase(
+                .observeHistoryEventsForCase(
                     caseId,
-                    LogSortOrder.BY_START,
+                    HistorySortOrder.BY_START,
                     limit = 3,
                     durationMode = DurationMode.NONE,
                     dateFrom = null,
@@ -293,15 +293,15 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeLogEventsForCase narrows to an inclusive dateFrom-dateTo range, unbounded on either null side`() =
+    fun `observeHistoryEventsForCase narrows to an inclusive dateFrom-dateTo range, unbounded on either null side`() =
         runTest {
             val caseId = repository.insertCase(testCase())
             repeat(5) { i -> repository.insertEvent(testEvent(caseId = caseId, occurredAt = i.toLong())) }
 
             repository
-                .observeLogEventsForCase(
+                .observeHistoryEventsForCase(
                     caseId,
-                    LogSortOrder.BY_START,
+                    HistorySortOrder.BY_START,
                     limit = 10,
                     durationMode = DurationMode.NONE,
                     dateFrom = 1L,
@@ -313,9 +313,9 @@ class FakeHodithRepositoryTest {
                 }
 
             repository
-                .observeLogEventsForCase(
+                .observeHistoryEventsForCase(
                     caseId,
-                    LogSortOrder.BY_START,
+                    HistorySortOrder.BY_START,
                     limit = 10,
                     durationMode = DurationMode.NONE,
                     dateFrom = 3L,
@@ -326,15 +326,15 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeLogEventsForCase reports hasMore false when the case has exactly limit events`() =
+    fun `observeHistoryEventsForCase reports hasMore false when the case has exactly limit events`() =
         runTest {
             val caseId = repository.insertCase(testCase())
             repeat(3) { i -> repository.insertEvent(testEvent(caseId = caseId, occurredAt = i.toLong())) }
 
             repository
-                .observeLogEventsForCase(
+                .observeHistoryEventsForCase(
                     caseId,
-                    LogSortOrder.BY_START,
+                    HistorySortOrder.BY_START,
                     limit = 3,
                     durationMode = DurationMode.NONE,
                     dateFrom = null,
@@ -347,16 +347,16 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeLogEventsForCase BY_END floats a running event above a more recently started finished one`() =
+    fun `observeHistoryEventsForCase BY_END floats a running event above a more recently started finished one`() =
         runTest {
             val caseId = repository.insertCase(testCase(durationMode = DurationMode.START_STOP))
             val runningId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
             val finishedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
 
             repository
-                .observeLogEventsForCase(
+                .observeHistoryEventsForCase(
                     caseId,
-                    LogSortOrder.BY_END,
+                    HistorySortOrder.BY_END,
                     limit = 10,
                     durationMode = DurationMode.START_STOP,
                     dateFrom = null,
@@ -368,16 +368,16 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeLogEventsForCase BY_END never floats a running event for a non START_STOP case`() =
+    fun `observeHistoryEventsForCase BY_END never floats a running event for a non START_STOP case`() =
         runTest {
             val caseId = repository.insertCase(testCase(durationMode = DurationMode.MANUAL))
             val openEndedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
             val laterFinishedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
 
             repository
-                .observeLogEventsForCase(
+                .observeHistoryEventsForCase(
                     caseId,
-                    LogSortOrder.BY_END,
+                    HistorySortOrder.BY_END,
                     limit = 10,
                     durationMode = DurationMode.MANUAL,
                     dateFrom = null,
