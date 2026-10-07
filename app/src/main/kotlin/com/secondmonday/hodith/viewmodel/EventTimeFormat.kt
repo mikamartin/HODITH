@@ -79,10 +79,11 @@ internal fun formatCardTimestamp(
 ): String = "${formatEventDate(generatedAt, zone)}, ${formatEventTimeOfDay(generatedAt, use24Hour, zone)}"
 
 /**
- * A log date-range bound: "MMM d" when [occurredAt] falls in the same calendar year as [now],
+ * A history date-range bound: "MMM d" when [occurredAt] falls in the same calendar year as [now],
  * "MMM d, yyyy" otherwise — the same same-year rationale as [formatEventTime], applied to a bare
- * date. Used by the Log Share card's range subtitle and the Log tab/Log Share range note/button,
- * so all three format bounds identically before handing them to a Voice range-note function.
+ * date. Used by the History Share card's range subtitle and the History tab/History Share range
+ * note/button, so all three format bounds identically before handing them to a Voice range-note
+ * function.
  */
 internal fun formatDateRangeBound(
     occurredAt: Long,
@@ -95,11 +96,11 @@ internal fun formatDateRangeBound(
 }
 
 /**
- * The two bounds a Log range shows, formatted. An unset [dateFrom] shows the Case's [createdAt] and an
+ * The two bounds a History range shows, formatted. An unset [dateFrom] shows the Case's [createdAt] and an
  * unset [dateTo] shows [now], so the default range reads as the Case's actual span. Filtering keeps the
  * raw nullable bounds: events can be dated before [createdAt], so it must never become a filter bound.
  */
-internal fun logRangeBounds(
+internal fun historyRangeBounds(
     createdAt: Long,
     dateFrom: Long?,
     dateTo: Long?,

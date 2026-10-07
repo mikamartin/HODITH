@@ -34,13 +34,13 @@ interface EventDao {
 
     /**
      * Capped page of a Case's events, newest-started first (spec §6, "Started" order) — at most
-     * [limit] rows, `id DESC` breaking ties on an identical `occurredAt`. Log-tab-only: ongoing-event
-     * detection, Insights stats, and the Log tab's own summary line all need the full history
-     * and keep using [observeEventsWithTagsForCase]. Callers fetch `limit + 1` and trim to detect
-     * whether more rows remain (see `RoomHodithRepository.observeLogEventsForCase`). [dateFrom]/
-     * [dateTo] narrow to `occurredAt` inclusively on either side; either `null` leaves that side
-     * unbounded (the Log tab's Range filter, spec §6/§13's reusable `filterAndSortEvents` pattern
-     * brought to a real DB query instead of an in-memory one).
+     * [limit] rows, `id DESC` breaking ties on an identical `occurredAt`. History-tab-only:
+     * ongoing-event detection, Insights stats, and the History tab's own summary line all need the
+     * full history and keep using [observeEventsWithTagsForCase]. Callers fetch `limit + 1` and trim
+     * to detect whether more rows remain (see `RoomHodithRepository.observeHistoryEventsForCase`).
+     * [dateFrom]/[dateTo] narrow to `occurredAt` inclusively on either side; either `null` leaves
+     * that side unbounded (the History tab's Range filter, spec §6/§13's reusable
+     * `filterAndSortEvents` pattern brought to a real DB query instead of an in-memory one).
      */
     @Transaction
     @Query(
@@ -58,7 +58,7 @@ interface EventDao {
     /**
      * Capped page of a Case's events ordered by when they *ended* (spec §6, "Ended" order): any
      * still-running event floats first — only meaningful when [isStartStopCase], since a
-     * `MANUAL`/`NONE` Case's events are never "running" the way the Log tab's sort toggle means it —
+     * `MANUAL`/`NONE` Case's events are never "running" the way the History tab's sort toggle means it —
      * then by `endedAt` (or `occurredAt` for an end-less `MANUAL` entry, the same
      * `IFNULL(endedAt, occurredAt)` [getLatestEventEndForCase] already reads), then `occurredAt`,
      * then `id`, all descending. Same `limit + 1` peek-ahead contract and [dateFrom]/[dateTo]

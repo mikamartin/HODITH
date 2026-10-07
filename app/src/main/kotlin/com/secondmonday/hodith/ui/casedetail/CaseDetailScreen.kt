@@ -53,8 +53,8 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
-import com.secondmonday.hodith.data.LogRowField
-import com.secondmonday.hodith.data.LogSortOrder
+import com.secondmonday.hodith.data.HistoryRowField
+import com.secondmonday.hodith.data.HistorySortOrder
 import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
@@ -75,7 +75,6 @@ import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
-import com.secondmonday.hodith.ui.share.rateText
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
@@ -87,14 +86,15 @@ import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.WatchesViewModel
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatEventTime
+import com.secondmonday.hodith.viewmodel.historyRangeBounds
 import com.secondmonday.hodith.viewmodel.insightsTabState
-import com.secondmonday.hodith.viewmodel.logRangeBounds
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
+import com.secondmonday.hodith.viewmodel.rateText
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-private const val LOG_TAB = 0
+private const val HISTORY_TAB = 0
 private const val INSIGHTS_TAB = 1
 private const val WATCHES_TAB = 2
 
@@ -126,11 +126,11 @@ fun CaseDetailRoute(
         onSaveEvent = viewModel::saveNewEvent,
         onStopEvent = viewModel::stopEvent,
         nowMillis = viewModel::nowMillis,
-        onLogSortOrderChange = viewModel::setLogSortOrder,
-        onLogDateFromChange = viewModel::setLogDateFrom,
-        onLogDateToChange = viewModel::setLogDateTo,
-        onLogFieldVisibleChange = viewModel::setLogFieldVisible,
-        onShowMoreLogEvents = viewModel::loadMoreLogEvents,
+        onHistorySortOrderChange = viewModel::setHistorySortOrder,
+        onHistoryDateFromChange = viewModel::setHistoryDateFrom,
+        onHistoryDateToChange = viewModel::setHistoryDateTo,
+        onHistoryFieldVisibleChange = viewModel::setHistoryFieldVisible,
+        onShowMoreHistoryEvents = viewModel::loadMoreHistoryEvents,
         modifier = modifier,
     )
 }
@@ -149,11 +149,11 @@ fun CaseDetailScreen(
     onSaveEvent: (LogDraft) -> Unit,
     onStopEvent: (EventEntity) -> Unit,
     nowMillis: () -> Long,
-    onLogSortOrderChange: (LogSortOrder) -> Unit,
-    onLogDateFromChange: (LocalDate?) -> Unit,
-    onLogDateToChange: (LocalDate?) -> Unit,
-    onLogFieldVisibleChange: (LogRowField, Boolean) -> Unit,
-    onShowMoreLogEvents: () -> Unit,
+    onHistorySortOrderChange: (HistorySortOrder) -> Unit,
+    onHistoryDateFromChange: (LocalDate?) -> Unit,
+    onHistoryDateToChange: (LocalDate?) -> Unit,
+    onHistoryFieldVisibleChange: (HistoryRowField, Boolean) -> Unit,
+    onShowMoreHistoryEvents: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
@@ -165,7 +165,7 @@ fun CaseDetailScreen(
     // Editing an existing event is a separate destination (onEditEvent), not this sheet.
     var newEventSheetNow by remember { mutableStateOf<Long?>(null) }
     // rememberSaveable, not remember: opening Trends/Tags/Share navigates away and disposes this screen, and the tab should still be Insights on return.
-    var selectedTab by rememberSaveable { mutableIntStateOf(LOG_TAB) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(HISTORY_TAB) }
     var frequencyGranularityOverride by remember { mutableStateOf<FrequencyGranularity?>(null) }
     // Hoisted above WatchesTabContent so the outer FAB (a sibling of the tab content, not a
     // nested Scaffold) can open the same create sheet a card tap opens for edit.
@@ -196,7 +196,7 @@ fun CaseDetailScreen(
         },
         floatingActionButton = {
             when (selectedTab) {
-                LOG_TAB ->
+                HISTORY_TAB ->
                     FloatingActionButton(
                         onClick = { newEventSheetNow = now },
                     ) {
@@ -233,14 +233,14 @@ fun CaseDetailScreen(
                     }
                 }
             }
-            // The bell tab is used far less than Log or Insights, so it takes a narrower share of the width.
+            // The bell tab is used far less than History or Insights, so it takes a narrower share of the width.
             HodithTabRow {
                 HodithTab(
-                    selected = selectedTab == LOG_TAB,
-                    onClick = { selectedTab = LOG_TAB },
+                    selected = selectedTab == HISTORY_TAB,
+                    onClick = { selectedTab = HISTORY_TAB },
                     modifier = Modifier.weight(2f),
                 ) {
-                    Text(voice.caseDetailLogTabLabel)
+                    Text(voice.caseDetailHistoryTabLabel)
                 }
                 HodithTab(
                     selected = selectedTab == INSIGHTS_TAB,
@@ -259,22 +259,22 @@ fun CaseDetailScreen(
                 }
             }
             when (selectedTab) {
-                LOG_TAB ->
-                    LogTabContent(
+                HISTORY_TAB ->
+                    HistoryTabContent(
                         case = case,
                         ongoingEvents = ongoingEvents,
                         uiState = uiState,
                         now = now,
                         voice = voice,
-                        sortOrder = uiState.logSortOrder,
-                        onSortOrderChange = onLogSortOrderChange,
-                        dateFrom = uiState.logDateFrom,
-                        dateTo = uiState.logDateTo,
-                        onDateFromChange = onLogDateFromChange,
-                        onDateToChange = onLogDateToChange,
-                        visibleFields = uiState.logVisibleFields,
-                        onFieldVisibleChange = onLogFieldVisibleChange,
-                        onShowMore = onShowMoreLogEvents,
+                        sortOrder = uiState.historySortOrder,
+                        onSortOrderChange = onHistorySortOrderChange,
+                        dateFrom = uiState.historyDateFrom,
+                        dateTo = uiState.historyDateTo,
+                        onDateFromChange = onHistoryDateFromChange,
+                        onDateToChange = onHistoryDateToChange,
+                        visibleFields = uiState.historyVisibleFields,
+                        onFieldVisibleChange = onHistoryFieldVisibleChange,
+                        onShowMore = onShowMoreHistoryEvents,
                         onStopEvent = onStopEvent,
                         onEditEvent = { event -> case?.let { onEditEvent(it.id, event.id) } },
                     )
@@ -393,20 +393,20 @@ fun CaseDetailScreen(
 }
 
 @Composable
-private fun LogTabContent(
+private fun HistoryTabContent(
     case: CaseEntity?,
     ongoingEvents: List<EventEntity>,
     uiState: CaseDetailUiState,
     now: Long,
     voice: Voice,
-    sortOrder: LogSortOrder,
-    onSortOrderChange: (LogSortOrder) -> Unit,
+    sortOrder: HistorySortOrder,
+    onSortOrderChange: (HistorySortOrder) -> Unit,
     dateFrom: Long?,
     dateTo: Long?,
     onDateFromChange: (LocalDate?) -> Unit,
     onDateToChange: (LocalDate?) -> Unit,
-    visibleFields: Set<LogRowField>,
-    onFieldVisibleChange: (LogRowField, Boolean) -> Unit,
+    visibleFields: Set<HistoryRowField>,
+    onFieldVisibleChange: (HistoryRowField, Boolean) -> Unit,
     onShowMore: () -> Unit,
     onStopEvent: (EventEntity) -> Unit,
     onEditEvent: (EventEntity) -> Unit,
@@ -418,7 +418,7 @@ private fun LogTabContent(
             val rate = caseHeroRate(history, observedDays, now)
             Text(
                 text =
-                    voice.logSummaryLine(
+                    voice.historySummaryLine(
                         rate = rate?.rateText(voice),
                         eventCount = uiState.events.size,
                         observedDays = observedDays,
@@ -429,7 +429,7 @@ private fun LogTabContent(
             )
         }
         if (case != null && uiState.events.isNotEmpty()) {
-            LogFilterRow(
+            HistoryFilterRow(
                 case = case,
                 now = now,
                 voice = voice,
@@ -459,15 +459,15 @@ private fun LogTabContent(
                 uiState.events.isEmpty() -> {
                     CenteredEmptyState(voice.eventListEmptyState)
                 }
-                uiState.logEvents.isEmpty() -> {
-                    CenteredEmptyState(voice.shareLogEmptyRangeMessage)
+                uiState.historyEvents.isEmpty() -> {
+                    CenteredEmptyState(voice.shareHistoryEmptyRangeMessage)
                 }
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = FabListBottomClearance),
                     ) {
-                        items(uiState.logEvents, key = { it.event.id }) { eventWithTags ->
+                        items(uiState.historyEvents, key = { it.event.id }) { eventWithTags ->
                             EventRow(
                                 eventWithTags = eventWithTags,
                                 caseName = case?.name.orEmpty(),
@@ -479,13 +479,13 @@ private fun LogTabContent(
                                 onStopEvent = onStopEvent,
                             )
                         }
-                        if (uiState.logHasMore) {
-                            item(key = "log_show_more") {
+                        if (uiState.historyHasMore) {
+                            item(key = "history_show_more") {
                                 TextButton(
                                     onClick = onShowMore,
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                                 ) {
-                                    Text(voice.logShowMoreAction)
+                                    Text(voice.historyShowMoreAction)
                                 }
                             }
                         }
@@ -497,25 +497,25 @@ private fun LogTabContent(
 }
 
 /**
- * The Log tab's filter-chip row (Sort, Range, plus the pinned field-visibility Edit icon) and the
- * dialogs its chips/icon open — split out from [LogTabContent] the same way Big Picture's own
+ * The History tab's filter-chip row (Sort, Range, plus the pinned field-visibility Edit icon) and
+ * the dialogs its chips/icon open — split out from [HistoryTabContent] the same way Big Picture's own
  * `FilterSummaryRow` (chip row + dialogs) sits apart from the grid it filters. A narrowed Range
- * collapses to [Voice.shareLogRangeSelectedLabel] in the chip itself (the actual bounds, once
+ * collapses to [Voice.shareHistoryRangeSelectedLabel] in the chip itself (the actual bounds, once
  * formatted, don't fit the chip's own width) with the real dates spelled out underneath instead.
  */
 @Composable
-private fun LogFilterRow(
+private fun HistoryFilterRow(
     case: CaseEntity,
     now: Long,
     voice: Voice,
-    sortOrder: LogSortOrder,
-    onSortOrderChange: (LogSortOrder) -> Unit,
+    sortOrder: HistorySortOrder,
+    onSortOrderChange: (HistorySortOrder) -> Unit,
     dateFrom: Long?,
     dateTo: Long?,
     onDateFromChange: (LocalDate?) -> Unit,
     onDateToChange: (LocalDate?) -> Unit,
-    visibleFields: Set<LogRowField>,
-    onFieldVisibleChange: (LogRowField, Boolean) -> Unit,
+    visibleFields: Set<HistoryRowField>,
+    onFieldVisibleChange: (HistoryRowField, Boolean) -> Unit,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     var showSortDialog by remember { mutableStateOf(false) }
@@ -532,15 +532,15 @@ private fun LogFilterRow(
         // `NONE` Case's `endedAt` is never shown, so "Ended" would order by an invisible field.
         if (case.durationMode.tracksDuration) {
             FilterTriggerChip(
-                label = voice.logSortLabel,
-                count = if (sortOrder == LogSortOrder.BY_START) voice.logSortByStartLabel else voice.logSortByEndLabel,
+                label = voice.historySortLabel,
+                count = if (sortOrder == HistorySortOrder.BY_START) voice.historySortByStartLabel else voice.historySortByEndLabel,
                 onClick = { showSortDialog = true },
-                isFiltered = sortOrder != LogSortOrder.BY_START,
+                isFiltered = sortOrder != HistorySortOrder.BY_START,
             )
         }
         FilterTriggerChip(
-            label = voice.shareLogRangeLabel,
-            count = if (isRangeFiltered) voice.shareLogRangeSelectedLabel else voice.shareLogRangeAllTimeLabel,
+            label = voice.shareHistoryRangeLabel,
+            count = if (isRangeFiltered) voice.shareHistoryRangeSelectedLabel else voice.shareHistoryRangeAllTimeLabel,
             onClick = { showRangePicker = true },
             isFiltered = isRangeFiltered,
         )
@@ -548,13 +548,13 @@ private fun LogFilterRow(
         // Edit which fields each row shows (spec §6) — pinned right, same placement as
         // Big Picture's own detail-edit icon.
         IconButton(onClick = { showFieldsDialog = true }) {
-            Icon(Icons.Filled.Edit, contentDescription = voice.logDetailEditDescription)
+            Icon(Icons.Filled.Edit, contentDescription = voice.historyFieldsEditDescription)
         }
     }
     // Always shown, so an unset range reads as the Case's actual span rather than a bare "All time".
-    val (from, to) = logRangeBounds(case.createdAt, dateFrom, dateTo, now, zone)
+    val (from, to) = historyRangeBounds(case.createdAt, dateFrom, dateTo, now, zone)
     Text(
-        text = voice.shareLogRangeNote(from, to),
+        text = voice.shareHistoryRangeNote(from, to),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.Medium,
         color = MaterialTheme.colorScheme.primary,
@@ -562,12 +562,12 @@ private fun LogFilterRow(
     )
 
     if (showSortDialog) {
-        InfoDialog(title = voice.logSortLabel, onDismiss = { showSortDialog = false }) {
+        InfoDialog(title = voice.historySortLabel, onDismiss = { showSortDialog = false }) {
             SegmentedChoiceRow(
                 options =
                     listOf(
-                        LogSortOrder.BY_START to voice.logSortByStartLabel,
-                        LogSortOrder.BY_END to voice.logSortByEndLabel,
+                        HistorySortOrder.BY_START to voice.historySortByStartLabel,
+                        HistorySortOrder.BY_END to voice.historySortByEndLabel,
                     ),
                 selected = sortOrder,
                 onSelect = {
@@ -594,16 +594,16 @@ private fun LogFilterRow(
         )
     }
     if (showFieldsDialog) {
-        InfoDialog(title = voice.logDetailDialogTitle, onDismiss = { showFieldsDialog = false }) {
+        InfoDialog(title = voice.historyFieldsDialogTitle, onDismiss = { showFieldsDialog = false }) {
             Column {
-                availableLogRowFields(case).forEach { field ->
+                availableHistoryRowFields(case).forEach { field ->
                     ToggleRow(
-                        label = logRowFieldLabel(field, voice),
+                        label = historyRowFieldLabel(field, voice),
                         checked = field in visibleFields,
                         onCheckedChange = { onFieldVisibleChange(field, it) },
                         modifier =
                             Modifier
-                                .testTag(LOG_DETAIL_FIELD_TOGGLE_TAG_PREFIX + field.name)
+                                .testTag(HISTORY_FIELD_TOGGLE_TAG_PREFIX + field.name)
                                 .padding(vertical = 4.dp),
                     )
                 }
@@ -613,30 +613,31 @@ private fun LogFilterRow(
 }
 
 /**
- * Prefix for each field-toggle row's `testTag` in the Log tab's field-visibility dialog — clicking
- * by tag rather than by label text, same as Big Picture's own `BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX`,
- * since the label/Switch semantics don't reliably merge into one clickable node in every context.
+ * Prefix for each field-toggle row's `testTag` in the History tab's field-visibility dialog —
+ * clicking by tag rather than by label text, same as Big Picture's own
+ * `BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX`, since the label/Switch semantics don't reliably merge
+ * into one clickable node in every context.
  */
-internal const val LOG_DETAIL_FIELD_TOGGLE_TAG_PREFIX = "log_detail_field_toggle_"
+internal const val HISTORY_FIELD_TOGGLE_TAG_PREFIX = "history_field_toggle_"
 
-/** Notes/Tags always offered; Duration/Intensity only when the Case tracks them — the Log tab's own gating, matching Log Share's `availableLogRowFields`. */
-private fun availableLogRowFields(case: CaseEntity): List<LogRowField> =
+/** Notes/Tags always offered; Duration/Intensity only when the Case tracks them — the History tab's own gating, matching History Share's `availableHistoryRowFields`. */
+private fun availableHistoryRowFields(case: CaseEntity): List<HistoryRowField> =
     buildList {
-        add(LogRowField.NOTES)
-        add(LogRowField.TAGS)
-        if (case.durationMode.tracksDuration) add(LogRowField.DURATION)
-        if (case.intensityEnabled) add(LogRowField.INTENSITY)
+        add(HistoryRowField.NOTES)
+        add(HistoryRowField.TAGS)
+        if (case.durationMode.tracksDuration) add(HistoryRowField.DURATION)
+        if (case.intensityEnabled) add(HistoryRowField.INTENSITY)
     }
 
-private fun logRowFieldLabel(
-    field: LogRowField,
+private fun historyRowFieldLabel(
+    field: HistoryRowField,
     voice: Voice,
 ): String =
     when (field) {
-        LogRowField.NOTES -> voice.shareLogFieldNotesLabel
-        LogRowField.TAGS -> voice.shareLogFieldTagsLabel
-        LogRowField.DURATION -> voice.insightsSectionLabelDuration
-        LogRowField.INTENSITY -> voice.insightsSectionLabelIntensity
+        HistoryRowField.NOTES -> voice.shareHistoryFieldNotesLabel
+        HistoryRowField.TAGS -> voice.shareHistoryFieldTagsLabel
+        HistoryRowField.DURATION -> voice.insightsSectionLabelDuration
+        HistoryRowField.INTENSITY -> voice.insightsSectionLabelIntensity
     }
 
 /**
@@ -650,7 +651,7 @@ private fun EventRow(
     now: Long,
     voice: Voice,
     durationMode: DurationMode,
-    visibleFields: Set<LogRowField>,
+    visibleFields: Set<HistoryRowField>,
     onClick: () -> Unit,
     onStopEvent: (EventEntity) -> Unit,
 ) {
@@ -696,7 +697,7 @@ private fun EventRowContent(
     now: Long,
     voice: Voice,
     durationMode: DurationMode,
-    visibleFields: Set<LogRowField>,
+    visibleFields: Set<HistoryRowField>,
     onStopEvent: (EventEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -719,12 +720,12 @@ private fun EventRowContent(
                     occurredAt = event.occurredAt,
                     endedAt = event.endedAt,
                     intensity = event.intensity,
-                    note = event.note.takeIf { LogRowField.NOTES in visibleFields },
-                    tagNames = if (LogRowField.TAGS in visibleFields) eventWithTags.tags.map { it.name } else emptyList(),
+                    note = event.note.takeIf { HistoryRowField.NOTES in visibleFields },
+                    tagNames = if (HistoryRowField.TAGS in visibleFields) eventWithTags.tags.map { it.name } else emptyList(),
                     voice = voice,
                     isOngoing = isOngoing,
-                    tracksDuration = durationMode.tracksDuration && LogRowField.DURATION in visibleFields,
-                    showIntensity = LogRowField.INTENSITY in visibleFields,
+                    tracksDuration = durationMode.tracksDuration && HistoryRowField.DURATION in visibleFields,
+                    showIntensity = HistoryRowField.INTENSITY in visibleFields,
                 )
             if (details != null) {
                 Text(text = details, style = MaterialTheme.typography.bodySmall)

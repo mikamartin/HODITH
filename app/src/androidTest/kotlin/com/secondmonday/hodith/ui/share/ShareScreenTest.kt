@@ -20,8 +20,8 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.LogShareSelection
-import com.secondmonday.hodith.viewmodel.LogShareUiState
+import com.secondmonday.hodith.viewmodel.HistoryShareSelection
+import com.secondmonday.hodith.viewmodel.HistoryShareUiState
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -44,7 +44,7 @@ private fun events(): List<EventWithTags> =
 
 /**
  * The Share screen's host: title, tabs, the shared name field, the preview heading, and which callback each tab's share
- * button fires. Tab-level content (the picker, the History controls) is covered by [InsightShareTabTest] and [LogShareTabTest].
+ * button fires. Tab-level content (the picker, the History controls) is covered by [InsightShareTabTest] and [HistoryShareTabTest].
  */
 @UiTest
 class ShareScreenTest {
@@ -54,18 +54,18 @@ class ShareScreenTest {
     private fun setContent(
         events: List<EventWithTags> = emptyList(),
         onInsightShare: () -> Unit = {},
-        onLogShare: () -> Unit = {},
+        onHistoryShare: () -> Unit = {},
     ) {
         val case = testCase(id = 1L)
         val now = millisAtDay(60)
         composeTestRule.setHodithContent {
             ShareScreen(
                 insightState = ShareUiState(case = case, events = events, isLoading = false),
-                logState =
-                    LogShareUiState(
+                historyState =
+                    HistoryShareUiState(
                         case = case,
                         events = events,
-                        selection = LogShareSelection(dateTo = now),
+                        selection = HistoryShareSelection(dateTo = now),
                         isLoading = false,
                     ),
                 now = now,
@@ -77,8 +77,8 @@ class ShareScreenTest {
                 onDateFromPicked = {},
                 onDateToPicked = {},
                 onFieldToggle = { _, _ -> },
-                onLogSortOrderSelect = {},
-                onLogShareClick = onLogShare,
+                onHistorySortOrderSelect = {},
+                onHistoryShareClick = onHistoryShare,
             )
         }
     }
@@ -148,27 +148,27 @@ class ShareScreenTest {
     @Test
     fun shareButton_onSummaryAndInsights_firesInsightShareOnly() {
         var insightShares = 0
-        var logShares = 0
-        setContent(events = events(), onInsightShare = { insightShares++ }, onLogShare = { logShares++ })
+        var historyShares = 0
+        setContent(events = events(), onInsightShare = { insightShares++ }, onHistoryShare = { historyShares++ })
 
         shareButton().performScrollTo().performClick()
         openTab(PlainVoice.shareTabInsightsLabel)
         shareButton().performScrollTo().performClick()
 
         assertEquals(2, insightShares)
-        assertEquals(0, logShares)
+        assertEquals(0, historyShares)
     }
 
     @Test
-    fun shareButton_onHistory_firesLogShareOnly() {
+    fun shareButton_onHistory_firesHistoryShareOnly() {
         var insightShares = 0
-        var logShares = 0
-        setContent(events = events(), onInsightShare = { insightShares++ }, onLogShare = { logShares++ })
+        var historyShares = 0
+        setContent(events = events(), onInsightShare = { insightShares++ }, onHistoryShare = { historyShares++ })
 
         openTab(PlainVoice.shareTabHistoryLabel)
         shareButton().performScrollTo().performClick()
 
         assertEquals(0, insightShares)
-        assertEquals(1, logShares)
+        assertEquals(1, historyShares)
     }
 }

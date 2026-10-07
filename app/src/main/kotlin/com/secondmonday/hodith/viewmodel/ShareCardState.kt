@@ -3,13 +3,14 @@ package com.secondmonday.hodith.viewmodel
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
-import com.secondmonday.hodith.data.LogRowField
+import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ChronologicalOrder
+import com.secondmonday.hodith.domain.HISTORY_SHARE_CARD_ENTRY_CAP
 import com.secondmonday.hodith.domain.HeroRate
-import com.secondmonday.hodith.domain.LOG_SHARE_CARD_ENTRY_CAP
+import com.secondmonday.hodith.domain.RateUnit
 import com.secondmonday.hodith.domain.SHARE_CARD_TOP_TAG_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TrendFinding
@@ -41,23 +42,36 @@ sealed interface ShareTopBeat {
     ) : ShareTopBeat
 }
 
+internal fun HeroRate.figureText(voice: Voice): String =
+    if (belowOnePerMonth) voice.shareRateBelowOneMarker else formatCompactDecimal(value)
+
+/** The figure and unit as one string, e.g. "2.1/week" — for surfaces that show the rate inline rather than as two styled pieces. */
+internal fun HeroRate.rateText(voice: Voice): String = figureText(voice) + unitText(voice)
+
+internal fun HeroRate.unitText(voice: Voice): String =
+    when (unit) {
+        RateUnit.DAY -> voice.shareRatePerDayUnit
+        RateUnit.WEEK -> voice.shareRatePerWeekUnit
+        RateUnit.MONTH -> voice.shareRatePerMonthUnit
+    }
+
 /** The longest and average streak, as the share card shows them. */
 data class StreakDisplay(
     val longestStreakDays: Int,
     val averageStreakDays: Double,
 )
 
-/** One formatted row on a Log Share card — [detail] is `null` when every field is off or the event carries none of them. */
-data class LogCardRow(
+/** One formatted row on a History Share card — [detail] is `null` when every field is off or the event carries none of them. */
+data class HistoryCardRow(
     val timestamp: String,
     val detail: String?,
 )
 
 /**
- * What [ui.share.ShareCardTemplate] renders — either spec §13's Insights summary or a Log Share
- * card (a bounded list of the Case's actual entries instead of stats; not a data export — see
- * PROGRESS.md's "Share button: add a Log Share option" item). Both share a case header/footer and
- * theme skin, differing only in body content, hence one sealed type rather than two unrelated ones.
+ * What [ui.share.ShareCardTemplate] renders — either spec §13's Insights summary or a History
+ * Share card (a bounded list of the Case's actual entries instead of stats; not a data export —
+ * see PROGRESS.md's "Share button: add a Log Share option" item). Both share a case header/footer
+ * and theme skin, differing only in body content, hence one sealed type rather than two unrelated ones.
  */
 sealed interface ShareCardData {
     val caseIcon: String
@@ -89,15 +103,15 @@ sealed interface ShareCardData {
     /**
      * [rangeLabel] and [rows] arrive pre-formatted (the caller already resolves "today" for the
      * range picker, so it also resolves the "All time" vs. explicit-dates wording here — see
-     * [logShareCardState]). [truncatedTotalCount] is `null` when nothing was cut; otherwise the
+     * [historyShareCardState]). [truncatedTotalCount] is `null` when nothing was cut; otherwise the
      * pre-cap match count, for the card's own "+N more" note.
      */
-    data class Log(
+    data class History(
         override val caseIcon: String,
         override val caseName: String,
         override val generatedAtMillis: Long,
         val rangeLabel: String,
-        val rows: List<LogCardRow>,
+        val rows: List<HistoryCardRow>,
         val truncatedTotalCount: Int?,
     ) : ShareCardData
 }
@@ -107,7 +121,7 @@ sealed interface ShareCardData {
  * Detail's Insights tab already computes — no new domain math. [displayName] is separate
  * from [CaseEntity.name] so the share screen's editable name field never mutates the actual Case.
  * [eventCount]/[observedDays]
- * mirror the Log tab summary line's inputs (`events.size`/`observationSpanDays`), since [StatsSections.totalEventCount]
+ * mirror the History tab summary line's inputs (`events.size`/`observationSpanDays`), since [StatsSections.totalEventCount]
  * is unavailable whenever [insightsState] is [InsightsTabState.NothingLogged] but the top beat still needs
  * to show the true count.
  *
@@ -259,47 +273,47 @@ private fun squareInsights(
 }
 
 /**
- * Assembles Log Share's card content: [filterAndSortEvents] (the same reusable filter a future
- * Log-tab-filter item would call) narrows and orders [events], then every match beyond
- * [LOG_SHARE_CARD_ENTRY_CAP] is dropped, so a long range never grows the card past a readable
+ * Assembles History Share's card content: [filterAndSortEvents] (the same reusable filter a future
+ * History-tab-filter item would call) narrows and orders [events], then every match beyond
+ * [HISTORY_SHARE_CARD_ENTRY_CAP] is dropped, so a long range never grows the card past a readable
  * length (spec §13). The card has one shape, the content-sized one Story uses.
  * Each kept row reuses [eventDetailSummary]'s primitive overload directly: [fields] and the Case's
  * own [CaseEntity.durationMode]/[CaseEntity.intensityEnabled] both gate Duration/Intensity, so
  * neither shows unless the Case tracks it *and* the user left it on. [displayName] arrives
  * pre-resolved, matching how [shareCardState] already takes it resolved rather than deriving it
  * from [CaseEntity.name] itself. [dateFrom]/[dateTo] are the same local-day-boundary millis
- * [LogShareSelection] stores (see [ZoneId.startOfDayMillis]/[ZoneId.endOfDayMillis]); the range
- * label resolves an unset [dateFrom] to the Case's creation date, via [logRangeBounds].
+ * [HistoryShareSelection] stores (see [ZoneId.startOfDayMillis]/[ZoneId.endOfDayMillis]); the range
+ * label resolves an unset [dateFrom] to the Case's creation date, via [historyRangeBounds].
  */
-internal fun logShareCardState(
+internal fun historyShareCardState(
     case: CaseEntity,
     displayName: String,
     events: List<EventWithTags>,
     sortOrder: ChronologicalOrder,
     dateFrom: Long?,
     dateTo: Long,
-    fields: Set<LogRowField>,
+    fields: Set<HistoryRowField>,
     use24Hour: Boolean,
     voice: Voice,
     now: Long,
     generatedAtMillis: Long,
     zone: ZoneId = ZoneId.systemDefault(),
-): ShareCardData.Log {
+): ShareCardData.History {
     val matches = filterAndSortEvents(events, from = dateFrom, to = dateTo, order = sortOrder)
-    val capped = matches.take(LOG_SHARE_CARD_ENTRY_CAP)
+    val capped = matches.take(HISTORY_SHARE_CARD_ENTRY_CAP)
 
-    return ShareCardData.Log(
+    return ShareCardData.History(
         caseIcon = case.icon,
         caseName = displayName,
         generatedAtMillis = generatedAtMillis,
-        rangeLabel = logShareRangeLabel(case.createdAt, dateFrom, dateTo, now, zone, voice),
-        rows = capped.map { logCardRow(it, case, fields, use24Hour, now, voice) },
-        truncatedTotalCount = matches.size.takeIf { it > LOG_SHARE_CARD_ENTRY_CAP },
+        rangeLabel = historyShareRangeLabel(case.createdAt, dateFrom, dateTo, now, zone, voice),
+        rows = capped.map { historyCardRow(it, case, fields, use24Hour, now, voice) },
+        truncatedTotalCount = matches.size.takeIf { it > HISTORY_SHARE_CARD_ENTRY_CAP },
     )
 }
 
-/** Delegates the combining logic to [Voice.shareLogRangeNote], the same function the Log tab's range note and the Log Share button use. */
-private fun logShareRangeLabel(
+/** Delegates the combining logic to [Voice.shareHistoryRangeNote], the same function the History tab's range note and the History Share button use. */
+private fun historyShareRangeLabel(
     createdAt: Long,
     dateFrom: Long?,
     dateTo: Long,
@@ -307,20 +321,20 @@ private fun logShareRangeLabel(
     zone: ZoneId,
     voice: Voice,
 ): String {
-    val (from, to) = logRangeBounds(createdAt, dateFrom, dateTo, now, zone)
-    return voice.shareLogRangeNote(from, to)
+    val (from, to) = historyRangeBounds(createdAt, dateFrom, dateTo, now, zone)
+    return voice.shareHistoryRangeNote(from, to)
 }
 
-/** True when no Log range is set: no start bound and the end bound is today. */
-internal fun isUnsetLogRange(
+/** True when no History range is set: no start bound and the end bound is today. */
+internal fun isUnsetHistoryRange(
     dateFrom: Long?,
     dateTo: Long,
     now: Long,
     zone: ZoneId,
 ): Boolean = dateFrom == null && dateTo.toLocalDateIn(zone) == now.toLocalDateIn(zone)
 
-/** The Log Share selector's value: "All time" while unset, otherwise the bounds [logRangeBounds] resolves. */
-internal fun logShareSelectorValue(
+/** The History Share selector's value: "All time" while unset, otherwise the bounds [historyRangeBounds] resolves. */
+internal fun historyShareSelectorValue(
     createdAt: Long,
     dateFrom: Long?,
     dateTo: Long,
@@ -328,37 +342,37 @@ internal fun logShareSelectorValue(
     zone: ZoneId,
     voice: Voice,
 ): String =
-    if (isUnsetLogRange(dateFrom, dateTo, now, zone)) {
-        voice.shareLogRangeAllTimeLabel
+    if (isUnsetHistoryRange(dateFrom, dateTo, now, zone)) {
+        voice.shareHistoryRangeAllTimeLabel
     } else {
-        val (from, to) = logRangeBounds(createdAt, dateFrom, dateTo, now, zone)
-        voice.shareLogRangeNote(from, to)
+        val (from, to) = historyRangeBounds(createdAt, dateFrom, dateTo, now, zone)
+        voice.shareHistoryRangeNote(from, to)
     }
 
-private fun logCardRow(
+private fun historyCardRow(
     eventWithTags: EventWithTags,
     case: CaseEntity,
-    fields: Set<LogRowField>,
+    fields: Set<HistoryRowField>,
     use24Hour: Boolean,
     now: Long,
     voice: Voice,
-): LogCardRow {
+): HistoryCardRow {
     val event = eventWithTags.event
     val isOngoing = case.durationMode == DurationMode.START_STOP && event.endedAt == null
 
-    return LogCardRow(
+    return HistoryCardRow(
         timestamp = formatEventTime(event.occurredAt, now, use24Hour, zone = event.loggedZone()),
         detail =
             eventDetailSummary(
                 occurredAt = event.occurredAt,
                 endedAt = event.endedAt,
                 intensity = event.intensity,
-                note = event.note.takeIf { LogRowField.NOTES in fields },
-                tagNames = if (LogRowField.TAGS in fields) eventWithTags.tags.map { it.name } else emptyList(),
+                note = event.note.takeIf { HistoryRowField.NOTES in fields },
+                tagNames = if (HistoryRowField.TAGS in fields) eventWithTags.tags.map { it.name } else emptyList(),
                 voice = voice,
                 isOngoing = isOngoing,
-                tracksDuration = case.durationMode.tracksDuration && LogRowField.DURATION in fields,
-                showIntensity = case.intensityEnabled && LogRowField.INTENSITY in fields,
+                tracksDuration = case.durationMode.tracksDuration && HistoryRowField.DURATION in fields,
+                showIntensity = case.intensityEnabled && HistoryRowField.INTENSITY in fields,
             ),
     )
 }

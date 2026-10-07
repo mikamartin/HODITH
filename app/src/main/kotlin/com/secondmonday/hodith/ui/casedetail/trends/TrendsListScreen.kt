@@ -46,7 +46,7 @@ fun TrendsListRoute(
  * [com.secondmonday.hodith.ui.casedetail.CaseDetailScreen] itself uses) — a bare "Trends" reads
  * ambiguous once you're this deep in the nav stack. Rows are [TrendFindingPlank], not
  * [com.secondmonday.hodith.ui.casedetail.TrendFindingRow] — this screen is the one place Plain's
- * planks apply, matching the Log tab's [com.secondmonday.hodith.ui.casedetail.EventRow] convention.
+ * planks apply, matching the History tab's [com.secondmonday.hodith.ui.casedetail.EventRow] convention.
  */
 @Composable
 fun TrendsListScreen(

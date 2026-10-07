@@ -61,13 +61,14 @@ import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.ui.casedetail.IntensitySquare
+import com.secondmonday.hodith.ui.casedetail.StatRow
 import com.secondmonday.hodith.ui.casedetail.TrendFindingBody
-import com.secondmonday.hodith.ui.casedetail.formatIntensity
+import com.secondmonday.hodith.ui.casedetail.rhythmTimeOfDayLabel
 import com.secondmonday.hodith.ui.common.MinAvgMaxRow
 import com.secondmonday.hodith.ui.common.StatColumn
 import com.secondmonday.hodith.ui.common.shareMinAvgMaxLabels
 import com.secondmonday.hodith.ui.common.toCellColor
-import com.secondmonday.hodith.ui.common.toTextColor
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
@@ -78,8 +79,8 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.DurationDisplay
 import com.secondmonday.hodith.viewmodel.GapsDisplay
+import com.secondmonday.hodith.viewmodel.HistoryCardRow
 import com.secondmonday.hodith.viewmodel.IntensityDisplay
-import com.secondmonday.hodith.viewmodel.LogCardRow
 import com.secondmonday.hodith.viewmodel.RhythmCellDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
@@ -87,10 +88,13 @@ import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
 import com.secondmonday.hodith.viewmodel.StreakDisplay
 import com.secondmonday.hodith.viewmodel.durationMinAvgMax
+import com.secondmonday.hodith.viewmodel.figureText
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import com.secondmonday.hodith.viewmodel.formatCompactDecimal
 import com.secondmonday.hodith.viewmodel.formatDaysCompact
+import com.secondmonday.hodith.viewmodel.formatIntensity
 import com.secondmonday.hodith.viewmodel.gapsStatRows
+import com.secondmonday.hodith.viewmodel.unitText
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 
@@ -136,7 +140,7 @@ fun ShareCardTemplate(
     modifier: Modifier = Modifier,
 ) {
     val skin = LocalShareCardSkin.current
-    // Square's floor applies to Insights cards only; a Log card is content-sized.
+    // Square's floor applies to Insights cards only; a History card is content-sized.
     val squareFloor =
         if ((data as? ShareCardData.Insights)?.format == ShareCardFormat.SQUARE) {
             Modifier.heightIn(min = SQUARE_MIN_HEIGHT)
@@ -174,7 +178,7 @@ fun ShareCardTemplate(
                     }
                     when (data) {
                         is ShareCardData.Insights -> InsightsCardBody(data, voice, skin)
-                        is ShareCardData.Log -> LogCardBody(data, voice, skin)
+                        is ShareCardData.History -> HistoryCardBody(data, voice, skin)
                     }
                 }
             }
@@ -201,25 +205,25 @@ private fun InsightsCardBody(
     StoryInsightsBody(data, voice, skin)
 }
 
-/** Log Share's body: the kicker with the resolved range on its line, then every row, then an optional truncation note. */
+/** History Share's body: the kicker with the resolved range on its line, then every row, then an optional truncation note. */
 @Composable
-private fun LogCardBody(
-    data: ShareCardData.Log,
+private fun HistoryCardBody(
+    data: ShareCardData.History,
     voice: Voice,
     skin: ShareCardSkin,
 ) {
     // The resolved range is the card's title line.
     BeatKicker(data.rangeLabel, skin)
     if (data.rows.isEmpty()) {
-        Text(text = voice.shareLogEmptyRangeMessage, style = MaterialTheme.typography.labelMedium)
+        Text(text = voice.shareHistoryEmptyRangeMessage, style = MaterialTheme.typography.labelMedium)
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            data.rows.forEach { row -> LogEntryRow(row, skin) }
+            data.rows.forEach { row -> HistoryEntryRow(row, skin) }
         }
     }
     data.truncatedTotalCount?.let { totalCount ->
         Text(
-            text = voice.shareLogTruncationNote(data.rows.size, totalCount),
+            text = voice.shareHistoryTruncationNote(data.rows.size, totalCount),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -229,8 +233,8 @@ private fun LogCardBody(
 }
 
 @Composable
-private fun LogEntryRow(
-    row: LogCardRow,
+private fun HistoryEntryRow(
+    row: HistoryCardRow,
     skin: ShareCardSkin,
 ) {
     MiniInsightsCard {
@@ -404,19 +408,6 @@ private fun SummaryBeat(
         }
     }
 }
-
-internal fun HeroRate.figureText(voice: Voice): String =
-    if (belowOnePerMonth) voice.shareRateBelowOneMarker else formatCompactDecimal(value)
-
-/** The figure and unit as one string, e.g. "2.1/week" — for surfaces that show the rate inline rather than as two styled pieces. */
-internal fun HeroRate.rateText(voice: Voice): String = figureText(voice) + unitText(voice)
-
-internal fun HeroRate.unitText(voice: Voice): String =
-    when (unit) {
-        RateUnit.DAY -> voice.shareRatePerDayUnit
-        RateUnit.WEEK -> voice.shareRatePerWeekUnit
-        RateUnit.MONTH -> voice.shareRatePerMonthUnit
-    }
 
 /** A big figure with its small unit hanging off the end, e.g. "2.1" + "/week". */
 @Composable
@@ -664,17 +655,6 @@ private fun MiniSectionTitle(
 }
 
 @Composable
-private fun MiniStatRow(
-    label: String,
-    value: String,
-) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.labelMedium)
-    }
-}
-
-@Composable
 private fun MiniRhythmSection(
     display: RhythmDisplay,
     voice: Voice,
@@ -699,7 +679,7 @@ private fun MiniRhythmSection(
         TimeOfDay.entries.forEach { timeOfDay ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = timeOfDayLabel(timeOfDay, voice),
+                    text = rhythmTimeOfDayLabel(voice, timeOfDay),
                     modifier = Modifier.width((MINI_RHYTHM_LABEL_WIDTH + MINI_RHYTHM_LABEL_GAP).dp).padding(end = MINI_RHYTHM_LABEL_GAP.dp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -721,17 +701,6 @@ private fun MiniRhythmSection(
         }
     }
 }
-
-private fun timeOfDayLabel(
-    timeOfDay: TimeOfDay,
-    voice: Voice,
-): String =
-    when (timeOfDay) {
-        TimeOfDay.MORNING -> voice.insightsTimeOfDayMorning
-        TimeOfDay.AFTERNOON -> voice.insightsTimeOfDayAfternoon
-        TimeOfDay.EVENING -> voice.insightsTimeOfDayEvening
-        TimeOfDay.NIGHT -> voice.insightsTimeOfDayNight
-    }
 
 /**
  * Findings laid out the same way as the Insights tab's Trends card: each row is the shared
@@ -765,7 +734,7 @@ private fun MiniTagsSection(
 ) {
     MiniInsightsCard {
         MiniSectionTitle(voice.shareTopTagsTitle, skin)
-        tags.forEach { tag -> MiniStatRow(tag.tagName, tag.count.toString()) }
+        tags.forEach { tag -> StatRow(tag.tagName, tag.count.toString(), style = MaterialTheme.typography.labelMedium) }
     }
 }
 
@@ -776,16 +745,14 @@ private fun IntensityDistributionRow(display: IntensityDisplay) {
         (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
             val count = display.distribution[value] ?: 0
             val level = heatmapLevelFor(count, display.maxCount)
-            Box(
+            IntensitySquare(
+                value = value,
+                level = level,
                 modifier =
                     Modifier
                         .size(INTENSITY_CELL_SIZE.dp)
-                        .clip(MaterialTheme.shapes.extraSmall)
-                        .background(level.toCellColor()),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(value.toString(), style = MaterialTheme.typography.labelSmall, color = level.toTextColor())
-            }
+                        .clip(MaterialTheme.shapes.extraSmall),
+            )
         }
     }
 }

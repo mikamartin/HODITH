@@ -107,22 +107,22 @@ instrumented tests only assert are set, and the real permission dialog/banner ro
      banner without restarting the app.
    - **Grant:** no banner; notifications post as in items 1–3.
 
-## Log tab filters
+## History tab filters
 
 The chip row's own wiring (Sort/From/To chip rendering, each opening its picker directly, the Edit
 icon's field toggles and their gating, the empty-range message, persistence through
 `SettingsRepository`) is covered by `CaseDetailScreenTest`/`CaseDetailViewModelTest`. Day taps on the
-shared range picker both the Log tab and Log Share use are covered by
-`LogShareTabTest.rangeDialog_tappingAStartAndEndDay_handsBothDaysBack`.
+shared range picker both the History tab and History Share use are covered by
+`HistoryShareTabTest.rangeDialog_tappingAStartAndEndDay_handsBothDaysBack`.
 
-1. **Log tab's "To" picker refuses a future date.** Open the Log tab's "To" chip and try to pick a day
-   after today — that day is not selectable, the same way the History tab's own "To" picker refuses it.
+1. **History tab's "To" picker refuses a future date.** Open the History tab's "To" chip and try to
+   pick a day after today — that day is not selectable.
 
 ## Share cards
 
 The card assembly logic (top-beat selection, section filtering, the display name, and the History
 filter/cap) is unit-tested (`ShareCardStateTest`) and the Share screen's tabs and their gating are
-instrumented-tested (`ShareScreenTest`, `InsightShareTabTest`, `LogShareTabTest`). These steps are about
+instrumented-tested (`ShareScreenTest`, `InsightShareTabTest`, `HistoryShareTabTest`). These steps are about
 the parts only a real device/FileProvider/share-sheet handoff can prove: the actual bitmap capture,
 the system share sheet, and how the image looks once it lands somewhere else.
 

@@ -73,7 +73,6 @@ import com.secondmonday.hodith.domain.TAGS_COMPACT_MAX
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
-import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
@@ -116,9 +115,9 @@ import com.secondmonday.hodith.viewmodel.StatsSections
 import com.secondmonday.hodith.viewmodel.durationMinAvgMax
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatClockTime
-import com.secondmonday.hodith.viewmodel.formatCompactDecimal
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatFrequencyTickLabel
+import com.secondmonday.hodith.viewmodel.formatIntensity
 import com.secondmonday.hodith.viewmodel.formatMediumDate
 import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import com.secondmonday.hodith.viewmodel.frequencyTickCount
@@ -163,7 +162,7 @@ private const val RHYTHM_GRID_GAP = 8
  * Spec §9/§10 drill-down (S10): a heatmap day, an intensity square, a tag row, or a rhythm cell
  * opens the logged events behind it in a shared [InsightsDrillDownDialog], filtered in memory over
  * [events] — [case]/[now] carry just enough to format and open a row via [onEditEvent], same shape
- * as the Log tab's own [EventEntity]-keyed callback.
+ * as the History tab's own [EventEntity]-keyed callback.
  */
 @Composable
 internal fun InsightsTabContent(
@@ -764,112 +763,6 @@ private fun TrendReliabilityTag(
     StatusChip(label = label, containerColor = container, contentColor = content)
 }
 
-/**
- * [finding]'s sentence wording, with the real prior/recent values formatted in. Neither card renders it
- * any more: both show headlines through [TrendFindingBody]. Only [TrendFindingSentenceTest] reads it,
- * pinning each [TrendFindingKind]'s sentence arguments; whether it stays is for the share/Insights
- * duplication review.
- */
-internal fun trendFindingSentence(
-    finding: TrendFinding,
-    voice: Voice,
-    locale: java.util.Locale,
-): String =
-    when (finding.kind) {
-        TrendFindingKind.WENT_QUIET -> voice.insightsWentQuietSentence(formatDays(finding.recentValue), formatDays(finding.priorValue))
-        TrendFindingKind.GAP_SHIFT ->
-            voice.insightsGapShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
-        TrendFindingKind.STREAK_SHIFT ->
-            voice.insightsStreakShiftSentence(finding.direction, formatDays(finding.priorValue), formatDays(finding.recentValue))
-        TrendFindingKind.FREQUENCY_SHIFT -> {
-            // FLAT never reaches here -- computeTrendFindings excludes it, the same "silent when
-            // nothing moved" rule gap/streak shift already follow (spec §10, Story C T1).
-            val trendDirection = if (finding.direction == ShiftDirection.UP) TrendDirection.UP else TrendDirection.DOWN
-            voice.insightsTrendSentence(trendDirection, finding.recentValue.roundToInt(), finding.priorValue.roundToInt())
-        }
-        TrendFindingKind.TAG_SHARE_SHIFT ->
-            // tagName is always set for this kind -- see TrendFinding's doc comment.
-            voice.insightsTagShareShiftSentence(
-                finding.tagName.orEmpty(),
-                finding.direction,
-                formatPercent(finding.priorValue),
-                formatPercent(finding.recentValue),
-            )
-        TrendFindingKind.TAG_COMBO ->
-            // tagNames is always set for this kind -- see TrendFinding's doc comment.
-            voice.insightsTagComboSentence(
-                finding.tagNames.joinToString(" + "),
-                finding.priorValue.roundToInt(),
-                finding.recentValue.roundToInt(),
-            )
-        TrendFindingKind.RECURRENCE_SHAPE ->
-            voice.insightsRecurrenceShapeSentence(finding.direction, formatDays(finding.priorValue), formatPercent(finding.recentValue))
-        TrendFindingKind.TAG_OUTCOME -> {
-            // tagName and outcome are always set for this kind -- see TrendFinding's KDoc.
-            val outcome = requiredOutcome(finding)
-            val (withoutTagLabel, withTagLabel) =
-                when (outcome) {
-                    TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
-                    TagOutcome.DURATION ->
-                        formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
-                }
-            val relativeDifferenceLabel = formatPercent(abs((finding.recentValue - finding.priorValue) / finding.priorValue))
-            voice.insightsTagOutcomeSentence(
-                finding.tagName.orEmpty(),
-                outcome,
-                finding.direction,
-                relativeDifferenceLabel,
-                withoutTagLabel,
-                withTagLabel,
-            )
-        }
-        TrendFindingKind.CHANGE_POINT ->
-            // changePointDate is always set for this kind -- see TrendFinding's KDoc.
-            voice.insightsChangePointSentence(
-                finding.direction,
-                formatApproximateMonth(checkNotNull(finding.changePointDate) { "CHANGE_POINT finding without a changePointDate" }),
-                formatDays(finding.priorValue),
-                formatDays(finding.recentValue),
-            )
-        TrendFindingKind.TREND_SLOPE -> {
-            // outcome is always set for this kind -- see TrendFinding's KDoc.
-            val outcome = requiredOutcome(finding)
-            val (priorLabel, recentLabel) =
-                when (outcome) {
-                    TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
-                    TagOutcome.DURATION ->
-                        formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
-                }
-            voice.insightsTrendSlopeSentence(outcome, finding.direction, priorLabel, recentLabel)
-        }
-        TrendFindingKind.TIME_OF_DAY_SPLIT -> {
-            // outcome is always set for this kind -- see TrendFinding's KDoc.
-            val outcome = requiredOutcome(finding)
-            val (dayLabel, eveningLabel) =
-                when (outcome) {
-                    TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
-                    TagOutcome.DURATION ->
-                        formatMinutesDuration(finding.priorValue.roundToLong()) to formatMinutesDuration(finding.recentValue.roundToLong())
-                }
-            voice.insightsTimeOfDaySplitSentence(outcome, finding.direction, dayLabel, eveningLabel)
-        }
-        TrendFindingKind.TAG_TIMING -> {
-            // tagName is always set; exactly one of weekday/timeOfDay is set -- see TrendFinding's KDoc.
-            voice.insightsTagTimingSentence(
-                finding.tagName.orEmpty(),
-                trendBucketPhrase(finding, voice, locale),
-                formatPercent(finding.priorValue),
-                formatPercent(finding.recentValue),
-            )
-        }
-        TrendFindingKind.WEEKDAY_WEEKEND_SPLIT ->
-            voice.insightsWeekdayWeekendSentence(
-                finding.direction,
-                weekdayLabel = formatPercent(1 - finding.recentValue),
-                weekendLabel = formatPercent(finding.recentValue),
-            )
-    }
-
 /** [finding]'s evidence-count line — the small "based on N events" caption under its figures. Shown on both the Insights card and the share card, via [TrendFindingBody]. */
 private fun trendFindingEvidenceLabel(
     finding: TrendFinding,
@@ -1081,8 +974,8 @@ private fun TrendFindingRow(
 
 /**
  * One Trends finding on the full-list screen (see [TrendFindingBody]). Plain wraps
- * it in its own white plank [Card] on the tinted screen background, matching [EventRow]'s Log-tab
- * convention; Intense and Bright keep a flat row, same split as [EventRow].
+ * it in its own white plank [Card] on the tinted screen background, matching [EventRow]'s
+ * History-tab convention; Intense and Bright keep a flat row, same split as [EventRow].
  * Internal so [com.secondmonday.hodith.ui.casedetail.trends.TrendsListScreen] can render it.
  */
 @Composable
@@ -1151,24 +1044,42 @@ private fun IntensityCard(
             (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
                 val count = display.distribution[value] ?: 0
                 val level = heatmapLevelFor(count, display.maxCount)
-                Box(
+                IntensitySquare(
+                    value = value,
+                    level = level,
                     modifier =
                         Modifier
                             .weight(1f)
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(level.toCellColor())
                             .tappableWithDescription(
                                 enabled = count > 0,
                                 description = { voice.insightsIntensitySquareTapDescription(value) },
                                 onClick = { onIntensityTap(value) },
                             ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(text = value.toString(), style = MaterialTheme.typography.labelSmall, color = level.toTextColor())
-                }
+                )
             }
         }
+    }
+}
+
+/**
+ * One intensity-level square, shaded by [level] and labelled with [value]. Shared by
+ * [IntensityCard]'s row and the Share card's intensity panel
+ * ([com.secondmonday.hodith.ui.share.ShareCardTemplate]) — each supplies its own size/shape/tap
+ * modifier; this only draws the fill and the label.
+ */
+@Composable
+internal fun IntensitySquare(
+    value: Int,
+    level: HeatmapLevel,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.background(level.toCellColor()),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = value.toString(), style = MaterialTheme.typography.labelSmall, color = level.toTextColor())
     }
 }
 
@@ -1249,6 +1160,7 @@ internal fun StatRow(
     value: String,
     onClick: (() -> Unit)? = null,
     contentDescription: String? = null,
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     Row(
         modifier =
@@ -1261,8 +1173,8 @@ internal fun StatRow(
                 ),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium)
+        Text(text = label, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = value, style = style)
     }
 }
 
@@ -1366,9 +1278,6 @@ internal fun formatDays(days: Double): String {
 
 /** A share fraction (0.0–1.0) as a whole-number percentage, e.g. "40%". */
 internal fun formatPercent(share: Double): String = "${(share * 100).roundToInt()}%"
-
-/** An average intensity score to one decimal place, dropping a whole number's ".0", e.g. "3.2" or "3". */
-internal fun formatIntensity(value: Double): String = formatCompactDecimal(value)
 
 /**
  * A calendar date bucketed to a third of its month against the month's own name, e.g. "early March",

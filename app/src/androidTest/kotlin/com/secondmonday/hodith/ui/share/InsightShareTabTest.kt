@@ -22,8 +22,8 @@ import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.LogShareSelection
-import com.secondmonday.hodith.viewmodel.LogShareUiState
+import com.secondmonday.hodith.viewmodel.HistoryShareSelection
+import com.secondmonday.hodith.viewmodel.HistoryShareUiState
 import com.secondmonday.hodith.viewmodel.ShareSelection
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import org.junit.Assert.assertEquals
@@ -105,11 +105,11 @@ class InsightShareTabTest {
         composeTestRule.setHodithContent {
             ShareScreen(
                 insightState = uiState,
-                logState =
-                    LogShareUiState(
+                historyState =
+                    HistoryShareUiState(
                         case = uiState.case,
                         events = uiState.events,
-                        selection = LogShareSelection(dateTo = now),
+                        selection = HistoryShareSelection(dateTo = now),
                         isLoading = uiState.isLoading,
                     ),
                 now = now,
@@ -121,8 +121,8 @@ class InsightShareTabTest {
                 onDateFromPicked = {},
                 onDateToPicked = {},
                 onFieldToggle = { _, _ -> },
-                onLogSortOrderSelect = {},
-                onLogShareClick = {},
+                onHistorySortOrderSelect = {},
+                onHistoryShareClick = {},
             )
         }
         if (tab != ShareTab.SUMMARY) composeTestRule.onNodeWithText(tabLabel(tab)).performClick()

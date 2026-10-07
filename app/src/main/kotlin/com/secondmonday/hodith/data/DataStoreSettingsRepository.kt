@@ -21,13 +21,13 @@ private val NOTIFICATION_PERMISSION_REQUESTED_KEY = booleanPreferencesKey("notif
 private val DEVELOPER_MODE_UNLOCKED_KEY = booleanPreferencesKey("developer_mode_unlocked")
 private val CLOUD_BACKUP_ENABLED_KEY = booleanPreferencesKey("cloud_backup_enabled")
 private val BIG_PICTURE_DETAIL_KEY = stringPreferencesKey("big_picture_detail")
-private val LOG_SORT_ORDER_KEY = stringPreferencesKey("log_sort_order")
+private val HISTORY_SORT_ORDER_KEY = stringPreferencesKey("log_sort_order")
 private val BIG_PICTURE_VISIBLE_CASE_IDS_KEY = stringPreferencesKey("big_picture_visible_case_ids")
 private val BIG_PICTURE_VISIBLE_TAG_NAMES_KEY = stringPreferencesKey("big_picture_visible_tag_names")
 private val BIG_PICTURE_SELECTED_YEAR_KEY = stringPreferencesKey("big_picture_selected_year")
-private val LOG_DATE_FROM_KEY = stringPreferencesKey("log_date_from")
-private val LOG_DATE_TO_KEY = stringPreferencesKey("log_date_to")
-private val LOG_VISIBLE_FIELDS_KEY = stringPreferencesKey("log_visible_fields")
+private val HISTORY_DATE_FROM_KEY = stringPreferencesKey("log_date_from")
+private val HISTORY_DATE_TO_KEY = stringPreferencesKey("log_date_to")
+private val HISTORY_VISIBLE_FIELDS_KEY = stringPreferencesKey("log_visible_fields")
 private val SHARE_SECTION_ORDER_KEY = stringPreferencesKey("share_section_order")
 
 @Singleton
@@ -105,48 +105,49 @@ class DataStoreSettingsRepository
             dataStore.edit { preferences -> preferences[BIG_PICTURE_DETAIL_KEY] = detail.serialize() }
         }
 
-        override fun observeLogSortOrder(): Flow<LogSortOrder> =
+        override fun observeHistorySortOrder(): Flow<HistorySortOrder> =
             dataStore.data.map { preferences ->
-                preferences[LOG_SORT_ORDER_KEY]?.let { name ->
-                    runCatching { LogSortOrder.valueOf(name) }.getOrNull()
-                } ?: LogSortOrder.BY_START
+                preferences[HISTORY_SORT_ORDER_KEY]?.let { name ->
+                    runCatching { HistorySortOrder.valueOf(name) }.getOrNull()
+                } ?: HistorySortOrder.BY_START
             }
 
-        override suspend fun setLogSortOrder(order: LogSortOrder) {
-            dataStore.edit { preferences -> preferences[LOG_SORT_ORDER_KEY] = order.name }
+        override suspend fun setHistorySortOrder(order: HistorySortOrder) {
+            dataStore.edit { preferences -> preferences[HISTORY_SORT_ORDER_KEY] = order.name }
         }
 
-        override fun observeLogDateFrom(): Flow<Long?> =
-            dataStore.data.map { preferences -> preferences[LOG_DATE_FROM_KEY]?.toLongOrNull() }
+        override fun observeHistoryDateFrom(): Flow<Long?> =
+            dataStore.data.map { preferences -> preferences[HISTORY_DATE_FROM_KEY]?.toLongOrNull() }
 
-        override suspend fun setLogDateFrom(millis: Long?) {
+        override suspend fun setHistoryDateFrom(millis: Long?) {
             dataStore.edit { preferences ->
-                if (millis == null) preferences.remove(LOG_DATE_FROM_KEY) else preferences[LOG_DATE_FROM_KEY] = millis.toString()
+                if (millis == null) preferences.remove(HISTORY_DATE_FROM_KEY) else preferences[HISTORY_DATE_FROM_KEY] = millis.toString()
             }
         }
 
-        override fun observeLogDateTo(): Flow<Long?> = dataStore.data.map { preferences -> preferences[LOG_DATE_TO_KEY]?.toLongOrNull() }
+        override fun observeHistoryDateTo(): Flow<Long?> =
+            dataStore.data.map { preferences -> preferences[HISTORY_DATE_TO_KEY]?.toLongOrNull() }
 
-        override suspend fun setLogDateTo(millis: Long?) {
+        override suspend fun setHistoryDateTo(millis: Long?) {
             dataStore.edit { preferences ->
-                if (millis == null) preferences.remove(LOG_DATE_TO_KEY) else preferences[LOG_DATE_TO_KEY] = millis.toString()
+                if (millis == null) preferences.remove(HISTORY_DATE_TO_KEY) else preferences[HISTORY_DATE_TO_KEY] = millis.toString()
             }
         }
 
-        /** Absent key (never stored, or every field explicitly re-selected) reads as every field on — matches [LogRowField]'s "all on" default elsewhere. */
-        override fun observeLogVisibleFields(): Flow<Set<LogRowField>> =
+        /** Absent key (never stored, or every field explicitly re-selected) reads as every field on — matches [HistoryRowField]'s "all on" default elsewhere. */
+        override fun observeHistoryVisibleFields(): Flow<Set<HistoryRowField>> =
             dataStore.data.map { preferences ->
-                preferences[LOG_VISIBLE_FIELDS_KEY]?.let { raw ->
+                preferences[HISTORY_VISIBLE_FIELDS_KEY]?.let { raw ->
                     if (raw.isEmpty()) {
                         emptySet()
                     } else {
-                        raw.split(",").mapNotNull { name -> runCatching { LogRowField.valueOf(name) }.getOrNull() }.toSet()
+                        raw.split(",").mapNotNull { name -> runCatching { HistoryRowField.valueOf(name) }.getOrNull() }.toSet()
                     }
-                } ?: LogRowField.entries.toSet()
+                } ?: HistoryRowField.entries.toSet()
             }
 
-        override suspend fun setLogVisibleFields(fields: Set<LogRowField>) {
-            dataStore.edit { preferences -> preferences[LOG_VISIBLE_FIELDS_KEY] = fields.joinToString(",") { it.name } }
+        override suspend fun setHistoryVisibleFields(fields: Set<HistoryRowField>) {
+            dataStore.edit { preferences -> preferences[HISTORY_VISIBLE_FIELDS_KEY] = fields.joinToString(",") { it.name } }
         }
 
         /** Absent key reads as declaration order; unknown names in a stored value are dropped rather than failing the whole list. */

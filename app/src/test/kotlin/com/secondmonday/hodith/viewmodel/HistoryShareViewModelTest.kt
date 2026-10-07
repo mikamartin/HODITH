@@ -5,8 +5,8 @@ import app.cash.turbine.test
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
+import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.LogRowField
 import com.secondmonday.hodith.data.share.FakeShareImageExporter
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.domain.FakeClock
@@ -26,7 +26,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class LogShareViewModelTest {
+class HistoryShareViewModelTest {
     private val zone = ZoneId.systemDefault()
     private val today = LocalDate.of(2026, 9, 27)
     private val repository = FakeHodithRepository()
@@ -44,7 +44,7 @@ class LogShareViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = LogShareViewModel(repository, clock, shareImageExporter, SavedStateHandle(mapOf("caseId" to caseId)))
+    private fun viewModel() = HistoryShareViewModel(repository, clock, shareImageExporter, SavedStateHandle(mapOf("caseId" to caseId)))
 
     private fun testCase() =
         CaseEntity(
@@ -72,7 +72,7 @@ class LogShareViewModelTest {
                 assertEquals(ChronologicalOrder.NEWEST_FIRST, state.selection.sortOrder)
                 assertNull(state.selection.dateFrom)
                 assertEquals(zone.endOfDayMillis(today), state.selection.dateTo)
-                assertEquals(LogRowField.entries.toSet(), state.selection.fields)
+                assertEquals(HistoryRowField.entries.toSet(), state.selection.fields)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -146,13 +146,13 @@ class LogShareViewModelTest {
             vm.uiState.test {
                 awaitLoadedItem { it.isLoading }
 
-                vm.setFieldSelected(LogRowField.NOTES, selected = false)
+                vm.setFieldSelected(HistoryRowField.NOTES, selected = false)
                 val afterRemoval = awaitItem().selection.fields
-                assertEquals(false, LogRowField.NOTES in afterRemoval)
-                assertTrue(LogRowField.TAGS in afterRemoval)
+                assertEquals(false, HistoryRowField.NOTES in afterRemoval)
+                assertTrue(HistoryRowField.TAGS in afterRemoval)
 
-                vm.setFieldSelected(LogRowField.NOTES, selected = true)
-                assertTrue(LogRowField.NOTES in awaitItem().selection.fields)
+                vm.setFieldSelected(HistoryRowField.NOTES, selected = true)
+                assertTrue(HistoryRowField.NOTES in awaitItem().selection.fields)
 
                 cancelAndIgnoreRemainingEvents()
             }

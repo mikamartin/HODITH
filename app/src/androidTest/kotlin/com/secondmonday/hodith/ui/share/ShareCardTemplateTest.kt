@@ -43,8 +43,8 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.DurationDisplay
 import com.secondmonday.hodith.viewmodel.GapsDisplay
+import com.secondmonday.hodith.viewmodel.HistoryCardRow
 import com.secondmonday.hodith.viewmodel.IntensityDisplay
-import com.secondmonday.hodith.viewmodel.LogCardRow
 import com.secondmonday.hodith.viewmodel.RhythmCellDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.ShareCardData
@@ -1029,65 +1029,68 @@ class ShareCardTemplateTest {
         composeTestRule.onNodeWithText(voice.shareSquareObservedLine(60, 14), ignoreCase = true).assertExists()
     }
 
-    private val logRangeLabel = "Jan 3 – Sep 9"
+    private val historyRangeLabel = "Jan 3 – Sep 9"
 
-    private fun logData(
-        rows: List<LogCardRow>,
+    private fun historyData(
+        rows: List<HistoryCardRow>,
         truncatedTotalCount: Int? = null,
-    ) = ShareCardData.Log(
+    ) = ShareCardData.History(
         caseIcon = "🤕",
         caseName = "Migraine",
         generatedAtMillis = FIXTURE_GENERATED_AT_MILLIS,
-        rangeLabel = logRangeLabel,
+        rangeLabel = historyRangeLabel,
         rows = rows,
         truncatedTotalCount = truncatedTotalCount,
     )
 
     @Test
-    fun logCardRendersRangeAsTitleAndEachRow() {
+    fun historyCardRendersRangeAsTitleAndEachRow() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 ShareCardTemplate(
-                    data = logData(rows = listOf(LogCardRow(timestamp = "Wed, Sep 9 · 8:14 PM", detail = "5h 20m · Intensity 4/5"))),
+                    data =
+                        historyData(
+                            rows = listOf(HistoryCardRow(timestamp = "Wed, Sep 9 · 8:14 PM", detail = "5h 20m · Intensity 4/5")),
+                        ),
                     voice = PlainVoice,
                 )
             }
         }
 
-        composeTestRule.onNodeWithText(logRangeLabel).assertExists()
+        composeTestRule.onNodeWithText(historyRangeLabel).assertExists()
         composeTestRule.onNodeWithText("Wed, Sep 9 · 8:14 PM").assertExists()
         composeTestRule.onNodeWithText("5h 20m · Intensity 4/5").assertExists()
     }
 
     @Test
-    fun logCardShowsTruncationNoteOnlyWhenCapped() {
+    fun historyCardShowsTruncationNoteOnlyWhenCapped() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 Column {
                     ShareCardTemplate(
-                        data = logData(rows = listOf(LogCardRow("Wed, Sep 9 · 8:14 PM", null)), truncatedTotalCount = null),
+                        data = historyData(rows = listOf(HistoryCardRow("Wed, Sep 9 · 8:14 PM", null)), truncatedTotalCount = null),
                         voice = PlainVoice,
                     )
                     ShareCardTemplate(
-                        data = logData(rows = listOf(LogCardRow("Wed, Sep 9 · 8:14 PM", null)), truncatedTotalCount = 42),
+                        data = historyData(rows = listOf(HistoryCardRow("Wed, Sep 9 · 8:14 PM", null)), truncatedTotalCount = 42),
                         voice = PlainVoice,
                     )
                 }
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogTruncationNote(1, 42)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryTruncationNote(1, 42)).assertExists()
     }
 
     @Test
-    fun logCardShowsEmptyRangeMessageWhenNoRowsMatch() {
+    fun historyCardShowsEmptyRangeMessageWhenNoRowsMatch() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
-                ShareCardTemplate(data = logData(rows = emptyList()), voice = PlainVoice)
+                ShareCardTemplate(data = historyData(rows = emptyList()), voice = PlainVoice)
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogEmptyRangeMessage).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryEmptyRangeMessage).assertExists()
     }
 
     @Test

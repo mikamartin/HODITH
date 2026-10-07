@@ -18,3 +18,6 @@ private const val COMPACT_DECIMAL_WHOLE_NUMBER_FROM = 10.0
 
 /** A day count in the share card's compact notation, e.g. "3.1d" or "9d". */
 internal fun formatDaysCompact(days: Double): String = "${formatCompactDecimal(days)}d"
+
+/** An average intensity score to one decimal place, dropping a whole number's ".0", e.g. "3.2" or "3". */
+internal fun formatIntensity(value: Double): String = formatCompactDecimal(value)

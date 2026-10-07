@@ -6,9 +6,9 @@ import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
+import com.secondmonday.hodith.data.HistoryRowField
+import com.secondmonday.hodith.data.HistorySortOrder
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.LogRowField
-import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.testsupport.Fixtures
@@ -108,7 +108,7 @@ class CaseDetailViewModelTest {
         }
 
     @Test
-    fun `uiState logEvents caps at the initial 30-event window`() =
+    fun `uiState historyEvents caps at the initial 30-event window`() =
         runTest {
             repository.cases.value = listOf(testCase())
             repeat(35) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
@@ -116,162 +116,162 @@ class CaseDetailViewModelTest {
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals(35, state.events.size)
-                assertEquals(30, state.logEvents.size)
-                assertTrue(state.logHasMore)
+                assertEquals(30, state.historyEvents.size)
+                assertTrue(state.historyHasMore)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `uiState logHasMore is false once every event is loaded`() =
+    fun `uiState historyHasMore is false once every event is loaded`() =
         runTest {
             repository.cases.value = listOf(testCase())
             repeat(10) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(10, state.logEvents.size)
-                assertFalse(state.logHasMore)
+                assertEquals(10, state.historyEvents.size)
+                assertFalse(state.historyHasMore)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `loadMoreLogEvents grows the loaded window by 50`() =
+    fun `loadMoreHistoryEvents grows the loaded window by 50`() =
         runTest {
             repository.cases.value = listOf(testCase())
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
             val vm = viewModel()
-            vm.loadMoreLogEvents()
+            vm.loadMoreHistoryEvents()
 
             vm.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(80, state.logEvents.size)
-                assertTrue(state.logHasMore)
+                assertEquals(80, state.historyEvents.size)
+                assertTrue(state.historyHasMore)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogSortOrder changes the sort order and resets the window back to 30`() =
+    fun `setHistorySortOrder changes the sort order and resets the window back to 30`() =
         runTest {
             repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
             val vm = viewModel()
-            vm.loadMoreLogEvents()
-            vm.setLogSortOrder(LogSortOrder.BY_END)
+            vm.loadMoreHistoryEvents()
+            vm.setHistorySortOrder(HistorySortOrder.BY_END)
 
             vm.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(LogSortOrder.BY_END, state.logSortOrder)
-                assertEquals(30, state.logEvents.size)
+                assertEquals(HistorySortOrder.BY_END, state.historySortOrder)
+                assertEquals(30, state.historyEvents.size)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogSortOrder persists across a fresh ViewModel instance`() =
+    fun `setHistorySortOrder persists across a fresh ViewModel instance`() =
         runTest {
             repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
-            viewModel().setLogSortOrder(LogSortOrder.BY_END)
+            viewModel().setHistorySortOrder(HistorySortOrder.BY_END)
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(LogSortOrder.BY_END, state.logSortOrder)
+                assertEquals(HistorySortOrder.BY_END, state.historySortOrder)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogDateFrom stores the picked date's local start-of-day millis and resets the window back to 30`() =
+    fun `setHistoryDateFrom stores the picked date's local start-of-day millis and resets the window back to 30`() =
         runTest {
             val zone = ZoneId.systemDefault()
             repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
             val today = clock.nowMillis().toLocalDateIn(zone)
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = clock.nowMillis() + i)) }
             val vm = viewModel()
-            vm.loadMoreLogEvents()
+            vm.loadMoreHistoryEvents()
 
-            vm.setLogDateFrom(today)
+            vm.setHistoryDateFrom(today)
 
             vm.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(zone.startOfDayMillis(today), state.logDateFrom)
-                assertEquals(30, state.logEvents.size)
-                assertTrue(state.logHasMore)
+                assertEquals(zone.startOfDayMillis(today), state.historyDateFrom)
+                assertEquals(30, state.historyEvents.size)
+                assertTrue(state.historyHasMore)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogDateFrom persists across a fresh ViewModel instance`() =
+    fun `setHistoryDateFrom persists across a fresh ViewModel instance`() =
         runTest {
             val zone = ZoneId.systemDefault()
             val picked = LocalDate.of(2026, 7, 3)
             repository.cases.value = listOf(testCase())
-            viewModel().setLogDateFrom(picked)
+            viewModel().setHistoryDateFrom(picked)
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(zone.startOfDayMillis(picked), state.logDateFrom)
+                assertEquals(zone.startOfDayMillis(picked), state.historyDateFrom)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogDateFrom of null clears the bound back to since-the-beginning`() =
+    fun `setHistoryDateFrom of null clears the bound back to since-the-beginning`() =
         runTest {
             repository.cases.value = listOf(testCase())
             val vm = viewModel()
-            vm.setLogDateFrom(LocalDate.of(2026, 7, 3))
+            vm.setHistoryDateFrom(LocalDate.of(2026, 7, 3))
 
-            vm.setLogDateFrom(null)
+            vm.setHistoryDateFrom(null)
 
             vm.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertNull(state.logDateFrom)
+                assertNull(state.historyDateFrom)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogDateTo stores the picked date's local end-of-day millis and resets the window back to 30`() =
+    fun `setHistoryDateTo stores the picked date's local end-of-day millis and resets the window back to 30`() =
         runTest {
             val zone = ZoneId.systemDefault()
             repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
             val today = clock.nowMillis().toLocalDateIn(zone)
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = clock.nowMillis() + i)) }
             val vm = viewModel()
-            vm.loadMoreLogEvents()
+            vm.loadMoreHistoryEvents()
 
-            vm.setLogDateTo(today)
+            vm.setHistoryDateTo(today)
 
             vm.uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(zone.endOfDayMillis(today), state.logDateTo)
-                assertEquals(30, state.logEvents.size)
-                assertTrue(state.logHasMore)
+                assertEquals(zone.endOfDayMillis(today), state.historyDateTo)
+                assertEquals(30, state.historyEvents.size)
+                assertTrue(state.historyHasMore)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogDateTo persists across a fresh ViewModel instance`() =
+    fun `setHistoryDateTo persists across a fresh ViewModel instance`() =
         runTest {
             val zone = ZoneId.systemDefault()
             val picked = LocalDate.of(2026, 8, 15)
             repository.cases.value = listOf(testCase())
-            viewModel().setLogDateTo(picked)
+            viewModel().setHistoryDateTo(picked)
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(zone.endOfDayMillis(picked), state.logDateTo)
+                assertEquals(zone.endOfDayMillis(picked), state.historyDateTo)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogFieldVisible toggles a single field without disturbing the rest`() =
+    fun `setHistoryFieldVisible toggles a single field without disturbing the rest`() =
         runTest {
             repository.cases.value = listOf(testCase())
             val vm = viewModel()
@@ -279,27 +279,27 @@ class CaseDetailViewModelTest {
             vm.uiState.test {
                 awaitLoadedItem { it.isLoading }
 
-                vm.setLogFieldVisible(LogRowField.NOTES, visible = false)
-                val afterRemoval = awaitItem().logVisibleFields
-                assertEquals(false, LogRowField.NOTES in afterRemoval)
-                assertTrue(LogRowField.TAGS in afterRemoval)
+                vm.setHistoryFieldVisible(HistoryRowField.NOTES, visible = false)
+                val afterRemoval = awaitItem().historyVisibleFields
+                assertEquals(false, HistoryRowField.NOTES in afterRemoval)
+                assertTrue(HistoryRowField.TAGS in afterRemoval)
 
-                vm.setLogFieldVisible(LogRowField.NOTES, visible = true)
-                assertTrue(LogRowField.NOTES in awaitItem().logVisibleFields)
+                vm.setHistoryFieldVisible(HistoryRowField.NOTES, visible = true)
+                assertTrue(HistoryRowField.NOTES in awaitItem().historyVisibleFields)
 
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `setLogFieldVisible persists across a fresh ViewModel instance`() =
+    fun `setHistoryFieldVisible persists across a fresh ViewModel instance`() =
         runTest {
             repository.cases.value = listOf(testCase())
-            viewModel().setLogFieldVisible(LogRowField.TAGS, visible = false)
+            viewModel().setHistoryFieldVisible(HistoryRowField.TAGS, visible = false)
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertFalse(LogRowField.TAGS in state.logVisibleFields)
+                assertFalse(HistoryRowField.TAGS in state.historyVisibleFields)
                 cancelAndIgnoreRemainingEvents()
             }
         }

@@ -40,27 +40,27 @@ interface SettingsRepository {
 
     suspend fun setBigPictureDetail(detail: BigPictureDetail)
 
-    /** Case Detail's Log tab sort order (spec §6). Default [LogSortOrder.BY_START]. */
-    fun observeLogSortOrder(): Flow<LogSortOrder>
+    /** Case Detail's History tab sort order (spec §6). Default [HistorySortOrder.BY_START]. */
+    fun observeHistorySortOrder(): Flow<HistorySortOrder>
 
-    suspend fun setLogSortOrder(order: LogSortOrder)
+    suspend fun setHistorySortOrder(order: HistorySortOrder)
 
     /**
-     * The Log tab's Range filter (spec §6/§13) — device-wide, applied across every Case, same as
-     * [observeLogSortOrder] rather than a per-Case value. `null` on either side means unbounded.
+     * The History tab's Range filter (spec §6/§13) — device-wide, applied across every Case, same as
+     * [observeHistorySortOrder] rather than a per-Case value. `null` on either side means unbounded.
      */
-    fun observeLogDateFrom(): Flow<Long?>
+    fun observeHistoryDateFrom(): Flow<Long?>
 
-    suspend fun setLogDateFrom(millis: Long?)
+    suspend fun setHistoryDateFrom(millis: Long?)
 
-    fun observeLogDateTo(): Flow<Long?>
+    fun observeHistoryDateTo(): Flow<Long?>
 
-    suspend fun setLogDateTo(millis: Long?)
+    suspend fun setHistoryDateTo(millis: Long?)
 
-    /** The Log tab's per-row field selection (spec §6/§13) — device-wide, absent key defaults to every field on. */
-    fun observeLogVisibleFields(): Flow<Set<LogRowField>>
+    /** The History tab's per-row field selection (spec §6/§13) — device-wide, absent key defaults to every field on. */
+    fun observeHistoryVisibleFields(): Flow<Set<HistoryRowField>>
 
-    suspend fun setLogVisibleFields(fields: Set<LogRowField>)
+    suspend fun setHistoryVisibleFields(fields: Set<HistoryRowField>)
 
     /** The Story share card's section order (spec §13) — device-wide; see [orderedShareSections] for how a partial stored order is completed. */
     fun observeShareSectionOrder(): Flow<List<ShareInsightsSection>>

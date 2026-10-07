@@ -17,9 +17,9 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.HistoryRowField
+import com.secondmonday.hodith.data.HistorySortOrder
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.LogRowField
-import com.secondmonday.hodith.data.LogSortOrder
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
@@ -72,12 +72,12 @@ class CaseDetailScreenTest {
     private fun setCaseDetailScreenContent(
         case: CaseEntity = startStopCase,
         events: List<EventWithTags> = emptyList(),
-        logEvents: List<EventWithTags> = events,
-        logHasMore: Boolean = false,
-        logSortOrder: LogSortOrder = LogSortOrder.BY_START,
-        logDateFrom: Long? = null,
-        logDateTo: Long? = null,
-        logVisibleFields: Set<LogRowField> = LogRowField.entries.toSet(),
+        historyEvents: List<EventWithTags> = events,
+        historyHasMore: Boolean = false,
+        historySortOrder: HistorySortOrder = HistorySortOrder.BY_START,
+        historyDateFrom: Long? = null,
+        historyDateTo: Long? = null,
+        historyVisibleFields: Set<HistoryRowField> = HistoryRowField.entries.toSet(),
         onEditCase: (Long) -> Unit = {},
         onOpenShare: (Long) -> Unit = {},
         onOpenTrends: (Long) -> Unit = {},
@@ -87,11 +87,11 @@ class CaseDetailScreenTest {
         nowMillis: () -> Long = { 10_000L },
         timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
         theme: AppTheme = AppTheme.PLAIN,
-        onLogSortOrderChange: (LogSortOrder) -> Unit = {},
-        onLogDateFromChange: (LocalDate?) -> Unit = {},
-        onLogDateToChange: (LocalDate?) -> Unit = {},
-        onLogFieldVisibleChange: (LogRowField, Boolean) -> Unit = { _, _ -> },
-        onShowMoreLogEvents: () -> Unit = {},
+        onHistorySortOrderChange: (HistorySortOrder) -> Unit = {},
+        onHistoryDateFromChange: (LocalDate?) -> Unit = {},
+        onHistoryDateToChange: (LocalDate?) -> Unit = {},
+        onHistoryFieldVisibleChange: (HistoryRowField, Boolean) -> Unit = { _, _ -> },
+        onShowMoreHistoryEvents: () -> Unit = {},
     ) {
         composeTestRule.setHodithContent(theme = theme) {
             CompositionLocalProvider(LocalTimeFormat provides timeFormat) {
@@ -100,12 +100,12 @@ class CaseDetailScreenTest {
                         CaseDetailUiState(
                             case = case,
                             events = events,
-                            logEvents = logEvents,
-                            logHasMore = logHasMore,
-                            logSortOrder = logSortOrder,
-                            logDateFrom = logDateFrom,
-                            logDateTo = logDateTo,
-                            logVisibleFields = logVisibleFields,
+                            historyEvents = historyEvents,
+                            historyHasMore = historyHasMore,
+                            historySortOrder = historySortOrder,
+                            historyDateFrom = historyDateFrom,
+                            historyDateTo = historyDateTo,
+                            historyVisibleFields = historyVisibleFields,
                             isLoading = false,
                         ),
                     onBack = {},
@@ -129,11 +129,11 @@ class CaseDetailScreenTest {
                     onSaveEvent = onSaveEvent,
                     onStopEvent = onStopEvent,
                     nowMillis = nowMillis,
-                    onLogSortOrderChange = onLogSortOrderChange,
-                    onLogDateFromChange = onLogDateFromChange,
-                    onLogDateToChange = onLogDateToChange,
-                    onLogFieldVisibleChange = onLogFieldVisibleChange,
-                    onShowMoreLogEvents = onShowMoreLogEvents,
+                    onHistorySortOrderChange = onHistorySortOrderChange,
+                    onHistoryDateFromChange = onHistoryDateFromChange,
+                    onHistoryDateToChange = onHistoryDateToChange,
+                    onHistoryFieldVisibleChange = onHistoryFieldVisibleChange,
+                    onShowMoreHistoryEvents = onShowMoreHistoryEvents,
                 )
             }
         }
@@ -308,25 +308,25 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun logSortToggle_hidden_whenTheCaseDoesNotTrackDuration() {
+    fun historySortToggle_hidden_whenTheCaseDoesNotTrackDuration() {
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
         setCaseDetailScreenContent(
             case = startStopCase.copy(durationMode = DurationMode.NONE),
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.historySortLabel).assertDoesNotExist()
     }
 
     @Test
-    fun logSortToggle_hidden_whenTheLogIsEmpty() {
+    fun historySortToggle_hidden_whenTheHistoryIsEmpty() {
         setCaseDetailScreenContent(case = startStopCase, events = emptyList())
 
-        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.historySortLabel).assertDoesNotExist()
     }
 
     @Test
-    fun logSortToggle_shown_whenTheCaseTracksDurationAndHasEvents() {
+    fun historySortToggle_shown_whenTheCaseTracksDurationAndHasEvents() {
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
         setCaseDetailScreenContent(
             case = startStopCase.copy(durationMode = DurationMode.MANUAL),
@@ -336,67 +336,67 @@ class CaseDetailScreenTest {
         // The chip's own count text already reads the current selection ("Started" by default,
         // rendered as ": Started" -- hence substring lookups here); the other option only surfaces
         // once the chip opens its dialog.
-        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.logSortByStartLabel, substring = true).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel, substring = true).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.historySortLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.historySortByStartLabel, substring = true).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.historySortByEndLabel, substring = true).assertDoesNotExist()
 
-        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.historySortLabel).performClick()
 
-        composeTestRule.onAllNodesWithText(PlainVoice.logSortByStartLabel, substring = true).assertCountEquals(2)
-        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel, substring = true).assertExists()
+        composeTestRule.onAllNodesWithText(PlainVoice.historySortByStartLabel, substring = true).assertCountEquals(2)
+        composeTestRule.onNodeWithText(PlainVoice.historySortByEndLabel, substring = true).assertExists()
     }
 
     @Test
-    fun logSortToggle_tapEnded_invokesSortOrderChangeCallback() {
-        // CaseDetailScreen is stateless now — it renders uiState.logEvents exactly as given and
+    fun historySortToggle_tapEnded_invokesSortOrderChangeCallback() {
+        // CaseDetailScreen is stateless now — it renders uiState.historyEvents exactly as given and
         // just forwards the tap. The actual BY_END reordering (running event floats first, then by
         // endedAt) is proven in EventDaoTest against the real paged query, not re-proven here.
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
-        var changedTo: LogSortOrder? = null
+        var changedTo: HistorySortOrder? = null
         setCaseDetailScreenContent(
             case = startStopCase,
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
-            onLogSortOrderChange = { changedTo = it },
+            onHistorySortOrderChange = { changedTo = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.historySortLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.historySortByEndLabel).performClick()
 
-        assertEquals(LogSortOrder.BY_END, changedTo)
+        assertEquals(HistorySortOrder.BY_END, changedTo)
     }
 
     @Test
-    fun logSortToggle_worksUnderBrightTheme() {
+    fun historySortToggle_worksUnderBrightTheme() {
         // The Sort trigger is a FilterTriggerChip; its dialog's Started/Ended choice is a
         // SegmentedChoiceRow -- the two structurally-branching composables this screen owns,
         // both exercised here under real Bright rendering rather than Plain's default code path.
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
-        var changedTo: LogSortOrder? = null
+        var changedTo: HistorySortOrder? = null
         setCaseDetailScreenContent(
             case = startStopCase,
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
-            onLogSortOrderChange = { changedTo = it },
+            onHistorySortOrderChange = { changedTo = it },
             theme = AppTheme.BRIGHT,
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logSortLabel).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.logSortByEndLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.historySortLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.historySortByEndLabel).performClick()
 
-        assertEquals(LogSortOrder.BY_END, changedTo)
+        assertEquals(HistorySortOrder.BY_END, changedTo)
     }
 
     @Test
-    fun logRangeChip_defaultsToAllTime() {
+    fun historyRangeChip_defaultsToAllTime() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeAllTimeLabel, substring = true).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryRangeLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryRangeAllTimeLabel, substring = true).assertExists()
     }
 
     @Test
-    fun logRangeChip_collapsesToSelected_withFormattedBoundsInANoteBelow_whenRangeIsNarrowed() {
+    fun historyRangeChip_collapsesToSelected_withFormattedBoundsInANoteBelow_whenRangeIsNarrowed() {
         // The chip itself stays terse ("Selected") -- a formatted date pair didn't fit the chip's
         // own width alongside the Sort chip and the pinned Edit icon. The actual bounds render as
         // a separate line underneath instead.
@@ -405,32 +405,32 @@ class CaseDetailScreenTest {
         val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
-            logDateFrom = from,
-            logDateTo = to,
+            historyDateFrom = from,
+            historyDateTo = to,
         )
 
         val now = 10_000L
-        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeSelectedLabel, substring = true).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryRangeSelectedLabel, substring = true).assertExists()
         composeTestRule
             .onNodeWithText(
-                PlainVoice.shareLogRangeNote(formatDateRangeBound(from, now, zone), formatDateRangeBound(to, now, zone)),
+                PlainVoice.shareHistoryRangeNote(formatDateRangeBound(from, now, zone), formatDateRangeBound(to, now, zone)),
             ).assertExists()
     }
 
     @Test
-    fun logRangeChip_tap_opensOneCombinedRangeDialog() {
+    fun historyRangeChip_tap_opensOneCombinedRangeDialog() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryRangeLabel).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerCancel).assertExists()
     }
 
     @Test
-    fun logRangeDialog_confirmWithoutChanges_roundTripsTheExistingRangeToBothCallbacks() {
+    fun historyRangeDialog_confirmWithoutChanges_roundTripsTheExistingRangeToBothCallbacks() {
         // Regression guard for the dialog's own state seeding: opening it should pre-select the
         // current dateFrom/dateTo (via toDatePickerUtcMillis), and Confirm should hand both back
         // out through their own callback -- proving the combined onConfirm(from, to) wiring, not
@@ -442,13 +442,13 @@ class CaseDetailScreenTest {
         var changedTo: LocalDate? = null
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
-            logDateFrom = from,
-            logDateTo = to,
-            onLogDateFromChange = { changedFrom = it },
-            onLogDateToChange = { changedTo = it },
+            historyDateFrom = from,
+            historyDateTo = to,
+            onHistoryDateFromChange = { changedFrom = it },
+            onHistoryDateToChange = { changedTo = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryRangeLabel).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
 
         assertEquals(LocalDate.of(2026, 7, 3), changedFrom)
@@ -456,7 +456,7 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun logRangeDialog_allTimeTap_clearsBothBoundsInOneTapAndClosesTheDialog() {
+    fun historyRangeDialog_allTimeTap_clearsBothBoundsInOneTapAndClosesTheDialog() {
         val zone = ZoneId.systemDefault()
         val from = zone.startOfDayMillis(LocalDate.of(2026, 7, 3))
         val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
@@ -464,13 +464,13 @@ class CaseDetailScreenTest {
         var changedTo: LocalDate? = LocalDate.of(2026, 8, 15)
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
-            logDateFrom = from,
-            logDateTo = to,
-            onLogDateFromChange = { changedFrom = it },
-            onLogDateToChange = { changedTo = it },
+            historyDateFrom = from,
+            historyDateTo = to,
+            onHistoryDateFromChange = { changedFrom = it },
+            onHistoryDateToChange = { changedTo = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryRangeLabel).performClick()
         composeTestRule.onNodeWithTag(DATE_RANGE_ALL_TIME_BUTTON_TAG).performClick()
 
         assertEquals(null, changedFrom)
@@ -479,7 +479,7 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun logRangeDialog_allTimeButton_hiddenWhenNothingIsFilteredYet() {
+    fun historyRangeDialog_allTimeButton_hiddenWhenNothingIsFilteredYet() {
         // The chip itself already reads "All time" when unfiltered -- the dialog's own shortcut
         // has nothing to do in that state, so it should stay off rather than double up on it.
         // By tag, not by label text: the chip's own collapsed label is that same "All time" text.
@@ -487,30 +487,30 @@ class CaseDetailScreenTest {
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogRangeLabel).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryRangeLabel).performClick()
 
         composeTestRule.onNodeWithTag(DATE_RANGE_ALL_TIME_BUTTON_TAG).assertDoesNotExist()
     }
 
     @Test
-    fun logDetailEditIcon_tap_opensFieldsDialog_andTogglingNotesInvokesCallback() {
-        var toggled: Pair<LogRowField, Boolean>? = null
+    fun historyFieldsEditIcon_tap_opensFieldsDialog_andTogglingNotesInvokesCallback() {
+        var toggled: Pair<HistoryRowField, Boolean>? = null
         setCaseDetailScreenContent(
             case = startStopCase.copy(durationMode = DurationMode.NONE, intensityEnabled = false),
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
-            onLogFieldVisibleChange = { field, visible -> toggled = field to visible },
+            onHistoryFieldVisibleChange = { field, visible -> toggled = field to visible },
         )
 
-        composeTestRule.onNodeWithContentDescription(PlainVoice.logDetailEditDescription).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.historyFieldsEditDescription).performClick()
 
-        // Duration/Intensity only offered when the Case tracks them (spec §6), same gating as Log Share's own field picker.
+        // Duration/Intensity only offered when the Case tracks them (spec §6), same gating as History Share's own field picker.
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelDuration).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelIntensity).assertDoesNotExist()
         // By tag, not by label text: the label/Switch semantics don't reliably merge into one
-        // clickable node in every context (see LOG_DETAIL_FIELD_TOGGLE_TAG_PREFIX's own doc comment).
-        composeTestRule.onNodeWithTag(LOG_DETAIL_FIELD_TOGGLE_TAG_PREFIX + LogRowField.NOTES.name).performClick()
+        // clickable node in every context (see HISTORY_FIELD_TOGGLE_TAG_PREFIX's own doc comment).
+        composeTestRule.onNodeWithTag(HISTORY_FIELD_TOGGLE_TAG_PREFIX + HistoryRowField.NOTES.name).performClick()
 
-        assertEquals(LogRowField.NOTES to false, toggled)
+        assertEquals(HistoryRowField.NOTES to false, toggled)
     }
 
     @Test
@@ -518,33 +518,33 @@ class CaseDetailScreenTest {
         val event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, note = "a private note")
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = event, tags = emptyList())),
-            logVisibleFields = LogRowField.entries.toSet() - LogRowField.NOTES,
+            historyVisibleFields = HistoryRowField.entries.toSet() - HistoryRowField.NOTES,
         )
 
         composeTestRule.onNodeWithText("a private note", substring = true).assertDoesNotExist()
     }
 
     @Test
-    fun logTab_showsEmptyRangeMessage_whenTheFilteredLogIsEmptyButHistoryIsNot() {
+    fun historyTab_showsEmptyRangeMessage_whenTheFilteredHistoryIsEmptyButEventHistoryIsNot() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
-            logEvents = emptyList(),
+            historyEvents = emptyList(),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareLogEmptyRangeMessage).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.shareHistoryEmptyRangeMessage).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.eventListEmptyState).assertDoesNotExist()
     }
 
     @Test
-    fun logTab_rendersOnlyLogEvents_notTheFullEventHistory() {
-        // Regression guard for PROGRESS.md F4: the Log tab's row list must come from the capped,
-        // paged uiState.logEvents, not the full uiState.events used by ongoing-event detection and
+    fun historyTab_rendersOnlyHistoryEvents_notTheFullEventHistory() {
+        // Regression guard for PROGRESS.md F4: the History tab's row list must come from the capped,
+        // paged uiState.historyEvents, not the full uiState.events used by ongoing-event detection and
         // the Insights tab.
         val shown = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, note = "shown row")
         val hidden = testEvent(id = 9L, caseId = 1L, occurredAt = 1_000L, note = "hidden row")
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = shown, tags = emptyList()), EventWithTags(event = hidden, tags = emptyList())),
-            logEvents = listOf(EventWithTags(event = shown, tags = emptyList())),
+            historyEvents = listOf(EventWithTags(event = shown, tags = emptyList())),
         )
 
         composeTestRule.onNodeWithText("shown row", substring = true).assertExists()
@@ -552,41 +552,41 @@ class CaseDetailScreenTest {
     }
 
     @Test
-    fun logShowMoreButton_hidden_whenLogHasNoMoreEvents() {
+    fun historyShowMoreButton_hidden_whenHistoryHasNoMoreEvents() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
-            logHasMore = false,
+            historyHasMore = false,
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logShowMoreAction).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.historyShowMoreAction).assertDoesNotExist()
     }
 
     @Test
-    fun logShowMoreButton_shown_whenLogHasMoreEvents() {
+    fun historyShowMoreButton_shown_whenHistoryHasMoreEvents() {
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
-            logHasMore = true,
+            historyHasMore = true,
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logShowMoreAction).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.historyShowMoreAction).assertExists()
     }
 
     @Test
-    fun logShowMoreButton_tap_invokesOnShowMoreLogEvents() {
+    fun historyShowMoreButton_tap_invokesOnShowMoreHistoryEvents() {
         var tapped = false
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
-            logHasMore = true,
-            onShowMoreLogEvents = { tapped = true },
+            historyHasMore = true,
+            onShowMoreHistoryEvents = { tapped = true },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logShowMoreAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.historyShowMoreAction).performClick()
 
         assertTrue(tapped)
     }
 
     @Test
-    fun logTab_fullScreenList_lastRowsStopButton_doesNotOverlapRetroLogFab() {
+    fun historyTab_fullScreenList_lastRowsStopButton_doesNotOverlapRetroLogFab() {
         val events = eventsAt(30)
         setCaseDetailScreenContent(events = events)
         // The LazyColumn only composes visible rows, so scroll its container to the last index
