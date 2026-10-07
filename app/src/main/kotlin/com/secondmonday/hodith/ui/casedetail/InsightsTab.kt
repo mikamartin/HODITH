@@ -765,9 +765,10 @@ private fun TrendReliabilityTag(
 }
 
 /**
- * [finding]'s display sentence, with the real prior/recent values formatted in — no evidence count,
- * no reliability tag. Reused by [ShareCardTemplate.kt][com.secondmonday.hodith.ui.share.ShareCardTemplate]'s
- * sentence-only Trends section, so this stays the single place each [TrendFindingKind] is worded.
+ * [finding]'s sentence wording, with the real prior/recent values formatted in. Neither card renders it
+ * any more: both show headlines through [TrendFindingBody]. Only [TrendFindingSentenceTest] reads it,
+ * pinning each [TrendFindingKind]'s sentence arguments; whether it stays is for the share/Insights
+ * duplication review.
  */
 internal fun trendFindingSentence(
     finding: TrendFinding,
@@ -805,7 +806,7 @@ internal fun trendFindingSentence(
             voice.insightsRecurrenceShapeSentence(finding.direction, formatDays(finding.priorValue), formatPercent(finding.recentValue))
         TrendFindingKind.TAG_OUTCOME -> {
             // tagName and outcome are always set for this kind -- see TrendFinding's KDoc.
-            val outcome = finding.outcome ?: TagOutcome.INTENSITY
+            val outcome = requiredOutcome(finding)
             val (withoutTagLabel, withTagLabel) =
                 when (outcome) {
                     TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
@@ -826,13 +827,13 @@ internal fun trendFindingSentence(
             // changePointDate is always set for this kind -- see TrendFinding's KDoc.
             voice.insightsChangePointSentence(
                 finding.direction,
-                formatApproximateMonth(finding.changePointDate ?: LocalDate.now()),
+                formatApproximateMonth(checkNotNull(finding.changePointDate) { "CHANGE_POINT finding without a changePointDate" }),
                 formatDays(finding.priorValue),
                 formatDays(finding.recentValue),
             )
         TrendFindingKind.TREND_SLOPE -> {
             // outcome is always set for this kind -- see TrendFinding's KDoc.
-            val outcome = finding.outcome ?: TagOutcome.INTENSITY
+            val outcome = requiredOutcome(finding)
             val (priorLabel, recentLabel) =
                 when (outcome) {
                     TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
@@ -843,7 +844,7 @@ internal fun trendFindingSentence(
         }
         TrendFindingKind.TIME_OF_DAY_SPLIT -> {
             // outcome is always set for this kind -- see TrendFinding's KDoc.
-            val outcome = finding.outcome ?: TagOutcome.INTENSITY
+            val outcome = requiredOutcome(finding)
             val (dayLabel, eveningLabel) =
                 when (outcome) {
                     TagOutcome.INTENSITY -> formatIntensity(finding.priorValue) to formatIntensity(finding.recentValue)
@@ -869,7 +870,7 @@ internal fun trendFindingSentence(
             )
     }
 
-/** [finding]'s evidence-count line — the small "based on N events" caption under its figures. Not shown on the share card (see [trendFindingSentence]'s doc comment). */
+/** [finding]'s evidence-count line — the small "based on N events" caption under its figures. Shown on both the Insights card and the share card, via [TrendFindingBody]. */
 private fun trendFindingEvidenceLabel(
     finding: TrendFinding,
     voice: Voice,
@@ -948,7 +949,7 @@ internal fun trendFigures(
 
 /** The absolute values of an outcome-based row, in its outcome's units: an average intensity or a duration. */
 private fun outcomeValueFigures(finding: TrendFinding): TrendFigures =
-    when (finding.outcome ?: TagOutcome.INTENSITY) {
+    when (requiredOutcome(finding)) {
         TagOutcome.INTENSITY -> TrendFigures(formatIntensity(finding.recentValue), formatIntensity(finding.priorValue))
         TagOutcome.DURATION ->
             TrendFigures(
@@ -957,16 +958,31 @@ private fun outcomeValueFigures(finding: TrendFinding): TrendFigures =
             )
     }
 
+/** [finding]'s outcome for the kinds that always carry one (see [TrendFinding]'s KDoc); a missing one fails loudly rather than defaulting to intensity. */
+private fun requiredOutcome(finding: TrendFinding): TagOutcome =
+    checkNotNull(finding.outcome) { "${finding.kind} finding without an outcome" }
+
 /** The weekday or time-of-day bucket a [TrendFindingKind.TAG_TIMING] headline names, e.g. "on Mondays" or "in the morning". */
 internal fun trendBucketPhrase(
     finding: TrendFinding,
     voice: Voice,
     locale: Locale,
-): String =
-    voice.trendTimingBucket(
-        weekdayName = finding.weekday?.getDisplayName(TextStyle.FULL, locale),
-        timeOfDayLabel = rhythmTimeOfDayLabel(voice, finding.timeOfDay ?: TimeOfDay.MORNING),
+): String {
+    // Only the TAG_TIMING headline names a bucket; every other kind's headline ignores this phrase.
+    if (finding.kind != TrendFindingKind.TAG_TIMING) return ""
+    // Exactly one of weekday/timeOfDay is set for TAG_TIMING (see TrendFinding's KDoc); the time-of-day label is only read when no weekday is.
+    val weekday = finding.weekday
+    val timeOfDayLabel =
+        if (weekday == null) {
+            rhythmTimeOfDayLabel(voice, checkNotNull(finding.timeOfDay) { "TAG_TIMING finding with neither weekday nor timeOfDay" })
+        } else {
+            ""
+        }
+    return voice.trendTimingBucket(
+        weekdayName = weekday?.getDisplayName(TextStyle.FULL, locale),
+        timeOfDayLabel = timeOfDayLabel,
     )
+}
 
 /** [headline] with every `#tag` for each of [tagNames] drawn in [color], so the tags read apart from the words around them without adding weight. */
 private fun highlightTag(
@@ -992,7 +1008,7 @@ private fun highlightTag(
  * restating them, on either the compact card or the full list.
  */
 @Composable
-private fun TrendFindingBody(
+internal fun TrendFindingBody(
     finding: TrendFinding,
     voice: Voice,
     modifier: Modifier = Modifier,
@@ -1446,9 +1462,9 @@ private val previewGapsDisplay =
 /** One realistic Trends finding set — a compact card sitting first in the stack, not an isolated showcase of every count scenario (guardrail/cap behavior is covered by tests, not by eyeballing variants here). Includes a frequency-shift finding since that now absorbs the former standalone arrow card. */
 private val previewTrendsFindings =
     listOf(
-        TrendFinding(TrendFindingKind.FREQUENCY_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 20, 8.0, 12.0),
-        TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 9, 3.2, 5.8),
-        TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.HINT, 7, 4.0, 2.0),
+        TrendFinding(TrendFindingKind.FREQUENCY_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 20, 8.0, 12.0, latestEvidenceAt = 0L),
+        TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 9, 3.2, 5.8, latestEvidenceAt = 0L),
+        TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.HINT, 7, 4.0, 2.0, latestEvidenceAt = 0L),
     )
 
 /** Exercises [InsightsCard]'s Bright branch (via [TrendsCard]/[FrequencyCard]/[GapsCard]) and [FrequencyCard]'s gradient bars together. */
@@ -1536,8 +1552,8 @@ private fun InsightsBrightCardsDarkPreview() {
 private val previewTrendsFindingsOverCap =
     previewTrendsFindings +
         listOf(
-            TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.UP, TrendReliability.PATTERN, 11, 2.0, 4.5),
-            TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 6, 6.0, 8.5),
+            TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.UP, TrendReliability.PATTERN, 11, 2.0, 4.5, latestEvidenceAt = 0L),
+            TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 6, 6.0, 8.5, latestEvidenceAt = 0L),
         )
 
 @Composable
@@ -1583,7 +1599,7 @@ private fun TrendsCardShowMoreBrightPreview() {
 
 /** [TrendFindingKind.WENT_QUIET] leading a longer list — exercises the single-finding-plus-link collapse, as a single card rather than stacked next to other scenarios. */
 private val previewTrendsFindingsWentQuietLeading =
-    listOf(TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)) +
+    listOf(TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0, latestEvidenceAt = 0L)) +
         previewTrendsFindingsOverCap
 
 @Composable

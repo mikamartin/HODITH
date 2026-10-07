@@ -73,6 +73,7 @@ internal fun computeTrendFindings(
                 sampleCount = it.sampleCount,
                 priorValue = it.longestPastGapDays.toDouble(),
                 recentValue = it.currentGapDays.toDouble(),
+                latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
     computeGapShift(gapStats.pastGaps)?.let {
@@ -84,6 +85,7 @@ internal fun computeTrendFindings(
                 sampleCount = it.sampleCount,
                 priorValue = it.priorAverageDays,
                 recentValue = it.recentAverageDays,
+                latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
     computeStreakShift(activeDates)?.let {
@@ -95,6 +97,7 @@ internal fun computeTrendFindings(
                 sampleCount = it.sampleCount,
                 priorValue = it.priorAverageDays,
                 recentValue = it.recentAverageDays,
+                latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
     trendStats?.let {
@@ -113,6 +116,7 @@ internal fun computeTrendFindings(
                     sampleCount = it.recentCount + it.priorCount,
                     priorValue = it.priorCount.toDouble(),
                     recentValue = it.recentCount.toDouble(),
+                    latestEvidenceAt = caseLatestActivityAt(gapStats),
                 )
         }
     }
@@ -126,6 +130,7 @@ internal fun computeTrendFindings(
                 priorValue = it.priorShare,
                 recentValue = it.recentShare,
                 tagName = it.tagName,
+                latestEvidenceAt = it.latestEvidenceAt,
             )
     }
     computeCommonTagCombos(eventsWithTags).forEach {
@@ -138,6 +143,7 @@ internal fun computeTrendFindings(
                 priorValue = it.count.toDouble(),
                 recentValue = it.totalEvents.toDouble(),
                 tagNames = it.tagNames,
+                latestEvidenceAt = it.latestEvidenceAt,
             )
     }
     computeRecurrenceShape(gapStats)?.let {
@@ -149,6 +155,7 @@ internal fun computeTrendFindings(
                 sampleCount = it.sampleCount,
                 priorValue = it.thresholdDays,
                 recentValue = it.earlyShare,
+                latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
     computeTagOutcomeFindings(eventsWithTags).forEach {
@@ -163,6 +170,7 @@ internal fun computeTrendFindings(
                 recentValue = it.withTagMean,
                 tagName = it.tagName,
                 outcome = it.outcome,
+                latestEvidenceAt = it.latestEvidenceAt,
             )
     }
     computeChangePoint(gapStats, eventsWithTags)?.let {
@@ -176,6 +184,7 @@ internal fun computeTrendFindings(
                 priorValue = it.priorAverageDays,
                 recentValue = it.recentAverageDays,
                 changePointDate = it.changePointDate,
+                latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
     computeTrendSlopeFindings(eventsWithTags, statsShownOutcomes).forEach {
@@ -189,6 +198,7 @@ internal fun computeTrendFindings(
                 priorValue = it.priorValue,
                 recentValue = it.recentValue,
                 outcome = it.outcome,
+                latestEvidenceAt = it.latestEvidenceAt,
             )
     }
     computeTimeOfDaySplitFindings(eventsWithTags, statsShownOutcomes).forEach {
@@ -202,6 +212,7 @@ internal fun computeTrendFindings(
                 priorValue = it.dayMean,
                 recentValue = it.eveningMean,
                 outcome = it.outcome,
+                latestEvidenceAt = it.latestEvidenceAt,
             )
     }
     computeTagTimingFindings(eventsWithTags).forEach {
@@ -217,6 +228,7 @@ internal fun computeTrendFindings(
                 tagName = it.tagName,
                 weekday = it.weekday,
                 timeOfDay = it.timeOfDay,
+                latestEvidenceAt = it.latestEvidenceAt,
             )
     }
     computeWeekdayWeekendFindings(eventsWithTags)?.let {
@@ -229,10 +241,19 @@ internal fun computeTrendFindings(
                 sampleCount = it.sampleCount,
                 priorValue = it.baselineShare,
                 recentValue = it.observedShare,
+                latestEvidenceAt = it.latestEvidenceAt,
             )
     }
     return capTrendFindings(findings)
 }
+
+/**
+ * The Case's most recent activity, for the detectors that compare its whole history. Fails loudly on
+ * a Case with no events rather than inventing a date: every finding that calls this already needs
+ * at least one past gap, so `null` here means [GapStats] and the event list disagree.
+ */
+private fun caseLatestActivityAt(gapStats: GapStats): Long =
+    checkNotNull(gapStats.lastActivityAt) { "A Trends finding needs a Case with at least one event" }
 
 /**
  * Orders [findings] by strength, then caps them at [TRENDS_MAX_FINDINGS]. Sorting comes first so the
@@ -244,12 +265,15 @@ internal fun capTrendFindings(findings: List<TrendFinding>): List<TrendFinding> 
 /**
  * Display order for trend findings: [TrendFindingKind.WENT_QUIET] always leads (it describes the
  * Case's live state), then Pattern findings by ascending p-value (smaller is stronger), then Hint
- * findings by descending size of change. Ties keep detector order, since the sort is stable.
+ * findings by descending size of change. Findings still tied after that order by most recent
+ * evidence, newest first ([TrendFinding.latestEvidenceAt]). Any remaining tie keeps detector order,
+ * since the sort is stable.
  */
 internal val TREND_FINDING_ORDER: Comparator<TrendFinding> =
     compareBy<TrendFinding> { groupRank(it) }
         .thenBy { it.pValue ?: Double.MAX_VALUE }
         .thenByDescending { hintEffectSize(it) }
+        .thenByDescending { it.latestEvidenceAt }
 
 private fun groupRank(finding: TrendFinding): Int =
     when {

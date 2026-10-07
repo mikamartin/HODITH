@@ -33,7 +33,6 @@ import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
-import com.secondmonday.hodith.ui.casedetail.formatDays
 import com.secondmonday.hodith.ui.theme.LocalShareCardSkin
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.theme.ShareCardSkin
@@ -76,6 +75,7 @@ private val FIXTURE_FOOTER_TIMESTAMP = formatCardTimestamp(FIXTURE_GENERATED_AT_
 
 private val FREQUENCY_SHIFT_FINDING =
     TrendFinding(
+        latestEvidenceAt = 0L,
         kind = TrendFindingKind.FREQUENCY_SHIFT,
         direction = ShiftDirection.UP,
         reliability = TrendReliability.HINT,
@@ -332,22 +332,23 @@ class ShareCardTemplateTest {
     }
 
     @Test
-    fun trendsSectionRendersSentenceOnlyWithNoReliabilityTagOrEvidenceLine() {
+    fun trendsSectionUsesTheInsightsLayoutWithHeadlineReliabilityAndEvidence() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 ShareCardTemplate(data = richData(ShareCardFormat.STORY), voice = PlainVoice)
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsTrendSentence(TrendDirection.UP, 8, 5)).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertDoesNotExist()
-        composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyShiftEvidenceLabel()).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(FREQUENCY_SHIFT_FINDING, bucketPhrase = "")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyShiftEvidenceLabel()).assertExists()
     }
 
     @Test
     fun trendsSectionRendersEachSelectedFindingAsItsOwnLine() {
         val gapShiftFinding =
             TrendFinding(
+                latestEvidenceAt = 0L,
                 kind = TrendFindingKind.GAP_SHIFT,
                 direction = ShiftDirection.DOWN,
                 reliability = TrendReliability.HINT,
@@ -362,10 +363,10 @@ class ShareCardTemplateTest {
             }
         }
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsTrendSentence(TrendDirection.UP, 8, 5)).assertExists()
-        composeTestRule
-            .onNodeWithText(PlainVoice.insightsGapShiftSentence(ShiftDirection.DOWN, formatDays(6.0), formatDays(3.0)))
-            .assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(FREQUENCY_SHIFT_FINDING, bucketPhrase = "")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(gapShiftFinding, bucketPhrase = "")).assertExists()
+        // One reliability chip per row, the same per-row treatment the Insights card gives each finding.
+        composeTestRule.onAllNodesWithText(PlainVoice.trendReliabilityHintLabel).assertCountEquals(2)
     }
 
     @Test

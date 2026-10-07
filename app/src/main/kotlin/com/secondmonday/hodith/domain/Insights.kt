@@ -19,6 +19,12 @@ data class GapStats(
     val averageGapDays: Double,
     val isBursty: Boolean,
     val pastGaps: List<Long>,
+    /**
+     * Epoch millis of the Case's most recent activity: the furthest any event reached, its `endedAt`
+     * or its own `occurredAt`. `null` for a Case with no events. Trends findings that compare the
+     * Case's history as a whole use it as their most recent evidence (see [TrendFinding.latestEvidenceAt]).
+     */
+    val lastActivityAt: Long?,
 ) {
     /** The shortest event-to-event gap, `null` until a second event exists. The share card's Min beside [averageGapDays] and [longestGapDays]. */
     val shortestGapDays: Long? get() = pastGaps.minOrNull()
@@ -73,6 +79,7 @@ data class TagShareShiftResult(
     val priorShare: Double,
     val recentShare: Double,
     val sampleCount: Int,
+    val latestEvidenceAt: Long,
 )
 
 /**
@@ -91,6 +98,7 @@ data class TagComboFinding(
     val tagNames: List<String>,
     val count: Int,
     val totalEvents: Int,
+    val latestEvidenceAt: Long,
 )
 
 /**
@@ -128,6 +136,7 @@ data class TagOutcomeResult(
     val withTagMean: Double,
     val sampleCount: Int,
     val pValue: Double,
+    val latestEvidenceAt: Long,
 )
 
 /**
@@ -162,6 +171,7 @@ data class TrendSlopeResult(
     val recentValue: Double,
     val sampleCount: Int,
     val pValue: Double,
+    val latestEvidenceAt: Long,
 )
 
 /**
@@ -181,6 +191,7 @@ data class TimeOfDaySplitResult(
     val eveningMean: Double,
     val sampleCount: Int,
     val pValue: Double,
+    val latestEvidenceAt: Long,
 )
 
 /** Spec §10 Trends "tag timing" finding (Story C T7): which calendar dimension a tag's events are tested for clustering in. */
@@ -203,6 +214,7 @@ data class TagTimingResult(
     val taggedShare: Double,
     val sampleCount: Int,
     val pValue: Double,
+    val latestEvidenceAt: Long,
 )
 
 /**
@@ -221,6 +233,7 @@ data class WeekdayWeekendResult(
     val observedShare: Double,
     val sampleCount: Int,
     val pValue: Double,
+    val latestEvidenceAt: Long,
 )
 
 /**

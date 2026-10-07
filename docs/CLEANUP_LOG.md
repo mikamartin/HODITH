@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## Trends recency tie-break, fallbacks and share card layout
+
+**Scope:** the PROGRESS.md Trends item (the "New" badge bullet was dropped): a recency tie-break for equal-ranked findings, the silent fallbacks in the Trends rows, and the share card's Trends section moved onto the Insights card's row layout.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. Verified: `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (1188 unit tests, none failing), `assembleDebug`, and `connectedDebugAndroidTest` scoped to `ShareCardTemplateTest`, `InsightsTabTrendsCardTest`, `TrendsListScreenTest` and `CaseDetailInsightsTabTest` (118 tests, all passing on the API 36 emulator). Not run: the full instrumented suite, and light and dark mode on a device.
+
+**Found & fixed:**
+- `TrendFinding` now carries a required `latestEvidenceAt`, so no detector can leave it out. Each detector reports the newest event its finding was built from. The Case-history detectors (gap, streak, frequency, recurrence, went quiet, change point) report the Case's latest activity, from `GapStats.lastActivityAt`.
+- Tie-break: findings still tied after group, p-value and effect size order newest first. Covered by `TrendsEngineTest`, including a check that the cap keeps the newer of tied findings.
+- Silent fallbacks in `InsightsTab.kt` now fail loudly: a missing `changePointDate`, `outcome` or time-of-day bucket throws with the kind named, instead of substituting today's date, intensity or morning. Covered by `TrendFindingSentenceTest`.
+- Share card Trends section: each row is the shared `TrendFindingBody` (headline, reliability chip, figures, evidence line) with the same divider as the Insights card. `ShareCardTemplateTest` asserts the headline, the chip count (one per row) and the evidence line.
+- The `TAG_TIMING` bucket phrase now names only the bucket that is set, instead of always defaulting time of day to morning. Covered by `TrendFindingSentenceTest`.
+- Stale KDoc on `trendFindingSentence` and the evidence-line helper, which still said the share card showed sentences only.
+
+**Deferred:**
+- `trendFindingSentence` is now read only by its own tests, since both cards render headlines. Whether it is removed, and whether its sentence wording duplicates the headlines, is for the new PROGRESS.md duplication review item. Removing it now would orphan Voice sentence keys.
+- `tagName.orEmpty()` in the same rows is the same kind of null-to-default fallback. It was not in the PROGRESS.md bullet, so it is left as is. Logged here so it is not forgotten.
+
+**Considered and declined:**
+- A default value on `latestEvidenceAt`. The field is required so each detector states its own date; the compiler finds any construction site that does not. Test and preview fixtures pass `0L` or a fixed constant.
+
+**Checks:**
+- Duplication: the share card and the Insights tab now render trend rows through one composable. `trendFindingSentence` is the remaining duplicate, deferred above.
+- Decoupling: `domain/` gains no `android.*` imports. `latestActivityAt()` lives in `data/EventEntity.kt`, next to `loggedZone()`, and the domain already imports from `data`.
+- Voice: no new user-visible strings. The share card reuses the Insights headlines, which all three voices already define, so `VoiceTest` covers them.
+- Dead code: no unused imports (ktlint passes). `trendFindingSentence` is the one exception, deferred above.
+- Hygiene: no secrets or local paths in the diff. Line endings stayed CRLF throughout.
+
+**Docs updated:** HODITH_SPEC.md §10 (tie-break order, and the share card's Trends rows now match the Insights card); PROGRESS.md (the Trends item is struck; a duplication review item is added to Standalone); this entry.
+
+---
+
 ## feat/trends-visual-redesign
 
 **Scope:** the Trends visual redesign: the Insights card row (headline, Pattern/Hint chip, compared figures, evidence count), the full-list row (same row), p-value ordering, and sort-before-cap. PROGRESS.md's Trends item now holds only the open work.

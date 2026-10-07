@@ -16,17 +16,23 @@ Each item carries a **trailer** (*Branch · Complexity · Priority · Area*; Com
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-### Trends: recency tie-break and "New" badge
+### Review share card, Insights and History for duplicated implementation
 
-*Branch: none yet · Complexity: M · Priority: Low · Area: Insights*
+*Branch: none yet — review first · Complexity: S–M · Priority: Low · Area: Insights*
 
-Findings are ordered by significance, with the went-quiet finding first. Still open:
+🔍 **Investigation** — a review pass, no code changes in this item.
 
-- [ ] Recency tie-break: equal-ranked findings should order by their most recent evidence. `TrendFinding` carries a date only for change points, so each detector needs to supply its evidence date first.
-- [ ] "New" badge: marks findings that appeared since the last view. Needs a finding-identity and persistence design (`TrendFinding` has no id or timestamp), so it isn't buildable yet.
-- [ ] Silent fallbacks in the Trends rows: `changePointDate ?: LocalDate.now()` in `trendFindingSentence` formats a date from the system clock if the field is ever null, and `timeOfDay ?: MORNING` and `outcome ?: INTENSITY` in the row code can hide bad data. Make each fail loudly, or prove it unreachable in a test.
+The share card, the Insights tab and History may each implement the same formatting, figures, cards or empty states. Known candidate: `trendFindingSentence` (in `InsightsTab.kt`) is read only by its own tests now, since both the share card and the Insights card render headlines through `TrendFindingBody`. Its sentence wording may duplicate what the headlines already say.
 
-**Tests** — none until the design is settled.
+**Acceptance criteria**
+
+- [ ] A list of each duplicated implementation found, with the file paths on both sides.
+- [ ] A keep, merge or drop call for each, recorded in this item.
+- [ ] Approved merges spun out as their own items.
+
+**Plan** — read the three surfaces side by side (formatting, figures, cards, chips, empty states) and record findings. Nothing is changed in this item.
+
+**Tests** — none for the review itself.
 
 ### Review phrasing across all three Voice implementations
 

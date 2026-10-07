@@ -72,12 +72,13 @@ fun TrendsListScreen(
 
 private val previewTrendsListFindings =
     listOf(
-        TrendFinding(TrendFindingKind.FREQUENCY_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 20, 8.0, 12.0),
-        TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 9, 3.2, 5.8),
-        TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.HINT, 7, 4.0, 2.0),
-        TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.DOWN, TrendReliability.PATTERN, 14, 9.5, 4.0),
-        TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.73),
+        TrendFinding(TrendFindingKind.FREQUENCY_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 20, 8.0, 12.0, latestEvidenceAt = 0L),
+        TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 9, 3.2, 5.8, latestEvidenceAt = 0L),
+        TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.HINT, 7, 4.0, 2.0, latestEvidenceAt = 0L),
+        TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.DOWN, TrendReliability.PATTERN, 14, 9.5, 4.0, latestEvidenceAt = 0L),
+        TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.73, latestEvidenceAt = 0L),
         TrendFinding(
+            latestEvidenceAt = 0L,
             kind = TrendFindingKind.CHANGE_POINT,
             direction = ShiftDirection.UP,
             reliability = TrendReliability.PATTERN,

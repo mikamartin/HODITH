@@ -35,8 +35,8 @@ class TrendsListScreenTest {
 
     private val findings =
         listOf(
-            TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 9, 3.2, 5.8),
-            TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.PATTERN, 7, 4.0, 2.0),
+            TrendFinding(TrendFindingKind.GAP_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 9, 3.2, 5.8, latestEvidenceAt = 0L),
+            TrendFinding(TrendFindingKind.STREAK_SHIFT, ShiftDirection.DOWN, TrendReliability.PATTERN, 7, 4.0, 2.0, latestEvidenceAt = 0L),
         )
 
     private fun setContent(
@@ -106,7 +106,8 @@ class TrendsListScreenTest {
 
     @Test
     fun wentQuietFinding_rendersItsOwnPlank() {
-        val wentQuiet = TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0)
+        val wentQuiet =
+            TrendFinding(TrendFindingKind.WENT_QUIET, ShiftDirection.UP, TrendReliability.HINT, 6, 5.0, 20.0, latestEvidenceAt = 0L)
         setContent(findings = listOf(wentQuiet))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(wentQuiet, bucketPhrase = "")).assertExists()
@@ -114,7 +115,8 @@ class TrendsListScreenTest {
 
     @Test
     fun recurrenceShapeFinding_rendersItsOwnPlank() {
-        val recurrenceShape = TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.DOWN, TrendReliability.HINT, 10, 7.0, 0.0)
+        val recurrenceShape =
+            TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.DOWN, TrendReliability.HINT, 10, 7.0, 0.0, latestEvidenceAt = 0L)
         setContent(findings = listOf(recurrenceShape))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(recurrenceShape, bucketPhrase = "")).assertExists()
@@ -126,6 +128,7 @@ class TrendsListScreenTest {
     fun tagOutcomeFinding_rendersItsOwnPlank_withPatternTag() {
         val tagOutcome =
             TrendFinding(
+                latestEvidenceAt = 0L,
                 kind = TrendFindingKind.TAG_OUTCOME,
                 direction = ShiftDirection.DOWN,
                 reliability = TrendReliability.PATTERN,
@@ -146,6 +149,7 @@ class TrendsListScreenTest {
     fun changePointFinding_rendersItsOwnPlank() {
         val changePoint =
             TrendFinding(
+                latestEvidenceAt = 0L,
                 kind = TrendFindingKind.CHANGE_POINT,
                 direction = ShiftDirection.DOWN,
                 reliability = TrendReliability.PATTERN,

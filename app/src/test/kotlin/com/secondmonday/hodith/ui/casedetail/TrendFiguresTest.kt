@@ -15,7 +15,16 @@ class TrendFiguresTest {
     @Test
     fun `tag share compares the recent share against the prior share`() {
         val finding =
-            TrendFinding(TrendFindingKind.TAG_SHARE_SHIFT, ShiftDirection.UP, TrendReliability.HINT, 31, 0.19, 0.41, tagName = "Coffee")
+            TrendFinding(
+                TrendFindingKind.TAG_SHARE_SHIFT,
+                ShiftDirection.UP,
+                TrendReliability.HINT,
+                31,
+                0.19,
+                0.41,
+                tagName = "Coffee",
+                latestEvidenceAt = 0L,
+            )
 
         val figures = trendFigures(finding, PlainVoice)
 
@@ -25,7 +34,16 @@ class TrendFiguresTest {
 
     @Test
     fun `weekday weekend split compares against the chance baseline`() {
-        val finding = TrendFinding(TrendFindingKind.WEEKDAY_WEEKEND_SPLIT, ShiftDirection.UP, TrendReliability.PATTERN, 58, 2.0 / 7, 0.62)
+        val finding =
+            TrendFinding(
+                TrendFindingKind.WEEKDAY_WEEKEND_SPLIT,
+                ShiftDirection.UP,
+                TrendReliability.PATTERN,
+                58,
+                2.0 / 7,
+                0.62,
+                latestEvidenceAt = 0L,
+            )
 
         val figures = trendFigures(finding, PlainVoice)
 
@@ -44,6 +62,7 @@ class TrendFiguresTest {
                 priorValue = 0.31,
                 recentValue = 0.58,
                 tagName = "Coffee",
+                latestEvidenceAt = 0L,
             )
 
         val figures = trendFigures(finding, PlainVoice)
@@ -63,6 +82,7 @@ class TrendFiguresTest {
                 priorValue = 5.0,
                 recentValue = 8.0,
                 tagNames = listOf("Late", "Coffee"),
+                latestEvidenceAt = 0L,
             )
 
         val figures = trendFigures(finding, PlainVoice)
@@ -83,6 +103,7 @@ class TrendFiguresTest {
                 recentValue = 45.0,
                 tagName = "aura",
                 outcome = TagOutcome.DURATION,
+                latestEvidenceAt = 0L,
             )
 
         val figures = trendFigures(finding, PlainVoice)
@@ -103,6 +124,7 @@ class TrendFiguresTest {
                 recentValue = 45.0,
                 tagName = "aura",
                 outcome = TagOutcome.DURATION,
+                latestEvidenceAt = 0L,
             )
 
         val figures = trendFigures(finding, PlainVoice)
@@ -121,6 +143,7 @@ class TrendFiguresTest {
                 priorValue = 3.0,
                 recentValue = 9.0,
                 changePointDate = LocalDate.of(2026, 3, 14),
+                latestEvidenceAt = 0L,
             )
 
         val figures = trendFigures(finding, PlainVoice)
@@ -130,7 +153,8 @@ class TrendFiguresTest {
 
     @Test
     fun `recurrence detail names the gap threshold the share counts under`() {
-        val finding = TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.73)
+        val finding =
+            TrendFinding(TrendFindingKind.RECURRENCE_SHAPE, ShiftDirection.UP, TrendReliability.HINT, 11, 3.0, 0.73, latestEvidenceAt = 0L)
 
         val figures = trendFigures(finding, PlainVoice)
 

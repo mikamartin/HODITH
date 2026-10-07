@@ -2,6 +2,7 @@ package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.latestActivityAt
 import com.secondmonday.hodith.data.loggedZone
 import java.time.DayOfWeek
 import java.time.Instant
@@ -241,7 +242,14 @@ internal fun computeTagShareShift(eventsWithTags: List<EventWithTags>): List<Tag
             val priorShare = priorCount.toDouble() / priorHalf.size
             val recentShare = recentCount.toDouble() / recentHalf.size
             tagShareShiftDirectionFor(priorShare, recentShare)?.let { direction ->
-                TagShareShiftResult(tagName, direction, priorShare, recentShare, sorted.size)
+                TagShareShiftResult(
+                    tagName = tagName,
+                    direction = direction,
+                    priorShare = priorShare,
+                    recentShare = recentShare,
+                    sampleCount = sorted.size,
+                    latestEvidenceAt = latestActivityWhere(sorted) { entry -> entry.tags.any { it.name == tagName } },
+                )
             }
         }.sortedByDescending { abs(it.recentShare - it.priorShare) }
         .take(TAG_SHARE_SHIFT_MAX_FINDINGS)
@@ -316,8 +324,20 @@ internal fun computeCommonTagCombos(eventsWithTags: List<EventWithTags>): List<T
 
     return closed
         .filterKeys { it.size >= 2 }
-        .map { (itemset, support) -> TagComboFinding(itemset.sorted(), support, totalEvents) }
-        .sortedByDescending { it.count }
+        .map { (itemset, support) ->
+            TagComboFinding(
+                tagNames = itemset.sorted(),
+                count = support,
+                totalEvents = totalEvents,
+                latestEvidenceAt =
+                    latestActivityWhere(eventsWithTags) { entry ->
+                        entry.tags
+                            .map { it.name }
+                            .toSet()
+                            .containsAll(itemset)
+                    },
+            )
+        }.sortedByDescending { it.count }
         .take(TAG_COMBO_MAX_FINDINGS)
 }
 
@@ -472,8 +492,23 @@ private fun tagOutcomeResultFor(
         withoutTagMean = untagged.average(),
         withTagMean = tagged.average(),
         sampleCount = sampleCount,
+        latestEvidenceAt =
+            latestActivityWhere(eventsWithTags) { entry ->
+                entry.tags.any { it.name == tagName } && outcomeValueFor(entry.event, outcome) != null
+            },
     )
 }
+
+/**
+ * The most recent [EventEntity.latestActivityAt] across the events [predicate] keeps — the "most
+ * recent evidence" a Trends finding reports. Callers only reach this with a predicate their own
+ * sample-size floor already guarantees matches at least one event, so an empty match fails loudly
+ * (`maxOf` throws) rather than falling back to a made-up date.
+ */
+private fun latestActivityWhere(
+    eventsWithTags: List<EventWithTags>,
+    predicate: (EventWithTags) -> Boolean,
+): Long = eventsWithTags.filter(predicate).maxOf { it.event.latestActivityAt() }
 
 /** [event]'s value for [outcome], or `null` when it doesn't carry one — no recorded intensity, or no recorded (positive) duration, the same filter [computeDurationStats] uses. */
 private fun outcomeValueFor(
@@ -549,6 +584,7 @@ private fun trendSlopeResultFor(
         priorValue = firstHalf.average(),
         recentValue = secondHalf.average(),
         sampleCount = pairs.size,
+        latestEvidenceAt = latestActivityWhere(eventsWithTags) { entry -> outcomeValueFor(entry.event, outcome) != null },
     )
 }
 
@@ -624,6 +660,7 @@ private fun timeOfDaySplitResultFor(
         dayMean = dayGroup.average(),
         eveningMean = eveningGroup.average(),
         sampleCount = sampleCount,
+        latestEvidenceAt = latestActivityWhere(eventsWithTags) { entry -> outcomeValueFor(entry.event, outcome) != null },
     )
 }
 
@@ -669,6 +706,7 @@ private fun tagTimingResultFor(
     val taggedIndices = eventsWithTags.indices.filter { i -> eventsWithTags[i].tags.any { it.name == tagName } }
     if (taggedIndices.size < minTaggedSampleCount) return null
     val taggedSize = taggedIndices.size
+    val latestEvidenceAt = latestActivityWhere(eventsWithTags) { entry -> entry.tags.any { it.name == tagName } }
 
     return when (dimension) {
         TagTimingDimension.WEEKDAY -> {
@@ -683,6 +721,7 @@ private fun tagTimingResultFor(
                         taggedShare = tagged,
                         sampleCount = taggedSize,
                         pValue = pValue,
+                        latestEvidenceAt = latestEvidenceAt,
                     )
                 }
         }
@@ -698,6 +737,7 @@ private fun tagTimingResultFor(
                         taggedShare = tagged,
                         sampleCount = taggedSize,
                         pValue = pValue,
+                        latestEvidenceAt = latestEvidenceAt,
                     )
                 }
         }
@@ -842,6 +882,7 @@ internal fun computeWeekdayWeekendFindings(eventsWithTags: List<EventWithTags>):
         baselineShare = WEEKDAY_WEEKEND_BASELINE_SHARE,
         observedShare = observedShare,
         sampleCount = sampleCount,
+        latestEvidenceAt = latestActivityWhere(eventsWithTags) { true },
     )
 }
 
