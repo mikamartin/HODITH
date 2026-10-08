@@ -128,7 +128,7 @@ class VoiceTest {
 
     @Test
     fun `Square share copy states the voice's own event noun and agrees with the count`() {
-        val expected = mapOf(PlainVoice to ("event" to "events"), IntenseVoice to ("mark" to "marks"), BrightVoice to ("log" to "logs"))
+        val expected = mapOf(PlainVoice to ("event" to "events"), IntenseVoice to ("entry" to "entries"), BrightVoice to ("log" to "logs"))
         for ((voice, nouns) in expected) {
             assertEquals(nouns.first, voice.shareSquareEventNoun(1))
             assertEquals(nouns.second, voice.shareSquareEventNoun(0))

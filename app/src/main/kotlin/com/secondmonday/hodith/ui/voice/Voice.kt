@@ -2130,7 +2130,7 @@ object IntenseVoice : Voice {
 
     override val shareOpenDescription = "Share the record"
 
-    override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "mark" else "marks"
+    override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "entry" else "entries"
 
     override fun shareSquareTrendFrom(priorRate: String) = "from $priorRate a month prior"
 
@@ -2143,7 +2143,7 @@ object IntenseVoice : Voice {
     override fun shareHistoryTruncationNote(
         shown: Int,
         total: Int,
-    ) = "$shown of $total entered into evidence. Narrow the range for the rest."
+    ) = "Showing $shown of $total entries. Narrow the range to see the rest."
 
     override val shareHistoryEmptyRangeMessage = "No evidence in this window."
 
