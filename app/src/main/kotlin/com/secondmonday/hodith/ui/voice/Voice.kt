@@ -1052,7 +1052,7 @@ object PlainVoice : Voice {
     override val settingsThemeSectionLabel = "Theme"
     override val settingsThemeInfoTitle = "About themes"
     override val settingsThemeInfoBody =
-        "Each theme pairs its own colors with a distinct tone of voice used throughout the app."
+        "Each theme has its own colors and voice."
     override val settingsTimeFormatSectionLabel = "Time format"
     override val settingsCheckInSectionLabel = "Check-ins"
     override val settingsCheckInInfoTitle = "About check-ins"
@@ -1065,7 +1065,7 @@ object PlainVoice : Voice {
     override val settingsCloudBackupInfoBody =
         "When this is on, Android's own device backup can carry HODITH's data along with everything else " +
             "on your phone, if you have phone backup turned on. Turning it off stops future backups from " +
-            "including HODITH's data — it won't remove a backup that's already been made."
+            "including HODITH's data. It won't remove a backup that's already been made."
     override val settingsDeleteDataButton = "Delete data"
     override val settingsDeleteDataOptionsTitle = "What to delete"
     override val settingsDeleteDataOptionAll = "All data"
@@ -1585,7 +1585,7 @@ object IntenseVoice : Voice {
     override val caseDurationModeInfoBody =
         "None takes no account of how long a thing lingers. Manual lets you name its length yourself. " +
             "Start/stop watches it unfold in real time, from the moment it begins until you declare it done."
-    override val caseCheckInInfoTitle = "On the watch kept"
+    override val caseCheckInInfoTitle = "On check-ins"
     override val caseCheckInInfoBody =
         "When kept, the check-in nudge stirs after this case has lain silent too long, the interval Settings " +
             "decree for all cases. Off silences the nudge for this case alone."
@@ -1650,26 +1650,26 @@ object IntenseVoice : Voice {
     override val logSheetEndBeforeStartNotice = "An end cannot precede its own beginning."
     override val quickLogUndoAction = "Reverse it"
     override val settingsSupportSectionLabel = "The outside world"
-    override val settingsRateAppButton = "Render a verdict"
+    override val settingsRateAppButton = "Leave a rating"
     override val settingsContactUsButton = "Send word"
     override val settingsAppearanceSectionLabel = "The face it wears"
     override val settingsThemeSectionLabel = "The chosen skin"
     override val settingsThemeInfoTitle = "On the chosen skin"
     override val settingsThemeInfoBody =
-        "Each skin carries its own hues — and its own tongue. Change it, and the words themselves change shape."
-    override val settingsTimeFormatSectionLabel = "The reckoning of hours"
-    override val settingsCheckInSectionLabel = "The watch kept"
-    override val settingsCheckInInfoTitle = "On the watch kept"
+        "Each theme has its own colors and its own way of speaking. Change it, and the wording changes too."
+    override val settingsTimeFormatSectionLabel = "How time is told"
+    override val settingsCheckInSectionLabel = "Keeping watch"
+    override val settingsCheckInInfoTitle = "On check-ins"
     override val settingsCheckInInfoBody =
-        "How many days of silence rouse a check-in nudge, for any case keeping the watch. Off lays the " +
-            "app-wide watch to rest; a single case's watch can still be silenced from its own page."
-    override val settingsDataSectionLabel = "The archive"
-    override val settingsCloudBackupToggleLabel = "Let the archive travel"
-    override val settingsCloudBackupInfoTitle = "On letting it travel"
+        "How many days of silence wake a check-in nudge, for any case that has them on. Off turns off the " +
+            "app-wide default; a single case can still turn it off from its own page."
+    override val settingsDataSectionLabel = "Data"
+    override val settingsCloudBackupToggleLabel = "Keep HODITH in device backup"
+    override val settingsCloudBackupInfoTitle = "On device backup"
     override val settingsCloudBackupInfoBody =
-        "Left open, the phone's own reckoning carries a copy of this archive beyond these walls, wherever " +
-            "its backup already goes. Close it, and no new copy leaves — but what has already gone cannot " +
-            "be summoned home."
+        "When this is on, the phone's own backup carries HODITH's data along with everything else, if " +
+            "phone backup is on. Turning it off stops new backups from including HODITH's data. It cannot " +
+            "erase what has already been saved."
     override val settingsDeleteDataButton = "Erase data"
     override val settingsDeleteDataOptionsTitle = "What to erase"
     override val settingsDeleteDataOptionAll = "Every record"
@@ -1698,24 +1698,24 @@ object IntenseVoice : Voice {
     override val settingsExportFormatConfirmAction = "Copy it"
     override val settingsExportFormatCancelAction = "Abandon"
     override val settingsImportButton = "Restore the case files"
-    override val settingsImportConfirmTitle = "Erase the present for the past?"
+    override val settingsImportConfirmTitle = "Replace everything with the backup?"
     override val settingsImportConfirmBody =
         "Every case and record here will be struck out, replaced by whatever's in that file. There's no undoing it."
     override val settingsImportConfirmAction = "Restore it"
     override val settingsImportCancelAction = "Abandon"
     override val settingsExportSuccessMessage = "The case files are copied."
     override val settingsExportFailureMessage = "The case files couldn't be copied."
-    override val settingsCsvExportSuccessMessage = "The case files are transcribed."
-    override val settingsCsvExportFailureMessage = "The case files could not be transcribed."
+    override val settingsCsvExportSuccessMessage = "The case files are saved as CSV."
+    override val settingsCsvExportFailureMessage = "The case files could not be saved as CSV."
     override val settingsImportSuccessMessage = "The case files are restored."
     override val settingsImportFailureInvalidMessage = "That file holds no case files this app recognizes."
-    override val settingsImportFailureVersionMessage = "That file was sealed by a version of this app no longer spoken here."
+    override val settingsImportFailureVersionMessage = "That file came from a version of this app it can no longer read."
     override val settingsImportFailureIoMessage = "That file could not be read."
-    override val settingsImportFailureSemanticMessage = "That file's records don't hold together — nothing here can be trusted to restore."
+    override val settingsImportFailureSemanticMessage = "That file's records don't hold together, so nothing was restored."
     override val settingsDeveloperModeSectionLabel = "Behind the curtain"
     override val settingsLoadDemoDataButton = "Conjure phantom cases"
     override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
-    override val settingsManageTagsButton = "Tend the tags"
+    override val settingsManageTagsButton = "Manage the tags"
     override val manageTagsScreenTitle = "The tags"
     override val manageTagsEmptyState = "No tags yet. They surface once they are bound to an entry."
     override val manageTagsFilterPlaceholder = "Search the tags"
@@ -1764,9 +1764,9 @@ object IntenseVoice : Voice {
     ) = "\"$tagName\" is stripped from ${manageTagsEventCount(eventCount)} across all Cases. The entries remain, with their other tags."
 
     override val manageTagsDeleteConfirmAction = "Erase"
-    override val manageTagsCancelAction = "Abandon"
+    override val manageTagsCancelAction = "Cancel"
     override val manageTagsWriteFailed = "The change did not take. The tags stand as they were."
-    override val aboutScreenTitle = "The record"
+    override val aboutScreenTitle = "About HODITH"
     override val aboutIdeaLabel = "The premise"
     override val aboutIdeaBody =
         "A thought lands: this always happens. This never happens anymore. You don't actually know. " +
@@ -2260,7 +2260,7 @@ object BrightVoice : Voice {
     override val settingsThemeSectionLabel = "Pick your vibe"
     override val settingsThemeInfoTitle = "About themes!"
     override val settingsThemeInfoBody =
-        "Every theme comes with its own colors and its own voice — switch it up and watch the whole app talk differently!"
+        "Every theme comes with its own colors and its own voice. Switch it up and watch the whole app talk differently!"
     override val settingsTimeFormatSectionLabel = "Clock style!"
     override val settingsCheckInSectionLabel = "Nudge me"
     override val settingsCheckInInfoTitle = "Check-ins, explained"
@@ -2272,8 +2272,8 @@ object BrightVoice : Voice {
     override val settingsCloudBackupInfoTitle = "About backing up!"
     override val settingsCloudBackupInfoBody =
         "When this is on, your phone's own backup can scoop up HODITH's data along with everything else, " +
-            "if you've got phone backup turned on. Switch it off and future backups skip HODITH — but heads " +
-            "up, it won't erase a backup that already happened!"
+            "if you've got phone backup turned on. Switch it off and future backups skip HODITH. Heads " +
+            "up: it won't erase a backup that already happened!"
     override val settingsDeleteDataButton = "Nuke data"
     override val settingsDeleteDataOptionsTitle = "What's getting nuked?"
     override val settingsDeleteDataOptionAll = "Everything"
@@ -2300,7 +2300,7 @@ object BrightVoice : Voice {
     override val settingsExportFormatCancelAction = "Nah, never mind"
     override val settingsImportButton = "Restore a backup!"
     override val settingsImportConfirmTitle = "Swap in the backup?"
-    override val settingsImportConfirmBody = "Everything here gets wiped and replaced with what's in that file. No undo button, promise!"
+    override val settingsImportConfirmBody = "Everything here gets wiped and replaced with what's in that file. No undo button!"
     override val settingsImportConfirmAction = "Swap it in!"
     override val settingsImportCancelAction = "Nah, never mind"
     override val settingsExportSuccessMessage = "Backup saved!"
@@ -2317,12 +2317,12 @@ object BrightVoice : Voice {
     override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
     override val settingsManageTagsButton = "Tidy up the tags!"
     override val manageTagsScreenTitle = "Tag tidy-up!"
-    override val manageTagsEmptyState = "No tags yet! They'll show up here once you add them to a moment."
+    override val manageTagsEmptyState = "No tags yet! They'll show up here once you add them to a log."
     override val manageTagsFilterPlaceholder = "Find a tag!"
     override val manageTagsFilterClearDescription = "Clear the search"
     override val manageTagsNoMatches = "No tags match that. Try another!"
 
-    override fun manageTagsEventCount(count: Int) = if (count == 1) "1 moment" else "$count moments"
+    override fun manageTagsEventCount(count: Int) = if (count == 1) "1 log" else "$count logs"
 
     override fun manageTagsEditDescription(tagName: String) = "Rename $tagName"
 
@@ -2362,7 +2362,7 @@ object BrightVoice : Voice {
     ) = "\"$tagName\" comes off ${manageTagsEventCount(eventCount)} across all Cases. The moments stay put, with their other tags."
 
     override val manageTagsDeleteConfirmAction = "Delete it"
-    override val manageTagsCancelAction = "Nah, never mind"
+    override val manageTagsCancelAction = "Nah, leave it!"
     override val manageTagsWriteFailed = "Oops, that didn't stick! The tags are just as they were."
     override val aboutScreenTitle = "About HODITH!"
     override val aboutIdeaLabel = "What's this app about?"
