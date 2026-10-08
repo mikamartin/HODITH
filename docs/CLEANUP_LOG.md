@@ -49,6 +49,23 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/viewmodel-db-teardown-race
+
+**Scope:** CI run 37693819661 failed with `IllegalStateException: connection pool has been closed`, cascading to fail the next test in the same instrumentation process. Checked against the local (non-committed) FLAKY_TESTS.md flake tracker first — new signature, not a known flake — then found the root cause and fixed it.
+
+**Walked:** CLEANUP_CHECKLIST.md's Tests section against the diff; this pass is itself the origin of one of its new checks.
+
+**Found & fixed:**
+- `ManageTagsViewModelDatabaseTest` and `SharePreviewOrderFlowTest` each construct their ViewModel directly (not via Hilt/`ViewModelProvider`), against a real Room db from `createInMemoryDatabase()`. Both ViewModels build `uiState` with `stateIn(viewModelScope, SharingStarted.WhileSubscribed(...), ...)` over a Room-backed Flow, but nothing ever cancelled `viewModelScope` before `tearDown()` closed the db — a live Room collector racing `db.close()` on every run of either test, not pure environment flake. Fixed by registering each ViewModel in a `ViewModelStore` and clearing the store before `db.close()`. A grep of `app/src/androidTest` for direct `*ViewModel(...)` construction confirmed these were the only two affected call sites.
+
+**Deferred:** nothing.
+
+**Checks:** `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (full unit suite, none failing), `compileDebugAndroidTestKotlin`. Not run: `connectedDebugAndroidTest` — no device/emulator in this environment; needs a scoped run on `ManageTagsViewModelDatabaseTest` and `SharePreviewOrderFlowTest` before merge.
+
+**Docs updated:** CLEANUP_CHECKLIST.md (new Tests-section check: a directly-constructed ViewModel against a real Room db must have its `ViewModelStore` cleared before `db.close()` in `tearDown()`).
+
+---
+
 ## refactor/share-insights-history-dedupe
 
 **Scope:** PROGRESS.md's "Review share card, Insights and History for duplicated implementation" item, worked through on its own branch rather than spun into follow-up items: the duplication findings below, the small merges and the dead-code drop they called for, and the Log→History screen-naming cleanup the review surfaced.
@@ -152,23 +169,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Deprecated APIs: not checked against compiler output in this pass.
 
 **Docs updated:** HODITH_SPEC.md §10 (Trends card contents, info icon placement, ordering); TESTING.md (`TrendFiguresTest` added to the trend sentence row); PROGRESS.md (trends item reduced to its open work; copy review bullet added to the voice phrasing audit item); this entry.
-
----
-
-## feature/manage-tags
-
-**Scope:** PROGRESS.md's "Tags: bulk rename/merge/delete across all events" item: brainstorm, a global tag management screen under Settings, and rename, merge and delete with a warning before each write.
-
-**Walked:** every CLEANUP_CHECKLIST.md section against the branch diff. Decoupling: `TagManagement.kt` has no `android.*` imports; the ViewModel imports only lifecycle types. Duplication: the Plank area container moved from `SettingsScreen.kt` into `ui/common/Plank.kt` so both screens share one theme dispatch. Naming and Voice: every new key is in all three voices. Hygiene: no TODO/FIXME or debug output in the diff, no local paths, no narrative dates. Accessibility: every icon button has a Voice content description, and the search icon is decorative. Hardcoded values: the filter threshold is the named constant `TAG_FILTER_THRESHOLD`. Data model: no schema change, so no migration or backup-version bump. Themes: previews cover Plain light, Intense light, and Bright light and dark. Not verified: the screen has not been seen on a device, and the copy-brevity check against neighbouring labels is by reading only. Tests and spec: see below.
-
-**Found & fixed:**
-- `FakeHodithRepository` matched tag names case-sensitively, unlike Room's `COLLATE NOCASE` lookup. The fake now matches Room in both the add path and the new collision lookup.
-- A rename whose target name was taken after its warning was shown would have violated the unique index. The confirm step re-checks and drops the write instead.
-- `VoiceTest` caught two keys identical across all three voices (rename field label, rename confirm title) and one edit description identical across all three. Reworded per voice.
-
-**Deferred:**
-- Instrumented tests (`TagDaoTest` additions, `RoomHodithRepositoryTagManagementTest`, `ManageTagsScreenTest`, the Settings row test) compile but have not run: no emulator here. They need a run in CI or on a device before merge.
-- Cross-Case wording in the warnings ("across all Cases, including archived ones") is pending the owner's review.
-
-**Docs updated:** PROGRESS.md (item struck), HODITH_SPEC §14 (Settings Data row and a Manage tags row), TESTING.md (coverage rows), MANUAL_TEST_PLAN.md (Tags section).
 

@@ -161,9 +161,10 @@ internal fun LogDraft.toEventEntity(
 }
 
 /**
- * Why a start/end field's picked value was rejected and left unchanged. The sheet's date/time
- * pickers never clamp to a nearby boundary — a candidate is either accepted outright or the edit
- * is discarded entirely, so what's on screen always matches what a save would persist.
+ * Why a start/end field's picked value is invalid. The sheet's date/time pickers never clamp to
+ * a nearby boundary, and no longer discard a rejected pick either — the field always shows
+ * exactly what was picked, alongside this as an inline warning, with Save disabled until it's
+ * resolved (either by picking again, or by editing the other field so the pair is valid together).
  */
 internal enum class TimeEditRejection {
     /** The candidate is after `now` — nothing can be logged as happening in the future. */

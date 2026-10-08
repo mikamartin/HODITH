@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.DataStoreSettingsRepository
@@ -63,6 +64,7 @@ class SharePreviewOrderFlowTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var db: HodithDatabase
     private lateinit var viewModel: ShareViewModel
+    private val viewModelStore = ViewModelStore()
 
     @Before
     fun setUp() {
@@ -104,11 +106,12 @@ class SharePreviewOrderFlowTest {
                 shareImageExporter = UnusedExporter,
                 settingsRepository = settings,
                 savedStateHandle = SavedStateHandle(mapOf("caseId" to caseId)),
-            )
+            ).also { viewModelStore.put(VIEW_MODEL_KEY, it) }
     }
 
     @After
     fun tearDown() {
+        viewModelStore.clear()
         db.close()
     }
 
@@ -175,6 +178,7 @@ class SharePreviewOrderFlowTest {
 
     private companion object {
         const val DAY_MILLIS = 24L * 60 * 60 * 1000
+        const val VIEW_MODEL_KEY = "shareViewModel"
 
         /** Never reached: the test does not share the card as an image. */
         val UnusedExporter =
