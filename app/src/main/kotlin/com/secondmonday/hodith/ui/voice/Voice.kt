@@ -2117,9 +2117,9 @@ object IntenseVoice : Voice {
 
     override val widgetConfigureTitle = "Which cases shall haunt this widget?"
     override val widgetConfigureBody = "Choose what stands watch here. Hold the widget and choose Edit to summon different watchers later."
-    override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Summon a case first."
+    override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Create a case first."
     override val widgetConfigureConfirmAction = "Bind to widget"
-    override val widgetConfigureSkipAction = "Abandon"
+    override val widgetConfigureSkipAction = "Cancel"
 
     override val singleCaseWidgetConfigureTitle = "Which case shall haunt this widget?"
     override val singleCaseWidgetConfigureBody = "Choose what stands watch here. Summon another widget to keep watch over something else."
@@ -2719,7 +2719,7 @@ object BrightVoice : Voice {
     override val widgetConfigureBody = "Choose which Cases get to show off here. Long-press it and tap Edit to pick new stars anytime!"
     override val widgetConfigureNoCasesMessage = "No cases yet! Make one in the app first."
     override val widgetConfigureConfirmAction = "Add to widget!"
-    override val widgetConfigureSkipAction = "Never mind"
+    override val widgetConfigureSkipAction = "Nah, leave it!"
 
     override val singleCaseWidgetConfigureTitle = "Pick your widget's star!"
     override val singleCaseWidgetConfigureBody = "Choose which Case gets to show off here. Add another widget for a different star!"
