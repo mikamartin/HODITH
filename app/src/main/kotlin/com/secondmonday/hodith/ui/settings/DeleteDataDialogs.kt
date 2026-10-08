@@ -4,16 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DatePickerState
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -23,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.MaxDateBoundDatePickerDialog
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.datePickerDateAtLocalStartOfDay
@@ -157,11 +152,11 @@ private fun DeleteDataOptionsDialog(
 
 /**
  * Local-date picker for the logs-only cutoff, capped at [maxDate] ("today," per spec — no future
- * cutoff). Mirrors [com.secondmonday.hodith.ui.logsheet.LogDetailSheet]'s
- * `LogDetailDatePickerDialog` structure, with its ceiling predicate (`<=`) used for the max-date
- * cap instead of a floor.
+ * cutoff). Shares [MaxDateBoundDatePickerDialog] with
+ * [com.secondmonday.hodith.ui.logsheet.LogDetailSheet]'s `LogDetailDatePickerDialog`, converting
+ * the picked UTC-midnight millis back to a local cutoff (clamped to [maxDate], since a UTC day
+ * boundary can round a day later than the local one in some zones).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeleteDataCutoffDatePickerDialog(
     selectedDate: Long,
@@ -171,31 +166,13 @@ private fun DeleteDataCutoffDatePickerDialog(
     onConfirm: (localMillis: Long) -> Unit,
 ) {
     val zone = ZoneId.systemDefault()
-    val maxUtcMillis = toDatePickerUtcMillis(maxDate, zone)
-    val datePickerState: DatePickerState =
-        rememberDatePickerState(
-            initialSelectedDateMillis = toDatePickerUtcMillis(selectedDate, zone),
-            selectableDates =
-                remember(maxUtcMillis) {
-                    object : SelectableDates {
-                        override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= maxUtcMillis
-                    }
-                },
-        )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                datePickerState.selectedDateMillis?.let { utcMillis ->
-                    onConfirm(minOf(datePickerDateAtLocalStartOfDay(utcMillis, zone), maxDate))
-                }
-                onDismiss()
-            }) { Text(voice.logSheetPickerConfirm) }
+    MaxDateBoundDatePickerDialog(
+        initialDateUtcMillis = toDatePickerUtcMillis(selectedDate, zone),
+        maxDateUtcMillis = toDatePickerUtcMillis(maxDate, zone),
+        voice = voice,
+        onDismiss = onDismiss,
+        onConfirm = { pickedUtcMillis ->
+            onConfirm(minOf(datePickerDateAtLocalStartOfDay(pickedUtcMillis, zone), maxDate))
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(voice.logSheetPickerCancel) }
-        },
-    ) {
-        DatePicker(state = datePickerState)
-    }
+    )
 }

@@ -27,9 +27,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DatePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,14 +36,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerState
 import androidx.compose.material3.minimumInteractiveComponentSize
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -67,6 +62,7 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.MaxDateBoundDatePickerDialog
 import com.secondmonday.hodith.ui.common.filterDigitInput
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
@@ -164,11 +160,13 @@ fun LogDetailForm(
     var showTimePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
-    // Set by DateTimePickers' onConfirm when a picked value is rejected (the field keeps its
-    // prior value); cleared on that field's own next successful edit, or on a successful edit of
-    // the *other* field, since that can resolve the reason the rejected pick was invalid.
+    // Set by DateTimePickers' onConfirm when a picked value is rejected (applied to the field
+    // regardless, per spec — no revert); cleared on that field's own next successful edit, or on
+    // a successful edit of the *other* field, since that can resolve the reason the rejected pick
+    // was invalid. Save stays disabled below while either is non-null.
     var startNotice by remember { mutableStateOf<TimeEditRejection?>(null) }
     var endNotice by remember { mutableStateOf<TimeEditRejection?>(null) }
+    val canSave = startNotice == null && endNotice == null
 
     Column(
         modifier =
@@ -262,7 +260,7 @@ fun LogDetailForm(
         }
 
         val isStarting = durationMode == DurationMode.START_STOP && !isEditing && draft.endedAt == null
-        Button(onClick = { onSave(draft) }, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { onSave(draft) }, enabled = canSave, modifier = Modifier.fillMaxWidth()) {
             Text(if (isStarting) voice.logSheetStartButton else voice.logSheetSaveButton)
         }
     }
@@ -349,9 +347,8 @@ private fun DateTimePickers(
             onDismiss = onDismissDatePicker,
             onConfirm = { picked ->
                 val applied = applyPickedDate(value, picked, zone)
-                val rejection = validate(applied)
-                if (rejection == null) onValueChange(applied)
-                onResult(rejection)
+                onValueChange(applied)
+                onResult(validate(applied))
                 onDismissDatePicker()
             },
         )
@@ -365,9 +362,8 @@ private fun DateTimePickers(
             onDismiss = onDismissTimePicker,
             onConfirm = { hour, minute ->
                 val applied = applyPickedTime(value, hour, minute, zone)
-                val rejection = validate(applied)
-                if (rejection == null) onValueChange(applied)
-                onResult(rejection)
+                onValueChange(applied)
+                onResult(validate(applied))
                 onDismissTimePicker()
             },
         )
@@ -581,7 +577,6 @@ private fun durationUnitLabel(
         DurationUnit.DAYS -> voice.logSheetDurationUnitDays
     }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LogDetailDatePickerDialog(
     occurredAt: Long,
@@ -591,39 +586,21 @@ private fun LogDetailDatePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (pickedUtcMillis: Long) -> Unit,
 ) {
-    val todayUtcMillis = toDatePickerUtcMillis(now, zone)
-    val initialSelectedDateMillis = toDatePickerUtcMillis(occurredAt, zone)
-    val datePickerState: DatePickerState =
-        rememberDatePickerState(
-            initialSelectedDateMillis = initialSelectedDateMillis,
-            selectableDates =
-                remember(todayUtcMillis) {
-                    object : SelectableDates {
-                        override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= todayUtcMillis
-                    }
-                },
-        )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                datePickerState.selectedDateMillis?.let(onConfirm)
-                onDismiss()
-            }) { Text(voice.logSheetPickerConfirm) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(voice.logSheetPickerCancel) }
-        },
-    ) {
-        DatePicker(state = datePickerState)
-    }
+    MaxDateBoundDatePickerDialog(
+        initialDateUtcMillis = toDatePickerUtcMillis(occurredAt, zone),
+        maxDateUtcMillis = toDatePickerUtcMillis(now, zone),
+        voice = voice,
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+    )
 }
 
 /**
  * No future-time restriction here — M3's `TimePicker` has no "selectable time" API to restrict
- * against, unlike `DatePicker`'s `selectableDates`. The caller validates and rejects the result
- * after [onConfirm] fires instead (same-day future times are the only case this matters for,
- * since [LogDetailDatePickerDialog] already rules out future dates).
+ * against, unlike `DatePicker`'s `selectableDates`. The caller validates the result after
+ * [onConfirm] fires instead, applying it regardless and surfacing a warning if it's invalid
+ * (same-day future times are the only case this matters for, since [LogDetailDatePickerDialog]
+ * already rules out future dates).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
