@@ -1962,8 +1962,7 @@ object IntenseVoice : Voice {
 
     override fun ongoingCountIndicator(count: Int) = "$count still unfolding"
 
-    override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "Switching away stops all $runningCount that still run, right now."
+    override fun leaveStartStopConfirmBody(runningCount: Int) = "Switching away stops all $runningCount that still run, right now."
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
         "$openEndedCount events end nowhere. Each will be fixed to the moment it began."
