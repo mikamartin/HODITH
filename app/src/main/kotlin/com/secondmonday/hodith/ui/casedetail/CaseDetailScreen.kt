@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -33,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -411,6 +413,19 @@ private fun HistoryTabContent(
     onStopEvent: (EventEntity) -> Unit,
     onEditEvent: (EventEntity) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    val topEventId =
+        uiState.historyEvents
+            .firstOrNull()
+            ?.event
+            ?.id
+    var lastTopEventId by remember { mutableStateOf(topEventId) }
+    LaunchedEffect(topEventId) {
+        if (topEventId != null && topEventId != lastTopEventId) {
+            listState.scrollToItem(0)
+        }
+        lastTopEventId = topEventId
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         if (case != null && uiState.events.isNotEmpty()) {
             val history = uiState.events.map { it.event }
@@ -464,6 +479,7 @@ private fun HistoryTabContent(
                 }
                 else -> {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = FabListBottomClearance),
                     ) {
