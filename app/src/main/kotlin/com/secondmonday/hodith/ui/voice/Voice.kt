@@ -1254,7 +1254,7 @@ object PlainVoice : Voice {
 
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks."
 
-    override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before."
+    override fun insightsFrequencyShiftEvidenceLabel() = "Last 30 days vs. the 30 before."
 
     override fun insightsTrendHeadline(
         finding: TrendFinding,
@@ -1281,8 +1281,8 @@ object PlainVoice : Voice {
             TrendFindingKind.CHANGE_POINT -> if (up) "Gaps widened" else "Gaps narrowed"
             TrendFindingKind.TREND_SLOPE ->
                 when {
-                    duration && up -> "Episodes running longer"
-                    duration -> "Episodes running shorter"
+                    duration && up -> "Runs longer"
+                    duration -> "Runs shorter"
                     up -> "Intensity climbing"
                     else -> "Intensity easing"
                 }
@@ -1792,21 +1792,21 @@ object IntenseVoice : Voice {
     override val insightsNothingLoggedMessage = "Log the first piece of evidence to open the file."
     override val insightsSingleEventNote = "One piece of evidence on record so far."
 
-    override val insightsHeatmapShowMoreAction = "Unseal the older files"
-    override val insightsHeatmapShowFewerAction = "Reseal them"
+    override val insightsHeatmapShowMoreAction = "Open the older files"
+    override val insightsHeatmapShowFewerAction = "Close them"
 
     override val insightsDrillDownEmptyState = "Nothing on record matches."
 
-    override fun insightsHeatmapDayTapDescription(dateLabel: String) = "Unseal $dateLabel"
+    override fun insightsHeatmapDayTapDescription(dateLabel: String) = "Open $dateLabel"
 
-    override fun insightsIntensitySquareTapDescription(level: Int) = "Unseal intensity $level entries"
+    override fun insightsIntensitySquareTapDescription(level: Int) = "Open intensity $level entries"
 
-    override fun insightsTagRowTapDescription(tagName: String) = "Unseal #$tagName entries"
+    override fun insightsTagRowTapDescription(tagName: String) = "Open #$tagName entries"
 
     override fun insightsRhythmCellTapDescription(
         dayLabel: String,
         timeOfDayLabel: String,
-    ) = "Unseal $dayLabel ${timeOfDayLabel.lowercase()} entries"
+    ) = "Open $dayLabel ${timeOfDayLabel.lowercase()} entries"
 
     override fun insightsIntensityDrillDownTitle(level: Int) = "Marked intensity $level"
 
@@ -1817,9 +1817,9 @@ object IntenseVoice : Voice {
         timeOfDayLabel: String,
     ) = "Marked $dayLabel ${timeOfDayLabel.lowercase()}s"
 
-    override val insightsBurstFlagLabel = "It comes in waves, not a rhythm"
+    override val insightsBurstFlagLabel = "It comes in waves"
 
-    override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+    override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
     override val insightsFrequencyInfoTitle = "On the shape of this record"
 
@@ -1857,9 +1857,9 @@ object IntenseVoice : Voice {
         "Each line names a shift found in this case's own past.\n\n" +
             "A hint is an early sign. A pattern has been tested and holds."
 
-    override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+    override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
-    override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount waking spells."
+    override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount waking spells."
 
     override fun insightsFrequencyShiftEvidenceLabel() = "Weighed against the thirty days before."
 
@@ -1873,35 +1873,35 @@ object IntenseVoice : Voice {
         return when (finding.kind) {
             TrendFindingKind.WENT_QUIET -> "A record silence"
             TrendFindingKind.GAP_SHIFT -> if (up) "Silences lengthened" else "Silences shortened"
-            TrendFindingKind.STREAK_SHIFT -> if (up) "Waking spells lengthening" else "Waking spells shrinking"
+            TrendFindingKind.STREAK_SHIFT -> if (up) "Streaks growing longer" else "Streaks growing shorter"
             TrendFindingKind.FREQUENCY_SHIFT -> if (up) "Ramping up" else "Winding down"
-            TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag claims more" else "$tag claims less"
+            TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag turns up more" else "$tag turns up less"
             TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} keep company"
             TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Returns fast" else "Rarely returns fast"
             TrendFindingKind.TAG_OUTCOME ->
                 when {
                     duration && up -> "$tag lingers longer"
                     duration -> "$tag passes quicker"
-                    up -> "$tag cuts deeper"
-                    else -> "$tag cuts less deep"
+                    up -> "$tag feels more intense"
+                    else -> "$tag feels less intense"
                 }
             TrendFindingKind.CHANGE_POINT -> if (up) "Silences stretched" else "Silences tightened"
             TrendFindingKind.TREND_SLOPE ->
                 when {
                     duration && up -> "Lingering longer lately"
                     duration -> "Passing quicker lately"
-                    up -> "Cutting deeper lately"
-                    else -> "Easing off lately"
+                    up -> "Feels more intense lately"
+                    else -> "Feels less intense lately"
                 }
             TrendFindingKind.TIME_OF_DAY_SPLIT ->
                 when {
-                    duration && up -> "The evening lingers"
-                    duration -> "The day lingers"
+                    duration && up -> "Evenings stretch longer"
+                    duration -> "Days stretch longer"
                     up -> "The evening hits harder"
                     else -> "The day hits harder"
                 }
             TrendFindingKind.TAG_TIMING -> "$tag gathers $bucketPhrase"
-            TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> if (up) "The weekend pulls" else "The weekday pulls"
+            TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> if (up) "Drawn to weekends" else "Drawn to weekdays"
         }
     }
 
@@ -1917,23 +1917,23 @@ object IntenseVoice : Voice {
 
     override fun trendChangePointDetail(month: String) = "Changed in $month"
 
-    override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
-    override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Drawn from those $sampleCount entries."
+    override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Based on those $sampleCount entries."
 
-    override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+    override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
-    override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
-    override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount gaps."
+    override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
-    override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
-    override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
-    override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount tagged entries."
+    override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount tagged entries."
 
-    override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
@@ -2389,12 +2389,12 @@ object BrightVoice : Voice {
     override val metricDaysActiveLabel = "How many days it's a thing"
 
     override val insightsNothingLoggedMessage = "Log a moment and the insights start taking shape!"
-    override val insightsSingleEventNote = "One event in — the picture starts here!"
+    override val insightsSingleEventNote = "One event logged so far!"
 
     override val insightsHeatmapShowMoreAction = "Show me more!"
     override val insightsHeatmapShowFewerAction = "Okay, tuck it back away"
 
-    override val insightsDrillDownEmptyState = "Nothing matches here — yet!"
+    override val insightsDrillDownEmptyState = "Nothing matches here yet!"
 
     override fun insightsHeatmapDayTapDescription(dateLabel: String) = "Peek at $dateLabel!"
 
@@ -2460,7 +2460,7 @@ object BrightVoice : Voice {
 
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks!"
 
-    override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before!"
+    override fun insightsFrequencyShiftEvidenceLabel() = "Last 30 days vs. the 30 before!"
 
     override fun insightsTrendHeadline(
         finding: TrendFinding,
@@ -2481,16 +2481,16 @@ object BrightVoice : Voice {
                 when {
                     duration && up -> "$tag sticks around longer!"
                     duration -> "$tag wraps up faster!"
-                    up -> "$tag hits harder!"
-                    else -> "$tag hits softer!"
+                    up -> "$tag is way more intense!"
+                    else -> "$tag is way less intense!"
                 }
             TrendFindingKind.CHANGE_POINT -> if (up) "Gaps stretched out!" else "Gaps tightened up!"
             TrendFindingKind.TREND_SLOPE ->
                 when {
                     duration && up -> "Sticking around longer!"
                     duration -> "Wrapping up faster!"
-                    up -> "Hitting harder lately!"
-                    else -> "Hitting softer lately!"
+                    up -> "Getting way more intense!"
+                    else -> "Getting way less intense!"
                 }
             TrendFindingKind.TIME_OF_DAY_SPLIT ->
                 when {
