@@ -1505,10 +1505,10 @@ object PlainVoice : Voice {
     override val notificationLogAction = "Log"
     override val notificationAllQuietAction = "All quiet"
 
-    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases need a look — tap to review"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases need a look. Tap to review."
 
     override val notificationsDeniedBannerMessage =
-        "Notifications are off, so rules and check-ins won't alert you — check back here instead."
+        "Notifications are off, so watches and check-ins won't alert you. Check back here instead."
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick Cases for this widget"
@@ -1785,7 +1785,7 @@ object IntenseVoice : Voice {
     override val frequencyDecreaseCountDescription = "Diminish the count"
     override val frequencyIncreaseCountDescription = "Swell the count"
     override val metricOccurrenceLabel = "How often it begins"
-    override val metricDaysActiveLabel = "How many days it holds"
+    override val metricDaysActiveLabel = "How many days it lasts"
 
     override val insightsNothingLoggedMessage = "Log the first piece of evidence to open the file."
     override val insightsSingleEventNote = "One piece of evidence on record so far."
@@ -2033,7 +2033,7 @@ object IntenseVoice : Voice {
     override val watchesFabDescription = "Set a new alarm"
     override val watchesEmptyTitle = "No alarm is set"
     override val watchesEmptyBody =
-        "Set an alarm and the record will warn you — the moment this happens too often, or falls silent too long."
+        "Set an alarm and the record will warn you the moment this happens too often, or falls silent too long."
     override val watchesEmptyCta = "Set an alarm"
 
     override fun watchKindLabel(kind: WatchKind) =
@@ -2051,7 +2051,7 @@ object IntenseVoice : Voice {
         WatchKind.QUIET -> "$threshold days of silence"
     }
 
-    override fun watchFiredAgo(daysAgo: Long) = if (daysAgo == 0L) "Sounded today" else "Sounded $daysAgo days ago"
+    override fun watchFiredAgo(daysAgo: Long) = if (daysAgo == 0L) "Stirred today" else "Stirred $daysAgo days ago"
 
     override fun watchToggleDescription(summary: String) = "Toggle the alarm: $summary"
 
@@ -2060,13 +2060,13 @@ object IntenseVoice : Voice {
     override val watchesDeleteConfirmTitle = "Silence this alarm?"
     override val watchesDeleteConfirmBody = "It will warn you no longer."
     override val watchesDeleteConfirmAction = "Silence it"
-    override val watchesDeleteCancelAction = "Abandon"
+    override val watchesDeleteCancelAction = "Cancel"
     override val watchesCreateTitle = "Set an alarm"
     override val watchesEditTitle = "Tend the alarm"
     override val watchesKindPickerLabel = "What should you be warned of?"
     override val watchesQuietLabel = "Silence of"
     override val watchesSaveButton = "Save"
-    override val watchesCancelButton = "Abandon"
+    override val watchesCancelButton = "Cancel"
     override val watchesDecreaseCountDescription = "Diminish the threshold"
     override val watchesIncreaseCountDescription = "Swell the threshold"
 
@@ -2095,10 +2095,10 @@ object IntenseVoice : Voice {
         return parts.joinToString(DOT_SEPARATOR)
     }
 
-    override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "stirred today" else "$silentDays days of silence"
+    override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "Logged today" else "$silentDays days of silence"
 
     override val notificationChannelName = "Alarms"
-    override val notificationChannelDescription = "What has stirred, and what has gone quiet."
+    override val notificationChannelDescription = "Alerts for cases that have stirred, and cases that have gone quiet."
 
     override fun notificationFiredTitle(caseName: String) = "$caseName has stirred"
 
@@ -2107,12 +2107,12 @@ object IntenseVoice : Voice {
     override fun checkInDueNotificationBody(silentDays: Long) = "$silentDays days of silence. Has it stopped, or have you?"
 
     override val notificationLogAction = "Log it"
-    override val notificationAllQuietAction = "All is still"
+    override val notificationAllQuietAction = "All is quiet"
 
-    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases stir — see which"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases stir. See which."
 
     override val notificationsDeniedBannerMessage =
-        "Notifications are silenced. Alarms and the watch kept will not reach you — only what you find here."
+        "Notifications are silenced. Alarms and check-ins will not reach you. Only what you find here."
     override val notificationsDeniedBannerAction = "Break the silence"
 
     override val widgetConfigureTitle = "Which cases shall haunt this widget?"
@@ -2383,7 +2383,7 @@ object BrightVoice : Voice {
     override val frequencyDecreaseCountDescription = "Fewer!"
     override val frequencyIncreaseCountDescription = "More!"
     override val metricOccurrenceLabel = "How often it kicks off"
-    override val metricDaysActiveLabel = "How many days it's a thing"
+    override val metricDaysActiveLabel = "How many days it sticks around"
 
     override val insightsNothingLoggedMessage = "Log a moment and the insights start taking shape!"
     override val insightsSingleEventNote = "One event logged so far!"
@@ -2633,7 +2633,7 @@ object BrightVoice : Voice {
     override val watchesTabDescription = "Alerts!"
     override val watchesFabDescription = "New alert!"
     override val watchesEmptyTitle = "No alerts yet!"
-    override val watchesEmptyBody = "Get pinged when this happens a lot, or goes quiet for a while — you choose!"
+    override val watchesEmptyBody = "Get pinged when this happens a lot, or goes quiet for a while. You choose!"
     override val watchesEmptyCta = "Add an alert!"
 
     override fun watchKindLabel(kind: WatchKind) =
@@ -2660,13 +2660,13 @@ object BrightVoice : Voice {
     override val watchesDeleteConfirmTitle = "Remove this alert?"
     override val watchesDeleteConfirmBody = "No more heads-up from this one."
     override val watchesDeleteConfirmAction = "Remove it"
-    override val watchesDeleteCancelAction = "Never mind"
+    override val watchesDeleteCancelAction = "Nah, leave it!"
     override val watchesCreateTitle = "New alert!"
     override val watchesEditTitle = "Edit alert!"
     override val watchesKindPickerLabel = "What sets it off?!"
     override val watchesQuietLabel = "Quiet for"
     override val watchesSaveButton = "Save!"
-    override val watchesCancelButton = "Never mind"
+    override val watchesCancelButton = "Nah, leave it!"
     override val watchesDecreaseCountDescription = "Fewer!"
     override val watchesIncreaseCountDescription = "More!"
 
@@ -2704,7 +2704,7 @@ object BrightVoice : Voice {
 
     override fun checkInDueNotificationTitle(caseName: String) = "Quick check-in: $caseName"
 
-    override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days — all quiet, or did you forget?"
+    override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days. All quiet, or did you forget?"
 
     override val notificationLogAction = "Log it!"
     override val notificationAllQuietAction = "All quiet!"
@@ -2712,7 +2712,7 @@ object BrightVoice : Voice {
     override fun notificationsGroupSummaryTitle(count: Int) = "$count cases want your eyes 👀"
 
     override val notificationsDeniedBannerMessage =
-        "Notifications are off, so watch and check-in alerts can't reach you — swing by here instead!"
+        "Notifications are off, so watch and check-in alerts can't reach you. Swing by here instead!"
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick your widget's stars!"
