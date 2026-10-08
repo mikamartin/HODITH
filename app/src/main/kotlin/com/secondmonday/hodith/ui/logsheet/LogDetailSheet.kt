@@ -164,11 +164,13 @@ fun LogDetailForm(
     var showTimePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
-    // Set by DateTimePickers' onConfirm when a picked value is rejected (the field keeps its
-    // prior value); cleared on that field's own next successful edit, or on a successful edit of
-    // the *other* field, since that can resolve the reason the rejected pick was invalid.
+    // Set by DateTimePickers' onConfirm when a picked value is rejected (applied to the field
+    // regardless, per spec — no revert); cleared on that field's own next successful edit, or on
+    // a successful edit of the *other* field, since that can resolve the reason the rejected pick
+    // was invalid. Save stays disabled below while either is non-null.
     var startNotice by remember { mutableStateOf<TimeEditRejection?>(null) }
     var endNotice by remember { mutableStateOf<TimeEditRejection?>(null) }
+    val canSave = startNotice == null && endNotice == null
 
     Column(
         modifier =
@@ -262,7 +264,7 @@ fun LogDetailForm(
         }
 
         val isStarting = durationMode == DurationMode.START_STOP && !isEditing && draft.endedAt == null
-        Button(onClick = { onSave(draft) }, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { onSave(draft) }, enabled = canSave, modifier = Modifier.fillMaxWidth()) {
             Text(if (isStarting) voice.logSheetStartButton else voice.logSheetSaveButton)
         }
     }
@@ -349,9 +351,8 @@ private fun DateTimePickers(
             onDismiss = onDismissDatePicker,
             onConfirm = { picked ->
                 val applied = applyPickedDate(value, picked, zone)
-                val rejection = validate(applied)
-                if (rejection == null) onValueChange(applied)
-                onResult(rejection)
+                onValueChange(applied)
+                onResult(validate(applied))
                 onDismissDatePicker()
             },
         )
@@ -365,9 +366,8 @@ private fun DateTimePickers(
             onDismiss = onDismissTimePicker,
             onConfirm = { hour, minute ->
                 val applied = applyPickedTime(value, hour, minute, zone)
-                val rejection = validate(applied)
-                if (rejection == null) onValueChange(applied)
-                onResult(rejection)
+                onValueChange(applied)
+                onResult(validate(applied))
                 onDismissTimePicker()
             },
         )
