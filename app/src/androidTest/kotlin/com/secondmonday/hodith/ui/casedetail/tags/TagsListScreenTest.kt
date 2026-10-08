@@ -64,6 +64,7 @@ class TagsListScreenTest {
             TagsListScreen(
                 totalEventCount = 40,
                 distinctTagCount = tags.size,
+                taggedEventCount = 1,
                 tags = tags,
                 eventsWithTags = eventsWithTags,
                 durationMode = DurationMode.NONE,
@@ -95,11 +96,11 @@ class TagsListScreenTest {
     }
 
     @Test
-    fun summary_showsTotalEventsAndTotalTagsAboveTheList() {
+    fun summary_showsTaggedEventsAndTotalTagsAboveTheList() {
         setContent()
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsTagsTotalLabel).assertExists()
-        composeTestRule.onNodeWithText("40").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTagsTaggedLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendCountOfTotal(1, 40)).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsTagsDistinctLabel).assertExists()
         composeTestRule.onNodeWithText("6").assertExists()
     }

@@ -95,6 +95,27 @@ class TagsListViewModelTest {
                 assertEquals(3, state.eventsWithTags.size)
                 assertEquals(3, state.totalEventCount)
                 assertEquals(7, state.distinctTagCount)
+                assertEquals(3, state.taggedEventCount)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `uiState's taggedEventCount counts only events with at least one tag, against the untagged total`() =
+        runTest {
+            repository.cases.value = listOf(testCase(id = caseId, createdAt = millisAtDay(0)))
+            repository.tags.value = listOf(TagEntity(id = 1L, name = "a"))
+            repository.events.value = (1L..4L).map { eventAtDay(it).copy(id = it) }
+            repository.eventTags.value =
+                listOf(
+                    EventTagCrossRef(eventId = 1, tagId = 1),
+                    EventTagCrossRef(eventId = 2, tagId = 1),
+                )
+
+            viewModel(FakeClock(millisAtDay(10))).uiState.test {
+                val state = awaitLoadedItem { it.isLoading }
+                assertEquals(4, state.totalEventCount)
+                assertEquals(2, state.taggedEventCount)
                 cancelAndIgnoreRemainingEvents()
             }
         }

@@ -68,6 +68,7 @@ class InsightsTabTrendsCardTest {
                     duration = null,
                     intensity = null,
                     tags = emptyList(),
+                    taggedEventCount = 0,
                     totalEventCount = 0,
                     trends = trends,
                 ),

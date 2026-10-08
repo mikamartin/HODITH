@@ -312,7 +312,9 @@ private fun StatsSectionCards(
     GapsCard(stats.gaps, voice)
     stats.duration?.let { DurationCard(it, voice) }
     stats.intensity?.let { IntensityCard(it, voice, onIntensityTap) }
-    if (stats.tags.isNotEmpty()) TagsCard(stats.tags, stats.distinctTagCount, stats.totalEventCount, voice, onTagTap, onOpenTags)
+    if (stats.tags.isNotEmpty()) {
+        TagsCard(stats.tags, stats.distinctTagCount, stats.taggedEventCount, stats.totalEventCount, voice, onTagTap, onOpenTags)
+    }
 }
 
 /**
@@ -1103,6 +1105,7 @@ internal fun eventsWithTag(
 private fun TagsCard(
     tags: List<TagBreakdownEntry>,
     distinctTagCount: Int,
+    taggedEventCount: Int,
     totalEventCount: Int,
     voice: Voice,
     onTagTap: (String) -> Unit,
@@ -1111,7 +1114,7 @@ private fun TagsCard(
     val collapsed = distinctTagCount > TAGS_COMPACT_MAX
     InsightsCard {
         Text(voice.insightsSectionLabelTags, style = MaterialTheme.typography.titleSmall)
-        TagsSummary(totalEventCount, distinctTagCount, voice)
+        TagsSummary(totalEventCount, taggedEventCount, distinctTagCount, voice)
         tagsVisibleEntries(tags).forEach { tag ->
             StatRow(
                 label = tag.tagName,
@@ -1125,19 +1128,20 @@ private fun TagsCard(
 }
 
 /**
- * The totals above a tag list: the Case's event count and distinct tag count, side by side as
- * label-over-value columns (the Share card's Gaps and Duration idiom). Set apart from the tag rows
- * by a divider, so they read as a summary rather than as a tag. Shared by [TagsCard] and the full
- * tag list screen.
+ * The totals above a tag list: how many of the Case's events carry a tag (against [totalEventCount]
+ * as the denominator) and the distinct tag count, side by side as label-over-value columns (the
+ * Share card's Gaps and Duration idiom). Set apart from the tag rows by a divider, so they read as
+ * a summary rather than as a tag. Shared by [TagsCard] and the full tag list screen.
  */
 @Composable
 internal fun ColumnScope.TagsSummary(
     totalEventCount: Int,
+    taggedEventCount: Int,
     totalTagCount: Int,
     voice: Voice,
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatColumn(voice.insightsTagsTotalLabel, totalEventCount.toString())
+        StatColumn(voice.insightsTagsTaggedLabel, voice.trendCountOfTotal(taggedEventCount, totalEventCount))
         StatColumn(voice.insightsTagsDistinctLabel, totalTagCount.toString())
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
