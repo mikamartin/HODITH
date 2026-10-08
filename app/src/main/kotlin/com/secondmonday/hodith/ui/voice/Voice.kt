@@ -1604,8 +1604,8 @@ object IntenseVoice : Voice {
     override val enterStartStopConfirmTitle = "Freeze them in place?"
     override val enterStartStopConfirmAction = "Freeze and switch"
     override val enterStartStopCancelAction = "Keep current mode"
-    override val archivedCasesTitle = "The buried cases"
-    override val archivedCasesEmptyState = "Nothing lies buried here."
+    override val archivedCasesTitle = "The archived cases"
+    override val archivedCasesEmptyState = "Nothing archived yet."
     override val eventListEmptyState = "No evidence gathered yet."
 
     override fun historySummaryLine(
@@ -1622,11 +1622,11 @@ object IntenseVoice : Voice {
     override val deleteEventCancelAction = "Abandon"
     override val deleteCaseForeverConfirmTitle = "Erase this case forever?"
     override val deleteCaseForeverConfirmAction = "Erase forever"
-    override val deleteCaseForeverCancelAction = "Abandon"
+    override val deleteCaseForeverCancelAction = "Cancel"
     override val clearArchiveButtonDescription = "Erase the archive"
     override val clearArchiveConfirmTitle = "Erase the whole archive?"
     override val clearArchiveConfirmAction = "Erase archive"
-    override val clearArchiveConfirmCancelAction = "Abandon"
+    override val clearArchiveConfirmCancelAction = "Cancel"
     override val retroLogEntryDescription = "Record the evidence"
     override val logSheetNewEventTitle = "Record the evidence"
     override val logSheetEditEventTitle = "Amend the record"
@@ -1948,13 +1948,13 @@ object IntenseVoice : Voice {
 
     override fun archivedCaseEventCount(count: Int) = "$count entries in the record"
 
-    override fun unarchiveCaseDescription(caseName: String) = "Exhume $caseName"
+    override fun unarchiveCaseDescription(caseName: String) = "Restore $caseName"
 
     override fun deleteCaseForeverDescription(caseName: String) = "Erase $caseName forever"
 
     override fun deleteCaseForeverConfirmBody(eventCount: Int) = "This case and its $eventCount entries will be erased beyond recall."
 
-    override fun clearArchiveConfirmBody(caseCount: Int) = "$caseCount buried cases and their entries will be erased beyond recall."
+    override fun clearArchiveConfirmBody(caseCount: Int) = "$caseCount archived cases and their entries will be erased beyond recall."
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity: $intensity"
 
@@ -2209,7 +2209,7 @@ object BrightVoice : Voice {
     override val enterStartStopConfirmAction = "Yep, switch and keep 'em"
     override val enterStartStopCancelAction = "Nope, keep this mode!"
     override val archivedCasesTitle = "The archive"
-    override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
+    override val archivedCasesEmptyState = "Nothing shelved yet. Tidy!"
     override val eventListEmptyState = "Nothing logged yet!"
 
     override fun historySummaryLine(
@@ -2226,11 +2226,11 @@ object BrightVoice : Voice {
     override val deleteEventCancelAction = "Nah, keep it!"
     override val deleteCaseForeverConfirmTitle = "Delete this case for good?"
     override val deleteCaseForeverConfirmAction = "Yeet it forever"
-    override val deleteCaseForeverCancelAction = "Nah, never mind"
+    override val deleteCaseForeverCancelAction = "Nah, leave it!"
     override val clearArchiveButtonDescription = "Clear out the archive"
     override val clearArchiveConfirmTitle = "Clear out the whole archive?"
     override val clearArchiveConfirmAction = "Yeet it all"
-    override val clearArchiveConfirmCancelAction = "Nah, never mind"
+    override val clearArchiveConfirmCancelAction = "Nah, leave it!"
     override val retroLogEntryDescription = "Log the moment"
     override val logSheetNewEventTitle = "Log this event!"
     override val logSheetEditEventTitle = "Tweak this event!"
