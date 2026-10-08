@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## chore/voice-phrasing-audit
+
+**Scope:** PROGRESS.md's "Review phrasing across all three Voice implementations" item, run as a joint AI/human review rather than the item's originally planned rubric-first process: the user asked for a simpler loop instead — a table of every key's Plain/Intense/Bright copy per screen, reviewed and edited live, applied immediately, one commit per screen — and explicitly dropped the rubric document, the findings-then-fixes commit split, and new `VoiceTest` mechanical invariants (vocabulary casing, gamification language, length caps) from scope. Every screen in the app was covered, including two gaps the original item's screen list missed (`WatchesTab.kt`, `WatchEditorSheet.kt`).
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite) and `assembleDebug` all pass. Not run: `connectedDebugAndroidTest` (no device this pass) — every changed `androidTest` file was grepped for literal-string assertions that a wording change could silently break; none remained except the one fixed below.
+
+**Found & fixed:**
+- Every em dash in a `Voice.kt` string literal, across all three voices, replaced with a period, comma or colon depending on the sentence — the project's own documented policy, previously unenforced at this scale.
+- Intense's "seal"/"unseal"/"bury"/"exhume" metaphor family retired wherever it had drifted past being readable as its real action (Stop/Resume/Retire/Restore), and "mark" retired entirely — it had accreted four unrelated meanings across the file (icon, tag, selection state, and the Share card's event noun) before this pass.
+- Two cases of a word colliding with its own established in-app meaning: Settings' Data section called itself "The archive" (the real Archived Cases feature already owns that word) and the Check-in section/info titles called themselves "the watch kept" (the separate Watch/notifications feature already owns "watch"). Both retitled to name the actual feature plainly.
+- `historyFieldsDialogTitle` and `logSheetTagsLabel` converted from abstract per-voice overrides to shared interface defaults once the three voices converged on identical wording by request, keeping `VoiceTest`'s "no key identical across all three voices" invariant green rather than fighting it with three now-redundant overrides.
+- The About screen's Licenses section removed entirely — Voice keys, the UI section in `AboutScreen.kt`, and the androidTest assertion that covered it. A product call, not a phrasing fix: Apache 2.0 attribution for the listed dependencies is already satisfied by this public repo's own `LICENSE`/dependency manifest, so an in-app screen was a courtesy, not a requirement.
+- Several multi-sentence info-dialog bodies (Insights' Gaps/Trends explainers; Settings' Theme/Check-in/Cloud-backup explainers) shortened and reworded to plain, positively framed sentences at the user's request, rather than one-off dash removal.
+- `VoiceTest`'s `Square share copy states the voice's own event noun` test hardcoded the literal Intense "mark"/"marks" strings it exists to verify generically — found and fixed alongside the wording change that would otherwise have broken it for the wrong reason.
+
+**Deferred:**
+- `connectedDebugAndroidTest` — no device this pass; see Walked above for the mitigation taken instead.
+- CLAUDE.md's voice names ("Serious, Goth, Quirky") are stale — the actual names are Plain/Intense/Bright, confirmed throughout this pass and already correct in HODITH_SPEC.md and PROGRESS.md. Left as is: a CLAUDE.md correction is a separate, smaller fix the user hasn't asked for yet.
+
+**Considered and declined:**
+- The item's own acceptance criteria (written rubric, findings-list-then-fix-commit split, new `VoiceTest` mechanical invariants for casing/gamification/length). The user asked for the simpler loop described in Scope instead; this is a deliberate process substitution, not an unmet criterion.
+
+**Checks:**
+- Naming and Voice: every string touched keeps three distinct voices; the two keys converted to shared defaults are now genuinely structural, not a workaround.
+- Dead code: the Licenses section's Voice keys, UI code and test assertion all removed together, not just the strings.
+- Hygiene: no secrets or local paths in the diff; each screen's changes landed as its own commit on `chore/voice-phrasing-audit`.
+- Spec: HODITH_SPEC.md's About row description and TESTING.md's About coverage row updated to drop the removed Licenses section.
+
+**Docs updated:** HODITH_SPEC.md (About row, Licenses mention dropped), TESTING.md (About coverage row), PROGRESS.md (this item struck); this entry.
+
+---
+
 ## refactor/share-insights-history-dedupe
 
 **Scope:** PROGRESS.md's "Review share card, Insights and History for duplicated implementation" item, worked through on its own branch rather than spun into follow-up items: the duplication findings below, the small merges and the dead-code drop they called for, and the Log→History screen-naming cleanup the review surfaced.
@@ -139,35 +171,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Cross-Case wording in the warnings ("across all Cases, including archived ones") is pending the owner's review.
 
 **Docs updated:** PROGRESS.md (item struck), HODITH_SPEC §14 (Settings Data row and a Manage tags row), TESTING.md (coverage rows), MANUAL_TEST_PLAN.md (Tags section).
-
----
-
-## chore/ui-test-suite-audit
-
-**Scope:** PROGRESS.md's UI test suite audit item, carried through its fix pass: duplicate UI coverage, pure logic tested through the UI, the manual plan's automatable steps, and why local UI runs were slow.
-
-**Walked:** CLEANUP_CHECKLIST.md against the branch's diff. Checked and fixed: ktlint (`ktlintFormat` removed unused imports and fixed import order), unused private helpers in the trimmed test classes (none left), line endings (CRLF, matching the rest of the repo), TESTING.md rows that described removed tests, and MANUAL_TEST_PLAN.md item numbering.
-
-**Found & fixed:**
-- The trend-sentence mapping was `@Composable` with no composition in it. It is now a plain function that takes the locale explicitly. `TrendFindingSentenceTest` covers all 13 kinds.
-- The Tag reset on a Case change was duplicated inline in two composable lambdas. It is now the pure `caseFilterChange`, with JVM tests.
-- The bulk toggle's "all selected" check compared sizes inline. It is now `isAllSelected`, which uses containment. The two only differ for a stale id, and the resolved selection already excludes those.
-- Removed UI tests that re-checked logic covered elsewhere: 2 intensity-formatting, 3 week-dialog row text, 1 stale tag seeding, 1 duplicate reset rule, 5 detail-row toggles and 13 trend-sentence text.
-- Added instrumented coverage for manual-plan steps: Single-case cancel (result code), two Single-case instances, a log refreshing a second Single-case widget, day taps in the shared range picker, and a per-skin capture check.
-- Manual plan: removed the automated steps, narrowed the partly automated ones, and renumbered.
-- PROGRESS.md: removed a duplicated line in the insights-gaps entry, added the CI-overhead and espresso-intents items, and struck this audit item.
-- Found during the pass: no test asserts the import-failure snackbar text, although TESTING.md's description of the Settings tests implies it does. The manual step stays.
-
-**Deferred:**
-- `espresso-intents` (About 1 and 2, Share 1 hand-off): a dependency decision, tracked in PROGRESS.md.
-- CI per-shard overhead: an investigation, tracked in PROGRESS.md.
-- Import-failure snackbar text: no test yet; the manual step stays.
-- List widget rows: their contents can't be read from a test, so those checks stay manual.
-- `storyCapture_isNotBlank_andChangesWithTheSkin`: kept, but it passed once and hit a PixelCopy capture timeout on a later, slower emulator run. Watch it on CI.
-
-**Checks:** `ktlintCheck`, `lintDebug`, `test` (1118 unit tests, no failures) and `assembleDebug` pass. Instrumented, scoped to the changed classes, on the local emulator with animations off: `LogShareTabTest` 18/18, `WidgetActionsFlowTest` 6/6, `SingleCaseWidgetConfigureFlowTest` 3/3, and `ShareCardTemplateTest` 61/61 in one run. Later runs on the same emulator, which was degraded, hit an `ActivityScenario` teardown timeout and the capture timeout above.
-
-**Tests:** new `TrendFindingSentenceTest`; `BigPictureFilterStateTest` (+6); `SingleCaseWidgetConfigureFlowTest` (+2); `WidgetActionsFlowTest` (+1); `LogShareTabTest` (+1); `ShareCardTemplateTest` (+1). The removed tests are listed under Found & fixed.
-
-**Docs updated:** TESTING.md (environment note, coverage rows, deferral), DEV_PLAYBOOK §7 gotcha 10 (animations), MANUAL_TEST_PLAN.md, PROGRESS.md, CLAUDE.md and QA_AUDIT_RULES.md (animation pointers).
 

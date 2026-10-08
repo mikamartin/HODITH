@@ -16,37 +16,6 @@ Each item carries a **trailer** (*Branch · Complexity · Priority · Area*; Com
 
 No cross-dependencies — pick by appetite. Grouped by area below; items are identified by title or branch, not a number.
 
-### Review phrasing across all three Voice implementations
-
-*Branch: `chore/voice-phrasing-audit` · Complexity: L · Priority: Medium · Area: Voice*
-
-🎨 **Design decision** — the rubric is an authored artifact and needs a human ear. **Must land last**, after every other copy-touching item. Anything that adds or changes a Voice key must land before this item — nearly everything else in this file does.
-
-Fold these already-drafted key changes into the audit:
-
-- `feat/declutter-nudges` — reworded Serious `checkInDueNotificationBody`; renamed `checkInsSummaryNotificationTitle` → `notificationsGroupSummaryTitle`.
-- `feat/insights-from-first-event` — added `insightsNothingLoggedMessage`, `insightsSingleEventNote` (replacing `insightsNotEnoughDataMessage`).
-- `feat/square-share-card-preset` — added the Square share keys (`shareSquare*`, `shareStat*Label`, `shareRate*`), the structural `shareInsightScreenTitle`, and renamed `shareCardFooter`'s parameter to `timestamp` (the footer now carries date and time).
-- `feat/share-card-summary-beat` — retired `shareRealityEventsLabel` and `shareRealityDaysObservedLabel`; renamed `shareSquareGapsTitle` and `shareSquareDurationTitle` to `shareGapsTitle` and `shareDurationTitle`; added the structural `shareTopTagsTitle`.
-- `feat/big-picture-overview-detail` — retired `bigPictureEventNoteEmptyState`; added `bigPictureDetailDialogTitle`, `bigPictureDetailEditDescription`, four shared field labels.
-- `feat/insights-gaps-streaks-split` — added `insightsGapsMinLabel`/`insightsGapsAvgLabel`/`insightsGapsMaxLabel` ("Min gap"/"Avg gap"/"Max gap"); `insightsGapsCurrentLabel` reworded to "Current
-gap"; retired `insightsDurationTotalLabel`; reworded the three voices' Duration info body to drop "total" and the Gaps info body to name Shortest.
-- `feat/trends-visual-redesign` — added the Trends row headlines (`insightsTrendHeadline`) and the comparison-line keys. Flagged for length in the Trends rows: Plain "Current silence is a record" (alternative "A record silence"), "Episodes running longer" / "Episodes running shorter" (alternatives "Runs got longer" / "Runs got shorter"), "Often comes back quickly" (alternative "Comes back quickly"); Goth "Waking spells lengthening" (alternative "Spells lengthening"), "Lingering longer lately" (alternative "Lingering lately"); Quirky "Rarely comes back fast!" (alternative "Rarely returns fast!"). Also decide whether the sentences should quote tag names as `#Name` like the headlines do; the sentences are shared with the share card, so that is a copy change for this pass.
-
-**Acceptance criteria**
-
-- [ ] A written rubric: per-voice person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Watch/Check-in vocabulary, and an em-dash policy with per-string calls for Goth/Quirky mid-sentence pivots.
-- [ ] A findings list produced first; fixes in a separate second commit.
-- [ ] Audit done in slices by screen, not by reading `Voice.kt` linearly.
-- [ ] New mechanical `VoiceTest` invariants: vocabulary casing, no gamification vocabulary (streak/score/keep it up/missed — spec §4), length caps on tab/button labels, no double spaces or trailing whitespace.
-- [ ] Confirmed before starting: `androidTest` references `PlainVoice` by constant, not literal, everywhere (grep for hardcoded UI literals).
-
-**Plan** — write the rubric first (person, tense, sentence length, punctuation/emoji budget, locked Case/Event/Watch/Check-in vocabulary), then audit in slices by screen — not top to bottom, since `Voice.kt` is grouped by key. Produce a findings list first; fix in a second commit. Re-tally the per-voice/shared key split and the em-dash count before starting — `chore/remove-hunch` retired dozens of keys and touched dashes in the ones it rewrote, so the prior counts no longer hold.
-
-**Tests** — `VoiceTest` already checks every key by reflection (non-blank in all three voices, no per-voice key identical across all three) plus the share-card pronoun rule. Add mechanical invariants during the audit: vocabulary casing, no gamification vocabulary (spec §4), length caps on tab/button labels, no double spaces or trailing whitespace. Confirm `androidTest` references `PlainVoice` by constant everywhere, not literal, before starting.
-
-**Concern** — the audit will change hundreds of lines in one file. Anything else touching `Voice.kt` must land first.
-
 ### Audit the hosted privacy policy and Play data-safety form
 
 *Branch: none — external content, not a code change · Complexity: XS · Priority: Medium · Area: Settings*
