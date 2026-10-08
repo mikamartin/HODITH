@@ -304,8 +304,6 @@ interface Voice {
     val aboutPrivacyLabel: String
     val aboutPrivacyBody: String
     val aboutPrivacyPolicyLinkLabel: String
-    val aboutLicensesLabel: String
-    val aboutLicensesBody: String
 
     /** Stepper suffix for a stated frequency's count — "times per" week/month/3 months. */
     val frequencyCountSuffix: String get() = "times per"
@@ -1163,20 +1161,16 @@ object PlainVoice : Voice {
     override val aboutScreenTitle = "About"
     override val aboutIdeaLabel = "What HODITH is"
     override val aboutIdeaBody =
-        "Sometimes a thought hits you: this always happens — or this never happens anymore. " +
+        "Sometimes a thought hits you: this always happens, or this never happens anymore. " +
             "HODITH lets you check. Open a Case on what you've noticed, log it as life happens, " +
             "and see what the data actually says."
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
         "HODITH itself has no network access and sends nothing anywhere. But if you have your phone's own " +
-            "backup turned on, it can still include HODITH's data — a toggle in Settings lets you turn that " +
+            "backup turned on, it can still include HODITH's data. A toggle in Settings lets you turn that " +
             "off, though it only stops future backups, not ones already made."
     override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy"
-    override val aboutLicensesLabel = "Licenses"
-    override val aboutLicensesBody =
-        "HODITH is built with open-source libraries — AndroidX Jetpack, Hilt, Room, Moshi, Glance, " +
-            "WorkManager, and Kotlin Coroutines — each licensed under the Apache License 2.0."
     override val frequencyDecreaseCountDescription = "Decrease count"
     override val frequencyIncreaseCountDescription = "Increase count"
     override val metricOccurrenceLabel = "How often it happens"
@@ -1770,18 +1764,14 @@ object IntenseVoice : Voice {
     override val aboutIdeaLabel = "The premise"
     override val aboutIdeaBody =
         "A thought lands: this always happens. This never happens anymore. You don't actually know. " +
-            "Open a Case. Log the evidence. Let the Verdict speak."
+            "Open a Case. Log the evidence. See what the Insights reveal."
     override val aboutDeveloperModeUnlockedMessage = "The curtain has fallen. What lies behind is yours now."
     override val aboutPrivacyLabel = "What leaves this phone"
     override val aboutPrivacyBody =
-        "Nothing leaves through us — no network, no signal sent outward. But the phone itself may still " +
-            "carry a copy beyond these walls, if its own backup is left running. A ward in Settings can " +
-            "seal that gate; what has already escaped, it cannot call back."
+        "Nothing leaves through us. No network, no signal sent outward. But the phone's own backup may " +
+            "still carry a copy of HODITH's data, if backup is left running. Turning it off in Settings " +
+            "stops new copies, but not ones already made."
     override val aboutPrivacyPolicyLinkLabel = "Read the full accounting"
-    override val aboutLicensesLabel = "Borrowed bones"
-    override val aboutLicensesBody =
-        "This app stands on borrowed bones: AndroidX, Hilt, Room, Moshi, Glance, WorkManager, and " +
-            "Kotlin Coroutines — each bound by the Apache License 2.0."
     override val frequencyDecreaseCountDescription = "Diminish the count"
     override val frequencyIncreaseCountDescription = "Swell the count"
     override val metricOccurrenceLabel = "How often it begins"
@@ -2372,14 +2362,10 @@ object BrightVoice : Voice {
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked! Go wild."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
-        "HODITH itself doesn't touch the internet — zero network access, promise! But if your phone's own " +
+        "HODITH itself doesn't touch the internet. Zero network access, promise! But if your phone's own " +
             "backup is turned on, it might scoop up HODITH's data anyway. Flip the switch in Settings to " +
-            "stop that — heads up though, it only stops future backups, past ones stick around!"
+            "stop that. Heads up though: it only stops future backups, past ones stick around!"
     override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy!"
-    override val aboutLicensesLabel = "Licenses"
-    override val aboutLicensesBody =
-        "HODITH is built on awesome open-source stuff — AndroidX Jetpack, Hilt, Room, Moshi, Glance, " +
-            "WorkManager, and Kotlin Coroutines — all under the Apache License 2.0!"
     override val frequencyDecreaseCountDescription = "Fewer!"
     override val frequencyIncreaseCountDescription = "More!"
     override val metricOccurrenceLabel = "How often it kicks off"

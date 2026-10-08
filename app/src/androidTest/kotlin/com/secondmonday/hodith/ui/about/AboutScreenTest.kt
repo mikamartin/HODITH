@@ -43,7 +43,7 @@ class AboutScreenTest {
 
     @Smoke
     @Test
-    fun showsVersionPrivacyAndLicensesSections() {
+    fun showsVersionAndPrivacySections() {
         setContent()
 
         composeTestRule.onNodeWithText(PlainVoice.aboutIdeaLabel).assertExists()
@@ -52,8 +52,6 @@ class AboutScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.aboutPrivacyLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutPrivacyBody).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.aboutPrivacyPolicyLinkLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.aboutLicensesLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.aboutLicensesBody).assertExists()
     }
 
     @Test
