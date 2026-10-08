@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## chore/voice-phrasing-audit
+
+**Scope:** PROGRESS.md's "Review phrasing across all three Voice implementations" item, run as a joint AI/human review rather than the item's originally planned rubric-first process: the user asked for a simpler loop instead — a table of every key's Plain/Intense/Bright copy per screen, reviewed and edited live, applied immediately, one commit per screen — and explicitly dropped the rubric document, the findings-then-fixes commit split, and new `VoiceTest` mechanical invariants (vocabulary casing, gamification language, length caps) from scope. Every screen in the app was covered, including two gaps the original item's screen list missed (`WatchesTab.kt`, `WatchEditorSheet.kt`).
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite) and `assembleDebug` all pass. Not run: `connectedDebugAndroidTest` (no device this pass) — every changed `androidTest` file was grepped for literal-string assertions that a wording change could silently break; none remained except the one fixed below.
+
+**Found & fixed:**
+- Every em dash in a `Voice.kt` string literal, across all three voices, replaced with a period, comma or colon depending on the sentence — the project's own documented policy, previously unenforced at this scale.
+- Intense's "seal"/"unseal"/"bury"/"exhume" metaphor family retired wherever it had drifted past being readable as its real action (Stop/Resume/Retire/Restore), and "mark" retired entirely — it had accreted four unrelated meanings across the file (icon, tag, selection state, and the Share card's event noun) before this pass.
+- Two cases of a word colliding with its own established in-app meaning: Settings' Data section called itself "The archive" (the real Archived Cases feature already owns that word) and the Check-in section/info titles called themselves "the watch kept" (the separate Watch/notifications feature already owns "watch"). Both retitled to name the actual feature plainly.
+- `historyFieldsDialogTitle` and `logSheetTagsLabel` converted from abstract per-voice overrides to shared interface defaults once the three voices converged on identical wording by request, keeping `VoiceTest`'s "no key identical across all three voices" invariant green rather than fighting it with three now-redundant overrides.
+- The About screen's Licenses section removed entirely — Voice keys, the UI section in `AboutScreen.kt`, and the androidTest assertion that covered it. A product call, not a phrasing fix: Apache 2.0 attribution for the listed dependencies is already satisfied by this public repo's own `LICENSE`/dependency manifest, so an in-app screen was a courtesy, not a requirement.
+- Several multi-sentence info-dialog bodies (Insights' Gaps/Trends explainers; Settings' Theme/Check-in/Cloud-backup explainers) shortened and reworded to plain, positively framed sentences at the user's request, rather than one-off dash removal.
+- `VoiceTest`'s `Square share copy states the voice's own event noun` test hardcoded the literal Intense "mark"/"marks" strings it exists to verify generically — found and fixed alongside the wording change that would otherwise have broken it for the wrong reason.
+
+**Deferred:**
+- `connectedDebugAndroidTest` — no device this pass; see Walked above for the mitigation taken instead.
+- CLAUDE.md's voice names ("Serious, Goth, Quirky") are stale — the actual names are Plain/Intense/Bright, confirmed throughout this pass and already correct in HODITH_SPEC.md and PROGRESS.md. Left as is: a CLAUDE.md correction is a separate, smaller fix the user hasn't asked for yet.
+
+**Considered and declined:**
+- The item's own acceptance criteria (written rubric, findings-list-then-fix-commit split, new `VoiceTest` mechanical invariants for casing/gamification/length). The user asked for the simpler loop described in Scope instead; this is a deliberate process substitution, not an unmet criterion.
+
+**Checks:**
+- Naming and Voice: every string touched keeps three distinct voices; the two keys converted to shared defaults are now genuinely structural, not a workaround.
+- Dead code: the Licenses section's Voice keys, UI code and test assertion all removed together, not just the strings.
+- Hygiene: no secrets or local paths in the diff; each screen's changes landed as its own commit on `chore/voice-phrasing-audit`.
+- Spec: HODITH_SPEC.md's About row description and TESTING.md's About coverage row updated to drop the removed Licenses section.
+
+**Docs updated:** HODITH_SPEC.md (About row, Licenses mention dropped), TESTING.md (About coverage row), PROGRESS.md (this item struck); this entry.
+
+---
+
 ## fix/viewmodel-db-teardown-race
 
 **Scope:** CI run 37693819661 failed with `IllegalStateException: connection pool has been closed`, cascading to fail the next test in the same instrumentation process. Checked against the local (non-committed) FLAKY_TESTS.md flake tracker first — new signature, not a known flake — then found the root cause and fixed it.
@@ -137,23 +169,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Deprecated APIs: not checked against compiler output in this pass.
 
 **Docs updated:** HODITH_SPEC.md §10 (Trends card contents, info icon placement, ordering); TESTING.md (`TrendFiguresTest` added to the trend sentence row); PROGRESS.md (trends item reduced to its open work; copy review bullet added to the voice phrasing audit item); this entry.
-
----
-
-## feature/manage-tags
-
-**Scope:** PROGRESS.md's "Tags: bulk rename/merge/delete across all events" item: brainstorm, a global tag management screen under Settings, and rename, merge and delete with a warning before each write.
-
-**Walked:** every CLEANUP_CHECKLIST.md section against the branch diff. Decoupling: `TagManagement.kt` has no `android.*` imports; the ViewModel imports only lifecycle types. Duplication: the Plank area container moved from `SettingsScreen.kt` into `ui/common/Plank.kt` so both screens share one theme dispatch. Naming and Voice: every new key is in all three voices. Hygiene: no TODO/FIXME or debug output in the diff, no local paths, no narrative dates. Accessibility: every icon button has a Voice content description, and the search icon is decorative. Hardcoded values: the filter threshold is the named constant `TAG_FILTER_THRESHOLD`. Data model: no schema change, so no migration or backup-version bump. Themes: previews cover Plain light, Intense light, and Bright light and dark. Not verified: the screen has not been seen on a device, and the copy-brevity check against neighbouring labels is by reading only. Tests and spec: see below.
-
-**Found & fixed:**
-- `FakeHodithRepository` matched tag names case-sensitively, unlike Room's `COLLATE NOCASE` lookup. The fake now matches Room in both the add path and the new collision lookup.
-- A rename whose target name was taken after its warning was shown would have violated the unique index. The confirm step re-checks and drops the write instead.
-- `VoiceTest` caught two keys identical across all three voices (rename field label, rename confirm title) and one edit description identical across all three. Reworded per voice.
-
-**Deferred:**
-- Instrumented tests (`TagDaoTest` additions, `RoomHodithRepositoryTagManagementTest`, `ManageTagsScreenTest`, the Settings row test) compile but have not run: no emulator here. They need a run in CI or on a device before merge.
-- Cross-Case wording in the warnings ("across all Cases, including archived ones") is pending the owner's review.
-
-**Docs updated:** PROGRESS.md (item struck), HODITH_SPEC §14 (Settings Data row and a Manage tags row), TESTING.md (coverage rows), MANUAL_TEST_PLAN.md (Tags section).
 

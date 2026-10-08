@@ -106,7 +106,6 @@ fun AboutScreen(
                     Text(voice.aboutPrivacyPolicyLinkLabel)
                 }
             }
-            AboutSection(label = voice.aboutLicensesLabel, body = voice.aboutLicensesBody)
         }
     }
 }

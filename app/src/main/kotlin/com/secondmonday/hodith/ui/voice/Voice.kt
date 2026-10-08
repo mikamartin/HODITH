@@ -163,7 +163,7 @@ interface Voice {
     val logSheetDurationUnitDays: String get() = "Day"
     val logSheetNoteLabel: String
     val logSheetNoteHint: String
-    val logSheetTagsLabel: String
+    val logSheetTagsLabel: String get() = "Tags"
     val logSheetAddTagHint: String
     val logSheetRemoveTagDescription: String
     val logSheetSaveButton: String
@@ -304,8 +304,6 @@ interface Voice {
     val aboutPrivacyLabel: String
     val aboutPrivacyBody: String
     val aboutPrivacyPolicyLinkLabel: String
-    val aboutLicensesLabel: String
-    val aboutLicensesBody: String
 
     /** Stepper suffix for a stated frequency's count — "times per" week/month/3 months. */
     val frequencyCountSuffix: String get() = "times per"
@@ -337,7 +335,7 @@ interface Voice {
 
     /** History tab's pinned Edit icon (spec §6) — same role as [bigPictureDetailEditDescription], persona-styled to match. Opens [historyFieldsDialogTitle]'s dialog of Notes/Tags/Duration/Intensity toggles. */
     val historyFieldsEditDescription: String
-    val historyFieldsDialogTitle: String
+    val historyFieldsDialogTitle: String get() = "Record details"
 
     /** Reveals 50 more History tab events beyond the currently loaded window (spec §6, PROGRESS.md F4). Persona-styled, like [insightsHeatmapShowMoreAction] — a similar "reveal more of the list" CTA. */
     val historyShowMoreAction: String
@@ -957,14 +955,14 @@ object PlainVoice : Voice {
     override val bigPictureAllCasesLabel = "All Cases"
     override val bigPictureAllTagsLabel = "All tags"
     override val bigPictureUntaggedOnlyLabel = "Untagged only"
-    override val bigPictureNoCasesSelectedNote = "No Cases selected — the calendar will be empty."
+    override val bigPictureNoCasesSelectedNote = "No Cases selected. The calendar will be empty."
     override val bigPictureSelectAllAction = "Select all"
     override val bigPictureClearAllAction = "Clear all"
     override val comingSoonPlaceholder = "Coming soon."
     override val newCaseTitle = "New case"
     override val editCaseTitle = "Edit case"
     override val newCaseFabDescription = "New case"
-    override val caseNameHint = "e.g. Kiddo was rude"
+    override val caseNameHint = "e.g. Dog barked all night"
     override val caseNameRequiredError = "Name is required."
     override val caseNameDuplicateError = "A case with this name already exists."
     override val caseDescriptionHint = "Any more detail worth noting"
@@ -975,7 +973,7 @@ object PlainVoice : Voice {
     override val infoDialogDismissAction = "Got it"
     override val caseLogFlowInfoTitle = "About logging"
     override val caseLogFlowInfoBody =
-        "One tap logs an event instantly with no extra fields — pick it for cases you don't need duration or " +
+        "One tap logs an event instantly with no extra fields. Pick it for cases you don't need duration or " +
             "intensity on. Detail sheet opens a short form for time, duration, intensity, and notes before saving."
     override val caseDurationModeInfoTitle = "About duration"
     override val caseDurationModeInfoBody =
@@ -1031,7 +1029,6 @@ object PlainVoice : Voice {
     override val logSheetDurationLabel = "Duration"
     override val logSheetNoteLabel = "Note (optional)"
     override val logSheetNoteHint = "Anything worth remembering"
-    override val logSheetTagsLabel = "Tags"
     override val logSheetAddTagHint = "Add a tag"
     override val logSheetRemoveTagDescription = "Remove tag"
     override val logSheetSaveButton = "Save"
@@ -1053,7 +1050,7 @@ object PlainVoice : Voice {
     override val settingsThemeSectionLabel = "Theme"
     override val settingsThemeInfoTitle = "About themes"
     override val settingsThemeInfoBody =
-        "Each theme pairs its own colors with a distinct tone of voice used throughout the app."
+        "Each theme has its own colors and voice."
     override val settingsTimeFormatSectionLabel = "Time format"
     override val settingsCheckInSectionLabel = "Check-ins"
     override val settingsCheckInInfoTitle = "About check-ins"
@@ -1066,7 +1063,7 @@ object PlainVoice : Voice {
     override val settingsCloudBackupInfoBody =
         "When this is on, Android's own device backup can carry HODITH's data along with everything else " +
             "on your phone, if you have phone backup turned on. Turning it off stops future backups from " +
-            "including HODITH's data — it won't remove a backup that's already been made."
+            "including HODITH's data. It won't remove a backup that's already been made."
     override val settingsDeleteDataButton = "Delete data"
     override val settingsDeleteDataOptionsTitle = "What to delete"
     override val settingsDeleteDataOptionAll = "All data"
@@ -1164,20 +1161,16 @@ object PlainVoice : Voice {
     override val aboutScreenTitle = "About"
     override val aboutIdeaLabel = "What HODITH is"
     override val aboutIdeaBody =
-        "Sometimes a thought hits you: this always happens — or this never happens anymore. " +
+        "Sometimes a thought hits you: this always happens, or this never happens anymore. " +
             "HODITH lets you check. Open a Case on what you've noticed, log it as life happens, " +
             "and see what the data actually says."
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
         "HODITH itself has no network access and sends nothing anywhere. But if you have your phone's own " +
-            "backup turned on, it can still include HODITH's data — a toggle in Settings lets you turn that " +
+            "backup turned on, it can still include HODITH's data. A toggle in Settings lets you turn that " +
             "off, though it only stops future backups, not ones already made."
     override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy"
-    override val aboutLicensesLabel = "Licenses"
-    override val aboutLicensesBody =
-        "HODITH is built with open-source libraries — AndroidX Jetpack, Hilt, Room, Moshi, Glance, " +
-            "WorkManager, and Kotlin Coroutines — each licensed under the Apache License 2.0."
     override val frequencyDecreaseCountDescription = "Decrease count"
     override val frequencyIncreaseCountDescription = "Increase count"
     override val metricOccurrenceLabel = "How often it happens"
@@ -1224,39 +1217,37 @@ object PlainVoice : Voice {
                 FrequencyGranularity.WEEK -> "weeks"
                 FrequencyGranularity.MONTH -> "months"
             }
-        return "Showing the most recent 12 $unit. The granularity is picked automatically based on how long this case " +
-            "has been tracked, but you can switch it manually above."
+        return "Shows your last 12 $unit. The size is picked for you, but you can change it above."
     }
 
     override val insightsGapsInfoTitle = "About gaps & streaks"
     override val insightsGapsInfoBody =
-        "Shortest gap: the shortest stretch between two events.\n" +
-            "Longest gap: the longest stretch with no event active.\n" +
-            "Current gap: time since the last event ended, or 0 while one is running.\n" +
-            "Average gap: the typical stretch between events.\n" +
-            "Longest streak: the most days in a row with at least one event active.\n" +
-            "Average streak: the typical length of those runs.\n\n" +
-            "A duration event counts on every day it was active, so a single long event can carry a streak on its own. " +
-            "\"Tends to come in bursts\" shows when the gaps vary a lot."
+        "Shortest gap: the smallest break between two events.\n" +
+            "Longest gap: the biggest break with nothing happening.\n" +
+            "Current gap: time since your last event ended. It's 0 if one is happening now.\n" +
+            "Average gap: the usual break between events.\n" +
+            "Longest streak: the most days in a row with an event.\n" +
+            "Average streak: how long those streaks usually last.\n\n" +
+            "A long event counts for every day it runs, so one big event can make its own streak. " +
+            "\"Tends to come in bursts\" means gaps vary a lot."
 
     override val insightsTrendsShowMoreAction = "See all trends"
     override val insightsTagsSeeAllAction = "See all tags"
     override val insightsTagsDistinctLabel = "Total tags"
     override val insightsTagsInfoTitle = "About tags"
     override val insightsTagsInfoBody =
-        "Each tag counts the logged events it appears on. Tap one to see those events."
+        "Each tag counts its logged events. Tap one to see them."
 
     override val insightsTrendsInfoTitle = "About trends"
     override val insightsTrendsInfoBody =
-        "Each row is a shift spotted somewhere in this case's own history — not a prediction, just a description of what changed.\n\n" +
-            "Hint means the shift crossed a basic threshold but hasn't been checked for statistical significance yet. " +
-            "Pattern means it has been checked and holds up."
+        "Each row shows a change found in this case's own history.\n\n" +
+            "A hint is an early signal. A pattern has been checked and confirmed."
 
     override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
 
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks."
 
-    override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before."
+    override fun insightsFrequencyShiftEvidenceLabel() = "Last 30 days vs. the 30 before."
 
     override fun insightsTrendHeadline(
         finding: TrendFinding,
@@ -1283,8 +1274,8 @@ object PlainVoice : Voice {
             TrendFindingKind.CHANGE_POINT -> if (up) "Gaps widened" else "Gaps narrowed"
             TrendFindingKind.TREND_SLOPE ->
                 when {
-                    duration && up -> "Episodes running longer"
-                    duration -> "Episodes running shorter"
+                    duration && up -> "Runs longer"
+                    duration -> "Runs shorter"
                     up -> "Intensity climbing"
                     else -> "Intensity easing"
                 }
@@ -1372,11 +1363,10 @@ object PlainVoice : Voice {
     override fun ongoingCountIndicator(count: Int) = "$count running"
 
     override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "Only Start/Stop tracks a running event, so switching away stops all $runningCount of them now, at the current time."
+        "Switching away from Start/Stop stops all $runningCount running events right now."
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
-        "This case has $openEndedCount events with no end time. Under Start/Stop they would look like they are still running, " +
-            "so they will be kept as instant one-time events instead."
+        "$openEndedCount events have no end time. Their end time will be set to match their start time."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
@@ -1429,7 +1419,7 @@ object PlainVoice : Voice {
     override val watchDefinitionEyebrow = "Watching for"
     override val watchNowEyebrow = "Now"
 
-    override val watchesTabDescription = "Rules"
+    override val watchesTabDescription = "Watches"
     override val watchesFabDescription = "New rule"
     override val watchesEmptyTitle = "Nothing set up yet"
     override val watchesEmptyBody = "Set up a rule to alert you when this happens too often, or goes quiet for too long."
@@ -1509,10 +1499,10 @@ object PlainVoice : Voice {
     override val notificationLogAction = "Log"
     override val notificationAllQuietAction = "All quiet"
 
-    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases need a look — tap to review"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases need a look. Tap to review."
 
     override val notificationsDeniedBannerMessage =
-        "Notifications are off, so rules and check-ins won't alert you — check back here instead."
+        "Notifications are off, so watches and check-ins won't alert you. Check back here instead."
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick Cases for this widget"
@@ -1547,8 +1537,7 @@ object PlainVoice : Voice {
 
     override val shareHistoryEmptyRangeMessage = "No entries in this range."
 
-    override val historyFieldsEditDescription = "Edit which detail the history shows"
-    override val historyFieldsDialogTitle = "History detail"
+    override val historyFieldsEditDescription = "Choose which details show"
 }
 
 object IntenseVoice : Voice {
@@ -1565,10 +1554,10 @@ object IntenseVoice : Voice {
     override val bigPictureFilterCountNone = "Not one"
     override val bigPictureAllCasesLabel = "Every Case"
     override val bigPictureAllTagsLabel = "Every tag"
-    override val bigPictureUntaggedOnlyLabel = "Unmarked only"
-    override val bigPictureNoCasesSelectedNote = "No Cases stand watch — the calendar stays blank."
-    override val bigPictureSelectAllAction = "Mark every one"
-    override val bigPictureClearAllAction = "Clear every mark"
+    override val bigPictureUntaggedOnlyLabel = "Untagged only"
+    override val bigPictureNoCasesSelectedNote = "No Cases stand watch. The calendar stays blank."
+    override val bigPictureSelectAllAction = "Select every one"
+    override val bigPictureClearAllAction = "Clear every selection"
     override val comingSoonPlaceholder = "Not yet manifest."
     override val newCaseTitle = "Open a new case"
     override val editCaseTitle = "Revise the case"
@@ -1577,49 +1566,49 @@ object IntenseVoice : Voice {
     override val caseNameRequiredError = "It needs a name to be watched."
     override val caseNameDuplicateError = "Another case already bears this name."
     override val caseDescriptionHint = "Say more, if the shadows require it"
-    override val caseIconRequiredError = "Choose a mark for it."
-    override val caseIconSectionExpandDescription = "Reveal the marks"
-    override val caseIconSectionCollapseDescription = "Conceal the marks"
-    override val caseSectionInfoDescription = "Unveil more"
+    override val caseIconRequiredError = "Choose an icon for it."
+    override val caseIconSectionExpandDescription = "Reveal the icons"
+    override val caseIconSectionCollapseDescription = "Conceal the icons"
+    override val caseSectionInfoDescription = "Explain more"
     override val infoDialogDismissAction = "Understood"
     override val caseLogFlowInfoTitle = "On the manner of recording"
     override val caseLogFlowInfoBody =
-        "One tap seals the record the instant you touch it — no further rite required. The detail sheet asks " +
-            "more of you: the hour, its length, its severity, its notes — reserved for cases that demand such detail."
-    override val caseDurationModeInfoTitle = "On the length of things"
+        "One tap records it the moment you touch it. No further rite required. The detail sheet asks " +
+            "more of you: the hour, its length, its severity, its notes, reserved for cases that demand such detail."
+    override val caseDurationModeInfoTitle = "On duration"
     override val caseDurationModeInfoBody =
         "None takes no account of how long a thing lingers. Manual lets you name its length yourself. " +
             "Start/stop watches it unfold in real time, from the moment it begins until you declare it done."
-    override val caseCheckInInfoTitle = "On the watch kept"
+    override val caseCheckInInfoTitle = "On check-ins"
     override val caseCheckInInfoBody =
         "When kept, the check-in nudge stirs after this case has lain silent too long, the interval Settings " +
             "decree for all cases. Off silences the nudge for this case alone."
-    override val caseSaveButton = "Seal it"
+    override val caseSaveButton = "Keep it"
     override val caseDetailEditDescription = "Revise the case"
-    override val archiveCaseDescription = "Bury this case"
-    override val archiveCaseConfirmTitle = "Bury this case?"
+    override val archiveCaseDescription = "Retire this case"
+    override val archiveCaseConfirmTitle = "Retire this case?"
     override val archiveCaseConfirmBody =
-        "It will vanish from Home and the record, but nothing is lost — it waits in the archive, ready to be exhumed, " +
+        "It will vanish from Home and the record, but nothing is lost. It waits in the archive, ready to be restored, " +
             "or erased forever if you so choose."
-    override val archiveCaseConfirmAction = "Bury it"
+    override val archiveCaseConfirmAction = "Retire it"
     override val archiveCaseCancelAction = "Abandon"
-    override val leaveStartStopConfirmTitle = "Seal what still runs?"
-    override val leaveStartStopConfirmAction = "Seal them and switch"
-    override val leaveStartStopCancelAction = "Leave Start/Stop be"
-    override val enterStartStopConfirmTitle = "Fix them in place?"
-    override val enterStartStopConfirmAction = "Fix them and switch"
-    override val enterStartStopCancelAction = "Leave the mode as it lies"
-    override val archivedCasesTitle = "The buried cases"
-    override val archivedCasesEmptyState = "Nothing lies buried here."
+    override val leaveStartStopConfirmTitle = "Stop what still runs?"
+    override val leaveStartStopConfirmAction = "Stop them and switch"
+    override val leaveStartStopCancelAction = "Keep Start/Stop"
+    override val enterStartStopConfirmTitle = "Freeze them in place?"
+    override val enterStartStopConfirmAction = "Freeze and switch"
+    override val enterStartStopCancelAction = "Keep current mode"
+    override val archivedCasesTitle = "The archived cases"
+    override val archivedCasesEmptyState = "Nothing archived yet."
     override val eventListEmptyState = "No evidence gathered yet."
 
     override fun historySummaryLine(
         rate: String?,
         eventCount: Int,
         observedDays: Long,
-    ) = listOfNotNull(rate, "$eventCount marks in the record — $observedDays days under watch").joinToString(DOT_SEPARATOR)
+    ) = listOfNotNull(rate, "$eventCount entries in the record, $observedDays days under watch").joinToString(DOT_SEPARATOR)
 
-    override val historyShowMoreAction = "Exhume more of the record"
+    override val historyShowMoreAction = "Reveal more of the record"
 
     override val deleteEventConfirmTitle = "Strike this from the record?"
     override val deleteEventConfirmBody = "Once gone, it cannot be recalled."
@@ -1627,11 +1616,11 @@ object IntenseVoice : Voice {
     override val deleteEventCancelAction = "Abandon"
     override val deleteCaseForeverConfirmTitle = "Erase this case forever?"
     override val deleteCaseForeverConfirmAction = "Erase forever"
-    override val deleteCaseForeverCancelAction = "Abandon"
+    override val deleteCaseForeverCancelAction = "Cancel"
     override val clearArchiveButtonDescription = "Erase the archive"
     override val clearArchiveConfirmTitle = "Erase the whole archive?"
     override val clearArchiveConfirmAction = "Erase archive"
-    override val clearArchiveConfirmCancelAction = "Abandon"
+    override val clearArchiveConfirmCancelAction = "Cancel"
     override val retroLogEntryDescription = "Record the evidence"
     override val logSheetNewEventTitle = "Record the evidence"
     override val logSheetEditEventTitle = "Amend the record"
@@ -1639,43 +1628,42 @@ object IntenseVoice : Voice {
     override val logSheetIntensityLabel = "Severity"
     override val logSheetDurationLabel = "How long it lingered"
     override val logSheetNoteLabel = "Notes (optional)"
-    override val logSheetNoteHint = "Whatever the shadows recall"
-    override val logSheetTagsLabel = "Marks"
-    override val logSheetAddTagHint = "Name a mark"
-    override val logSheetRemoveTagDescription = "Strike this mark"
+    override val logSheetNoteHint = "Details worth keeping"
+    override val logSheetAddTagHint = "Name a tag"
+    override val logSheetRemoveTagDescription = "Strike this tag"
     override val logSheetSaveButton = "Commit to the record"
     override val logSheetPickerConfirm = "So be it"
-    override val logSheetPickerCancel = "Retreat"
+    override val logSheetPickerCancel = "Abandon"
     override val logSheetStartButton = "Begin"
     override val logSheetEndLabel = "The hour it ended"
     override val logSheetOngoingLabel = "Still unfolding"
-    override val logSheetStopNowAction = "Seal it now"
-    override val logSheetBackToOngoingAction = "Unseal it — still unfolding"
-    override val logSheetFutureTimeNotice = "No hour ahead of this one can be claimed."
+    override val logSheetStopNowAction = "Stop it now"
+    override val logSheetBackToOngoingAction = "Reopen it, still unfolding"
+    override val logSheetFutureTimeNotice = "That hour hasn't happened yet."
     override val logSheetStartAfterEndNotice = "A beginning cannot follow its own end."
     override val logSheetEndBeforeStartNotice = "An end cannot precede its own beginning."
     override val quickLogUndoAction = "Reverse it"
     override val settingsSupportSectionLabel = "The outside world"
-    override val settingsRateAppButton = "Render a verdict"
+    override val settingsRateAppButton = "Leave a rating"
     override val settingsContactUsButton = "Send word"
     override val settingsAppearanceSectionLabel = "The face it wears"
     override val settingsThemeSectionLabel = "The chosen skin"
     override val settingsThemeInfoTitle = "On the chosen skin"
     override val settingsThemeInfoBody =
-        "Each skin carries its own hues — and its own tongue. Change it, and the words themselves change shape."
-    override val settingsTimeFormatSectionLabel = "The reckoning of hours"
-    override val settingsCheckInSectionLabel = "The watch kept"
-    override val settingsCheckInInfoTitle = "On the watch kept"
+        "Each theme has its own colors and its own way of speaking. Change it, and the wording changes too."
+    override val settingsTimeFormatSectionLabel = "How time is told"
+    override val settingsCheckInSectionLabel = "Keeping watch"
+    override val settingsCheckInInfoTitle = "On check-ins"
     override val settingsCheckInInfoBody =
-        "How many days of silence rouse a check-in nudge, for any case keeping the watch. Off lays the " +
-            "app-wide watch to rest; a single case's watch can still be silenced from its own page."
-    override val settingsDataSectionLabel = "The archive"
-    override val settingsCloudBackupToggleLabel = "Let the archive travel"
-    override val settingsCloudBackupInfoTitle = "On letting it travel"
+        "How many days of silence wake a check-in nudge, for any case that has them on. Off turns off the " +
+            "app-wide default; a single case can still turn it off from its own page."
+    override val settingsDataSectionLabel = "Data"
+    override val settingsCloudBackupToggleLabel = "Keep HODITH in device backup"
+    override val settingsCloudBackupInfoTitle = "On device backup"
     override val settingsCloudBackupInfoBody =
-        "Left open, the phone's own reckoning carries a copy of this archive beyond these walls, wherever " +
-            "its backup already goes. Close it, and no new copy leaves — but what has already gone cannot " +
-            "be summoned home."
+        "When this is on, the phone's own backup carries HODITH's data along with everything else, if " +
+            "phone backup is on. Turning it off stops new backups from including HODITH's data. It cannot " +
+            "erase what has already been saved."
     override val settingsDeleteDataButton = "Erase data"
     override val settingsDeleteDataOptionsTitle = "What to erase"
     override val settingsDeleteDataOptionAll = "Every record"
@@ -1704,24 +1692,24 @@ object IntenseVoice : Voice {
     override val settingsExportFormatConfirmAction = "Copy it"
     override val settingsExportFormatCancelAction = "Abandon"
     override val settingsImportButton = "Restore the case files"
-    override val settingsImportConfirmTitle = "Erase the present for the past?"
+    override val settingsImportConfirmTitle = "Replace everything with the backup?"
     override val settingsImportConfirmBody =
         "Every case and record here will be struck out, replaced by whatever's in that file. There's no undoing it."
     override val settingsImportConfirmAction = "Restore it"
     override val settingsImportCancelAction = "Abandon"
     override val settingsExportSuccessMessage = "The case files are copied."
     override val settingsExportFailureMessage = "The case files couldn't be copied."
-    override val settingsCsvExportSuccessMessage = "The case files are transcribed."
-    override val settingsCsvExportFailureMessage = "The case files could not be transcribed."
+    override val settingsCsvExportSuccessMessage = "The case files are saved as CSV."
+    override val settingsCsvExportFailureMessage = "The case files could not be saved as CSV."
     override val settingsImportSuccessMessage = "The case files are restored."
     override val settingsImportFailureInvalidMessage = "That file holds no case files this app recognizes."
-    override val settingsImportFailureVersionMessage = "That file was sealed by a version of this app no longer spoken here."
+    override val settingsImportFailureVersionMessage = "That file came from a version of this app it can no longer read."
     override val settingsImportFailureIoMessage = "That file could not be read."
-    override val settingsImportFailureSemanticMessage = "That file's records don't hold together — nothing here can be trusted to restore."
+    override val settingsImportFailureSemanticMessage = "That file's records don't hold together, so nothing was restored."
     override val settingsDeveloperModeSectionLabel = "Behind the curtain"
     override val settingsLoadDemoDataButton = "Conjure phantom cases"
     override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
-    override val settingsManageTagsButton = "Tend the tags"
+    override val settingsManageTagsButton = "Manage the tags"
     override val manageTagsScreenTitle = "The tags"
     override val manageTagsEmptyState = "No tags yet. They surface once they are bound to an entry."
     override val manageTagsFilterPlaceholder = "Search the tags"
@@ -1770,47 +1758,43 @@ object IntenseVoice : Voice {
     ) = "\"$tagName\" is stripped from ${manageTagsEventCount(eventCount)} across all Cases. The entries remain, with their other tags."
 
     override val manageTagsDeleteConfirmAction = "Erase"
-    override val manageTagsCancelAction = "Abandon"
+    override val manageTagsCancelAction = "Cancel"
     override val manageTagsWriteFailed = "The change did not take. The tags stand as they were."
-    override val aboutScreenTitle = "The record"
+    override val aboutScreenTitle = "About HODITH"
     override val aboutIdeaLabel = "The premise"
     override val aboutIdeaBody =
         "A thought lands: this always happens. This never happens anymore. You don't actually know. " +
-            "Open a Case. Log the evidence. Let the Verdict speak."
+            "Open a Case. Log the evidence. See what the Insights reveal."
     override val aboutDeveloperModeUnlockedMessage = "The curtain has fallen. What lies behind is yours now."
     override val aboutPrivacyLabel = "What leaves this phone"
     override val aboutPrivacyBody =
-        "Nothing leaves through us — no network, no signal sent outward. But the phone itself may still " +
-            "carry a copy beyond these walls, if its own backup is left running. A ward in Settings can " +
-            "seal that gate; what has already escaped, it cannot call back."
+        "Nothing leaves through us. No network, no signal sent outward. But the phone's own backup may " +
+            "still carry a copy of HODITH's data, if backup is left running. Turning it off in Settings " +
+            "stops new copies, but not ones already made."
     override val aboutPrivacyPolicyLinkLabel = "Read the full accounting"
-    override val aboutLicensesLabel = "Borrowed bones"
-    override val aboutLicensesBody =
-        "This app stands on borrowed bones: AndroidX, Hilt, Room, Moshi, Glance, WorkManager, and " +
-            "Kotlin Coroutines — each bound by the Apache License 2.0."
     override val frequencyDecreaseCountDescription = "Diminish the count"
     override val frequencyIncreaseCountDescription = "Swell the count"
     override val metricOccurrenceLabel = "How often it begins"
-    override val metricDaysActiveLabel = "How many days it holds"
+    override val metricDaysActiveLabel = "How many days it lasts"
 
     override val insightsNothingLoggedMessage = "Log the first piece of evidence to open the file."
     override val insightsSingleEventNote = "One piece of evidence on record so far."
 
-    override val insightsHeatmapShowMoreAction = "Unseal the older files"
-    override val insightsHeatmapShowFewerAction = "Reseal them"
+    override val insightsHeatmapShowMoreAction = "Open the older files"
+    override val insightsHeatmapShowFewerAction = "Close them"
 
     override val insightsDrillDownEmptyState = "Nothing on record matches."
 
-    override fun insightsHeatmapDayTapDescription(dateLabel: String) = "Unseal $dateLabel"
+    override fun insightsHeatmapDayTapDescription(dateLabel: String) = "Open $dateLabel"
 
-    override fun insightsIntensitySquareTapDescription(level: Int) = "Unseal intensity $level entries"
+    override fun insightsIntensitySquareTapDescription(level: Int) = "Open intensity $level entries"
 
-    override fun insightsTagRowTapDescription(tagName: String) = "Unseal #$tagName entries"
+    override fun insightsTagRowTapDescription(tagName: String) = "Open #$tagName entries"
 
     override fun insightsRhythmCellTapDescription(
         dayLabel: String,
         timeOfDayLabel: String,
-    ) = "Unseal $dayLabel ${timeOfDayLabel.lowercase()} entries"
+    ) = "Open $dayLabel ${timeOfDayLabel.lowercase()} entries"
 
     override fun insightsIntensityDrillDownTitle(level: Int) = "Marked intensity $level"
 
@@ -1821,9 +1805,9 @@ object IntenseVoice : Voice {
         timeOfDayLabel: String,
     ) = "Marked $dayLabel ${timeOfDayLabel.lowercase()}s"
 
-    override val insightsBurstFlagLabel = "It comes in waves, not a rhythm"
+    override val insightsBurstFlagLabel = "It comes in waves"
 
-    override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+    override fun insightsWentQuietEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
     override val insightsFrequencyInfoTitle = "On the shape of this record"
 
@@ -1834,36 +1818,36 @@ object IntenseVoice : Voice {
                 FrequencyGranularity.WEEK -> "weeks"
                 FrequencyGranularity.MONTH -> "months"
             }
-        return "Twelve $unit, no further back — the record does not dwell on distant history. Its grain is chosen by how " +
+        return "Twelve $unit, no further back. The record does not dwell on distant history. Its grain is chosen by how " +
             "long this case has been watched, though you may set it yourself above."
     }
 
     override val insightsGapsInfoTitle = "On silences and spells"
     override val insightsGapsInfoBody =
-        "Shortest gap: the briefest silence between two events.\n" +
+        "Shortest gap: the shortest silence between two events.\n" +
             "Longest gap: the longest silence with nothing stirring.\n" +
-            "Current gap: how long since the last event ended, or nothing while one still runs.\n" +
-            "Average gap: the usual quiet between events.\n" +
-            "Longest streak: the most consecutive days something was active.\n" +
-            "Average streak: how long those spells tend to last.\n\n" +
-            "An event with duration marks every day it was active, so one long event can hold a streak alone. " +
-            "\"It comes in waves, not a rhythm\" appears when the gaps are wildly uneven."
+            "Current gap: time since the last event ended. It's zero while one still runs.\n" +
+            "Average gap: the usual silence between events.\n" +
+            "Longest streak: the most days in a row with something active.\n" +
+            "Average streak: how long those spells usually last.\n\n" +
+            "A long event counts for every day it runs, so one event alone can hold a streak. " +
+            "\"It comes in waves\" means gaps vary a lot."
 
     override val insightsTrendsShowMoreAction = "Read the full record"
     override val insightsTagsSeeAllAction = "Read the full tally"
     override val insightsTagsDistinctLabel = "Tags in total"
     override val insightsTagsInfoTitle = "On the tags"
     override val insightsTagsInfoBody =
-        "Each tag counts the events it appears on. Tap one to read them."
+        "Each tag counts its own events. Tap one to read them."
 
     override val insightsTrendsInfoTitle = "On what these mean"
     override val insightsTrendsInfoBody =
-        "Each line names a shift found somewhere in this case's own past. It is a description, not a forecast.\n\n" +
-            "A hint has crossed a threshold, nothing more. A pattern has been tested, and holds."
+        "Each line names a shift found in this case's own past.\n\n" +
+            "A hint is an early sign. A pattern has been tested and holds."
 
-    override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+    override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
-    override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount waking spells."
+    override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount waking spells."
 
     override fun insightsFrequencyShiftEvidenceLabel() = "Weighed against the thirty days before."
 
@@ -1877,35 +1861,35 @@ object IntenseVoice : Voice {
         return when (finding.kind) {
             TrendFindingKind.WENT_QUIET -> "A record silence"
             TrendFindingKind.GAP_SHIFT -> if (up) "Silences lengthened" else "Silences shortened"
-            TrendFindingKind.STREAK_SHIFT -> if (up) "Waking spells lengthening" else "Waking spells shrinking"
+            TrendFindingKind.STREAK_SHIFT -> if (up) "Streaks growing longer" else "Streaks growing shorter"
             TrendFindingKind.FREQUENCY_SHIFT -> if (up) "Ramping up" else "Winding down"
-            TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag claims more" else "$tag claims less"
+            TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag turns up more" else "$tag turns up less"
             TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} keep company"
             TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Returns fast" else "Rarely returns fast"
             TrendFindingKind.TAG_OUTCOME ->
                 when {
                     duration && up -> "$tag lingers longer"
                     duration -> "$tag passes quicker"
-                    up -> "$tag cuts deeper"
-                    else -> "$tag cuts less deep"
+                    up -> "$tag feels more intense"
+                    else -> "$tag feels less intense"
                 }
             TrendFindingKind.CHANGE_POINT -> if (up) "Silences stretched" else "Silences tightened"
             TrendFindingKind.TREND_SLOPE ->
                 when {
                     duration && up -> "Lingering longer lately"
                     duration -> "Passing quicker lately"
-                    up -> "Cutting deeper lately"
-                    else -> "Easing off lately"
+                    up -> "Feels more intense lately"
+                    else -> "Feels less intense lately"
                 }
             TrendFindingKind.TIME_OF_DAY_SPLIT ->
                 when {
-                    duration && up -> "The evening lingers"
-                    duration -> "The day lingers"
+                    duration && up -> "Evenings stretch longer"
+                    duration -> "Days stretch longer"
                     up -> "The evening hits harder"
                     else -> "The day hits harder"
                 }
             TrendFindingKind.TAG_TIMING -> "$tag gathers $bucketPhrase"
-            TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> if (up) "The weekend pulls" else "The weekday pulls"
+            TrendFindingKind.WEEKDAY_WEEKEND_SPLIT -> if (up) "Drawn to weekends" else "Drawn to weekdays"
         }
     }
 
@@ -1921,23 +1905,23 @@ object IntenseVoice : Voice {
 
     override fun trendChangePointDetail(month: String) = "Changed in $month"
 
-    override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsTagShareShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
-    override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Drawn from those $sampleCount entries."
+    override fun insightsTagComboEvidenceLabel(sampleCount: Int) = "Based on those $sampleCount entries."
 
-    override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount silences."
+    override fun insightsRecurrenceShapeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
-    override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsTagOutcomeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
-    override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount gaps."
+    override fun insightsChangePointEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
-    override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsTrendSlopeEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
-    override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsTimeOfDaySplitEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
-    override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount tagged entries."
+    override fun insightsTagTimingEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount tagged entries."
 
-    override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Drawn from the last $sampleCount entries."
+    override fun insightsWeekdayWeekendEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount entries."
 
     override val insightsDurationInfoTitle = "On what is counted"
     override val insightsDurationInfoBody =
@@ -1948,19 +1932,19 @@ object IntenseVoice : Voice {
     override fun homeCaseCounts(
         todayCount: Int,
         weekCount: Int,
-    ) = "Today: $todayCount — this week: $weekCount"
+    ) = "Today: $todayCount${DOT_SEPARATOR}this week: $weekCount"
 
-    override fun archivedCasesLink(count: Int) = "The buried ($count)"
+    override fun archivedCasesLink(count: Int) = "Archived and forgotten ($count)"
 
     override fun archivedCaseEventCount(count: Int) = "$count entries in the record"
 
-    override fun unarchiveCaseDescription(caseName: String) = "Exhume $caseName"
+    override fun unarchiveCaseDescription(caseName: String) = "Restore $caseName"
 
     override fun deleteCaseForeverDescription(caseName: String) = "Erase $caseName forever"
 
     override fun deleteCaseForeverConfirmBody(eventCount: Int) = "This case and its $eventCount entries will be erased beyond recall."
 
-    override fun clearArchiveConfirmBody(caseCount: Int) = "$caseCount buried cases and their entries will be erased beyond recall."
+    override fun clearArchiveConfirmBody(caseCount: Int) = "$caseCount archived cases and their entries will be erased beyond recall."
 
     override fun eventIntensityLabel(intensity: Int) = "Intensity: $intensity"
 
@@ -1978,11 +1962,10 @@ object IntenseVoice : Voice {
 
     override fun ongoingCountIndicator(count: Int) = "$count still unfolding"
 
-    override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "Only Start/Stop keeps a thread open, so leaving it seals all $runningCount that still run — here, now, at this very moment."
+    override fun leaveStartStopConfirmBody(runningCount: Int) = "Switching away stops all $runningCount that still run, right now."
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
-        "$openEndedCount events end nowhere. Start/Stop would read them as still breathing, so each is fixed to the single moment it happened instead."
+        "$openEndedCount events end nowhere. Each will be fixed to the moment it began."
 
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
@@ -2039,7 +2022,7 @@ object IntenseVoice : Voice {
     override val watchesFabDescription = "Set a new alarm"
     override val watchesEmptyTitle = "No alarm is set"
     override val watchesEmptyBody =
-        "Set an alarm and the record will warn you — the moment this happens too often, or falls silent too long."
+        "Set an alarm and the record will warn you the moment this happens too often, or falls silent too long."
     override val watchesEmptyCta = "Set an alarm"
 
     override fun watchKindLabel(kind: WatchKind) =
@@ -2057,7 +2040,7 @@ object IntenseVoice : Voice {
         WatchKind.QUIET -> "$threshold days of silence"
     }
 
-    override fun watchFiredAgo(daysAgo: Long) = if (daysAgo == 0L) "Sounded today" else "Sounded $daysAgo days ago"
+    override fun watchFiredAgo(daysAgo: Long) = if (daysAgo == 0L) "Stirred today" else "Stirred $daysAgo days ago"
 
     override fun watchToggleDescription(summary: String) = "Toggle the alarm: $summary"
 
@@ -2066,13 +2049,13 @@ object IntenseVoice : Voice {
     override val watchesDeleteConfirmTitle = "Silence this alarm?"
     override val watchesDeleteConfirmBody = "It will warn you no longer."
     override val watchesDeleteConfirmAction = "Silence it"
-    override val watchesDeleteCancelAction = "Abandon"
+    override val watchesDeleteCancelAction = "Cancel"
     override val watchesCreateTitle = "Set an alarm"
     override val watchesEditTitle = "Tend the alarm"
     override val watchesKindPickerLabel = "What should you be warned of?"
     override val watchesQuietLabel = "Silence of"
     override val watchesSaveButton = "Save"
-    override val watchesCancelButton = "Abandon"
+    override val watchesCancelButton = "Cancel"
     override val watchesDecreaseCountDescription = "Diminish the threshold"
     override val watchesIncreaseCountDescription = "Swell the threshold"
 
@@ -2101,10 +2084,10 @@ object IntenseVoice : Voice {
         return parts.joinToString(DOT_SEPARATOR)
     }
 
-    override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "stirred today" else "$silentDays days of silence"
+    override fun watchNowLineQuiet(silentDays: Long) = if (silentDays == 0L) "Logged today" else "$silentDays days of silence"
 
     override val notificationChannelName = "Alarms"
-    override val notificationChannelDescription = "What has stirred, and what has gone quiet."
+    override val notificationChannelDescription = "Alerts for cases that have stirred, and cases that have gone quiet."
 
     override fun notificationFiredTitle(caseName: String) = "$caseName has stirred"
 
@@ -2113,19 +2096,19 @@ object IntenseVoice : Voice {
     override fun checkInDueNotificationBody(silentDays: Long) = "$silentDays days of silence. Has it stopped, or have you?"
 
     override val notificationLogAction = "Log it"
-    override val notificationAllQuietAction = "All is still"
+    override val notificationAllQuietAction = "All is quiet"
 
-    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases stir — see which"
+    override fun notificationsGroupSummaryTitle(count: Int) = "$count cases stir. See which."
 
     override val notificationsDeniedBannerMessage =
-        "Notifications are silenced. Alarms and the watch kept will not reach you — only what you find here."
+        "Notifications are silenced. Alarms and check-ins will not reach you. Only what you find here."
     override val notificationsDeniedBannerAction = "Break the silence"
 
     override val widgetConfigureTitle = "Which cases shall haunt this widget?"
     override val widgetConfigureBody = "Choose what stands watch here. Hold the widget and choose Edit to summon different watchers later."
-    override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Summon a case first."
+    override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Create a case first."
     override val widgetConfigureConfirmAction = "Bind to widget"
-    override val widgetConfigureSkipAction = "Abandon"
+    override val widgetConfigureSkipAction = "Cancel"
 
     override val singleCaseWidgetConfigureTitle = "Which case shall haunt this widget?"
     override val singleCaseWidgetConfigureBody = "Choose what stands watch here. Summon another widget to keep watch over something else."
@@ -2136,7 +2119,7 @@ object IntenseVoice : Voice {
 
     override val shareOpenDescription = "Share the record"
 
-    override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "mark" else "marks"
+    override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "entry" else "entries"
 
     override fun shareSquareTrendFrom(priorRate: String) = "from $priorRate a month prior"
 
@@ -2149,21 +2132,20 @@ object IntenseVoice : Voice {
     override fun shareHistoryTruncationNote(
         shown: Int,
         total: Int,
-    ) = "$shown of $total entered into evidence. Narrow the range for the rest."
+    ) = "Showing $shown of $total entries. Narrow the range to see the rest."
 
     override val shareHistoryEmptyRangeMessage = "No evidence in this window."
 
-    override val historyFieldsEditDescription = "Edit which detail the record shows"
-    override val historyFieldsDialogTitle = "Record detail"
+    override val historyFieldsEditDescription = "Choose what the record shows"
 }
 
 object BrightVoice : Voice {
     override val homeHeaderTitle = "How often does it totally happen?!"
     override val noCasesEmptyState = "It's quiet in here… suspiciously quiet."
-    override val bigPictureEarlyDays = "Too soon to tell — feed me more moments!"
+    override val bigPictureEarlyDays = "Too soon to tell! Keep logging!"
     override val bigPictureMonthPickerTitle = "Jump to a month!"
-    override val bigPictureDayDetailEmptyState = "Nothing logged this day — a blank page."
-    override val bigPictureWeekDetailEmptyState = "Nothing logged this week — a blank page."
+    override val bigPictureDayDetailEmptyState = "Nothing logged this day. A blank page."
+    override val bigPictureWeekDetailEmptyState = "Nothing logged this week. A blank page."
     override val bigPictureWeekViewDescription = "Peek at the week!"
     override val bigPictureDetailDialogTitle = "Row detail!"
     override val bigPictureDetailEditDescription = "Pick what shows up in each row!"
@@ -2172,7 +2154,7 @@ object BrightVoice : Voice {
     override val bigPictureAllCasesLabel = "All Cases!"
     override val bigPictureAllTagsLabel = "All tags!"
     override val bigPictureUntaggedOnlyLabel = "Untagged only!"
-    override val bigPictureNoCasesSelectedNote = "No Cases picked — nothing to show!"
+    override val bigPictureNoCasesSelectedNote = "No Cases picked. Nothing to show!"
     override val bigPictureSelectAllAction = "Select all!"
     override val bigPictureClearAllAction = "Clear all!"
     override val comingSoonPlaceholder = "Plot twist: not built yet!"
@@ -2190,12 +2172,12 @@ object BrightVoice : Voice {
     override val infoDialogDismissAction = "Got it!"
     override val caseLogFlowInfoTitle = "Logging, explained"
     override val caseLogFlowInfoBody =
-        "One tap logs it the second you tap — zero fuss, zero fields. Detail sheet pops up a quick form for " +
+        "One tap logs it the second you tap. Zero fuss, zero fields. Detail sheet pops up a quick form for " +
             "time, duration, intensity, and notes if you want more detail."
     override val caseDurationModeInfoTitle = "Duration, explained"
     override val caseDurationModeInfoBody =
         "None means duration's not tracked. Manual lets you type in how long it took. Start/stop tracks it " +
-            "live — hit Start, then Stop when it's over."
+            "live. Hit Start, then Stop when it's over."
     override val caseCheckInInfoTitle = "Check-in, explained"
     override val caseCheckInInfoBody =
         "Flip it on and you'll get a nudge after a quiet stretch, whatever Settings says. Off means no " +
@@ -2205,7 +2187,7 @@ object BrightVoice : Voice {
     override val archiveCaseDescription = "Shelve this case"
     override val archiveCaseConfirmTitle = "Shelve this case?"
     override val archiveCaseConfirmBody =
-        "It'll hide from Home and Big Picture, but nothing's deleted here — find it in the archive to bring it back, " +
+        "It'll hide from Home and Big Picture, but nothing's deleted here. Find it in the archive to bring it back, " +
             "or to yeet it forever instead."
     override val archiveCaseConfirmAction = "Shelve it"
     override val archiveCaseCancelAction = "Nah, keep it out"
@@ -2216,8 +2198,8 @@ object BrightVoice : Voice {
     override val enterStartStopConfirmAction = "Yep, switch and keep 'em"
     override val enterStartStopCancelAction = "Nope, keep this mode!"
     override val archivedCasesTitle = "The archive"
-    override val archivedCasesEmptyState = "Nothing shelved yet — tidy!"
-    override val eventListEmptyState = "Nothing logged yet — the plot is thin so far."
+    override val archivedCasesEmptyState = "Nothing shelved yet. Tidy!"
+    override val eventListEmptyState = "Nothing logged yet!"
 
     override fun historySummaryLine(
         rate: String?,
@@ -2228,30 +2210,29 @@ object BrightVoice : Voice {
     override val historyShowMoreAction = "Show me more!"
 
     override val deleteEventConfirmTitle = "Zap this event?"
-    override val deleteEventConfirmBody = "Poof — no take-backs."
+    override val deleteEventConfirmBody = "Can't undo this one!"
     override val deleteEventConfirmAction = "Zap it"
-    override val deleteEventCancelAction = "Never mind"
+    override val deleteEventCancelAction = "Nah, keep it!"
     override val deleteCaseForeverConfirmTitle = "Delete this case for good?"
     override val deleteCaseForeverConfirmAction = "Yeet it forever"
-    override val deleteCaseForeverCancelAction = "Nah, never mind"
+    override val deleteCaseForeverCancelAction = "Nah, leave it!"
     override val clearArchiveButtonDescription = "Clear out the archive"
     override val clearArchiveConfirmTitle = "Clear out the whole archive?"
     override val clearArchiveConfirmAction = "Yeet it all"
-    override val clearArchiveConfirmCancelAction = "Nah, never mind"
+    override val clearArchiveConfirmCancelAction = "Nah, leave it!"
     override val retroLogEntryDescription = "Log the moment"
-    override val logSheetNewEventTitle = "Log the moment"
-    override val logSheetEditEventTitle = "Tweak this moment"
+    override val logSheetNewEventTitle = "Log this event!"
+    override val logSheetEditEventTitle = "Tweak this event!"
     override val logSheetTimeLabel = "When'd it happen?"
     override val logSheetIntensityLabel = "How intense?"
     override val logSheetDurationLabel = "How long?"
     override val logSheetNoteLabel = "Note (optional)"
     override val logSheetNoteHint = "Spill the details"
-    override val logSheetTagsLabel = "Tags"
     override val logSheetAddTagHint = "Slap on a tag"
     override val logSheetRemoveTagDescription = "Yeet this tag"
     override val logSheetSaveButton = "Log it!"
     override val logSheetPickerConfirm = "Yep!"
-    override val logSheetPickerCancel = "Nah"
+    override val logSheetPickerCancel = "Cancel"
     override val logSheetStartButton = "Start it!"
     override val logSheetEndLabel = "Wrapped up at"
     override val logSheetOngoingLabel = "Still going!"
@@ -2268,7 +2249,7 @@ object BrightVoice : Voice {
     override val settingsThemeSectionLabel = "Pick your vibe"
     override val settingsThemeInfoTitle = "About themes!"
     override val settingsThemeInfoBody =
-        "Every theme comes with its own colors and its own voice — switch it up and watch the whole app talk differently!"
+        "Every theme comes with its own colors and its own voice. Switch it up and watch the whole app talk differently!"
     override val settingsTimeFormatSectionLabel = "Clock style!"
     override val settingsCheckInSectionLabel = "Nudge me"
     override val settingsCheckInInfoTitle = "Check-ins, explained"
@@ -2280,8 +2261,8 @@ object BrightVoice : Voice {
     override val settingsCloudBackupInfoTitle = "About backing up!"
     override val settingsCloudBackupInfoBody =
         "When this is on, your phone's own backup can scoop up HODITH's data along with everything else, " +
-            "if you've got phone backup turned on. Switch it off and future backups skip HODITH — but heads " +
-            "up, it won't erase a backup that already happened!"
+            "if you've got phone backup turned on. Switch it off and future backups skip HODITH. Heads " +
+            "up: it won't erase a backup that already happened!"
     override val settingsDeleteDataButton = "Nuke data"
     override val settingsDeleteDataOptionsTitle = "What's getting nuked?"
     override val settingsDeleteDataOptionAll = "Everything"
@@ -2308,7 +2289,7 @@ object BrightVoice : Voice {
     override val settingsExportFormatCancelAction = "Nah, never mind"
     override val settingsImportButton = "Restore a backup!"
     override val settingsImportConfirmTitle = "Swap in the backup?"
-    override val settingsImportConfirmBody = "Everything here gets wiped and replaced with what's in that file. No undo button, promise!"
+    override val settingsImportConfirmBody = "Everything here gets wiped and replaced with what's in that file. No undo button!"
     override val settingsImportConfirmAction = "Swap it in!"
     override val settingsImportCancelAction = "Nah, never mind"
     override val settingsExportSuccessMessage = "Backup saved!"
@@ -2325,12 +2306,12 @@ object BrightVoice : Voice {
     override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
     override val settingsManageTagsButton = "Tidy up the tags!"
     override val manageTagsScreenTitle = "Tag tidy-up!"
-    override val manageTagsEmptyState = "No tags yet! They'll show up here once you add them to a moment."
+    override val manageTagsEmptyState = "No tags yet! They'll show up here once you add them to a log."
     override val manageTagsFilterPlaceholder = "Find a tag!"
     override val manageTagsFilterClearDescription = "Clear the search"
     override val manageTagsNoMatches = "No tags match that. Try another!"
 
-    override fun manageTagsEventCount(count: Int) = if (count == 1) "1 moment" else "$count moments"
+    override fun manageTagsEventCount(count: Int) = if (count == 1) "1 log" else "$count logs"
 
     override fun manageTagsEditDescription(tagName: String) = "Rename $tagName"
 
@@ -2370,7 +2351,7 @@ object BrightVoice : Voice {
     ) = "\"$tagName\" comes off ${manageTagsEventCount(eventCount)} across all Cases. The moments stay put, with their other tags."
 
     override val manageTagsDeleteConfirmAction = "Delete it"
-    override val manageTagsCancelAction = "Nah, never mind"
+    override val manageTagsCancelAction = "Nah, leave it!"
     override val manageTagsWriteFailed = "Oops, that didn't stick! The tags are just as they were."
     override val aboutScreenTitle = "About HODITH!"
     override val aboutIdeaLabel = "What's this app about?"
@@ -2380,26 +2361,22 @@ object BrightVoice : Voice {
     override val aboutDeveloperModeUnlockedMessage = "Developer mode unlocked! Go wild."
     override val aboutPrivacyLabel = "Privacy"
     override val aboutPrivacyBody =
-        "HODITH itself doesn't touch the internet — zero network access, promise! But if your phone's own " +
+        "HODITH itself doesn't touch the internet. Zero network access, promise! But if your phone's own " +
             "backup is turned on, it might scoop up HODITH's data anyway. Flip the switch in Settings to " +
-            "stop that — heads up though, it only stops future backups, past ones stick around!"
+            "stop that. Heads up though: it only stops future backups, past ones stick around!"
     override val aboutPrivacyPolicyLinkLabel = "Read the full privacy policy!"
-    override val aboutLicensesLabel = "Licenses"
-    override val aboutLicensesBody =
-        "HODITH is built on awesome open-source stuff — AndroidX Jetpack, Hilt, Room, Moshi, Glance, " +
-            "WorkManager, and Kotlin Coroutines — all under the Apache License 2.0!"
     override val frequencyDecreaseCountDescription = "Fewer!"
     override val frequencyIncreaseCountDescription = "More!"
     override val metricOccurrenceLabel = "How often it kicks off"
-    override val metricDaysActiveLabel = "How many days it's a thing"
+    override val metricDaysActiveLabel = "How many days it sticks around"
 
     override val insightsNothingLoggedMessage = "Log a moment and the insights start taking shape!"
-    override val insightsSingleEventNote = "One event in — the picture starts here!"
+    override val insightsSingleEventNote = "One event logged so far!"
 
     override val insightsHeatmapShowMoreAction = "Show me more!"
     override val insightsHeatmapShowFewerAction = "Okay, tuck it back away"
 
-    override val insightsDrillDownEmptyState = "Nothing matches here — yet!"
+    override val insightsDrillDownEmptyState = "Nothing matches here yet!"
 
     override fun insightsHeatmapDayTapDescription(dateLabel: String) = "Peek at $dateLabel!"
 
@@ -2434,38 +2411,38 @@ object BrightVoice : Voice {
                 FrequencyGranularity.WEEK -> "weeks"
                 FrequencyGranularity.MONTH -> "months"
             }
-        return "Just the last 12 $unit — we pick days/weeks/months automatically depending on how long you've been " +
+        return "Just the last 12 $unit! We pick days/weeks/months automatically depending on how long you've been " +
             "tracking, but feel free to flip it yourself up top!"
     }
 
     override val insightsGapsInfoTitle = "Gaps & streaks, explained!"
     override val insightsGapsInfoBody =
-        "Shortest gap: the tiniest pause between two events.\n" +
-            "Longest gap: the biggest quiet stretch with nothing going on.\n" +
-            "Current gap: time since the last event wrapped up, or 0 while something's still running.\n" +
+        "Shortest gap: the smallest break between two events!\n" +
+            "Longest gap: the biggest quiet stretch.\n" +
+            "Current gap: time since your last event. It's 0 if one's happening now!\n" +
             "Average gap: the usual space between events.\n" +
-            "Longest streak: the most days in a row with at least one event active.\n" +
-            "Average streak: how long those runs usually go.\n\n" +
-            "Heads up: a duration event counts on every day it was active, so one long event can fill a whole streak by itself! " +
-            "\"Comes in bursts!\" pops up when the gaps are all over the place."
+            "Longest streak: the most days in a row with an event.\n" +
+            "Average streak: how long those streaks usually go!\n\n" +
+            "A long event counts for every day it runs, so one big event can make its own streak! " +
+            "\"Comes in bursts!\" means gaps vary a lot!"
 
     override val insightsTrendsShowMoreAction = "See them all!"
     override val insightsTagsSeeAllAction = "See every tag!"
     override val insightsTagsDistinctLabel = "Total tags!"
     override val insightsTagsInfoTitle = "About these tags!"
     override val insightsTagsInfoBody =
-        "Each tag counts the events it's on. Tap one to see them all!"
+        "Each tag counts its own events. Tap one to see them all!"
 
     override val insightsTrendsInfoTitle = "What these mean!"
     override val insightsTrendsInfoBody =
-        "Each row is a shift we spotted somewhere in this case's own history, just describing what changed, not what's next.\n\n" +
-            "Hint means it crossed a basic threshold, nothing fancier yet. Pattern means we checked it, and it holds up!"
+        "Each row shows a change we spotted in this case's history!\n\n" +
+            "A hint is an early sign. A pattern's been checked and confirmed!"
 
     override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
 
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks!"
 
-    override fun insightsFrequencyShiftEvidenceLabel() = "Comparing the last 30 days to the 30 before!"
+    override fun insightsFrequencyShiftEvidenceLabel() = "Last 30 days vs. the 30 before!"
 
     override fun insightsTrendHeadline(
         finding: TrendFinding,
@@ -2486,16 +2463,16 @@ object BrightVoice : Voice {
                 when {
                     duration && up -> "$tag sticks around longer!"
                     duration -> "$tag wraps up faster!"
-                    up -> "$tag hits harder!"
-                    else -> "$tag hits softer!"
+                    up -> "$tag is way more intense!"
+                    else -> "$tag is way less intense!"
                 }
             TrendFindingKind.CHANGE_POINT -> if (up) "Gaps stretched out!" else "Gaps tightened up!"
             TrendFindingKind.TREND_SLOPE ->
                 when {
                     duration && up -> "Sticking around longer!"
                     duration -> "Wrapping up faster!"
-                    up -> "Hitting harder lately!"
-                    else -> "Hitting softer lately!"
+                    up -> "Getting way more intense!"
+                    else -> "Getting way less intense!"
                 }
             TrendFindingKind.TIME_OF_DAY_SPLIT ->
                 when {
@@ -2583,7 +2560,7 @@ object BrightVoice : Voice {
         "Start/Stop is the only mode that tracks a live event, so switching away stops all $runningCount running ones right now."
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
-        "You've got $openEndedCount events with no end time. Start/Stop would treat them as still running, so they'll be kept as instant one-offs instead."
+        "$openEndedCount events have no end time. They'll be set to end the moment they started!"
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
@@ -2641,7 +2618,7 @@ object BrightVoice : Voice {
     override val watchesTabDescription = "Alerts!"
     override val watchesFabDescription = "New alert!"
     override val watchesEmptyTitle = "No alerts yet!"
-    override val watchesEmptyBody = "Get pinged when this happens a lot, or goes quiet for a while — you choose!"
+    override val watchesEmptyBody = "Get pinged when this happens a lot, or goes quiet for a while. You choose!"
     override val watchesEmptyCta = "Add an alert!"
 
     override fun watchKindLabel(kind: WatchKind) =
@@ -2668,13 +2645,13 @@ object BrightVoice : Voice {
     override val watchesDeleteConfirmTitle = "Remove this alert?"
     override val watchesDeleteConfirmBody = "No more heads-up from this one."
     override val watchesDeleteConfirmAction = "Remove it"
-    override val watchesDeleteCancelAction = "Never mind"
+    override val watchesDeleteCancelAction = "Nah, leave it!"
     override val watchesCreateTitle = "New alert!"
     override val watchesEditTitle = "Edit alert!"
     override val watchesKindPickerLabel = "What sets it off?!"
     override val watchesQuietLabel = "Quiet for"
     override val watchesSaveButton = "Save!"
-    override val watchesCancelButton = "Never mind"
+    override val watchesCancelButton = "Nah, leave it!"
     override val watchesDecreaseCountDescription = "Fewer!"
     override val watchesIncreaseCountDescription = "More!"
 
@@ -2712,7 +2689,7 @@ object BrightVoice : Voice {
 
     override fun checkInDueNotificationTitle(caseName: String) = "Quick check-in: $caseName"
 
-    override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days — all quiet, or did you forget?"
+    override fun checkInDueNotificationBody(silentDays: Long) = "Nothing logged in $silentDays days. All quiet, or did you forget?"
 
     override val notificationLogAction = "Log it!"
     override val notificationAllQuietAction = "All quiet!"
@@ -2720,14 +2697,14 @@ object BrightVoice : Voice {
     override fun notificationsGroupSummaryTitle(count: Int) = "$count cases want your eyes 👀"
 
     override val notificationsDeniedBannerMessage =
-        "Notifications are off, so watch and check-in alerts can't reach you — swing by here instead!"
+        "Notifications are off, so watch and check-in alerts can't reach you. Swing by here instead!"
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick your widget's stars!"
     override val widgetConfigureBody = "Choose which Cases get to show off here. Long-press it and tap Edit to pick new stars anytime!"
     override val widgetConfigureNoCasesMessage = "No cases yet! Make one in the app first."
     override val widgetConfigureConfirmAction = "Add to widget!"
-    override val widgetConfigureSkipAction = "Never mind"
+    override val widgetConfigureSkipAction = "Nah, leave it!"
 
     override val singleCaseWidgetConfigureTitle = "Pick your widget's star!"
     override val singleCaseWidgetConfigureBody = "Choose which Case gets to show off here. Add another widget for a different star!"
@@ -2755,8 +2732,7 @@ object BrightVoice : Voice {
 
     override val shareHistoryEmptyRangeMessage = "Nothing logged in this range yet!"
 
-    override val historyFieldsEditDescription = "Pick what each history entry shows!"
-    override val historyFieldsDialogTitle = "History detail!"
+    override val historyFieldsEditDescription = "Pick what shows!"
 }
 
 val LocalVoice = staticCompositionLocalOf<Voice> { PlainVoice }
