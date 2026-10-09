@@ -33,6 +33,7 @@ fun TagsListRoute(
     TagsListScreen(
         totalEventCount = uiState.totalEventCount,
         distinctTagCount = uiState.distinctTagCount,
+        taggedEventCount = uiState.taggedEventCount,
         tags = uiState.tags,
         eventsWithTags = uiState.eventsWithTags,
         durationMode = uiState.durationMode,
@@ -55,6 +56,7 @@ fun TagsListRoute(
 fun TagsListScreen(
     totalEventCount: Int,
     distinctTagCount: Int,
+    taggedEventCount: Int,
     tags: List<TagBreakdownEntry>,
     eventsWithTags: List<EventWithTags>,
     durationMode: DurationMode,
@@ -78,7 +80,7 @@ fun TagsListScreen(
         modifier = modifier,
     ) {
         InsightsCard {
-            TagsSummary(totalEventCount, distinctTagCount, voice)
+            TagsSummary(totalEventCount, taggedEventCount, distinctTagCount, voice)
             tags.forEach { tag ->
                 StatRow(
                     label = tag.tagName,

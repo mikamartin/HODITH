@@ -420,6 +420,7 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, eventsWithTags, now = millisAtDay(5)) as InsightsTabState.Ready
 
         assertEquals(3, state.stats.totalEventCount)
+        assertEquals(1, state.stats.taggedEventCount)
     }
 
     @Test
@@ -438,7 +439,25 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, eventsWithTags, now = millisAtDay(5)) as InsightsTabState.Ready
 
         assertEquals(4, state.stats.totalEventCount)
+        assertEquals(2, state.stats.taggedEventCount)
         assertEquals(listOf(TagBreakdownEntry("standup", 2), TagBreakdownEntry("weekend", 1)), state.stats.tags)
+    }
+
+    @Test
+    fun `taggedEventCount counts distinct events with at least one tag, not tag assignments`() {
+        val case = testCase(createdAt = millisAtDay(0))
+        val eventsWithTags =
+            listOf(
+                EventWithTags(eventAtDay(0), listOf(TagEntity(id = 1, name = "a"), TagEntity(id = 2, name = "b"))),
+                EventWithTags(eventAtDay(1), listOf(TagEntity(id = 1, name = "a"))),
+                EventWithTags(eventAtDay(2), emptyList()),
+                EventWithTags(eventAtDay(3), emptyList()),
+            )
+
+        val state = insightsTabState(case, eventsWithTags, now = millisAtDay(5)) as InsightsTabState.Ready
+
+        assertEquals(4, state.stats.totalEventCount)
+        assertEquals(2, state.stats.taggedEventCount)
     }
 
     @Test

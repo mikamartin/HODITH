@@ -48,6 +48,7 @@ class InsightsTabTagsCardTest {
     private fun readyState(
         tags: List<TagBreakdownEntry>,
         totalEventCount: Int,
+        taggedEventCount: Int,
     ) = InsightsTabState.Ready(
         heatmapMonths = emptyList(),
         stats =
@@ -58,6 +59,7 @@ class InsightsTabTagsCardTest {
                 duration = null,
                 intensity = null,
                 tags = tags,
+                taggedEventCount = taggedEventCount,
                 totalEventCount = totalEventCount,
                 trends = emptyList(),
             ),
@@ -66,12 +68,13 @@ class InsightsTabTagsCardTest {
     private fun setContent(
         tags: List<TagBreakdownEntry>,
         totalEventCount: Int = 40,
+        taggedEventCount: Int = 18,
         onOpenTags: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 InsightsTabContent(
-                    state = readyState(tags, totalEventCount),
+                    state = readyState(tags, totalEventCount, taggedEventCount),
                     case = case,
                     events = emptyList(),
                     now = 0L,
@@ -99,14 +102,15 @@ class InsightsTabTagsCardTest {
     }
 
     @Test
-    fun tagsCard_summaryShowsTotalEventsAndTotalTags() {
+    fun tagsCard_summaryShowsTaggedEventsAndTotalTags() {
         setContent(
             tags = tags("alpha" to 12, "beta" to 11, "gamma" to 10, "delta" to 4, "epsilon" to 3),
             totalEventCount = 40,
+            taggedEventCount = 18,
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.insightsTagsTotalLabel).assertExists()
-        composeTestRule.onNodeWithText("40").assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsTagsTaggedLabel).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.trendCountOfTotal(18, 40)).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.insightsTagsDistinctLabel).assertExists()
         composeTestRule.onNodeWithText("5").assertExists()
     }
@@ -118,7 +122,7 @@ class InsightsTabTagsCardTest {
             totalEventCount = 40,
         )
 
-        val events = composeTestRule.onNodeWithText(PlainVoice.insightsTagsTotalLabel).getUnclippedBoundsInRoot()
+        val events = composeTestRule.onNodeWithText(PlainVoice.insightsTagsTaggedLabel).getUnclippedBoundsInRoot()
         val tagsTotal = composeTestRule.onNodeWithText(PlainVoice.insightsTagsDistinctLabel).getUnclippedBoundsInRoot()
         assertEquals(events.top.value, tagsTotal.top.value, 0.5f)
         assertTrue(events.left < tagsTotal.left)

@@ -80,6 +80,8 @@ data class StatsSections(
     val tags: List<TagBreakdownEntry>,
     /** Distinct tags across the Case, which is [tags]' size; the collapsed tag card states it as a count. */
     val distinctTagCount: Int = tags.size,
+    /** Events carrying at least one tag, counted once each regardless of how many tags they carry; the tag card's "N of [totalEventCount]" numerator. */
+    val taggedEventCount: Int,
     val totalEventCount: Int,
     val trends: List<TrendFinding>,
     /** `null` until the Case has enough events and days to state a rate; only the Square share card shows it. */
@@ -287,6 +289,7 @@ private fun statsSections(
     val trendStatsResult = if (belowStatsMinimum) null else computeTrendStats(events, now, spanDays)
 
     val tagBreakdown = computeTagBreakdown(eventsWithTags)
+    val taggedEventCount = eventsWithTags.count { it.tags.isNotEmpty() }
 
     val duration =
         if (case.durationMode.tracksDuration) {
@@ -312,6 +315,7 @@ private fun statsSections(
         intensity = intensity,
         tags = tagBreakdown,
         distinctTagCount = tagBreakdown.size,
+        taggedEventCount = taggedEventCount,
         totalEventCount = events.size,
         heroRate = computeHeroRate(events.size, spanDays, trendStatsResult),
         trends =

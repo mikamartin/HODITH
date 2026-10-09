@@ -365,8 +365,8 @@ interface Voice {
     val insightsSectionLabelIntensity: String get() = "Intensity"
     val insightsSectionLabelTags: String get() = "Tags"
 
-    /** Tag breakdown's denominator row — structural, identical across all three voices. */
-    val insightsTagsTotalLabel: String get() = "Total events"
+    /** Tag breakdown's "N of total" row label — structural, identical across all three voices. */
+    val insightsTagsTaggedLabel: String get() = "Tagged events"
 
     /**
      * Spec §9/§10 drill-down (S10): tapping a heatmap day, an intensity square, or a tag row
@@ -449,7 +449,7 @@ interface Voice {
     /** Tag card's "see all": navigates to the full tag list, the same navigate-not-expand shape as [insightsTrendsShowMoreAction]. */
     val insightsTagsSeeAllAction: String
 
-    /** Collapsed tag card's count row for how many distinct tags the Case has, beside [insightsTagsTotalLabel]'s event count. */
+    /** Collapsed tag card's count row for how many distinct tags the Case has, beside [insightsTagsTaggedLabel]'s event count. */
     val insightsTagsDistinctLabel: String
 
     /** Full tag list screen's info dialog, explaining what each row counts. */

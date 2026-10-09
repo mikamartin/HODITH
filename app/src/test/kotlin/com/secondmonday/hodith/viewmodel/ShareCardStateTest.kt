@@ -330,6 +330,7 @@ class ShareCardStateTest {
         duration = duration,
         intensity = intensity,
         tags = tags,
+        taggedEventCount = 0,
         totalEventCount = 20,
         trends = findings,
     )
