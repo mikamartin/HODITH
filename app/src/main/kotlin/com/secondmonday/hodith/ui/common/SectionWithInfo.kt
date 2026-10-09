@@ -26,7 +26,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 
-/** Shared shape for a section with a label, a tappable info icon explaining it, and its content below. */
+/**
+ * Shared shape for a section with a label, a tappable info icon explaining it, and its content
+ * below. [infoContent], when given, replaces the default emphasis-parsed [infoBody] text in the
+ * info dialog with a custom composable -- e.g. Rhythm's info dialog needs a two-column time
+ * layout rather than wrapped text.
+ */
 @Composable
 fun SectionWithInfo(
     label: String,
@@ -34,10 +39,11 @@ fun SectionWithInfo(
     infoBody: String,
     infoDescription: String,
     labelStyle: TextStyle = MaterialTheme.typography.labelLarge,
+    infoContent: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Column {
-        LabelWithInfo(label, infoTitle, infoBody, infoDescription, labelStyle)
+        LabelWithInfo(label, infoTitle, infoBody, infoDescription, labelStyle, infoContent = infoContent)
         content()
     }
 }
@@ -70,10 +76,17 @@ private fun LabelWithInfo(
     infoDescription: String,
     labelStyle: TextStyle,
     modifier: Modifier = Modifier,
+    infoContent: (@Composable () -> Unit)? = null,
 ) {
     var showInfo by remember { mutableStateOf(false) }
     if (showInfo) {
-        InfoDialog(title = infoTitle, onDismiss = { showInfo = false }) { Text(infoBody) }
+        InfoDialog(title = infoTitle, onDismiss = { showInfo = false }) {
+            if (infoContent != null) {
+                infoContent()
+            } else {
+                Text(parseEmphasis(infoBody, MaterialTheme.colorScheme.primary))
+            }
+        }
     }
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = labelStyle)

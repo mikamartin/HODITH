@@ -567,20 +567,17 @@ interface Voice {
     val insightsRhythmInfoTitle: String
 
     /**
-     * Rhythm's info icon body: just the four time-of-day boundaries, each already formatted per
-     * [com.secondmonday.hodith.ui.theme.LocalTimeFormat] — structural, identical across all three
-     * voices, since these are objective clock times rather than voiced copy.
+     * Rhythm's info icon title when the section has relabeled to "Start times" for a multi-day
+     * Case (see [insightsSectionLabelRhythmStarts]) -- per voice, since the regular Rhythm title
+     * wouldn't otherwise mention that this is about start times specifically.
      */
-    fun insightsRhythmInfoBody(
-        morningStart: String,
-        afternoonStart: String,
-        eveningStart: String,
-        nightStart: String,
-    ): String =
-        "Morning: $morningStart – $afternoonStart\n" +
-            "Afternoon: $afternoonStart – $eveningStart\n" +
-            "Evening: $eveningStart – $nightStart\n" +
-            "Night: $nightStart – $morningStart"
+    val insightsRhythmStartsInfoTitle: String
+
+    /** Rhythm info dialog's intro sentence — structural, identical across all three voices. */
+    val insightsRhythmInfoIntro: String get() = "Based on when each event happens."
+
+    /** Start-times mode's intro sentence — structural, identical across all three voices. */
+    val insightsRhythmStartsInfoIntro: String get() = "Based on when each event started."
 
     fun homeCaseCounts(
         todayCount: Int,
@@ -973,16 +970,16 @@ object PlainVoice : Voice {
     override val infoDialogDismissAction = "Got it"
     override val caseLogFlowInfoTitle = "About logging"
     override val caseLogFlowInfoBody =
-        "One tap logs an event instantly with no extra fields. Pick it for cases you don't need duration or " +
-            "intensity on. Detail sheet opens a short form for time, duration, intensity, and notes before saving."
+        "**One tap** logs an event instantly with no extra fields. **Detail sheet** opens a short form for " +
+            "time, duration, intensity, and notes before saving."
     override val caseDurationModeInfoTitle = "About duration"
     override val caseDurationModeInfoBody =
-        "None skips duration entirely. Manual lets you type a duration when logging. Start/stop tracks an " +
-            "ongoing event live, from Start until you Stop it."
+        "**None** skips duration entirely. **Manual** lets you type a duration when logging. **Start/stop** " +
+            "tracks an ongoing event live."
     override val caseCheckInInfoTitle = "About check-in"
     override val caseCheckInInfoBody =
-        "When on, this case gets a check-in nudge after a stretch of silence, using Settings' default interval. " +
-            "Off turns it off for this case."
+        "**On:** gets a check-in nudge after a stretch of silence, using Settings' default interval.\n" +
+            "**Off:** no nudge for this case."
     override val caseSaveButton = "Save"
     override val caseDetailEditDescription = "Edit case"
     override val archiveCaseDescription = "Archive case"
@@ -1050,20 +1047,21 @@ object PlainVoice : Voice {
     override val settingsThemeSectionLabel = "Theme"
     override val settingsThemeInfoTitle = "About themes"
     override val settingsThemeInfoBody =
-        "Each theme has its own colors and voice."
+        "Each theme has its own colours and voice."
     override val settingsTimeFormatSectionLabel = "Time format"
     override val settingsCheckInSectionLabel = "Check-ins"
     override val settingsCheckInInfoTitle = "About check-ins"
     override val settingsCheckInInfoBody =
-        "How many days of silence trigger a check-in nudge, for cases with check-ins on. Off turns off the " +
-            "app-wide default; individual cases can still be turned off from their edit screen."
+        "How many days of silence trigger a check-in nudge, for cases with check-ins on. **Off** turns off " +
+            "the app-wide default; individual cases can still be turned off from their edit screen."
     override val settingsDataSectionLabel = "Data"
     override val settingsCloudBackupToggleLabel = "Include HODITH in device backup"
     override val settingsCloudBackupInfoTitle = "About device backup"
     override val settingsCloudBackupInfoBody =
         "When this is on, Android's own device backup can carry HODITH's data along with everything else " +
-            "on your phone, if you have phone backup turned on. Turning it off stops future backups from " +
-            "including HODITH's data. It won't remove a backup that's already been made."
+            "on your phone, if you have phone backup turned on.\n\n" +
+            "Turning it off stops future backups from including HODITH's data. It won't remove a backup " +
+            "that's already been made."
     override val settingsDeleteDataButton = "Delete data"
     override val settingsDeleteDataOptionsTitle = "What to delete"
     override val settingsDeleteDataOptionAll = "All data"
@@ -1222,12 +1220,12 @@ object PlainVoice : Voice {
 
     override val insightsGapsInfoTitle = "About gaps & streaks"
     override val insightsGapsInfoBody =
-        "Shortest gap: the smallest break between two events.\n" +
-            "Longest gap: the biggest break with nothing happening.\n" +
-            "Current gap: time since your last event ended. It's 0 if one is happening now.\n" +
-            "Average gap: the usual break between events.\n" +
-            "Longest streak: the most days in a row with an event.\n" +
-            "Average streak: how long those streaks usually last.\n\n" +
+        "**Shortest gap:** the smallest break between two events.\n" +
+            "**Longest gap:** the biggest break with nothing happening.\n" +
+            "**Current gap:** time since your last event ended. It's 0 if one is happening now.\n" +
+            "**Average gap:** the usual break between events.\n" +
+            "**Longest streak:** the most days in a row with an event.\n" +
+            "**Average streak:** how long those streaks usually last.\n\n" +
             "A long event counts for every day it runs, so one big event can make its own streak. " +
             "\"Tends to come in bursts\" means gaps vary a lot."
 
@@ -1240,8 +1238,8 @@ object PlainVoice : Voice {
 
     override val insightsTrendsInfoTitle = "About trends"
     override val insightsTrendsInfoBody =
-        "Each row shows a change found in this case's own history.\n\n" +
-            "A hint is an early signal. A pattern has been checked and confirmed."
+        "A **hint** flags a sizeable change in this case's own numbers, with no statistical test behind it. " +
+            "A **pattern** has passed one, showing the effect is unlikely to be chance."
 
     override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps."
 
@@ -1326,6 +1324,7 @@ object PlainVoice : Voice {
         "Shortest, average, and longest time are based on events that have ended. A still-running event isn't counted until it stops."
 
     override val insightsRhythmInfoTitle = "About rhythm"
+    override val insightsRhythmStartsInfoTitle = "About start times"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -1573,16 +1572,17 @@ object IntenseVoice : Voice {
     override val infoDialogDismissAction = "Understood"
     override val caseLogFlowInfoTitle = "On the manner of recording"
     override val caseLogFlowInfoBody =
-        "One tap records it the moment you touch it. No further rite required. The detail sheet asks " +
-            "more of you: the hour, its length, its severity, its notes, reserved for cases that demand such detail."
+        "**One tap** records it the moment you touch it. No further rite required. **The detail sheet** " +
+            "asks more of you: the hour, its length, its severity, its notes, reserved for cases that demand " +
+            "such detail."
     override val caseDurationModeInfoTitle = "On duration"
     override val caseDurationModeInfoBody =
-        "None takes no account of how long a thing lingers. Manual lets you name its length yourself. " +
-            "Start/stop watches it unfold in real time, from the moment it begins until you declare it done."
+        "**None** takes no account of how long a thing lingers. **Manual** lets you name its length " +
+            "yourself. **Start/stop** watches it unfold in real time."
     override val caseCheckInInfoTitle = "On check-ins"
     override val caseCheckInInfoBody =
-        "When kept, the check-in nudge stirs after this case has lain silent too long, the interval Settings " +
-            "decree for all cases. Off silences the nudge for this case alone."
+        "**Kept:** the check-in nudge stirs once this case has gone silent too long, per Settings' interval.\n" +
+            "**Off:** silences the nudge for this case alone."
     override val caseSaveButton = "Keep it"
     override val caseDetailEditDescription = "Revise the case"
     override val archiveCaseDescription = "Retire this case"
@@ -1650,20 +1650,21 @@ object IntenseVoice : Voice {
     override val settingsThemeSectionLabel = "The chosen skin"
     override val settingsThemeInfoTitle = "On the chosen skin"
     override val settingsThemeInfoBody =
-        "Each theme has its own colors and its own way of speaking. Change it, and the wording changes too."
+        "Each theme has its own colours and its own way of speaking. Change it, and the wording changes too."
     override val settingsTimeFormatSectionLabel = "How time is told"
     override val settingsCheckInSectionLabel = "Keeping watch"
     override val settingsCheckInInfoTitle = "On check-ins"
     override val settingsCheckInInfoBody =
-        "How many days of silence wake a check-in nudge, for any case that has them on. Off turns off the " +
-            "app-wide default; a single case can still turn it off from its own page."
+        "How many days of silence wake a check-in nudge, for any case that has them on. **Off** turns off " +
+            "the app-wide default; a single case can still turn it off from its own page."
     override val settingsDataSectionLabel = "Data"
     override val settingsCloudBackupToggleLabel = "Keep HODITH in device backup"
     override val settingsCloudBackupInfoTitle = "On device backup"
     override val settingsCloudBackupInfoBody =
         "When this is on, the phone's own backup carries HODITH's data along with everything else, if " +
-            "phone backup is on. Turning it off stops new backups from including HODITH's data. It cannot " +
-            "erase what has already been saved."
+            "phone backup is on.\n\n" +
+            "Turning it off stops new backups from including HODITH's data. It cannot erase what has " +
+            "already been saved."
     override val settingsDeleteDataButton = "Erase data"
     override val settingsDeleteDataOptionsTitle = "What to erase"
     override val settingsDeleteDataOptionAll = "Every record"
@@ -1824,12 +1825,12 @@ object IntenseVoice : Voice {
 
     override val insightsGapsInfoTitle = "On silences and spells"
     override val insightsGapsInfoBody =
-        "Shortest gap: the shortest silence between two events.\n" +
-            "Longest gap: the longest silence with nothing stirring.\n" +
-            "Current gap: time since the last event ended. It's zero while one still runs.\n" +
-            "Average gap: the usual silence between events.\n" +
-            "Longest streak: the most days in a row with something active.\n" +
-            "Average streak: how long those spells usually last.\n\n" +
+        "**Shortest gap:** the shortest silence between two events.\n" +
+            "**Longest gap:** the longest silence with nothing stirring.\n" +
+            "**Current gap:** time since the last event ended. It's zero while one still runs.\n" +
+            "**Average gap:** the usual silence between events.\n" +
+            "**Longest streak:** the most days in a row with something active.\n" +
+            "**Average streak:** how long those spells usually last.\n\n" +
             "A long event counts for every day it runs, so one event alone can hold a streak. " +
             "\"It comes in waves\" means gaps vary a lot."
 
@@ -1842,8 +1843,8 @@ object IntenseVoice : Voice {
 
     override val insightsTrendsInfoTitle = "On what these mean"
     override val insightsTrendsInfoBody =
-        "Each line names a shift found in this case's own past.\n\n" +
-            "A hint is an early sign. A pattern has been tested and holds."
+        "A **hint** marks a shift in this case's own numbers, untested against chance. A **pattern** has " +
+            "stood against that test, and held."
 
     override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount silences."
 
@@ -1928,6 +1929,7 @@ object IntenseVoice : Voice {
         "Shortest, average, and longest are drawn only from what has already ended. What still runs is not counted until it is done."
 
     override val insightsRhythmInfoTitle = "On the pull of the clock"
+    override val insightsRhythmStartsInfoTitle = "On where it begins"
 
     override fun homeCaseCounts(
         todayCount: Int,
@@ -2172,16 +2174,16 @@ object BrightVoice : Voice {
     override val infoDialogDismissAction = "Got it!"
     override val caseLogFlowInfoTitle = "Logging, explained"
     override val caseLogFlowInfoBody =
-        "One tap logs it the second you tap. Zero fuss, zero fields. Detail sheet pops up a quick form for " +
-            "time, duration, intensity, and notes if you want more detail."
+        "**One tap** logs it the second you tap. Zero fuss, zero fields. **Detail sheet** pops up a quick " +
+            "form for time, duration, intensity, and notes if you want more detail."
     override val caseDurationModeInfoTitle = "Duration, explained"
     override val caseDurationModeInfoBody =
-        "None means duration's not tracked. Manual lets you type in how long it took. Start/stop tracks it " +
-            "live. Hit Start, then Stop when it's over."
+        "**None** means duration's not tracked. **Manual** lets you type in how long it took. " +
+            "**Start/stop** tracks it live."
     override val caseCheckInInfoTitle = "Check-in, explained"
     override val caseCheckInInfoBody =
-        "Flip it on and you'll get a nudge after a quiet stretch, whatever Settings says. Off means no " +
-            "nudges for this case."
+        "**On:** you'll get a nudge after a quiet stretch, whatever Settings says.\n" +
+            "**Off:** no nudges for this case."
     override val caseSaveButton = "Save it!"
     override val caseDetailEditDescription = "Tweak the case"
     override val archiveCaseDescription = "Shelve this case"
@@ -2249,20 +2251,20 @@ object BrightVoice : Voice {
     override val settingsThemeSectionLabel = "Pick your vibe"
     override val settingsThemeInfoTitle = "About themes!"
     override val settingsThemeInfoBody =
-        "Every theme comes with its own colors and its own voice. Switch it up and watch the whole app talk differently!"
+        "Every theme comes with its own colours and its own voice. Switch it up and watch the whole app talk differently!"
     override val settingsTimeFormatSectionLabel = "Clock style!"
     override val settingsCheckInSectionLabel = "Nudge me"
     override val settingsCheckInInfoTitle = "Check-ins, explained"
     override val settingsCheckInInfoBody =
-        "Sets how many quiet days trigger a nudge, for cases with check-ins on. Off means no app-wide " +
-            "nudges — you can still flip a single case off from its edit screen."
+        "Sets how many quiet days trigger a nudge, for cases with check-ins on. **Off** means no app-wide " +
+            "nudges. You can still flip a single case off from its edit screen."
     override val settingsDataSectionLabel = "Your stuff!"
     override val settingsCloudBackupToggleLabel = "Back up my stuff!"
     override val settingsCloudBackupInfoTitle = "About backing up!"
     override val settingsCloudBackupInfoBody =
         "When this is on, your phone's own backup can scoop up HODITH's data along with everything else, " +
-            "if you've got phone backup turned on. Switch it off and future backups skip HODITH. Heads " +
-            "up: it won't erase a backup that already happened!"
+            "if you've got phone backup turned on.\n\n" +
+            "Switch it off and future backups skip HODITH. Heads up: it won't erase a backup that already happened!"
     override val settingsDeleteDataButton = "Nuke data"
     override val settingsDeleteDataOptionsTitle = "What's getting nuked?"
     override val settingsDeleteDataOptionAll = "Everything"
@@ -2417,12 +2419,12 @@ object BrightVoice : Voice {
 
     override val insightsGapsInfoTitle = "Gaps & streaks, explained!"
     override val insightsGapsInfoBody =
-        "Shortest gap: the smallest break between two events!\n" +
-            "Longest gap: the biggest quiet stretch.\n" +
-            "Current gap: time since your last event. It's 0 if one's happening now!\n" +
-            "Average gap: the usual space between events.\n" +
-            "Longest streak: the most days in a row with an event.\n" +
-            "Average streak: how long those streaks usually go!\n\n" +
+        "**Shortest gap:** the smallest break between two events!\n" +
+            "**Longest gap:** the biggest quiet stretch.\n" +
+            "**Current gap:** time since your last event ended. It's 0 if one's happening now!\n" +
+            "**Average gap:** the usual space between events.\n" +
+            "**Longest streak:** the most days in a row with an event.\n" +
+            "**Average streak:** how long those streaks usually go!\n\n" +
             "A long event counts for every day it runs, so one big event can make its own streak! " +
             "\"Comes in bursts!\" means gaps vary a lot!"
 
@@ -2435,8 +2437,8 @@ object BrightVoice : Voice {
 
     override val insightsTrendsInfoTitle = "What these mean!"
     override val insightsTrendsInfoBody =
-        "Each row shows a change we spotted in this case's history!\n\n" +
-            "A hint is an early sign. A pattern's been checked and confirmed!"
+        "A **hint** flags a sizeable change, no test behind it yet. A **pattern**'s passed a real test, " +
+            "so it's probably not chance!"
 
     override fun insightsGapShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount gaps!"
 
@@ -2521,6 +2523,7 @@ object BrightVoice : Voice {
         "Shortest, average, and longest time only include events that have wrapped up. Anything still running doesn't count yet!"
 
     override val insightsRhythmInfoTitle = "When does it happen?!"
+    override val insightsRhythmStartsInfoTitle = "When does it start?!"
 
     override fun homeCaseCounts(
         todayCount: Int,

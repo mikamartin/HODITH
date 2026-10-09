@@ -1,8 +1,11 @@
 package com.secondmonday.hodith.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,7 +33,10 @@ fun InfoDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = content,
+        // AlertDialog doesn't scroll its `text` slot on its own -- content taller than the
+        // dialog's window just clips silently rather than scrolling, so a long info body needs
+        // its own scroll here (same fix InsightsDrillDownDialog already applies).
+        text = { Column(modifier = Modifier.verticalScroll(rememberScrollState())) { content() } },
         confirmButton = {
             if (leadingAction != null) {
                 Row(

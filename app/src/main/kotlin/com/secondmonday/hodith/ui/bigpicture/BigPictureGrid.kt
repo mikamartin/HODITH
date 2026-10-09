@@ -24,10 +24,8 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
@@ -725,9 +723,9 @@ private fun DayDetailDialog(
         if (dayEvents.isEmpty()) {
             Text(voice.bigPictureDayDetailEmptyState)
         } else {
-            // AlertDialog doesn't scroll its `text` slot on its own -- content taller than the
-            // dialog's window just clips silently rather than scrolling.
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            // InfoDialog itself scrolls a long body -- no second scroll needed here (nesting two
+            // vertical scrolls without a bounded inner height crashes).
+            Column {
                 dayEvents.forEach { dayEvent ->
                     EventDetailRow(dayEvent, caseById[dayEvent.event.caseId], today, detail, onOpenCase, onDismiss, voice)
                 }
@@ -753,9 +751,9 @@ private fun WeekDetailDialog(
         title = voice.bigPictureWeekDetailTitle(formatMediumDate(week.first())),
         onDismiss = onDismiss,
     ) {
-        // AlertDialog doesn't scroll its `text` slot on its own -- content taller than the
-        // dialog's window just clips silently rather than scrolling.
-        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        // InfoDialog itself scrolls a long body -- no second scroll needed here (nesting two
+        // vertical scrolls without a bounded inner height crashes).
+        Column {
             validDays.forEach { day ->
                 val dayEvents = eventsByDay[day].orEmpty().filter { isEventVisible(it.event) }
                 if (dayEvents.isNotEmpty()) {

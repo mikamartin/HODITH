@@ -17,6 +17,44 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/info-note-copy
+
+**Scope:** user-reported info-icon copy issues across all three voices — poor scanability, no term emphasis, bad start-time formatting/wrapping, and a broken sentence in Bright's Gaps & streaks note. Reviewed every info-icon note in the app (12 notes + 2 supporting strings), voice by voice, table by table, with the user approving each change before it landed. Scope grew mid-pass to cover the underlying rendering gaps that caused the reported symptoms (no emphasis mechanism, no dialog scrolling, Rhythm's note never adapting to its own "Start times" relabelling), plus a Canadian-spelling pass ("color" → "colour") the user asked for once the per-voice review was done.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. Verified: `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (full unit suite), `assembleDebug`, and `connectedDebugAndroidTest` scoped to `CaseDetailInsightsTabTest` (43/43 passing on a Pixel 8 API 36 emulator, run twice — once before and once after the final Rhythm-layout fix below). Not confirmed: which theme/light-dark-mode combinations the user's on-device check covered beyond Intense and Bright (see Deferred).
+
+**Found & fixed:**
+- All 12 info-icon notes rewritten across Plain/Intense/Bright per the user's table-by-table review: trimmed redundant sentences (Logging/Duration bodies), restructured Check-in bodies into on/off pairs, split the device-backup body into two paragraphs, added `**term**` colour-emphasis markers on defined terms, and rewrote the Trends body to accurately distinguish Hint vs. Pattern findings (Hint: a descriptive-threshold detector with no significance test behind it; Pattern: one that only ever surfaces after passing a permutation significance test) instead of implying one upgrades into the other.
+- Real bug found during the review: Bright's Gaps & streaks "Current gap" line was missing the word "ended" ("time since your last event." instead of "...event ended."), silently changing its meaning — present only in Bright, not Plain/Intense. Fixed, with a new `VoiceTest` regression test.
+- Fixed an em dash in Bright's Settings → Check-ins body (the project's Voice-copy strings stay em-dash-free).
+- Added colour-emphasis as a first-class rendering mechanism: `parseEmphasis` (new `EmphasisText.kt`) parses `**term**` markers into `MaterialTheme.colorScheme.primary`-tinted `AnnotatedString` spans — reusing the app's existing colour-only, no-added-weight precedent (`InsightsTab.kt`'s `highlightTag`) rather than introducing bold. Wired into `SectionWithInfo`/`LabelWithInfo`'s default rendering and `InsightsDetailScaffold`'s Tags/Trends full-list info dialogs.
+- Added a scroll wrapper inside `InfoDialog` itself, fixing the Gaps & streaks dialog clipping on longer content (confirmed by the user to run past one screen). Side effect: three other dialogs that already scrolled their own content now nested two vertical scrolls, a Compose crash risk — removed the now-redundant inner scroll from `InsightsDrillDownDialog` and Big Picture's day/week detail dialogs (`BigPictureGrid.kt`).
+- Added a Start-times-specific info title/intro for the Rhythm card (`insightsRhythmStartsInfoTitle` per voice, plus structural `insightsRhythmInfoIntro`/`insightsRhythmStartsInfoIntro`), so a multi-day Case's relabelled "Start times" section gets a matching explanation instead of always describing the regular Rhythm wording.
+- Rebuilt the Rhythm info dialog's body as its own composable (`RhythmInfoContent`) rather than a flattened Voice string, after three on-device rounds surfaced real layout bugs: the time range was first unconstrained in width with wrapping disabled, clipping "PM" at the dialog's edge; then label and range were split into two independently-stacked `Column`s, letting one range's wrap desync it from its own label; then, with label and range reunited on one `Row` and the range on `Modifier.weight(1f)`, Intense's wider font still wrapped the third and fourth rows' ranges unpredictably mid-string. Final design: the range's start and end clock times always stack on their own lines (no en dash joining them on one line), so every line is a single short clock time that fits regardless of theme font or accessibility font scale — eliminating the wrap case entirely rather than fitting it more tightly.
+- Colour spelling: Settings → Theme info body ("colors" → "colours") in all three voices, and a `DemoDataSeeder.kt` demo-mode seed note ("Wrong-color cup incident" → "Wrong-colour cup incident"), once the user's Canadian-spelling preference was confirmed to extend to the app's own user-facing copy, not just chat prose.
+
+**Deferred:**
+- Explicit confirmation of the Plain theme and of light/dark mode for the Rhythm dialog fix — the user checked Intense and Bright on-device; Plain and the light/dark axis weren't stated.
+
+**Considered and declined:**
+- Bulleted lists for the Gaps & streaks and Rhythm info bodies — the user asked for plain line breaks plus colour emphasis on the labelled terms instead.
+- A new fixed-width guess for the Rhythm dialog's label column, in favor of reusing `RHYTHM_LABEL_WIDTH` (the card's own label width, already tuned to fit "Afternoon") paired with `Modifier.weight(1f)` on the range — avoids a second magic number while still guaranteeing per-row alignment. (Superseded in effect, not reverted, by the final stacked-lines design above — the label column width is unaffected.)
+
+**Checks:**
+- Duplication: no inline user-visible strings added outside `Voice.kt`; `parseEmphasis` reused across `SectionWithInfo` and `InsightsDetailScaffold` rather than duplicated; `RHYTHM_LABEL_WIDTH`/`RHYTHM_GRID_GAP` reused in the new Rhythm info layout rather than re-declared.
+- Decoupling: no `domain/`/`android.*` boundary touched; `rhythmInfoTitle`/`rhythmInfoIntro` extracted as plain functions (no Compose) specifically so the Start-times mode-selection logic is unit-testable without a Compose test.
+- Dead code: no unused imports (`ktlintCheck` passes); fixed an unused-import regression in `BigPictureGrid.kt` created by removing its now-redundant inner scroll. A KDoc comment narrating "an earlier version" of `RhythmInfoContent` was caught and reworded to state the current invariant instead, during this walkthrough.
+- Hygiene: `git status` clean; no secrets or local paths in the diff.
+- Naming: new Voice keys (`insightsRhythmStartsInfoTitle`, `insightsRhythmInfoIntro`, `insightsRhythmStartsInfoIntro`) added to all three voices in this same commit; `EmphasisText.kt` follows `AcronymText.kt`'s existing `ui/common` naming pattern.
+- Hardcoded values: no new `Color(0xFF...)` literals; theme colour tokens used throughout.
+- Accessibility: no tap targets changed; theme/light-dark coverage not fully confirmed, see Deferred.
+- UI copy brevity: the subject of the review itself.
+- Tests: `EmphasisTextTest` (new, 4 cases), `RhythmInfoTest` (new, 2 cases), a new `VoiceTest` regression test for the Bright "ended" bug, and `CaseDetailInsightsTabTest`'s Rhythm assertions rewritten twice for the evolving dialog shape (each start/end time now its own text node) plus one new test for the Start-times title/intro switch — all 43 tests in that class run and passing on-emulator.
+
+**Docs updated:** TESTING.md (Voice layer row and the Case Detail Insights instrumented row, both extended); this entry.
+
+---
+
 ## fix/duration-selector-wrap
 
 **Scope:** user-reported bug: the duration-mode selector's "Start/stop" option (None/Manual/Start-stop) wrapped to two lines in the Plain theme on the New/Edit Case screen. Three follow-ups from the same user, after the wrap fix landed: "Start/stop" rendered visibly smaller than its siblings instead of matching them; separately, Settings' Appearance section showed its Theme row and Time format row at two different sizes from each other; then, in the Bright theme specifically, every `SegmentedChoiceRow` label (Settings and New/Edit Case both) rendered huge and heavy instead of its normal size.
@@ -131,36 +169,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Hygiene: no secrets or local paths in the diff. Persisted DataStore key strings unchanged (see Found & fixed).
 
 **Docs updated:** PROGRESS.md (the duplication-review item struck, resolved rather than spun into follow-ups); this entry.
-
----
-
-## Trends recency tie-break, fallbacks and share card layout
-
-**Scope:** the PROGRESS.md Trends item (the "New" badge bullet was dropped): a recency tie-break for equal-ranked findings, the silent fallbacks in the Trends rows, and the share card's Trends section moved onto the Insights card's row layout.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. Verified: `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (1188 unit tests, none failing), `assembleDebug`, and `connectedDebugAndroidTest` scoped to `ShareCardTemplateTest`, `InsightsTabTrendsCardTest`, `TrendsListScreenTest` and `CaseDetailInsightsTabTest` (118 tests, all passing on the API 36 emulator). Not run: the full instrumented suite, and light and dark mode on a device.
-
-**Found & fixed:**
-- `TrendFinding` now carries a required `latestEvidenceAt`, so no detector can leave it out. Each detector reports the newest event its finding was built from. The Case-history detectors (gap, streak, frequency, recurrence, went quiet, change point) report the Case's latest activity, from `GapStats.lastActivityAt`.
-- Tie-break: findings still tied after group, p-value and effect size order newest first. Covered by `TrendsEngineTest`, including a check that the cap keeps the newer of tied findings.
-- Silent fallbacks in `InsightsTab.kt` now fail loudly: a missing `changePointDate`, `outcome` or time-of-day bucket throws with the kind named, instead of substituting today's date, intensity or morning. Covered by `TrendFindingSentenceTest`.
-- Share card Trends section: each row is the shared `TrendFindingBody` (headline, reliability chip, figures, evidence line) with the same divider as the Insights card. `ShareCardTemplateTest` asserts the headline, the chip count (one per row) and the evidence line.
-- The `TAG_TIMING` bucket phrase now names only the bucket that is set, instead of always defaulting time of day to morning. Covered by `TrendFindingSentenceTest`.
-- Stale KDoc on `trendFindingSentence` and the evidence-line helper, which still said the share card showed sentences only.
-
-**Deferred:**
-- `trendFindingSentence` is now read only by its own tests, since both cards render headlines. Whether it is removed, and whether its sentence wording duplicates the headlines, is for the new PROGRESS.md duplication review item. Removing it now would orphan Voice sentence keys.
-- `tagName.orEmpty()` in the same rows is the same kind of null-to-default fallback. It was not in the PROGRESS.md bullet, so it is left as is. Logged here so it is not forgotten.
-
-**Considered and declined:**
-- A default value on `latestEvidenceAt`. The field is required so each detector states its own date; the compiler finds any construction site that does not. Test and preview fixtures pass `0L` or a fixed constant.
-
-**Checks:**
-- Duplication: the share card and the Insights tab now render trend rows through one composable. `trendFindingSentence` is the remaining duplicate, deferred above.
-- Decoupling: `domain/` gains no `android.*` imports. `latestActivityAt()` lives in `data/EventEntity.kt`, next to `loggedZone()`, and the domain already imports from `data`.
-- Voice: no new user-visible strings. The share card reuses the Insights headlines, which all three voices already define, so `VoiceTest` covers them.
-- Dead code: no unused imports (ktlint passes). `trendFindingSentence` is the one exception, deferred above.
-- Hygiene: no secrets or local paths in the diff. Line endings stayed CRLF throughout.
-
-**Docs updated:** HODITH_SPEC.md §10 (tie-break order, and the share card's Trends rows now match the Insights card); PROGRESS.md (the Trends item is struck; a duplication review item is added to Standalone); this entry.
 

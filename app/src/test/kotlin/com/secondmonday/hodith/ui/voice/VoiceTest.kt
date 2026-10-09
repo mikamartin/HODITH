@@ -164,6 +164,15 @@ class VoiceTest {
     }
 
     @Test
+    fun `insights gaps info body says the current gap is time since the last event ended`() {
+        // Bright's body once dropped "ended" ("time since your last event." instead of "...event
+        // ended."), silently changing the meaning -- nothing asserted the word was there.
+        for (voice in voices) {
+            assertTrue("$voice: ${voice.insightsGapsInfoBody}", voice.insightsGapsInfoBody.contains("ended"))
+        }
+    }
+
+    @Test
     fun `share gaps and duration titles name the panels the way the cards do`() {
         for (voice in voices) {
             assertEquals("Gaps", voice.shareGapsTitle)

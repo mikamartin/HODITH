@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.InfoIcon
+import com.secondmonday.hodith.ui.common.parseEmphasis
 import com.secondmonday.hodith.ui.voice.LocalVoice
 
 /**
@@ -48,7 +49,7 @@ internal fun InsightsDetailScaffold(
     var showInfo by remember { mutableStateOf(false) }
     if (showInfo) {
         InfoDialog(title = infoTitle, onDismiss = { showInfo = false }) {
-            Text(infoBody)
+            Text(parseEmphasis(infoBody, MaterialTheme.colorScheme.primary))
         }
     }
     Scaffold(

@@ -347,6 +347,28 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
+    fun rhythmCard_infoIcon_usesTheStartTimesTitleAndIntro_whenRelabelled() {
+        // Same multi-day fixture as frequencyCard_hiddenAndRhythmRelabelled_whenAnEventSpansMultipleDays
+        // -- the info note should follow the section's own "Start times" relabelling rather than
+        // always explaining the regular Rhythm wording.
+        setInsightsTabContent(
+            durationMode = DurationMode.START_STOP,
+            events = listOf(eventAt(10, endedAt = daysAgo(7)), eventAt(1)),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsSectionLabelRhythmStarts).performScrollTo()
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onFirst()
+            .performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.insightsRhythmStartsInfoTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsRhythmStartsInfoIntro).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsRhythmInfoTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.insightsRhythmInfoIntro).assertDoesNotExist()
+    }
+
+    @Test
     fun frequencyCard_staysVisible_forANoneCaseWithAStoredMultiDayEndedAt() {
         // Same 3-day endedAt, but the Case no longer tracks duration (spec §9): every event is a
         // point, so "how often" is answerable again and the frequency card stays.
@@ -522,9 +544,16 @@ class CaseDetailInsightsTabTest {
 
         // MORNING_START_HOUR/AFTERNOON_START_HOUR/EVENING_START_HOUR/NIGHT_START_HOUR (StatsEngine.kt)
         // restated as clock times, same reason this class restates INSIGHTS_MIN_EVENTS etc.
-        composeTestRule
-            .onNodeWithText(PlainVoice.insightsRhythmInfoBody("6:00 AM", "12:00 PM", "5:00 PM", "9:00 PM"))
-            .assertExists()
+        // Start and end stack on their own lines (two Text nodes per row), so each is asserted separately.
+        composeTestRule.onNodeWithText(PlainVoice.insightsRhythmInfoIntro).assertExists()
+        composeTestRule.onNodeWithText("6:00 AM").assertExists()
+        composeTestRule.onNodeWithText("– 12:00 PM").assertExists()
+        composeTestRule.onNodeWithText("12:00 PM").assertExists()
+        composeTestRule.onNodeWithText("– 5:00 PM").assertExists()
+        composeTestRule.onNodeWithText("5:00 PM").assertExists()
+        composeTestRule.onNodeWithText("– 9:00 PM").assertExists()
+        composeTestRule.onNodeWithText("9:00 PM").assertExists()
+        composeTestRule.onNodeWithText("– 6:00 AM").assertExists()
     }
 
     @Test
@@ -537,9 +566,14 @@ class CaseDetailInsightsTabTest {
             .onFirst()
             .performClick()
 
-        composeTestRule
-            .onNodeWithText(PlainVoice.insightsRhythmInfoBody("06:00", "12:00", "17:00", "21:00"))
-            .assertExists()
+        composeTestRule.onNodeWithText("06:00").assertExists()
+        composeTestRule.onNodeWithText("– 12:00").assertExists()
+        composeTestRule.onNodeWithText("12:00").assertExists()
+        composeTestRule.onNodeWithText("– 17:00").assertExists()
+        composeTestRule.onNodeWithText("17:00").assertExists()
+        composeTestRule.onNodeWithText("– 21:00").assertExists()
+        composeTestRule.onNodeWithText("21:00").assertExists()
+        composeTestRule.onNodeWithText("– 06:00").assertExists()
     }
 
     @Test
