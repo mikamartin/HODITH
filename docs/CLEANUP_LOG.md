@@ -17,6 +17,42 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/duration-selector-wrap
+
+**Scope:** user-reported bug: the duration-mode selector's "Start/stop" option (None/Manual/Start-stop) wrapped to two lines in the Plain theme on the New/Edit Case screen. Three follow-ups from the same user, after the wrap fix landed: "Start/stop" rendered visibly smaller than its siblings instead of matching them; separately, Settings' Appearance section showed its Theme row and Time format row at two different sizes from each other; then, in the Bright theme specifically, every `SegmentedChoiceRow` label (Settings and New/Edit Case both) rendered huge and heavy instead of its normal size.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. Verified: `ktlintCheck`, `lintDebug`, `test` (full unit suite), `assembleDebug`, and `connectedDebugAndroidTest` scoped to `SegmentedChoiceRowTest` (5/5 passing on a Pixel 8 API 36 emulator) and `SettingsScreenTest` (34/34 passing, confirming the Appearance section's click/selection behavior survived being wrapped in a `CompositionLocalProvider`).
+
+**Found & fixed:**
+- Root cause: `SegmentedChoiceRow`'s Plain/Intense `SegmentedButton` branch gave its label `Text` no wrap/shrink handling; Plain's Inter font is wider per character than Intense's condensed Oswald, so the same 3-way None/Manual/Start-stop split only overflowed in Plain. Fixed by adding `maxLines = 1` and `TextAutoSize.StepBased()`, which only shrinks the font when a label would otherwise overflow — every other current usage (shorter labels) renders unchanged. Applied the same to Bright's own track (`BrightSegmentedChoiceRow`) for consistency, even though it wasn't wrapping at the width tested. Confirmed red (56.4dp tall vs. 40dp for "None") against the pre-fix code before confirming green, on-device.
+- Added a Plain light/dark Compose preview pair, reusing the existing preview-content composable (renamed from Bright-specific `SegmentedChoiceRowBrightPreviewContent` to `SegmentedChoiceRowPreviewContent` since it was already decoration-agnostic) rather than duplicating it.
+- Added `longLabelOption_doesNotWrapInPlainTheme`/`...InBrightTheme` to `SegmentedChoiceRowTest`, comparing the long label's rendered height against a short sibling's in the same row/width/theme instead of hardcoding font metrics.
+- Follow-up 1: each segment's independent autoSize meant a short label stayed at its own larger natural size while "Start/stop" shrank, reading as inconsistent even once nothing wrapped. Added `SegmentedRowFontSizeCoordinator` to `SegmentedChoiceRow.kt` — each segment reports its own autoSize result via `onTextLayout`, and once every segment has reported, all of them switch from independent autoSize to the shared smallest size. Applied to both the Plain/Intense and Bright branches.
+- Follow-up 2: by default each row gets its own private coordinator instance, so a 3-option row (Theme) and a 2-option row (Time format) stacked in the same Plank can still land on two different sizes from each other, since each divides the same full width by a different segment count. Generalized the coordinator to support several rows sharing one instance -- a row joins via `registerRow`/`unregisterRow` (so a row that disappears, e.g. a dismissed dialog, can't block the rest from ever settling) -- exposed via a new `LocalSegmentedRowFontSizeCoordinator` composition local. `SettingsScreen.kt`'s Appearance section now provides one shared instance around its Theme and Time format rows; every other caller is unaffected (each still gets its own private instance, same as before).
+- Follow-up 3: `TextAutoSize.StepBased()`'s default search range is 12sp–112sp, with no upper bound tied to the control's own intended size. Likely cause: if `BrightSegmentedChoiceRow`'s `Box`/`Row` layout ever hands the autoSize search an effectively unbounded width during measurement, every candidate size up to 112sp reads as "fits", so the search climbs toward that ceiling instead of shrinking -- producing the huge, heavy-looking text reported in both Settings and New/Edit Case's Bright theme. Capped `maxFontSize` at the row's own `textStyle.fontSize` in both the Plain/Intense and Bright branches, so autoSize can only ever shrink from the intended size, never grow past it, regardless of whether that unbounded-width theory is the full story. Not yet confirmed fixed on-device.
+
+**Deferred:**
+- Automated verification of both font-size-coordination fixes (within-row and cross-row). Instrumented-test attempts (bounding-box height, and a `GetTextLayoutResult`-semantics font-size probe) both showed rendered text height staying completely unchanged across every tested width, 300dp down to an unreasonable 20dp-per-segment — not even "None" shrank at the extreme end, which real `autoSize` behavior can't produce. That means `autoSize` is not taking visible effect in this instrumented-test harness, for reasons not pinned down in this pass, even though the user directly observed it shrinking "Start/stop" in the real running app. Given the harness and the real app disagree, both coordinators' correctness rests on source-level reasoning (Compose Foundation's `MultiParagraphLayoutCache` confirms `onTextLayout` receives the real post-autoSize style) rather than an automated check; the user will confirm visually on-device instead. Worth a closer look later if this project ever needs to assert on `autoSize` behavior from an instrumented test again.
+- Extending the shared Appearance-section coordinator to other screens with multiple stacked rows (e.g. Case Edit's logFlow + durationMode rows). Not requested for this pass; flagged here so it's not forgotten if the same "rows look mismatched" complaint resurfaces elsewhere.
+
+**Considered and declined:**
+- Shortening the "Start/stop" label itself (flagged by UI Copy Brevity: "None" = 4 chars, "Manual" = 6, "Start/stop" = 10). The layout fix already resolves the wrap; the user chose to keep the label, since changing it would mean editing all three voices plus every doc that names durationMode's options for a label that's accurate and already consistent.
+- A fully automated regression test for either font-size-coordination fix, in favor of the user's own on-device check — see Deferred.
+
+**Checks:**
+- Duplication: the preview-content composable is now shared across Bright and Plain previews instead of being duplicated per theme. `SegmentedRowFontSizeCoordinator` is one class shared by both branches and, when a screen opts in, by every row under its `CompositionLocalProvider`, rather than duplicated per branch or per row.
+- Decoupling, data model, background work: not touched.
+- Dead code: no unused imports; a draft cross-reference naming a specific test-method name was caught and reworded so it can't go stale if the test is renamed. The diagnostic test written to investigate the autoSize harness question was removed once its purpose was served, not left behind.
+- Hygiene: `git status` clean; no secrets or local paths in the diff.
+- Naming: new previews/tests/the coordinator class and composition local follow existing naming patterns.
+- Accessibility: autoSize only affects the label's font size inside its existing container — tap targets unchanged.
+- UI copy brevity: flagged and resolved, see Considered and declined.
+- Tests: wrap regression test added and confirmed red/pre-fix then green/post-fix on-device. `SettingsScreenTest`'s full 34-test suite re-run to confirm the Appearance section's behavior survived the `CompositionLocalProvider` wrapping. Neither font-size-coordination property itself is covered by an automated test — see Deferred.
+
+**Docs updated:** TESTING.md (shared-components row extended to cover the wrap regression); this entry.
+
+---
+
 ## chore/voice-phrasing-audit
 
 **Scope:** PROGRESS.md's "Review phrasing across all three Voice implementations" item, run as a joint AI/human review rather than the item's originally planned rubric-first process: the user asked for a simpler loop instead — a table of every key's Plain/Intense/Bright copy per screen, reviewed and edited live, applied immediately, one commit per screen — and explicitly dropped the rubric document, the findings-then-fixes commit split, and new `VoiceTest` mechanical invariants (vocabulary casing, gamification language, length caps) from scope. Every screen in the app was covered, including two gaps the original item's screen list missed (`WatchesTab.kt`, `WatchEditorSheet.kt`).
@@ -127,46 +163,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Hygiene: no secrets or local paths in the diff. Line endings stayed CRLF throughout.
 
 **Docs updated:** HODITH_SPEC.md §10 (tie-break order, and the share card's Trends rows now match the Insights card); PROGRESS.md (the Trends item is struck; a duplication review item is added to Standalone); this entry.
-
----
-
-## feat/trends-visual-redesign
-
-**Scope:** the Trends visual redesign: the Insights card row (headline, Pattern/Hint chip, compared figures, evidence count), the full-list row (same row), p-value ordering, and sort-before-cap. PROGRESS.md's Trends item now holds only the open work.
-
-**Walked:** CLEANUP_CHECKLIST.md against the branch's diff, section by section, in two passes. The second pass found the stale instrumented assertions and the log claims corrected below. Verified in this pass: `ktlintCheck`, `test` (1167 unit tests, none failing), `lintDebug` and `assembleDebug` pass; `compileDebugAndroidTestKotlin` compiles. Not run: the instrumented tests (no device this pass), and light and dark mode on a device.
-
-**Found & fixed:**
-- Instrumented tests still asserted sentence text the rows no longer render: every row test in `TrendsListScreenTest`, plus the frequency-shift and gap-shift assertions in `CaseDetailInsightsTabTest`. They now assert the headline and the figures. The compact-card test asserted no reliability chip; the chip appears on both surfaces now, so it asserts the chip exists.
-- Two inline English phrases in the row code moved into `Voice`: the tag combo's "of" (`trendCountOfTotal`) and the tag-timing bucket (`trendTimingBucket`, shared with the sentence through `trendBucketPhrase`). The case-wide reference moved to `trendCaseWideReference`.
-- Stale KDoc in `Trends.kt`, `TrendsEngine.kt` and `InsightsTab.kt`: the Hint/Pattern and "every detector" wording, the Insights card description, and the evidence line, which no longer sits under a sentence. Rewritten to describe the code as it is. One over-long KDoc line reflowed.
-- `VoiceTest` gained a `TrendFinding` sample generator covering every kind, direction and outcome, so the reflection invariants check the headlines.
-- Two order-dependent unit tests asserted detector order, which the sort replaces. Rewritten to assert the new contract. Added: a strong Pattern finding survives the cap, `pValue` is set on Pattern findings and null on Hints, Hints order by relative change, a zero-baseline Hint ranks first, and a tag combo ranks after measured Hints.
-- A `!!` in the new `TrendsEngineTest` assertion was flagged by the compiler as unnecessary. Removed.
-- `CaseDetailScreen`'s tab state changed from `remember` to `rememberSaveable` (commit 22a7e41). Opening Trends, Tags or Share disposes this screen, and the tab used to reset to Log on return. It now stays on Insights.
-
-**Deferred:**
-- Headline copy length and whether sentences quote tag names as `#Name`: moved to PROGRESS.md's voice phrasing audit item, with the flagged labels and their alternatives. The sentences are shared with the share card, so that is a copy change for the audit.
-- Silent fallbacks in the Trends rows: PROGRESS.md. `changePointDate ?: LocalDate.now()` lives in `trendFindingSentence`, the share card's path. The Insights rows read the same date null-safely.
-- Recency tie-break and "New" badge: PROGRESS.md.
-
-**Considered and declined:**
-- `groupRank` and `hintEffectSize` in their own file: private, single-caller, and documented beside the sort they serve.
-- `trendCountOfTotal`, `trendTimingBucket` and `trendReferenceLine` as interface defaults rather than per-voice overrides. They follow the existing `trendReliabilityHintLabel` pattern for structural copy, so their English wording is shared across voices.
-
-**Checks:**
-- Duplication: the compact card and the full list share `TrendFindingBody`. The reliability chip uses `StatusChip`, which the Gaps card's burst flag now uses too.
-- Decoupling: `domain/` has no `android.*` imports and no `System.currentTimeMillis()`, and it takes no ViewModel or UI types.
-- Complexity: `TrendFindingBody` is about 60 lines, the largest new composable, under the split threshold. No new `LaunchedEffect`. The one `remember` changed as recorded above.
-- Dead code: no unused imports (ktlint passes). The share card still uses the sentence functions, so no Voice keys are orphaned. The HTML prototype lives outside the repo.
-- Hygiene: no secrets or local paths in the diff. `git status` shows only intended files.
-- Naming and Voice: every new abstract key is overridden in all three voices. The three interface defaults are structural (see Considered and declined).
-- Hardcoded values: no new colours or product constants. The sort ranks 0/1/2 are ordering only.
-- Accessibility: the chip is text, so the tier is not conveyed by colour alone. No new tap targets.
-- UI copy brevity: flagged labels moved to PROGRESS.md with alternatives.
-- Spec: HODITH_SPEC.md §10 and §13 match the code. The share card is still sentence-only.
-- Data model, widgets and background work: not touched. `widget/` has no trend references.
-- Deprecated APIs: not checked against compiler output in this pass.
-
-**Docs updated:** HODITH_SPEC.md §10 (Trends card contents, info icon placement, ordering); TESTING.md (`TrendFiguresTest` added to the trend sentence row); PROGRESS.md (trends item reduced to its open work; copy review bullet added to the voice phrasing audit item); this entry.
 

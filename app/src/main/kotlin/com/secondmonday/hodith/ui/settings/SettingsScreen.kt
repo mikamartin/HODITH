@@ -46,10 +46,12 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.LocalSegmentedRowFontSizeCoordinator
 import com.secondmonday.hodith.ui.common.Plank
 import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
+import com.secondmonday.hodith.ui.common.SegmentedRowFontSizeCoordinator
 import com.secondmonday.hodith.ui.common.themedSwitchColors
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.GlowCard
@@ -246,8 +248,15 @@ fun SettingsScreen(
             }
 
             Plank(voice.settingsAppearanceSectionLabel) {
-                ThemeSection(theme = uiState.theme, voice = voice, onThemeSelect = onThemeSelect)
-                TimeFormatSection(timeFormat = uiState.timeFormat, voice = voice, onTimeFormatSelect = onTimeFormatSelect)
+                // Theme has 3 options, Time format has 2 -- each divides this same full-width
+                // Plank differently, so without sharing one coordinator across both rows, a
+                // longer Theme label ("Intense") could need a smaller size than Time format's
+                // roomier segments ever do, leaving the two rows visibly mismatched.
+                val appearanceFontSizeCoordinator = remember { SegmentedRowFontSizeCoordinator() }
+                CompositionLocalProvider(LocalSegmentedRowFontSizeCoordinator provides appearanceFontSizeCoordinator) {
+                    ThemeSection(theme = uiState.theme, voice = voice, onThemeSelect = onThemeSelect)
+                    TimeFormatSection(timeFormat = uiState.timeFormat, voice = voice, onTimeFormatSelect = onTimeFormatSelect)
+                }
             }
 
             // No outer AreaHeader here: CheckInSection already carries its own label + info icon
