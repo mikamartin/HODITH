@@ -567,6 +567,63 @@ internal fun rhythmTimeOfDayLabel(
         TimeOfDay.NIGHT -> voice.insightsTimeOfDayNight
     }
 
+/** Rhythm's info dialog title: the Start-times variant once the section itself has relabeled (see [RhythmCard]). */
+internal fun rhythmInfoTitle(
+    voice: Voice,
+    plottedByStart: Boolean,
+): String = if (plottedByStart) voice.insightsRhythmStartsInfoTitle else voice.insightsRhythmInfoTitle
+
+/** Rhythm's info dialog intro sentence, paired with [rhythmInfoTitle]'s mode. */
+internal fun rhythmInfoIntro(
+    voice: Voice,
+    plottedByStart: Boolean,
+): String = if (plottedByStart) voice.insightsRhythmStartsInfoIntro else voice.insightsRhythmInfoIntro
+
+/**
+ * Rhythm info dialog's body: [intro] followed by the four time-of-day boundaries, label and range
+ * together on one [Row] each -- keeping both in the same row structurally guarantees they stay
+ * aligned regardless of how either one renders. The label reuses [RHYTHM_LABEL_WIDTH] (already
+ * sized to fit "Afternoon"). The range's start and end clock times always stack on their own
+ * lines, each just one short time string -- rather than one line joined by an en dash, which
+ * could still wrap unpredictably (mid-range, splitting "AM"/"PM" from its number) under a wider
+ * theme font or a larger accessibility font scale.
+ */
+@Composable
+private fun RhythmInfoContent(
+    voice: Voice,
+    intro: String,
+    morningStart: String,
+    afternoonStart: String,
+    eveningStart: String,
+    nightStart: String,
+) {
+    val rows =
+        listOf(
+            TimeOfDay.MORNING to (morningStart to afternoonStart),
+            TimeOfDay.AFTERNOON to (afternoonStart to eveningStart),
+            TimeOfDay.EVENING to (eveningStart to nightStart),
+            TimeOfDay.NIGHT to (nightStart to morningStart),
+        )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(intro)
+        rows.forEach { (timeOfDay, startAndEnd) ->
+            val (start, end) = startAndEnd
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = rhythmTimeOfDayLabel(voice, timeOfDay),
+                    modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(modifier = Modifier.width(RHYTHM_GRID_GAP.dp))
+                Column {
+                    Text(start, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("– $end", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
 /**
  * Spec §10 rhythm heatmap: day-of-week columns x time-of-day rows, shaded like the calendar
  * heatmap, with an info icon spelling out the four [TimeOfDay] boundaries in the viewer's own
@@ -588,19 +645,28 @@ private fun RhythmCard(
     val locale = LocalLocale.current.platformLocale
     val use24Hour = LocalTimeFormat.current.is24Hour
 
+    val morningStart = formatClockTime(LocalTime.of(MORNING_START_HOUR, 0), use24Hour)
+    val afternoonStart = formatClockTime(LocalTime.of(AFTERNOON_START_HOUR, 0), use24Hour)
+    val eveningStart = formatClockTime(LocalTime.of(EVENING_START_HOUR, 0), use24Hour)
+    val nightStart = formatClockTime(LocalTime.of(NIGHT_START_HOUR, 0), use24Hour)
+
     InsightsCard {
         SectionWithInfo(
             label = if (display.plottedByStart) voice.insightsSectionLabelRhythmStarts else voice.insightsSectionLabelRhythm,
-            infoTitle = voice.insightsRhythmInfoTitle,
-            infoBody =
-                voice.insightsRhythmInfoBody(
-                    morningStart = formatClockTime(LocalTime.of(MORNING_START_HOUR, 0), use24Hour),
-                    afternoonStart = formatClockTime(LocalTime.of(AFTERNOON_START_HOUR, 0), use24Hour),
-                    eveningStart = formatClockTime(LocalTime.of(EVENING_START_HOUR, 0), use24Hour),
-                    nightStart = formatClockTime(LocalTime.of(NIGHT_START_HOUR, 0), use24Hour),
-                ),
+            infoTitle = rhythmInfoTitle(voice, display.plottedByStart),
+            infoBody = "",
             infoDescription = voice.caseSectionInfoDescription,
             labelStyle = MaterialTheme.typography.titleSmall,
+            infoContent = {
+                RhythmInfoContent(
+                    voice = voice,
+                    intro = rhythmInfoIntro(voice, display.plottedByStart),
+                    morningStart = morningStart,
+                    afternoonStart = afternoonStart,
+                    eveningStart = eveningStart,
+                    nightStart = nightStart,
+                )
+            },
         ) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 Spacer(modifier = Modifier.width(RHYTHM_LABEL_WIDTH.dp))
@@ -1209,10 +1275,9 @@ internal fun InsightsDrillDownDialog(
         if (events.isEmpty()) {
             Text(voice.insightsDrillDownEmptyState)
         } else {
-            // AlertDialog doesn't scroll its `text` slot on its own -- content taller than the
-            // dialog's window just clips silently rather than scrolling, so a long event list
-            // needs its own scroll here.
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            // InfoDialog itself scrolls a long body -- no second scroll needed here (nesting two
+            // vertical scrolls without a bounded inner height crashes).
+            Column {
                 events.forEach { eventWithTags ->
                     InsightsDrillDownEventRow(
                         eventWithTags = eventWithTags,
