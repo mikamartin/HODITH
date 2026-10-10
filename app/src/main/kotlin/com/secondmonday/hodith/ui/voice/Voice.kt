@@ -620,6 +620,12 @@ interface Voice {
     /** Body of the [enterStartStopConfirmTitle] dialog — names how many open-ended events become instant events. */
     fun enterStartStopConfirmBody(openEndedCount: Int): String
 
+    /** Case Edit notice shown next to the intensity toggle, while it's on, for a Case that already has [eventCount] logged events. */
+    fun enableIntensityNotice(eventCount: Int): String
+
+    /** Case Edit notice shown next to the intensity toggle, while it's off, for a Case that already has [eventCount] logged events. */
+    fun disableIntensityNotice(eventCount: Int): String
+
     fun bigPictureWeekDetailTitle(date: String): String
 
     /** Day/week detail row for a still-running event, in place of a clock time. [since] is a time if it started today, otherwise a date. */
@@ -1367,6 +1373,12 @@ object PlainVoice : Voice {
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
         "$openEndedCount events have no end time. Their end time will be set to match their start time."
 
+    override fun enableIntensityNotice(eventCount: Int) =
+        "This case already has $eventCount logged events. New events will be rated; already-logged ones keep whatever rating they have now."
+
+    override fun disableIntensityNotice(eventCount: Int) =
+        "This case already has $eventCount logged events, hidden from stats until you turn this back on. New events won't be rated at all."
+
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
     override fun bigPictureEventOngoingSince(since: String) = "Ongoing since $since"
@@ -1969,6 +1981,12 @@ object IntenseVoice : Voice {
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
         "$openEndedCount events end nowhere. Each will be fixed to the moment it began."
 
+    override fun enableIntensityNotice(eventCount: Int) =
+        "$eventCount events already sit in this case. Only what comes next must carry a rating."
+
+    override fun disableIntensityNotice(eventCount: Int) =
+        "$eventCount ratings go quiet, not gone, until this comes back on. Nothing new gets measured."
+
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
     override fun bigPictureEventOngoingSince(since: String) = "Unfolding since $since"
@@ -2564,6 +2582,12 @@ object BrightVoice : Voice {
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
         "$openEndedCount events have no end time. They'll be set to end the moment they started!"
+
+    override fun enableIntensityNotice(eventCount: Int) =
+        "You've already got $eventCount events logged! New ones will be rated; already-logged ones are fine as they are."
+
+    override fun disableIntensityNotice(eventCount: Int) =
+        "Your $eventCount ratings are still right where you left them, just hidden until you flip this back on! New events won't be rated at all."
 
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 

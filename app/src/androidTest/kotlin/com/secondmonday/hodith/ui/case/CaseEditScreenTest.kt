@@ -15,6 +15,11 @@ import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
+import com.secondmonday.hodith.viewmodel.IntensityToggleNotice
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -35,6 +40,7 @@ class CaseEditScreenTest {
 
     private fun setContent(
         uiState: CaseEditUiState = CaseEditUiState(isEditing = true, isLoading = false, canArchive = true),
+        intensityToggleNotice: Flow<IntensityToggleNotice> = emptyFlow(),
         onArchive: () -> Unit = {},
         onDurationModeChange: (DurationMode) -> Unit = {},
         onConfirmLeaveStartStop: () -> Unit = {},
@@ -47,6 +53,7 @@ class CaseEditScreenTest {
         composeTestRule.setHodithContent(theme = theme) {
             CaseEditScreen(
                 uiState = uiState,
+                intensityToggleNotice = intensityToggleNotice,
                 onNameChange = {},
                 onDescriptionChange = {},
                 onIconSelect = onIconSelect,
@@ -275,5 +282,25 @@ class CaseEditScreenTest {
 
         composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmTitle).assertDoesNotExist()
         composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun intensityToggleNotice_enabled_showsEnableSnackbarWithEventCount() {
+        val notices = Channel<IntensityToggleNotice>(capacity = 1)
+        setContent(intensityToggleNotice = notices.receiveAsFlow())
+
+        notices.trySend(IntensityToggleNotice(enabled = true, eventCount = 3))
+
+        composeTestRule.onNodeWithText(PlainVoice.enableIntensityNotice(3)).assertExists()
+    }
+
+    @Test
+    fun intensityToggleNotice_disabled_showsDisableSnackbarWithEventCount() {
+        val notices = Channel<IntensityToggleNotice>(capacity = 1)
+        setContent(intensityToggleNotice = notices.receiveAsFlow())
+
+        notices.trySend(IntensityToggleNotice(enabled = false, eventCount = 5))
+
+        composeTestRule.onNodeWithText(PlainVoice.disableIntensityNotice(5)).assertExists()
     }
 }

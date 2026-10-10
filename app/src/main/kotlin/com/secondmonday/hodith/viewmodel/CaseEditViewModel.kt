@@ -13,10 +13,14 @@ import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
 import com.secondmonday.hodith.widget.WidgetRefresher
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,6 +28,12 @@ import javax.inject.Inject
 private const val NO_CASE_ID = -1L
 internal const val CASE_NAME_MAX_LENGTH = 60
 internal const val CASE_DESCRIPTION_MAX_LENGTH = 90
+
+/** One-shot signal to show a transient notice when `intensityEnabled` is flipped on a Case that already has logged events (spec §6). */
+data class IntensityToggleNotice(
+    val enabled: Boolean,
+    val eventCount: Int,
+)
 
 data class CaseEditUiState(
     val isEditing: Boolean = false,
@@ -45,6 +55,8 @@ data class CaseEditUiState(
      * quick logs otherwise. Gates both duration-mode confirms (spec §6).
      */
     val runningEventCount: Int = 0,
+    /** Total events already logged on this Case, regardless of end-time state — gates the intensity-toggle notice (spec §6). */
+    val loggedEventCount: Int = 0,
     val showLeaveStartStopConfirm: Boolean = false,
     val showEnterStartStopConfirm: Boolean = false,
 )
@@ -69,6 +81,9 @@ class CaseEditViewModel
         private val _uiState = MutableStateFlow(CaseEditUiState(isEditing = caseId != null))
         val uiState: StateFlow<CaseEditUiState> = _uiState.asStateFlow()
 
+        private val _intensityToggleNotice = Channel<IntensityToggleNotice>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+        val intensityToggleNotice: Flow<IntensityToggleNotice> = _intensityToggleNotice.receiveAsFlow()
+
         init {
             val id = caseId
             if (id == null) {
@@ -82,7 +97,7 @@ class CaseEditViewModel
                 viewModelScope.launch {
                     repository.observeEventsWithTagsForCase(id).collect { events ->
                         val running = events.count { it.event.endedAt == null }
-                        _uiState.update { it.copy(runningEventCount = running) }
+                        _uiState.update { it.copy(runningEventCount = running, loggedEventCount = events.size) }
                     }
                 }
             }
@@ -179,10 +194,15 @@ class CaseEditViewModel
                 .forEach { repository.updateEvent(it.event.copy(endedAt = endedAt(it.event))) }
         }
 
-        fun onIntensityToggle(enabled: Boolean) =
+        fun onIntensityToggle(enabled: Boolean) {
             _uiState.update {
                 it.copy(intensityEnabled = enabled, logFlow = coerceLogFlow(it.logFlow, it.durationMode, enabled))
             }
+            val loggedEventCount = _uiState.value.loggedEventCount
+            if (loggedEventCount > 0) {
+                _intensityToggleNotice.trySend(IntensityToggleNotice(enabled, loggedEventCount))
+            }
+        }
 
         fun save() {
             viewModelScope.launch {

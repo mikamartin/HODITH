@@ -17,6 +17,37 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/intensity-required-when-enabled
+
+**Scope:** Reported bug — a Case could have intensity enabled, but an event could still be logged with no rating. Investigation found the gap (`LogDetailForm`'s `canSave` never checked intensity, and a selected choice could be tapped back to none), then expanded to cover what the fix needed to get right: whether any other optional event field had the same case-flag-says-"tracked"-but-still-skippable shape (none did), and what toggling `intensityEnabled` does to a Case's existing events (nothing, either direction — which then needed its own user-facing notice).
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite, including 3 new `CaseEditViewModelTest` cases), and `connectedDebugAndroidTest` scoped to the two changed/new instrumented classes (`LogDetailIntensityTest`, `CaseEditScreenTest` — 25/25 passing on a Pixel 8 API 36 emulator), plus `assembleDebug`. The full `connectedDebugAndroidTest` suite was attempted once; it hit the pre-existing documented flaky teardown-race crash on two unrelated, untouched classes (`CaseDetailScreenTest`, `ShareCardTemplateTest`) and an emulator system-server crash — not re-run after that, per TESTING.md's own scoped-first convention for this known issue.
+
+**Found & fixed:**
+- Root cause: `LogDetailForm`'s `canSave` validated only start/end time-picker rejections, never intensity, and `IntensitySection`'s `onSelect` let an already-selected choice toggle back to `null`.
+- Intensity made required only for *new* events, never for editing an existing one — avoids two hazards surfaced during review: fabricating a rating for an event logged before the Case tracked intensity, and the toggle itself never touching existing events either direction (which needed its own notice rather than silent behavior).
+- Added a transient Snackbar (`CaseEditViewModel.intensityToggleNotice`, the same one-shot `Channel`/`Flow` idiom as `HomeViewModel.quickLogUndo`) fired once per toggle flip on a Case with existing events — redesigned mid-implementation after an initial persistent `ActionBanner` version was caught sitting on the screen as a standing fixture instead of behaving like a transient notification; the `ActionBanner` widening made for that first version was reverted once the Snackbar replaced it.
+- Added `withDismissAction = true` to the Snackbar after on-device testing showed it doesn't close on an outside tap or swipe (Material3's default); every other snackbar in the app uses the short default with no dismiss control, but this one needed `SnackbarDuration.Long` and an explicit close button since it carries a full two-sentence message.
+
+**Deferred:**
+- `outcomeValueFor` (trend/notification code) reads `EventEntity.intensity` directly regardless of `Case.intensityEnabled`, found while reviewing what the toggle does to existing events. Logged as its own `PROGRESS.md` item rather than fixed here — a pre-existing, unrelated inconsistency outside this bug's scope.
+
+**Considered and declined:**
+- Keeping intensity optional even when enabled (the status quo the spec originally documented) — declined by explicit product decision in favor of requiring it for new events.
+- A persistent inline notice next to the toggle — declined in favor of a transient Snackbar, the idiom this app already uses for one-shot notifications.
+
+**Checks:**
+- Duplication: `enableIntensityNotice`/`disableIntensityNotice` added to all three Voice implementations in the same change; no inline strings.
+- Decoupling: the default-intensity seeding lives in the UI-layer composable (`LogDetailForm`), the only place that already knows both `isEditing` and `intensityEnabled`; `domain/` untouched.
+- Hygiene: no unused imports or leftover debug code; `git status` clean.
+- Naming: `IntensityToggleNotice`/`intensityToggleNotice`/`loggedEventCount` follow the existing `QuickLogUndo`/`quickLogUndo`/`runningEventCount` pattern.
+- UI copy brevity: doesn't apply — the new strings are Snackbar body copy, not control labels.
+- Tests: regression coverage added at both layers — `CaseEditViewModelTest` (3 new cases for the notice-gating logic) and new instrumented coverage (`LogDetailIntensityTest`, `CaseEditScreenTest` additions), both run on-device.
+
+**Docs updated:** HODITH_SPEC.md (§6, the Watch table's `minIntensity` row), TESTING.md (Compose UI and ViewModels rows extended), PROGRESS.md (new follow-up item for the `outcomeValueFor` finding); this entry (oldest entry, `chore/voice-phrasing-audit`, removed per the 5-entry retention rule).
+
+---
+
 ## test/autosize-harness-investigation
 
 **Scope:** PROGRESS.md's "Instrumented tests can't observe `TextAutoSize`'s resolved font size" investigation item, opened during `fix/duration-selector-wrap` after two instrumented-test attempts (a bounding-box height assertion, a `GetTextLayoutResult`-semantics probe) both showed zero observable shrink across every tested width, even at an unreasonable 20dp-per-segment — not matching the real on-device behavior the user had confirmed.
@@ -146,36 +177,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: wrap regression test added and confirmed red/pre-fix then green/post-fix on-device. `SettingsScreenTest`'s full 34-test suite re-run to confirm the Appearance section's behavior survived the `CompositionLocalProvider` wrapping. Neither font-size-coordination property itself is covered by an automated test — see Deferred.
 
 **Docs updated:** TESTING.md (shared-components row extended to cover the wrap regression); this entry.
-
----
-
-## chore/voice-phrasing-audit
-
-**Scope:** PROGRESS.md's "Review phrasing across all three Voice implementations" item, run as a joint AI/human review rather than the item's originally planned rubric-first process: the user asked for a simpler loop instead — a table of every key's Plain/Intense/Bright copy per screen, reviewed and edited live, applied immediately, one commit per screen — and explicitly dropped the rubric document, the findings-then-fixes commit split, and new `VoiceTest` mechanical invariants (vocabulary casing, gamification language, length caps) from scope. Every screen in the app was covered, including two gaps the original item's screen list missed (`WatchesTab.kt`, `WatchEditorSheet.kt`).
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite) and `assembleDebug` all pass. Not run: `connectedDebugAndroidTest` (no device this pass) — every changed `androidTest` file was grepped for literal-string assertions that a wording change could silently break; none remained except the one fixed below.
-
-**Found & fixed:**
-- Every em dash in a `Voice.kt` string literal, across all three voices, replaced with a period, comma or colon depending on the sentence — the project's own documented policy, previously unenforced at this scale.
-- Intense's "seal"/"unseal"/"bury"/"exhume" metaphor family retired wherever it had drifted past being readable as its real action (Stop/Resume/Retire/Restore), and "mark" retired entirely — it had accreted four unrelated meanings across the file (icon, tag, selection state, and the Share card's event noun) before this pass.
-- Two cases of a word colliding with its own established in-app meaning: Settings' Data section called itself "The archive" (the real Archived Cases feature already owns that word) and the Check-in section/info titles called themselves "the watch kept" (the separate Watch/notifications feature already owns "watch"). Both retitled to name the actual feature plainly.
-- `historyFieldsDialogTitle` and `logSheetTagsLabel` converted from abstract per-voice overrides to shared interface defaults once the three voices converged on identical wording by request, keeping `VoiceTest`'s "no key identical across all three voices" invariant green rather than fighting it with three now-redundant overrides.
-- The About screen's Licenses section removed entirely — Voice keys, the UI section in `AboutScreen.kt`, and the androidTest assertion that covered it. A product call, not a phrasing fix: Apache 2.0 attribution for the listed dependencies is already satisfied by this public repo's own `LICENSE`/dependency manifest, so an in-app screen was a courtesy, not a requirement.
-- Several multi-sentence info-dialog bodies (Insights' Gaps/Trends explainers; Settings' Theme/Check-in/Cloud-backup explainers) shortened and reworded to plain, positively framed sentences at the user's request, rather than one-off dash removal.
-- `VoiceTest`'s `Square share copy states the voice's own event noun` test hardcoded the literal Intense "mark"/"marks" strings it exists to verify generically — found and fixed alongside the wording change that would otherwise have broken it for the wrong reason.
-
-**Deferred:**
-- `connectedDebugAndroidTest` — no device this pass; see Walked above for the mitigation taken instead.
-- CLAUDE.md's voice names ("Serious, Goth, Quirky") are stale — the actual names are Plain/Intense/Bright, confirmed throughout this pass and already correct in HODITH_SPEC.md and PROGRESS.md. Left as is: a CLAUDE.md correction is a separate, smaller fix the user hasn't asked for yet.
-
-**Considered and declined:**
-- The item's own acceptance criteria (written rubric, findings-list-then-fix-commit split, new `VoiceTest` mechanical invariants for casing/gamification/length). The user asked for the simpler loop described in Scope instead; this is a deliberate process substitution, not an unmet criterion.
-
-**Checks:**
-- Naming and Voice: every string touched keeps three distinct voices; the two keys converted to shared defaults are now genuinely structural, not a workaround.
-- Dead code: the Licenses section's Voice keys, UI code and test assertion all removed together, not just the strings.
-- Hygiene: no secrets or local paths in the diff; each screen's changes landed as its own commit on `chore/voice-phrasing-audit`.
-- Spec: HODITH_SPEC.md's About row description and TESTING.md's About coverage row updated to drop the removed Licenses section.
-
-**Docs updated:** HODITH_SPEC.md (About row, Licenses mention dropped), TESTING.md (About coverage row), PROGRESS.md (this item struck); this entry.
 
