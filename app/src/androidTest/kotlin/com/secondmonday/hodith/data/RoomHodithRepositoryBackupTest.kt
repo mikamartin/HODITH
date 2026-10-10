@@ -4,8 +4,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.backup.BackupData
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import com.secondmonday.hodith.testtags.Smoke
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -14,7 +12,6 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import javax.inject.Provider
 
 /**
  * [RoomHodithRepository.exportBackupData]/[RoomHodithRepository.importBackupData] against a real
@@ -39,15 +36,9 @@ class RoomHodithRepositoryBackupTest {
                 eventDao = db.eventDao(),
                 tagDao = db.tagDao(),
                 watchDao = db.watchDao(),
-                notificationEvalScheduler = unusedScheduler(),
+                notificationEvalScheduler = unusedScheduler("not used by backup export/import"),
             )
     }
-
-    private fun unusedScheduler() =
-        NotificationEvalScheduler(
-            scope = CoroutineScope(Dispatchers.Unconfined),
-            evaluator = Provider { error("not used by backup export/import") },
-        )
 
     @After
     fun tearDown() {
@@ -77,7 +68,7 @@ class RoomHodithRepositoryBackupTest {
                         eventDao = freshDb.eventDao(),
                         tagDao = freshDb.tagDao(),
                         watchDao = freshDb.watchDao(),
-                        notificationEvalScheduler = unusedScheduler(),
+                        notificationEvalScheduler = unusedScheduler("not used by backup export/import"),
                     )
 
                 freshRepository.importBackupData(backup)

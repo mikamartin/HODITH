@@ -7,14 +7,14 @@ it actually catch a regression, does it match the spec's intent rather than just
 current behavior, and is it organized well enough to keep extending cheaply.
 
 **Branch:** one branch per audit, `chore/qa-audit`, containing the updated
-[QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md) (step 8) and any doc-hygiene fixes from step 7.
+[QA_AUDIT_BACKLOG.md](QA_AUDIT_BACKLOG.md) (step 9) and any doc-hygiene fixes from steps 7-8.
 Code-level findings become separate proposed follow-up branches in the backlog rather than being
 fixed inline — each is its own logical unit of work.
 
 **Inline-fix mode:** explicit user direction can override the default above, resolving everything
 on the audit branch this pass instead (typically bounded by "unless it's a genuinely large piece
 of work" or similar) — confirm anything that size with the user before fixing it inline. In this
-mode, step 8's "Work, Grouped by Branch" section is unnecessary; say so explicitly in the backlog
+mode, step 9's "Work, Grouped by Branch" section is unnecessary; say so explicitly in the backlog
 rather than leaving it empty.
 
 ## Checklist
@@ -44,6 +44,14 @@ rather than leaving it empty.
       expected value computed from the real device clock, locale, or timezone instead of the
       test's own explicit `FakeClock`/zone/locale — this is how a test passes locally and fails
       only in CI, or the other way around.
+- [ ] Grep `app/src/androidTest` for any test constructing a ViewModel directly (not via
+      Hilt/`ViewModelProvider`) against a real Room db (`createInMemoryDatabase()`). If that
+      ViewModel's `uiState` collects a Room-backed Flow via `stateIn(viewModelScope, ...)`,
+      confirm its `ViewModelStore` is cleared before `db.close()` in `tearDown()` — otherwise a
+      live collector races the connection pool close (the exact bug behind
+      `fix/viewmodel-db-teardown-race`). `CLEANUP_CHECKLIST.md` already catches this per-diff for
+      new tests; this is the periodic whole-suite re-sweep in case the pattern regressed in a test
+      nobody's touched since.
 
 ### 2. Mutation spot checks
 - [ ] Before selecting files, cross-reference the domain/ViewModel/DAO source tree against the
@@ -148,7 +156,21 @@ rather than leaving it empty.
 - [ ] Check Known environment issues / Deferrals entries are still accurate — a gotcha or
       deferred item can get fixed by an unrelated dependency bump and never get struck.
 
-### 8. Record findings
+### 8. Manual test plan hygiene
+- [ ] Re-verify each `MANUAL_TEST_PLAN.md` item's stated "can't be automated" reason still holds
+      — a dependency bump, a new testing API, or an unrelated code change can quietly resolve the
+      limitation without anyone revisiting the manual step.
+- [ ] Confirm every test-name cross-reference inside `MANUAL_TEST_PLAN.md` (e.g. "covered by
+      `WidgetActionsFlowTest...`") still names a real, currently-passing test — the same
+      staleness risk step 7 already checks for in TESTING.md, applied here.
+- [ ] Check the reverse drift too: a manual item whose underlying behavior now has automated
+      coverage added since it was written should be struck or narrowed to what's actually still
+      manual.
+- [ ] Spot check a few items against TESTING.md's "Manual-only journeys" seed list for gross
+      divergence — the seed list is explicitly historical and not kept in lockstep, but a wide
+      gap suggests one of the two has drifted from what's actually still manual.
+
+### 9. Record findings
 - [ ] Write or refresh `docs/QA_AUDIT_BACKLOG.md`: a short "What's Working" summary (issues get
       their own section — this one is for what held up under scrutiny, e.g. mutation checks
       caught, spec alignment confirmed, structural review clean), numbered Issues Found,
@@ -161,7 +183,7 @@ rather than leaving it empty.
       sentence stating what it was and that it's fixed (keep the heading/number so it stays
       findable). Condense its Work Item section to a short, dry summary of what was actually
       done in place of the Steps list, and mark the section heading `(done)`.
-- [ ] Apply the doc-hygiene fixes from step 7 directly on the audit branch; leave every
+- [ ] Apply the doc-hygiene fixes from steps 7-8 directly on the audit branch; leave every
       code-level finding (formula fixes, extraction refactors, CI matrix fixes) as a proposed,
       not-yet-started branch in the backlog.
 

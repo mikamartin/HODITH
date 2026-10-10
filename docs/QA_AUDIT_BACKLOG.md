@@ -7,11 +7,11 @@ number, so it stays findable), and replace its Work Item's Steps with a short, d
 what was actually done, marked `(done)`. Once every item from a pass is resolved this way, the
 file is emptied back to this shell, ready for the next audit to repopulate.
 
-**No open findings here.** The second audit pass has run, in the ruleset's "inline-fix mode" —
-every finding it turned up (5, all quick-fix size: a stale doc pointer, two dangling
-`CLEANUP_LOG.md` comment references, two real mutation-coverage gaps in `StatsEngine.kt`, and a
-duplicated test fixture) was resolved directly on that pass's own audit branch, so nothing was
-left outstanding to track here or in PROGRESS.md. The full detail — what was found, how each fix
-was verified, and what's still deferred (the instrumented/DAO tier of the mutation spot check,
-no device attached that pass) — lives in [CLEANUP_LOG.md](CLEANUP_LOG.md)'s `chore/qa-audit`
-entry, not here.
+**No open findings here.** The third audit pass has run, in the ruleset's "inline-fix mode" — its
+one finding (three duplicated test-helper clusters, all quick-fix size) was resolved directly on
+that pass's own audit branch, so nothing was left outstanding to track here or in PROGRESS.md.
+This pass also ran the ruleset's two brand-new checks for the first time (section 1's
+teardown-race sweep, section 8's manual-test-plan hygiene) — both came back clean. The full
+detail — what was found, every mutation check's result, the spec cross-reference, and an
+unrelated emulator crash hit during verification — lives in
+[CLEANUP_LOG.md](CLEANUP_LOG.md)'s `chore/qa-audit` entry, not here.

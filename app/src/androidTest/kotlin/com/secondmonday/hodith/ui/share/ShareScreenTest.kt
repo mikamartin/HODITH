@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.ui.share
 
 import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -26,17 +25,6 @@ import com.secondmonday.hodith.viewmodel.ShareUiState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
-
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
 
 /** 12 events, 5 days apart: enough for the Insights picker to offer its sections. */
 private fun events(): List<EventWithTags> =
@@ -87,13 +75,6 @@ class ShareScreenTest {
         composeTestRule.onNodeWithText(label).performClick()
     }
 
-    private fun nameFieldText(): String =
-        composeTestRule
-            .onNode(hasSetTextAction())
-            .fetchSemanticsNode()
-            .config[SemanticsProperties.EditableText]
-            .text
-
     private fun shareButton() = composeTestRule.onNode(hasText(PlainVoice.shareOpenDescription) and hasClickAction())
 
     @Smoke
@@ -138,11 +119,11 @@ class ShareScreenTest {
         composeTestRule.onNode(hasSetTextAction()).performTextInput("Sam")
 
         openTab(PlainVoice.shareTabInsightsLabel)
-        assertEquals("Sam", nameFieldText())
+        assertEquals("Sam", composeTestRule.nameFieldText())
         openTab(PlainVoice.shareTabHistoryLabel)
-        assertEquals("Sam", nameFieldText())
+        assertEquals("Sam", composeTestRule.nameFieldText())
         openTab(PlainVoice.shareTabSummaryLabel)
-        assertEquals("Sam", nameFieldText())
+        assertEquals("Sam", composeTestRule.nameFieldText())
     }
 
     @Test

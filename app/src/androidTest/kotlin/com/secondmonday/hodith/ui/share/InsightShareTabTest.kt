@@ -30,10 +30,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
-
-private val ZONE = ZoneId.systemDefault()
 
 /** The Insights tab (Story) is the one with the section picker; tests of the picker select that tab explicitly. */
 private val STORY_SELECTION = ShareSelection()
@@ -44,13 +40,6 @@ private fun tabLabel(tab: ShareTab): String =
         ShareTab.INSIGHTS -> PlainVoice.shareTabInsightsLabel
         ShareTab.HISTORY -> PlainVoice.shareTabHistoryLabel
     }
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
 
 /** 12 events, 5 days apart — enough for the Trends section to have findings. */
 private fun trendsEligibleEvents(): List<EventWithTags> =
