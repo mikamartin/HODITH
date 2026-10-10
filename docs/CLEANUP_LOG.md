@@ -17,6 +17,35 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## chore/qa-audit
+
+**Scope:** The periodic whole-suite QA audit, prompted by reviewing the ruleset itself against this log's history: section 7 had no equivalent staleness check for `MANUAL_TEST_PLAN.md`, and `fix/viewmodel-db-teardown-race`'s fix only guarded new tests, not existing ones. Extended the ruleset first (new section 8 "Manual test plan hygiene", a new ViewModelStore/db.close() sweep bullet in section 1, renumbering), fixed a stale `CLAUDE.md` line found along the way ("Serious, Goth, Quirky" → "Plain, Intense, Bright"), then ran the full, now-9-section checklist for real.
+
+**Walked:** Ran sections 1-9 against the current suite rather than reconstructing them from memory. `ktlintCheck`, `compileDebugAndroidTestKotlin`, and a scoped `connectedDebugAndroidTest` run (the 7 classes touched by the duplication fix, 69 tests) all pass on-device.
+
+**Found & fixed:**
+- Section 6: three byte-identical duplicated test-helper clusters — `millisAtDay`/`nameFieldText`/`ZONE` across `ShareScreenTest.kt`/`InsightShareTabTest.kt`/`HistoryShareTabTest.kt` (now `ui/share/ShareTestFixtures.kt`); `unusedScheduler` across both `RoomHodithRepositoryBackupTest.kt`/`RoomHodithRepositoryHistoryEventsTest.kt` (now parameterized by reason, in `data/TestFixtures.kt`); `activeGroupSummary` across `NotificationActionReceiverTest.kt`/`NotifierContentTest.kt` (now a `NotificationManager` extension in `notification/NotificationTestFixtures.kt`).
+- Section 1's new sweep: both known ViewModelStore/db.close() call sites still correctly ordered — no regression since `fix/viewmodel-db-teardown-race`.
+- Section 2: 8 targeted mutations across pure domain (`VerdictEngine`, `WatchEngine`, `InsightsEngine`, `StatsEngine`, `CheckIn`), Fake-backed orchestration (`NotificationEvaluator`), and — device attached this pass — the Room-instrumented DAO tier (`RoomHodithRepository.observeHistoryEventsForCase`'s `hasMore` boundary, `.mergeTag`'s transaction ordering). All 8 caught cleanly; no misses, no weak passes.
+- Section 3: every Trends-detector constant (tag→outcome, change point, trend slope, time-of-day split, tag timing, weekday/weekend) checked against `HODITH_SPEC.md` §10. All match exactly.
+- Sections 4/5: sampled largest/newest instrumented files and every inline `onValueChange`/`onClick` lambda. No chaining-before-asserting, no under-asserting, no un-extracted pure logic (the two likely candidates are already extracted and tested).
+- Section 7: no aggregate test counts exist in `TESTING.md` to drift; every `CLEANUP_LOG.md` cross-reference still resolves; two spot-checked bug-fix regression tests still assert their original failure.
+- Section 8 (new): all 27 class-level and 12 method-level test cross-references in `MANUAL_TEST_PLAN.md` still resolve; the Espresso-Intents-absence justification behind its About & Contact items still holds.
+
+**Deferred:** nothing.
+
+**Considered and declined:** nothing — every finding was small enough to fix inline, per this pass's agreed fix mode.
+
+**Checks:**
+- Duplication: this pass's own subject; see Found & fixed.
+- Hygiene: `git status` clean; no secrets or local paths in the diff; every mutation reverted before moving to the next.
+- Tests: the three dedup fixes verified by running every touched class twice — once mid-crash on a degraded emulator (unrelated to this diff, see below), once clean on a freshly restarted one (69/69 passing).
+- An unrelated flake surfaced during verification: a 7-class run hit `INSTRUMENTATION_ABORTED: System has crashed` after running 1h44m instead of ~15-20 minutes — the same degraded-emulator signature (`Can't find service: activity`/`package`) `TESTING.md`'s Known environment issues section already documents. Restarting Android Studio resolved it. Not logged as a new line since the existing entry already covers this signature.
+
+**Docs updated:** QA_AUDIT_RULES.md (new section 8, new section 1 bullet, renumbering); CLAUDE.md (stale voice names fixed); QA_AUDIT_BACKLOG.md (condensed back to its shell); this entry.
+
+---
+
 ## fix/info-note-copy
 
 **Scope:** user-reported info-icon copy issues across all three voices — poor scanability, no term emphasis, bad start-time formatting/wrapping, and a broken sentence in Bright's Gaps & streaks note. Reviewed every info-icon note in the app (12 notes + 2 supporting strings), voice by voice, table by table, with the user approving each change before it landed. Scope grew mid-pass to cover the underlying rendering gaps that caused the reported symptoms (no emphasis mechanism, no dialog scrolling, Rhythm's note never adapting to its own "Start times" relabelling), plus a Canadian-spelling pass ("color" → "colour") the user asked for once the per-voice review was done.
@@ -137,36 +166,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 **Checks:** `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (full unit suite, none failing), `compileDebugAndroidTestKotlin`. Not run: `connectedDebugAndroidTest` — no device/emulator in this environment; needs a scoped run on `ManageTagsViewModelDatabaseTest` and `SharePreviewOrderFlowTest` before merge.
 
 **Docs updated:** CLEANUP_CHECKLIST.md (new Tests-section check: a directly-constructed ViewModel against a real Room db must have its `ViewModelStore` cleared before `db.close()` in `tearDown()`).
-
----
-
-## refactor/share-insights-history-dedupe
-
-**Scope:** PROGRESS.md's "Review share card, Insights and History for duplicated implementation" item, worked through on its own branch rather than spun into follow-up items: the duplication findings below, the small merges and the dead-code drop they called for, and the Log→History screen-naming cleanup the review surfaced.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. Verified: `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (full unit suite, none failing), and `assembleDebug`. Not run: `connectedDebugAndroidTest` — no device attached this pass; the changed `androidTest` sources compile (`compileDebugAndroidTestKotlin`).
-
-**Found & fixed:**
-- Duplication review: formatting, figures and empty states are already shared across the share card, Insights and History (`EventTimeFormat.kt`, `CompactFormat.kt`, `OngoingEvent.kt`, `StatCardRows.kt`, `ui/common/StatColumns.kt`, `ui/common/HeatmapShading.kt`); the share card computes no stats of its own. Four small duplicates found and merged: the share card's private `timeOfDayLabel` (byte-for-byte `rhythmTimeOfDayLabel`), `MiniStatRow` (now reuses `StatRow` with an added `style` param), the per-square intensity `Box` (now the shared `IntensitySquare`), and `formatIntensity`/`HeroRate.rateText`, which lived in UI files that an unrelated surface was importing from (relocated to `viewmodel/CompactFormat.kt` and `viewmodel/ShareCardState.kt`).
-- `MiniInsightsCard` and `MiniRhythmSection`'s grid loop are kept separate, not merged: the mini chrome deliberately skips Bright's `GlowCard` (a captured share image can't risk elevation-shading differing by skin), and the grid differs in cell size, tap targets and the info icon from the real `RhythmCard`. Recorded as reviewed-and-kept, not an oversight.
-- `trendFindingSentence` (`InsightsTab.kt`) had zero production callers once both surfaces moved to `TrendFindingBody`; removed, along with `TrendFindingSentenceTest.kt`. Its removal orphaned 13 Voice sentence keys (`insightsWentQuietSentence`, `insightsGapShiftSentence`, `insightsTagOutcomeSentence` and ten more) across the interface and all three voices — removed with it, keeping the 13 matching `*EvidenceLabel` keys `TrendFindingBody` still reads.
-- The review surfaced a naming split the spec already draws but the code didn't: "History" names the screen, "Log" names the act of recording (spec §6's "Logging flows" vs. its "History tab"). Renamed the screen-facing identifiers to History throughout — `LogRowField`/`LogSortOrder`/`LogEventsPage` → `History*`, `HodithRepository.observeLogEventsForCase` → `observeHistoryEventsForCase`, `CaseDetailViewModel`'s History-tab paging state, `CaseDetailScreen`'s `HistoryTabContent`/`HistoryFilterRow`, `LogShareTab.kt`/`LogShareViewModel.kt` → `HistoryShareTab.kt`/`HistoryShareViewModel.kt`, and the matching Voice keys (`caseDetailHistoryTabLabel`, `historySummaryLine`, `shareHistoryRangeLabel` and others). Left untouched: `LogDetailSheet`/`LogDetailScreen`/`LogDetailViewModel`, `LogDraft`, `LogFlow`, and the "Log an event"/"retro-log" Voice copy — all genuinely about the act of logging, not the screen.
-- The DataStore preference key *string literals* (`"log_sort_order"`, `"log_date_from"`, `"log_date_to"`, `"log_visible_fields"`) were kept exactly as they were, even though the Kotlin constant names renamed, so existing users' History sort/range/field-visibility preferences survive the upgrade. Only the `testTag` string values (`history_field_toggle_`, `history_share_field_toggle_`) changed, since those aren't persisted.
-
-**Deferred:**
-- `connectedDebugAndroidTest` — no device this pass. The androidTest sources compile; run the suite (or at least `HistoryShareTabTest`, `CaseDetailScreenTest`, `ShareScreenTest`, `ShareCardTemplateTest`, `CaseDetailInsightsTabTest`, `InsightShareTabTest`, `SharePreviewOrderFlowTest`, `RoomHodithRepositoryHistoryEventsTest`) before merge.
-
-**Considered and declined:**
-- Spinning the merges and the rename out as separate follow-up PROGRESS.md items, as the review item's own acceptance criteria suggested. The user asked for them fixed as part of this same item instead, on one branch.
-- Renaming `domain/LogFilter.kt`'s filename. No exported symbol is actually named `LogFilter` (only `ChronologicalOrder`, `filterAndSortEvents` and the entry-cap constant), so there was nothing to disambiguate.
-- Folding the logging-action names (`LogDetailSheet`, "retro-log") into History too. The spec's own verb/noun split — Log is the act, History is the screen — is worth keeping, not flattening into one word.
-
-**Checks:**
-- Duplication: the four small merges above; `MiniInsightsCard`/`MiniRhythmSection` kept separate with a stated reason.
-- Decoupling: the relocated `HeroRate` text helpers (`figureText`/`rateText`/`unitText`) moved to `viewmodel/ShareCardState.kt`, not `domain/HeroRate.kt` — `domain/` still takes no `Voice` import.
-- Dead code: `trendFindingSentence` and its 13 orphaned Voice keys removed; no unused imports (ktlint passes).
-- Naming and Voice: every renamed Voice key kept its three per-voice strings unchanged — these are identifier renames, not new copy, so no new voice authoring was needed.
-- Hygiene: no secrets or local paths in the diff. Persisted DataStore key strings unchanged (see Found & fixed).
-
-**Docs updated:** PROGRESS.md (the duplication-review item struck, resolved rather than spun into follow-ups); this entry.
 

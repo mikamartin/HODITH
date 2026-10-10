@@ -2,10 +2,21 @@ package com.secondmonday.hodith.data
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.secondmonday.hodith.notification.NotificationEvalScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import java.time.ZoneId
+import javax.inject.Provider
 
 fun createInMemoryDatabase(): HodithDatabase =
     Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), HodithDatabase::class.java).build()
+
+/** A [NotificationEvalScheduler] whose evaluator is never meant to run, for repository tests that need one wired in but don't exercise it. */
+fun unusedScheduler(reason: String) =
+    NotificationEvalScheduler(
+        scope = CoroutineScope(Dispatchers.Unconfined),
+        evaluator = Provider { error(reason) },
+    )
 
 fun testCase(
     id: Long = 0L,

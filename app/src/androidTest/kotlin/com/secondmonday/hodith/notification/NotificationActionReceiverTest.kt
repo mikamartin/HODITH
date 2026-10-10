@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.notification
 
-import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -176,7 +175,7 @@ class NotificationActionReceiverTest {
             notifier.notifyCheckInDue(b, 9L, PlainVoice)
             assertNotNull(
                 "Expected a group summary once both check-ins are showing",
-                waitFor { activeGroupSummary() },
+                waitFor { notificationManager.activeGroupSummary() },
             )
 
             // Real check-in id so the receiver cancels a's actual notification, not a decoy; the
@@ -195,11 +194,6 @@ class NotificationActionReceiverTest {
                         .firstOrNull { it.id == checkInNotificationId(b.id) }
                 },
             )
-        }
-
-    private fun activeGroupSummary() =
-        notificationManager.activeNotifications.firstOrNull {
-            it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
         }
 
     private fun logIntent(

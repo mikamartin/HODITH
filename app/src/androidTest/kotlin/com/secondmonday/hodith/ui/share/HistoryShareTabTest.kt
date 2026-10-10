@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.ui.share
 
 import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -32,16 +31,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
-import java.time.ZoneId
-
-private val ZONE = ZoneId.systemDefault()
-
-private fun millisAtDay(epochDay: Long): Long =
-    LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
 
 /**
  * The History tab of [ShareScreen]. Needs a real `GraphicsLayer` for the capture modifier, same reason
@@ -84,14 +73,6 @@ class HistoryShareTabTest {
 
     private fun defaultSelection(dateTo: Long = millisAtDay(60)) = HistoryShareSelection(dateTo = dateTo)
 
-    /** The name field's contents. Its text lives in `EditableText`, not `Text`, so `assertTextEquals` can't read it. */
-    private fun nameFieldText(): String =
-        composeTestRule
-            .onNode(hasSetTextAction())
-            .fetchSemanticsNode()
-            .config[SemanticsProperties.EditableText]
-            .text
-
     /**
      * The range button's exact text, including its "Range: " prefix. The live card preview below
      * renders its own range subtitle with the same bare value and no prefix (`historyShareRangeLabel`
@@ -117,7 +98,7 @@ class HistoryShareTabTest {
         composeTestRule.onNode(hasSetTextAction()).performTextClearance()
         composeTestRule.onNode(hasSetTextAction()).performTextInput("Sam")
 
-        assertEquals("Sam", nameFieldText())
+        assertEquals("Sam", composeTestRule.nameFieldText())
     }
 
     @Test
@@ -127,7 +108,7 @@ class HistoryShareTabTest {
             uiState = HistoryShareUiState(case = case, events = emptyList(), selection = defaultSelection(), isLoading = false),
         )
 
-        assertEquals(case.name, nameFieldText())
+        assertEquals(case.name, composeTestRule.nameFieldText())
     }
 
     @Test
@@ -144,7 +125,7 @@ class HistoryShareTabTest {
 
         composeTestRule.onNode(hasSetTextAction()).performTextClearance()
 
-        assertEquals("", nameFieldText())
+        assertEquals("", composeTestRule.nameFieldText())
     }
 
     @Test

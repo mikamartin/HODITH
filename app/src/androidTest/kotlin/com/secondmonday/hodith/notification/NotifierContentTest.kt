@@ -169,7 +169,8 @@ class NotifierContentTest {
             assertEquals(
                 "the only posted summary reflects the full count, with no stale lower-count summary left",
                 PlainVoice.notificationsGroupSummaryTitle(cases.size),
-                activeGroupSummary()
+                notificationManager
+                    .activeGroupSummary()
                     ?.notification
                     ?.extras
                     ?.getCharSequence(Notification.EXTRA_TITLE)
@@ -220,14 +221,9 @@ class NotifierContentTest {
                 waitUntilGone {
                     findNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(a.name) } == null &&
                         findNotification { title, _, _ -> title == PlainVoice.checkInDueNotificationTitle(b.name) } == null &&
-                        activeGroupSummary() == null
+                        notificationManager.activeGroupSummary() == null
                 },
             )
-        }
-
-    private fun activeGroupSummary() =
-        notificationManager.activeNotifications.firstOrNull {
-            it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
         }
 
     private suspend fun waitForNotification(
