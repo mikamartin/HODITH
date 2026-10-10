@@ -154,7 +154,15 @@ fun LogDetailForm(
 ) {
     val voice = LocalVoice.current
     val zone = ZoneId.systemDefault()
-    var draft by remember { mutableStateOf(initialDraft) }
+    // A new event on an intensity-enabled case starts pre-rated (spec §6) rather than letting Save
+    // through with no rating at all. Editing an existing event never gets this default — its
+    // stored intensity (including a legitimate null from before the case tracked this) is shown
+    // exactly as-is, so opening an old event for an unrelated edit can't silently fabricate a rating.
+    var draft by remember {
+        mutableStateOf(
+            if (!isEditing && intensityEnabled) initialDraft.copy(intensity = INTENSITY_RANGE.first) else initialDraft,
+        )
+    }
     var tagInput by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -221,7 +229,7 @@ fun LogDetailForm(
                 IntensitySection(
                     label = voice.logSheetIntensityLabel,
                     selected = draft.intensity,
-                    onSelect = { value -> draft = draft.copy(intensity = if (draft.intensity == value) null else value) },
+                    onSelect = { value -> draft = draft.copy(intensity = value) },
                 )
             }
 

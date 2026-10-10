@@ -31,6 +31,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -66,7 +69,10 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.CaseEditUiState
 import com.secondmonday.hodith.viewmodel.CaseEditViewModel
+import com.secondmonday.hodith.viewmodel.IntensityToggleNotice
 import com.secondmonday.hodith.viewmodel.isOneTapAllowed
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 private val ICON_CHOICE_SIZE = 48.dp
 
@@ -92,6 +98,7 @@ fun CaseEditRoute(
 
     CaseEditScreen(
         uiState = uiState,
+        intensityToggleNotice = viewModel.intensityToggleNotice,
         onNameChange = viewModel::onNameChange,
         onDescriptionChange = viewModel::onDescriptionChange,
         onIconSelect = viewModel::onIconSelect,
@@ -113,6 +120,7 @@ fun CaseEditRoute(
 @Composable
 fun CaseEditScreen(
     uiState: CaseEditUiState,
+    intensityToggleNotice: Flow<IntensityToggleNotice>,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onIconSelect: (String) -> Unit,
@@ -130,6 +138,27 @@ fun CaseEditScreen(
 ) {
     val voice = LocalVoice.current
     var showArchiveConfirm by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Toggling never touches existing events' intensity values either direction (spec §6) — this
+    // transient notice, fired once per flip rather than shown as a standing fixture, is the only
+    // way the user learns what that means for data already logged on this Case. Long (longer than
+    // every other snackbar in the app) since it carries two sentences; withDismissAction gives it
+    // a close button so reading it isn't gated on waiting out the full duration.
+    LaunchedEffect(Unit) {
+        intensityToggleNotice.collect { notice ->
+            snackbarHostState.showSnackbar(
+                message =
+                    if (notice.enabled) {
+                        voice.enableIntensityNotice(notice.eventCount)
+                    } else {
+                        voice.disableIntensityNotice(notice.eventCount)
+                    },
+                withDismissAction = true,
+                duration = SnackbarDuration.Long,
+            )
+        }
+    }
 
     if (showArchiveConfirm) {
         ConfirmDialog(
@@ -169,6 +198,7 @@ fun CaseEditScreen(
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         // Plain only: a form/editor screen, not a browsing one, so it stays white (surface) like
         // LogDetailSheet's ModalBottomSheet (whose M3 default containerColor is surface, not
         // background) instead of the tinted background every Scaffold defaults to. Intense and
@@ -453,6 +483,7 @@ private fun CaseEditScreenBrightLightPreview() {
         ) {
             CaseEditScreen(
                 uiState = previewUiState,
+                intensityToggleNotice = emptyFlow(),
                 onNameChange = {},
                 onDescriptionChange = {},
                 onIconSelect = {},
@@ -481,6 +512,7 @@ private fun CaseEditScreenBrightDarkPreview() {
         ) {
             CaseEditScreen(
                 uiState = previewUiState,
+                intensityToggleNotice = emptyFlow(),
                 onNameChange = {},
                 onDescriptionChange = {},
                 onIconSelect = {},

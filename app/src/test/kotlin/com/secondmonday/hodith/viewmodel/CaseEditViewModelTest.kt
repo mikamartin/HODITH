@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
+import app.cash.turbine.test
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
@@ -677,5 +678,47 @@ class CaseEditViewModelTest {
                     .single()
                     .archived,
             )
+        }
+
+    @Test
+    fun `toggling intensity on a case with no events sends no notice`() =
+        runTest {
+            repository.cases.value = listOf(existingCase())
+            val vm = editViewModel(caseId = 1L)
+
+            vm.intensityToggleNotice.test {
+                vm.onIntensityToggle(true)
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `toggling intensity on for a case with existing events sends an enable notice with the event count`() =
+        runTest {
+            repository.cases.value = listOf(existingCase())
+            repository.events.value = listOf(finishedEvent(id = 10L), finishedEvent(id = 11L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.intensityToggleNotice.test {
+                vm.onIntensityToggle(true)
+                val notice = awaitItem()
+                assertTrue(notice.enabled)
+                assertEquals(2, notice.eventCount)
+            }
+        }
+
+    @Test
+    fun `toggling intensity off for a case with existing events sends a disable notice with the event count`() =
+        runTest {
+            repository.cases.value = listOf(existingCase())
+            repository.events.value = listOf(finishedEvent(id = 10L))
+            val vm = editViewModel(caseId = 1L)
+
+            vm.intensityToggleNotice.test {
+                vm.onIntensityToggle(false)
+                val notice = awaitItem()
+                assertFalse(notice.enabled)
+                assertEquals(1, notice.eventCount)
+            }
         }
 }
