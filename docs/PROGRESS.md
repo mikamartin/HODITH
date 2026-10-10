@@ -47,24 +47,6 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none for the audit itself.
 
-
-**Tests** — none existing cover this row's own layout/sizing directly; Preview-verify the four call sites after the change.
-
-### Instrumented tests can't observe `TextAutoSize`'s resolved font size
-
-*Branch: none yet — investigation first · Complexity: S (investigation) · Priority: Low · Area: Testing*
-
-🔍 **Investigation** — surfaced by `fix/duration-selector-wrap`'s `SegmentedRowFontSizeCoordinator`, which pins every segment in a `SegmentedChoiceRow` (and, where a screen shares one instance via `LocalSegmentedRowFontSizeCoordinator`, every segment across several rows) to the smallest size any one of them needed via `autoSize`. Two instrumented-test attempts to verify it (bounding-box height, and a `GetTextLayoutResult`-semantics font-size probe) both showed rendered text height staying completely unchanged across every tested width, 300dp down to an unreasonable 20dp-per-segment — not even the shortest label shrank at the extreme end, which real `autoSize` behavior can't produce. `autoSize` is evidently not taking visible effect in `createComposeRule()`'s instrumented-test harness, even though the user directly observed it shrinking the long label in the real running app. Verified on-device by the user instead for this round.
-
-**Acceptance criteria**
-
-- [ ] Root cause identified: why `TextAutoSize.StepBased()` doesn't visibly change rendered text size under `androidx.compose.ui.test.junit4.v2.createComposeRule()`, while it does on a real device.
-- [ ] Either a working instrumented-test technique for asserting on `autoSize`-resolved font size, or a documented reason none exists at this Compose/Material3 version.
-
-**Plan** — investigation only; no code changes until the cause is known.
-
-**Tests** — n/a until the investigation lands.
-
 ## Deferred
 
 ### CI: per-shard emulator overhead outside test execution

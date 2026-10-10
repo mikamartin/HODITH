@@ -17,6 +17,35 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## test/autosize-harness-investigation
+
+**Scope:** PROGRESS.md's "Instrumented tests can't observe `TextAutoSize`'s resolved font size" investigation item, opened during `fix/duration-selector-wrap` after two instrumented-test attempts (a bounding-box height assertion, a `GetTextLayoutResult`-semantics probe) both showed zero observable shrink across every tested width, even at an unreasonable 20dp-per-segment — not matching the real on-device behavior the user had confirmed.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite, nothing to re-run — only `androidTest` sources changed), and `connectedDebugAndroidTest` scoped to `SegmentedChoiceRowTest` (6/6 passing on a Pixel 8 API 36 emulator, including the new test).
+
+**Found & fixed:**
+- Root cause: both prior techniques resolved `onNodeWithText` (or the matching semantics action) to the *merged* `SegmentedButton` semantics node — not the inner `Text` leaf that `autoSize` actually resizes — and that merged node's measured height is pinned to `SegmentedButtonDefaults`' fixed minimum touch-target height (40dp), confirmed directly: a real `SegmentedChoiceRow` at 300dp width and the same row squeezed to 60dp both measured `onNodeWithText("Start/stop")` at exactly 40.0dp. `autoSize` itself was never broken in this harness — a bare `BasicText`/`Text` with `autoSize = TextAutoSize.StepBased(...)` shrinks correctly under the same `v2` `createComposeRule()` rule this repo already uses everywhere, and `SegmentedRowFontSizeCoordinator.resolved`, read directly, settled to a genuinely shrunk size (12sp against a 14sp baseline) through a real `SegmentedChoiceRow` at 60dp.
+- Added `coordinatedFontSize_shrinksBelowBaselineAtNarrowWidth` to `SegmentedChoiceRowTest.kt`: constructs its own `SegmentedRowFontSizeCoordinator`, provides it via `LocalSegmentedRowFontSizeCoordinator` (the same already-public API `SettingsScreen.kt` uses for its shared Appearance-section coordinator), and reads `coordinator.resolved` directly — the same value every segment's `onTextLayout` already reports in production — sidestepping the semantics tree entirely instead of inferring the font size from a bounding box or a semantics action.
+- Added a class doc comment to `SegmentedChoiceRowTest.kt` naming the merged-semantics/fixed-minHeight pitfall, so a future reader doesn't re-attempt either of the two techniques already ruled out.
+- Closed the PROGRESS.md item (both acceptance criteria met: root cause identified, working technique landed) and updated `fix/duration-selector-wrap`'s stale "worth a closer look later" Deferred bullet to point at this entry instead of dangling.
+
+**Deferred:** nothing — both acceptance criteria were met in this pass.
+
+**Considered and declined:**
+- A `Modifier.layout` constraints probe spliced into a locally-modified copy of `SegmentedChoiceRow` (the plan's fallback step for if the coordinator read had failed) — not needed once `coordinator.resolved` passed cleanly.
+- Comparing the classic (`androidx.compose.ui.test.junit4.createComposeRule`) and `v2` rules head-to-head — not needed once the bare-`autoSize` case passed under `v2` on the first attempt, ruling out the rule itself as a cause.
+
+**Checks:**
+- Duplication: the new test reuses `SegmentedRowFontSizeCoordinator`/`LocalSegmentedRowFontSizeCoordinator` as already-public API, no new test-only hook added to production code.
+- Decoupling: no `domain/`/`android.*` boundary touched; no production code changed at all, this pass was test- and doc-only.
+- Dead code: the throwaway diagnostic file used to stage the investigation (bare-`autoSize`, bounding-box comparison, and real-row height probes) was deleted once its purpose was served, not left behind — same convention as `fix/duration-selector-wrap`'s own diagnostic test.
+- Hygiene: `git status` clean; no secrets or local paths in the diff.
+- Naming: new test method name follows this class's existing `subject_condition` convention (e.g. `longLabelOption_doesNotWrapInPlainTheme`).
+
+**Docs updated:** TESTING.md (shared-components row extended), PROGRESS.md (item resolved and removed — see CLAUDE.md's outstanding-only convention for that file), CLEANUP_LOG.md's `fix/duration-selector-wrap` entry (Deferred bullet repointed); this entry.
+
+---
+
 ## chore/qa-audit
 
 **Scope:** The periodic whole-suite QA audit, prompted by reviewing the ruleset itself against this log's history: section 7 had no equivalent staleness check for `MANUAL_TEST_PLAN.md`, and `fix/viewmodel-db-teardown-race`'s fix only guarded new tests, not existing ones. Extended the ruleset first (new section 8 "Manual test plan hygiene", a new ViewModelStore/db.close() sweep bullet in section 1, renumbering), fixed a stale `CLAUDE.md` line found along the way ("Serious, Goth, Quirky" → "Plain, Intense, Bright"), then ran the full, now-9-section checklist for real.
@@ -99,7 +128,7 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Follow-up 3: `TextAutoSize.StepBased()`'s default search range is 12sp–112sp, with no upper bound tied to the control's own intended size. Likely cause: if `BrightSegmentedChoiceRow`'s `Box`/`Row` layout ever hands the autoSize search an effectively unbounded width during measurement, every candidate size up to 112sp reads as "fits", so the search climbs toward that ceiling instead of shrinking -- producing the huge, heavy-looking text reported in both Settings and New/Edit Case's Bright theme. Capped `maxFontSize` at the row's own `textStyle.fontSize` in both the Plain/Intense and Bright branches, so autoSize can only ever shrink from the intended size, never grow past it, regardless of whether that unbounded-width theory is the full story. Not yet confirmed fixed on-device.
 
 **Deferred:**
-- Automated verification of both font-size-coordination fixes (within-row and cross-row). Instrumented-test attempts (bounding-box height, and a `GetTextLayoutResult`-semantics font-size probe) both showed rendered text height staying completely unchanged across every tested width, 300dp down to an unreasonable 20dp-per-segment — not even "None" shrank at the extreme end, which real `autoSize` behavior can't produce. That means `autoSize` is not taking visible effect in this instrumented-test harness, for reasons not pinned down in this pass, even though the user directly observed it shrinking "Start/stop" in the real running app. Given the harness and the real app disagree, both coordinators' correctness rests on source-level reasoning (Compose Foundation's `MultiParagraphLayoutCache` confirms `onTextLayout` receives the real post-autoSize style) rather than an automated check; the user will confirm visually on-device instead. Worth a closer look later if this project ever needs to assert on `autoSize` behavior from an instrumented test again.
+- Automated verification of both font-size-coordination fixes (within-row and cross-row) — resolved in `test/autosize-harness-investigation`, see that entry above for the root cause and the working technique found.
 - Extending the shared Appearance-section coordinator to other screens with multiple stacked rows (e.g. Case Edit's logFlow + durationMode rows). Not requested for this pass; flagged here so it's not forgotten if the same "rows look mismatched" complaint resurfaces elsewhere.
 
 **Considered and declined:**
@@ -149,21 +178,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Spec: HODITH_SPEC.md's About row description and TESTING.md's About coverage row updated to drop the removed Licenses section.
 
 **Docs updated:** HODITH_SPEC.md (About row, Licenses mention dropped), TESTING.md (About coverage row), PROGRESS.md (this item struck); this entry.
-
----
-
-## fix/viewmodel-db-teardown-race
-
-**Scope:** CI run 37693819661 failed with `IllegalStateException: connection pool has been closed`, cascading to fail the next test in the same instrumentation process. Checked against the local (non-committed) FLAKY_TESTS.md flake tracker first — new signature, not a known flake — then found the root cause and fixed it.
-
-**Walked:** CLEANUP_CHECKLIST.md's Tests section against the diff; this pass is itself the origin of one of its new checks.
-
-**Found & fixed:**
-- `ManageTagsViewModelDatabaseTest` and `SharePreviewOrderFlowTest` each construct their ViewModel directly (not via Hilt/`ViewModelProvider`), against a real Room db from `createInMemoryDatabase()`. Both ViewModels build `uiState` with `stateIn(viewModelScope, SharingStarted.WhileSubscribed(...), ...)` over a Room-backed Flow, but nothing ever cancelled `viewModelScope` before `tearDown()` closed the db — a live Room collector racing `db.close()` on every run of either test, not pure environment flake. Fixed by registering each ViewModel in a `ViewModelStore` and clearing the store before `db.close()`. A grep of `app/src/androidTest` for direct `*ViewModel(...)` construction confirmed these were the only two affected call sites.
-
-**Deferred:** nothing.
-
-**Checks:** `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (full unit suite, none failing), `compileDebugAndroidTestKotlin`. Not run: `connectedDebugAndroidTest` — no device/emulator in this environment; needs a scoped run on `ManageTagsViewModelDatabaseTest` and `SharePreviewOrderFlowTest` before merge.
-
-**Docs updated:** CLEANUP_CHECKLIST.md (new Tests-section check: a directly-constructed ViewModel against a real Room db must have its `ViewModelStore` cleared before `db.close()` in `tearDown()`).
 
