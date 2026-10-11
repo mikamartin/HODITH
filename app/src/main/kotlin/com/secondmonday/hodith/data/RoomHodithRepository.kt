@@ -34,6 +34,8 @@ class RoomHodithRepository
 
         override suspend fun getActiveCases(): List<CaseEntity> = caseDao.getActiveCases()
 
+        override suspend fun getAllCases(): List<CaseEntity> = caseDao.getAll()
+
         override fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>> = caseDao.observeArchivedCasesWithEvents()
 
         override fun observeArchivedCaseCount(): Flow<Int> = caseDao.observeArchivedCaseCount()

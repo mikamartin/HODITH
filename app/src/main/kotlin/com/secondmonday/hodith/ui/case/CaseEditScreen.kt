@@ -258,10 +258,22 @@ private fun CaseEditForm(
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scrollState = rememberScrollState()
+
+    // A failed save's error lands on a field above the Save button -- invisible if that button
+    // only came into view by scrolling down a longer form. Scrolling back to top on any of
+    // these turning true (not re-running just because save() was clicked again with the same
+    // outcome) puts whichever error fired back on screen instead of a silent no-op save.
+    LaunchedEffect(uiState.showNameError, uiState.showDuplicateNameError, uiState.showDuplicateArchivedNameError, uiState.showIconError) {
+        if (uiState.showNameError || uiState.showDuplicateNameError || uiState.showDuplicateArchivedNameError || uiState.showIconError) {
+            scrollState.animateScrollTo(0)
+        }
+    }
+
     Column(
         modifier =
             modifier
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
@@ -272,11 +284,12 @@ private fun CaseEditForm(
             onValueChange = onNameChange,
             label = { Text(voice.caseNameLabel) },
             placeholder = { Text(voice.caseNameHint) },
-            isError = uiState.showNameError || uiState.showDuplicateNameError,
+            isError = uiState.showNameError || uiState.showDuplicateNameError || uiState.showDuplicateArchivedNameError,
             supportingText = {
                 when {
                     uiState.showNameError -> Text(voice.caseNameRequiredError)
                     uiState.showDuplicateNameError -> Text(voice.caseNameDuplicateError)
+                    uiState.showDuplicateArchivedNameError -> Text(voice.caseNameDuplicateArchivedError)
                 }
             },
             shape = fieldShape,

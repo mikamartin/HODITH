@@ -12,11 +12,12 @@ class CaseEditValidationTest {
     private fun otherCase(
         id: Long,
         name: String,
-    ) = testCase(id = id, name = name, icon = "🤕", logFlow = LogFlow.DETAIL_SHEET)
+        archived: Boolean = false,
+    ) = testCase(id = id, name = name, icon = "🤕", logFlow = LogFlow.DETAIL_SHEET, archived = archived)
 
     @Test
     fun `blank name and missing icon are both invalid`() {
-        val validation = validateCaseEdit(name = "  ", icon = null, editingCaseId = null, otherActiveCases = emptyList())
+        val validation = validateCaseEdit(name = "  ", icon = null, editingCaseId = null, otherCases = emptyList())
 
         assertFalse(validation.nameValid)
         assertFalse(validation.iconValid)
@@ -26,7 +27,7 @@ class CaseEditValidationTest {
     @Test
     fun `non-blank name and selected icon are valid`() {
         val validation =
-            validateCaseEdit(name = "Migraines", icon = "🤕", editingCaseId = null, otherActiveCases = emptyList())
+            validateCaseEdit(name = "Migraines", icon = "🤕", editingCaseId = null, otherCases = emptyList())
 
         assertTrue(validation.nameValid)
         assertTrue(validation.iconValid)
@@ -35,7 +36,7 @@ class CaseEditValidationTest {
 
     @Test
     fun `blank name is invalid even with an icon selected`() {
-        val validation = validateCaseEdit(name = "", icon = "🤕", editingCaseId = null, otherActiveCases = emptyList())
+        val validation = validateCaseEdit(name = "", icon = "🤕", editingCaseId = null, otherCases = emptyList())
 
         assertFalse(validation.isValid)
     }
@@ -47,7 +48,7 @@ class CaseEditValidationTest {
                 name = "migraines",
                 icon = "🤕",
                 editingCaseId = null,
-                otherActiveCases = listOf(otherCase(id = 1L, name = "Migraines")),
+                otherCases = listOf(otherCase(id = 1L, name = "Migraines")),
             )
 
         assertTrue(validation.nameDuplicate)
@@ -61,7 +62,7 @@ class CaseEditValidationTest {
                 name = "Migraines",
                 icon = "🤕",
                 editingCaseId = 1L,
-                otherActiveCases = listOf(otherCase(id = 1L, name = "Migraines")),
+                otherCases = listOf(otherCase(id = 1L, name = "Migraines")),
             )
 
         assertFalse(validation.nameDuplicate)
@@ -75,10 +76,44 @@ class CaseEditValidationTest {
                 name = "Migraines",
                 icon = "🤕",
                 editingCaseId = 1L,
-                otherActiveCases = listOf(otherCase(id = 2L, name = "Migraines")),
+                otherCases = listOf(otherCase(id = 2L, name = "Migraines")),
             )
 
         assertTrue(validation.nameDuplicate)
+        assertFalse(validation.isValid)
+    }
+
+    @Test
+    fun `name matching only an archived case is a separate archived-duplicate warning, not a blocking duplicate`() {
+        val validation =
+            validateCaseEdit(
+                name = "migraines",
+                icon = "🤕",
+                editingCaseId = null,
+                otherCases = listOf(otherCase(id = 1L, name = "Migraines", archived = true)),
+            )
+
+        assertFalse(validation.nameDuplicate)
+        assertTrue(validation.nameDuplicatesArchived)
+        assertFalse(validation.isValid)
+    }
+
+    @Test
+    fun `name matching both an active and an archived case is only the blocking duplicate`() {
+        val validation =
+            validateCaseEdit(
+                name = "Migraines",
+                icon = "🤕",
+                editingCaseId = null,
+                otherCases =
+                    listOf(
+                        otherCase(id = 1L, name = "Migraines"),
+                        otherCase(id = 2L, name = "Migraines", archived = true),
+                    ),
+            )
+
+        assertTrue(validation.nameDuplicate)
+        assertFalse(validation.nameDuplicatesArchived)
         assertFalse(validation.isValid)
     }
 

@@ -32,6 +32,8 @@ class FakeHodithRepository : HodithRepository {
 
     override suspend fun getActiveCases(): List<CaseEntity> = cases.value.filterNot { it.archived }.sortedBy { it.sortOrder }
 
+    override suspend fun getAllCases(): List<CaseEntity> = cases.value
+
     override fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>> =
         combine(cases, events) { caseList, eventList ->
             caseList.filter { it.archived }.sortedBy { it.name.lowercase() }.map { case ->

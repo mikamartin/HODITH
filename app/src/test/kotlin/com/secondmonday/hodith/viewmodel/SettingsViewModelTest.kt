@@ -179,6 +179,22 @@ class SettingsViewModelTest {
         }
 
     @Test
+    fun `loadDemoData called twice replaces the previous demo set instead of duplicating it`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.demoDataLoaded.test {
+                viewModel.loadDemoData()
+                awaitItem()
+                viewModel.loadDemoData()
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(9, hodithRepository.cases.value.size)
+        }
+
+    @Test
     fun `deleteAllData clears every case`() =
         runTest {
             val viewModel = viewModel()

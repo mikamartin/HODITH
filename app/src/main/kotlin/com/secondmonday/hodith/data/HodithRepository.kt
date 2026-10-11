@@ -9,6 +9,9 @@ interface HodithRepository {
 
     suspend fun getActiveCases(): List<CaseEntity>
 
+    /** Every Case regardless of archived state — e.g. checking a name against both active and archived Cases. */
+    suspend fun getAllCases(): List<CaseEntity>
+
     fun observeArchivedCasesWithEvents(): Flow<List<CaseWithEvents>>
 
     /** Count of archived Cases, for Home's archived-cases link (spec §14). */

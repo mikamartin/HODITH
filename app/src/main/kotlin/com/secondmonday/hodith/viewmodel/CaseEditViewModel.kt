@@ -46,6 +46,7 @@ data class CaseEditUiState(
     val intensityEnabled: Boolean = false,
     val showNameError: Boolean = false,
     val showDuplicateNameError: Boolean = false,
+    val showDuplicateArchivedNameError: Boolean = false,
     val showIconError: Boolean = false,
     val isSaved: Boolean = false,
     val canArchive: Boolean = false,
@@ -105,7 +106,12 @@ class CaseEditViewModel
 
         fun onNameChange(value: String) =
             _uiState.update {
-                it.copy(name = value.take(CASE_NAME_MAX_LENGTH), showNameError = false, showDuplicateNameError = false)
+                it.copy(
+                    name = value.take(CASE_NAME_MAX_LENGTH),
+                    showNameError = false,
+                    showDuplicateNameError = false,
+                    showDuplicateArchivedNameError = false,
+                )
             }
 
         fun onDescriptionChange(value: String) = _uiState.update { it.copy(description = value.take(CASE_DESCRIPTION_MAX_LENGTH)) }
@@ -207,16 +213,18 @@ class CaseEditViewModel
         fun save() {
             viewModelScope.launch {
                 val state = _uiState.value
-                // Skip the query entirely when name/icon are already invalid on their own —
-                // no duplicate check or sort-order lookup can change that outcome.
-                val activeCases =
-                    if (state.name.isBlank() || state.icon == null) emptyList() else repository.observeActiveCases().first()
-                val validation = validateCaseEdit(state.name, state.icon, existingCase?.id, activeCases)
+                // A blank name can't be a duplicate of anything meaningful, so the query is
+                // skipped only then -- not also when the icon is unset, since a non-blank name
+                // can still be a real duplicate that needs its own warning even while the icon
+                // error is what's failing isValid.
+                val allCases = if (state.name.isBlank()) emptyList() else repository.getAllCases()
+                val validation = validateCaseEdit(state.name, state.icon, existingCase?.id, allCases)
                 if (!validation.isValid) {
                     _uiState.update {
                         it.copy(
                             showNameError = !validation.nameValid,
                             showDuplicateNameError = validation.nameDuplicate,
+                            showDuplicateArchivedNameError = validation.nameDuplicatesArchived,
                             showIconError = !validation.iconValid,
                         )
                     }
@@ -267,7 +275,7 @@ class CaseEditViewModel
                             intensityEnabled = state.intensityEnabled,
                             checkInsEnabled = true,
                             lastCheckInAt = null,
-                            sortOrder = activeCases.size,
+                            sortOrder = allCases.count { !it.archived },
                             archived = false,
                         ),
                     )
@@ -316,27 +324,39 @@ internal fun CaseEntity.toUiState() =
 internal data class CaseEditValidation(
     val nameValid: Boolean,
     val nameDuplicate: Boolean,
+    val nameDuplicatesArchived: Boolean,
     val iconValid: Boolean,
 ) {
-    val isValid: Boolean get() = nameValid && !nameDuplicate && iconValid
+    val isValid: Boolean get() = nameValid && !nameDuplicate && !nameDuplicatesArchived && iconValid
 }
 
 /**
- * [otherActiveCases] should already be scoped to active (non-archived) Cases — a name only needs
- * to be unique among Cases currently visible on Home, not ones tucked away in the archive.
+ * [otherCases] is every other Case regardless of archived state: a name can't match an active
+ * Case (blocked outright) or an archived one (surfaced as a separate warning, since the fix is
+ * different — rename, restore the archived Case, or delete it).
  */
 internal fun validateCaseEdit(
     name: String,
     icon: String?,
     editingCaseId: Long?,
-    otherActiveCases: List<CaseEntity>,
+    otherCases: List<CaseEntity>,
 ): CaseEditValidation {
     val trimmedName = name.trim()
     val nameValid = trimmedName.isNotBlank()
-    val nameDuplicate =
-        nameValid &&
-            otherActiveCases.any { it.id != editingCaseId && it.name.equals(trimmedName, ignoreCase = true) }
-    return CaseEditValidation(nameValid = nameValid, nameDuplicate = nameDuplicate, iconValid = icon != null)
+    val matchingOtherCases =
+        if (nameValid) {
+            otherCases.filter { it.id != editingCaseId && it.name.equals(trimmedName, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+    val nameDuplicate = matchingOtherCases.any { !it.archived }
+    val nameDuplicatesArchived = !nameDuplicate && matchingOtherCases.any { it.archived }
+    return CaseEditValidation(
+        nameValid = nameValid,
+        nameDuplicate = nameDuplicate,
+        nameDuplicatesArchived = nameDuplicatesArchived,
+        iconValid = icon != null,
+    )
 }
 
 /**

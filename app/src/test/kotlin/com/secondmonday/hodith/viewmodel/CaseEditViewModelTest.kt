@@ -66,6 +66,7 @@ class CaseEditViewModelTest {
         id: Long = 1L,
         durationMode: DurationMode = DurationMode.NONE,
         checkInsEnabled: Boolean = true,
+        archived: Boolean = false,
     ) = Fixtures.case(
         id = id,
         name = "Coffee",
@@ -74,6 +75,7 @@ class CaseEditViewModelTest {
         logFlow = LogFlow.DETAIL_SHEET,
         durationMode = durationMode,
         checkInsEnabled = checkInsEnabled,
+        archived = archived,
     )
 
     @Test
@@ -219,6 +221,36 @@ class CaseEditViewModelTest {
             vm.save()
 
             assertTrue(vm.uiState.value.showDuplicateNameError)
+            assertFalse(vm.uiState.value.isSaved)
+            assertEquals(1, repository.cases.value.size)
+        }
+
+    @Test
+    fun `save with a duplicate name and no icon selected shows both errors, not just the icon one`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(id = 1L))
+            val vm = newCaseViewModel()
+            vm.onNameChange("Coffee")
+
+            vm.save()
+
+            assertTrue(vm.uiState.value.showDuplicateNameError)
+            assertTrue(vm.uiState.value.showIconError)
+            assertFalse(vm.uiState.value.isSaved)
+        }
+
+    @Test
+    fun `save with a name matching an archived case shows the archived-duplicate warning and does not persist`() =
+        runTest {
+            repository.cases.value = listOf(existingCase(id = 1L, archived = true))
+            val vm = newCaseViewModel()
+            vm.onNameChange("Coffee")
+            vm.onIconSelect("🍵")
+
+            vm.save()
+
+            assertTrue(vm.uiState.value.showDuplicateArchivedNameError)
+            assertFalse(vm.uiState.value.showDuplicateNameError)
             assertFalse(vm.uiState.value.isSaved)
             assertEquals(1, repository.cases.value.size)
         }
