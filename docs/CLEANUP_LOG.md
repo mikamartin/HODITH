@@ -17,6 +17,41 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/duplicate-case-warnings
+
+**Scope:** Two related user-reported bugs: reloading demo data duplicated the seed set instead of replacing it, and Case Edit's duplicate-name check only looked at active Cases, letting a new/edited Case silently take an archived Case's name with no warning at all. Manual testing of the first implementation surfaced two further bugs: the duplicate-name check was skipped entirely whenever the icon wasn't yet selected (hiding a real duplicate warning behind the icon error), and a failed save's error could land off-screen with no way for the user to tell why saving did nothing.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to `SettingsScreenTest` on a Pixel 8 API 36 emulator — run twice, once catching a real on-device bug (see Found & fixed), once clean (35/35).
+
+**Found & fixed:**
+- Demo data duplication: `SettingsViewModel.loadDemoData()` now calls `hodithRepository.deleteAllData()` before `demoDataSeeder.seed()`, gated behind a new destructive `ConfirmDialog` (reusing the component "Delete all data" already uses) that warns all existing data will be wiped. `DemoDataSeeder.seed()` itself is unchanged — the fix is entirely at the trigger path.
+- Archived-name collision: `validateCaseEdit` now takes every other Case (active + archived) instead of just active ones, splitting the match into a blocking `nameDuplicate` (another active Case) and a separate, non-blocking `nameDuplicatesArchived` warning (only an archived Case). New `HodithRepository.getAllCases()` (delegating to `CaseDao`'s pre-existing, previously-unexposed `getAll()`) backs the lookup. New `Voice.caseNameDuplicateArchivedError` (all three voices) explains the three ways to resolve it — rename, restore the archived Case, or delete it — as supporting text under the name field, the same mechanism the existing duplicate-name error uses; no new dialog or navigation.
+- Save-time duplicate check wrongly skipped: `save()`'s short-circuit guard skipped the duplicate-name query whenever the icon was unset, even if the name itself was a genuine duplicate — a Case with both a duplicate name and no icon showed only the icon error, silently dropping the name warning. The query now skips only when the name itself is blank.
+- Silent failed save: `CaseEditForm` didn't scroll back to a validation error that fired on a field above the Save button, if the button only came into view by scrolling down a longer form — the save appeared to do nothing. Added a `LaunchedEffect` that scrolls the form back to the top whenever any of the four error flags turns true.
+- Real on-device bug caught by the new instrumented test: Plain's new `settingsLoadDemoDataConfirmAction` copy ("Load demo data") was identical to the button label that opens the dialog, so both text nodes coexisted on screen — ambiguous for both the Compose test and a real user. Changed to "Load it".
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- A name-matching "replace only the demo Cases" approach for the reseed fix (delete Cases whose name matches one of the 9 fixed `CASE_SEEDS` names) — simpler to wipe everything behind an explicit warning dialog instead, per the user's own suggestion once the name-matching design was shown; avoids a "replace" implying partial preservation when it's actually a full reset.
+- A richer `CaseEditValidation` error-kind enum instead of a second boolean (`nameDuplicatesArchived`) — two mutually-exclusive booleans match the existing `showNameError`/`showDuplicateNameError` sibling shape; an enum would be overkill for two states.
+- Adding `CaseEditScreenTest` coverage for the new archived-duplicate warning / scroll-to-top behavior — that file's own doc comment already declares full field-by-field form validation UI coverage (required-name, duplicate-name, icon-required errors) a separate, pre-existing, out-of-scope gap; singling out just the new branch would be inconsistent with every sibling branch staying untested at this layer.
+- A new TESTING.md row itemizing `DemoDataSeederTest`/`loadDemoData` test coverage generally — that area was never itemized in TESTING.md even before this change (developer-mode-only diagnostic tooling); only the one factually-stale clause (Case Edit's duplicate-name description) was corrected, not backfilled wholesale.
+
+**Checks:**
+- Duplication: no new composables; reused the existing `ConfirmDialog` component for the new Load-demo-data confirmation rather than a bespoke `AlertDialog`. `HodithRepository.getAllCases()` exposes a DAO query (`CaseDao.getAll()`) that already existed for backup/export, not a new overlapping one.
+- Decoupling: `validateCaseEdit` stays a pure, Compose-free function; the scroll-to-top effect is UI-only and lives in the Composable, not the ViewModel.
+- Dead code: no unused imports; `kotlinx.coroutines.flow.first` stays used elsewhere in `CaseEditViewModel.kt` (`stampOpenEndedEvents`) after its one `save()` call site was replaced.
+- Hygiene: `git status` clean; no secrets or local paths in the diff.
+- Naming: new Voice keys (`caseNameDuplicateArchivedError`; `settingsLoadDemoDataConfirmTitle`/`Body`/`Action`) added to all three voices in this commit, matching each voice's existing tone for their string family.
+- UI copy brevity: the new confirm dialog's title/body/action lengths matched against the sibling `settingsDeleteAllDataConfirm*`/`settingsImportConfirm*` strings. The archived-duplicate warning is deliberately longer than its one-line `caseNameDuplicateError` sibling since it explains three resolution paths, not one fact — it's field supporting text that wraps rather than a fixed-width control, so the length difference isn't a brevity violation.
+- Spec review: `HODITH_SPEC.md`'s Settings row updated to note Load demo data's new confirm-dialog/full-replace behavior. Case-name uniqueness rules were never documented in the spec at this level of detail before (same as required-name/max-length), so no divergence there.
+- Tests: regression tests added for both reported bugs (`SettingsViewModelTest` — reload no longer duplicates; `CaseEditValidationTest`/`CaseEditViewModelTest` — an archived-only duplicate is a separate non-blocking warning, and a duplicate name with no icon selected still surfaces) and for the two bugs the user found via manual testing on-device. Fixed the one existing `SettingsScreenTest` the behavior change broke (`loadDemoData` no longer taps straight through) and added its cancel counterpart.
+
+**Docs updated:** HODITH_SPEC.md (Settings row); TESTING.md (ViewModels row's Case Edit clause corrected; Compose UI row's Developer Mode clause extended); this entry (oldest entry, `fix/info-note-copy`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/widget-row-sizing
 
 **Scope:** user-reported List widget resize bug — a continuation of an earlier, uncommitted investigation (branch deleted, nothing landed). Two root causes: `CaseRow` emitted an unconditional trailing `Spacer` after every row including the last, leaving a dead strip at the bottom; and the `LazyColumn` had no height constraint, so it wrap-sized to content instead of filling the widget, leaving empty space when resized taller than the row count. Three prior attempts to additionally force "exactly N whole rows, no scroll" from a guessed row-height constant had all failed in opposite directions and were explicitly not re-attempted this pass — researched against Glance's own docs instead, which confirmed a partial row clipped at the bottom of a scrolling list is standard `ListView` behavior, not a defect to engineer around with unmeasurable row-height math. Scope grew to a spacing-tightening pass once the mechanical fix was confirmed on-device and the user asked for a denser row/plank layout.
@@ -140,41 +175,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - An unrelated flake surfaced during verification: a 7-class run hit `INSTRUMENTATION_ABORTED: System has crashed` after running 1h44m instead of ~15-20 minutes — the same degraded-emulator signature (`Can't find service: activity`/`package`) `TESTING.md`'s Known environment issues section already documents. Restarting Android Studio resolved it. Not logged as a new line since the existing entry already covers this signature.
 
 **Docs updated:** QA_AUDIT_RULES.md (new section 8, new section 1 bullet, renumbering); CLAUDE.md (stale voice names fixed); QA_AUDIT_BACKLOG.md (condensed back to its shell); this entry.
-
----
-
-## fix/info-note-copy
-
-**Scope:** user-reported info-icon copy issues across all three voices — poor scanability, no term emphasis, bad start-time formatting/wrapping, and a broken sentence in Bright's Gaps & streaks note. Reviewed every info-icon note in the app (12 notes + 2 supporting strings), voice by voice, table by table, with the user approving each change before it landed. Scope grew mid-pass to cover the underlying rendering gaps that caused the reported symptoms (no emphasis mechanism, no dialog scrolling, Rhythm's note never adapting to its own "Start times" relabelling), plus a Canadian-spelling pass ("color" → "colour") the user asked for once the per-voice review was done.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. Verified: `ktlintCheck` (after `ktlintFormat`), `lintDebug`, `test` (full unit suite), `assembleDebug`, and `connectedDebugAndroidTest` scoped to `CaseDetailInsightsTabTest` (43/43 passing on a Pixel 8 API 36 emulator, run twice — once before and once after the final Rhythm-layout fix below). Not confirmed: which theme/light-dark-mode combinations the user's on-device check covered beyond Intense and Bright (see Deferred).
-
-**Found & fixed:**
-- All 12 info-icon notes rewritten across Plain/Intense/Bright per the user's table-by-table review: trimmed redundant sentences (Logging/Duration bodies), restructured Check-in bodies into on/off pairs, split the device-backup body into two paragraphs, added `**term**` colour-emphasis markers on defined terms, and rewrote the Trends body to accurately distinguish Hint vs. Pattern findings (Hint: a descriptive-threshold detector with no significance test behind it; Pattern: one that only ever surfaces after passing a permutation significance test) instead of implying one upgrades into the other.
-- Real bug found during the review: Bright's Gaps & streaks "Current gap" line was missing the word "ended" ("time since your last event." instead of "...event ended."), silently changing its meaning — present only in Bright, not Plain/Intense. Fixed, with a new `VoiceTest` regression test.
-- Fixed an em dash in Bright's Settings → Check-ins body (the project's Voice-copy strings stay em-dash-free).
-- Added colour-emphasis as a first-class rendering mechanism: `parseEmphasis` (new `EmphasisText.kt`) parses `**term**` markers into `MaterialTheme.colorScheme.primary`-tinted `AnnotatedString` spans — reusing the app's existing colour-only, no-added-weight precedent (`InsightsTab.kt`'s `highlightTag`) rather than introducing bold. Wired into `SectionWithInfo`/`LabelWithInfo`'s default rendering and `InsightsDetailScaffold`'s Tags/Trends full-list info dialogs.
-- Added a scroll wrapper inside `InfoDialog` itself, fixing the Gaps & streaks dialog clipping on longer content (confirmed by the user to run past one screen). Side effect: three other dialogs that already scrolled their own content now nested two vertical scrolls, a Compose crash risk — removed the now-redundant inner scroll from `InsightsDrillDownDialog` and Big Picture's day/week detail dialogs (`BigPictureGrid.kt`).
-- Added a Start-times-specific info title/intro for the Rhythm card (`insightsRhythmStartsInfoTitle` per voice, plus structural `insightsRhythmInfoIntro`/`insightsRhythmStartsInfoIntro`), so a multi-day Case's relabelled "Start times" section gets a matching explanation instead of always describing the regular Rhythm wording.
-- Rebuilt the Rhythm info dialog's body as its own composable (`RhythmInfoContent`) rather than a flattened Voice string, after three on-device rounds surfaced real layout bugs: the time range was first unconstrained in width with wrapping disabled, clipping "PM" at the dialog's edge; then label and range were split into two independently-stacked `Column`s, letting one range's wrap desync it from its own label; then, with label and range reunited on one `Row` and the range on `Modifier.weight(1f)`, Intense's wider font still wrapped the third and fourth rows' ranges unpredictably mid-string. Final design: the range's start and end clock times always stack on their own lines (no en dash joining them on one line), so every line is a single short clock time that fits regardless of theme font or accessibility font scale — eliminating the wrap case entirely rather than fitting it more tightly.
-- Colour spelling: Settings → Theme info body ("colors" → "colours") in all three voices, and a `DemoDataSeeder.kt` demo-mode seed note ("Wrong-color cup incident" → "Wrong-colour cup incident"), once the user's Canadian-spelling preference was confirmed to extend to the app's own user-facing copy, not just chat prose.
-
-**Deferred:**
-- Explicit confirmation of the Plain theme and of light/dark mode for the Rhythm dialog fix — the user checked Intense and Bright on-device; Plain and the light/dark axis weren't stated.
-
-**Considered and declined:**
-- Bulleted lists for the Gaps & streaks and Rhythm info bodies — the user asked for plain line breaks plus colour emphasis on the labelled terms instead.
-- A new fixed-width guess for the Rhythm dialog's label column, in favor of reusing `RHYTHM_LABEL_WIDTH` (the card's own label width, already tuned to fit "Afternoon") paired with `Modifier.weight(1f)` on the range — avoids a second magic number while still guaranteeing per-row alignment. (Superseded in effect, not reverted, by the final stacked-lines design above — the label column width is unaffected.)
-
-**Checks:**
-- Duplication: no inline user-visible strings added outside `Voice.kt`; `parseEmphasis` reused across `SectionWithInfo` and `InsightsDetailScaffold` rather than duplicated; `RHYTHM_LABEL_WIDTH`/`RHYTHM_GRID_GAP` reused in the new Rhythm info layout rather than re-declared.
-- Decoupling: no `domain/`/`android.*` boundary touched; `rhythmInfoTitle`/`rhythmInfoIntro` extracted as plain functions (no Compose) specifically so the Start-times mode-selection logic is unit-testable without a Compose test.
-- Dead code: no unused imports (`ktlintCheck` passes); fixed an unused-import regression in `BigPictureGrid.kt` created by removing its now-redundant inner scroll. A KDoc comment narrating "an earlier version" of `RhythmInfoContent` was caught and reworded to state the current invariant instead, during this walkthrough.
-- Hygiene: `git status` clean; no secrets or local paths in the diff.
-- Naming: new Voice keys (`insightsRhythmStartsInfoTitle`, `insightsRhythmInfoIntro`, `insightsRhythmStartsInfoIntro`) added to all three voices in this same commit; `EmphasisText.kt` follows `AcronymText.kt`'s existing `ui/common` naming pattern.
-- Hardcoded values: no new `Color(0xFF...)` literals; theme colour tokens used throughout.
-- Accessibility: no tap targets changed; theme/light-dark coverage not fully confirmed, see Deferred.
-- UI copy brevity: the subject of the review itself.
-- Tests: `EmphasisTextTest` (new, 4 cases), `RhythmInfoTest` (new, 2 cases), a new `VoiceTest` regression test for the Bright "ended" bug, and `CaseDetailInsightsTabTest`'s Rhythm assertions rewritten twice for the evolving dialog shape (each start/end time now its own text node) plus one new test for the Start-times title/intro switch — all 43 tests in that class run and passing on-emulator.
-
-**Docs updated:** TESTING.md (Voice layer row and the Case Detail Insights instrumented row, both extended); this entry.

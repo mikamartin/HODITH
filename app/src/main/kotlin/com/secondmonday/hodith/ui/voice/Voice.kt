@@ -81,6 +81,7 @@ interface Voice {
     val caseNameHint: String
     val caseNameRequiredError: String
     val caseNameDuplicateError: String
+    val caseNameDuplicateArchivedError: String
     val caseDescriptionLabel: String get() = "Description (optional)"
     val caseDescriptionHint: String
     val caseIconLabel: String get() = "Icon"
@@ -250,6 +251,9 @@ interface Voice {
     val settingsImportFailureSemanticMessage: String
     val settingsDeveloperModeSectionLabel: String
     val settingsLoadDemoDataButton: String
+    val settingsLoadDemoDataConfirmTitle: String
+    val settingsLoadDemoDataConfirmBody: String
+    val settingsLoadDemoDataConfirmAction: String
     val settingsDemoDataLoadedMessage: String
     val settingsManageTagsButton: String
     val manageTagsScreenTitle: String
@@ -968,6 +972,8 @@ object PlainVoice : Voice {
     override val caseNameHint = "e.g. Dog barked all night"
     override val caseNameRequiredError = "Name is required."
     override val caseNameDuplicateError = "A case with this name already exists."
+    override val caseNameDuplicateArchivedError =
+        "An archived case already has this name. Choose a different name, or restore or delete the archived case."
     override val caseDescriptionHint = "Any more detail worth noting"
     override val caseIconRequiredError = "Pick an icon."
     override val caseIconSectionExpandDescription = "Show icon choices"
@@ -1112,6 +1118,10 @@ object PlainVoice : Voice {
     override val settingsImportFailureSemanticMessage = "That backup's data doesn't check out, so nothing was restored."
     override val settingsDeveloperModeSectionLabel = "Developer mode"
     override val settingsLoadDemoDataButton = "Load demo data"
+    override val settingsLoadDemoDataConfirmTitle = "Load demo data?"
+    override val settingsLoadDemoDataConfirmBody =
+        "This will permanently delete everything currently in the app and replace it with the demo set. This can't be undone."
+    override val settingsLoadDemoDataConfirmAction = "Load it"
     override val settingsDemoDataLoadedMessage = "Demo data loaded."
     override val settingsManageTagsButton = "Manage tags"
     override val manageTagsScreenTitle = "Manage tags"
@@ -1576,6 +1586,8 @@ object IntenseVoice : Voice {
     override val caseNameHint = "e.g. The migraine returns"
     override val caseNameRequiredError = "It needs a name to be watched."
     override val caseNameDuplicateError = "Another case already bears this name."
+    override val caseNameDuplicateArchivedError =
+        "An archived case already bears this name. Rename this one, or reopen or close out that old file."
     override val caseDescriptionHint = "Say more, if the shadows require it"
     override val caseIconRequiredError = "Choose an icon for it."
     override val caseIconSectionExpandDescription = "Reveal the icons"
@@ -1721,6 +1733,10 @@ object IntenseVoice : Voice {
     override val settingsImportFailureSemanticMessage = "That file's records don't hold together, so nothing was restored."
     override val settingsDeveloperModeSectionLabel = "Behind the curtain"
     override val settingsLoadDemoDataButton = "Conjure phantom cases"
+    override val settingsLoadDemoDataConfirmTitle = "Conjure the phantoms?"
+    override val settingsLoadDemoDataConfirmBody =
+        "Every case and record here will be struck out, replaced by the phantom set. There's no undoing it."
+    override val settingsLoadDemoDataConfirmAction = "Conjure them"
     override val settingsDemoDataLoadedMessage = "The phantoms have arrived."
     override val settingsManageTagsButton = "Manage the tags"
     override val manageTagsScreenTitle = "The tags"
@@ -2184,6 +2200,8 @@ object BrightVoice : Voice {
     override val caseNameHint = "e.g. Perfect coffee!"
     override val caseNameRequiredError = "Give it a name first!"
     override val caseNameDuplicateError = "You've already got a case with that name!"
+    override val caseNameDuplicateArchivedError =
+        "You've already got an archived case with that name! Pick something new, or go restore or clear out the old one."
     override val caseDescriptionHint = "Spill any extra details"
     override val caseIconRequiredError = "Pick a little icon for it!"
     override val caseIconSectionExpandDescription = "Show me the icons!"
@@ -2323,6 +2341,9 @@ object BrightVoice : Voice {
     override val settingsImportFailureSemanticMessage = "That backup's data looks off, so nothing got restored!"
     override val settingsDeveloperModeSectionLabel = "Nerd mode!"
     override val settingsLoadDemoDataButton = "Load some pretend chaos!"
+    override val settingsLoadDemoDataConfirmTitle = "Load the pretend chaos?"
+    override val settingsLoadDemoDataConfirmBody = "Everything here gets wiped and replaced with pretend chaos. No undo button!"
+    override val settingsLoadDemoDataConfirmAction = "Load it!"
     override val settingsDemoDataLoadedMessage = "Fake drama, loaded!"
     override val settingsManageTagsButton = "Tidy up the tags!"
     override val manageTagsScreenTitle = "Tag tidy-up!"

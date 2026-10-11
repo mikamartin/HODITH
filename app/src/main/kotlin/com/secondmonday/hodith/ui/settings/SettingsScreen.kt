@@ -158,6 +158,7 @@ fun SettingsScreen(
     var showDeleteDataFlow by remember { mutableStateOf(false) }
     var showImportConfirm by remember { mutableStateOf(false) }
     var showExportFormatDialog by remember { mutableStateOf(false) }
+    var showLoadDemoDataConfirm by remember { mutableStateOf(false) }
 
     fun showComingSoonSnackbar() {
         coroutineScope.launch { snackbarHostState.showSnackbar(voice.comingSoonPlaceholder, duration = SnackbarDuration.Short) }
@@ -227,6 +228,20 @@ fun SettingsScreen(
         )
     }
 
+    if (showLoadDemoDataConfirm) {
+        ConfirmDialog(
+            title = voice.settingsLoadDemoDataConfirmTitle,
+            body = voice.settingsLoadDemoDataConfirmBody,
+            confirmLabel = voice.settingsLoadDemoDataConfirmAction,
+            cancelLabel = voice.settingsDeleteAllDataCancelAction,
+            onDismiss = { showLoadDemoDataConfirm = false },
+            onConfirm = {
+                showLoadDemoDataConfirm = false
+                onLoadDemoData()
+            },
+        )
+    }
+
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -292,7 +307,7 @@ fun SettingsScreen(
 
             if (uiState.developerModeUnlocked) {
                 Plank(voice.settingsDeveloperModeSectionLabel) {
-                    ActionRow(voice.settingsLoadDemoDataButton, onClick = onLoadDemoData)
+                    ActionRow(voice.settingsLoadDemoDataButton, onClick = { showLoadDemoDataConfirm = true })
                 }
             }
         }

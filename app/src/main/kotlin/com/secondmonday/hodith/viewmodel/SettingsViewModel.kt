@@ -112,6 +112,7 @@ class SettingsViewModel
 
         fun loadDemoData() {
             viewModelScope.launch {
+                hodithRepository.deleteAllData()
                 demoDataSeeder.seed()
                 _demoDataLoaded.send(Unit)
             }

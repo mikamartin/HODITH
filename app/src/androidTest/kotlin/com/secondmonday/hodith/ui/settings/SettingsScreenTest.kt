@@ -288,7 +288,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun loadDemoData_tapInvokesCallback() {
+    fun loadDemoData_opensConfirmDialog_confirmInvokesCallback() {
         var loaded = false
         setContent(
             uiState = SettingsUiState(theme = AppTheme.PLAIN, developerModeUnlocked = true, isLoading = false),
@@ -299,8 +299,25 @@ class SettingsScreenTest {
         // scrolling Column, below the fold on typical screen sizes — see InsightShareTabTest
         // for the same pattern.
         composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataConfirmAction).performClick()
 
         assertEquals(true, loaded)
+    }
+
+    @Test
+    fun loadDemoData_cancelDoesNotInvokeCallback() {
+        var loaded = false
+        setContent(
+            uiState = SettingsUiState(theme = AppTheme.PLAIN, developerModeUnlocked = true, isLoading = false),
+            onLoadDemoData = { loaded = true },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataButton).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(PlainVoice.settingsLoadDemoDataConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.settingsDeleteAllDataCancelAction).performClick()
+
+        assertFalse(loaded)
     }
 
     @Test
