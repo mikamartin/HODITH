@@ -67,6 +67,10 @@ which test.
     `WidgetActionsFlowTest.logFromOneWidget_refreshesASecondWidgetForTheSameCase`.)
 11. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
     afterward, not a reset or stale value.
+12. **List widget resize.** With several Cases selected, drag the widget's resize handles through a
+    range of heights. No dead strip at the bottom (the old unconditional trailing spacer after the
+    last row), and no large empty gap below a short list — the `LazyColumn` fills and scrolls
+    instead. A partial row clipped at the very bottom of a scrolled list is expected, not a bug.
 
 ## Notifications & permissions
 

@@ -17,6 +17,43 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/widget-row-sizing
+
+**Scope:** user-reported List widget resize bug — a continuation of an earlier, uncommitted investigation (branch deleted, nothing landed). Two root causes: `CaseRow` emitted an unconditional trailing `Spacer` after every row including the last, leaving a dead strip at the bottom; and the `LazyColumn` had no height constraint, so it wrap-sized to content instead of filling the widget, leaving empty space when resized taller than the row count. Three prior attempts to additionally force "exactly N whole rows, no scroll" from a guessed row-height constant had all failed in opposite directions and were explicitly not re-attempted this pass — researched against Glance's own docs instead, which confirmed a partial row clipped at the bottom of a scrolling list is standard `ListView` behavior, not a defect to engineer around with unmeasurable row-height math. Scope grew to a spacing-tightening pass once the mechanical fix was confirmed on-device and the user asked for a denser row/plank layout.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. `ktlintCheck`, `lintDebug`, `test` (full unit suite, including the updated `WidgetTokenFidelityTest`), and `assembleDebug` all pass. No instrumented coverage is possible for either fix — see Tests below.
+
+**Found & fixed:**
+- Root cause 1: `CaseRow`'s trailing `Spacer(WidgetPlankSpacing)` fired unconditionally. Added an `isLast` flag threaded from the `LazyColumn`'s item index through the private `items` extension to `CaseRow`, skipping the Spacer on the last row.
+- Root cause 2: the `LazyColumn` wrap-sized instead of filling the outer `Column`. Added `.defaultWeight()` to its modifier so it claims the remaining height and scrolls instead of leaving dead space.
+- Spacing tightened for row density, confirmed on-device by the user: `WidgetOuterPadding` 12→10dp, `WidgetRowPadding` 10→6dp, `WidgetHeaderPadding` 15→10dp, `WidgetPlankSpacing` 8→6dp.
+- `WidgetHeaderPadding`'s reduction puts the List widget header/empty-state tap target below the 48dp `MinTapTarget` minimum (~37dp) — calculated that 15dp was already near the floor for a true 48dp target at this font size, and that no Box/Spacer layering trick can shrink both the top-of-widget→title and title→rows gaps at once without the same floor (the slack only relocates between them). User explicitly decided the row-cutoff fix mattered more than this one control's tap target. See Considered and declined.
+- `WidgetPlankSpacing`'s reduction breaks its fidelity to Home's `PlainPlankVerticalMargin * 2` — removed the now-invalid `WidgetTokenFidelityTest` assertion and its `PlainPlankVerticalMargin` import, and updated the stale doc comments in `WidgetCommon.kt`, `HomeScreen.kt`, and `DEV_PLAYBOOK.md` §4 that documented the old guaranteed relationship (all three explicitly claimed a sync that no longer holds — caught by walking the actual files, not assumed from memory of the earlier edit).
+- Documented the underlying Glance fact as a third numbered gotcha in `DEV_PLAYBOOK.md` §4 (alongside the existing Text-in-Box and no-margin notes): `LazyColumn` has no `verticalArrangement`/`spacedBy` equivalent, so a manual inter-item `Spacer` must know which item is last and skip itself there, or it reintroduces this exact bug.
+- Added a List widget resize item to `MANUAL_TEST_PLAN.md` (item 12) — this surface can't be driven by an instrumented test (the harness can't populate `LazyColumn` row items at all), so it's a standing manual check, not a one-off verification of this fix.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- `SizeMode.Responsive` with discrete, on-device-calibrated `DpSize` buckets (each hand-confirmed to show exactly N rows, no clipping or dead space) — the properly-supported Glance pattern for this problem, researched this pass. Declined in favor of the simpler scrolling fix once the user approved its on-device look; would need a round of real calibration measurements if revisited.
+- `WidgetHeaderPadding` kept at 15dp to preserve the 48dp tap target — declined by explicit user decision; row-cutoff fix weighed higher than this control's tap target size.
+- A Box + invisible-`Spacer` trick to emulate a min-height modifier for the header (Glance has no `heightIn`) — doesn't work regardless: the reserved height still pushes following siblings down by the same total amount, so the slack only moves between the top-of-widget→title and title→rows gaps rather than shrinking both.
+
+**Checks:**
+- Duplication: no new composables; the existing `items` extension and `CaseRow` were extended, not duplicated.
+- Decoupling: widget code stays Glance/Android-only, no `domain/` or Repository changes.
+- Dead code: no unused imports (removed the now-unused `PlainPlankVerticalMargin` import from the test file after deleting the assertion that used it).
+- Hygiene: `git status` clean; no secrets or local paths in the diff.
+- Hardcoded values: all four changed numbers are already named tokens in `WidgetCommon.kt`, not inline magic numbers.
+- Accessibility: `WidgetHeaderPadding`'s tap-target reduction below 48dp is a deliberate, user-approved exception — see Considered and declined. All other tap targets (`MinTapTarget`-sized Boxes) are untouched and unaffected by any of the padding changes.
+- Background work, widgets: Plain-light-only theming and per-Case `logFlow` handling untouched by this diff.
+- Spec review: `HODITH_SPEC.md` §15 doesn't claim any specific resize behavior, so no divergence to fix there; `DEV_PLAYBOOK.md` §4's token table and layout-facts list updated (see Found & fixed).
+- Tests: no regression test added for either root-cause fix. `docs/DEV_PLAYBOOK.md` already documents that the on-device widget test harness can't populate `LazyColumn` row items at all (`RemoteViewsService`/`ListView` binding gap), ruling out an instrumented assertion on the trailing-spacer or fill behavior; `CaseRow` is a private Composable with no feasible unit-test path without a Glance/Robolectric test harness this repo doesn't have. Declined rather than silently skipped — flagging here since "bug fixed → regression test added" is otherwise an unconditional checklist item.
+
+**Docs updated:** `DEV_PLAYBOOK.md` §4 (token table values, the plank-spacing/Home-fidelity description, a new Glance layout-facts bullet); `MANUAL_TEST_PLAN.md` (new widget-resize item); this entry (oldest entry, `fix/duration-selector-wrap`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/intensity-required-when-enabled
 
 **Scope:** Reported bug — a Case could have intensity enabled, but an event could still be logged with no rating. Investigation found the gap (`LogDetailForm`'s `canSave` never checked intensity, and a selected choice could be tapped back to none), then expanded to cover what the fix needed to get right: whether any other optional event field had the same case-flag-says-"tracked"-but-still-skippable shape (none did), and what toggling `intensityEnabled` does to a Case's existing events (nothing, either direction — which then needed its own user-facing notice).
@@ -141,40 +178,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: `EmphasisTextTest` (new, 4 cases), `RhythmInfoTest` (new, 2 cases), a new `VoiceTest` regression test for the Bright "ended" bug, and `CaseDetailInsightsTabTest`'s Rhythm assertions rewritten twice for the evolving dialog shape (each start/end time now its own text node) plus one new test for the Start-times title/intro switch — all 43 tests in that class run and passing on-emulator.
 
 **Docs updated:** TESTING.md (Voice layer row and the Case Detail Insights instrumented row, both extended); this entry.
-
----
-
-## fix/duration-selector-wrap
-
-**Scope:** user-reported bug: the duration-mode selector's "Start/stop" option (None/Manual/Start-stop) wrapped to two lines in the Plain theme on the New/Edit Case screen. Three follow-ups from the same user, after the wrap fix landed: "Start/stop" rendered visibly smaller than its siblings instead of matching them; separately, Settings' Appearance section showed its Theme row and Time format row at two different sizes from each other; then, in the Bright theme specifically, every `SegmentedChoiceRow` label (Settings and New/Edit Case both) rendered huge and heavy instead of its normal size.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. Verified: `ktlintCheck`, `lintDebug`, `test` (full unit suite), `assembleDebug`, and `connectedDebugAndroidTest` scoped to `SegmentedChoiceRowTest` (5/5 passing on a Pixel 8 API 36 emulator) and `SettingsScreenTest` (34/34 passing, confirming the Appearance section's click/selection behavior survived being wrapped in a `CompositionLocalProvider`).
-
-**Found & fixed:**
-- Root cause: `SegmentedChoiceRow`'s Plain/Intense `SegmentedButton` branch gave its label `Text` no wrap/shrink handling; Plain's Inter font is wider per character than Intense's condensed Oswald, so the same 3-way None/Manual/Start-stop split only overflowed in Plain. Fixed by adding `maxLines = 1` and `TextAutoSize.StepBased()`, which only shrinks the font when a label would otherwise overflow — every other current usage (shorter labels) renders unchanged. Applied the same to Bright's own track (`BrightSegmentedChoiceRow`) for consistency, even though it wasn't wrapping at the width tested. Confirmed red (56.4dp tall vs. 40dp for "None") against the pre-fix code before confirming green, on-device.
-- Added a Plain light/dark Compose preview pair, reusing the existing preview-content composable (renamed from Bright-specific `SegmentedChoiceRowBrightPreviewContent` to `SegmentedChoiceRowPreviewContent` since it was already decoration-agnostic) rather than duplicating it.
-- Added `longLabelOption_doesNotWrapInPlainTheme`/`...InBrightTheme` to `SegmentedChoiceRowTest`, comparing the long label's rendered height against a short sibling's in the same row/width/theme instead of hardcoding font metrics.
-- Follow-up 1: each segment's independent autoSize meant a short label stayed at its own larger natural size while "Start/stop" shrank, reading as inconsistent even once nothing wrapped. Added `SegmentedRowFontSizeCoordinator` to `SegmentedChoiceRow.kt` — each segment reports its own autoSize result via `onTextLayout`, and once every segment has reported, all of them switch from independent autoSize to the shared smallest size. Applied to both the Plain/Intense and Bright branches.
-- Follow-up 2: by default each row gets its own private coordinator instance, so a 3-option row (Theme) and a 2-option row (Time format) stacked in the same Plank can still land on two different sizes from each other, since each divides the same full width by a different segment count. Generalized the coordinator to support several rows sharing one instance -- a row joins via `registerRow`/`unregisterRow` (so a row that disappears, e.g. a dismissed dialog, can't block the rest from ever settling) -- exposed via a new `LocalSegmentedRowFontSizeCoordinator` composition local. `SettingsScreen.kt`'s Appearance section now provides one shared instance around its Theme and Time format rows; every other caller is unaffected (each still gets its own private instance, same as before).
-- Follow-up 3: `TextAutoSize.StepBased()`'s default search range is 12sp–112sp, with no upper bound tied to the control's own intended size. Likely cause: if `BrightSegmentedChoiceRow`'s `Box`/`Row` layout ever hands the autoSize search an effectively unbounded width during measurement, every candidate size up to 112sp reads as "fits", so the search climbs toward that ceiling instead of shrinking -- producing the huge, heavy-looking text reported in both Settings and New/Edit Case's Bright theme. Capped `maxFontSize` at the row's own `textStyle.fontSize` in both the Plain/Intense and Bright branches, so autoSize can only ever shrink from the intended size, never grow past it, regardless of whether that unbounded-width theory is the full story. Not yet confirmed fixed on-device.
-
-**Deferred:**
-- Automated verification of both font-size-coordination fixes (within-row and cross-row) — resolved in `test/autosize-harness-investigation`, see that entry above for the root cause and the working technique found.
-- Extending the shared Appearance-section coordinator to other screens with multiple stacked rows (e.g. Case Edit's logFlow + durationMode rows). Not requested for this pass; flagged here so it's not forgotten if the same "rows look mismatched" complaint resurfaces elsewhere.
-
-**Considered and declined:**
-- Shortening the "Start/stop" label itself (flagged by UI Copy Brevity: "None" = 4 chars, "Manual" = 6, "Start/stop" = 10). The layout fix already resolves the wrap; the user chose to keep the label, since changing it would mean editing all three voices plus every doc that names durationMode's options for a label that's accurate and already consistent.
-- A fully automated regression test for either font-size-coordination fix, in favor of the user's own on-device check — see Deferred.
-
-**Checks:**
-- Duplication: the preview-content composable is now shared across Bright and Plain previews instead of being duplicated per theme. `SegmentedRowFontSizeCoordinator` is one class shared by both branches and, when a screen opts in, by every row under its `CompositionLocalProvider`, rather than duplicated per branch or per row.
-- Decoupling, data model, background work: not touched.
-- Dead code: no unused imports; a draft cross-reference naming a specific test-method name was caught and reworded so it can't go stale if the test is renamed. The diagnostic test written to investigate the autoSize harness question was removed once its purpose was served, not left behind.
-- Hygiene: `git status` clean; no secrets or local paths in the diff.
-- Naming: new previews/tests/the coordinator class and composition local follow existing naming patterns.
-- Accessibility: autoSize only affects the label's font size inside its existing container — tap targets unchanged.
-- UI copy brevity: flagged and resolved, see Considered and declined.
-- Tests: wrap regression test added and confirmed red/pre-fix then green/post-fix on-device. `SettingsScreenTest`'s full 34-test suite re-run to confirm the Appearance section's behavior survived the `CompositionLocalProvider` wrapping. Neither font-size-coordination property itself is covered by an automated test — see Deferred.
-
-**Docs updated:** TESTING.md (shared-components row extended to cover the wrap regression); this entry.
-

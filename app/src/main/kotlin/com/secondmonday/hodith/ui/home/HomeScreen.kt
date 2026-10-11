@@ -226,8 +226,9 @@ private fun HomeCaseListItem(
 
 /**
  * Vertical margin above and below each Plain plank [Card] in [PlainPlankHomeCaseListItem] — so
- * adjacent planks sit twice this apart. The List widget mirrors twice this value as the gap between
- * its own Case planks (`WidgetCommon.kt`'s `WidgetPlankSpacing`), guarded by `WidgetTokenFidelityTest`.
+ * adjacent planks sit twice this apart. The List widget's own plank gap (`WidgetCommon.kt`'s
+ * `WidgetPlankSpacing`) is tuned independently, tighter than this value — a widget's canvas is far
+ * shorter than a phone screen, so it isn't mirrored here.
  */
 internal val PlainPlankVerticalMargin = 4.dp
 

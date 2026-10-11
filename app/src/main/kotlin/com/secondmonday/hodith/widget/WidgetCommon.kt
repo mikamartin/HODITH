@@ -79,26 +79,27 @@ internal val WidgetLogButtonCornerRadius = 8.dp
 
 /** Widget-only layout, no Home analogue — a widget's canvas is far narrower than a phone screen,
  * so these stay hand-tuned rather than copied from Home's row padding/spacing. */
-internal val WidgetOuterPadding = 12.dp
-internal val WidgetRowPadding = 10.dp
+internal val WidgetOuterPadding = 10.dp
+internal val WidgetRowPadding = 6.dp
 internal val WidgetLogButtonSpacing = 8.dp
 internal val WidgetSingleCaseOuterPadding = 8.dp
 internal val WidgetSingleCaseLogButtonSpacing = 6.dp
 
 /** Vertical padding on the List widget header and empty-state message (both are a bare
- * `.fillMaxWidth()` Text, so the padding also sets the clickable area). Sized so the one-line tap
- * target clears [MinTapTarget] (15 + ~14sp line + 15 ≈ 50dp); with no fixed height the Text is free
- * to wrap and grow. Widget-only, no Home analogue. */
-internal val WidgetHeaderPadding = 15.dp
+ * `.fillMaxWidth()` Text, so the padding also sets the clickable area); with no fixed height the
+ * Text is free to wrap and grow. Tuned for a tight header-to-content gap, which puts the one-line
+ * tap target below [MinTapTarget] (10 + ~14sp line + 10 ≈ 37dp) — a deliberate trade for this one
+ * control. Widget-only, no Home analogue. */
+internal val WidgetHeaderPadding = 10.dp
 
 /**
  * Gap between List widget Case planks (and between the header and the first plank), giving each row
- * the discrete-card look Home's Plain planks have. Mirrors the space Home's `PlainPlankHomeCaseListItem`
- * `Card` leaves between adjacent planks — its
- * [com.secondmonday.hodith.ui.home.PlainPlankVerticalMargin] applied both above and below, so twice
- * that value. A unit test (`WidgetTokenFidelityTest`) fails if the two drift apart.
+ * the discrete-card look Home's Plain planks have. Tuned tighter than Home's own plank gap
+ * ([com.secondmonday.hodith.ui.home.PlainPlankVerticalMargin] applied above and below) — a widget's
+ * canvas is far narrower and shorter than a phone screen, so more rows visible outweighs matching
+ * Home's spacing exactly here. Widget-only, intentionally diverged from Home.
  */
-internal val WidgetPlankSpacing = 8.dp
+internal val WidgetPlankSpacing = 6.dp
 
 internal val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
 
