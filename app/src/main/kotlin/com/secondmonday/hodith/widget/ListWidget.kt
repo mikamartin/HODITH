@@ -130,8 +130,8 @@ class ListWidget : GlanceAppWidget() {
                         )
                     } else {
                         Spacer(modifier = GlanceModifier.height(WidgetPlankSpacing))
-                        LazyColumn(modifier = GlanceModifier.fillMaxWidth()) {
-                            items(rows) { row -> CaseRow(row, now) }
+                        LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                            items(rows) { index, row -> CaseRow(row, now, isLast = index == rows.lastIndex) }
                         }
                     }
                 }
@@ -142,10 +142,10 @@ class ListWidget : GlanceAppWidget() {
 
 private fun androidx.glance.appwidget.lazy.LazyListScope.items(
     rows: List<HomeCaseRow>,
-    itemContent: @Composable (HomeCaseRow) -> Unit,
+    itemContent: @Composable (index: Int, row: HomeCaseRow) -> Unit,
 ) {
     items(count = rows.size, itemId = { rows[it].caseId }) { index ->
-        itemContent(rows[index])
+        itemContent(index, rows[index])
     }
 }
 
@@ -153,6 +153,7 @@ private fun androidx.glance.appwidget.lazy.LazyListScope.items(
 private fun CaseRow(
     row: HomeCaseRow,
     now: Long,
+    isLast: Boolean,
 ) {
     val context = LocalContext.current
     val caseDetailIntent =
@@ -225,7 +226,9 @@ private fun CaseRow(
                 )
             }
         }
-        Spacer(modifier = GlanceModifier.height(WidgetPlankSpacing))
+        if (!isLast) {
+            Spacer(modifier = GlanceModifier.height(WidgetPlankSpacing))
+        }
     }
 }
 

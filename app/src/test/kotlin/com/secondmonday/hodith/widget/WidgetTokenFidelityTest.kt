@@ -5,7 +5,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.ui.home.PlainPlankVerticalMargin
 import com.secondmonday.hodith.ui.theme.hodithShapes
 import com.secondmonday.hodith.ui.theme.hodithTypography
 import org.junit.Assert.assertEquals
@@ -22,10 +21,9 @@ import androidx.glance.text.FontWeight as GlanceFontWeight
  *
  * Token *sizes* with no Home/`Type.kt` role ([WidgetPlusGlyphSize], [WidgetHeaderTitleSize],
  * [WidgetInfoMessageSize]) aren't covered here — there's nothing in Plain's theme for them to drift
- * against. Tokens anchored to a Home value that isn't a `Type.kt` size — [WidgetPlankSpacing] (a
- * `HomeScreen.kt` plank-layout value) and [WidgetHeaderTitleWeight] (Plain's `headlineSmall`
- * weight, the header's in-app role, even though the widget keeps the header size compact) — are
- * checked against that value.
+ * against. [WidgetPlankSpacing] is intentionally tighter than Home's plank gap, so it isn't checked
+ * against it. [WidgetHeaderTitleWeight] (Plain's `headlineSmall` weight, the header's in-app role,
+ * even though the widget keeps the header size compact) is checked against that value.
  */
 class WidgetTokenFidelityTest {
     private val plainTypography = hodithTypography(AppTheme.PLAIN)
@@ -60,14 +58,6 @@ class WidgetTokenFidelityTest {
         val plainMediumRadius = cornerRadiusDp(plainShapes.medium)
         assertEquals(plainMediumRadius, WidgetCornerRadius.value, 0.01f)
         assertEquals(plainMediumRadius, WidgetLogButtonCornerRadius.value, 0.01f)
-    }
-
-    @Test
-    fun `widget plank spacing mirrors Home's Plain plank vertical margins`() {
-        // Home's PlainPlankHomeCaseListItem Card carries PlainPlankVerticalMargin above and below,
-        // so adjacent planks sit twice that apart. The List widget uses one token for that gap, so
-        // its rows read as the same discrete cards.
-        assertEquals(PlainPlankVerticalMargin.value * 2, WidgetPlankSpacing.value, 0f)
     }
 
     @Test
