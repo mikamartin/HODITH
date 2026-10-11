@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/big-picture-day-detail-chronological-order
+
+**Scope:** User-reported: the Big Picture day/week detail dialogs listed a day's events grouped by Case (every event of Case A before any of Case B) instead of chronologically, with no distinct treatment for a multi-day span's "no real time that day" rows. Clarified with the user that HODITH has no literal "all-day event" concept — only a multi-day span's middle day (or any day a still-running event is merely carried through) genuinely has no boundary time; a span's own start/end day has a real clock time and should sort and read by it ("Started …"/"Ended …"), not the old blanket full-range label.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to `BigPictureScreenTest` on a Pixel 8 API 36 emulator — 51/51 green, including the three new cases.
+
+**Found & fixed:**
+- `BigPictureGrid.kt`'s `DayEvent` replaced `isSpanStart`/`isSpanCarried` with `isSpanStart`/`isSpanEnd`/`isAllDay`, so a span's end day (a real boundary) is distinguished from a true middle day (none).
+- New pure `sortDayEvents` (`BigPictureFilterState.kt`): `isAllDay` rows sort first (nothing to sort by); every other row sorts by whichever boundary falls that day — start time, or end time for `isSpanEnd`.
+- `coveredDates` and the `eventsByDay`-building loop, previously private/inline inside the `BigPictureGrid` composable, extracted to pure `coveredDates`/`buildEventsByDay` in `BigPictureFilterState.kt` — both now unit-testable on the JVM without Compose, matching this file's own established rationale for `isTagVisible`/`resolveVisibleSelection`.
+- `EventDetailRow` labelling: a span's start day now reads "Started …", its finished end day "Ended …" (each a bare clock time), reserving the old "lasted …" full-range label for an actual no-boundary (`isAllDay`) day; the `isOngoing` branch is unchanged.
+- New `Voice.bigPictureEventSpanStarted`/`bigPictureEventSpanEnded`, given default (identical) bodies directly on the `Voice` interface rather than per-voice overrides — confirmed with the user that this label is deliberately the same wording in all three voices, same pattern as `bigPictureFilterCount`'s existing structural default. (A per-voice-override attempt first failed `VoiceTest`'s "no abstract key is identical across all three voices" check, which is exactly why structural/identical keys use interface defaults instead.)
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- A dedicated per-theme (Intense/Bright) visual pass for the new rows — declined since "Started …"/"Ended …" are plain-text labels reusing the existing row's typography/layout with no new colors or sizing; the user's own manual check (default theme) already confirmed the layout.
+
+**Checks:**
+- Duplication: no inline strings — the two new labels went through `Voice` (as interface defaults, not per-voice literals) in the same commit.
+- Decoupling: the extraction moves more logic *out* of the composable into pure, JVM-testable functions, not the other direction; day-bucketing still resolves via the event's own captured `utcOffsetMinutes` (`loggedZone()`), not the device's current zone.
+- Complexity: `buildEventsByDay`/`coveredDates`/`sortDayEvents` each still have exactly one production caller, but earn the split the same way this file's existing single-caller helpers do (JVM testability without Compose) — not a premature extraction.
+- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
+- Naming: new `Voice` keys follow the existing `bigPictureEventSpan*` convention.
+- UI copy brevity: "Started …"/"Ended …" are shorter than the siblings they partly replace ("Lasted … – …", "Ongoing since …") — no wrap risk.
+- Spec review: `HODITH_SPEC.md` §9 updated (chronological/all-day-pinned ordering, three-way Started/Ended/lasted label) — this was unintentional divergence (a genuine behavior bug/gap), not a deliberate spec change.
+- Tests: regression coverage added at both layers — `BigPictureFilterStateTest.kt` (JVM: same-day-duration-not-flagged-as-span, 2-day vs. 3+/4-day span flagging, a still-running event's carried days staying `isAllDay` forever and never falsely `isSpanEnd`, a still-running event started "today" staying a plain timed row, year-boundary date generation, offset-based date resolution, a full mixed-day integration case, sort ties/stability/empty-list) and `BigPictureScreenTest.kt` (instrumented: span start day, span end day, all-day-pinned-above-a-timed-row ordering).
+
+**Docs updated:** HODITH_SPEC.md (§9, day/week detail ordering and label rewritten); TESTING.md (ViewModels row extended for the three new pure functions; Compose UI — Big Picture row corrected for the new labels/ordering); this entry (oldest entry, `test/autosize-harness-investigation`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/widget-edit-affordance
 
 **Scope:** Two user-reported bugs on the List widget's configure flow, found and fixed in sequence in the same session. First: the empty-widget message told users to long-press and tap Edit to pick Cases, but tapping it only opened the app (not the picker it promised), and long-press on the user's launcher only resizes — there's no reachable "Edit" affordance that way. Fixed by adding a persistent header edit icon (present in both the empty and populated states) and wiring it, plus the empty-state message, to relaunch the real `android:configure` Activity. That change made the Activity reachable from an already-placed widget for the first time, which exposed two further latent bugs that only ever held for first-ever setup: re-editing opened the app instead of returning to the widget, and re-editing always started from a blank selection instead of the widget's real one.
@@ -149,32 +181,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: regression coverage added at both layers — `CaseEditViewModelTest` (3 new cases for the notice-gating logic) and new instrumented coverage (`LogDetailIntensityTest`, `CaseEditScreenTest` additions), both run on-device.
 
 **Docs updated:** HODITH_SPEC.md (§6, the Watch table's `minIntensity` row), TESTING.md (Compose UI and ViewModels rows extended), PROGRESS.md (new follow-up item for the `outcomeValueFor` finding); this entry (oldest entry, `chore/voice-phrasing-audit`, removed per the 5-entry retention rule).
-
----
-
-## test/autosize-harness-investigation
-
-**Scope:** PROGRESS.md's "Instrumented tests can't observe `TextAutoSize`'s resolved font size" investigation item, opened during `fix/duration-selector-wrap` after two instrumented-test attempts (a bounding-box height assertion, a `GetTextLayoutResult`-semantics probe) both showed zero observable shrink across every tested width, even at an unreasonable 20dp-per-segment — not matching the real on-device behavior the user had confirmed.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite, nothing to re-run — only `androidTest` sources changed), and `connectedDebugAndroidTest` scoped to `SegmentedChoiceRowTest` (6/6 passing on a Pixel 8 API 36 emulator, including the new test).
-
-**Found & fixed:**
-- Root cause: both prior techniques resolved `onNodeWithText` (or the matching semantics action) to the *merged* `SegmentedButton` semantics node — not the inner `Text` leaf that `autoSize` actually resizes — and that merged node's measured height is pinned to `SegmentedButtonDefaults`' fixed minimum touch-target height (40dp), confirmed directly: a real `SegmentedChoiceRow` at 300dp width and the same row squeezed to 60dp both measured `onNodeWithText("Start/stop")` at exactly 40.0dp. `autoSize` itself was never broken in this harness — a bare `BasicText`/`Text` with `autoSize = TextAutoSize.StepBased(...)` shrinks correctly under the same `v2` `createComposeRule()` rule this repo already uses everywhere, and `SegmentedRowFontSizeCoordinator.resolved`, read directly, settled to a genuinely shrunk size (12sp against a 14sp baseline) through a real `SegmentedChoiceRow` at 60dp.
-- Added `coordinatedFontSize_shrinksBelowBaselineAtNarrowWidth` to `SegmentedChoiceRowTest.kt`: constructs its own `SegmentedRowFontSizeCoordinator`, provides it via `LocalSegmentedRowFontSizeCoordinator` (the same already-public API `SettingsScreen.kt` uses for its shared Appearance-section coordinator), and reads `coordinator.resolved` directly — the same value every segment's `onTextLayout` already reports in production — sidestepping the semantics tree entirely instead of inferring the font size from a bounding box or a semantics action.
-- Added a class doc comment to `SegmentedChoiceRowTest.kt` naming the merged-semantics/fixed-minHeight pitfall, so a future reader doesn't re-attempt either of the two techniques already ruled out.
-- Closed the PROGRESS.md item (both acceptance criteria met: root cause identified, working technique landed) and updated `fix/duration-selector-wrap`'s stale "worth a closer look later" Deferred bullet to point at this entry instead of dangling.
-
-**Deferred:** nothing — both acceptance criteria were met in this pass.
-
-**Considered and declined:**
-- A `Modifier.layout` constraints probe spliced into a locally-modified copy of `SegmentedChoiceRow` (the plan's fallback step for if the coordinator read had failed) — not needed once `coordinator.resolved` passed cleanly.
-- Comparing the classic (`androidx.compose.ui.test.junit4.createComposeRule`) and `v2` rules head-to-head — not needed once the bare-`autoSize` case passed under `v2` on the first attempt, ruling out the rule itself as a cause.
-
-**Checks:**
-- Duplication: the new test reuses `SegmentedRowFontSizeCoordinator`/`LocalSegmentedRowFontSizeCoordinator` as already-public API, no new test-only hook added to production code.
-- Decoupling: no `domain/`/`android.*` boundary touched; no production code changed at all, this pass was test- and doc-only.
-- Dead code: the throwaway diagnostic file used to stage the investigation (bare-`autoSize`, bounding-box comparison, and real-row height probes) was deleted once its purpose was served, not left behind — same convention as `fix/duration-selector-wrap`'s own diagnostic test.
-- Hygiene: `git status` clean; no secrets or local paths in the diff.
-- Naming: new test method name follows this class's existing `subject_condition` convention (e.g. `longLabelOption_doesNotWrapInPlainTheme`).
-
-**Docs updated:** TESTING.md (shared-components row extended), PROGRESS.md (item resolved and removed — see CLAUDE.md's outstanding-only convention for that file), CLEANUP_LOG.md's `fix/duration-selector-wrap` entry (Deferred bullet repointed); this entry.
