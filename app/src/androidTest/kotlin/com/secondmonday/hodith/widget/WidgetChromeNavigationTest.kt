@@ -28,12 +28,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Covers the widget chrome that lives outside the List widget's `LazyColumn` — its title/header
- * and empty-state message, plus the Single-case widget's "Case is gone" message — all wired to
- * open [MainActivity] with no Case deep link. Unlike the row content *inside* the List widget's
- * `LazyColumn` (see [WidgetActionsFlowTest]'s doc comment on why that can't be driven here), these
- * boxes render directly into the host view and are clickable as soon as
- * `AppWidgetHost.createView()` returns.
+ * Covers the widget chrome that lives outside the List widget's `LazyColumn` — its title, header
+ * edit icon, and empty-state message, plus the Single-case widget's "Case is gone" message. The
+ * title and the Single-case message open [MainActivity] with no Case deep link; the empty-state
+ * message and the edit icon both reopen [ListWidgetConfigureActivity] (the real `android:configure`
+ * flow, so the Case picker shows). Unlike the row content *inside* the List widget's `LazyColumn`
+ * (see [WidgetActionsFlowTest]'s doc comment on why that can't be driven here), these boxes render
+ * directly into the host view and are clickable as soon as `AppWidgetHost.createView()` returns —
+ * including the edit icon, which renders in the header above the `LazyColumn`/empty-state branch
+ * regardless of whether any Cases are selected.
  *
  * The Single-case "Case is gone" test binds to a Case id that was never inserted rather than
  * deleting a real one — functionally identical from the widget's point of view (its bound id just
@@ -79,11 +82,26 @@ class WidgetChromeNavigationTest {
         }
 
     @Test
-    fun listWidget_emptyStateTap_opensMainActivity() =
+    fun listWidget_emptyStateTap_opensConfigureActivity() =
         runBlocking {
             bindAndRenderListWidget()
-            assertTapOpensMainActivity(PlainVoice.widgetNoCasesSelectedMessage)
+            assertTapOpensConfigureActivity(PlainVoice.widgetNoCasesSelectedMessage)
         }
+
+    @Test
+    fun listWidget_editIconTap_opensConfigureActivity() =
+        runBlocking {
+            bindAndRenderListWidget()
+            assertTapOpensConfigureActivity("✎")
+        }
+
+    @Test
+    fun listWidget_editIcon_hasContentDescription() {
+        runBlocking {
+            bindAndRenderListWidget()
+            waitForClickableWithDescription(PlainVoice.widgetEditButtonDescription)
+        }
+    }
 
     @Test
     fun singleCaseWidget_missingCaseTap_opensMainActivity() =
@@ -117,16 +135,23 @@ class WidgetChromeNavigationTest {
             assertEquals(spToPx(context, WidgetInfoMessageSize.value), textView.textSize, 0.5f)
         }
 
-    private fun assertTapOpensMainActivity(targetText: String) {
+    private fun assertTapOpensMainActivity(targetText: String) = assertTapOpens(MainActivity::class.java, targetText)
+
+    private fun assertTapOpensConfigureActivity(targetText: String) = assertTapOpens(ListWidgetConfigureActivity::class.java, targetText)
+
+    private fun assertTapOpens(
+        activityClass: Class<out Activity>,
+        targetText: String,
+    ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val monitor = Instrumentation.ActivityMonitor(MainActivity::class.java.name, null, false)
+        val monitor = Instrumentation.ActivityMonitor(activityClass.name, null, false)
         instrumentation.addMonitor(monitor)
         try {
             val target = waitForClickableWithText(targetText)
             instrumentation.runOnMainSync { target.performClick() }
 
             val activity: Activity? = monitor.waitForActivityWithTimeout(5_000)
-            assertNotNull("Expected tapping '$targetText' to launch MainActivity", activity)
+            assertNotNull("Expected tapping '$targetText' to launch ${activityClass.simpleName}", activity)
             activity?.finish()
         } finally {
             instrumentation.removeMonitor(monitor)
@@ -157,6 +182,20 @@ class WidgetChromeNavigationTest {
             attempts++
         }
         return found ?: throw AssertionError("No clickable ancestor of a TextView with text '$text' rendered")
+    }
+
+    private fun waitForClickableWithDescription(
+        description: String,
+        maxAttempts: Int = 30,
+    ): View {
+        var attempts = 0
+        var found = findClickableAncestorOfDescription(renderedView(context, host, appWidgetId), description)
+        while (found == null && attempts < maxAttempts) {
+            Thread.sleep(200)
+            found = findClickableAncestorOfDescription(renderedView(context, host, appWidgetId), description)
+            attempts++
+        }
+        return found ?: throw AssertionError("No clickable ancestor of a View with contentDescription '$description' rendered")
     }
 
     private fun waitForTextViewWithText(

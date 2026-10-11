@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 // Shared by the widget flow tests that drive a real AppWidgetHost (ListWidgetConfigureFlowTest,
 // SingleCaseWidgetConfigureFlowTest, WidgetActionsFlowTest, WidgetChromeNavigationTest): rendering
 // a bound widget's real View tree, walking it for text, and finding the clickable ancestor of a
-// TextView.
+// TextView or of a View with a given contentDescription.
 
 internal fun renderedView(
     context: Context,
@@ -54,6 +54,25 @@ internal fun findClickableAncestorOfText(
         val ancestor = if (view.hasOnClickListeners()) view else clickableAncestor
         for (i in 0 until view.childCount) {
             findClickableAncestorOfText(view.getChildAt(i), text, ancestor)?.let { return it }
+        }
+    }
+    return null
+}
+
+// Glance renders .clickable(...).semantics { contentDescription = ... } as two separate nested
+// Views — the OnClickListener lands on the outer clickable wrapper, the contentDescription on an
+// inner one — so this tracks the nearest clickable ancestor while descending and returns it once
+// the matching contentDescription is found.
+internal fun findClickableAncestorOfDescription(
+    view: View,
+    description: String,
+    clickableAncestor: View? = if (view.hasOnClickListeners()) view else null,
+): View? {
+    if (view.contentDescription == description) return clickableAncestor
+    if (view is ViewGroup) {
+        val ancestor = if (view.hasOnClickListeners()) view else clickableAncestor
+        for (i in 0 until view.childCount) {
+            findClickableAncestorOfDescription(view.getChildAt(i), description, ancestor)?.let { return it }
         }
     }
     return null

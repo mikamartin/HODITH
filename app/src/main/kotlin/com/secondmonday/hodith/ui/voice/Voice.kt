@@ -944,6 +944,12 @@ interface Voice {
      * deleted or archived since the widget was configured. */
     val widgetCaseNotFoundMessage: String
 
+    /** Accessibility label for [com.secondmonday.hodith.widget.ListWidget]'s header edit icon,
+     * which reopens the Case picker. Only [PlainVoice]'s version ever renders (same fixed-chrome
+     * convention as [widgetNoCasesSelectedMessage]), but all three still get an entry per the
+     * Voice layer rule. */
+    val widgetEditButtonDescription: String
+
     fun widgetTodayCount(count: Int): String = "Today: $count"
 }
 
@@ -1527,7 +1533,7 @@ object PlainVoice : Voice {
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick Cases for this widget"
-    override val widgetConfigureBody = "Choose which Cases show up here. Long-press this widget and tap Edit to change your picks later."
+    override val widgetConfigureBody = "Choose which Cases show up here. Tap Edit in the widget to change your picks later."
     override val widgetConfigureNoCasesMessage = "No cases yet. Add one in the app first."
     override val widgetConfigureConfirmAction = "Add to widget"
     override val widgetConfigureSkipAction = "Cancel"
@@ -1536,8 +1542,9 @@ object PlainVoice : Voice {
     override val singleCaseWidgetConfigureBody = "Choose which Case shows up here. Add another widget to track a different one."
     override val singleCaseWidgetConfigureConfirmAction = "Add to widget"
 
-    override val widgetNoCasesSelectedMessage = "No Cases picked for this widget yet. Long-press it and tap Edit to choose some."
+    override val widgetNoCasesSelectedMessage = "No Cases picked for this widget yet. Tap to choose some."
     override val widgetCaseNotFoundMessage = "This Case is gone. Tap to open HODITH."
+    override val widgetEditButtonDescription = "Edit widget Cases"
 
     override val shareOpenDescription = "Share"
 
@@ -2141,7 +2148,7 @@ object IntenseVoice : Voice {
     override val notificationsDeniedBannerAction = "Break the silence"
 
     override val widgetConfigureTitle = "Which cases shall haunt this widget?"
-    override val widgetConfigureBody = "Choose what stands watch here. Hold the widget and choose Edit to summon different watchers later."
+    override val widgetConfigureBody = "Choose what stands watch here. Tap Edit in the widget to summon different watchers later."
     override val widgetConfigureNoCasesMessage = "Nothing yet exists to watch. Create a case first."
     override val widgetConfigureConfirmAction = "Bind to widget"
     override val widgetConfigureSkipAction = "Cancel"
@@ -2150,8 +2157,9 @@ object IntenseVoice : Voice {
     override val singleCaseWidgetConfigureBody = "Choose what stands watch here. Summon another widget to keep watch over something else."
     override val singleCaseWidgetConfigureConfirmAction = "Bind to widget"
 
-    override val widgetNoCasesSelectedMessage = "Nothing stands watch here yet. Hold the widget and choose Edit to summon one."
+    override val widgetNoCasesSelectedMessage = "Nothing stands watch here yet. Tap to summon a watcher."
     override val widgetCaseNotFoundMessage = "This watch has ended. Tap to return to HODITH."
+    override val widgetEditButtonDescription = "Edit the cases watching this widget"
 
     override val shareOpenDescription = "Share the record"
 
@@ -2749,7 +2757,7 @@ object BrightVoice : Voice {
     override val notificationsDeniedBannerAction = "Turn on notifications"
 
     override val widgetConfigureTitle = "Pick your widget's stars!"
-    override val widgetConfigureBody = "Choose which Cases get to show off here. Long-press it and tap Edit to pick new stars anytime!"
+    override val widgetConfigureBody = "Choose which Cases get to show off here. Tap Edit to pick new stars anytime!"
     override val widgetConfigureNoCasesMessage = "No cases yet! Make one in the app first."
     override val widgetConfigureConfirmAction = "Add to widget!"
     override val widgetConfigureSkipAction = "Nah, leave it!"
@@ -2758,8 +2766,9 @@ object BrightVoice : Voice {
     override val singleCaseWidgetConfigureBody = "Choose which Case gets to show off here. Add another widget for a different star!"
     override val singleCaseWidgetConfigureConfirmAction = "Add to widget!"
 
-    override val widgetNoCasesSelectedMessage = "No stars picked for this widget yet! Long-press it and tap Edit to choose some."
+    override val widgetNoCasesSelectedMessage = "No stars picked for this widget yet! Tap to choose some."
     override val widgetCaseNotFoundMessage = "This Case wandered off! Tap to open HODITH."
+    override val widgetEditButtonDescription = "Edit your stars!"
 
     override val shareOpenDescription = "Share it!"
 

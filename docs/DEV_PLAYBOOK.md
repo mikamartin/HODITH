@@ -57,7 +57,7 @@ Permanent accepted constraints — nothing here gets checked off.
   | `WidgetPillPaddingHorizontal`/`WidgetPillPaddingVertical` | 8dp / 2dp | Home `OngoingPill`'s padding |
   | `WidgetPillCornerRadius` | 999dp | Approximates Home `OngoingPill`'s `RoundedCornerShape(percent = 50)` — Glance's `cornerRadius` has no percentage form |
   | `WidgetIconTextSpacing` | 12dp | Home `HomeCaseRowBody`'s icon-to-name spacer |
-  | `WidgetPlusGlyphSize` | 20sp | Widget-only, no Home equivalent — Home's log button is a vector `Icons.Filled.AddCircle`; Glance can't render vector icons without an embedded drawable, so a text glyph substitutes |
+  | `WidgetGlyphButtonSize` | 20sp | Widget-only, no Home equivalent — Home's log button is a vector `Icons.Filled.AddCircle`; Glance can't render vector icons without an embedded drawable, so a text glyph substitutes (the `+` log button on both widgets, and the List widget header's `✎` edit icon) |
   | `WidgetHeaderTitleSize` | 14sp | Size is widget-only (Home's header is `headlineSmall` = 24sp; a widget canvas keeps it compact), mapped to `titleSmall` by purpose |
   | `WidgetHeaderTitleWeight` | `FontWeight.Bold` | Home's header `Text` renders at `headlineSmall`, which carries Plain's display weight `FontWeight.SemiBold`; Glance has no 600 rung, so Bold is the nearest. A weight-only nod to the app role (the size stays compact, above). `WidgetTokenFidelityTest` fails if Plain's `headlineSmall` weight moves off SemiBold |
   | `WidgetInfoMessageSize` | 14sp | Widget-only, no Home equivalent — mapped to the nearest M3 rung by purpose, `bodyMedium` |

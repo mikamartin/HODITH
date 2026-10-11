@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.widget
 
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.performClick
@@ -11,15 +12,22 @@ import androidx.compose.ui.test.performClick
 // real shared app database (which may have other, unrelated Cases in the same list), clicking
 // every [control] isn't safe either. Matching by vertical bounds overlap with the target Text node
 // is what actually identifies the right row.
-internal fun ComposeTestRule.clickRowControl(
+internal fun ComposeTestRule.rowControlNode(
     caseName: String,
     control: SemanticsMatcher,
-) {
+): SemanticsNodeInteraction {
     val textBounds = onNode(hasText(caseName, substring = true)).fetchSemanticsNode().boundsInRoot
     val targetId =
         onAllNodes(control)
             .fetchSemanticsNodes()
             .first { it.boundsInRoot.top < textBounds.bottom && it.boundsInRoot.bottom > textBounds.top }
             .id
-    onNode(SemanticsMatcher("id == $targetId") { it.id == targetId }).performClick()
+    return onNode(SemanticsMatcher("id == $targetId") { it.id == targetId })
+}
+
+internal fun ComposeTestRule.clickRowControl(
+    caseName: String,
+    control: SemanticsMatcher,
+) {
+    rowControlNode(caseName, control).performClick()
 }

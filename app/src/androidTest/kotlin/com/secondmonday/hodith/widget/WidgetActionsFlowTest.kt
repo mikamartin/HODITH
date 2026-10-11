@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.view.View
-import android.view.ViewGroup
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -229,17 +228,17 @@ class WidgetActionsFlowTest {
     // WidgetTokenFidelityTest is the only coverage for that token's fidelity to Plain's titleMedium.
 
     @Test
-    fun singleCaseWidget_plusGlyph_rendersAtWidgetPlusGlyphSize() =
+    fun singleCaseWidget_plusGlyph_rendersAtWidgetGlyphButtonSize() =
         runBlocking {
             insertedCaseId = repository.insertCase(testCase())
             appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
 
-            // WidgetPlusGlyphSize has no Home equivalent (Home's log button is a vector icon) —
+            // WidgetGlyphButtonSize has no Home equivalent (Home's log button is a vector icon) —
             // this locks the widget's own value so ListWidget/SingleCaseWidget can't drift apart.
             val plusTextView =
                 waitFor { findTextViewWithText(renderedView(context, host, appWidgetId), "+") }
                     ?: throw AssertionError("No '+' TextView rendered")
-            assertEquals(spToPx(context, WidgetPlusGlyphSize.value), plusTextView.textSize, 0.5f)
+            assertEquals(spToPx(context, WidgetGlyphButtonSize.value), plusTextView.textSize, 0.5f)
         }
 
     private suspend fun waitForClickableWithDescription(
@@ -265,25 +264,6 @@ class WidgetActionsFlowTest {
             attempts++
         }
         return result
-    }
-
-    // Glance renders .clickable(...).semantics { contentDescription = ... } as two separate
-    // nested Views — the OnClickListener lands on the outer clickable wrapper, the
-    // contentDescription on an inner one — so this tracks the nearest clickable ancestor while
-    // descending and returns it once the matching contentDescription is found.
-    private fun findClickableAncestorOfDescription(
-        view: View,
-        description: String,
-        clickableAncestor: View? = if (view.hasOnClickListeners()) view else null,
-    ): View? {
-        if (view.contentDescription == description) return clickableAncestor
-        if (view is ViewGroup) {
-            val ancestor = if (view.hasOnClickListeners()) view else clickableAncestor
-            for (i in 0 until view.childCount) {
-                findClickableAncestorOfDescription(view.getChildAt(i), description, ancestor)?.let { return it }
-            }
-        }
-        return null
     }
 
     companion object {

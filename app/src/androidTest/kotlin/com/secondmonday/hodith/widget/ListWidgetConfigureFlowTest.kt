@@ -8,11 +8,15 @@ import android.content.Intent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ListView
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -133,6 +137,42 @@ class ListWidgetConfigureFlowTest {
                 collectText(view).any { it.contains(PlainVoice.widgetNoCasesSelectedMessage) },
             )
             assertTrue("Expected the selected-Cases row list (a ListView) to be present", containsListView(view))
+        }
+
+    @Test
+    fun listWidgetConfigure_reopenedOnAlreadyConfiguredWidget_showsExistingSelectionChecked() =
+        runBlocking {
+            val suffix = System.currentTimeMillis()
+            val coffeeName = "Coffee $suffix"
+            val teaName = "Tea $suffix"
+            val coffeeId = repository.insertCase(testCase(name = coffeeName))
+            val teaId = repository.insertCase(testCase(name = teaName))
+            insertedCaseIds += coffeeId
+            insertedCaseIds += teaId
+
+            appWidgetId = host.allocateAppWidgetId()
+            val provider = ComponentName(context, ListWidgetReceiver::class.java)
+            val bound = AppWidgetManager.getInstance(context).bindAppWidgetIdIfAllowed(appWidgetId, provider)
+            assertTrue("bindAppWidgetIdIfAllowed failed - is bind permission granted for this package?", bound)
+
+            // Seed the widget's existing selection, as if it had already been configured once —
+            // this is the scenario the re-edit path (the widget header's edit icon) creates.
+            val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+            updateAppWidgetState(context, glanceId) { prefs -> prefs[CaseIdsKey] = setOf(coffeeId.toString()) }
+
+            val intent =
+                Intent(context, ListWidgetConfigureActivity::class.java)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            val scenario = ActivityScenario.launch<ListWidgetConfigureActivity>(intent)
+
+            composeTestRule.waitUntil(timeoutMillis = 5_000) {
+                composeTestRule.onAllNodesWithText(teaName, substring = true).fetchSemanticsNodes().isNotEmpty()
+            }
+
+            composeTestRule.rowControlNode(coffeeName, isToggleable()).assertIsOn()
+            composeTestRule.rowControlNode(teaName, isToggleable()).assertIsOff()
+
+            scenario.close()
         }
 
     private fun containsListView(view: View): Boolean =
