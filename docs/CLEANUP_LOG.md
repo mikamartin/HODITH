@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/widget-edit-affordance
+
+**Scope:** Two user-reported bugs on the List widget's configure flow, found and fixed in sequence in the same session. First: the empty-widget message told users to long-press and tap Edit to pick Cases, but tapping it only opened the app (not the picker it promised), and long-press on the user's launcher only resizes — there's no reachable "Edit" affordance that way. Fixed by adding a persistent header edit icon (present in both the empty and populated states) and wiring it, plus the empty-state message, to relaunch the real `android:configure` Activity. That change made the Activity reachable from an already-placed widget for the first time, which exposed two further latent bugs that only ever held for first-ever setup: re-editing opened the app instead of returning to the widget, and re-editing always started from a blank selection instead of the widget's real one.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to the touched classes (`WidgetChromeNavigationTest`, `ListWidgetConfigureFlowTest`, `WidgetActionsFlowTest`) on a Pixel 8 API 36 emulator, across three passes as the diff grew — all green each time (8/8, 2/2, 6/6 most recently).
+
+**Found & fixed:**
+- `ListWidget.kt`'s header restructured into a `Row` with a persistent "✎" edit icon (`MinTapTarget`-sized, accessibility-labeled) alongside the title, present in both the empty and populated states; both it and the empty-state message now relaunch `ListWidgetConfigureActivity` via a real `ACTION_APPWIDGET_CONFIGURE` intent instead of opening `MainActivity`.
+- `Voice.kt`: `widgetConfigureBody` and `widgetNoCasesSelectedMessage` reworded in all three voices to drop the false long-press/Edit claim; new `widgetEditButtonDescription` added to all three.
+- Reported bug: re-editing opened the app instead of returning to the widget. `ListWidgetConfigureActivity` had no declared task affinity, so launching it from a widget tap (a cross-process click Android runs with `FLAG_ACTIVITY_NEW_TASK`) merged it onto an existing `MainActivity` task sharing the default affinity, and finishing it revealed that task instead of the home screen. Fixed with `android:taskAffinity=""` on `ListWidgetConfigureActivity` — and, preemptively, on `SingleCaseWidgetConfigureActivity`, since it shares the identical manifest pattern and would hit the same bug the moment its own edit icon lands (tracked in PROGRESS.md).
+- Reported bug: re-editing always started from a blank selection. `ListWidgetConfigureViewModel`'s `init` hardcoded `selectedCaseIds = emptySet()` — harmless on first-ever configure, wrong once an edit icon can reopen the picker on an already-configured widget. Replaced with a `load(initialSelectedCaseIds)` the Activity calls after reading the widget's real `CaseIdsKey` state via Glance's `getAppWidgetState`, guarded against a second call (e.g. a rotation) wiping an in-progress selection back to the original.
+- Checklist-surfaced (Accessibility section, not user-reported): the header restructure had moved the title's clickable padding from the `Text` onto the `Row`, shrinking its tap target from the already-documented ~37dp trade-off down to just its bare text line height. Moved the padding back onto the `Text` itself, alongside the icon's own independent 48dp target, before this ever shipped.
+- Checklist-surfaced (Hardcoded Values section): the new edit icon reused `WidgetPlusGlyphSize`, a token named for one specific glyph (the quick-log "+") now backing three unrelated glyph buttons. Renamed to `WidgetGlyphButtonSize` across both widgets and every referencing test/doc.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- A client-side Intent-flag fix (`FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK`) for the task-affinity bug instead of the manifest attribute — the manifest fix is the conventional, documented approach for `android:configure` Activities and holds regardless of future launch paths, rather than depending on assumptions about Glance's own `PendingIntent` flag construction.
+
+**Checks:**
+- Duplication: no new composables; the edit icon reuses the existing "glyph-as-`Text`-in-a-sized-`Box`" pattern the quick-log "+" button already established. All new/changed strings went through `Voice` in all three voices in the same commit.
+- Decoupling: `ListWidgetConfigureViewModel.load` stays Context/Glance-free (a plain `Set<Long>` parameter) — the Activity owns the Context-bound Glance read, matching the class's own documented read/write split.
+- Accessibility: the new edit icon is `.size(MinTapTarget)` with a non-empty content description in all three voices; the title's tap target confirmed not regressed (see Found & fixed).
+- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
+- Naming: `widgetEditButtonDescription` matches the existing `widget*` Voice key convention; the `WidgetGlyphButtonSize` rename keeps the token's name accurate to what it now controls.
+- Spec review: `HODITH_SPEC.md` §15 gained one clause noting the List widget's header edit icon, and that the Single-case widget doesn't have one yet.
+- Tests: regression tests added for both reported bugs — `WidgetChromeNavigationTest`'s renamed `listWidget_emptyStateTap_opensConfigureActivity` plus two new edit-icon tests (tap behavior, content description); `ListWidgetConfigureFlowTest`'s new re-edit test seeding an existing selection and asserting it renders pre-checked; `ListWidgetConfigureViewModelTest` extended with `load`-seeding and double-call-guard unit tests. The task-affinity fix itself has no practical automated test (it's about which OS task an Activity lands in) — it relies on manifest correctness plus the user's own on-device confirmation.
+
+**Docs updated:** HODITH_SPEC.md (§15, edit icon clause); TESTING.md (Widgets — chrome & trampoline row corrected and extended); MANUAL_TEST_PLAN.md (items 2 and 8 — stale long-press instruction and a stale test-name reference both corrected); DEV_PLAYBOOK.md (widget token table, `WidgetPlusGlyphSize` → `WidgetGlyphButtonSize`); PROGRESS.md (new Single-case widget edit-affordance follow-up item added); this entry (oldest entry, `chore/qa-audit`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/duplicate-case-warnings
 
 **Scope:** Two related user-reported bugs: reloading demo data duplicated the seed set instead of replacing it, and Case Edit's duplicate-name check only looked at active Cases, letting a new/edited Case silently take an archived Case's name with no warning at all. Manual testing of the first implementation surfaced two further bugs: the duplicate-name check was skipped entirely whenever the icon wasn't yet selected (hiding a real duplicate warning behind the icon error), and a failed save's error could land off-screen with no way for the user to tell why saving did nothing.
@@ -146,32 +178,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Naming: new test method name follows this class's existing `subject_condition` convention (e.g. `longLabelOption_doesNotWrapInPlainTheme`).
 
 **Docs updated:** TESTING.md (shared-components row extended), PROGRESS.md (item resolved and removed — see CLAUDE.md's outstanding-only convention for that file), CLEANUP_LOG.md's `fix/duration-selector-wrap` entry (Deferred bullet repointed); this entry.
-
----
-
-## chore/qa-audit
-
-**Scope:** The periodic whole-suite QA audit, prompted by reviewing the ruleset itself against this log's history: section 7 had no equivalent staleness check for `MANUAL_TEST_PLAN.md`, and `fix/viewmodel-db-teardown-race`'s fix only guarded new tests, not existing ones. Extended the ruleset first (new section 8 "Manual test plan hygiene", a new ViewModelStore/db.close() sweep bullet in section 1, renumbering), fixed a stale `CLAUDE.md` line found along the way ("Serious, Goth, Quirky" → "Plain, Intense, Bright"), then ran the full, now-9-section checklist for real.
-
-**Walked:** Ran sections 1-9 against the current suite rather than reconstructing them from memory. `ktlintCheck`, `compileDebugAndroidTestKotlin`, and a scoped `connectedDebugAndroidTest` run (the 7 classes touched by the duplication fix, 69 tests) all pass on-device.
-
-**Found & fixed:**
-- Section 6: three byte-identical duplicated test-helper clusters — `millisAtDay`/`nameFieldText`/`ZONE` across `ShareScreenTest.kt`/`InsightShareTabTest.kt`/`HistoryShareTabTest.kt` (now `ui/share/ShareTestFixtures.kt`); `unusedScheduler` across both `RoomHodithRepositoryBackupTest.kt`/`RoomHodithRepositoryHistoryEventsTest.kt` (now parameterized by reason, in `data/TestFixtures.kt`); `activeGroupSummary` across `NotificationActionReceiverTest.kt`/`NotifierContentTest.kt` (now a `NotificationManager` extension in `notification/NotificationTestFixtures.kt`).
-- Section 1's new sweep: both known ViewModelStore/db.close() call sites still correctly ordered — no regression since `fix/viewmodel-db-teardown-race`.
-- Section 2: 8 targeted mutations across pure domain (`VerdictEngine`, `WatchEngine`, `InsightsEngine`, `StatsEngine`, `CheckIn`), Fake-backed orchestration (`NotificationEvaluator`), and — device attached this pass — the Room-instrumented DAO tier (`RoomHodithRepository.observeHistoryEventsForCase`'s `hasMore` boundary, `.mergeTag`'s transaction ordering). All 8 caught cleanly; no misses, no weak passes.
-- Section 3: every Trends-detector constant (tag→outcome, change point, trend slope, time-of-day split, tag timing, weekday/weekend) checked against `HODITH_SPEC.md` §10. All match exactly.
-- Sections 4/5: sampled largest/newest instrumented files and every inline `onValueChange`/`onClick` lambda. No chaining-before-asserting, no under-asserting, no un-extracted pure logic (the two likely candidates are already extracted and tested).
-- Section 7: no aggregate test counts exist in `TESTING.md` to drift; every `CLEANUP_LOG.md` cross-reference still resolves; two spot-checked bug-fix regression tests still assert their original failure.
-- Section 8 (new): all 27 class-level and 12 method-level test cross-references in `MANUAL_TEST_PLAN.md` still resolve; the Espresso-Intents-absence justification behind its About & Contact items still holds.
-
-**Deferred:** nothing.
-
-**Considered and declined:** nothing — every finding was small enough to fix inline, per this pass's agreed fix mode.
-
-**Checks:**
-- Duplication: this pass's own subject; see Found & fixed.
-- Hygiene: `git status` clean; no secrets or local paths in the diff; every mutation reverted before moving to the next.
-- Tests: the three dedup fixes verified by running every touched class twice — once mid-crash on a degraded emulator (unrelated to this diff, see below), once clean on a freshly restarted one (69/69 passing).
-- An unrelated flake surfaced during verification: a 7-class run hit `INSTRUMENTATION_ABORTED: System has crashed` after running 1h44m instead of ~15-20 minutes — the same degraded-emulator signature (`Can't find service: activity`/`package`) `TESTING.md`'s Known environment issues section already documents. Restarting Android Studio resolved it. Not logged as a new line since the existing entry already covers this signature.
-
-**Docs updated:** QA_AUDIT_RULES.md (new section 8, new section 1 bullet, renumbering); CLAUDE.md (stale voice names fixed); QA_AUDIT_BACKLOG.md (condensed back to its shell); this entry.

@@ -179,7 +179,7 @@ private fun SingleCaseContent(
                 style =
                     TextStyle(
                         color = ColorProvider(WidgetPalette.accent),
-                        fontSize = WidgetPlusGlyphSize,
+                        fontSize = WidgetGlyphButtonSize,
                         fontWeight = FontWeight.Bold,
                     ),
             )

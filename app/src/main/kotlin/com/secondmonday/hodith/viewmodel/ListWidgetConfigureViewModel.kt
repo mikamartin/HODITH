@@ -23,12 +23,12 @@ sealed interface ListWidgetConfigureUiState {
 
 /**
  * Backs [com.secondmonday.hodith.widget.ListWidgetConfigureActivity], the widget's mandatory
- * `android:configure` step (spec §15). Each List widget instance is bound to its own selected
- * Cases via the widget's own Glance state (per-instance, not a Case flag) — mirroring
- * [SingleCaseWidgetConfigureViewModel] — so the picker always shows and this ViewModel only
- * tracks the in-progress selection; the Activity owns writing the confirmed set into the widget's
- * own Glance state, since that's Context-bound infrastructure this ViewModel would otherwise need
- * to fake in tests.
+ * `android:configure` step (spec §15), and its re-edit path (the widget header's edit icon). Each
+ * List widget instance is bound to its own selected Cases via the widget's own Glance state
+ * (per-instance, not a Case flag) — mirroring [SingleCaseWidgetConfigureViewModel] — so the
+ * picker always shows and this ViewModel only tracks the in-progress selection; the Activity owns
+ * reading/writing the widget's own Glance state, since that's Context-bound infrastructure this
+ * ViewModel would otherwise need to fake in tests.
  */
 @HiltViewModel
 class ListWidgetConfigureViewModel
@@ -39,10 +39,15 @@ class ListWidgetConfigureViewModel
         private val _uiState = MutableStateFlow<ListWidgetConfigureUiState>(ListWidgetConfigureUiState.Loading)
         val uiState: StateFlow<ListWidgetConfigureUiState> = _uiState.asStateFlow()
 
-        init {
+        /** Called once by the Activity with the widget's current selection (empty on first-ever
+         * configure, the widget's real [com.secondmonday.hodith.widget.CaseIdsKey] set when
+         * re-editing an already-configured widget) — guarded against the Activity's `onCreate`
+         * running again (e.g. a rotation) and wiping an in-progress selection back to it. */
+        fun load(initialSelectedCaseIds: Set<Long>) {
+            if (_uiState.value !is ListWidgetConfigureUiState.Loading) return
             viewModelScope.launch {
                 val cases = repository.observeActiveCases().first()
-                _uiState.value = ListWidgetConfigureUiState.Picker(cases = cases, selectedCaseIds = emptySet())
+                _uiState.value = ListWidgetConfigureUiState.Picker(cases = cases, selectedCaseIds = initialSelectedCaseIds)
             }
         }
 

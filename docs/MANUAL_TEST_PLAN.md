@@ -21,7 +21,8 @@ which test.
    surrounding corner mask.
 2. **List widget empty state color.** With no Case picked for this widget instance, it shows its
    "no Cases selected" message in the intended muted color (not stark black-and-white). (Tapping the
-   message to open the app is covered by `WidgetChromeNavigationTest.listWidget_emptyStateTap_opensMainActivity`.)
+   message, and tapping the header's edit icon, both reopening the Case picker rather than opening
+   the app, are covered by `WidgetChromeNavigationTest`.)
 3. **List widget case row tap.** Tapping a case row's icon/name/count area (not the `+` button)
    opens the app directly on that Case's detail screen. The `+` button itself still only logs — it
    doesn't also navigate. (Inside the row `ListView` — can't be driven from an instrumented test; see
@@ -52,10 +53,13 @@ which test.
    count math itself by `HomeViewModelMappingTest`.
 8. **List widget configure flow, per-instance selection.** Add two List widgets to the home
    screen and pick a different set of Cases for each — each shows only its own picks, not the
-   other's. Long-press a placed List widget and choose Edit to reopen its picker and change its
+   other's. Tap a placed List widget's header edit icon to reopen its picker and change its
    selection. (Two Single-case instances with their own Cases are automated by
    `SingleCaseWidgetConfigureFlowTest.singleCaseWidget_twoInstances_eachShowsItsOwnCase`. A List
-   widget's rows can't be read from a test, so the List checks stay here.)
+   widget's rows can't be read from a test, so the List checks — including that each widget keeps
+   only its own picks after a re-edit — stay here. The picker reopening with the current selection
+   already checked, rather than blank, is automated by
+   `ListWidgetConfigureFlowTest.listWidgetConfigure_reopenedOnAlreadyConfiguredWidget_showsExistingSelectionChecked`.)
 9. **Single-case widget: tap the icon/count area to open Case details.** Tapping elsewhere on the
     widget (not the dedicated `+` log button) opens that Case's detail screen. (The `+`/log button
     itself — logging directly for `ONE_TAP`, via the trampoline sheet for `DETAIL_SHEET` — is covered

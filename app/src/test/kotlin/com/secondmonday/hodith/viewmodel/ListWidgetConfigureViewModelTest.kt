@@ -48,11 +48,12 @@ class ListWidgetConfigureViewModelTest {
     )
 
     @Test
-    fun `shows the picker with every active case and nothing selected`() =
+    fun `shows the picker with every active case and nothing selected on first-ever configure`() =
         runTest {
             repository.cases.value =
                 listOf(testCase(id = 1L), testCase(id = 2L, name = "Tea"), testCase(id = 3L, name = "Gone").copy(archived = true))
             val viewModel = ListWidgetConfigureViewModel(repository)
+            viewModel.load(emptySet())
 
             val state = viewModel.uiState.value as ListWidgetConfigureUiState.Picker
             assertEquals(listOf("Coffee", "Tea"), state.cases.map { it.name })
@@ -60,10 +61,37 @@ class ListWidgetConfigureViewModelTest {
         }
 
     @Test
+    fun `load seeds the picker with an already-configured widget's existing selection`() =
+        runTest {
+            repository.cases.value = listOf(testCase(id = 1L), testCase(id = 2L, name = "Tea"))
+            val viewModel = ListWidgetConfigureViewModel(repository)
+
+            viewModel.load(setOf(2L))
+
+            val state = viewModel.uiState.value as ListWidgetConfigureUiState.Picker
+            assertEquals(setOf(2L), state.selectedCaseIds)
+        }
+
+    @Test
+    fun `load ignores a second call so an in-progress selection survives a recreate`() =
+        runTest {
+            repository.cases.value = listOf(testCase(id = 1L), testCase(id = 2L, name = "Tea"))
+            val viewModel = ListWidgetConfigureViewModel(repository)
+            viewModel.load(setOf(1L))
+            viewModel.toggle(2L)
+
+            viewModel.load(setOf(1L))
+
+            val state = viewModel.uiState.value as ListWidgetConfigureUiState.Picker
+            assertEquals(setOf(1L, 2L), state.selectedCaseIds)
+        }
+
+    @Test
     fun `toggle adds and then removes a case from the selection`() =
         runTest {
             repository.cases.value = listOf(testCase(id = 1L))
             val viewModel = ListWidgetConfigureViewModel(repository)
+            viewModel.load(emptySet())
 
             viewModel.toggle(1L)
             var state = viewModel.uiState.value as ListWidgetConfigureUiState.Picker
@@ -79,6 +107,7 @@ class ListWidgetConfigureViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase(id = 1L), testCase(id = 2L, name = "Tea"))
             val viewModel = ListWidgetConfigureViewModel(repository)
+            viewModel.load(emptySet())
             viewModel.toggle(1L)
             viewModel.toggle(2L)
             var confirmedCaseIds: Set<Long>? = null
@@ -93,6 +122,7 @@ class ListWidgetConfigureViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase(id = 1L))
             val viewModel = ListWidgetConfigureViewModel(repository)
+            viewModel.load(emptySet())
             var confirmedCaseIds: Set<Long>? = null
 
             viewModel.confirmSelection { confirmedCaseIds = it }

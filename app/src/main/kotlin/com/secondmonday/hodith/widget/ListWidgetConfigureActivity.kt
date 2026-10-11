@@ -21,7 +21,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.secondmonday.hodith.data.AppTheme
@@ -39,9 +41,15 @@ import javax.inject.Inject
 
 /**
  * The List widget's mandatory `android:configure` activity (spec §15) — the system launches this
- * automatically every time the widget is added, before it shows any content. Each instance is
+ * automatically every time the widget is added, before it shows any content — and also the
+ * widget header's edit icon's re-edit path, once Cases are already selected. Each instance is
  * bound to its own selected Cases via this widget's own Glance [CaseIdsKey] state (per-instance,
- * not a Case flag), mirroring [SingleCaseWidgetConfigureActivity], so the picker always shows.
+ * not a Case flag), mirroring [SingleCaseWidgetConfigureActivity], so the picker always shows,
+ * seeded with whatever's already selected. `android:taskAffinity=""` on this Activity in the
+ * manifest keeps it in its own task regardless of launch path — without it, launching from the
+ * widget's edit icon (a cross-process click, which Android runs with `FLAG_ACTIVITY_NEW_TASK`)
+ * merges onto an existing `MainActivity` task sharing the default affinity if one exists, so
+ * finishing this Activity would reveal the app instead of the home screen.
  */
 @AndroidEntryPoint
 class ListWidgetConfigureActivity : ComponentActivity() {
@@ -62,6 +70,17 @@ class ListWidgetConfigureActivity : ComponentActivity() {
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             finish()
             return
+        }
+
+        // Empty on first-ever configure (nothing written yet); the widget's real selection when
+        // re-editing an already-configured widget (via the header's edit icon) — see
+        // ListWidgetConfigureViewModel.load's doc comment for why the Activity reads this rather
+        // than the ViewModel.
+        lifecycleScope.launch {
+            val glanceId = GlanceAppWidgetManager(applicationContext).getGlanceIdBy(appWidgetId)
+            val prefs = getAppWidgetState(applicationContext, PreferencesGlanceStateDefinition, glanceId)
+            val existingCaseIds = prefs[CaseIdsKey].orEmpty().mapNotNull { it.toLongOrNull() }.toSet()
+            viewModel.load(existingCaseIds)
         }
 
         setContent {

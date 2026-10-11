@@ -64,6 +64,31 @@ Found while fixing the "intensity can be logged without a rating" bug (`fix/inte
 
 **Tests** — a `WatchEngine`/trend test with intensity toggled off after rated events exist.
 
+### Single-case widget has no persistent in-widget way to reopen its Case picker
+
+*Branch: none yet · Complexity: S · Priority: Low · Area: Widgets*
+
+🎨 **Design decision** — found while fixing `fix/widget-edit-affordance` (List widget's empty-state
+message wrongly told users to long-press for an "Edit" option that most launchers don't surface;
+fixed by adding a persistent edit icon to the List widget's header, which already has room for
+one). `SingleCaseWidget.kt` has no header or chrome at all — just an icon, subtitle, and a
+full-width log button in an already-dense square — so the same fix doesn't drop in without first
+deciding where an edit affordance would go without crowding the existing tap targets.
+
+**Acceptance criteria**
+
+- [ ] A layout spike (Compose Preview or similar) for a small edit affordance on the Single-case
+  widget that doesn't shrink or overlap the icon/subtitle or the log button's tap target.
+- [ ] The chosen spot wired to reopen `SingleCaseWidgetConfigureActivity` the same way the List
+  widget's icon reopens `ListWidgetConfigureActivity`.
+- [ ] Voice ×3 for any new accessibility label needed.
+
+**Plan** — prototype the layout first (cheap spike, not production code) before committing to a
+placement, per this repo's validate-before-building rule.
+
+**Tests** — an instrumented test mirroring `WidgetChromeNavigationTest`'s edit-icon coverage once a
+placement is chosen.
+
 ## Deferred
 
 ### CI: per-shard emulator overhead outside test execution

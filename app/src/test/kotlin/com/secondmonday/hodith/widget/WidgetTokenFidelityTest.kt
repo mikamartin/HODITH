@@ -19,7 +19,7 @@ import androidx.glance.text.FontWeight as GlanceFontWeight
  * [com.secondmonday.hodith.ui.theme.HodithThemeTest] guards against across the theme definitions
  * themselves.
  *
- * Token *sizes* with no Home/`Type.kt` role ([WidgetPlusGlyphSize], [WidgetHeaderTitleSize],
+ * Token *sizes* with no Home/`Type.kt` role ([WidgetGlyphButtonSize], [WidgetHeaderTitleSize],
  * [WidgetInfoMessageSize]) aren't covered here — there's nothing in Plain's theme for them to drift
  * against. [WidgetPlankSpacing] is intentionally tighter than Home's plank gap, so it isn't checked
  * against it. [WidgetHeaderTitleWeight] (Plain's `headlineSmall` weight, the header's in-app role,

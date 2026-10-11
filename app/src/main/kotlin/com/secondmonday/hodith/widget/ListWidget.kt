@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.widget
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
@@ -15,6 +16,7 @@ import androidx.glance.LocalContext
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
@@ -64,6 +66,7 @@ class ListWidget : GlanceAppWidget() {
         id: GlanceId,
     ) {
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
 
         provideContent {
             // Read reactively via currentState()/produceState rather than one-shot suspend reads
@@ -84,6 +87,12 @@ class ListWidget : GlanceAppWidget() {
             GlanceTheme {
                 val context = LocalContext.current
                 val openApp = actionStartActivity(Intent(context, MainActivity::class.java))
+                val openConfigure =
+                    actionStartActivity(
+                        Intent(context, ListWidgetConfigureActivity::class.java)
+                            .setAction(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+                            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
+                    )
                 Column(
                     modifier =
                         GlanceModifier
@@ -98,26 +107,53 @@ class ListWidget : GlanceAppWidget() {
                     // colors already don't follow theme here, so reading Settings/DataStore just
                     // to swap text and not color would be inconsistent theming, not more of it.
                     //
-                    // The header and empty-state message carry `.fillMaxWidth().padding().clickable`
-                    // on the Text itself, the same shape Home's header Text uses (`HomeScreen.kt`).
-                    // A Text wrapped in a `Box` — even a `fillMaxWidth()` one — is measured at its
-                    // natural single-line width, so a long header clipped at the right edge on a
-                    // narrow widget and never wrapped; `fillMaxWidth()` on the Text gives its
-                    // TextView `match_parent`, so it wraps and grows.
-                    Text(
-                        text = PlainVoice.homeHeaderTitle,
-                        style =
-                            TextStyle(
-                                color = ColorProvider(WidgetPalette.onSurface),
-                                fontSize = WidgetHeaderTitleSize,
-                                fontWeight = WidgetHeaderTitleWeight,
-                            ),
-                        modifier =
-                            GlanceModifier
-                                .fillMaxWidth()
-                                .padding(vertical = WidgetHeaderPadding)
-                                .clickable(openApp),
-                    )
+                    // The title Text keeps its own `.padding(vertical = WidgetHeaderPadding)`
+                    // inside `.clickable()` (rather than moving that padding onto the Row), so its
+                    // tap target stays exactly what WidgetHeaderPadding's own doc comment already
+                    // signs off on (~37dp — a deliberate below-[MinTapTarget] trade for this one
+                    // control) instead of shrinking further to just its bare text line height. The
+                    // edit icon Box is sized at [MinTapTarget] on its own and needs no padding;
+                    // the Row's `CenterVertically` lines the two up despite their different
+                    // heights. `.defaultWeight()` on the title, the same weight-inside-a-Row shape
+                    // CaseRow's name Column uses, grows it to fill the Row's remaining width (so it
+                    // still wraps instead of clipping on a narrow widget) without claiming the
+                    // icon's space. The icon is always present, in both the empty and populated
+                    // states, since the header renders above the `rows.isEmpty()` branch — it's
+                    // the widget's one persistent way back into the Case picker, since nothing
+                    // else in a populated widget reopens it.
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Vertical.CenterVertically,
+                    ) {
+                        Text(
+                            text = PlainVoice.homeHeaderTitle,
+                            style =
+                                TextStyle(
+                                    color = ColorProvider(WidgetPalette.onSurface),
+                                    fontSize = WidgetHeaderTitleSize,
+                                    fontWeight = WidgetHeaderTitleWeight,
+                                ),
+                            modifier =
+                                GlanceModifier
+                                    .defaultWeight()
+                                    .padding(vertical = WidgetHeaderPadding)
+                                    .clickable(openApp),
+                        )
+                        Spacer(modifier = GlanceModifier.width(WidgetIconTextSpacing))
+                        Box(
+                            modifier =
+                                GlanceModifier
+                                    .size(MinTapTarget)
+                                    .clickable(openConfigure)
+                                    .semantics { contentDescription = PlainVoice.widgetEditButtonDescription },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "✎",
+                                style = TextStyle(color = ColorProvider(WidgetPalette.onSurface), fontSize = WidgetGlyphButtonSize),
+                            )
+                        }
+                    }
                     if (rows.isEmpty()) {
                         Text(
                             text = PlainVoice.widgetNoCasesSelectedMessage,
@@ -126,7 +162,7 @@ class ListWidget : GlanceAppWidget() {
                                 GlanceModifier
                                     .fillMaxWidth()
                                     .padding(vertical = WidgetHeaderPadding)
-                                    .clickable(openApp),
+                                    .clickable(openConfigure),
                         )
                     } else {
                         Spacer(modifier = GlanceModifier.height(WidgetPlankSpacing))
@@ -220,7 +256,7 @@ private fun CaseRow(
                     style =
                         TextStyle(
                             color = ColorProvider(WidgetPalette.accent),
-                            fontSize = WidgetPlusGlyphSize,
+                            fontSize = WidgetGlyphButtonSize,
                             fontWeight = FontWeight.Bold,
                         ),
                 )
