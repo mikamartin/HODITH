@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.ui.bigpicture
 
+import com.secondmonday.hodith.data.zoneOffsetFromMinutes
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
 import org.junit.Assert.assertEquals
@@ -251,5 +252,245 @@ class BigPictureFilterStateTest {
     fun `bigPictureAllTagNames is empty when no visible case has events`() {
         val events = listOf(event(caseId = 2L, tags = listOf("hidden")))
         assertEquals(emptyList<String>(), bigPictureAllTagNames(events, visibleCaseIds = setOf(1L)))
+    }
+
+    private fun dayEvent(
+        id: Long,
+        occurredAt: Long,
+        endedAt: Long? = null,
+        isSpanStart: Boolean = false,
+        isSpanEnd: Boolean = false,
+        isAllDay: Boolean = false,
+    ) = DayEvent(
+        event = CalendarEvent(id = id, caseId = 1L, occurredAt = occurredAt, endedAt = endedAt),
+        isSpanStart = isSpanStart,
+        isSpanEnd = isSpanEnd,
+        isAllDay = isAllDay,
+    )
+
+    @Test
+    fun `sortDayEvents pins all-day events ahead of timed ones regardless of timestamp`() {
+        val allDay = dayEvent(id = 1L, occurredAt = 9_000L, isAllDay = true)
+        val timed = dayEvent(id = 2L, occurredAt = 1_000L)
+        assertEquals(listOf(1L, 2L), sortDayEvents(listOf(timed, allDay)).map { it.event.id })
+    }
+
+    @Test
+    fun `sortDayEvents sorts a span-start event by its own start time among timed events`() {
+        val startsLater = dayEvent(id = 1L, occurredAt = 5_000L, endedAt = 9_000L, isSpanStart = true)
+        val plainEarlier = dayEvent(id = 2L, occurredAt = 1_000L)
+        assertEquals(listOf(2L, 1L), sortDayEvents(listOf(startsLater, plainEarlier)).map { it.event.id })
+    }
+
+    @Test
+    fun `sortDayEvents sorts a span-end event by its end time, not its original start time`() {
+        // Started way before today but ends today at 2_000 — must sort by the end time, not occurredAt.
+        val endsEarly = dayEvent(id = 1L, occurredAt = 0L, endedAt = 2_000L, isSpanEnd = true)
+        val plainLater = dayEvent(id = 2L, occurredAt = 5_000L)
+        assertEquals(listOf(1L, 2L), sortDayEvents(listOf(plainLater, endsEarly)).map { it.event.id })
+    }
+
+    @Test
+    fun `sortDayEvents keeps plain point events chronological by occurredAt`() {
+        val events =
+            listOf(
+                dayEvent(id = 3L, occurredAt = 3_000L),
+                dayEvent(id = 1L, occurredAt = 1_000L),
+                dayEvent(id = 2L, occurredAt = 2_000L),
+            )
+        assertEquals(listOf(1L, 2L, 3L), sortDayEvents(events).map { it.event.id })
+    }
+
+    @Test
+    fun `sortDayEvents keeps multiple all-day events together, ahead of every timed one`() {
+        val allDayA = dayEvent(id = 1L, occurredAt = 9_000L, isAllDay = true)
+        val allDayB = dayEvent(id = 2L, occurredAt = 1_000L, isAllDay = true)
+        val timed = dayEvent(id = 3L, occurredAt = 500L)
+        assertEquals(listOf(2L, 1L, 3L), sortDayEvents(listOf(timed, allDayA, allDayB)).map { it.event.id })
+    }
+
+    @Test
+    fun `sortDayEvents interleaves a span-start and a span-end from different events by their real times`() {
+        // Event 1 starts at 10_000 today (continues into tomorrow); event 2 ends at 5_000 today
+        // (started days ago) -- the end-day event's boundary is earlier today, so it sorts first.
+        val startsAt10 = dayEvent(id = 1L, occurredAt = 10_000L, endedAt = 99_000L, isSpanStart = true)
+        val endsAt5 = dayEvent(id = 2L, occurredAt = 0L, endedAt = 5_000L, isSpanEnd = true)
+        assertEquals(listOf(2L, 1L), sortDayEvents(listOf(startsAt10, endsAt5)).map { it.event.id })
+    }
+
+    @Test
+    fun `sortDayEvents is stable for events at the identical boundary time`() {
+        val first = dayEvent(id = 1L, occurredAt = 5_000L)
+        val second = dayEvent(id = 2L, occurredAt = 5_000L)
+        assertEquals(listOf(1L, 2L), sortDayEvents(listOf(first, second)).map { it.event.id })
+    }
+
+    @Test
+    fun `sortDayEvents on an empty list returns an empty list`() {
+        assertEquals(emptyList<DayEvent>(), sortDayEvents(emptyList()))
+    }
+
+    private fun millisAt(
+        date: LocalDate,
+        hour: Int,
+        minute: Int = 0,
+        offsetMinutes: Int = 0,
+    ): Long = date.atTime(hour, minute).toInstant(zoneOffsetFromMinutes(offsetMinutes)).toEpochMilli()
+
+    @Test
+    fun `coveredDates returns a single date for a point event`() {
+        val point = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 9))
+        assertEquals(listOf(today), coveredDates(point, today))
+    }
+
+    @Test
+    fun `coveredDates returns a single date for a same-day duration event, however many hours long`() {
+        val sameDay =
+            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 9), endedAt = millisAt(today, 22))
+        assertEquals(listOf(today), coveredDates(sameDay, today))
+    }
+
+    @Test
+    fun `coveredDates spans every calendar day a finished event crosses midnight on`() {
+        val span =
+            CalendarEvent(
+                id = 1L,
+                caseId = 1L,
+                occurredAt = millisAt(today, 23, 30),
+                endedAt = millisAt(today.plusDays(1), 0, 30),
+            )
+        assertEquals(listOf(today, today.plusDays(1)), coveredDates(span, today))
+    }
+
+    @Test
+    fun `coveredDates spans a year boundary correctly`() {
+        val newYearsEve = LocalDate.of(2025, 12, 30)
+        val span =
+            CalendarEvent(
+                id = 1L,
+                caseId = 1L,
+                occurredAt = millisAt(newYearsEve, 9),
+                endedAt = millisAt(LocalDate.of(2026, 1, 2), 9),
+            )
+        assertEquals(
+            listOf(LocalDate.of(2025, 12, 30), LocalDate.of(2025, 12, 31), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2)),
+            coveredDates(span, today = LocalDate.of(2026, 1, 2)),
+        )
+    }
+
+    @Test
+    fun `coveredDates for a still-running event spans from its start date through today`() {
+        val ongoing = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minusDays(2), 9), isOngoing = true)
+        assertEquals(listOf(today.minusDays(2), today.minusDays(1), today), coveredDates(ongoing, today))
+    }
+
+    @Test
+    fun `coveredDates for a still-running event started today is just today`() {
+        val ongoing = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 9), isOngoing = true)
+        assertEquals(listOf(today), coveredDates(ongoing, today))
+    }
+
+    @Test
+    fun `coveredDates resolves dates in the event's own captured offset, not UTC`() {
+        // 23:30 UTC on Jan 1 is 09:30 the next local day at UTC+10 -- a traveler's event must land
+        // on the day it happened in their own timezone, not whatever day the raw instant falls on.
+        val lateUtc =
+            CalendarEvent(
+                id = 1L,
+                caseId = 1L,
+                occurredAt = millisAt(LocalDate.of(2026, 1, 1), 23, 30, offsetMinutes = 0),
+                utcOffsetMinutes = 600,
+            )
+        assertEquals(listOf(LocalDate.of(2026, 1, 2)), coveredDates(lateUtc, today = LocalDate.of(2026, 1, 2)))
+    }
+
+    @Test
+    fun `buildEventsByDay does not flag a same-day duration event as a span`() {
+        val sameDay =
+            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 9), endedAt = millisAt(today, 22))
+        val byDay = buildEventsByDay(listOf(sameDay), today)
+        assertEquals(listOf(today), byDay.keys.toList())
+        val dayEvent = byDay[today]!!.single()
+        assertFalse(dayEvent.isSpanStart)
+        assertFalse(dayEvent.isSpanEnd)
+        assertFalse(dayEvent.isAllDay)
+    }
+
+    @Test
+    fun `buildEventsByDay flags a 2-day span's start and end days with no middle isAllDay day`() {
+        val span =
+            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 23), endedAt = millisAt(today.plusDays(1), 1))
+        val byDay = buildEventsByDay(listOf(span), today)
+        assertEquals(setOf(today, today.plusDays(1)), byDay.keys)
+
+        val startDayEvent = byDay[today]!!.single()
+        assertTrue(startDayEvent.isSpanStart)
+        assertFalse(startDayEvent.isSpanEnd)
+        assertFalse(startDayEvent.isAllDay)
+
+        val endDayEvent = byDay[today.plusDays(1)]!!.single()
+        assertFalse(endDayEvent.isSpanStart)
+        assertTrue(endDayEvent.isSpanEnd)
+        assertFalse(endDayEvent.isAllDay)
+    }
+
+    @Test
+    fun `buildEventsByDay flags only the middle days of a longer span as isAllDay`() {
+        val span =
+            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 9), endedAt = millisAt(today.plusDays(3), 17))
+        val byDay = buildEventsByDay(listOf(span), today)
+
+        assertTrue(byDay[today]!!.single().isSpanStart)
+        assertTrue(byDay[today.plusDays(1)]!!.single().isAllDay)
+        assertTrue(byDay[today.plusDays(2)]!!.single().isAllDay)
+        assertTrue(byDay[today.plusDays(3)]!!.single().isSpanEnd)
+    }
+
+    @Test
+    fun `buildEventsByDay keeps a still-running span's start day as isSpanStart but every carried day isAllDay, never isSpanEnd`() {
+        val ongoing = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minusDays(2), 9), isOngoing = true)
+        val byDay = buildEventsByDay(listOf(ongoing), today)
+
+        val startDayEvent = byDay[today.minusDays(2)]!!.single()
+        assertTrue(startDayEvent.isSpanStart)
+        assertFalse(startDayEvent.isAllDay)
+
+        val carriedYesterday = byDay[today.minusDays(1)]!!.single()
+        assertTrue(carriedYesterday.isAllDay)
+        assertFalse(carriedYesterday.isSpanEnd)
+
+        // Even on the real "today" cell, a still-running event never gets isSpanEnd -- it hasn't
+        // actually ended, so it stays pinned as all-day rather than claiming a false end boundary.
+        val todayEvent = byDay[today]!!.single()
+        assertTrue(todayEvent.isAllDay)
+        assertFalse(todayEvent.isSpanEnd)
+    }
+
+    @Test
+    fun `buildEventsByDay treats a still-running event started today as a plain timed row, not all-day`() {
+        val ongoing = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 9), isOngoing = true)
+        val byDay = buildEventsByDay(listOf(ongoing), today)
+        assertEquals(listOf(today), byDay.keys.toList())
+        val dayEvent = byDay[today]!!.single()
+        assertFalse(dayEvent.isSpanStart)
+        assertFalse(dayEvent.isSpanEnd)
+        assertFalse(dayEvent.isAllDay)
+    }
+
+    @Test
+    fun `buildEventsByDay orders a mixed day by real boundary time, all-day pinned first`() {
+        val carriedAllDay = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minusDays(5), 9), isOngoing = true)
+        val startsAt8 = CalendarEvent(id = 2L, caseId = 1L, occurredAt = millisAt(today, 8), endedAt = millisAt(today.plusDays(2), 9))
+        val endsAt9 = CalendarEvent(id = 3L, caseId = 1L, occurredAt = millisAt(today.minusDays(3), 9), endedAt = millisAt(today, 9))
+        val plainAt10 = CalendarEvent(id = 4L, caseId = 1L, occurredAt = millisAt(today, 10))
+
+        val byDay = buildEventsByDay(listOf(carriedAllDay, startsAt8, endsAt9, plainAt10), today)
+
+        assertEquals(listOf(1L, 2L, 3L, 4L), byDay[today]!!.map { it.event.id })
+    }
+
+    @Test
+    fun `buildEventsByDay returns an empty map for an empty events list`() {
+        assertEquals(emptyMap<LocalDate, List<DayEvent>>(), buildEventsByDay(emptyList(), today))
     }
 }

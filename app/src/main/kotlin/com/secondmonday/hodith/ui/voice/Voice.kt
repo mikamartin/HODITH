@@ -649,11 +649,20 @@ interface Voice {
     /** Day/week detail row for a `MANUAL` event whose stated/expected duration hasn't elapsed yet, in place of [bigPictureEventOngoingSince] (its own `endedAt` is a real future instant, not open-ended). */
     fun bigPictureEventExpectedEnd(end: String): String
 
-    /** Day/week detail row for a finished multi-day event, in place of a clock time. */
+    /** Day/week detail row for a finished multi-day event on a day it only passes through (no start or end boundary that day), in place of a clock time. */
     fun bigPictureEventSpanRange(
         start: String,
         end: String,
     ): String
+
+    /** Day/week detail row for a multi-day event on the day it started, in place of a clock time. Deliberately
+     * identical across voices (unlike [bigPictureEventSpanRange]/[bigPictureEventOngoingSince]) — a plain fact
+     * label, not a place for voice flavour. */
+    fun bigPictureEventSpanStarted(time: String): String = "Started $time"
+
+    /** Day/week detail row for a finished multi-day event on the day it ended, in place of a clock time. Deliberately
+     * identical across voices, same reasoning as [bigPictureEventSpanStarted]. */
+    fun bigPictureEventSpanEnded(time: String): String = "Ended $time"
 
     fun bigPictureFilterCount(selected: Int): String = "$selected"
 

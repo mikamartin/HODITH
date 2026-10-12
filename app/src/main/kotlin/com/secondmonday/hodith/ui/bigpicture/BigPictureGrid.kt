@@ -125,14 +125,19 @@ internal val CHIP_SHAPE = RoundedCornerShape(16.dp)
 private val SPAN_START_RING_WIDTH = 1.5.dp
 
 /**
- * One event as it lands on a given day cell. [isSpanStart]/[isSpanCarried] are both false for a
- * single-day event (a moment, or a duration event that opened and closed within one calendar
- * day) — it renders exactly as before. For a multi-day span they mark day 1 vs. the rest.
+ * One event as it lands on a given day cell. [isSpanStart]/[isSpanEnd]/[isAllDay] are all false for
+ * a single-day event (a moment, or a duration event that opened and closed within one calendar day)
+ * — it renders exactly as before. For a multi-day span, the start and end days each carry a real
+ * clock time ([isSpanStart]/[isSpanEnd]); [isAllDay] marks a day the span only passes through, with
+ * no start or end boundary of its own — e.g. a middle day of a 3+ day span, or any day a still-running
+ * event is carried through before it ends. [isAllDay] rows sort to the top of the day/week detail
+ * list ([sortDayEvents]) since they have no time to sort by.
  */
-private data class DayEvent(
+internal data class DayEvent(
     val event: CalendarEvent,
     val isSpanStart: Boolean,
-    val isSpanCarried: Boolean,
+    val isSpanEnd: Boolean,
+    val isAllDay: Boolean,
 )
 
 /** One case icon in a day cell. [ringed] when a multi-day span for that case starts on this day. */
@@ -140,28 +145,6 @@ private data class DayCellIcon(
     val case: CalendarCase,
     val ringed: Boolean,
 )
-
-/**
- * The local dates [event] covers on the grid: its single day unless a finished event runs past
- * midnight (`occurredAt … endedAt`) or a still-running one does (`occurredAt … today`). Resolves via
- * the event's own captured offset ([CalendarEvent.loggedZone]), not the device's current zone, so a
- * traveler's events land on the day they actually happened; [today] is already the live
- * current-device date, needed only for the still-ongoing branch.
- */
-private fun coveredDates(
-    event: CalendarEvent,
-    today: LocalDate,
-): List<LocalDate> {
-    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone()).toLocalDate()
-    val endDate =
-        when {
-            event.isOngoing -> today
-            event.endedAt != null -> Instant.ofEpochMilli(event.endedAt).atZone(event.loggedZone()).toLocalDate()
-            else -> startDate
-        }
-    if (!endDate.isAfter(startDate)) return listOf(startDate)
-    return generateSequence(startDate) { it.plusDays(1) }.takeWhile { !it.isAfter(endDate) }.toList()
-}
 
 @Composable
 fun BigPictureGrid(
@@ -197,25 +180,7 @@ fun BigPictureGrid(
         event.caseId in resolvedVisibleCaseIds && isTagVisible(event.tags, resolvedVisibleTagNames, allTagNames.size)
     }
 
-    val eventsByDay =
-        remember(events, today) {
-            buildMap<LocalDate, MutableList<DayEvent>> {
-                events.forEach { event ->
-                    val dates = coveredDates(event, today)
-                    val multiDay = dates.size > 1
-                    dates.forEachIndexed { index, date ->
-                        getOrPut(date) { mutableListOf() }
-                            .add(
-                                DayEvent(
-                                    event = event,
-                                    isSpanStart = multiDay && index == 0,
-                                    isSpanCarried = multiDay && index > 0,
-                                ),
-                            )
-                    }
-                }
-            }
-        }
+    val eventsByDay = remember(events, today) { buildEventsByDay(events, today) }
     val caseById = remember(cases) { cases.associateBy { it.id } }
     val months =
         remember(earliestMonth, currentMonth) {
@@ -804,21 +769,28 @@ private fun EventDetailRow(
                     // Started earlier → date + time, so a carried-day row keeps the real start time.
                     if (startDate == today) startTime else formatSpanDateTime(event.occurredAt, use24Hour, event.loggedZone()),
                 )
-            dayEvent.isSpanStart || dayEvent.isSpanCarried ->
+            dayEvent.isSpanStart -> voice.bigPictureEventSpanStarted(startTime)
+            dayEvent.isSpanEnd ->
+                voice.bigPictureEventSpanEnded(
+                    formatClockTime(Instant.ofEpochMilli(event.endedAt!!).atZone(event.loggedZone()).toLocalTime(), use24Hour),
+                )
+            dayEvent.isAllDay ->
                 voice.bigPictureEventSpanRange(
                     formatSpanDateTime(event.occurredAt, use24Hour, event.loggedZone()),
                     formatSpanDateTime(event.endedAt!!, use24Hour, event.loggedZone()),
                 )
             else -> startTime
         }
-    // A bare clock time sits inline after the Case name; the wordier "ongoing since …" / span-range
-    // labels take their own line so a long Case name can't squeeze them into an ugly wrap.
-    val timeOnOwnLine = event.expectedEndAt != null || event.isOngoing || dayEvent.isSpanStart || dayEvent.isSpanCarried
+    // A bare clock time sits inline after the Case name; the wordier "ongoing since …" / expected-end /
+    // started / ended / span-range labels take their own line so a long Case name can't squeeze them
+    // into an ugly wrap.
+    val timeOnOwnLine =
+        event.expectedEndAt != null || event.isOngoing || dayEvent.isSpanStart || dayEvent.isSpanEnd || dayEvent.isAllDay
     // Duration/intensity line (spec §9), governed by the user's overview-detail preference. A
     // multi-day span and a still-running event already state their extent in [timeLabel], so the
     // "lasted N" line is limited to same-day finished events; `eventDetailSummary` renders only
     // the duration/intensity part here — note and tags get their own lines below.
-    val showDuration = detail.duration && !dayEvent.isSpanStart && !dayEvent.isSpanCarried && !event.isOngoing
+    val showDuration = detail.duration && !dayEvent.isSpanStart && !dayEvent.isSpanEnd && !dayEvent.isAllDay && !event.isOngoing
     val metaLine =
         eventDetailSummary(
             occurredAt = event.occurredAt,
@@ -1615,24 +1587,31 @@ private fun EventDetailRowsPreviewContent(detail: BigPictureDetail) {
     val migraine = CalendarCase(2, "🤕", "Migraine")
     val workout = CalendarCase(3, "🏋️", "Workout")
     val argument = CalendarCase(4, "😤", "Argument")
+    val span = CalendarEvent(4, 4, at(today.minusDays(8), 20), endedAt = at(today.minusDays(5), 10), note = "Rough patch")
     val rows =
         listOf(
             DayEvent(
-                CalendarEvent(1, 1, at(today, 7, 15), note = "Right after the walk, felt great", tags = listOf("weekend")),
-                false,
-                false,
+                event = CalendarEvent(1, 1, at(today, 7, 15), note = "Right after the walk, felt great", tags = listOf("weekend")),
+                isSpanStart = false,
+                isSpanEnd = false,
+                isAllDay = false,
             ),
             DayEvent(
-                CalendarEvent(2, 2, at(today, 9, 10), endedAt = at(today, 9, 50), note = "Started at the temples", intensity = 3),
-                false,
-                false,
+                event = CalendarEvent(2, 2, at(today, 9, 10), endedAt = at(today, 9, 50), note = "Started at the temples", intensity = 3),
+                isSpanStart = false,
+                isSpanEnd = false,
+                isAllDay = false,
             ),
-            DayEvent(CalendarEvent(3, 3, at(today, 8, 2), isOngoing = true, note = "Forgot to stop it"), false, false),
             DayEvent(
-                CalendarEvent(4, 4, at(today.minusDays(8), 20), endedAt = at(today.minusDays(5), 10), note = "Rough patch"),
-                true,
-                false,
+                event = CalendarEvent(3, 3, at(today, 8, 2), isOngoing = true, note = "Forgot to stop it"),
+                isSpanStart = false,
+                isSpanEnd = false,
+                isAllDay = false,
             ),
+            // The same multi-day span on its start day, a middle (all-day) day, and its end day.
+            DayEvent(event = span, isSpanStart = true, isSpanEnd = false, isAllDay = false),
+            DayEvent(event = span, isSpanStart = false, isSpanEnd = false, isAllDay = true),
+            DayEvent(event = span, isSpanStart = false, isSpanEnd = true, isAllDay = false),
         )
     val caseById = listOf(coffee, migraine, workout, argument).associateBy { it.id }
     Surface(color = MaterialTheme.colorScheme.background) {

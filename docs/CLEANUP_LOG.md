@@ -53,6 +53,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/big-picture-day-detail-chronological-order
+
+**Scope:** User-reported: the Big Picture day/week detail dialogs listed a day's events grouped by Case (every event of Case A before any of Case B) instead of chronologically, with no distinct treatment for a multi-day span's "no real time that day" rows. Clarified with the user that HODITH has no literal "all-day event" concept — only a multi-day span's middle day (or any day a still-running event is merely carried through) genuinely has no boundary time; a span's own start/end day has a real clock time and should sort and read by it ("Started …"/"Ended …"), not the old blanket full-range label.
+
+**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to `BigPictureScreenTest` on a Pixel 8 API 36 emulator — 51/51 green, including the three new cases.
+
+**Found & fixed:**
+- `BigPictureGrid.kt`'s `DayEvent` replaced `isSpanStart`/`isSpanCarried` with `isSpanStart`/`isSpanEnd`/`isAllDay`, so a span's end day (a real boundary) is distinguished from a true middle day (none).
+- New pure `sortDayEvents` (`BigPictureFilterState.kt`): `isAllDay` rows sort first (nothing to sort by); every other row sorts by whichever boundary falls that day — start time, or end time for `isSpanEnd`.
+- `coveredDates` and the `eventsByDay`-building loop, previously private/inline inside the `BigPictureGrid` composable, extracted to pure `coveredDates`/`buildEventsByDay` in `BigPictureFilterState.kt` — both now unit-testable on the JVM without Compose, matching this file's own established rationale for `isTagVisible`/`resolveVisibleSelection`.
+- `EventDetailRow` labelling: a span's start day now reads "Started …", its finished end day "Ended …" (each a bare clock time), reserving the old "lasted …" full-range label for an actual no-boundary (`isAllDay`) day; the `isOngoing` branch is unchanged.
+- New `Voice.bigPictureEventSpanStarted`/`bigPictureEventSpanEnded`, given default (identical) bodies directly on the `Voice` interface rather than per-voice overrides — confirmed with the user that this label is deliberately the same wording in all three voices, same pattern as `bigPictureFilterCount`'s existing structural default. (A per-voice-override attempt first failed `VoiceTest`'s "no abstract key is identical across all three voices" check, which is exactly why structural/identical keys use interface defaults instead.)
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- A dedicated per-theme (Intense/Bright) visual pass for the new rows — declined since "Started …"/"Ended …" are plain-text labels reusing the existing row's typography/layout with no new colors or sizing; the user's own manual check (default theme) already confirmed the layout.
+
+**Checks:**
+- Duplication: no inline strings — the two new labels went through `Voice` (as interface defaults, not per-voice literals) in the same commit.
+- Decoupling: the extraction moves more logic *out* of the composable into pure, JVM-testable functions, not the other direction; day-bucketing still resolves via the event's own captured `utcOffsetMinutes` (`loggedZone()`), not the device's current zone.
+- Complexity: `buildEventsByDay`/`coveredDates`/`sortDayEvents` each still have exactly one production caller, but earn the split the same way this file's existing single-caller helpers do (JVM testability without Compose) — not a premature extraction.
+- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
+- Naming: new `Voice` keys follow the existing `bigPictureEventSpan*` convention.
+- UI copy brevity: "Started …"/"Ended …" are shorter than the siblings they partly replace ("Lasted … – …", "Ongoing since …") — no wrap risk.
+- Spec review: `HODITH_SPEC.md` §9 updated (chronological/all-day-pinned ordering, three-way Started/Ended/lasted label) — this was unintentional divergence (a genuine behavior bug/gap), not a deliberate spec change.
+- Tests: regression coverage added at both layers — `BigPictureFilterStateTest.kt` (JVM: same-day-duration-not-flagged-as-span, 2-day vs. 3+/4-day span flagging, a still-running event's carried days staying `isAllDay` forever and never falsely `isSpanEnd`, a still-running event started "today" staying a plain timed row, year-boundary date generation, offset-based date resolution, a full mixed-day integration case, sort ties/stability/empty-list) and `BigPictureScreenTest.kt` (instrumented: span start day, span end day, all-day-pinned-above-a-timed-row ordering).
+
+**Docs updated:** HODITH_SPEC.md (§9, day/week detail ordering and label rewritten); TESTING.md (ViewModels row extended for the three new pure functions; Compose UI — Big Picture row corrected for the new labels/ordering); this entry (oldest entry, `test/autosize-harness-investigation`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/widget-edit-affordance
 
 **Scope:** Two user-reported bugs on the List widget's configure flow, found and fixed in sequence in the same session. First: the empty-widget message told users to long-press and tap Edit to pick Cases, but tapping it only opened the app (not the picker it promised), and long-press on the user's launcher only resizes — there's no reachable "Edit" affordance that way. Fixed by adding a persistent header edit icon (present in both the empty and populated states) and wiring it, plus the empty-state message, to relaunch the real `android:configure` Activity. That change made the Activity reachable from an already-placed widget for the first time, which exposed two further latent bugs that only ever held for first-ever setup: re-editing opened the app instead of returning to the widget, and re-editing always started from a blank selection instead of the widget's real one.
@@ -154,34 +186,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: no regression test added for either root-cause fix. `docs/DEV_PLAYBOOK.md` already documents that the on-device widget test harness can't populate `LazyColumn` row items at all (`RemoteViewsService`/`ListView` binding gap), ruling out an instrumented assertion on the trailing-spacer or fill behavior; `CaseRow` is a private Composable with no feasible unit-test path without a Glance/Robolectric test harness this repo doesn't have. Declined rather than silently skipped — flagging here since "bug fixed → regression test added" is otherwise an unconditional checklist item.
 
 **Docs updated:** `DEV_PLAYBOOK.md` §4 (token table values, the plank-spacing/Home-fidelity description, a new Glance layout-facts bullet); `MANUAL_TEST_PLAN.md` (new widget-resize item); this entry (oldest entry, `fix/duration-selector-wrap`, removed per the 5-entry retention rule).
-
----
-
-## fix/intensity-required-when-enabled
-
-**Scope:** Reported bug — a Case could have intensity enabled, but an event could still be logged with no rating. Investigation found the gap (`LogDetailForm`'s `canSave` never checked intensity, and a selected choice could be tapped back to none), then expanded to cover what the fix needed to get right: whether any other optional event field had the same case-flag-says-"tracked"-but-still-skippable shape (none did), and what toggling `intensityEnabled` does to a Case's existing events (nothing, either direction — which then needed its own user-facing notice).
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite, including 3 new `CaseEditViewModelTest` cases), and `connectedDebugAndroidTest` scoped to the two changed/new instrumented classes (`LogDetailIntensityTest`, `CaseEditScreenTest` — 25/25 passing on a Pixel 8 API 36 emulator), plus `assembleDebug`. The full `connectedDebugAndroidTest` suite was attempted once; it hit the pre-existing documented flaky teardown-race crash on two unrelated, untouched classes (`CaseDetailScreenTest`, `ShareCardTemplateTest`) and an emulator system-server crash — not re-run after that, per TESTING.md's own scoped-first convention for this known issue.
-
-**Found & fixed:**
-- Root cause: `LogDetailForm`'s `canSave` validated only start/end time-picker rejections, never intensity, and `IntensitySection`'s `onSelect` let an already-selected choice toggle back to `null`.
-- Intensity made required only for *new* events, never for editing an existing one — avoids two hazards surfaced during review: fabricating a rating for an event logged before the Case tracked intensity, and the toggle itself never touching existing events either direction (which needed its own notice rather than silent behavior).
-- Added a transient Snackbar (`CaseEditViewModel.intensityToggleNotice`, the same one-shot `Channel`/`Flow` idiom as `HomeViewModel.quickLogUndo`) fired once per toggle flip on a Case with existing events — redesigned mid-implementation after an initial persistent `ActionBanner` version was caught sitting on the screen as a standing fixture instead of behaving like a transient notification; the `ActionBanner` widening made for that first version was reverted once the Snackbar replaced it.
-- Added `withDismissAction = true` to the Snackbar after on-device testing showed it doesn't close on an outside tap or swipe (Material3's default); every other snackbar in the app uses the short default with no dismiss control, but this one needed `SnackbarDuration.Long` and an explicit close button since it carries a full two-sentence message.
-
-**Deferred:**
-- `outcomeValueFor` (trend/notification code) reads `EventEntity.intensity` directly regardless of `Case.intensityEnabled`, found while reviewing what the toggle does to existing events. Logged as its own `PROGRESS.md` item rather than fixed here — a pre-existing, unrelated inconsistency outside this bug's scope.
-
-**Considered and declined:**
-- Keeping intensity optional even when enabled (the status quo the spec originally documented) — declined by explicit product decision in favor of requiring it for new events.
-- A persistent inline notice next to the toggle — declined in favor of a transient Snackbar, the idiom this app already uses for one-shot notifications.
-
-**Checks:**
-- Duplication: `enableIntensityNotice`/`disableIntensityNotice` added to all three Voice implementations in the same change; no inline strings.
-- Decoupling: the default-intensity seeding lives in the UI-layer composable (`LogDetailForm`), the only place that already knows both `isEditing` and `intensityEnabled`; `domain/` untouched.
-- Hygiene: no unused imports or leftover debug code; `git status` clean.
-- Naming: `IntensityToggleNotice`/`intensityToggleNotice`/`loggedEventCount` follow the existing `QuickLogUndo`/`quickLogUndo`/`runningEventCount` pattern.
-- UI copy brevity: doesn't apply — the new strings are Snackbar body copy, not control labels.
-- Tests: regression coverage added at both layers — `CaseEditViewModelTest` (3 new cases for the notice-gating logic) and new instrumented coverage (`LogDetailIntensityTest`, `CaseEditScreenTest` additions), both run on-device.
-
-**Docs updated:** HODITH_SPEC.md (§6, the Watch table's `minIntensity` row), TESTING.md (Compose UI and ViewModels rows extended), PROGRESS.md (new follow-up item for the `outcomeValueFor` finding); this entry (oldest entry, `chore/voice-phrasing-audit`, removed per the 5-entry retention rule).

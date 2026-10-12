@@ -2,6 +2,8 @@ package com.secondmonday.hodith.ui.bigpicture
 
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
+import com.secondmonday.hodith.viewmodel.loggedZone
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -86,6 +88,69 @@ internal fun isPastOrToday(
     date: LocalDate,
     today: LocalDate,
 ): Boolean = !date.isAfter(today)
+
+/**
+ * A day's events, chronological instead of case-grouped: [DayEvent.isAllDay] rows (a multi-day span
+ * passing through this day with no start/end boundary of its own) sort first, since they have no
+ * time to sort by; everything else sorts by whichever boundary actually falls on this day — the
+ * start time, or the end time for [DayEvent.isSpanEnd].
+ */
+internal fun sortDayEvents(dayEvents: List<DayEvent>): List<DayEvent> {
+    val (allDay, timed) = dayEvents.partition { it.isAllDay }
+    return allDay.sortedBy { it.event.occurredAt } +
+        timed.sortedBy { if (it.isSpanEnd) it.event.endedAt ?: it.event.occurredAt else it.event.occurredAt }
+}
+
+/**
+ * The local dates [event] covers on the grid: its single day unless a finished event runs past
+ * midnight (`occurredAt … endedAt`) or a still-running one does (`occurredAt … today`). Resolves via
+ * the event's own captured offset ([CalendarEvent.loggedZone]), not the device's current zone, so a
+ * traveler's events land on the day they actually happened; [today] is already the live
+ * current-device date, needed only for the still-ongoing branch.
+ */
+internal fun coveredDates(
+    event: CalendarEvent,
+    today: LocalDate,
+): List<LocalDate> {
+    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone()).toLocalDate()
+    val endDate =
+        when {
+            event.isOngoing -> today
+            event.endedAt != null -> Instant.ofEpochMilli(event.endedAt).atZone(event.loggedZone()).toLocalDate()
+            else -> startDate
+        }
+    if (!endDate.isAfter(startDate)) return listOf(startDate)
+    return generateSequence(startDate) { it.plusDays(1) }.takeWhile { !it.isAfter(endDate) }.toList()
+}
+
+/**
+ * Every event bucketed onto each local day it covers ([coveredDates]), flagged per day
+ * ([DayEvent.isSpanStart]/[DayEvent.isSpanEnd]/[DayEvent.isAllDay]) and sorted ([sortDayEvents]) —
+ * the single source the day and week detail dialogs both read from (spec §9).
+ */
+internal fun buildEventsByDay(
+    events: List<CalendarEvent>,
+    today: LocalDate,
+): Map<LocalDate, List<DayEvent>> =
+    buildMap<LocalDate, MutableList<DayEvent>> {
+        events.forEach { event ->
+            val dates = coveredDates(event, today)
+            val multiDay = dates.size > 1
+            dates.forEachIndexed { index, date ->
+                val isStart = multiDay && index == 0
+                val isEnd = multiDay && !event.isOngoing && index == dates.lastIndex
+                getOrPut(date) { mutableListOf() }
+                    .add(
+                        DayEvent(
+                            event = event,
+                            isSpanStart = isStart,
+                            isSpanEnd = isEnd,
+                            isAllDay = multiDay && !isStart && !isEnd,
+                        ),
+                    )
+            }
+        }
+    }.mapValues { (_, dayEvents) -> sortDayEvents(dayEvents) }
 
 /**
  * Descending months (current first, earliest last) — the Big Picture grid's rendering order and
