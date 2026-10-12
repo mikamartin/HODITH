@@ -4,13 +4,54 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 ## How this file is organised
 
-Items are grouped by status:
+Items are grouped by how they connect, not by status alone:
 
+- **Story U — Duration unification** — collapsing Case-level `DurationMode` into a per-Case on/off switch plus a per-event ongoing/end-time/duration control (U1 prototype, U2 schema/engine/consumers, remaining).
 - **Standalone** — no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
 - **Blocked** — gated on something external; not startable now.
 
 Each item carries a **trailer** (*Branch · Complexity · Priority · Area*; Complexity: S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week, same scale as HODITH_SPEC §17; Priority: High gates the first release or corrects something wrong today · Medium worth doing before alpha · Low cosmetic or deferrable · Blocked can't start yet; Area is a loose bucket), zero or more **tags** (🎨 *Design decision* needs a human call before implementation · 🌐 *External action* work outside this repo · 🔍 *Investigation* needs a repro/diagnose pass before the fix is knowable), **Acceptance criteria**, and **Plan / Tests / Concern** detail.
+
+## Story U — Duration unification
+
+Collapsing the Case-level `DurationMode` (`NONE`/`MANUAL`/`START_STOP`) into a single per-Case `tracksDuration: Boolean` plus a per-*event* ongoing/end-time/duration state removes the parallel branching duplicated across `domain/ActiveSpan.kt`, `BigPictureViewModel`/`BigPictureGrid.kt`, `OngoingIndicator.kt`, `CaseDetailScreen.kt` (History), `InsightsTab.kt`, `HomeViewModel.kt`, `ShareCardState.kt`, `EventTimeFormat.kt`, and the `WatchEngine`/`StatsEngine`/`VerdictEngine`/`NotificationEvaluator`/`Ticker` consumers of `isStillRunning`/`activeSpanEnd`. Pre-release, so no careful migration is needed — `demo_backup.json` and test fixtures get hand-edited to the new shape rather than migrated.
+
+### U1 · Prototype the merged Edit Event / Case Edit UX
+
+*Branch: `feature/duration-unification` · Complexity: S · Priority: Medium · Area: Case/Event*
+
+Throwaway Compose Preview mockups only (`ui/prototype/DurationUnificationPrototype.kt`): Case Edit's duration switch, and the linked start-time/ongoing/end-time/duration control for Log Event and Edit Event. No production code touched — local `remember` state only, not wired to the real ViewModels.
+
+**Acceptance criteria**
+
+- [ ] User has validated the control shape via Android Studio Interactive Preview and signed off on moving to U2, or sent it back for another prototype pass.
+
+**Plan** — prototype first, per this repo's validate-before-building rule; see U2 for the real implementation once signed off.
+
+**Tests** — none; spike only. The prototype file is deleted once superseded by U2's real implementation.
+
+### U2 · Implement the unified duration model
+
+*Branch: `feature/duration-unification` (continued) · Complexity: L–XL · Priority: Medium · Area: Case/Event*
+
+🎨 **Design decision** — needs U1 signed off first.
+
+**Acceptance criteria**
+
+- [ ] `DurationMode` replaced by `CaseEntity.tracksDuration: Boolean`; `EventEntity` gains whatever ongoing/duration fields the validated U1 design needs (likely none beyond today's `occurredAt`/`endedAt` — ongoing stays "`endedAt == null`", duration stays derived).
+- [ ] `domain/ActiveSpan.kt`'s `isStillRunning`/`activeSpanEnd` rewritten for the two-state (tracks-duration or not) model, staying pure Kotlin with injected `Clock`/`now`, no `android.*` imports.
+- [ ] Every duplicated `isOngoing`/`expectedEndAt` branch found during exploration updated to the unified model: `BigPictureViewModel`/`BigPictureGrid.kt`, `OngoingIndicator.kt`, `CaseDetailScreen.kt`, `InsightsTab.kt`, `HomeViewModel.kt`, `ShareCardState.kt`, `EventTimeFormat.kt`, both Glance widgets, `WatchEngine`/`StatsEngine`/`VerdictEngine`/`NotificationEvaluator`/`Ticker`.
+- [ ] **Confirm-dialog / warning UX redesigned** for toggling `tracksDuration` on an existing Case with events (replacing today's leave-/enter-`START_STOP` dialogs in `CaseEditScreen.kt`/`CaseEditViewModel.kt`) — this was explicitly deferred out of U1's prototype and must not be dropped. Covers at minimum: turning tracking off while events are ongoing (they get closed), and turning tracking on for a Case with pre-existing events that have no end time.
+- [ ] `LogDetailViewModel.kt`'s `computeEndedAt`/`durationFieldsFor` and the `LogDetailForm`/`EndTimeSection`/`DurationSection` UI collapsed into the single validated control from U1.
+- [ ] Schema bump (no `AutoMigration`/hand migration needed pre-release); `demo_backup.json` and test fixtures hand-edited to the new shape.
+- [ ] Voice ×3 for any new/changed strings; no gamification language.
+- [ ] `HODITH_SPEC.md` synced with the new model (data model and Case/Event vocabulary sections).
+- [ ] Docs sweep for `DurationMode`/`MANUAL`/`START_STOP` mentions across `docs/`.
+
+**Plan** — rename/schema first (behaviour-neutral where possible), then `ActiveSpan.kt`, then the confirm-dialog redesign, then each consumer, then the Log/Edit Event UI swap, then docs.
+
+**Tests** — `ActiveSpan` unit tests for the new two-state logic; `CaseEditViewModel`/`LogDetailViewModel` tests for the new switch and confirm-dialog flows; instrumented coverage for Case Edit, Log/Edit Event, Big Picture, History, Insights, Home, and both widgets reflecting the merged model.
 
 ## Standalone
 
