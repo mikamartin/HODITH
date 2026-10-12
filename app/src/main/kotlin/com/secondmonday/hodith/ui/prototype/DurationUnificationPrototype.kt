@@ -4,7 +4,6 @@
 package com.secondmonday.hodith.ui.prototype
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,8 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -33,7 +30,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerState
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -44,9 +40,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -63,93 +56,35 @@ import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.applyPickedDate
 import com.secondmonday.hodith.viewmodel.applyPickedTime
-import com.secondmonday.hodith.viewmodel.durationUnitFor
+import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.formatEventDate
 import com.secondmonday.hodith.viewmodel.formatEventTimeOfDay
 import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
 import java.time.Instant
 import java.time.ZoneId
 
-private val PROTOTYPE_DURATION_UNITS = listOf(DurationUnit.MINUTES, DurationUnit.HOURS, DurationUnit.DAYS)
-
-private fun prototypeDurationUnitLabel(
-    unit: DurationUnit,
-    voice: Voice,
-): String =
-    when (unit) {
-        DurationUnit.MINUTES -> voice.logSheetDurationUnitMinutes
-        DurationUnit.HOURS -> voice.logSheetDurationUnitHours
-        DurationUnit.DAYS -> voice.logSheetDurationUnitDays
-    }
-
-/** Mirrors the real `durationFieldsFor` (file-private in LogDetailViewModel.kt) for this mockup's own local state. */
-private fun prototypeDurationFields(durationMillis: Long): Pair<String, DurationUnit> {
-    val positiveMillis = durationMillis.coerceAtLeast(0L)
-    val unit = durationUnitFor(positiveMillis)
-    val amount = if (positiveMillis > 0L) (positiveMillis / unit.millis).toString() else "0"
-    return amount to unit
-}
-
 /**
- * Picks the most natural unit for *displaying* a live elapsed duration while nothing's been
- * stated yet (distinct from [prototypeDurationFields], which only ever shows whole units for an
- * explicit end time): minutes under an hour, days once it's a whole or half day (e.g. "1.5"),
- * hours otherwise. A fresh event (elapsed 0) lands on "0" minutes.
+ * Decomposes an elapsed duration into whole days/hours/minutes — no decimals anywhere: "1.5 days"
+ * is just "1" day + "12" hours. Chosen over a single amount+unit field (compared earlier in this
+ * file's history) specifically to avoid touching `DurationUnit`/`durationUnitFor`/`durationFieldsFor`
+ * or auditing Insights/Big Picture/StatsEngine for fractional durations in U2.
  */
-private fun prototypeElapsedDisplayFields(durationMillis: Long): Pair<String, DurationUnit> {
-    val elapsed = durationMillis.coerceAtLeast(0L)
-    val halfDayMillis = MILLIS_PER_DAY / 2
-    return when {
-        elapsed < MILLIS_PER_HOUR -> (elapsed / MILLIS_PER_MINUTE).toString() to DurationUnit.MINUTES
-        elapsed >= MILLIS_PER_DAY && elapsed % halfDayMillis == 0L -> {
-            val halfDays = elapsed / halfDayMillis
-            val amount = if (halfDays % 2 == 0L) (halfDays / 2).toString() else "${halfDays / 2}.5"
-            amount to DurationUnit.DAYS
-        }
-        elapsed % MILLIS_PER_HOUR == 0L -> (elapsed / MILLIS_PER_HOUR).toString() to DurationUnit.HOURS
-        else -> (elapsed / MILLIS_PER_MINUTE).toString() to DurationUnit.MINUTES
-    }
+private fun decomposeDuration(durationMillis: Long): Triple<Long, Long, Long> {
+    val positive = durationMillis.coerceAtLeast(0L)
+    val days = positive / MILLIS_PER_DAY
+    val remainderAfterDays = positive % MILLIS_PER_DAY
+    val hours = remainderAfterDays / MILLIS_PER_HOUR
+    val minutes = (remainderAfterDays % MILLIS_PER_HOUR) / MILLIS_PER_MINUTE
+    return Triple(days, hours, minutes)
 }
 
-/** Exact visual copy of LogDetailSheet.kt's private DurationUnitSelector (not importable — file-private there). */
-@Composable
-private fun PrototypeDurationUnitSelector(
-    selected: DurationUnit,
-    onSelect: (DurationUnit) -> Unit,
-    voice: Voice,
-) {
-    Row(
-        modifier =
-            Modifier
-                .padding(end = 8.dp)
-                .clip(CircleShape)
-                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                .selectableGroup(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PROTOTYPE_DURATION_UNITS.forEach { unit ->
-            val isSelected = unit == selected
-            Box(
-                modifier =
-                    Modifier
-                        .minimumInteractiveComponentSize()
-                        .selectable(selected = isSelected, onClick = { onSelect(unit) }, role = Role.RadioButton)
-                        .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = prototypeDurationUnitLabel(unit, voice).uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
+private fun composeDuration(
+    days: Long,
+    hours: Long,
+    minutes: Long,
+): Long = days * MILLIS_PER_DAY + hours * MILLIS_PER_HOUR + minutes * MILLIS_PER_MINUTE
 
 /** Simplified stand-in for the real (unchanged) intensity picker, just to give the duration control realistic screen context. */
 @Composable
@@ -199,20 +134,23 @@ private fun PrototypeTagsRow(voice: Voice) {
  * The merged Log/Edit Event control being validated: a start time, then a status row that's
  * either "Ongoing" + Stop or "Ended" + Start again (one flipping row, not a separate switch).
  * "Ongoing" is *derived* from [endedAt] vs [now] — null or still in the future both read as
- * ongoing, exactly like today's real `isStillRunning` — not a separately-toggled flag.
+ * ongoing, exactly like today's real `isStillRunning` — not a separately-toggled flag. While
+ * ongoing, a plain note under the status row ("Ongoing for Xh Ym") shows how long it's actually
+ * been running, independent of anything stated below.
  *
- * The Duration field and the end-time date/time buttons are always visible under the status row,
- * pre-filled with the live elapsed time whenever nothing's stated yet (e.g. "0" for a just-created
- * event; the buttons themselves prompt "Choose date"/"Choose time" rather than showing today's
- * date, so they don't look like something was already picked) — no separate "current duration"
- * chip or a link to reveal them. Showing that default doesn't itself commit [endedAt] (only
- * actually editing the field or picking a date/time does), so a fresh event still reads Ongoing
- * rather than instantly Ended. Typing a number — or picking an end date/time directly — is how you
- * state an expected duration (the old MANUAL mode's whole point): it computes [endedAt], and if
- * that lands in the future the control stays Ongoing; if it's already passed, the control reads
- * Ended. Either way the buttons relabel to "Set to end" + the actual date/time. Start-time buttons
- * stay display-only in this mockup; only the end-time pickers are wired, since that's what the
- * duration/end-time sync question needs to exercise.
+ * The end-time date/time buttons and the Duration fields (Days/Hours/Minutes — see
+ * [decomposeDuration], no decimals anywhere) are always visible, but stay empty/unset until the
+ * user actually does something: typing a value, picking an end date/time, or tapping Stop (which
+ * commits the real elapsed duration). Nothing is ever auto-filled with a live-elapsed guess —
+ * that's what the "Ongoing for…" note is for instead. Typing a duration or picking an end
+ * date/time directly is how you state a planned/expected one (the old MANUAL mode's whole point):
+ * it computes [endedAt], and if that lands in the future the control stays Ongoing; if it's
+ * already passed, the control reads Ended. The end-time label tracks all three states: "End time
+ * can be set manually" (nothing stated), "Set to end" (stated, still ahead of now), "Ended at"
+ * (stated, already passed) — and the Duration fields' own label reads "Planned duration" while
+ * Ongoing vs plain "Duration" once Ended. Tapping "Start again" clears both back to empty. Start-
+ * time buttons stay display-only in this mockup; only the end-time pickers are wired, since
+ * that's what the duration/end-time sync question needs to exercise.
  */
 @Composable
 private fun UnifiedDurationControl(
@@ -223,34 +161,47 @@ private fun UnifiedDurationControl(
     voice: Voice,
 ) {
     var endedAt by remember { mutableStateOf(initialEndedAt) }
-    val initialFields =
-        remember {
-            initialEndedAt?.let { prototypeDurationFields(it - startedAt) } ?: prototypeElapsedDisplayFields(now - startedAt)
-        }
-    var durationAmount by remember { mutableStateOf(initialFields.first) }
-    var durationUnit by remember { mutableStateOf(initialFields.second) }
+    val initialFields = remember { initialEndedAt?.let { decomposeDuration(it - startedAt) } }
+    var daysText by remember { mutableStateOf(initialFields?.first?.toString() ?: "") }
+    var hoursText by remember { mutableStateOf(initialFields?.second?.toString() ?: "") }
+    var minutesText by remember { mutableStateOf(initialFields?.third?.toString() ?: "") }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
     val use24Hour = LocalTimeFormat.current.is24Hour
     val isOngoing = endedAt?.let { it > now } ?: true
 
+    // Days/Hours/Minutes stay empty until the user actually sets something — typing a value,
+    // picking an end date/time, or tapping Stop (which commits the real elapsed duration). Never
+    // auto-filled with a live-elapsed guess; that's the separate "Ongoing for…" note below instead.
     fun applyEndedAt(at: Long?) {
         endedAt = at
-        val fields = if (at == null) prototypeElapsedDisplayFields(now - startedAt) else prototypeDurationFields(at - startedAt)
-        durationAmount = fields.first
-        durationUnit = fields.second
+        if (at == null) {
+            daysText = ""
+            hoursText = ""
+            minutesText = ""
+        } else {
+            val (d, h, m) = decomposeDuration(at - startedAt)
+            daysText = d.toString()
+            hoursText = h.toString()
+            minutesText = m.toString()
+        }
     }
 
     fun stopNow() = applyEndedAt(now.coerceAtLeast(startedAt))
 
     fun startAgain() = applyEndedAt(null)
 
-    fun recalcEndFromDuration(
-        amount: String,
-        unit: DurationUnit,
+    fun recalcEndFromDHM(
+        days: String,
+        hours: String,
+        minutes: String,
     ) {
-        // Decimal, not integer-only — a pre-filled live display can read e.g. "1.5" days.
-        endedAt = amount.toDoubleOrNull()?.let { startedAt + (it * unit.millis).toLong() }
+        endedAt =
+            if (days.isBlank() && hours.isBlank() && minutes.isBlank()) {
+                null
+            } else {
+                startedAt + composeDuration(days.toLongOrNull() ?: 0L, hours.toLongOrNull() ?: 0L, minutes.toLongOrNull() ?: 0L)
+            }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -283,20 +234,26 @@ private fun UnifiedDurationControl(
             }
         }
 
+        if (isOngoing) {
+            // How long it's actually been running so far — independent of whatever's (or isn't)
+            // typed in the Duration fields below, which may state a different planned length.
+            Text("Ongoing for ${formatElapsedDuration(startedAt, now)}", style = MaterialTheme.typography.bodyMedium)
+        }
+
         val currentEndedAt = endedAt
-        // Always shown, alongside the Duration field below — not gated on a real stated end.
-        // When nothing's been typed yet this reads "now" (what stopping right now would record),
-        // matching the Duration field's own live-elapsed default; it doesn't commit anything
-        // itself, only actually picking a date/time does (via applyEndedAt).
+        // Always shown, alongside the Duration fields below — not gated on a real stated end.
+        // When nothing's been typed yet this reads "now" (what stopping right now would record);
+        // it doesn't commit anything itself, only actually picking a date/time does (via applyEndedAt).
         val displayEndedAt = currentEndedAt ?: now
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Explains what the row below is for — "Set to end" once a real end exists (no time
-            // repeated in the label, the buttons already show it); otherwise a note that it's
-            // optional, with the buttons themselves prompting rather than showing today's date,
-            // which would otherwise look like something was already chosen. Placeholder copy —
-            // not Voice keys yet.
+            // Three end-time states: nothing stated yet; a stated end still ahead of now (still
+            // Ongoing); an end that's already passed (Ended). Placeholder copy — not Voice keys yet.
             Text(
-                if (currentEndedAt != null) "Set to end" else "End time can be set manually",
+                when {
+                    currentEndedAt == null -> "End time can be set manually"
+                    isOngoing -> "Set to end"
+                    else -> "Ended at"
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -307,28 +264,50 @@ private fun UnifiedDurationControl(
                     Text(if (currentEndedAt != null) formatEventTimeOfDay(displayEndedAt, use24Hour, zone) else "Choose time")
                 }
             }
-            OutlinedTextField(
-                value = durationAmount,
-                onValueChange = { input ->
-                    durationAmount = input
-                    recalcEndFromDuration(input, durationUnit)
-                },
-                label = { Text(voice.logSheetDurationLabel) },
-                // Decimal, not integer-only — the live-elapsed default can read e.g. "1.5" days.
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                trailingIcon = {
-                    PrototypeDurationUnitSelector(
-                        selected = durationUnit,
-                        onSelect = { unit ->
-                            durationUnit = unit
-                            recalcEndFromDuration(durationAmount, unit)
-                        },
-                        voice = voice,
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            // "Planned duration" while Ongoing (whatever's typed is a projection, not a fact yet);
+            // the real voice.logSheetDurationLabel ("Duration") once Ended, same key the old
+            // single-field design used for itself. "Planned duration" is a placeholder, not Voice yet.
+            Text(if (isOngoing) "Planned duration" else voice.logSheetDurationLabel, style = MaterialTheme.typography.bodyMedium)
+            // Smaller text/label than a default OutlinedTextField — three of these side by side
+            // otherwise carry more visual weight than a single short number needs.
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedTextField(
+                    value = daysText,
+                    onValueChange = { input ->
+                        daysText = input
+                        recalcEndFromDHM(input, hoursText, minutesText)
+                    },
+                    label = { Text("Days", style = MaterialTheme.typography.labelSmall) },
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = hoursText,
+                    onValueChange = { input ->
+                        hoursText = input
+                        recalcEndFromDHM(daysText, input, minutesText)
+                    },
+                    label = { Text("Hours", style = MaterialTheme.typography.labelSmall) },
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = minutesText,
+                    onValueChange = { input ->
+                        minutesText = input
+                        recalcEndFromDHM(daysText, hoursText, input)
+                    },
+                    label = { Text("Min", style = MaterialTheme.typography.labelSmall) },
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         if (showEndDatePicker) {
@@ -423,8 +402,10 @@ private fun CaseDurationSwitchPreviewContent() {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
             // Label + info icon + switch on one row, matching the Track intensity row (CaseEditScreen.kt:338).
+            // "Track duration" (placeholder, not a Voice key yet) replaces voice.caseDurationModeLabel
+            // ("Duration") now that the row is an on/off switch, not a 3-way picker.
             RowWithInfo(
-                voice.caseDurationModeLabel,
+                "Track duration",
                 voice.caseDurationModeInfoTitle,
                 voice.caseDurationModeInfoBody,
                 voice.caseSectionInfoDescription,
@@ -585,7 +566,9 @@ private fun EditEventOngoingNoDurationScreenPlainLightPreview() {
             LocalCardDecorationStyle provides CardDecorationStyle.PLAIN,
             LocalVoice provides voiceFor(AppTheme.PLAIN),
         ) {
-            EditEventScreenPreviewContent(startedAt = System.currentTimeMillis() - 2 * MILLIS_PER_HOUR, initialEndedAt = null)
+            // "1d 11h 20m" elapsed — exercises all three Days/Hours/Minutes fields non-trivially.
+            val elapsed = MILLIS_PER_DAY + 11 * MILLIS_PER_HOUR + 20 * MILLIS_PER_MINUTE
+            EditEventScreenPreviewContent(startedAt = System.currentTimeMillis() - elapsed, initialEndedAt = null)
         }
     }
 }
