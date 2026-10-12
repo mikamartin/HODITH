@@ -60,9 +60,6 @@ interface HodithRepository {
     /** Lean per-event projection (timing, intensity, note) for every active Case — the Big Picture grid (spec §9). */
     fun observeActiveCaseEventDetails(): Flow<List<CaseEventDetail>>
 
-    /** Every open-ended event across all Cases, earliest first — Home / widget ongoing indicators (spec §6). */
-    fun observeOpenEvents(): Flow<List<EventEntity>>
-
     /** Most recent moment any active Case's event was actually logged — feeds the Trends `WENT_QUIET` finding's cross-Case "still using the app" signal. */
     fun observeMostRecentLoggedAtAcrossActiveCases(): Flow<Long?>
 
@@ -81,6 +78,12 @@ interface HodithRepository {
 
     /** An event on the Case with no `endedAt`, if any. Only meaningful for a `START_STOP` Case (spec §6). */
     suspend fun getOngoingEvent(caseId: Long): EventEntity?
+
+    /** Whether the Case has an event whose `endedAt` is still after [now]. Only meaningful for a `MANUAL` Case (spec §6). */
+    suspend fun hasEventEndingAfter(
+        caseId: Long,
+        now: Long,
+    ): Boolean
 
     suspend fun insertEvent(event: EventEntity): Long
 

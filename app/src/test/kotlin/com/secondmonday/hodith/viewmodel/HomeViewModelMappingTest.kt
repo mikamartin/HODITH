@@ -198,7 +198,7 @@ class HomeViewModelMappingTest {
     }
 
     @Test
-    fun `spans and open events for cases not in the list are ignored (widget passes the full set)`() {
+    fun `spans for cases not in the list are ignored (widget passes the full set)`() {
         val todayMillis = startOfToday.plusHours(1).toInstant().toEpochMilli()
         val rows =
             homeCaseRows(
@@ -206,11 +206,7 @@ class HomeViewModelMappingTest {
                 eventSpans =
                     listOf(
                         CaseEventSpan(caseId = 1L, occurredAt = todayMillis, endedAt = null, durationMode = DurationMode.NONE),
-                        CaseEventSpan(caseId = 2L, occurredAt = todayMillis, endedAt = null, durationMode = DurationMode.NONE),
-                    ),
-                openEvents =
-                    listOf(
-                        Fixtures.event(id = 9L, caseId = 2L, occurredAt = todayMillis, endedAt = null),
+                        CaseEventSpan(caseId = 2L, occurredAt = todayMillis, endedAt = null, durationMode = DurationMode.START_STOP),
                     ),
                 nowMillis = now.toInstant().toEpochMilli(),
             )
@@ -279,7 +275,41 @@ class HomeViewModelMappingTest {
                 now.toInstant().toEpochMilli(),
             )
 
-        assertEquals(open, rows.single().ongoingEvent)
+        assertEquals(
+            CaseEventSpan(caseId = 1L, occurredAt = 0L, endedAt = null, durationMode = DurationMode.START_STOP),
+            rows.single().ongoingEvent,
+        )
+    }
+
+    @Test
+    fun `maps a MANUAL event whose endedAt is still in the future as ongoingEvent`() {
+        val futureEndedAt = now.toInstant().toEpochMilli() + 1
+        val stillRunning = testEvent(occurredAt = 0L).copy(endedAt = futureEndedAt)
+        val rows =
+            homeRows(
+                listOf(caseWithEvents(events = listOf(stillRunning), durationMode = DurationMode.MANUAL)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertEquals(
+            CaseEventSpan(caseId = 1L, occurredAt = 0L, endedAt = futureEndedAt, durationMode = DurationMode.MANUAL),
+            rows.single().ongoingEvent,
+        )
+        assertEquals(1, rows.single().runningCount)
+    }
+
+    @Test
+    fun `ongoingEvent is null for a MANUAL event whose endedAt has already passed`() {
+        val pastEndedAt = now.toInstant().toEpochMilli() - 1
+        val finished = testEvent(occurredAt = 0L).copy(endedAt = pastEndedAt)
+        val rows =
+            homeRows(
+                listOf(caseWithEvents(events = listOf(finished), durationMode = DurationMode.MANUAL)),
+                now.toInstant().toEpochMilli(),
+            )
+
+        assertNull(rows.single().ongoingEvent)
+        assertEquals(0, rows.single().runningCount)
     }
 
     @Test
@@ -332,13 +362,16 @@ class HomeViewModelMappingTest {
 
         val row = rows.single()
         assertEquals(3, row.runningCount)
-        assertEquals(first, row.ongoingEvent)
+        assertEquals(
+            CaseEventSpan(caseId = 1L, occurredAt = 100L, endedAt = null, durationMode = DurationMode.START_STOP),
+            row.ongoingEvent,
+        )
     }
 
     /**
      * Bridges the old `CaseWithEvents`-shaped fixtures to [homeCaseRows]' current inputs: the flat
-     * Case list, the `CaseEventSpan` projection (`observeActiveCaseEventSpans`' flat join), and the
-     * open-events list (`observeOpenEvents`). Keeps every boundary assertion below unchanged.
+     * Case list and the `CaseEventSpan` projection (`observeActiveCaseEventSpans`' flat join).
+     * Keeps every boundary assertion below unchanged.
      */
     private fun homeRows(
         casesWithEvents: List<CaseWithEvents>,
@@ -348,8 +381,7 @@ class HomeViewModelMappingTest {
             casesWithEvents.flatMap { (case, events) ->
                 events.map { CaseEventSpan(case.id, it.occurredAt, it.endedAt, case.durationMode) }
             }
-        val openEvents = casesWithEvents.flatMap { it.events }.filter { it.endedAt == null }
-        return homeCaseRows(casesWithEvents.map { it.case }, spans, openEvents, nowMillis)
+        return homeCaseRows(casesWithEvents.map { it.case }, spans, nowMillis)
     }
 
     private fun caseWithEvents(

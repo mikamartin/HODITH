@@ -85,15 +85,16 @@ fun evaluateOften(
 
 /**
  * In-memory counterpart of `NotificationEvaluator.silenceAnchorFor`'s own doc comment
- * (notification/NotificationEvaluator.kt) — the same rule (a running `START_STOP` event reads as
- * "now"; a Case that no longer tracks duration anchors on the latest `occurredAt`; otherwise the
- * latest of each event's `endedAt` or its own `occurredAt` when no duration was recorded — the same
- * `MAX(IFNULL(endedAt, occurredAt))` [EventDao.getLatestEventEndForCase] runs in SQL), restated here
- * rather than shared because the bell tab's Now line already holds the Case's full event list in
- * memory and has no reason to make three separate repository suspend calls to re-derive it the way
- * the evaluator does. These two must be kept in sync by hand — a rule change in one needs the same
- * change made in the other. Null with no events at all, matching [evaluateQuiet]'s own
- * `mostRecentEventAt ?: caseCreatedAt` fallback — the caller falls back to the Case's `createdAt`.
+ * (notification/NotificationEvaluator.kt) — the same rule (any still-running event, per
+ * [isStillRunning], reads as "now"; a Case that no longer tracks duration anchors on the latest
+ * `occurredAt`; otherwise the latest of each event's `endedAt` or its own `occurredAt` when no
+ * duration was recorded — the same `MAX(IFNULL(endedAt, occurredAt))`
+ * [EventDao.getLatestEventEndForCase] runs in SQL), restated here rather than shared because the
+ * bell tab's Now line already holds the Case's full event list in memory and has no reason to make
+ * four separate repository suspend calls to re-derive it the way the evaluator does. These two
+ * must be kept in sync by hand — a rule change in one needs the same change made in the other.
+ * Null with no events at all, matching [evaluateQuiet]'s own `mostRecentEventAt ?: caseCreatedAt`
+ * fallback — the caller falls back to the Case's `createdAt`.
  */
 fun silenceAnchorForEvents(
     events: List<EventEntity>,
@@ -101,7 +102,7 @@ fun silenceAnchorForEvents(
     now: Long,
 ): Long? {
     if (events.isEmpty()) return null
-    if (durationMode == DurationMode.START_STOP && events.any { it.endedAt == null }) return now
+    if (events.any { isStillRunning(it, durationMode, now) }) return now
     if (!durationMode.tracksDuration) return events.maxOf { it.occurredAt }
     return events.maxOf { it.endedAt ?: it.occurredAt }
 }

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CaseEventSpan
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.SettingsRepository
@@ -14,6 +13,7 @@ import com.secondmonday.hodith.data.quickLogEvent
 import com.secondmonday.hodith.di.DefaultDispatcher
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.activeSpanEnd
+import com.secondmonday.hodith.domain.isStillRunning
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
@@ -47,11 +47,13 @@ data class HomeCaseRow(
     val intensityEnabled: Boolean,
     val description: String? = null,
     /**
-     * The earliest-started open event for a `START_STOP` case, or null. Drives the single
-     * elapsed-time display; past one running event the row shows [runningCount] instead.
+     * The earliest-started still-running event (per [isStillRunning] — a `START_STOP` event with
+     * no `endedAt`, or a `MANUAL` event whose `endedAt` is still in the future), or null. Drives
+     * the single elapsed-time/expected-end display; past one running event the row shows
+     * [runningCount] instead.
      */
-    val ongoingEvent: EventEntity? = null,
-    /** How many events are currently running on this Case (0 unless `START_STOP`). */
+    val ongoingEvent: CaseEventSpan? = null,
+    /** How many events are currently running on this Case (0 unless `START_STOP`/`MANUAL`). */
     val runningCount: Int = 0,
 )
 
@@ -196,12 +198,18 @@ class HomeViewModel
     }
 
 /**
- * Every active Case's Home row, from three lean projections — the flat Case list for
- * identity/config, `EventDao.observeActiveCaseEventSpans` for the today/this-week counts, and
- * `observeOpenEvents` for the ongoing indicator — never the events-per-Case `@Relation` graph.
- * Shared by [HomeViewModel] and both Glance widgets (each filters the result to its own Cases).
- * Room re-emits all three on any `events` write, but each payload is small. [now] is read per
- * emission ([HomeViewModel] passes `clock::nowMillis`; a widget passes its once-captured value).
+ * Every active Case's Home row, from two lean projections — the flat Case list for
+ * identity/config and `EventDao.observeActiveCaseEventSpans` for both the today/this-week counts
+ * and the ongoing indicator — never the events-per-Case `@Relation` graph. Shared by
+ * [HomeViewModel] and both Glance widgets (each filters the result to its own Cases). Room
+ * re-emits both on any `events` write, but each payload is small. [now] is read per emission
+ * ([HomeViewModel] passes `clock::nowMillis`; a widget passes its once-captured value).
+ *
+ * The ongoing indicator deliberately doesn't read `observeOpenEvents` (`endedAt IS NULL`): that
+ * query can only ever see a `START_STOP` event, never a `MANUAL` one whose `endedAt` is merely
+ * still in the future (per [isStillRunning]) — a state that expires purely by the passage of
+ * time, not by any database write, so [eventSpans] (already loaded for the counts) is recomputed
+ * against the fresh [now] on every call instead.
  */
 internal fun homeCaseRowsFlow(
     repository: HodithRepository,
@@ -210,21 +218,19 @@ internal fun homeCaseRowsFlow(
     combine(
         repository.observeActiveCases(),
         repository.observeActiveCaseEventSpans(),
-        repository.observeOpenEvents(),
-    ) { cases, eventSpans, openEvents ->
-        homeCaseRows(cases, eventSpans, openEvents, now())
+    ) { cases, eventSpans ->
+        homeCaseRows(cases, eventSpans, now())
     }
 
 /**
  * Pure mapping, split out so the today/this-week boundary math is unit-testable on the JVM
- * without a repository or Hilt. [eventSpans] and [openEvents] span *every* active Case; both are
- * grouped by `caseId` here, and spans/opens for a Case not in [cases] are ignored (so a widget
- * can pass the full set and let [cases] narrow the output).
+ * without a repository or Hilt. [eventSpans] spans *every* active Case, grouped by `caseId` here —
+ * spans for a Case not in [cases] are ignored (so a widget can pass the full set and let [cases]
+ * narrow the output).
  */
 internal fun homeCaseRows(
     cases: List<CaseEntity>,
     eventSpans: List<CaseEventSpan>,
-    openEvents: List<EventEntity>,
     nowMillis: Long,
 ): List<HomeCaseRow> {
     val zone = ZoneId.systemDefault()
@@ -237,10 +243,9 @@ internal fun homeCaseRows(
             .toInstant()
             .toEpochMilli()
     val spansByCase = eventSpans.groupBy { it.caseId }
-    val openEventsByCase = openEvents.groupBy { it.caseId }
     return cases.map { case ->
         val spans = spansByCase[case.id].orEmpty()
-        val open = ongoingEventsIn(case, openEventsByCase[case.id].orEmpty())
+        val stillRunning = spans.filter { isStillRunning(it.endedAt, it.durationMode, nowMillis) }.sortedBy { it.occurredAt }
         // Spec §9 active span: an event counts toward a window if its span reaches into it,
         // counted once whatever its length — so Home agrees with the calendar heatmap.
         // activeSpanEnd handles the NONE-collapses-to-a-point and running-runs-to-now cases.
@@ -254,8 +259,8 @@ internal fun homeCaseRows(
             durationMode = case.durationMode,
             intensityEnabled = case.intensityEnabled,
             description = case.description,
-            ongoingEvent = open.firstOrNull(),
-            runningCount = open.size,
+            ongoingEvent = stillRunning.firstOrNull(),
+            runningCount = stillRunning.size,
         )
     }
 }

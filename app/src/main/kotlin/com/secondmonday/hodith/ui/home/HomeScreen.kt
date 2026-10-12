@@ -42,14 +42,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.CaseEventSpan
 import com.secondmonday.hodith.data.DurationMode
-import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.FabListBottomClearance
 import com.secondmonday.hodith.ui.common.NotificationsDeniedBanner
 import com.secondmonday.hodith.ui.common.OngoingCountText
-import com.secondmonday.hodith.ui.common.OngoingElapsedText
+import com.secondmonday.hodith.ui.common.OngoingTimeText
 import com.secondmonday.hodith.ui.common.acronymHighlighted
 import com.secondmonday.hodith.ui.common.rememberTickingNow
 import com.secondmonday.hodith.ui.logsheet.LogDetailSheet
@@ -58,6 +58,7 @@ import com.secondmonday.hodith.ui.theme.GlowCard
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.IconHalo
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
@@ -305,7 +306,15 @@ private fun HomeCaseRowBody(
             }
             when {
                 row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
-                ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
+                ongoing != null ->
+                    OngoingTimeText(
+                        startedAt = ongoing.occurredAt,
+                        expectedEndAt = ongoing.endedAt,
+                        durationMode = row.durationMode,
+                        now = now,
+                        use24Hour = LocalTimeFormat.current.is24Hour,
+                        voice = voice,
+                    )
                 else ->
                     Text(
                         text = voice.homeCaseCounts(row.todayCount, row.weekCount),
@@ -357,7 +366,15 @@ private fun BrightHomeCaseListItem(
                 }
                 when {
                     row.runningCount >= 2 -> OngoingCountText(count = row.runningCount, voice = voice)
-                    ongoing != null -> OngoingElapsedText(startedAt = ongoing.occurredAt, now = now, voice = voice)
+                    ongoing != null ->
+                        OngoingTimeText(
+                            startedAt = ongoing.occurredAt,
+                            expectedEndAt = ongoing.endedAt,
+                            durationMode = row.durationMode,
+                            now = now,
+                            use24Hour = LocalTimeFormat.current.is24Hour,
+                            voice = voice,
+                        )
                     else ->
                         Text(
                             text = voice.homeCaseCounts(row.todayCount, row.weekCount),
@@ -402,9 +419,21 @@ private val previewRows =
             logFlow = LogFlow.ONE_TAP,
             durationMode = DurationMode.START_STOP,
             intensityEnabled = false,
-            ongoingEvent =
-                EventEntity(caseId = 3, occurredAt = 0L, endedAt = null, intensity = null, note = null, loggedAt = 0L),
+            ongoingEvent = CaseEventSpan(caseId = 3, occurredAt = 0L, endedAt = null, durationMode = DurationMode.START_STOP),
             runningCount = 2,
+        ),
+        HomeCaseRow(
+            caseId = 4,
+            icon = "🍲",
+            name = "Slow cooker",
+            todayCount = 1,
+            weekCount = 1,
+            logFlow = LogFlow.DETAIL_SHEET,
+            durationMode = DurationMode.MANUAL,
+            intensityEnabled = false,
+            ongoingEvent =
+                CaseEventSpan(caseId = 4, occurredAt = 0L, endedAt = 2 * 60 * 60 * 1000L, durationMode = DurationMode.MANUAL),
+            runningCount = 1,
         ),
     )
 

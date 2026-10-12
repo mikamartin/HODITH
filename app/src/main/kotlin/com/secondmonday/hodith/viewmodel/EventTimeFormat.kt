@@ -138,6 +138,26 @@ internal fun formatSpanDateTime(
 /** Localized medium date — the Big Picture day/week detail dialog titles. */
 internal fun formatMediumDate(date: LocalDate): String = date.format(MEDIUM_DATE_FORMATTER)
 
+/**
+ * A `MANUAL` event's projected/expected `endedAt` (spec §6), for the ongoing-indicator's trailing
+ * text (History/Insights rows, Home, widgets): bare time-of-day ([formatEventTimeOfDay]) when it
+ * falls on the same calendar day as [now], else the fuller [formatSpanDateTime] — the same
+ * same-day-vs-not rule Big Picture's own span endpoints use, and shared here so the ongoing
+ * indicator's trailing text doesn't run noticeably longer than its sibling
+ * [formatElapsedDuration]'s compact "2h 15m" in the common same-day case. A plain function (not a
+ * `@Composable`) so both the Compose ongoing indicator and the Glance widgets' own subtitle can
+ * call it.
+ */
+internal fun formatExpectedEndTime(
+    expectedEndAt: Long,
+    now: Long,
+    use24Hour: Boolean,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String {
+    val sameDay = Instant.ofEpochMilli(expectedEndAt).atZone(zone).toLocalDate() == Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    return if (sameDay) formatEventTimeOfDay(expectedEndAt, use24Hour, zone) else formatSpanDateTime(expectedEndAt, use24Hour, zone)
+}
+
 /** "EEE d" — the per-day header inside the Big Picture week detail dialog. */
 internal fun formatWeekdayDayDate(date: LocalDate): String = date.format(WEEKDAY_DAY_FORMATTER)
 

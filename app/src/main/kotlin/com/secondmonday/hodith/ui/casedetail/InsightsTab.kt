@@ -79,13 +79,14 @@ import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
+import com.secondmonday.hodith.domain.isStillRunning
 import com.secondmonday.hodith.domain.tagsVisibleEntries
 import com.secondmonday.hodith.domain.timeOfDayFor
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.MinAvgMaxLabels
 import com.secondmonday.hodith.ui.common.MinAvgMaxRow
-import com.secondmonday.hodith.ui.common.OngoingElapsedText
+import com.secondmonday.hodith.ui.common.OngoingTimeText
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.StatColumn
@@ -229,8 +230,7 @@ internal fun InsightsTabContent(
                         // A still-running event's open end is "now," not a captured instant, so it
                         // resolves via the live current zone rather than the event's own (possibly
                         // stale, pre-travel) offset — matching BigPictureGrid's private coveredDates.
-                        val isOngoing = case.durationMode == DurationMode.START_STOP && ew.event.endedAt == null
-                        val endZone = if (isOngoing) zone else ew.event.loggedZone()
+                        val endZone = if (isStillRunning(ew.event, case.durationMode, now)) zone else ew.event.loggedZone()
                         day in
                             datesCovered(
                                 ew.event.occurredAt,
@@ -1314,7 +1314,7 @@ private fun InsightsDrillDownEventRow(
     suppressTagName: String? = null,
 ) {
     val event = eventWithTags.event
-    val isOngoing = durationMode == DurationMode.START_STOP && event.endedAt == null
+    val isOngoing = isStillRunning(event, durationMode, now)
 
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp)) {
         Text(
@@ -1322,7 +1322,15 @@ private fun InsightsDrillDownEventRow(
             style = MaterialTheme.typography.bodyLarge,
         )
         if (isOngoing) {
-            OngoingElapsedText(startedAt = event.occurredAt, now = now, voice = voice)
+            OngoingTimeText(
+                startedAt = event.occurredAt,
+                expectedEndAt = event.endedAt,
+                durationMode = durationMode,
+                now = now,
+                use24Hour = LocalTimeFormat.current.is24Hour,
+                voice = voice,
+                zone = event.loggedZone(),
+            )
         }
         val details =
             eventDetailSummary(

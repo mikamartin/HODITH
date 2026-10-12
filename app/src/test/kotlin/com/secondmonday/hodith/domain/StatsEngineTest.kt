@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
@@ -277,6 +278,24 @@ class StatsEngineTest {
             )
 
         val result = computeDurationStats(events)!!
+
+        assertEquals(15.0, result.averageMinutes, 0.0001)
+        assertEquals(15L, result.shortestMinutes)
+        assertEquals(15L, result.longestMinutes)
+        assertEquals(15L, result.totalMinutes)
+    }
+
+    @Test
+    fun `computeDurationStats excludes a MANUAL event whose endedAt is still in the future`() {
+        val start = millisAtDay(0)
+        val now = start + 60 * 60_000L
+        val events =
+            listOf(
+                eventAt(start, endedAt = start + 15 * 60_000L), // finished, counted
+                eventAt(start, endedAt = now + 60 * 60_000L), // not yet elapsed, excluded
+            )
+
+        val result = computeDurationStats(events, DurationMode.MANUAL, now)!!
 
         assertEquals(15.0, result.averageMinutes, 0.0001)
         assertEquals(15L, result.shortestMinutes)
@@ -944,6 +963,32 @@ class StatsEngineTest {
             }
 
         val finding = computeTagOutcomeFindings(validTagged + reversedTagged + untagged).single()
+
+        assertEquals(90.0, finding.withTagMean, 0.0001)
+        assertEquals(TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT, finding.sampleCount)
+    }
+
+    @Test
+    fun `computeTagOutcomeFindings excludes a MANUAL event whose endedAt is still in the future from a duration comparison`() {
+        val now = millisAtDay(1_000)
+        val validTagged =
+            (0 until TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT).map { day ->
+                val occurredAt = millisAtDay(day.toLong())
+                EventWithTags(eventAt(occurredAt, endedAt = occurredAt + 90 * MILLIS_PER_MINUTE), listOf(aura))
+            }
+        val notYetElapsedTagged =
+            (100 until 105).map { day ->
+                val occurredAt = millisAtDay(day.toLong())
+                EventWithTags(eventAt(occurredAt, endedAt = now + 10 * MILLIS_PER_MINUTE), listOf(aura))
+            }
+        val untagged =
+            (200 until 200 + TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT).map { day ->
+                val occurredAt = millisAtDay(day.toLong())
+                EventWithTags(eventAt(occurredAt, endedAt = occurredAt + 30 * MILLIS_PER_MINUTE), emptyList())
+            }
+
+        val finding =
+            computeTagOutcomeFindings(validTagged + notYetElapsedTagged + untagged, DurationMode.MANUAL, now).single()
 
         assertEquals(90.0, finding.withTagMean, 0.0001)
         assertEquals(TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT, finding.sampleCount)

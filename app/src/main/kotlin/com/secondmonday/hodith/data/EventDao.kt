@@ -94,6 +94,13 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE caseId = :caseId AND endedAt IS NULL LIMIT 1")
     suspend fun getOngoingEvent(caseId: Long): EventEntity?
 
+    /** Whether the Case has an event whose `endedAt` is still after [now] — a `MANUAL` event's stated/expected duration that hasn't elapsed yet (spec §6). Only meaningful for a `MANUAL` Case. */
+    @Query("SELECT EXISTS(SELECT 1 FROM events WHERE caseId = :caseId AND endedAt > :now)")
+    suspend fun hasEventEndingAfter(
+        caseId: Long,
+        now: Long,
+    ): Boolean
+
     /**
      * Lean per-event projection for Home / the widgets' today / this-week counts — `caseId`,
      * timing, and the owning Case's `durationMode`, for every active Case's events. One flat JOIN,
@@ -105,10 +112,6 @@ interface EventDao {
             "FROM events e JOIN cases c ON c.id = e.caseId WHERE c.archived = 0",
     )
     fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>>
-
-    /** Every open-ended event across all Cases, earliest first — Home / widget ongoing indicators. Small set (only running events). */
-    @Query("SELECT * FROM events WHERE endedAt IS NULL ORDER BY occurredAt")
-    fun observeOpenEvents(): Flow<List<EventEntity>>
 
     /**
      * Most recent moment any active Case's event was actually logged — `loggedAt`, the real

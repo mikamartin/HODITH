@@ -13,13 +13,18 @@ import com.secondmonday.hodith.MainActivity
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.SettingsRepository
+import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
+import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import com.secondmonday.hodith.viewmodel.formatExpectedEndTime
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -70,19 +75,29 @@ class WidgetActionsFlowTest {
     @Inject
     lateinit var repository: HodithRepository
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     private lateinit var context: Context
     private lateinit var host: AppWidgetHost
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var secondWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var insertedCaseId = 0L
+    private var originalTimeFormat = TimeFormat.TWELVE_HOUR
 
     @Before
-    fun setUp() {
-        hiltRule.inject()
-        context = ApplicationProvider.getApplicationContext()
-        host = AppWidgetHost(context, HOST_ID)
-        host.startListening()
-    }
+    fun setUp() =
+        runBlocking {
+            hiltRule.inject()
+            context = ApplicationProvider.getApplicationContext()
+            host = AppWidgetHost(context, HOST_ID)
+            host.startListening()
+            // Deterministic for manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle's exact-text
+            // assertion — the widget reads this from Settings (ListWidget.kt's rememberWidgetUse24Hour),
+            // not a device/locale default that would vary by emulator image.
+            originalTimeFormat = settingsRepository.observeTimeFormat().first()
+            settingsRepository.setTimeFormat(TimeFormat.TWELVE_HOUR)
+        }
 
     @After
     fun tearDown() =
@@ -97,6 +112,7 @@ class WidgetActionsFlowTest {
             if (insertedCaseId != 0L) {
                 repository.getCase(insertedCaseId)?.let { repository.deleteCase(it) }
             }
+            settingsRepository.setTimeFormat(originalTimeFormat)
         }
 
     @Test
@@ -192,6 +208,27 @@ class WidgetActionsFlowTest {
             }
         }
     }
+
+    @Test
+    fun manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle() =
+        runBlocking {
+            val caseName = "Slow Cooker ${System.currentTimeMillis()}"
+            insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.MANUAL))
+            // Real wall-clock, same reason as singleCaseWidget_todayCount below: the widget reads
+            // the injected (real) clock. A typed duration projecting an hour past now (spec §6).
+            val now = System.currentTimeMillis()
+            val expectedEndAt = now + MILLIS_PER_HOUR
+            repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = now, endedAt = expectedEndAt))
+            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
+
+            waitForClickableWithText(PlainVoice.ongoingPillLabel)
+            // Matches the TWELVE_HOUR format setUp() pins Settings to.
+            val expectedTrailing = PlainVoice.ongoingExpectedEndTrailing(formatExpectedEndTime(expectedEndAt, now, use24Hour = false))
+            assertTrue(
+                "Expected the expected-end trailing text in the widget subtitle",
+                collectText(renderedView(context, host, appWidgetId)).any { it.contains(expectedTrailing) },
+            )
+        }
 
     @Test
     fun singleCaseWidget_todayCount_creditsADurationEventStillActiveToday() =

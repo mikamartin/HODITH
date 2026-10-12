@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.ShareInsightsSection
@@ -16,6 +15,7 @@ import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.filterAndSortEvents
+import com.secondmonday.hodith.domain.isStillRunning
 import com.secondmonday.hodith.ui.casedetail.trendsVisibleFindings
 import com.secondmonday.hodith.ui.voice.Voice
 import java.time.ZoneId
@@ -358,7 +358,7 @@ private fun historyCardRow(
     voice: Voice,
 ): HistoryCardRow {
     val event = eventWithTags.event
-    val isOngoing = case.durationMode == DurationMode.START_STOP && event.endedAt == null
+    val isOngoing = isStillRunning(event, case.durationMode, now)
 
     return HistoryCardRow(
         timestamp = formatEventTime(event.occurredAt, now, use24Hour, zone = event.loggedZone()),

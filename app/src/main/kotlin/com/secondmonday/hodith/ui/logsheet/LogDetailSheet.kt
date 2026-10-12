@@ -74,8 +74,11 @@ import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.TimeEditRejection
 import com.secondmonday.hodith.viewmodel.applyPickedDate
 import com.secondmonday.hodith.viewmodel.applyPickedTime
+import com.secondmonday.hodith.viewmodel.computeEndedAt
 import com.secondmonday.hodith.viewmodel.formatEventDate
+import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.formatEventTimeOfDay
+import com.secondmonday.hodith.viewmodel.stoppedNow
 import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
 import com.secondmonday.hodith.viewmodel.validateEndEdit
 import com.secondmonday.hodith.viewmodel.validateStartEdit
@@ -241,6 +244,25 @@ fun LogDetailForm(
                     onUnitChange = { draft = draft.copy(durationUnit = it) },
                     voice = voice,
                 )
+                val projectedEndedAt =
+                    computeEndedAt(
+                        draft.occurredAt,
+                        DurationMode.MANUAL,
+                        draft.durationAmount,
+                        draft.durationUnit,
+                        draft.endedAt,
+                        draft.existingEndedAt,
+                        now,
+                    )
+                if (projectedEndedAt != null && projectedEndedAt > now) {
+                    ExpectedEndNotice(
+                        expectedEndAt = projectedEndedAt,
+                        now = now,
+                        zone = zone,
+                        voice = voice,
+                        onStopNowClick = { draft = draft.stoppedNow(now) },
+                    )
+                }
             }
 
             OutlinedTextField(
@@ -528,6 +550,32 @@ private fun DurationSection(
         trailingIcon = { DurationUnitSelector(selected = unit, onSelect = onUnitChange, voice = voice) },
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/**
+ * MANUAL's counterpart to `START_STOP`'s ongoing-state ([EndTimeSection]): the typed duration
+ * projects past `now` (spec §6 — a stated/expected length rather than a fact only knowable in
+ * hindsight), so this names when it's due to end and offers the same immediate "Stop now" escape
+ * hatch, reusing its button label since the action is the same one — cap the duration at
+ * elapsed-so-far.
+ */
+@Composable
+private fun ExpectedEndNotice(
+    expectedEndAt: Long,
+    now: Long,
+    zone: ZoneId,
+    voice: Voice,
+    onStopNowClick: () -> Unit,
+) {
+    Column {
+        Text(
+            voice.logSheetExpectedEndNotice(formatEventTime(expectedEndAt, now, LocalTimeFormat.current.is24Hour, zone)),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        OutlinedButton(onClick = onStopNowClick, modifier = Modifier.padding(top = 4.dp)) {
+            Text(voice.logSheetStopNowAction)
+        }
+    }
 }
 
 @Composable

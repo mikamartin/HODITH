@@ -88,9 +88,7 @@ internal fun draftFrom(
     }
     // A non-positive stored span (a zero-length point event, or bad data from an old round-trip)
     // has no duration to edit — leave the amount blank rather than showing "0" or a negative.
-    val durationMillis = event.endedAt?.let { it - event.occurredAt }?.takeIf { it > 0L }
-    val durationUnit = durationMillis?.let(::durationUnitFor) ?: DurationUnit.MINUTES
-    val durationAmount = durationMillis?.let { (it / durationUnit.millis).toString() }.orEmpty()
+    val (durationAmount, durationUnit) = durationFieldsFor(event.endedAt?.let { it - event.occurredAt })
     return LogDraft(
         occurredAt = event.occurredAt,
         intensity = event.intensity,
@@ -101,6 +99,32 @@ internal fun draftFrom(
         endedAt = event.endedAt,
         existingEndedAt = event.endedAt,
     )
+}
+
+/**
+ * The amount/unit [LogDraft.durationAmount]/[LogDraft.durationUnit] pair that renders
+ * [durationMillis] back onto the MANUAL duration field — shared by [draftFrom] (loading an
+ * existing event) and [LogDraft.stoppedNow] (capping a still-projected one at elapsed-so-far). A
+ * non-positive or null span has no duration to show, so the amount is blank rather than "0".
+ */
+private fun durationFieldsFor(durationMillis: Long?): Pair<String, DurationUnit> {
+    val positiveMillis = durationMillis?.takeIf { it > 0L }
+    val unit = positiveMillis?.let(::durationUnitFor) ?: DurationUnit.MINUTES
+    val amount = positiveMillis?.let { (it / unit.millis).toString() }.orEmpty()
+    return amount to unit
+}
+
+/**
+ * "Stop now" for a `MANUAL` draft whose computed `endedAt` is still in the future (spec §6): caps
+ * the duration at elapsed-so-far rather than writing `endedAt` directly, since MANUAL has no
+ * `endedAt` field of its own in the sheet — only [draft.durationAmount]/[draft.durationUnit]
+ * (mirrors [com.secondmonday.hodith.ui.logsheet.LogDetailSheet]'s `START_STOP` "Stop now", which
+ * sets `endedAt = now` on its own draft field). Edits the draft only — the user still taps Save to
+ * persist, same as that `START_STOP` counterpart.
+ */
+internal fun LogDraft.stoppedNow(now: Long): LogDraft {
+    val (durationAmount, durationUnit) = durationFieldsFor((now - occurredAt).takeIf { it > 0L })
+    return copy(durationAmount = durationAmount, durationUnit = durationUnit)
 }
 
 /**

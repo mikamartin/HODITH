@@ -546,6 +546,13 @@ class WatchEngineTest {
     }
 
     @Test
+    fun `silenceAnchorForEvents anchors on now while a MANUAL event's endedAt hasn't elapsed yet`() {
+        val events = listOf(testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = millisAtDay(40)))
+
+        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, DurationMode.MANUAL, now = millisAtDay(30)))
+    }
+
+    @Test
     fun `silenceAnchorForEvents anchors on now with several START_STOP events running at once`() {
         val events =
             listOf(

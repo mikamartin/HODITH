@@ -82,6 +82,7 @@ class SingleCaseWidget : GlanceAppWidget() {
                         }
                     }
                 }
+            val use24Hour by rememberWidgetUse24Hour(entryPoint)
 
             GlanceTheme {
                 val glanceContext = LocalContext.current
@@ -111,7 +112,7 @@ class SingleCaseWidget : GlanceAppWidget() {
                                     .clickable(actionStartActivity(Intent(glanceContext, MainActivity::class.java))),
                         )
                     } else {
-                        SingleCaseContent(currentRow, now)
+                        SingleCaseContent(currentRow, now, use24Hour)
                     }
                 }
             }
@@ -127,6 +128,7 @@ class SingleCaseWidgetReceiver : GlanceAppWidgetReceiver() {
 private fun SingleCaseContent(
     row: HomeCaseRow,
     now: Long,
+    use24Hour: Boolean,
 ) {
     val context = LocalContext.current
     val caseDetailIntent =
@@ -147,7 +149,7 @@ private fun SingleCaseContent(
             verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
             Text(text = row.icon, style = TextStyle(fontSize = WidgetIconGlyphSize))
-            WidgetCaseSubtitle(row = row, now = now)
+            WidgetCaseSubtitle(row = row, now = now, use24Hour = use24Hour)
         }
         Spacer(modifier = GlanceModifier.height(WidgetSingleCaseLogButtonSpacing))
         // The log button stays put whether or not an event runs (spec §6) — on a running

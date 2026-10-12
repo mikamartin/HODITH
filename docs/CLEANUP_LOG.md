@@ -17,6 +17,42 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feature/manual-duration-ongoing-stop
+
+**Scope:** User request: show a `MANUAL`-duration event as "ongoing" — expected-end display plus an immediate Stop — once its computed duration projects past `now`, matching the existing `START_STOP` ongoing/Stop UX. Landed across the History tab, Insights drill-down rows, the Edit Event screen, Home, both Glance widgets, and Big Picture's day/week detail (display-only there, per the user's explicit scope cut: no Stop, since that screen targets a Case across many events, not a single one). Extended the existing "still-running events are excluded until they stop" stats rule to cover this new case too.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to every touched/new instrumented class across several passes as the diff grew (`CaseDetailScreenTest`, `HomeScreenTest`, `LogDetailScreenTest`, `BigPictureScreenTest`, `EventDaoTest`, `HomeCountQueriesTest`, `WidgetActionsFlowTest`, `CaseEditScreenTest`, `HistoryShareTabTest`, `InsightShareTabTest`, `CaseDetailWatchesTabTest`, `RoomHodithRepositoryHistoryEventsTest`) — all green, including two real bugs the first run of each caught (see Found & fixed).
+
+**Found & fixed:**
+- New shared domain predicate `isStillRunning` (`domain/ActiveSpan.kt`) replacing six duplicated `durationMode == START_STOP && endedAt == null` inline checks across `VerdictEngine`/`WatchEngine`/`BigPictureViewModel`/`ShareCardState`/`CaseDetailScreen`/`InsightsTab`; generalizes `activeSpanEnd` so a `MANUAL` event's not-yet-elapsed `endedAt` spans to `now` the same way a `START_STOP` open event already did.
+- `NotificationEvaluator.silenceAnchorFor`'s SQL-based counterpart (documented as needing to stay in sync "by hand" with `WatchEngine`'s in-memory version) had no way to see a `MANUAL` event's future `endedAt` at all (`getOngoingEvent`'s `endedAt IS NULL` query structurally can't). Added `EventDao.hasEventEndingAfter`/repository plumbing and wired it in, keeping its own doc-comment call count ("four suspend calls") in sync.
+- Extended "still-running events are excluded until they stop" to `MANUAL`'s duration-based stats: `computeDurationStats`, and the Trends `outcomeValueFor` used by tag→outcome/trend slope/time-of-day split — a still-running event's duration is now excluded (its intensity, if recorded, still counts).
+- Real stale-UI bug caught mid-build: the Stop button on a `MANUAL` row appeared to do nothing for up to 60s. `rememberTickingNow`'s `now` is a periodically-ticked Compose state, harmless for `START_STOP` (whose check is `endedAt == null`, independent of `now`) but `MANUAL`'s check compares `endedAt > now` — immediately after Stop, the freshly-written `endedAt` could still exceed the UI's stale `now`. Exposed the ticker as a `MutableState` and had the History tab's Stop callback bump it immediately alongside the stop action.
+- Home's ongoing indicator read from `observeOpenEvents` (`endedAt IS NULL`), which structurally can never see a `MANUAL` event's future `endedAt` — a state that expires by the passage of time, not a database write. Switched `homeCaseRows` to derive `ongoingEvent`/`runningCount` from the event-span projection it already loads, via `isStillRunning`, re-evaluated against a fresh `now` on every call. `HomeCaseRow.ongoingEvent` narrowed from `EventEntity` to the leaner `CaseEventSpan` it only ever needed fields from.
+- Checklist-surfaced (Duplication): four near-identical "elapsed-time vs. expected-end text" branches (History row, Insights drill-down row, Home's two row variants) collapsed into one shared `OngoingTimeText` composable.
+- Checklist-surfaced (Duplication): the widgets' identical `use24Hour`-from-Settings `produceState` block, duplicated between `ListWidget.kt` and `SingleCaseWidget.kt`, extracted to `WidgetCommon.kt`'s `rememberWidgetUse24Hour`.
+- Checklist-surfaced (UI Copy Brevity): `OngoingExpectedEndText`'s trailing text used the full `formatEventTime` (e.g. "Oct 14, 3:00 PM, Wed") — much longer than sibling `OngoingElapsedText`'s "2h 15m", and inconsistent with Big Picture's own new branch already using a bare clock time. New shared `formatExpectedEndTime` (same-day bare time, cross-day falls back to the shorter `formatSpanDateTime`) used by both the Compose composable and the widgets' own subtitle.
+- Checklist-surfaced (Dead Code): `observeOpenEvents` (`EventDao`/`HodithRepository`/`RoomHodithRepository`/`FakeHodithRepository`) had exactly one caller, which the Home fix above removed. Deleted outright, with its two dedicated tests (`FakeHodithRepositoryTest`, `HomeCountQueriesTest`).
+- Real pre-existing-test bug caught by the first instrumented run: `CaseDetailScreenTest.finishedEventRow_showsDurationLabel_whenTheCaseTracksDuration` used a `MANUAL` event with `endedAt` 45 minutes after start but the screen's default `now` only 10 seconds in — under the new semantics that event reads as still running, not finished, so the duration label stopped appearing. Fixed by passing an explicit `now` past the event's `endedAt`.
+- New `WidgetActionsFlowTest` coverage for the Single-case widget's `MANUAL` expected-end subtitle — this path had no automated coverage at all before this pass; caught my own test-setup bug (`use24Hour` in the assertion not matching what `setUp()` pinned Settings to) on the first run.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- A Stop action on Big Picture's day/week detail row for a still-running `MANUAL` event — explicitly scoped out by the user; display-only there.
+- Reconciling a `MANUAL` event's not-yet-elapsed `endedAt` in the duration-mode transition contract (switching a Case away from `MANUAL` mid-projection) — the existing "no migration for an inflated `endedAt` from an earlier round-trip, fixed by editing the event" policy already covers this without a special-case addition.
+
+**Checks:**
+- Duplication: see Found & fixed (`OngoingTimeText`, `rememberWidgetUse24Hour`, `formatExpectedEndTime`).
+- Decoupling: `isStillRunning`/`activeSpanEnd`/`computeDurationStats`/`outcomeValueFor` all stay pure Kotlin (`domain/`), no `android.*` imports; every new `now` comparison takes an injected value, nothing reads the system clock directly.
+- Accessibility: reused `StopIconButton`'s existing content description; the Edit Event screen's new "Stop now" button carries a text label, no icon-only affordance introduced.
+- Naming: three new `Voice` members (`ongoingExpectedEndTrailing`, `bigPictureEventExpectedEnd`, `logSheetExpectedEndNotice`) added to all three voices in the same commit.
+- Tests: new unit coverage for `isStillRunning`/`activeSpanEnd`, `computeDurationStats`/`computeTagOutcomeFindings` `MANUAL` exclusion, `silenceAnchorForEvents`/`NotificationEvaluator` `MANUAL` coverage, `BigPictureViewModel`'s `expectedEndAt`, `HomeViewModelMappingTest`'s `MANUAL` `ongoingEvent`/`runningCount`; new instrumented coverage for `EventDaoTest.hasEventEndingAfter`, the Edit Event screen's Stop-now round-trip, Home's `MANUAL` row, and the Single-case widget's `MANUAL` subtitle.
+
+**Docs updated:** HODITH_SPEC.md (§6 new "Manual duration projecting past now" bullet, plus the Event table, §9 Active span, Big Picture, and §15 widget bullets); TESTING.md (Watch evaluation, Notification evaluation, Stats & visual data prep, Room DAOs, ViewModels, Compose UI, and Compose UI — Big Picture rows extended or corrected); MANUAL_TEST_PLAN.md (item 6 extended for the List widget's `MANUAL` row); this entry (oldest entry, `test/autosize-harness-investigation`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/widget-edit-affordance
 
 **Scope:** Two user-reported bugs on the List widget's configure flow, found and fixed in sequence in the same session. First: the empty-widget message told users to long-press and tap Edit to pick Cases, but tapping it only opened the app (not the picker it promised), and long-press on the user's launcher only resizes — there's no reachable "Edit" affordance that way. Fixed by adding a persistent header edit icon (present in both the empty and populated states) and wiring it, plus the empty-state message, to relaunch the real `android:configure` Activity. That change made the Activity reachable from an already-placed widget for the first time, which exposed two further latent bugs that only ever held for first-ever setup: re-editing opened the app instead of returning to the widget, and re-editing always started from a blank selection instead of the widget's real one.
@@ -149,32 +185,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: regression coverage added at both layers — `CaseEditViewModelTest` (3 new cases for the notice-gating logic) and new instrumented coverage (`LogDetailIntensityTest`, `CaseEditScreenTest` additions), both run on-device.
 
 **Docs updated:** HODITH_SPEC.md (§6, the Watch table's `minIntensity` row), TESTING.md (Compose UI and ViewModels rows extended), PROGRESS.md (new follow-up item for the `outcomeValueFor` finding); this entry (oldest entry, `chore/voice-phrasing-audit`, removed per the 5-entry retention rule).
-
----
-
-## test/autosize-harness-investigation
-
-**Scope:** PROGRESS.md's "Instrumented tests can't observe `TextAutoSize`'s resolved font size" investigation item, opened during `fix/duration-selector-wrap` after two instrumented-test attempts (a bounding-box height assertion, a `GetTextLayoutResult`-semantics probe) both showed zero observable shrink across every tested width, even at an unreasonable 20dp-per-segment — not matching the real on-device behavior the user had confirmed.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite, nothing to re-run — only `androidTest` sources changed), and `connectedDebugAndroidTest` scoped to `SegmentedChoiceRowTest` (6/6 passing on a Pixel 8 API 36 emulator, including the new test).
-
-**Found & fixed:**
-- Root cause: both prior techniques resolved `onNodeWithText` (or the matching semantics action) to the *merged* `SegmentedButton` semantics node — not the inner `Text` leaf that `autoSize` actually resizes — and that merged node's measured height is pinned to `SegmentedButtonDefaults`' fixed minimum touch-target height (40dp), confirmed directly: a real `SegmentedChoiceRow` at 300dp width and the same row squeezed to 60dp both measured `onNodeWithText("Start/stop")` at exactly 40.0dp. `autoSize` itself was never broken in this harness — a bare `BasicText`/`Text` with `autoSize = TextAutoSize.StepBased(...)` shrinks correctly under the same `v2` `createComposeRule()` rule this repo already uses everywhere, and `SegmentedRowFontSizeCoordinator.resolved`, read directly, settled to a genuinely shrunk size (12sp against a 14sp baseline) through a real `SegmentedChoiceRow` at 60dp.
-- Added `coordinatedFontSize_shrinksBelowBaselineAtNarrowWidth` to `SegmentedChoiceRowTest.kt`: constructs its own `SegmentedRowFontSizeCoordinator`, provides it via `LocalSegmentedRowFontSizeCoordinator` (the same already-public API `SettingsScreen.kt` uses for its shared Appearance-section coordinator), and reads `coordinator.resolved` directly — the same value every segment's `onTextLayout` already reports in production — sidestepping the semantics tree entirely instead of inferring the font size from a bounding box or a semantics action.
-- Added a class doc comment to `SegmentedChoiceRowTest.kt` naming the merged-semantics/fixed-minHeight pitfall, so a future reader doesn't re-attempt either of the two techniques already ruled out.
-- Closed the PROGRESS.md item (both acceptance criteria met: root cause identified, working technique landed) and updated `fix/duration-selector-wrap`'s stale "worth a closer look later" Deferred bullet to point at this entry instead of dangling.
-
-**Deferred:** nothing — both acceptance criteria were met in this pass.
-
-**Considered and declined:**
-- A `Modifier.layout` constraints probe spliced into a locally-modified copy of `SegmentedChoiceRow` (the plan's fallback step for if the coordinator read had failed) — not needed once `coordinator.resolved` passed cleanly.
-- Comparing the classic (`androidx.compose.ui.test.junit4.createComposeRule`) and `v2` rules head-to-head — not needed once the bare-`autoSize` case passed under `v2` on the first attempt, ruling out the rule itself as a cause.
-
-**Checks:**
-- Duplication: the new test reuses `SegmentedRowFontSizeCoordinator`/`LocalSegmentedRowFontSizeCoordinator` as already-public API, no new test-only hook added to production code.
-- Decoupling: no `domain/`/`android.*` boundary touched; no production code changed at all, this pass was test- and doc-only.
-- Dead code: the throwaway diagnostic file used to stage the investigation (bare-`autoSize`, bounding-box comparison, and real-row height probes) was deleted once its purpose was served, not left behind — same convention as `fix/duration-selector-wrap`'s own diagnostic test.
-- Hygiene: `git status` clean; no secrets or local paths in the diff.
-- Naming: new test method name follows this class's existing `subject_condition` convention (e.g. `longLabelOption_doesNotWrapInPlainTheme`).
-
-**Docs updated:** TESTING.md (shared-components row extended), PROGRESS.md (item resolved and removed — see CLAUDE.md's outstanding-only convention for that file), CLEANUP_LOG.md's `fix/duration-selector-wrap` entry (Deferred bullet repointed); this entry.

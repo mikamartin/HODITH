@@ -14,6 +14,7 @@ import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.data.zoneOffsetFromMinutes
 import com.secondmonday.hodith.di.DefaultDispatcher
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.domain.isStillRunning
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,10 +44,15 @@ data class CalendarCase(
  * [intensity] carries through only for the day/week detail rows, and is null unless the Case has
  * intensity enabled. Duration is encoded on the grid only for an event whose active span covers
  * more than one calendar day: its icon then appears on every covered day and the start day's icon
- * is ringed. [endedAt] is null for a point event and for a still-running one — [isOngoing] tells
- * those apart, and a running event's span runs to today. [endedAt] is also null when the Case's
- * `durationMode` no longer tracks duration (spec §9: every event is then a point); this is a
- * render projection, never persisted, and the stored value stays intact.
+ * is ringed. [endedAt] is null for a point event and for a `START_STOP` still-running one —
+ * [isOngoing] tells those apart, and a running event's span runs to today. [endedAt] is also null
+ * when the Case's `durationMode` no longer tracks duration (spec §9: every event is then a point);
+ * this is a render projection, never persisted, and the stored value stays intact.
+ *
+ * [expectedEndAt] is the one case where [endedAt] *isn't* null on a still-running event: a `MANUAL`
+ * event's stated/expected duration hasn't elapsed yet ([isStillRunning]), so there's a real
+ * (not-yet-true) end instant to show rather than an open-ended "ongoing since" — the day/week
+ * detail row reads this instead of [isOngoing] when it's set.
  */
 data class CalendarEvent(
     val id: Long,
@@ -54,6 +60,7 @@ data class CalendarEvent(
     val occurredAt: Long,
     val endedAt: Long? = null,
     val isOngoing: Boolean = false,
+    val expectedEndAt: Long? = null,
     val note: String? = null,
     val intensity: Int? = null,
     val tags: List<String> = emptyList(),
@@ -175,22 +182,24 @@ internal fun bigPictureUiState(
         cases = cases.map { CalendarCase(id = it.id, icon = it.icon, name = it.name) },
         events =
             cases.flatMap { case ->
-                eventsByCase[case.id].orEmpty().map {
+                eventsByCase[case.id].orEmpty().map { event ->
+                    val stillRunning = isStillRunning(event.endedAt, case.durationMode, nowMillis)
                     CalendarEvent(
-                        id = it.id,
+                        id = event.id,
                         caseId = case.id,
-                        occurredAt = it.occurredAt,
+                        occurredAt = event.occurredAt,
                         // Spec §9: a Case that no longer tracks duration renders every event as a
                         // point — drop the stored endedAt here so coveredDates collapses to the
                         // start day. START_STOP always tracks, so isOngoing is unaffected.
-                        endedAt = if (case.durationMode.tracksDuration) it.endedAt else null,
-                        isOngoing = case.durationMode == DurationMode.START_STOP && it.endedAt == null,
-                        note = it.note,
+                        endedAt = if (case.durationMode.tracksDuration) event.endedAt else null,
+                        isOngoing = stillRunning,
+                        expectedEndAt = event.endedAt.takeIf { case.durationMode == DurationMode.MANUAL && stillRunning },
+                        note = event.note,
                         // Detail-row only (spec §9: intensity is never on the grid); null unless the
                         // Case has intensity enabled, same gate the Insights row uses.
-                        intensity = if (case.intensityEnabled) it.intensity else null,
-                        tags = tagsByEvent[it.id].orEmpty(),
-                        utcOffsetMinutes = it.utcOffsetMinutes,
+                        intensity = if (case.intensityEnabled) event.intensity else null,
+                        tags = tagsByEvent[event.id].orEmpty(),
+                        utcOffsetMinutes = event.utcOffsetMinutes,
                     )
                 }
             },

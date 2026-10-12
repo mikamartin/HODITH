@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.domain
 
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.latestActivityAt
@@ -182,9 +183,23 @@ internal fun computeTrendStats(
     return TrendStats(direction = direction, recentCount = recentCount, priorCount = priorCount)
 }
 
-/** Spec §10 duration stats: `null` when no event in [events] has a recorded duration (`endedAt` set). */
-internal fun computeDurationStats(events: List<EventEntity>): DurationStats? {
-    val durationsMillis = events.mapNotNull { event -> event.endedAt?.let { it - event.occurredAt } }.filter { it > 0 }
+/**
+ * Spec §10 duration stats: `null` when no event in [events] has a recorded duration (`endedAt`
+ * set). Excludes a still-running event ([isStillRunning]) — a `MANUAL` event's stated/expected
+ * duration isn't a completed fact until it actually elapses, the "still-running events are
+ * excluded until they stop" rule `START_STOP`'s own open events already got for free (a null
+ * `endedAt` drops out of the `mapNotNull` below on its own).
+ */
+internal fun computeDurationStats(
+    events: List<EventEntity>,
+    durationMode: DurationMode = DurationMode.NONE,
+    now: Long = 0L,
+): DurationStats? {
+    val durationsMillis =
+        events
+            .filterNot { isStillRunning(it, durationMode, now) }
+            .mapNotNull { event -> event.endedAt?.let { it - event.occurredAt } }
+            .filter { it > 0 }
     if (durationsMillis.isEmpty()) return null
 
     val totalMillis = durationsMillis.sum()
@@ -451,13 +466,18 @@ internal const val TAG_TIMING_MAX_FINDINGS = 3
  * capped at [TAG_OUTCOME_MAX_FINDINGS] — the second detector able to produce more than one finding
  * per Case.
  */
-internal fun computeTagOutcomeFindings(eventsWithTags: List<EventWithTags>): List<TagOutcomeResult> {
+internal fun computeTagOutcomeFindings(
+    eventsWithTags: List<EventWithTags>,
+    durationMode: DurationMode = DurationMode.NONE,
+    now: Long = 0L,
+): List<TagOutcomeResult> {
     val caseId = eventsWithTags.firstOrNull()?.event?.caseId ?: return emptyList()
     val tagNames = eventsWithTags.flatMap { it.tags }.map { it.name }.distinct()
 
     return tagNames
-        .flatMap { tagName -> TagOutcome.entries.mapNotNull { outcome -> tagOutcomeResultFor(eventsWithTags, caseId, tagName, outcome) } }
-        .sortedByDescending { abs(it.withTagMean - it.withoutTagMean) / it.withoutTagMean }
+        .flatMap { tagName ->
+            TagOutcome.entries.mapNotNull { outcome -> tagOutcomeResultFor(eventsWithTags, caseId, tagName, outcome, durationMode, now) }
+        }.sortedByDescending { abs(it.withTagMean - it.withoutTagMean) / it.withoutTagMean }
         .take(TAG_OUTCOME_MAX_FINDINGS)
 }
 
@@ -467,11 +487,13 @@ private fun tagOutcomeResultFor(
     caseId: Long,
     tagName: String,
     outcome: TagOutcome,
+    durationMode: DurationMode,
+    now: Long,
 ): TagOutcomeResult? {
     val tagged = mutableListOf<Double>()
     val untagged = mutableListOf<Double>()
     eventsWithTags.forEach { entry ->
-        val value = outcomeValueFor(entry.event, outcome) ?: return@forEach
+        val value = outcomeValueFor(entry.event, outcome, durationMode, now) ?: return@forEach
         if (entry.tags.any { it.name == tagName }) tagged += value else untagged += value
     }
     if (tagged.size < TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT || untagged.size < TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT) return null
@@ -494,7 +516,7 @@ private fun tagOutcomeResultFor(
         sampleCount = sampleCount,
         latestEvidenceAt =
             latestActivityWhere(eventsWithTags) { entry ->
-                entry.tags.any { it.name == tagName } && outcomeValueFor(entry.event, outcome) != null
+                entry.tags.any { it.name == tagName } && outcomeValueFor(entry.event, outcome, durationMode, now) != null
             },
     )
 }
@@ -510,15 +532,23 @@ private fun latestActivityWhere(
     predicate: (EventWithTags) -> Boolean,
 ): Long = eventsWithTags.filter(predicate).maxOf { it.event.latestActivityAt() }
 
-/** [event]'s value for [outcome], or `null` when it doesn't carry one — no recorded intensity, or no recorded (positive) duration, the same filter [computeDurationStats] uses. */
+/**
+ * [event]'s value for [outcome], or `null` when it doesn't carry one — no recorded intensity, or
+ * no recorded (positive, not-still-running) duration, the same filter [computeDurationStats]
+ * uses. A still-running event's intensity (if any) is a known fact already, and still counts —
+ * only its duration is excluded.
+ */
 private fun outcomeValueFor(
     event: EventEntity,
     outcome: TagOutcome,
+    durationMode: DurationMode,
+    now: Long,
 ): Double? =
     when (outcome) {
         TagOutcome.INTENSITY -> event.intensity?.toDouble()
         TagOutcome.DURATION ->
             event.endedAt
+                ?.takeUnless { isStillRunning(event, durationMode, now) }
                 ?.let { it - event.occurredAt }
                 ?.takeIf { it > 0 }
                 ?.let { it.toDouble() / MILLIS_PER_MINUTE }
@@ -532,11 +562,13 @@ private fun outcomeValueFor(
 internal fun computeTrendSlopeFindings(
     eventsWithTags: List<EventWithTags>,
     eligibleOutcomes: Set<TagOutcome>,
+    durationMode: DurationMode = DurationMode.NONE,
+    now: Long = 0L,
 ): List<TrendSlopeResult> {
     val caseId = eventsWithTags.firstOrNull()?.event?.caseId ?: return emptyList()
     return TagOutcome.entries
         .filter { it in eligibleOutcomes }
-        .mapNotNull { outcome -> trendSlopeResultFor(eventsWithTags, caseId, outcome) }
+        .mapNotNull { outcome -> trendSlopeResultFor(eventsWithTags, caseId, outcome, durationMode, now) }
 }
 
 /**
@@ -550,12 +582,14 @@ private fun trendSlopeResultFor(
     eventsWithTags: List<EventWithTags>,
     caseId: Long,
     outcome: TagOutcome,
+    durationMode: DurationMode,
+    now: Long,
 ): TrendSlopeResult? {
     val sorted = eventsWithTags.sortedBy { it.event.occurredAt }
     val firstOccurredAt = sorted.firstOrNull()?.event?.occurredAt ?: return null
     val pairs =
         sorted.mapNotNull { entry ->
-            outcomeValueFor(entry.event, outcome)?.let { value ->
+            outcomeValueFor(entry.event, outcome, durationMode, now)?.let { value ->
                 (entry.event.occurredAt - firstOccurredAt).toDouble() / MILLIS_PER_DAY to value
             }
         }
@@ -584,7 +618,10 @@ private fun trendSlopeResultFor(
         priorValue = firstHalf.average(),
         recentValue = secondHalf.average(),
         sampleCount = pairs.size,
-        latestEvidenceAt = latestActivityWhere(eventsWithTags) { entry -> outcomeValueFor(entry.event, outcome) != null },
+        latestEvidenceAt =
+            latestActivityWhere(
+                eventsWithTags,
+            ) { entry -> outcomeValueFor(entry.event, outcome, durationMode, now) != null },
     )
 }
 
@@ -609,11 +646,13 @@ private fun olsSlope(
 internal fun computeTimeOfDaySplitFindings(
     eventsWithTags: List<EventWithTags>,
     eligibleOutcomes: Set<TagOutcome>,
+    durationMode: DurationMode = DurationMode.NONE,
+    now: Long = 0L,
 ): List<TimeOfDaySplitResult> {
     val caseId = eventsWithTags.firstOrNull()?.event?.caseId ?: return emptyList()
     return TagOutcome.entries
         .filter { it in eligibleOutcomes }
-        .mapNotNull { outcome -> timeOfDaySplitResultFor(eventsWithTags, caseId, outcome) }
+        .mapNotNull { outcome -> timeOfDaySplitResultFor(eventsWithTags, caseId, outcome, durationMode, now) }
 }
 
 /**
@@ -628,11 +667,13 @@ private fun timeOfDaySplitResultFor(
     eventsWithTags: List<EventWithTags>,
     caseId: Long,
     outcome: TagOutcome,
+    durationMode: DurationMode,
+    now: Long,
 ): TimeOfDaySplitResult? {
     val dayGroup = mutableListOf<Double>()
     val eveningGroup = mutableListOf<Double>()
     eventsWithTags.forEach { entry ->
-        val value = outcomeValueFor(entry.event, outcome) ?: return@forEach
+        val value = outcomeValueFor(entry.event, outcome, durationMode, now) ?: return@forEach
         val hour = Instant.ofEpochMilli(entry.event.occurredAt).atZone(entry.event.loggedZone()).hour
         when (timeOfDayFor(hour)) {
             TimeOfDay.MORNING, TimeOfDay.AFTERNOON -> dayGroup += value
@@ -660,7 +701,10 @@ private fun timeOfDaySplitResultFor(
         dayMean = dayGroup.average(),
         eveningMean = eveningGroup.average(),
         sampleCount = sampleCount,
-        latestEvidenceAt = latestActivityWhere(eventsWithTags) { entry -> outcomeValueFor(entry.event, outcome) != null },
+        latestEvidenceAt =
+            latestActivityWhere(
+                eventsWithTags,
+            ) { entry -> outcomeValueFor(entry.event, outcome, durationMode, now) != null },
     )
 }
 

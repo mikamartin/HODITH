@@ -8,9 +8,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.CaseEventSpan
 import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.overlapsRect
@@ -23,6 +23,7 @@ import com.secondmonday.hodith.viewmodel.HomeLogSheetState
 import com.secondmonday.hodith.viewmodel.HomeUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.QuickLogUndo
+import com.secondmonday.hodith.viewmodel.formatExpectedEndTime
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,7 +56,7 @@ class HomeScreenTest {
             intensityEnabled = false,
         )
 
-    private val ongoingEvent = testEvent(caseId = 2L)
+    private val ongoingEvent = CaseEventSpan(caseId = 2L, occurredAt = 0L, endedAt = null, durationMode = DurationMode.START_STOP)
 
     private fun setHomeScreenContent(
         uiState: HomeUiState = HomeUiState(cases = listOf(oneTapRow), isLoading = false),
@@ -213,6 +214,29 @@ class HomeScreenTest {
         composeTestRule.onNodeWithContentDescription(PlainVoice.startActionDescription(ongoingRow.name)).performClick()
 
         assertEquals(ongoingRow, quickLogTapped)
+    }
+
+    @Test
+    fun manualOngoingRow_showsExpectedEndInsteadOfElapsed() {
+        val nowMillis = 10_000L
+        val expectedEndAt = 90_000L
+        val manualRow =
+            oneTapRow.copy(
+                caseId = 2L,
+                name = "Slow Cooker",
+                durationMode = DurationMode.MANUAL,
+                ongoingEvent = CaseEventSpan(caseId = 2L, occurredAt = 0L, endedAt = expectedEndAt, durationMode = DurationMode.MANUAL),
+            )
+        setHomeScreenContent(
+            uiState = HomeUiState(cases = listOf(manualRow), isLoading = false),
+            nowMillis = { nowMillis },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.ongoingPillLabel).assertExists()
+        // MANUAL's expected-end time stands in for START_STOP's elapsed-time trailing text.
+        val expectedTrailing =
+            PlainVoice.ongoingExpectedEndTrailing(formatExpectedEndTime(expectedEndAt, nowMillis, use24Hour = false))
+        composeTestRule.onNodeWithText(expectedTrailing).assertExists()
     }
 
     @Test

@@ -94,8 +94,6 @@ class RoomHodithRepository
 
         override fun observeActiveCaseEventDetails(): Flow<List<CaseEventDetail>> = eventDao.observeActiveCaseEventDetails()
 
-        override fun observeOpenEvents(): Flow<List<EventEntity>> = eventDao.observeOpenEvents()
-
         override fun observeMostRecentLoggedAtAcrossActiveCases(): Flow<Long?> = eventDao.observeMostRecentLoggedAtAcrossActiveCases()
 
         override suspend fun getEvent(eventId: Long): EventEntity? = eventDao.getById(eventId)
@@ -111,6 +109,11 @@ class RoomHodithRepository
         override suspend fun getLatestEventEndForCase(caseId: Long): Long? = eventDao.getLatestEventEndForCase(caseId)
 
         override suspend fun getOngoingEvent(caseId: Long): EventEntity? = eventDao.getOngoingEvent(caseId)
+
+        override suspend fun hasEventEndingAfter(
+            caseId: Long,
+            now: Long,
+        ): Boolean = eventDao.hasEventEndingAfter(caseId, now)
 
         override suspend fun insertEvent(event: EventEntity): Long =
             eventDao.insert(event).also { evaluateNotificationsForCase(event.caseId) }

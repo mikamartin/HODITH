@@ -23,10 +23,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
+import com.secondmonday.hodith.viewmodel.formatExpectedEndTime
+import java.time.ZoneId
 
 /**
  * The "Ongoing" chip that marks a running event (spec §6). A plain [Surface] + [Text] rather than
@@ -62,6 +65,58 @@ fun OngoingElapsedText(
     modifier: Modifier = Modifier,
 ) {
     OngoingSummary(voice = voice, trailing = formatElapsedDuration(startedAt, now), modifier = modifier)
+}
+
+/**
+ * [OngoingElapsedText]'s `MANUAL`-mode counterpart: a `MANUAL` event's stated/expected duration is
+ * a known future instant, not an open-ended run, so its trailing text names when it's due to end
+ * rather than counting up how long it's been running. See [formatExpectedEndTime] for why this
+ * stays compact rather than a full date+weekday string.
+ */
+@Composable
+fun OngoingExpectedEndText(
+    expectedEndAt: Long,
+    now: Long,
+    use24Hour: Boolean,
+    voice: Voice,
+    zone: ZoneId = ZoneId.systemDefault(),
+    modifier: Modifier = Modifier,
+) {
+    OngoingSummary(
+        voice = voice,
+        trailing = voice.ongoingExpectedEndTrailing(formatExpectedEndTime(expectedEndAt, now, use24Hour, zone)),
+        modifier = modifier,
+    )
+}
+
+/**
+ * Picks [OngoingElapsedText] for a `START_STOP` event or [OngoingExpectedEndText] for a `MANUAL`
+ * one — the single branch every per-event "is this still running" row (the History tab, Insights
+ * drill-down rows, Home) would otherwise duplicate. [expectedEndAt] is only read for `MANUAL`.
+ */
+@Composable
+fun OngoingTimeText(
+    startedAt: Long,
+    expectedEndAt: Long?,
+    durationMode: DurationMode,
+    now: Long,
+    use24Hour: Boolean,
+    voice: Voice,
+    zone: ZoneId = ZoneId.systemDefault(),
+    modifier: Modifier = Modifier,
+) {
+    if (durationMode == DurationMode.START_STOP) {
+        OngoingElapsedText(startedAt = startedAt, now = now, voice = voice, modifier = modifier)
+    } else {
+        OngoingExpectedEndText(
+            expectedEndAt = expectedEndAt!!,
+            now = now,
+            use24Hour = use24Hour,
+            voice = voice,
+            zone = zone,
+            modifier = modifier,
+        )
+    }
 }
 
 /**
@@ -150,6 +205,7 @@ private fun OngoingIndicatorPreviewContent(theme: AppTheme) {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         OngoingElapsedText(startedAt = 0L, now = 2 * 60 * 60 * 1000L, voice = voice)
+        OngoingExpectedEndText(expectedEndAt = 4 * 60 * 60 * 1000L, now = 2 * 60 * 60 * 1000L, use24Hour = true, voice = voice)
         OngoingCountText(count = 2, voice = voice)
         StopIconButton(caseName = "Migraine", voice = voice, onClick = {})
     }
