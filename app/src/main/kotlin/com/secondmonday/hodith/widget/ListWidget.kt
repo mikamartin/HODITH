@@ -45,10 +45,12 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.secondmonday.hodith.MainActivity
+import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
+import com.secondmonday.hodith.viewmodel.formatExpectedEndTime
 import com.secondmonday.hodith.viewmodel.homeCaseRowsFlow
 import dagger.hilt.android.EntryPointAccessors
 
@@ -83,6 +85,7 @@ class ListWidget : GlanceAppWidget() {
                         value = allRows.filter { it.caseId in selectedCaseIds }
                     }
                 }
+            val use24Hour by rememberWidgetUse24Hour(entryPoint)
 
             GlanceTheme {
                 val context = LocalContext.current
@@ -167,7 +170,7 @@ class ListWidget : GlanceAppWidget() {
                     } else {
                         Spacer(modifier = GlanceModifier.height(WidgetPlankSpacing))
                         LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                            items(rows) { index, row -> CaseRow(row, now, isLast = index == rows.lastIndex) }
+                            items(rows) { index, row -> CaseRow(row, now, use24Hour, isLast = index == rows.lastIndex) }
                         }
                     }
                 }
@@ -189,6 +192,7 @@ private fun androidx.glance.appwidget.lazy.LazyListScope.items(
 private fun CaseRow(
     row: HomeCaseRow,
     now: Long,
+    use24Hour: Boolean,
     isLast: Boolean,
 ) {
     val context = LocalContext.current
@@ -227,7 +231,7 @@ private fun CaseRow(
                             fontWeight = FontWeight.Medium,
                         ),
                 )
-                WidgetCaseSubtitle(row = row, now = now)
+                WidgetCaseSubtitle(row = row, now = now, use24Hour = use24Hour)
             }
             Spacer(modifier = GlanceModifier.width(WidgetLogButtonSpacing))
             // The log button stays put whether or not an event runs (spec §6) — on a running
@@ -277,6 +281,7 @@ private fun CaseRow(
 internal fun WidgetCaseSubtitle(
     row: HomeCaseRow,
     now: Long,
+    use24Hour: Boolean,
 ) {
     val ongoing = row.ongoingEvent
     if (ongoing == null) {
@@ -307,10 +312,13 @@ internal fun WidgetCaseSubtitle(
         Spacer(modifier = GlanceModifier.width(6.dp))
         Text(
             text =
-                if (row.runningCount >= 2) {
-                    PlainVoice.ongoingCountIndicator(row.runningCount)
-                } else {
-                    formatElapsedDuration(ongoing.occurredAt, now)
+                when {
+                    row.runningCount >= 2 -> PlainVoice.ongoingCountIndicator(row.runningCount)
+                    ongoing.durationMode == DurationMode.START_STOP -> formatElapsedDuration(ongoing.occurredAt, now)
+                    else ->
+                        PlainVoice.ongoingExpectedEndTrailing(
+                            formatExpectedEndTime(ongoing.endedAt!!, now, use24Hour),
+                        )
                 },
             style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = WidgetSubtitleSize),
         )

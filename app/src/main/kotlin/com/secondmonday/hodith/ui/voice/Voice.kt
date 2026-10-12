@@ -175,6 +175,9 @@ interface Voice {
     val logSheetOngoingLabel: String
     val logSheetStopNowAction: String
 
+    /** Shown above `MANUAL`'s "Stop now" button once the typed duration projects past `now` — [end] is the computed, not-yet-true end time. */
+    fun logSheetExpectedEndNotice(end: String): String
+
     /** Clears an edited event's end time, putting it back into the ongoing state (spec §6). */
     val logSheetBackToOngoingAction: String
 
@@ -618,6 +621,14 @@ interface Voice {
     /** Trailing summary after [ongoingPillLabel] once more than one event is running (spec §6). */
     fun ongoingCountIndicator(count: Int): String
 
+    /**
+     * Trailing summary after [ongoingPillLabel] for a `MANUAL` event whose stated/expected
+     * duration hasn't elapsed yet — the counterpart of the elapsed-time trailing text
+     * [START_STOP][com.secondmonday.hodith.data.DurationMode.START_STOP] shows, used everywhere
+     * that elapsed text appears (History/Insights rows, Home, widgets).
+     */
+    fun ongoingExpectedEndTrailing(end: String): String
+
     /** Body of the [leaveStartStopConfirmTitle] dialog — names how many events will be stopped. */
     fun leaveStartStopConfirmBody(runningCount: Int): String
 
@@ -634,6 +645,9 @@ interface Voice {
 
     /** Day/week detail row for a still-running event, in place of a clock time. [since] is a time if it started today, otherwise a date. */
     fun bigPictureEventOngoingSince(since: String): String
+
+    /** Day/week detail row for a `MANUAL` event whose stated/expected duration hasn't elapsed yet, in place of [bigPictureEventOngoingSince] (its own `endedAt` is a real future instant, not open-ended). */
+    fun bigPictureEventExpectedEnd(end: String): String
 
     /** Day/week detail row for a finished multi-day event on a day it only passes through (no start or end boundary that day), in place of a clock time. */
     fun bigPictureEventSpanRange(
@@ -1062,6 +1076,9 @@ object PlainVoice : Voice {
     override val logSheetEndLabel = "Ended"
     override val logSheetOngoingLabel = "Ongoing"
     override val logSheetStopNowAction = "Stop now"
+
+    override fun logSheetExpectedEndNotice(end: String) = "Set to end $end"
+
     override val logSheetBackToOngoingAction = "Back to ongoing"
     override val logSheetFutureTimeNotice = "Can't be in the future."
     override val logSheetStartAfterEndNotice = "Can't start after the end time."
@@ -1392,6 +1409,8 @@ object PlainVoice : Voice {
 
     override fun ongoingCountIndicator(count: Int) = "$count running"
 
+    override fun ongoingExpectedEndTrailing(end: String) = "ends $end"
+
     override fun leaveStartStopConfirmBody(runningCount: Int) =
         "Switching away from Start/Stop stops all $runningCount running events right now."
 
@@ -1407,6 +1426,8 @@ object PlainVoice : Voice {
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
     override fun bigPictureEventOngoingSince(since: String) = "Ongoing since $since"
+
+    override fun bigPictureEventExpectedEnd(end: String) = "Expected to end $end"
 
     override fun bigPictureEventSpanRange(
         start: String,
@@ -1678,6 +1699,9 @@ object IntenseVoice : Voice {
     override val logSheetEndLabel = "The hour it ended"
     override val logSheetOngoingLabel = "Still unfolding"
     override val logSheetStopNowAction = "Stop it now"
+
+    override fun logSheetExpectedEndNotice(end: String) = "Set to unfold until $end"
+
     override val logSheetBackToOngoingAction = "Reopen it, still unfolding"
     override val logSheetFutureTimeNotice = "That hour hasn't happened yet."
     override val logSheetStartAfterEndNotice = "A beginning cannot follow its own end."
@@ -2008,6 +2032,8 @@ object IntenseVoice : Voice {
 
     override fun ongoingCountIndicator(count: Int) = "$count still unfolding"
 
+    override fun ongoingExpectedEndTrailing(end: String) = "until $end"
+
     override fun leaveStartStopConfirmBody(runningCount: Int) = "Switching away stops all $runningCount that still run, right now."
 
     override fun enterStartStopConfirmBody(openEndedCount: Int) =
@@ -2022,6 +2048,8 @@ object IntenseVoice : Voice {
     override fun bigPictureWeekDetailTitle(date: String) = "The week of $date"
 
     override fun bigPictureEventOngoingSince(since: String) = "Unfolding since $since"
+
+    override fun bigPictureEventExpectedEnd(end: String) = "Set to unfold until $end"
 
     override fun bigPictureEventSpanRange(
         start: String,
@@ -2292,6 +2320,9 @@ object BrightVoice : Voice {
     override val logSheetEndLabel = "Wrapped up at"
     override val logSheetOngoingLabel = "Still going!"
     override val logSheetStopNowAction = "Stop the clock!"
+
+    override fun logSheetExpectedEndNotice(end: String) = "Should wrap up $end!"
+
     override val logSheetBackToOngoingAction = "Actually, still going!"
     override val logSheetFutureTimeNotice = "You can't log the future!"
     override val logSheetStartAfterEndNotice = "That can't start after it ends!"
@@ -2615,6 +2646,8 @@ object BrightVoice : Voice {
 
     override fun ongoingCountIndicator(count: Int) = "$count still going!"
 
+    override fun ongoingExpectedEndTrailing(end: String) = "until $end!"
+
     override fun leaveStartStopConfirmBody(runningCount: Int) =
         "Start/Stop is the only mode that tracks a live event, so switching away stops all $runningCount running ones right now."
 
@@ -2630,6 +2663,8 @@ object BrightVoice : Voice {
     override fun bigPictureWeekDetailTitle(date: String) = "Week of $date"
 
     override fun bigPictureEventOngoingSince(since: String) = "Still going since $since"
+
+    override fun bigPictureEventExpectedEnd(end: String) = "Should wrap up $end!"
 
     override fun bigPictureEventSpanRange(
         start: String,

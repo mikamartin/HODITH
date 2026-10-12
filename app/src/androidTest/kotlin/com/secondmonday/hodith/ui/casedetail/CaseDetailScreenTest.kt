@@ -290,6 +290,9 @@ class CaseDetailScreenTest {
         setCaseDetailScreenContent(
             case = startStopCase.copy(durationMode = DurationMode.MANUAL),
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
+            // `now` must be past endedAt, or a MANUAL event's endedAt reads as not-yet-elapsed
+            // (isStillRunning) rather than a finished duration to show.
+            nowMillis = { 45 * 60_000L + 1 },
         )
 
         composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel("45m"), substring = true).assertExists()

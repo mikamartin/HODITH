@@ -17,6 +17,42 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feature/manual-duration-ongoing-stop
+
+**Scope:** User request: show a `MANUAL`-duration event as "ongoing" — expected-end display plus an immediate Stop — once its computed duration projects past `now`, matching the existing `START_STOP` ongoing/Stop UX. Landed across the History tab, Insights drill-down rows, the Edit Event screen, Home, both Glance widgets, and Big Picture's day/week detail (display-only there, per the user's explicit scope cut: no Stop, since that screen targets a Case across many events, not a single one). Extended the existing "still-running events are excluded until they stop" stats rule to cover this new case too.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to every touched/new instrumented class across several passes as the diff grew (`CaseDetailScreenTest`, `HomeScreenTest`, `LogDetailScreenTest`, `BigPictureScreenTest`, `EventDaoTest`, `HomeCountQueriesTest`, `WidgetActionsFlowTest`, `CaseEditScreenTest`, `HistoryShareTabTest`, `InsightShareTabTest`, `CaseDetailWatchesTabTest`, `RoomHodithRepositoryHistoryEventsTest`) — all green, including two real bugs the first run of each caught (see Found & fixed).
+
+**Found & fixed:**
+- New shared domain predicate `isStillRunning` (`domain/ActiveSpan.kt`) replacing six duplicated `durationMode == START_STOP && endedAt == null` inline checks across `VerdictEngine`/`WatchEngine`/`BigPictureViewModel`/`ShareCardState`/`CaseDetailScreen`/`InsightsTab`; generalizes `activeSpanEnd` so a `MANUAL` event's not-yet-elapsed `endedAt` spans to `now` the same way a `START_STOP` open event already did.
+- `NotificationEvaluator.silenceAnchorFor`'s SQL-based counterpart (documented as needing to stay in sync "by hand" with `WatchEngine`'s in-memory version) had no way to see a `MANUAL` event's future `endedAt` at all (`getOngoingEvent`'s `endedAt IS NULL` query structurally can't). Added `EventDao.hasEventEndingAfter`/repository plumbing and wired it in, keeping its own doc-comment call count ("four suspend calls") in sync.
+- Extended "still-running events are excluded until they stop" to `MANUAL`'s duration-based stats: `computeDurationStats`, and the Trends `outcomeValueFor` used by tag→outcome/trend slope/time-of-day split — a still-running event's duration is now excluded (its intensity, if recorded, still counts).
+- Real stale-UI bug caught mid-build: the Stop button on a `MANUAL` row appeared to do nothing for up to 60s. `rememberTickingNow`'s `now` is a periodically-ticked Compose state, harmless for `START_STOP` (whose check is `endedAt == null`, independent of `now`) but `MANUAL`'s check compares `endedAt > now` — immediately after Stop, the freshly-written `endedAt` could still exceed the UI's stale `now`. Exposed the ticker as a `MutableState` and had the History tab's Stop callback bump it immediately alongside the stop action.
+- Home's ongoing indicator read from `observeOpenEvents` (`endedAt IS NULL`), which structurally can never see a `MANUAL` event's future `endedAt` — a state that expires by the passage of time, not a database write. Switched `homeCaseRows` to derive `ongoingEvent`/`runningCount` from the event-span projection it already loads, via `isStillRunning`, re-evaluated against a fresh `now` on every call. `HomeCaseRow.ongoingEvent` narrowed from `EventEntity` to the leaner `CaseEventSpan` it only ever needed fields from.
+- Checklist-surfaced (Duplication): four near-identical "elapsed-time vs. expected-end text" branches (History row, Insights drill-down row, Home's two row variants) collapsed into one shared `OngoingTimeText` composable.
+- Checklist-surfaced (Duplication): the widgets' identical `use24Hour`-from-Settings `produceState` block, duplicated between `ListWidget.kt` and `SingleCaseWidget.kt`, extracted to `WidgetCommon.kt`'s `rememberWidgetUse24Hour`.
+- Checklist-surfaced (UI Copy Brevity): `OngoingExpectedEndText`'s trailing text used the full `formatEventTime` (e.g. "Oct 14, 3:00 PM, Wed") — much longer than sibling `OngoingElapsedText`'s "2h 15m", and inconsistent with Big Picture's own new branch already using a bare clock time. New shared `formatExpectedEndTime` (same-day bare time, cross-day falls back to the shorter `formatSpanDateTime`) used by both the Compose composable and the widgets' own subtitle.
+- Checklist-surfaced (Dead Code): `observeOpenEvents` (`EventDao`/`HodithRepository`/`RoomHodithRepository`/`FakeHodithRepository`) had exactly one caller, which the Home fix above removed. Deleted outright, with its two dedicated tests (`FakeHodithRepositoryTest`, `HomeCountQueriesTest`).
+- Real pre-existing-test bug caught by the first instrumented run: `CaseDetailScreenTest.finishedEventRow_showsDurationLabel_whenTheCaseTracksDuration` used a `MANUAL` event with `endedAt` 45 minutes after start but the screen's default `now` only 10 seconds in — under the new semantics that event reads as still running, not finished, so the duration label stopped appearing. Fixed by passing an explicit `now` past the event's `endedAt`.
+- New `WidgetActionsFlowTest` coverage for the Single-case widget's `MANUAL` expected-end subtitle — this path had no automated coverage at all before this pass; caught my own test-setup bug (`use24Hour` in the assertion not matching what `setUp()` pinned Settings to) on the first run.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- A Stop action on Big Picture's day/week detail row for a still-running `MANUAL` event — explicitly scoped out by the user; display-only there.
+- Reconciling a `MANUAL` event's not-yet-elapsed `endedAt` in the duration-mode transition contract (switching a Case away from `MANUAL` mid-projection) — the existing "no migration for an inflated `endedAt` from an earlier round-trip, fixed by editing the event" policy already covers this without a special-case addition.
+
+**Checks:**
+- Duplication: see Found & fixed (`OngoingTimeText`, `rememberWidgetUse24Hour`, `formatExpectedEndTime`).
+- Decoupling: `isStillRunning`/`activeSpanEnd`/`computeDurationStats`/`outcomeValueFor` all stay pure Kotlin (`domain/`), no `android.*` imports; every new `now` comparison takes an injected value, nothing reads the system clock directly.
+- Accessibility: reused `StopIconButton`'s existing content description; the Edit Event screen's new "Stop now" button carries a text label, no icon-only affordance introduced.
+- Naming: three new `Voice` members (`ongoingExpectedEndTrailing`, `bigPictureEventExpectedEnd`, `logSheetExpectedEndNotice`) added to all three voices in the same commit.
+- Tests: new unit coverage for `isStillRunning`/`activeSpanEnd`, `computeDurationStats`/`computeTagOutcomeFindings` `MANUAL` exclusion, `silenceAnchorForEvents`/`NotificationEvaluator` `MANUAL` coverage, `BigPictureViewModel`'s `expectedEndAt`, `HomeViewModelMappingTest`'s `MANUAL` `ongoingEvent`/`runningCount`; new instrumented coverage for `EventDaoTest.hasEventEndingAfter`, the Edit Event screen's Stop-now round-trip, Home's `MANUAL` row, and the Single-case widget's `MANUAL` subtitle.
+
+**Docs updated:** HODITH_SPEC.md (§6 new "Manual duration projecting past now" bullet, plus the Event table, §9 Active span, Big Picture, and §15 widget bullets); TESTING.md (Watch evaluation, Notification evaluation, Stats & visual data prep, Room DAOs, ViewModels, Compose UI, and Compose UI — Big Picture rows extended or corrected); MANUAL_TEST_PLAN.md (item 6 extended for the List widget's `MANUAL` row); this entry (oldest entry, `test/autosize-harness-investigation`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/big-picture-day-detail-chronological-order
 
 **Scope:** User-reported: the Big Picture day/week detail dialogs listed a day's events grouped by Case (every event of Case A before any of Case B) instead of chronologically, with no distinct treatment for a multi-day span's "no real time that day" rows. Clarified with the user that HODITH has no literal "all-day event" concept — only a multi-day span's middle day (or any day a still-running event is merely carried through) genuinely has no boundary time; a span's own start/end day has a real clock time and should sort and read by it ("Started …"/"Ended …"), not the old blanket full-range label.
@@ -150,34 +186,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: no regression test added for either root-cause fix. `docs/DEV_PLAYBOOK.md` already documents that the on-device widget test harness can't populate `LazyColumn` row items at all (`RemoteViewsService`/`ListView` binding gap), ruling out an instrumented assertion on the trailing-spacer or fill behavior; `CaseRow` is a private Composable with no feasible unit-test path without a Glance/Robolectric test harness this repo doesn't have. Declined rather than silently skipped — flagging here since "bug fixed → regression test added" is otherwise an unconditional checklist item.
 
 **Docs updated:** `DEV_PLAYBOOK.md` §4 (token table values, the plank-spacing/Home-fidelity description, a new Glance layout-facts bullet); `MANUAL_TEST_PLAN.md` (new widget-resize item); this entry (oldest entry, `fix/duration-selector-wrap`, removed per the 5-entry retention rule).
-
----
-
-## fix/intensity-required-when-enabled
-
-**Scope:** Reported bug — a Case could have intensity enabled, but an event could still be logged with no rating. Investigation found the gap (`LogDetailForm`'s `canSave` never checked intensity, and a selected choice could be tapped back to none), then expanded to cover what the fix needed to get right: whether any other optional event field had the same case-flag-says-"tracked"-but-still-skippable shape (none did), and what toggling `intensityEnabled` does to a Case's existing events (nothing, either direction — which then needed its own user-facing notice).
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite, including 3 new `CaseEditViewModelTest` cases), and `connectedDebugAndroidTest` scoped to the two changed/new instrumented classes (`LogDetailIntensityTest`, `CaseEditScreenTest` — 25/25 passing on a Pixel 8 API 36 emulator), plus `assembleDebug`. The full `connectedDebugAndroidTest` suite was attempted once; it hit the pre-existing documented flaky teardown-race crash on two unrelated, untouched classes (`CaseDetailScreenTest`, `ShareCardTemplateTest`) and an emulator system-server crash — not re-run after that, per TESTING.md's own scoped-first convention for this known issue.
-
-**Found & fixed:**
-- Root cause: `LogDetailForm`'s `canSave` validated only start/end time-picker rejections, never intensity, and `IntensitySection`'s `onSelect` let an already-selected choice toggle back to `null`.
-- Intensity made required only for *new* events, never for editing an existing one — avoids two hazards surfaced during review: fabricating a rating for an event logged before the Case tracked intensity, and the toggle itself never touching existing events either direction (which needed its own notice rather than silent behavior).
-- Added a transient Snackbar (`CaseEditViewModel.intensityToggleNotice`, the same one-shot `Channel`/`Flow` idiom as `HomeViewModel.quickLogUndo`) fired once per toggle flip on a Case with existing events — redesigned mid-implementation after an initial persistent `ActionBanner` version was caught sitting on the screen as a standing fixture instead of behaving like a transient notification; the `ActionBanner` widening made for that first version was reverted once the Snackbar replaced it.
-- Added `withDismissAction = true` to the Snackbar after on-device testing showed it doesn't close on an outside tap or swipe (Material3's default); every other snackbar in the app uses the short default with no dismiss control, but this one needed `SnackbarDuration.Long` and an explicit close button since it carries a full two-sentence message.
-
-**Deferred:**
-- `outcomeValueFor` (trend/notification code) reads `EventEntity.intensity` directly regardless of `Case.intensityEnabled`, found while reviewing what the toggle does to existing events. Logged as its own `PROGRESS.md` item rather than fixed here — a pre-existing, unrelated inconsistency outside this bug's scope.
-
-**Considered and declined:**
-- Keeping intensity optional even when enabled (the status quo the spec originally documented) — declined by explicit product decision in favor of requiring it for new events.
-- A persistent inline notice next to the toggle — declined in favor of a transient Snackbar, the idiom this app already uses for one-shot notifications.
-
-**Checks:**
-- Duplication: `enableIntensityNotice`/`disableIntensityNotice` added to all three Voice implementations in the same change; no inline strings.
-- Decoupling: the default-intensity seeding lives in the UI-layer composable (`LogDetailForm`), the only place that already knows both `isEditing` and `intensityEnabled`; `domain/` untouched.
-- Hygiene: no unused imports or leftover debug code; `git status` clean.
-- Naming: `IntensityToggleNotice`/`intensityToggleNotice`/`loggedEventCount` follow the existing `QuickLogUndo`/`quickLogUndo`/`runningEventCount` pattern.
-- UI copy brevity: doesn't apply — the new strings are Snackbar body copy, not control labels.
-- Tests: regression coverage added at both layers — `CaseEditViewModelTest` (3 new cases for the notice-gating logic) and new instrumented coverage (`LogDetailIntensityTest`, `CaseEditScreenTest` additions), both run on-device.
-
-**Docs updated:** HODITH_SPEC.md (§6, the Watch table's `minIntensity` row), TESTING.md (Compose UI and ViewModels rows extended), PROGRESS.md (new follow-up item for the `outcomeValueFor` finding); this entry (oldest entry, `chore/voice-phrasing-audit`, removed per the 5-entry retention rule).

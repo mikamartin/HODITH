@@ -210,6 +210,35 @@ class BigPictureViewModelTest {
         assertEquals(false, mapped.isOngoing)
     }
 
+    @Test
+    fun `bigPictureUiState marks a MANUAL event with a future endedAt as ongoing with an expectedEndAt`() {
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
+        val startMillis = Instant.parse("2026-05-20T09:00:00Z").toEpochMilli()
+        val futureEndMillis = Instant.parse("2026-05-20T15:00:00Z").toEpochMilli()
+        val event =
+            Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = futureEndMillis, loggedAt = startMillis)
+        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.MANUAL))
+
+        val mapped = bigPictureUiState(cases, listOf(detailOf(event)), emptyList(), nowMillis, zoneId).events.single()
+
+        assertTrue(mapped.isOngoing)
+        assertEquals(futureEndMillis, mapped.expectedEndAt)
+    }
+
+    @Test
+    fun `bigPictureUiState has no expectedEndAt for a finished MANUAL event`() {
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
+        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
+        val pastEndMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
+        val event =
+            Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = pastEndMillis, loggedAt = startMillis)
+        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.MANUAL))
+
+        val mapped = bigPictureUiState(cases, listOf(detailOf(event)), emptyList(), nowMillis, zoneId).events.single()
+
+        assertNull(mapped.expectedEndAt)
+    }
+
     // ---- intensity projection (spec §9: detail rows only, never the grid) ----
 
     @Test

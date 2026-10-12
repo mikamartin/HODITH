@@ -759,6 +759,10 @@ private fun EventDetailRow(
         )
     val timeLabel =
         when {
+            event.expectedEndAt != null ->
+                voice.bigPictureEventExpectedEnd(
+                    formatClockTime(Instant.ofEpochMilli(event.expectedEndAt).atZone(event.loggedZone()).toLocalTime(), use24Hour),
+                )
             event.isOngoing ->
                 voice.bigPictureEventOngoingSince(
                     // Started today → just the time (the dialog title already carries the date).
@@ -777,10 +781,11 @@ private fun EventDetailRow(
                 )
             else -> startTime
         }
-    // A bare clock time sits inline after the Case name; the wordier "ongoing since …" / started /
-    // ended / span-range labels take their own line so a long Case name can't squeeze them into an
-    // ugly wrap.
-    val timeOnOwnLine = event.isOngoing || dayEvent.isSpanStart || dayEvent.isSpanEnd || dayEvent.isAllDay
+    // A bare clock time sits inline after the Case name; the wordier "ongoing since …" / expected-end /
+    // started / ended / span-range labels take their own line so a long Case name can't squeeze them
+    // into an ugly wrap.
+    val timeOnOwnLine =
+        event.expectedEndAt != null || event.isOngoing || dayEvent.isSpanStart || dayEvent.isSpanEnd || dayEvent.isAllDay
     // Duration/intensity line (spec §9), governed by the user's overview-detail preference. A
     // multi-day span and a still-running event already state their extent in [timeLabel], so the
     // "lasted N" line is limited to same-day finished events; `eventDetailSummary` renders only

@@ -1,6 +1,9 @@
 package com.secondmonday.hodith.widget
 
 import android.content.Context
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -105,6 +108,20 @@ internal val WidgetHeaderPadding = 10.dp
 internal val WidgetPlankSpacing = 6.dp
 
 internal val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
+
+/**
+ * The 12h/24h clock-format preference, for the one absolute clock time either widget shows (a
+ * `MANUAL` event's expected end) — read from Settings like [WidgetLogTrampolineActivity]'s own log
+ * sheet does, unlike the [WidgetPalette]/[PlainVoice][com.secondmonday.hodith.ui.voice.PlainVoice]
+ * copy/palette both widgets otherwise pin regardless of the user's in-app theme (DEV_PLAYBOOK.md
+ * §4): 12h/24h is a correctness preference, not a theme choice, so honoring it here is the same
+ * call as everywhere else a clock time renders, not "more theming."
+ */
+@Composable
+internal fun rememberWidgetUse24Hour(entryPoint: WidgetEntryPoint): State<Boolean> =
+    produceState(initialValue = false) {
+        entryPoint.settingsRepository().observeTimeFormat().collect { value = it.is24Hour }
+    }
 
 /** Refreshes every Glance widget type — a log/stop on one widget keeps the other in sync if the
  * same Case happens to be shown in both. Called from [WidgetRefreshWorker.doWork] only: an

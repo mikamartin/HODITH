@@ -90,8 +90,7 @@ internal fun distinctActiveDays(
     val windowEndDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
     val days = mutableSetOf<LocalDate>()
     for (event in events) {
-        val isOngoing = durationMode == DurationMode.START_STOP && event.endedAt == null
-        val endZone = if (isOngoing) zone else event.loggedZone()
+        val endZone = if (isStillRunning(event, durationMode, now)) zone else event.loggedZone()
         for (date in datesCovered(event.occurredAt, activeSpanEnd(event, durationMode, now), event.loggedZone(), endZone)) {
             if (!date.isBefore(windowStartDate) && !date.isAfter(windowEndDate)) days += date
         }

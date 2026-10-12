@@ -91,21 +91,6 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeOpenEvents returns only end-less events, earliest first, across all Cases`() =
-        runTest {
-            val a = repository.insertCase(testCase(name = "A"))
-            val b = repository.insertCase(testCase(name = "B"))
-            repository.insertEvent(testEvent(caseId = a, occurredAt = 500L, endedAt = null))
-            repository.insertEvent(testEvent(caseId = a, occurredAt = 100L, endedAt = null))
-            repository.insertEvent(testEvent(caseId = b, occurredAt = 300L, endedAt = 900L)) // finished
-
-            repository.observeOpenEvents().test {
-                val open = awaitItem()
-                assertEquals(listOf(100L, 500L), open.map { it.occurredAt })
-            }
-        }
-
-    @Test
     fun `observeArchivedCaseCount counts only archived Cases`() =
         runTest {
             repository.insertCase(testCase(name = "Active"))

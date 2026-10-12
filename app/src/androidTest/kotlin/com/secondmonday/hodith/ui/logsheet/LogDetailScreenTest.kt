@@ -13,8 +13,10 @@ import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDetailScreenUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -96,6 +98,40 @@ class LogDetailScreenTest {
 
         assertNotNull(savedDraft)
         assertNull(savedDraft?.endedAt)
+    }
+
+    @Smoke
+    @Test
+    fun manualEvent_projectedPastNow_stopNow_thenSave_capsDurationAtElapsed() {
+        var savedDraft: LogDraft? = null
+        val now = 90 * 60_000L // 90 minutes after occurredAt
+        setContent(
+            uiState =
+                LogDetailScreenUiState(
+                    isLoading = false,
+                    durationMode = DurationMode.MANUAL,
+                    initialDraft =
+                        LogDraft(
+                            occurredAt = 0L,
+                            intensity = null,
+                            durationAmount = "5",
+                            durationUnit = DurationUnit.HOURS, // projects well past `now`
+                            note = "",
+                            tags = emptyList(),
+                            endedAt = null,
+                            existingEndedAt = null,
+                        ),
+                    now = now,
+                ),
+            onSave = { savedDraft = it },
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.logSheetStopNowAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+
+        assertNotNull(savedDraft)
+        assertEquals("90", savedDraft?.durationAmount)
+        assertEquals(DurationUnit.MINUTES, savedDraft?.durationUnit)
     }
 
     @Test

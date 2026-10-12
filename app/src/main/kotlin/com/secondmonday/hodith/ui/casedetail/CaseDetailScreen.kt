@@ -62,6 +62,7 @@ import com.secondmonday.hodith.data.loggedZone
 import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.caseHeroRate
+import com.secondmonday.hodith.domain.isStillRunning
 import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.DateRangeFilterDialog
@@ -71,7 +72,7 @@ import com.secondmonday.hodith.ui.common.HodithTab
 import com.secondmonday.hodith.ui.common.HodithTabRow
 import com.secondmonday.hodith.ui.common.InfoDialog
 import com.secondmonday.hodith.ui.common.OngoingCountText
-import com.secondmonday.hodith.ui.common.OngoingElapsedText
+import com.secondmonday.hodith.ui.common.OngoingTimeText
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.StopIconButton
 import com.secondmonday.hodith.ui.common.ToggleRow
@@ -160,7 +161,17 @@ fun CaseDetailScreen(
 ) {
     val voice = LocalVoice.current
     val case = uiState.case
-    val now by rememberTickingNow(clockNow = nowMillis)
+    val nowState = rememberTickingNow(clockNow = nowMillis)
+    val now by nowState
+    // A MANUAL Stop changes whether the stopped event still reads as running (isStillRunning
+    // compares its new endedAt against `now`) — bump `now` immediately rather than wait for the
+    // next ~60s tick (Ticker.kt), or the row looks unchanged until then. START_STOP doesn't need
+    // this (its ongoing check is endedAt == null, independent of `now`), but this call site can't
+    // tell which mode a given event belongs to, so it always refreshes.
+    val onStopEventWithRefresh: (EventEntity) -> Unit = { event ->
+        onStopEvent(event)
+        nowState.value = nowMillis()
+    }
     val ongoingEvents =
         case?.let { ongoingEventsIn(it, uiState.events.map { eventWithTags -> eventWithTags.event }) }.orEmpty()
     // Non-null while the new-event log sheet is open, holding the `now` captured when it opened.
@@ -277,7 +288,7 @@ fun CaseDetailScreen(
                         visibleFields = uiState.historyVisibleFields,
                         onFieldVisibleChange = onHistoryFieldVisibleChange,
                         onShowMore = onShowMoreHistoryEvents,
-                        onStopEvent = onStopEvent,
+                        onStopEvent = onStopEventWithRefresh,
                         onEditEvent = { event -> case?.let { onEditEvent(it.id, event.id) } },
                     )
                 INSIGHTS_TAB ->
@@ -718,7 +729,7 @@ private fun EventRowContent(
     modifier: Modifier = Modifier,
 ) {
     val event = eventWithTags.event
-    val isOngoing = durationMode == DurationMode.START_STOP && event.endedAt == null
+    val isOngoing = isStillRunning(event, durationMode, now)
 
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
@@ -726,10 +737,19 @@ private fun EventRowContent(
                 text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour, zone = event.loggedZone()),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            // A running event carries its own live elapsed time and Stop, so each of a Case's
-            // open events is legible and stoppable on its own (spec §6).
+            // A running event carries its own live elapsed time (START_STOP) or expected end
+            // (MANUAL) and Stop, so each of a Case's open events is legible and stoppable on its
+            // own (spec §6).
             if (isOngoing) {
-                OngoingElapsedText(startedAt = event.occurredAt, now = now, voice = voice)
+                OngoingTimeText(
+                    startedAt = event.occurredAt,
+                    expectedEndAt = event.endedAt,
+                    durationMode = durationMode,
+                    now = now,
+                    use24Hour = LocalTimeFormat.current.is24Hour,
+                    voice = voice,
+                    zone = event.loggedZone(),
+                )
             }
             val details =
                 eventDetailSummary(

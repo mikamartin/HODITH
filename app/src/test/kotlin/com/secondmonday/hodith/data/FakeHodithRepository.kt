@@ -159,9 +159,6 @@ class FakeHodithRepository : HodithRepository {
                 .map { CaseEventDetail(it.id, it.caseId, it.occurredAt, it.endedAt, it.intensity, it.note, it.utcOffsetMinutes) }
         }
 
-    override fun observeOpenEvents(): Flow<List<EventEntity>> =
-        events.map { list -> list.filter { it.endedAt == null }.sortedBy { it.occurredAt } }
-
     override fun observeMostRecentLoggedAtAcrossActiveCases(): Flow<Long?> =
         combine(cases, events) { caseList, eventList ->
             val activeIds = caseList.filterNot { it.archived }.map { it.id }.toSet()
@@ -187,6 +184,11 @@ class FakeHodithRepository : HodithRepository {
 
     override suspend fun getOngoingEvent(caseId: Long): EventEntity? =
         events.value.firstOrNull { it.caseId == caseId && it.endedAt == null }
+
+    override suspend fun hasEventEndingAfter(
+        caseId: Long,
+        now: Long,
+    ): Boolean = events.value.any { it.caseId == caseId && it.endedAt != null && it.endedAt > now }
 
     override suspend fun insertEvent(event: EventEntity): Long {
         val id = if (event.id != 0L) event.id else nextEventId++

@@ -6,7 +6,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -170,6 +172,23 @@ class EventDaoTest {
             val ongoing = eventDao.getOngoingEvent(caseId)
 
             assertEquals(ongoingId, ongoing?.id)
+        }
+
+    @Test
+    fun hasEventEndingAfter_trueForAManualEventWhoseEndedAtIsStillInTheFuture() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 200L))
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 300L, endedAt = 1_000L))
+
+            assertTrue(eventDao.hasEventEndingAfter(caseId, now = 500L))
+        }
+
+    @Test
+    fun hasEventEndingAfter_falseWhenEveryEventHasAlreadyEnded() =
+        runTest {
+            eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = 200L))
+
+            assertFalse(eventDao.hasEventEndingAfter(caseId, now = 500L))
         }
 
     @Test

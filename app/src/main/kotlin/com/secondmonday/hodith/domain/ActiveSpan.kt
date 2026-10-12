@@ -6,9 +6,11 @@ import com.secondmonday.hodith.data.tracksDuration
 
 /**
  * The instant [event]'s active span (spec §9) ends, given the Case's current [durationMode]:
- * its stored `endedAt`; or [now] for a still-running `START_STOP` event; or its own `occurredAt`
- * for a point event and for every event on a Case that no longer tracks duration — whatever
- * `endedAt` is stored, the span collapses to a point there and the stored value is left untouched.
+ * its stored `endedAt`; or [now] for a still-running event ([isStillRunning]: a `START_STOP`
+ * event with no `endedAt`, or a `MANUAL` event whose `endedAt` is still in the future); or its
+ * own `occurredAt` for a point event and for every event on a Case that no longer tracks duration
+ * — whatever `endedAt` is stored, the span collapses to a point there and the stored value is
+ * left untouched.
  *
  * Compare the result against a window start to ask "was this event active anywhere in that
  * window", or feed it to [datesCovered] / [spansMultipleDays]. Shared by Home's row counts, the
@@ -33,8 +35,35 @@ internal fun activeSpanEnd(
     durationMode: DurationMode,
     now: Long,
 ): Long =
-    if (!durationMode.tracksDuration) {
-        occurredAt
-    } else {
-        endedAt ?: if (durationMode == DurationMode.START_STOP) now else occurredAt
+    when {
+        !durationMode.tracksDuration -> occurredAt
+        isStillRunning(endedAt, durationMode, now) -> now
+        else -> endedAt ?: occurredAt
+    }
+
+/**
+ * Whether an event hasn't finished yet as of [now], given the Case's [durationMode]: a
+ * `START_STOP` event with no `endedAt` at all, or a `MANUAL` event whose computed `endedAt` is
+ * still in the future — a stated/expected duration
+ * ([com.secondmonday.hodith.viewmodel.computeEndedAt] deliberately doesn't clamp this to `now`)
+ * that hasn't actually elapsed yet. `NONE` events and
+ * any already-finished `START_STOP`/`MANUAL` event are not still running. The single source for
+ * what was previously six separate `durationMode == START_STOP && endedAt == null` checks spread
+ * across the domain/viewmodel/UI layers — those only ever covered the `START_STOP` half of this.
+ */
+internal fun isStillRunning(
+    event: EventEntity,
+    durationMode: DurationMode,
+    now: Long,
+): Boolean = isStillRunning(event.endedAt, durationMode, now)
+
+internal fun isStillRunning(
+    endedAt: Long?,
+    durationMode: DurationMode,
+    now: Long,
+): Boolean =
+    when (durationMode) {
+        DurationMode.START_STOP -> endedAt == null
+        DurationMode.MANUAL -> endedAt != null && endedAt > now
+        DurationMode.NONE -> false
     }

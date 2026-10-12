@@ -293,7 +293,9 @@ private fun statsSections(
 
     val duration =
         if (case.durationMode.tracksDuration) {
-            computeDurationStats(events)?.let { DurationDisplay(it.averageMinutes, it.longestMinutes, it.totalMinutes, it.shortestMinutes) }
+            computeDurationStats(events, case.durationMode, now)?.let {
+                DurationDisplay(it.averageMinutes, it.longestMinutes, it.totalMinutes, it.shortestMinutes)
+            }
         } else {
             null
         }
@@ -335,6 +337,8 @@ private fun statsSections(
                         TagOutcome.INTENSITY.takeIf { intensity != null },
                         TagOutcome.DURATION.takeIf { duration != null },
                     ),
+                durationMode = case.durationMode,
+                now = now,
             ),
     )
 }

@@ -66,20 +66,6 @@ class HomeCountQueriesTest {
         }
 
     @Test
-    fun observeOpenEvents_returnsOnlyEndlessEventsEarliestFirstAcrossCases() =
-        runTest {
-            val a = caseDao.insert(testCase(name = "A"))
-            val b = caseDao.insert(testCase(name = "B"))
-            eventDao.insert(testEvent(caseId = a, occurredAt = 500L, endedAt = null))
-            eventDao.insert(testEvent(caseId = b, occurredAt = 100L, endedAt = null))
-            eventDao.insert(testEvent(caseId = a, occurredAt = 300L, endedAt = 900L))
-
-            val open = eventDao.observeOpenEvents().first()
-
-            assertEquals(listOf(100L, 500L), open.map { it.occurredAt })
-        }
-
-    @Test
     fun observeArchivedCaseCount_countsArchivedOnlyAndUpdatesReactively() =
         runTest {
             caseDao.insert(testCase(name = "Active"))

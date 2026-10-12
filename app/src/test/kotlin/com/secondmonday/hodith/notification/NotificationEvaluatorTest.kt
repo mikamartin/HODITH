@@ -199,6 +199,20 @@ class NotificationEvaluatorTest {
         }
 
     @Test
+    fun `evaluateCase does not fire QUIET while a MANUAL event's endedAt hasn't elapsed yet`() =
+        runTest {
+            // Started day 2, typed duration projects to day 40 -- still in the future relative to
+            // day 30's now, so the stated/expected length hasn't actually elapsed yet.
+            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.MANUAL))
+            repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
+            repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(40)))
+
+            evaluator.evaluateCase(1L)
+
+            assertTrue(notifier.firedNotifications.isEmpty())
+        }
+
+    @Test
     fun `evaluateCase does not fire a check-in while an event is still running on the Case`() =
         runTest {
             // Spec §11: a still-running event counts as no silence for check-ins too, not just QUIET.

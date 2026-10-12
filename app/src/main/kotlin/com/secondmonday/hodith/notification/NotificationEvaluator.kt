@@ -146,17 +146,19 @@ class NotificationEvaluator
         /**
          * The moment the silence clock counts from for `QUIET` and check-ins: the latest point
          * any event on the Case ended (spec §10 — a duration event's quiet stretch starts when it
-         * *ended*, not when it began), or [now] while a `START_STOP` Case has an event still running,
-         * so an active stretch never reads as silence. A Case that no longer tracks duration
-         * (`durationMode == NONE`, spec §9) reads every event as a point: silence counts from the
-         * latest `occurredAt`, ignoring any stored `endedAt`, so the notification/check-in clock
-         * agrees with the heatmap, gaps card and Big Picture, all of which collapse a non-tracking
-         * Case's spans. Null (⇒ count from Case creation) with no events.
+         * *ended*, not when it began), or [now] while the Case has an event still running — a
+         * `START_STOP` event with no `endedAt`, or a `MANUAL` event whose `endedAt` is still in the
+         * future (a stated/expected duration that hasn't elapsed yet) — so an active stretch never
+         * reads as silence. A Case that no longer tracks duration (`durationMode == NONE`, spec §9)
+         * reads every event as a point: silence counts from the latest `occurredAt`, ignoring any
+         * stored `endedAt`, so the notification/check-in clock agrees with the heatmap, gaps card
+         * and Big Picture, all of which collapse a non-tracking Case's spans. Null (⇒ count from
+         * Case creation) with no events.
          *
-         * [com.secondmonday.hodith.domain.silenceAnchorForEvents] implements this same rule from an
-         * in-memory event list for the bell tab's Now line, which already holds the Case's full
-         * event history and has no reason to make these three suspend calls. Keep the two in sync
-         * by hand.
+         * [com.secondmonday.hodith.domain.silenceAnchorForEvents] implements this same rule (via
+         * [com.secondmonday.hodith.domain.isStillRunning]) from an in-memory event list for the bell
+         * tab's Now line, which already holds the Case's full event history and has no reason to
+         * make these four suspend calls. Keep the two in sync by hand.
          */
         private suspend fun silenceAnchorFor(
             repo: HodithRepository,
@@ -164,6 +166,7 @@ class NotificationEvaluator
             now: Long,
         ): Long? {
             if (case.durationMode == DurationMode.START_STOP && repo.getOngoingEvent(case.id) != null) return now
+            if (case.durationMode == DurationMode.MANUAL && repo.hasEventEndingAfter(case.id, now)) return now
             if (!case.durationMode.tracksDuration) return repo.getMostRecentEventForCase(case.id)?.occurredAt
             return repo.getLatestEventEndForCase(case.id)
         }
