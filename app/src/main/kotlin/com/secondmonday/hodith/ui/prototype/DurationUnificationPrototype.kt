@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +18,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -178,15 +180,17 @@ private fun UnifiedDurationControl(
 private fun CaseDurationSwitchPreviewContent() {
     var tracksDuration by remember { mutableStateOf(true) }
     val voice = LocalVoice.current
-    Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-        SectionWithInfo(
-            voice.caseDurationModeLabel,
-            voice.caseDurationModeInfoTitle,
-            voice.caseDurationModeInfoBody,
-            voice.caseSectionInfoDescription,
-        ) {
-            // Placeholder label — not a Voice key; U2 adds the real one once this shape is validated.
-            ToggleRow(label = "Track duration", checked = tracksDuration, onCheckedChange = { tracksDuration = it })
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+            SectionWithInfo(
+                voice.caseDurationModeLabel,
+                voice.caseDurationModeInfoTitle,
+                voice.caseDurationModeInfoBody,
+                voice.caseSectionInfoDescription,
+            ) {
+                // Placeholder label — not a Voice key; U2 adds the real one once this shape is validated.
+                ToggleRow(label = "Track duration", checked = tracksDuration, onCheckedChange = { tracksDuration = it })
+            }
         }
     }
 }
@@ -196,15 +200,17 @@ private fun CaseDurationSwitchPreviewContent() {
 private fun LogEventUnifiedControlPreviewContent() {
     val voice = LocalVoice.current
     val now = remember { System.currentTimeMillis() }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        UnifiedDurationControl(
-            startedAt = now,
-            now = now,
-            initialOngoing = true,
-            initialEndedAt = now,
-            zone = ZoneId.systemDefault(),
-            voice = voice,
-        )
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            UnifiedDurationControl(
+                startedAt = now,
+                now = now,
+                initialOngoing = true,
+                initialEndedAt = now,
+                zone = ZoneId.systemDefault(),
+                voice = voice,
+            )
+        }
     }
 }
 
@@ -217,26 +223,28 @@ private fun EditEventUnifiedControlPreviewContent() {
     val closedStartedAt = now - 3 * MILLIS_PER_DAY
     val closedEndedAt = closedStartedAt + 90 * MILLIS_PER_MINUTE
 
-    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-        Text("Ongoing sample", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp))
-        UnifiedDurationControl(
-            startedAt = ongoingStartedAt,
-            now = now,
-            initialOngoing = true,
-            initialEndedAt = ongoingStartedAt,
-            zone = ZoneId.systemDefault(),
-            voice = voice,
-        )
-        HorizontalDivider()
-        Text("Closed sample", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp))
-        UnifiedDurationControl(
-            startedAt = closedStartedAt,
-            now = now,
-            initialOngoing = false,
-            initialEndedAt = closedEndedAt,
-            zone = ZoneId.systemDefault(),
-            voice = voice,
-        )
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            Text("Ongoing sample", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp))
+            UnifiedDurationControl(
+                startedAt = ongoingStartedAt,
+                now = now,
+                initialOngoing = true,
+                initialEndedAt = ongoingStartedAt,
+                zone = ZoneId.systemDefault(),
+                voice = voice,
+            )
+            HorizontalDivider()
+            Text("Closed sample", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp))
+            UnifiedDurationControl(
+                startedAt = closedStartedAt,
+                now = now,
+                initialOngoing = false,
+                initialEndedAt = closedEndedAt,
+                zone = ZoneId.systemDefault(),
+                voice = voice,
+            )
+        }
     }
 }
 
