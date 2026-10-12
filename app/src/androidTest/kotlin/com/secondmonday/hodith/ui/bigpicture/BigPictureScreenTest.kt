@@ -281,6 +281,79 @@ class BigPictureScreenTest {
     }
 
     @Test
+    fun dayDetailDialog_spanStartDay_showsStartedWithABareClockTimeNotTheFullRange() {
+        // Same 3-day span as above (Mon 20th 09:00 -> Wed 22nd 17:00); opening the start day itself
+        // now has a real boundary time, so it reads "Started 9:00 AM", not the full range label.
+        val span =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart, 9),
+                endedAt = millisAt(weekStart.plusDays(2), 17),
+                note = "rough stretch",
+                utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
+            )
+        setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
+
+        composeTestRule.onNodeWithText(weekStart.dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanStarted("9:00 AM")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertDoesNotExist()
+    }
+
+    @Test
+    fun dayDetailDialog_spanEndDay_showsEndedWithABareClockTimeNotTheFullRange() {
+        val span =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart, 9),
+                endedAt = millisAt(weekStart.plusDays(2), 17),
+                note = "rough stretch",
+                utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
+            )
+        setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
+
+        composeTestRule.onNodeWithText(weekStart.plusDays(2).dayOfMonth.toString()).performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanEnded("5:00 PM")).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertDoesNotExist()
+    }
+
+    @Test
+    fun dayDetailDialog_allDayCarriedEvent_sortsAboveATimedEventTheSameDay() {
+        // A still-running event started well before the opened day, so that day is a carried
+        // (all-day, no boundary) row -- it must sort ahead of a same-day timed point event even
+        // though the timed event's own clock time (7 AM) is earlier in the day.
+        val carried =
+            CalendarEvent(
+                id = 1L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart.minusDays(3), 8),
+                isOngoing = true,
+                note = "forgot to stop",
+                utcOffsetMinutes = offsetAt(millisAt(weekStart.minusDays(3), 8)),
+            )
+        val timed =
+            CalendarEvent(
+                id = 2L,
+                caseId = case.id,
+                occurredAt = millisAt(weekStart.plusDays(1), 7),
+                note = "plain errand",
+                utcOffsetMinutes = offsetAt(millisAt(weekStart.plusDays(1), 7)),
+            )
+        setContent(uiStateWith(cases = listOf(case), events = listOf(timed, carried)))
+
+        composeTestRule.onNodeWithText(weekStart.plusDays(1).dayOfMonth.toString()).performClick()
+
+        val carriedTop = composeTestRule.onNodeWithText("forgot to stop").getBoundsInRoot().top
+        val timedTop = composeTestRule.onNodeWithText("plain errand").getBoundsInRoot().top
+        assert(carriedTop < timedTop) {
+            "expected the all-day carried row ($carriedTop) above the timed row ($timedTop)"
+        }
+    }
+
+    @Test
     fun dayDetailDialog_carriedDayOfOngoingEvent_showsOngoingSinceWithDateAndTime() {
         val ongoing =
             CalendarEvent(
