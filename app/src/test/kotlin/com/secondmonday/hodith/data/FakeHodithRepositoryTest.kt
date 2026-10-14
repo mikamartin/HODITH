@@ -17,14 +17,14 @@ class FakeHodithRepositoryTest {
         name: String = "Coffee",
         sortOrder: Int = 0,
         archived: Boolean = false,
-        durationMode: DurationMode = DurationMode.NONE,
+        tracksDuration: Boolean = false,
     ) = CaseEntity(
         id = id,
         name = name,
         icon = "☕️",
         createdAt = 0L,
         logFlow = LogFlow.ONE_TAP,
-        durationMode = durationMode,
+        tracksDuration = tracksDuration,
         intensityEnabled = false,
         checkInsEnabled = true,
         lastCheckInAt = null,
@@ -76,17 +76,17 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeActiveCaseEventSpans projects timing plus the owning Case's durationMode, excluding archived`() =
+    fun `observeActiveCaseEventSpans projects timing plus the owning Case's tracksDuration, excluding archived`() =
         runTest {
-            val trackingId = repository.insertCase(testCase(name = "Tracked", durationMode = DurationMode.START_STOP))
-            repository.insertCase(testCase(name = "Archived", archived = true, durationMode = DurationMode.MANUAL))
+            val trackingId = repository.insertCase(testCase(name = "Tracked", tracksDuration = true))
+            repository.insertCase(testCase(name = "Archived", archived = true, tracksDuration = true))
             repository.insertEvent(testEvent(caseId = trackingId, occurredAt = 100L, endedAt = 400L))
             repository.insertEvent(testEvent(caseId = 999L, occurredAt = 200L)) // archived Case's event
 
             repository.observeActiveCaseEventSpans().test {
                 val spans = awaitItem()
                 assertEquals(1, spans.size)
-                assertEquals(CaseEventSpan(trackingId, 100L, 400L, DurationMode.START_STOP), spans.single())
+                assertEquals(CaseEventSpan(trackingId, 100L, 400L, true), spans.single())
             }
         }
 
@@ -267,7 +267,7 @@ class FakeHodithRepositoryTest {
                     caseId,
                     HistorySortOrder.BY_START,
                     limit = 3,
-                    durationMode = DurationMode.NONE,
+                    tracksDuration = false,
                     dateFrom = null,
                     dateTo = null,
                 ).test {
@@ -288,7 +288,7 @@ class FakeHodithRepositoryTest {
                     caseId,
                     HistorySortOrder.BY_START,
                     limit = 10,
-                    durationMode = DurationMode.NONE,
+                    tracksDuration = false,
                     dateFrom = 1L,
                     dateTo = 3L,
                 ).test {
@@ -302,7 +302,7 @@ class FakeHodithRepositoryTest {
                     caseId,
                     HistorySortOrder.BY_START,
                     limit = 10,
-                    durationMode = DurationMode.NONE,
+                    tracksDuration = false,
                     dateFrom = 3L,
                     dateTo = null,
                 ).test {
@@ -321,7 +321,7 @@ class FakeHodithRepositoryTest {
                     caseId,
                     HistorySortOrder.BY_START,
                     limit = 3,
-                    durationMode = DurationMode.NONE,
+                    tracksDuration = false,
                     dateFrom = null,
                     dateTo = null,
                 ).test {
@@ -334,7 +334,7 @@ class FakeHodithRepositoryTest {
     @Test
     fun `observeHistoryEventsForCase BY_END floats a running event above a more recently started finished one`() =
         runTest {
-            val caseId = repository.insertCase(testCase(durationMode = DurationMode.START_STOP))
+            val caseId = repository.insertCase(testCase(tracksDuration = true))
             val runningId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
             val finishedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
 
@@ -343,7 +343,7 @@ class FakeHodithRepositoryTest {
                     caseId,
                     HistorySortOrder.BY_END,
                     limit = 10,
-                    durationMode = DurationMode.START_STOP,
+                    tracksDuration = true,
                     dateFrom = null,
                     dateTo = null,
                 ).test {
@@ -353,9 +353,9 @@ class FakeHodithRepositoryTest {
         }
 
     @Test
-    fun `observeHistoryEventsForCase BY_END never floats a running event for a non START_STOP case`() =
+    fun `observeHistoryEventsForCase BY_END never floats an open-ended event for a case that doesn't track duration`() =
         runTest {
-            val caseId = repository.insertCase(testCase(durationMode = DurationMode.MANUAL))
+            val caseId = repository.insertCase(testCase(tracksDuration = false))
             val openEndedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
             val laterFinishedId = repository.insertEvent(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
 
@@ -364,7 +364,7 @@ class FakeHodithRepositoryTest {
                     caseId,
                     HistorySortOrder.BY_END,
                     limit = 10,
-                    durationMode = DurationMode.MANUAL,
+                    tracksDuration = false,
                     dateFrom = null,
                     dateTo = null,
                 ).test {

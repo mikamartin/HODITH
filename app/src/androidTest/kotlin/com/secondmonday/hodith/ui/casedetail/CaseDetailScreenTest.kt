@@ -14,7 +14,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HistoryRowField
@@ -31,7 +30,6 @@ import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.formatEventTime
@@ -58,19 +56,19 @@ class CaseDetailScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private val startStopCase =
+    private val trackedCase =
         testCase(
             id = 1L,
             name = "Focus session",
             icon = "⏱️",
             logFlow = LogFlow.DETAIL_SHEET,
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
         )
 
     private fun ongoingEvent() = testEvent(id = 5L, caseId = 1L)
 
     private fun setCaseDetailScreenContent(
-        case: CaseEntity = startStopCase,
+        case: CaseEntity = trackedCase,
         events: List<EventWithTags> = emptyList(),
         historyEvents: List<EventWithTags> = events,
         historyHasMore: Boolean = false,
@@ -118,12 +116,12 @@ class CaseDetailScreenTest {
                         LogDraft(
                             occurredAt = nowMillis(),
                             intensity = null,
-                            durationAmount = "",
-                            durationUnit = DurationUnit.MINUTES,
                             note = "",
                             tags = emptyList(),
                             endedAt = null,
-                            existingEndedAt = null,
+                            daysInput = "",
+                            hoursInput = "",
+                            minutesInput = "",
                         )
                     },
                     onSaveEvent = onSaveEvent,
@@ -141,7 +139,7 @@ class CaseDetailScreenTest {
 
     @Test
     fun description_showsText_whenCaseHasOne() {
-        val describedCase = startStopCase.copy(description = "From first twinge to when it fully lifts")
+        val describedCase = trackedCase.copy(description = "From first twinge to when it fully lifts")
         setCaseDetailScreenContent(case = describedCase)
 
         composeTestRule.onNodeWithText("From first twinge to when it fully lifts").assertExists()
@@ -149,7 +147,7 @@ class CaseDetailScreenTest {
 
     @Test
     fun description_showsNothing_whenCaseHasNone() {
-        setCaseDetailScreenContent(case = startStopCase.copy(description = null))
+        setCaseDetailScreenContent(case = trackedCase.copy(description = null))
 
         composeTestRule.onNodeWithText("From first twinge to when it fully lifts").assertDoesNotExist()
     }
@@ -161,7 +159,7 @@ class CaseDetailScreenTest {
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.caseDetailEditDescription).performClick()
 
-        assertEquals(startStopCase.id, editedCaseId)
+        assertEquals(trackedCase.id, editedCaseId)
     }
 
     @Test
@@ -178,18 +176,18 @@ class CaseDetailScreenTest {
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.shareOpenDescription).performClick()
 
-        assertEquals(startStopCase.id, shareCaseId)
+        assertEquals(trackedCase.id, shareCaseId)
     }
 
     @Smoke
     @Test
-    fun retroLogFab_forStartStopCaseWithNoOngoingEvent_showsOngoingByDefaultAndStartsOnSave() {
+    fun retroLogFab_forTrackedCaseWithNoOngoingEvent_showsOngoingByDefaultAndCreatesOnSave() {
         var savedDraft: LogDraft? = null
         setCaseDetailScreenContent(onSaveEvent = { draft -> savedDraft = draft })
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.retroLogEntryDescription, useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.logSheetStartButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
         assertNotNull(savedDraft)
         assertNull(savedDraft?.endedAt)
@@ -206,7 +204,7 @@ class CaseDetailScreenTest {
         // Confirm "Stop Now" actually cleared the ongoing state before saving.
         composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertDoesNotExist()
 
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
         assertNotNull(savedDraft?.endedAt)
     }
@@ -217,7 +215,7 @@ class CaseDetailScreenTest {
         // formatter produces for that zone rather than a fixed "15:30".
         val event = testEvent(id = 9L, caseId = 1L, occurredAt = 15L * 60 * 60_000L)
         setCaseDetailScreenContent(
-            case = testCase(id = 1L, name = "Focus", durationMode = DurationMode.NONE),
+            case = testCase(id = 1L, name = "Focus", tracksDuration = false),
             events = listOf(EventWithTags(event = event, tags = emptyList())),
             nowMillis = { event.occurredAt },
             timeFormat = TimeFormat.TWENTY_FOUR_HOUR,
@@ -239,7 +237,7 @@ class CaseDetailScreenTest {
 
         composeTestRule.onNodeWithText(formatEventTime(event.occurredAt, 10_000L, use24Hour = false)).performClick()
 
-        assertEquals(startStopCase.id to event.id, edited)
+        assertEquals(trackedCase.id to event.id, edited)
     }
 
     @Test
@@ -257,7 +255,7 @@ class CaseDetailScreenTest {
 
         composeTestRule.onNodeWithText(formatEventTime(event.occurredAt, 10_000L, use24Hour = false)).performClick()
 
-        assertEquals(startStopCase.id to event.id, edited)
+        assertEquals(trackedCase.id to event.id, edited)
     }
 
     @Test
@@ -270,7 +268,7 @@ class CaseDetailScreenTest {
         )
 
         // Stop lives on the open event's own log row now (spec §6), not in the header.
-        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name)).performClick()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(trackedCase.name)).performClick()
 
         assertEquals(ongoing, stopped)
     }
@@ -281,16 +279,16 @@ class CaseDetailScreenTest {
 
         // One "Ongoing" pill in the header summary, one on the open event's row.
         composeTestRule.onAllNodesWithText(PlainVoice.ongoingPillLabel).assertCountEquals(2)
-        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name)).assertExists()
+        composeTestRule.onNodeWithContentDescription(PlainVoice.stopActionDescription(trackedCase.name)).assertExists()
     }
 
     @Test
     fun finishedEventRow_showsDurationLabel_whenTheCaseTracksDuration() {
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 45 * 60_000L)
         setCaseDetailScreenContent(
-            case = startStopCase.copy(durationMode = DurationMode.MANUAL),
+            case = trackedCase,
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
-            // `now` must be past endedAt, or a MANUAL event's endedAt reads as not-yet-elapsed
+            // `now` must be past endedAt, or the event's endedAt reads as not-yet-elapsed
             // (isStillRunning) rather than a finished duration to show.
             nowMillis = { 45 * 60_000L + 1 },
         )
@@ -300,10 +298,10 @@ class CaseDetailScreenTest {
 
     @Test
     fun finishedEventRow_hidesDurationLabel_whenTheCaseNoLongerTracksDuration() {
-        // Same stored endedAt, but durationMode is NONE now: the row is a point (spec §9).
+        // Same stored endedAt, but tracksDuration is false now: the row is a point (spec §9).
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 45 * 60_000L)
         setCaseDetailScreenContent(
-            case = startStopCase.copy(durationMode = DurationMode.NONE),
+            case = trackedCase.copy(tracksDuration = false),
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
         )
 
@@ -314,7 +312,7 @@ class CaseDetailScreenTest {
     fun historySortToggle_hidden_whenTheCaseDoesNotTrackDuration() {
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
         setCaseDetailScreenContent(
-            case = startStopCase.copy(durationMode = DurationMode.NONE),
+            case = trackedCase.copy(tracksDuration = false),
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
         )
 
@@ -323,7 +321,7 @@ class CaseDetailScreenTest {
 
     @Test
     fun historySortToggle_hidden_whenTheHistoryIsEmpty() {
-        setCaseDetailScreenContent(case = startStopCase, events = emptyList())
+        setCaseDetailScreenContent(case = trackedCase, events = emptyList())
 
         composeTestRule.onNodeWithText(PlainVoice.historySortLabel).assertDoesNotExist()
     }
@@ -332,7 +330,7 @@ class CaseDetailScreenTest {
     fun historySortToggle_shown_whenTheCaseTracksDurationAndHasEvents() {
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
         setCaseDetailScreenContent(
-            case = startStopCase.copy(durationMode = DurationMode.MANUAL),
+            case = trackedCase,
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
         )
 
@@ -357,7 +355,7 @@ class CaseDetailScreenTest {
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
         var changedTo: HistorySortOrder? = null
         setCaseDetailScreenContent(
-            case = startStopCase,
+            case = trackedCase,
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
             onHistorySortOrderChange = { changedTo = it },
         )
@@ -376,7 +374,7 @@ class CaseDetailScreenTest {
         val finished = testEvent(id = 8L, caseId = 1L, occurredAt = 0L, endedAt = 5_000L)
         var changedTo: HistorySortOrder? = null
         setCaseDetailScreenContent(
-            case = startStopCase,
+            case = trackedCase,
             events = listOf(EventWithTags(event = finished, tags = emptyList())),
             onHistorySortOrderChange = { changedTo = it },
             theme = AppTheme.BRIGHT,
@@ -499,7 +497,7 @@ class CaseDetailScreenTest {
     fun historyFieldsEditIcon_tap_opensFieldsDialog_andTogglingNotesInvokesCallback() {
         var toggled: Pair<HistoryRowField, Boolean>? = null
         setCaseDetailScreenContent(
-            case = startStopCase.copy(durationMode = DurationMode.NONE, intensityEnabled = false),
+            case = trackedCase.copy(tracksDuration = false, intensityEnabled = false),
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
             onHistoryFieldVisibleChange = { field, visible -> toggled = field to visible },
         )
@@ -604,7 +602,7 @@ class CaseDetailScreenTest {
                 .boundsInRoot
         val lastStopButtonBounds =
             composeTestRule
-                .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name))
+                .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(trackedCase.name))
                 .fetchSemanticsNodes()
                 .maxBy { it.boundsInRoot.top }
                 .boundsInRoot
@@ -625,7 +623,7 @@ class CaseDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.ongoingCountIndicator(2), substring = true).assertExists()
         // Per-event Stop moves onto the rows; the header no longer carries one.
         composeTestRule
-            .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name))
+            .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(trackedCase.name))
             .assertCountEquals(2)
     }
 
@@ -642,7 +640,7 @@ class CaseDetailScreenTest {
 
         // The first Stop button belongs to the top row, `first`.
         composeTestRule
-            .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(startStopCase.name))
+            .onAllNodesWithContentDescription(PlainVoice.stopActionDescription(trackedCase.name))
             .onFirst()
             .performClick()
 

@@ -4,7 +4,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
@@ -67,7 +66,7 @@ class TagsListScreenTest {
                 taggedEventCount = 1,
                 tags = tags,
                 eventsWithTags = eventsWithTags,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
                 caseIcon = caseIcon,
                 caseName = caseName,
                 nowMillis = { now },

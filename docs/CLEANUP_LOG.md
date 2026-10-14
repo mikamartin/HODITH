@@ -17,6 +17,25 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feature/duration-unification
+
+**Scope:** Story U2 — collapsed the Case-level `DurationMode` enum (`NONE`/`MANUAL`/`START_STOP`) into a single `CaseEntity.tracksDuration: Boolean`, with per-event ongoing/ended state derived (`endedAt == null || endedAt > now`) rather than branched on mode. Landed across the schema, every domain engine, ~20 ViewModels/screens, both Glance widgets, Voice ×3, the Case Edit confirm-dialog redesign, and the Log/Edit Event Days/Hours/Minutes duration control. This pass finished migrating the remaining JVM unit test files and all instrumented test files off the retired enum, synced HODITH_SPEC.md/TESTING.md/MANUAL_TEST_PLAN.md/PROGRESS.md, and deleted the superseded `ui/prototype/DurationUnificationPrototype.kt`.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass; `compileDebugAndroidTestKotlin` confirms every instrumented test file compiles, but no emulator was available this pass to actually run `connectedDebugAndroidTest` — flagged under Deferred below rather than silently skipped.
+
+**Found & fixed:**
+- Self-caught correctness bug mid-migration: several already-edited test fixtures blindly mapped the old `MANUAL`/`START_STOP` enum values to `tracksDuration = true` without checking the paired event's `endedAt`. Under the old model, a `MANUAL` event with `endedAt == null` read as "not yet given a duration," not running; under the new unified rule, `tracksDuration = true` plus a null `endedAt` always means running — a silent semantic drift that would have corrupted several tests' actual day-counting results without failing outright. Caught by auditing every `eventAtDay`/bare-`testEvent` call site against its enclosing test's tracking flag before continuing the mechanical pass (`InsightsTabStateTest`, `WatchEngineTest`, `VerdictEngineTest`, `FakeHodithRepositoryTest`).
+- `LogDetailViewModelTest.kt` was missing the DST spring-forward regression test the old `computeEndedAt` had for its fixed-24h day scaling — ported it to the new `composeDuration` function, which has the identical property, rather than letting the coverage silently disappear in the rewrite.
+- `LogDetailSheet.kt`'s preview-only `UnifiedDurationSectionPreviewContent` had a `remember { draft = ... }` block that only mutates state and returns `Unit` — a real `lintDebug` error (`RememberReturnType`), not a style nit. Folded the mutation into the initial `mutableStateOf` computation instead.
+- `CaseDetailScreenTest.kt`'s `startStopCase` fixture renamed to `trackedCase` for clarity under the new model — first attempted via a PowerShell regex replace, which silently corrupted the file's UTF-8 encoding (mojibake on its em dashes/emoji) and added a BOM, and mangled one test's method name mid-rename. Caught by diffing before compiling; reverted and redone with exact-string edits instead.
+
+**Deferred:**
+- Running the new/updated instrumented tests on a real device (`connectedDebugAndroidTest`) — no emulator available this pass; `compileDebugAndroidTestKotlin` confirms every file compiles. Needs a human pass before merge, per this repo's standing workflow.
+
+**Docs updated:** HODITH_SPEC.md (§5 data model, §6 logging flows + the duration-tracking transition contract, §8 comparison math, §9 active span, §10 stats, §14 Case Edit, §15 widgets); TESTING.md (every `DurationMode`/`START_STOP`/`MANUAL` reference across the Verdict/Watch/Notification/Stats/ViewModels/Room DAO/Compose UI rows); MANUAL_TEST_PLAN.md (items 6-7); PROGRESS.md (Story U struck entirely — implementation, tests and docs are done, and the prototype file is deleted); this entry (oldest entry, `fix/widget-row-sizing`, removed per the 5-entry retention rule).
+
+---
+
 ## feature/manual-duration-ongoing-stop
 
 **Scope:** User request: show a `MANUAL`-duration event as "ongoing" — expected-end display plus an immediate Stop — once its computed duration projects past `now`, matching the existing `START_STOP` ongoing/Stop UX. Landed across the History tab, Insights drill-down rows, the Edit Event screen, Home, both Glance widgets, and Big Picture's day/week detail (display-only there, per the user's explicit scope cut: no Stop, since that screen targets a Case across many events, not a single one). Extended the existing "still-running events are excluded until they stop" stats rule to cover this new case too.
@@ -149,40 +168,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: regression tests added for both reported bugs (`SettingsViewModelTest` — reload no longer duplicates; `CaseEditValidationTest`/`CaseEditViewModelTest` — an archived-only duplicate is a separate non-blocking warning, and a duplicate name with no icon selected still surfaces) and for the two bugs the user found via manual testing on-device. Fixed the one existing `SettingsScreenTest` the behavior change broke (`loadDemoData` no longer taps straight through) and added its cancel counterpart.
 
 **Docs updated:** HODITH_SPEC.md (Settings row); TESTING.md (ViewModels row's Case Edit clause corrected; Compose UI row's Developer Mode clause extended); this entry (oldest entry, `fix/info-note-copy`, removed per the 5-entry retention rule).
-
----
-
-## fix/widget-row-sizing
-
-**Scope:** user-reported List widget resize bug — a continuation of an earlier, uncommitted investigation (branch deleted, nothing landed). Two root causes: `CaseRow` emitted an unconditional trailing `Spacer` after every row including the last, leaving a dead strip at the bottom; and the `LazyColumn` had no height constraint, so it wrap-sized to content instead of filling the widget, leaving empty space when resized taller than the row count. Three prior attempts to additionally force "exactly N whole rows, no scroll" from a guessed row-height constant had all failed in opposite directions and were explicitly not re-attempted this pass — researched against Glance's own docs instead, which confirmed a partial row clipped at the bottom of a scrolling list is standard `ListView` behavior, not a defect to engineer around with unmeasurable row-height math. Scope grew to a spacing-tightening pass once the mechanical fix was confirmed on-device and the user asked for a denser row/plank layout.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. `ktlintCheck`, `lintDebug`, `test` (full unit suite, including the updated `WidgetTokenFidelityTest`), and `assembleDebug` all pass. No instrumented coverage is possible for either fix — see Tests below.
-
-**Found & fixed:**
-- Root cause 1: `CaseRow`'s trailing `Spacer(WidgetPlankSpacing)` fired unconditionally. Added an `isLast` flag threaded from the `LazyColumn`'s item index through the private `items` extension to `CaseRow`, skipping the Spacer on the last row.
-- Root cause 2: the `LazyColumn` wrap-sized instead of filling the outer `Column`. Added `.defaultWeight()` to its modifier so it claims the remaining height and scrolls instead of leaving dead space.
-- Spacing tightened for row density, confirmed on-device by the user: `WidgetOuterPadding` 12→10dp, `WidgetRowPadding` 10→6dp, `WidgetHeaderPadding` 15→10dp, `WidgetPlankSpacing` 8→6dp.
-- `WidgetHeaderPadding`'s reduction puts the List widget header/empty-state tap target below the 48dp `MinTapTarget` minimum (~37dp) — calculated that 15dp was already near the floor for a true 48dp target at this font size, and that no Box/Spacer layering trick can shrink both the top-of-widget→title and title→rows gaps at once without the same floor (the slack only relocates between them). User explicitly decided the row-cutoff fix mattered more than this one control's tap target. See Considered and declined.
-- `WidgetPlankSpacing`'s reduction breaks its fidelity to Home's `PlainPlankVerticalMargin * 2` — removed the now-invalid `WidgetTokenFidelityTest` assertion and its `PlainPlankVerticalMargin` import, and updated the stale doc comments in `WidgetCommon.kt`, `HomeScreen.kt`, and `DEV_PLAYBOOK.md` §4 that documented the old guaranteed relationship (all three explicitly claimed a sync that no longer holds — caught by walking the actual files, not assumed from memory of the earlier edit).
-- Documented the underlying Glance fact as a third numbered gotcha in `DEV_PLAYBOOK.md` §4 (alongside the existing Text-in-Box and no-margin notes): `LazyColumn` has no `verticalArrangement`/`spacedBy` equivalent, so a manual inter-item `Spacer` must know which item is last and skip itself there, or it reintroduces this exact bug.
-- Added a List widget resize item to `MANUAL_TEST_PLAN.md` (item 12) — this surface can't be driven by an instrumented test (the harness can't populate `LazyColumn` row items at all), so it's a standing manual check, not a one-off verification of this fix.
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- `SizeMode.Responsive` with discrete, on-device-calibrated `DpSize` buckets (each hand-confirmed to show exactly N rows, no clipping or dead space) — the properly-supported Glance pattern for this problem, researched this pass. Declined in favor of the simpler scrolling fix once the user approved its on-device look; would need a round of real calibration measurements if revisited.
-- `WidgetHeaderPadding` kept at 15dp to preserve the 48dp tap target — declined by explicit user decision; row-cutoff fix weighed higher than this control's tap target size.
-- A Box + invisible-`Spacer` trick to emulate a min-height modifier for the header (Glance has no `heightIn`) — doesn't work regardless: the reserved height still pushes following siblings down by the same total amount, so the slack only moves between the top-of-widget→title and title→rows gaps rather than shrinking both.
-
-**Checks:**
-- Duplication: no new composables; the existing `items` extension and `CaseRow` were extended, not duplicated.
-- Decoupling: widget code stays Glance/Android-only, no `domain/` or Repository changes.
-- Dead code: no unused imports (removed the now-unused `PlainPlankVerticalMargin` import from the test file after deleting the assertion that used it).
-- Hygiene: `git status` clean; no secrets or local paths in the diff.
-- Hardcoded values: all four changed numbers are already named tokens in `WidgetCommon.kt`, not inline magic numbers.
-- Accessibility: `WidgetHeaderPadding`'s tap-target reduction below 48dp is a deliberate, user-approved exception — see Considered and declined. All other tap targets (`MinTapTarget`-sized Boxes) are untouched and unaffected by any of the padding changes.
-- Background work, widgets: Plain-light-only theming and per-Case `logFlow` handling untouched by this diff.
-- Spec review: `HODITH_SPEC.md` §15 doesn't claim any specific resize behavior, so no divergence to fix there; `DEV_PLAYBOOK.md` §4's token table and layout-facts list updated (see Found & fixed).
-- Tests: no regression test added for either root-cause fix. `docs/DEV_PLAYBOOK.md` already documents that the on-device widget test harness can't populate `LazyColumn` row items at all (`RemoteViewsService`/`ListView` binding gap), ruling out an instrumented assertion on the trailing-spacer or fill behavior; `CaseRow` is a private Composable with no feasible unit-test path without a Glance/Robolectric test harness this repo doesn't have. Declined rather than silently skipped — flagging here since "bug fixed → regression test added" is otherwise an unconditional checklist item.
-
-**Docs updated:** `DEV_PLAYBOOK.md` §4 (token table values, the plank-spacing/Home-fidelity description, a new Glance layout-facts bullet); `MANUAL_TEST_PLAN.md` (new widget-resize item); this entry (oldest entry, `fix/duration-selector-wrap`, removed per the 5-entry retention rule).

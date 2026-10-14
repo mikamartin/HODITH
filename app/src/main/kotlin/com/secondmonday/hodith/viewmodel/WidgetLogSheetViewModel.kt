@@ -2,7 +2,6 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.Clock
@@ -17,7 +16,7 @@ import javax.inject.Inject
 
 data class WidgetLogSheetUiState(
     val caseName: String,
-    val durationMode: DurationMode,
+    val tracksDuration: Boolean,
     val intensityEnabled: Boolean,
     val tagSuggestions: List<TagEntity>,
     val draft: LogDraft,
@@ -52,7 +51,7 @@ class WidgetLogSheetViewModel
                 _uiState.value =
                     WidgetLogSheetUiState(
                         caseName = case.name,
-                        durationMode = case.durationMode,
+                        tracksDuration = case.tracksDuration,
                         intensityEnabled = case.intensityEnabled,
                         tagSuggestions = tagSuggestions,
                         draft = draftFrom(event = null, now = clock.nowMillis()),
@@ -64,7 +63,7 @@ class WidgetLogSheetViewModel
             draft: LogDraft,
             onSaved: () -> Unit,
         ) {
-            val durationMode = _uiState.value?.durationMode ?: return
+            _uiState.value ?: return
             viewModelScope.launch {
                 val plan =
                     planSaveEvent(
@@ -72,7 +71,6 @@ class WidgetLogSheetViewModel
                         draft = draft,
                         existingEvent = null,
                         originalTags = emptyList(),
-                        durationMode = durationMode,
                         now = clock.nowMillis(),
                     )
                 val eventId = repository.insertEvent(plan.entity)

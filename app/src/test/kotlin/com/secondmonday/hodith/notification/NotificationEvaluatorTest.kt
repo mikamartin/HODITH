@@ -2,7 +2,6 @@ package com.secondmonday.hodith.notification
 
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CheckInDefaultInterval
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
@@ -40,14 +39,14 @@ class NotificationEvaluatorTest {
         checkInsEnabled: Boolean = false,
         lastCheckInAt: Long? = null,
         archived: Boolean = false,
-        durationMode: DurationMode = DurationMode.NONE,
+        tracksDuration: Boolean = false,
     ) = CaseEntity(
         id = id,
         name = "Coffee",
         icon = "☕️",
         createdAt = createdAt,
         logFlow = LogFlow.DETAIL_SHEET,
-        durationMode = durationMode,
+        tracksDuration = tracksDuration,
         intensityEnabled = false,
         checkInsEnabled = checkInsEnabled,
         lastCheckInAt = lastCheckInAt,
@@ -120,7 +119,7 @@ class NotificationEvaluatorTest {
             // logic can see an event whose span started before the window but still reaches into
             // it. Event runs days 0..40; the 7-day lookback from day 30 only opens at day 23 — an
             // occurredAt-only windowed fetch would never have handed this event to the evaluator.
-            repository.cases.value = listOf(case(durationMode = DurationMode.MANUAL))
+            repository.cases.value = listOf(case(tracksDuration = true))
             repository.watches.value = listOf(watch(threshold = 1, windowDays = 7))
             repository.events.value = listOf(event(occurredAt = millisAtDay(0), endedAt = millisAtDay(40)))
 
@@ -158,7 +157,7 @@ class NotificationEvaluatorTest {
         runTest {
             // Event ran days 2..20 and stopped; now is day 30, so 10 quiet days — under the 14-day threshold.
             // Measured from the day-2 start it would be 28 days and would fire.
-            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.MANUAL))
+            repository.cases.value = listOf(case(createdAt = 0L, tracksDuration = true))
             repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
 
@@ -171,7 +170,7 @@ class NotificationEvaluatorTest {
     fun `evaluateCase does not fire QUIET while an event is still running on the Case`() =
         runTest {
             // Started day 2, never stopped; now is day 30. A running event is not silence.
-            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(case(createdAt = 0L, tracksDuration = true))
             repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = null))
 
@@ -185,7 +184,7 @@ class NotificationEvaluatorTest {
         runTest {
             // Two concurrent open events (retro-log / fast restart, spec §6). The Case is running,
             // so the silence anchor pins to now regardless of how many events are open.
-            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(case(createdAt = 0L, tracksDuration = true))
             repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value =
                 listOf(
@@ -199,11 +198,11 @@ class NotificationEvaluatorTest {
         }
 
     @Test
-    fun `evaluateCase does not fire QUIET while a MANUAL event's endedAt hasn't elapsed yet`() =
+    fun `evaluateCase does not fire QUIET while a stated endedAt hasn't elapsed yet`() =
         runTest {
             // Started day 2, typed duration projects to day 40 -- still in the future relative to
             // day 30's now, so the stated/expected length hasn't actually elapsed yet.
-            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.MANUAL))
+            repository.cases.value = listOf(case(createdAt = 0L, tracksDuration = true))
             repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(40)))
 
@@ -218,7 +217,7 @@ class NotificationEvaluatorTest {
             // Spec §11: a still-running event counts as no silence for check-ins too, not just QUIET.
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
             repository.cases.value =
-                listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.START_STOP))
+                listOf(case(createdAt = 0L, checkInsEnabled = true, tracksDuration = true))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = null))
 
             evaluator.evaluateCase(1L)
@@ -232,7 +231,7 @@ class NotificationEvaluatorTest {
             // Same event as the MANUAL test above (ran days 2..20) but the Case is now NONE, so spec
             // §9/§10 read it as a point: silence counts from the day-2 start = 28 quiet days, which
             // clears the 14-day threshold and fires. Reading the stored day-20 endedAt would give 10.
-            repository.cases.value = listOf(case(createdAt = 0L, durationMode = DurationMode.NONE))
+            repository.cases.value = listOf(case(createdAt = 0L, tracksDuration = false))
             repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))
 
@@ -287,7 +286,7 @@ class NotificationEvaluatorTest {
         runTest {
             // Event ran days 1..28 and stopped; now is day 30, so only 2 quiet days — under the 7-day interval.
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
-            repository.cases.value = listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.MANUAL))
+            repository.cases.value = listOf(case(createdAt = 0L, checkInsEnabled = true, tracksDuration = true))
             repository.events.value = listOf(event(occurredAt = millisAtDay(1), endedAt = millisAtDay(28)))
 
             evaluator.evaluateCase(1L)
@@ -301,7 +300,7 @@ class NotificationEvaluatorTest {
             // Event ran days 1..28, Case now NONE — silence counts from the day-1 start = 29 quiet
             // days, past the 7-day interval, so the check-in is due. The day-28 endedAt would give 2.
             settingsRepository.checkInDefaultInterval.value = CheckInDefaultInterval.SEVEN
-            repository.cases.value = listOf(case(createdAt = 0L, checkInsEnabled = true, durationMode = DurationMode.NONE))
+            repository.cases.value = listOf(case(createdAt = 0L, checkInsEnabled = true, tracksDuration = false))
             repository.events.value = listOf(event(occurredAt = millisAtDay(1), endedAt = millisAtDay(28)))
 
             evaluator.evaluateCase(1L)

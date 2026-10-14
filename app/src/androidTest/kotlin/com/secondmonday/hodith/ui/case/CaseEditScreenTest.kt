@@ -9,7 +9,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
@@ -42,11 +41,11 @@ class CaseEditScreenTest {
         uiState: CaseEditUiState = CaseEditUiState(isEditing = true, isLoading = false, canArchive = true),
         intensityToggleNotice: Flow<IntensityToggleNotice> = emptyFlow(),
         onArchive: () -> Unit = {},
-        onDurationModeChange: (DurationMode) -> Unit = {},
-        onConfirmLeaveStartStop: () -> Unit = {},
-        onDismissLeaveStartStop: () -> Unit = {},
-        onConfirmEnterStartStop: () -> Unit = {},
-        onDismissEnterStartStop: () -> Unit = {},
+        onTracksDurationChange: (Boolean) -> Unit = {},
+        onConfirmTurnOffDuration: () -> Unit = {},
+        onDismissTurnOffDuration: () -> Unit = {},
+        onConfirmTurnOnDuration: () -> Unit = {},
+        onDismissTurnOnDuration: () -> Unit = {},
         onIconSelect: (String) -> Unit = {},
         theme: AppTheme = AppTheme.PLAIN,
     ) {
@@ -58,11 +57,11 @@ class CaseEditScreenTest {
                 onDescriptionChange = {},
                 onIconSelect = onIconSelect,
                 onLogFlowChange = {},
-                onDurationModeChange = onDurationModeChange,
-                onConfirmLeaveStartStop = onConfirmLeaveStartStop,
-                onDismissLeaveStartStop = onDismissLeaveStartStop,
-                onConfirmEnterStartStop = onConfirmEnterStartStop,
-                onDismissEnterStartStop = onDismissEnterStartStop,
+                onTracksDurationChange = onTracksDurationChange,
+                onConfirmTurnOffDuration = onConfirmTurnOffDuration,
+                onDismissTurnOffDuration = onDismissTurnOffDuration,
+                onConfirmTurnOnDuration = onConfirmTurnOnDuration,
+                onDismissTurnOnDuration = onDismissTurnOnDuration,
                 onIntensityToggle = {},
                 onSave = {},
                 onArchive = onArchive,
@@ -153,16 +152,18 @@ class CaseEditScreenTest {
     @Smoke
     @Test
     fun logFlow_oneTapEnabled_whenNoDurationAndNoIntensity() {
-        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, durationMode = DurationMode.NONE))
+        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, tracksDuration = false))
 
         composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsEnabled()
     }
 
     @Test
-    fun logFlow_oneTapDisabled_whenDurationModeIsManual() {
-        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, durationMode = DurationMode.MANUAL))
+    fun logFlow_oneTapStaysEnabled_whenTracksDurationIsOn() {
+        // One-tap is never gated by duration tracking (spec section 6 Story U2): a tracked event
+        // starts open-ended by default, exactly like a non-tracked one.
+        setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, tracksDuration = true))
 
-        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsNotEnabled()
+        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsEnabled()
     }
 
     @Test
@@ -187,24 +188,24 @@ class CaseEditScreenTest {
     }
 
     @Test
-    fun leaveStartStopConfirm_whenFlagged_showsDialogNamingTheRunningCount() {
+    fun turnOffDurationConfirm_whenFlagged_showsDialogNamingTheRunningCount() {
         setContent(
             uiState =
                 CaseEditUiState(
                     isEditing = true,
                     isLoading = false,
-                    durationMode = DurationMode.START_STOP,
+                    tracksDuration = true,
                     runningEventCount = 2,
-                    showLeaveStartStopConfirm = true,
+                    showTurnOffDurationConfirm = true,
                 ),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmTitle).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmBody(2)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.turnOffDurationConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.turnOffDurationConfirmBody(2)).assertExists()
     }
 
     @Test
-    fun leaveStartStopConfirm_confirmAndCancel_invokeTheirCallbacks() {
+    fun turnOffDurationConfirm_confirmAndCancel_invokeTheirCallbacks() {
         var confirmed = false
         var dismissed = false
         setContent(
@@ -212,40 +213,40 @@ class CaseEditScreenTest {
                 CaseEditUiState(
                     isEditing = true,
                     isLoading = false,
-                    durationMode = DurationMode.START_STOP,
+                    tracksDuration = true,
                     runningEventCount = 1,
-                    showLeaveStartStopConfirm = true,
+                    showTurnOffDurationConfirm = true,
                 ),
-            onConfirmLeaveStartStop = { confirmed = true },
-            onDismissLeaveStartStop = { dismissed = true },
+            onConfirmTurnOffDuration = { confirmed = true },
+            onDismissTurnOffDuration = { dismissed = true },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopCancelAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.turnOffDurationCancelAction).performClick()
         assertTrue(dismissed)
 
-        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.turnOffDurationConfirmAction).performClick()
         assertTrue(confirmed)
     }
 
     @Test
-    fun enterStartStopConfirm_whenFlagged_showsDialogNamingTheOpenEndedCount() {
+    fun turnOnDurationConfirm_whenFlagged_showsDialogNamingTheOpenEndedCount() {
         setContent(
             uiState =
                 CaseEditUiState(
                     isEditing = true,
                     isLoading = false,
-                    durationMode = DurationMode.MANUAL,
+                    tracksDuration = false,
                     runningEventCount = 3,
-                    showEnterStartStopConfirm = true,
+                    showTurnOnDurationConfirm = true,
                 ),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmTitle).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmBody(3)).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.turnOnDurationConfirmTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.turnOnDurationConfirmBody(3)).assertExists()
     }
 
     @Test
-    fun enterStartStopConfirm_confirmAndCancel_invokeTheirCallbacks() {
+    fun turnOnDurationConfirm_confirmAndCancel_invokeTheirCallbacks() {
         var confirmed = false
         var dismissed = false
         setContent(
@@ -253,35 +254,35 @@ class CaseEditScreenTest {
                 CaseEditUiState(
                     isEditing = true,
                     isLoading = false,
-                    durationMode = DurationMode.MANUAL,
+                    tracksDuration = false,
                     runningEventCount = 1,
-                    showEnterStartStopConfirm = true,
+                    showTurnOnDurationConfirm = true,
                 ),
-            onConfirmEnterStartStop = { confirmed = true },
-            onDismissEnterStartStop = { dismissed = true },
+            onConfirmTurnOnDuration = { confirmed = true },
+            onDismissTurnOnDuration = { dismissed = true },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.enterStartStopCancelAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.turnOnDurationCancelAction).performClick()
         assertTrue(dismissed)
 
-        composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.turnOnDurationConfirmAction).performClick()
         assertTrue(confirmed)
     }
 
     @Test
-    fun startStopConfirms_neitherShown_whenFlagsClear() {
+    fun durationConfirms_neitherShown_whenFlagsClear() {
         setContent(
             uiState =
                 CaseEditUiState(
                     isEditing = true,
                     isLoading = false,
-                    durationMode = DurationMode.START_STOP,
+                    tracksDuration = true,
                     runningEventCount = 2,
                 ),
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.leaveStartStopConfirmTitle).assertDoesNotExist()
-        composeTestRule.onNodeWithText(PlainVoice.enterStartStopConfirmTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.turnOffDurationConfirmTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.turnOnDurationConfirmTitle).assertDoesNotExist()
     }
 
     @Test

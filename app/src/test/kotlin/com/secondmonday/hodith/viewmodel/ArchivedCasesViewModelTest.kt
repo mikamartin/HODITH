@@ -2,7 +2,6 @@ package com.secondmonday.hodith.viewmodel
 
 import app.cash.turbine.test
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
@@ -45,7 +44,7 @@ class ArchivedCasesViewModelTest {
         icon = "☕️",
         createdAt = 0L,
         logFlow = LogFlow.DETAIL_SHEET,
-        durationMode = DurationMode.NONE,
+        tracksDuration = false,
         intensityEnabled = false,
         checkInsEnabled = true,
         lastCheckInAt = null,

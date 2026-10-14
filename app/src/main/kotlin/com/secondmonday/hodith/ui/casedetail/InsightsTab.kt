@@ -52,12 +52,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.loggedZone
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.AFTERNOON_START_HOUR
 import com.secondmonday.hodith.domain.EVENING_START_HOUR
 import com.secondmonday.hodith.domain.FrequencyGranularity
@@ -230,17 +228,17 @@ internal fun InsightsTabContent(
                         // A still-running event's open end is "now," not a captured instant, so it
                         // resolves via the live current zone rather than the event's own (possibly
                         // stale, pre-travel) offset — matching BigPictureGrid's private coveredDates.
-                        val endZone = if (isStillRunning(ew.event, case.durationMode, now)) zone else ew.event.loggedZone()
+                        val endZone = if (isStillRunning(ew.event, case.tracksDuration, now)) zone else ew.event.loggedZone()
                         day in
                             datesCovered(
                                 ew.event.occurredAt,
-                                activeSpanEnd(ew.event, case.durationMode, now),
+                                activeSpanEnd(ew.event, case.tracksDuration, now),
                                 ew.event.loggedZone(),
                                 endZone,
                             )
                     }.sortedBy { it.event.occurredAt },
             now = now,
-            durationMode = case.durationMode,
+            tracksDuration = case.tracksDuration,
             voice = voice,
             onEditEvent = onEditEvent,
             onDismiss = { selectedDay = null },
@@ -251,7 +249,7 @@ internal fun InsightsTabContent(
             title = voice.insightsIntensityDrillDownTitle(level),
             events = events.filter { it.event.intensity == level }.sortedByDescending { it.event.occurredAt },
             now = now,
-            durationMode = case.durationMode,
+            tracksDuration = case.tracksDuration,
             voice = voice,
             // Every row shares this exact intensity -- the dialog's own title already says so.
             showIntensity = false,
@@ -264,7 +262,7 @@ internal fun InsightsTabContent(
             title = voice.insightsTagDrillDownTitle(tagName),
             events = eventsWithTag(events, tagName),
             now = now,
-            durationMode = case.durationMode,
+            tracksDuration = case.tracksDuration,
             voice = voice,
             // Every row already matched this tag -- the dialog's own title already says so. Any
             // other tags an event carries are still shown, since those aren't redundant here.
@@ -285,7 +283,7 @@ internal fun InsightsTabContent(
                         dateTime.dayOfWeek == day && timeOfDayFor(dateTime.hour) == timeOfDay
                     }.sortedByDescending { it.event.occurredAt },
             now = now,
-            durationMode = case.durationMode,
+            tracksDuration = case.tracksDuration,
             voice = voice,
             onEditEvent = onEditEvent,
             onDismiss = { selectedRhythmCell = null },
@@ -1073,7 +1071,7 @@ internal fun TrendFindingPlank(
 }
 
 /**
- * Spec §10 duration stats — only shown when the Case's `durationMode != NONE`. The min/avg/max row
+ * Spec §10 duration stats — only shown when the Case's `tracksDuration` is true. The min/avg/max row
  * is the Share card's Duration panel ([durationMinAvgMax]), labelled the same way.
  */
 @Composable
@@ -1264,7 +1262,7 @@ internal fun InsightsDrillDownDialog(
     title: String,
     events: List<EventWithTags>,
     now: Long,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     voice: Voice,
     onEditEvent: (EventEntity) -> Unit,
     onDismiss: () -> Unit,
@@ -1283,7 +1281,7 @@ internal fun InsightsDrillDownDialog(
                         eventWithTags = eventWithTags,
                         now = now,
                         voice = voice,
-                        durationMode = durationMode,
+                        tracksDuration = tracksDuration,
                         showIntensity = showIntensity,
                         suppressTagName = suppressTagName,
                         onClick = {
@@ -1308,13 +1306,13 @@ private fun InsightsDrillDownEventRow(
     eventWithTags: EventWithTags,
     now: Long,
     voice: Voice,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     onClick: () -> Unit,
     showIntensity: Boolean = true,
     suppressTagName: String? = null,
 ) {
     val event = eventWithTags.event
-    val isOngoing = isStillRunning(event, durationMode, now)
+    val isOngoing = isStillRunning(event, tracksDuration, now)
 
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp)) {
         Text(
@@ -1325,7 +1323,6 @@ private fun InsightsDrillDownEventRow(
             OngoingTimeText(
                 startedAt = event.occurredAt,
                 expectedEndAt = event.endedAt,
-                durationMode = durationMode,
                 now = now,
                 use24Hour = LocalTimeFormat.current.is24Hour,
                 voice = voice,
@@ -1338,7 +1335,7 @@ private fun InsightsDrillDownEventRow(
                 eventWithTags.tags.filter { it.name != suppressTagName },
                 voice,
                 isOngoing = isOngoing,
-                tracksDuration = durationMode.tracksDuration,
+                tracksDuration = tracksDuration,
                 showIntensity = showIntensity,
             )
         if (details != null) {
@@ -1783,7 +1780,7 @@ private fun InsightsDrillDownRowsPreviewContent() {
                         .toInstant()
                         .toEpochMilli(),
                 voice = LocalVoice.current,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
                 onClick = {},
             )
         }

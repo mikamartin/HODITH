@@ -3,7 +3,6 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.LogFlow
@@ -53,7 +52,7 @@ class HistoryShareViewModelTest {
             icon = "🤕",
             createdAt = 0L,
             logFlow = LogFlow.ONE_TAP,
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             intensityEnabled = true,
             checkInsEnabled = true,
             lastCheckInAt = null,

@@ -70,7 +70,7 @@ class RoomHodithRepository
             caseId: Long,
             order: HistorySortOrder,
             limit: Int,
-            durationMode: DurationMode,
+            tracksDuration: Boolean,
             dateFrom: Long?,
             dateTo: Long?,
         ): Flow<HistoryEventsPage> {
@@ -81,7 +81,7 @@ class RoomHodithRepository
                     HistorySortOrder.BY_END ->
                         eventDao.observeEventsWithTagsForCasePagedByEnd(
                             caseId,
-                            isStartStopCase = durationMode == DurationMode.START_STOP,
+                            tracksDuration = tracksDuration,
                             dateFrom = dateFrom,
                             dateTo = dateTo,
                             limit = limit + 1,

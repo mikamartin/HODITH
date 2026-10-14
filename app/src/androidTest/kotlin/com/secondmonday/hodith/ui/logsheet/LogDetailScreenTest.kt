@@ -6,14 +6,12 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDetailScreenUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import org.junit.Assert.assertEquals
@@ -27,7 +25,7 @@ import org.junit.Test
  * [LogDetailScreen] is a stateless composable driven by plain data + callbacks, same pattern as
  * [com.secondmonday.hodith.ui.case.CaseEditScreen]'s test. Covers the chrome that distinguishes
  * the edit screen from the new-event [LogDetailSheet] — the back arrow and the delete action —
- * plus a START_STOP round-trip through the shared [LogDetailForm].
+ * plus a tracked-duration round-trip through the shared [LogDetailForm].
  */
 @UiTest
 class LogDetailScreenTest {
@@ -36,7 +34,7 @@ class LogDetailScreenTest {
 
     private fun setContent(
         uiState: LogDetailScreenUiState =
-            LogDetailScreenUiState(isLoading = false, durationMode = DurationMode.NONE, initialDraft = draft()),
+            LogDetailScreenUiState(isLoading = false, tracksDuration = false, initialDraft = draft()),
         onSave: (LogDraft) -> Unit = {},
         onBack: () -> Unit = {},
         onDelete: (() -> Unit)? = {},
@@ -79,20 +77,20 @@ class LogDetailScreenTest {
 
     @Smoke
     @Test
-    fun startStopEvent_backToOngoing_thenSave_savesWithNullEndedAt() {
+    fun endedEvent_startAgain_thenSave_savesWithNullEndedAt() {
         var savedDraft: LogDraft? = null
         setContent(
             uiState =
                 LogDetailScreenUiState(
                     isLoading = false,
-                    durationMode = DurationMode.START_STOP,
+                    tracksDuration = true,
                     initialDraft = draft(endedAt = 5_000L),
                     now = 10_000L,
                 ),
             onSave = { savedDraft = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logSheetBackToOngoingAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetStartAgainAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetOngoingLabel).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
 
@@ -102,24 +100,24 @@ class LogDetailScreenTest {
 
     @Smoke
     @Test
-    fun manualEvent_projectedPastNow_stopNow_thenSave_capsDurationAtElapsed() {
+    fun trackedEvent_projectedPastNow_stopNow_thenSave_capsDurationAtElapsed() {
         var savedDraft: LogDraft? = null
         val now = 90 * 60_000L // 90 minutes after occurredAt
         setContent(
             uiState =
                 LogDetailScreenUiState(
                     isLoading = false,
-                    durationMode = DurationMode.MANUAL,
+                    tracksDuration = true,
                     initialDraft =
                         LogDraft(
                             occurredAt = 0L,
                             intensity = null,
-                            durationAmount = "5",
-                            durationUnit = DurationUnit.HOURS, // projects well past `now`
                             note = "",
                             tags = emptyList(),
-                            endedAt = null,
-                            existingEndedAt = null,
+                            endedAt = 5 * 60 * 60_000L, // 5 hours -- projects well past `now`
+                            daysInput = "0",
+                            hoursInput = "5",
+                            minutesInput = "0",
                         ),
                     now = now,
                 ),
@@ -130,8 +128,10 @@ class LogDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
 
         assertNotNull(savedDraft)
-        assertEquals("90", savedDraft?.durationAmount)
-        assertEquals(DurationUnit.MINUTES, savedDraft?.durationUnit)
+        assertEquals(now, savedDraft?.endedAt)
+        assertEquals("0", savedDraft?.daysInput)
+        assertEquals("1", savedDraft?.hoursInput)
+        assertEquals("30", savedDraft?.minutesInput)
     }
 
     @Test

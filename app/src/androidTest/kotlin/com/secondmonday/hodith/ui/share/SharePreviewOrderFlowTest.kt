@@ -20,7 +20,6 @@ import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.DataStoreSettingsRepository
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithDatabase
 import com.secondmonday.hodith.data.RoomHodithRepository
 import com.secondmonday.hodith.data.ShareInsightsSection
@@ -92,7 +91,7 @@ class SharePreviewOrderFlowTest {
             )
         val caseId =
             runBlocking {
-                val id = db.caseDao().insert(testCase(durationMode = DurationMode.NONE))
+                val id = db.caseDao().insert(testCase(tracksDuration = false))
                 // Two events, a few days apart: enough for Gaps, Streaks and Start times to all have data.
                 listOf(0L, 3L, 9L).forEach { day ->
                     db.eventDao().insert(testEvent(caseId = id, occurredAt = DAY_MILLIS * day))

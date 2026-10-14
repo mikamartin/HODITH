@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.testsupport
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.LogFlow
@@ -14,8 +13,8 @@ import com.secondmonday.hodith.data.offsetMinutesAt
  */
 object Fixtures {
     /**
-     * A neutral [CaseEntity] — `NONE` duration, one-tap logging, active, check-ins on. Pass only
-     * the fields a test exercises; everything else stays at the neutral default.
+     * A neutral [CaseEntity] — duration tracking off, one-tap logging, active, check-ins on. Pass
+     * only the fields a test exercises; everything else stays at the neutral default.
      */
     fun case(
         id: Long = 1L,
@@ -24,7 +23,7 @@ object Fixtures {
         icon: String = "🐛",
         createdAt: Long = 0L,
         logFlow: LogFlow = LogFlow.ONE_TAP,
-        durationMode: DurationMode = DurationMode.NONE,
+        tracksDuration: Boolean = false,
         intensityEnabled: Boolean = false,
         checkInsEnabled: Boolean = true,
         lastCheckInAt: Long? = null,
@@ -37,7 +36,7 @@ object Fixtures {
         icon = icon,
         createdAt = createdAt,
         logFlow = logFlow,
-        durationMode = durationMode,
+        tracksDuration = tracksDuration,
         intensityEnabled = intensityEnabled,
         checkInsEnabled = checkInsEnabled,
         lastCheckInAt = lastCheckInAt,
@@ -82,7 +81,7 @@ fun testCase(
     icon: String = "🐛",
     createdAt: Long = 0L,
     logFlow: LogFlow = LogFlow.ONE_TAP,
-    durationMode: DurationMode = DurationMode.NONE,
+    tracksDuration: Boolean = false,
     intensityEnabled: Boolean = false,
     checkInsEnabled: Boolean = true,
     lastCheckInAt: Long? = null,
@@ -95,7 +94,7 @@ fun testCase(
     icon,
     createdAt,
     logFlow,
-    durationMode,
+    tracksDuration,
     intensityEnabled,
     checkInsEnabled,
     lastCheckInAt,
@@ -114,7 +113,7 @@ fun testEvent(
     loggedAt: Long = occurredAt,
 ) = Fixtures.event(id, caseId, occurredAt, endedAt, intensity, note, loggedAt)
 
-/** A still-running `START_STOP` event: [occurredAt] set, `endedAt` null. */
+/** A still-running (open-ended) event: [occurredAt] set, `endedAt` null. */
 fun runningEvent(
     id: Long = 0L,
     caseId: Long = 1L,

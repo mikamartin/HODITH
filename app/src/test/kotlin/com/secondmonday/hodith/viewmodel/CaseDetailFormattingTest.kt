@@ -208,7 +208,7 @@ class CaseDetailFormattingTest {
 
     @Test
     fun `eventDetailSummary shows no duration for an ongoing event even with a stale endedAt`() {
-        // isOngoing is caller-asserted (spec: only true for a START_STOP case's open event, which
+        // isOngoing is caller-asserted (spec: only true for a tracked case's open event, which
         // by construction never has an endedAt) — this pins that a stray endedAt never leaks a
         // "lasted N" line onto a still-running event.
         val event = testEvent(intensity = 3, note = null, occurredAt = 0L, endedAt = 999L)
@@ -221,7 +221,7 @@ class CaseDetailFormattingTest {
 
     @Test
     fun `eventDetailSummary hides the duration line when the Case no longer tracks duration`() {
-        // A real endedAt, but durationMode is now NONE — the event is a point (spec §9).
+        // A real endedAt, but tracksDuration is now false — the event is a point (spec §9).
         val event = testEvent(intensity = 3, note = null, occurredAt = 0L, endedAt = 45 * 60_000L)
 
         assertEquals(

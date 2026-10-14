@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import java.time.LocalDate
 import kotlin.math.abs
@@ -63,7 +62,7 @@ internal fun computeTrendFindings(
     eventsWithTags: List<EventWithTags> = emptyList(),
     recentlyActiveElsewhere: Boolean = false,
     statsShownOutcomes: Set<TagOutcome> = emptySet(),
-    durationMode: DurationMode = DurationMode.NONE,
+    tracksDuration: Boolean = false,
     now: Long = 0L,
 ): List<TrendFinding> {
     val findings = mutableListOf<TrendFinding>()
@@ -161,7 +160,7 @@ internal fun computeTrendFindings(
                 latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
-    computeTagOutcomeFindings(eventsWithTags, durationMode, now).forEach {
+    computeTagOutcomeFindings(eventsWithTags, tracksDuration, now).forEach {
         findings +=
             TrendFinding(
                 kind = TrendFindingKind.TAG_OUTCOME,
@@ -190,7 +189,7 @@ internal fun computeTrendFindings(
                 latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
-    computeTrendSlopeFindings(eventsWithTags, statsShownOutcomes, durationMode, now).forEach {
+    computeTrendSlopeFindings(eventsWithTags, statsShownOutcomes, tracksDuration, now).forEach {
         findings +=
             TrendFinding(
                 kind = TrendFindingKind.TREND_SLOPE,
@@ -204,7 +203,7 @@ internal fun computeTrendFindings(
                 latestEvidenceAt = it.latestEvidenceAt,
             )
     }
-    computeTimeOfDaySplitFindings(eventsWithTags, statsShownOutcomes, durationMode, now).forEach {
+    computeTimeOfDaySplitFindings(eventsWithTags, statsShownOutcomes, tracksDuration, now).forEach {
         findings +=
             TrendFinding(
                 kind = TrendFindingKind.TIME_OF_DAY_SPLIT,

@@ -10,7 +10,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.secondmonday.hodith.MainActivity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.SettingsRepository
@@ -135,7 +134,7 @@ class WidgetActionsFlowTest {
             val caseName = "Migraine ${System.currentTimeMillis()}"
             insertedCaseId =
                 repository.insertCase(
-                    testCase(name = caseName, durationMode = DurationMode.START_STOP, logFlow = LogFlow.ONE_TAP),
+                    testCase(name = caseName, tracksDuration = true, logFlow = LogFlow.ONE_TAP),
                 )
             repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 0L, endedAt = null))
             appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
@@ -175,7 +174,7 @@ class WidgetActionsFlowTest {
     fun runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail() {
         runBlocking {
             val caseName = "Noisy neighbours ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.START_STOP))
+            insertedCaseId = repository.insertCase(testCase(name = caseName, tracksDuration = true))
             repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 0L, endedAt = null))
             repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 1_000L, endedAt = null))
             appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
@@ -213,7 +212,7 @@ class WidgetActionsFlowTest {
     fun manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle() =
         runBlocking {
             val caseName = "Slow Cooker ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.MANUAL))
+            insertedCaseId = repository.insertCase(testCase(name = caseName, tracksDuration = true))
             // Real wall-clock, same reason as singleCaseWidget_todayCount below: the widget reads
             // the injected (real) clock. A typed duration projecting an hour past now (spec §6).
             val now = System.currentTimeMillis()
@@ -234,7 +233,7 @@ class WidgetActionsFlowTest {
     fun singleCaseWidget_todayCount_creditsADurationEventStillActiveToday() =
         runBlocking {
             val caseName = "Deep clean ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, durationMode = DurationMode.MANUAL))
+            insertedCaseId = repository.insertCase(testCase(name = caseName, tracksDuration = true))
             // Real wall-clock: the widget reads the injected (real) clock, so the event must be
             // anchored to actual "now" for its span to land in today. Started two days ago, ended a
             // minute ago — a pure-occurredAt count would read "Today: 0" the same day the event was

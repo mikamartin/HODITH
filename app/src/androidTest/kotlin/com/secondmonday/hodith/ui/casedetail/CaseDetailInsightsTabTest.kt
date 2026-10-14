@@ -18,7 +18,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.TimeFormat
@@ -35,7 +34,6 @@ import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.CaseDetailUiState
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDraft
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,7 +75,7 @@ class CaseDetailInsightsTabTest {
     private fun daysAgo(days: Long): Long = now - days * 24 * 60 * 60_000L
 
     private fun setInsightsTabContent(
-        durationMode: DurationMode = DurationMode.NONE,
+        tracksDuration: Boolean = false,
         intensityEnabled: Boolean = false,
         caseCreatedAt: Long = daysAgo(30),
         events: List<EventWithTags> = emptyList(),
@@ -86,7 +84,7 @@ class CaseDetailInsightsTabTest {
         fontScale: Float = 1f,
         theme: AppTheme = AppTheme.PLAIN,
     ) {
-        val case = testCase(durationMode = durationMode, intensityEnabled = intensityEnabled, createdAt = caseCreatedAt)
+        val case = testCase(tracksDuration = tracksDuration, intensityEnabled = intensityEnabled, createdAt = caseCreatedAt)
         composeTestRule.setHodithContent(theme = theme) {
             CompositionLocalProvider(
                 LocalTimeFormat provides timeFormat,
@@ -104,12 +102,12 @@ class CaseDetailInsightsTabTest {
                         LogDraft(
                             occurredAt = now,
                             intensity = null,
-                            durationAmount = "",
-                            durationUnit = DurationUnit.MINUTES,
                             note = "",
                             tags = emptyList(),
                             endedAt = null,
-                            existingEndedAt = null,
+                            daysInput = "",
+                            hoursInput = "",
+                            minutesInput = "",
                         )
                     },
                     onSaveEvent = {},
@@ -257,7 +255,7 @@ class CaseDetailInsightsTabTest {
         // right now. Current gap is 0, and the 25-day active stretch is kept out of the longest gap
         // -- without the fix it would be max(3, 25) = 25.
         setInsightsTabContent(
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             events =
                 listOf(
                     eventAt(30, endedAt = daysAgo(30) + 60 * 60_000L),
@@ -290,9 +288,9 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
-    fun durationCard_absentWhenDurationModeNone_evenWithADurationOnAnEvent() {
+    fun durationCard_absentWhenNotTrackingDuration_evenWithADurationOnAnEvent() {
         setInsightsTabContent(
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             events = listOf(eventAt(2, endedAt = daysAgo(2) + 60_000L), eventAt(1)),
         )
 
@@ -300,9 +298,9 @@ class CaseDetailInsightsTabTest {
     }
 
     @Test
-    fun durationCard_presentWhenDurationModeSetAndAnEventHasADuration() {
+    fun durationCard_presentWhenTrackingDurationAndAnEventHasADuration() {
         setInsightsTabContent(
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             events = listOf(eventAt(2, endedAt = daysAgo(2) + 60_000L), eventAt(1)),
         )
 
@@ -337,7 +335,7 @@ class CaseDetailInsightsTabTest {
     fun frequencyCard_hiddenAndRhythmRelabelled_whenAnEventSpansMultipleDays() {
         // A 3-day event (10 -> 7 days ago) makes a per-bucket count ambiguous (spec §9).
         setInsightsTabContent(
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             events = listOf(eventAt(10, endedAt = daysAgo(7)), eventAt(1)),
         )
 
@@ -352,7 +350,7 @@ class CaseDetailInsightsTabTest {
         // -- the info note should follow the section's own "Start times" relabelling rather than
         // always explaining the regular Rhythm wording.
         setInsightsTabContent(
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             events = listOf(eventAt(10, endedAt = daysAgo(7)), eventAt(1)),
         )
 
@@ -373,7 +371,7 @@ class CaseDetailInsightsTabTest {
         // Same 3-day endedAt, but the Case no longer tracks duration (spec §9): every event is a
         // point, so "how often" is answerable again and the frequency card stays.
         setInsightsTabContent(
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             events = listOf(eventAt(10, endedAt = daysAgo(7)), eventAt(1)),
         )
 
@@ -465,7 +463,7 @@ class CaseDetailInsightsTabTest {
     fun durationCard_showsMinAvgMaxRow_andNoTotal() {
         // 90min + 30min -> min 30 -> "30m", average (90+30)/2=60 -> "1h 0m", max 90 -> "1h 30m". No total row.
         setInsightsTabContent(
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             events =
                 listOf(
                     eventAt(2, endedAt = daysAgo(2) + 90 * 60_000L),
@@ -598,11 +596,11 @@ class CaseDetailInsightsTabTest {
 
     @Test
     fun durationCard_infoIcon_opensAndDismissesDefinitions() {
-        // Same fixture as durationCard_presentWhenDurationModeSetAndAnEventHasADuration. Default
+        // Same fixture as durationCard_presentWhenTrackingDurationAndAnEventHasADuration. Default
         // (30-day-old) case keeps Trend hidden, so Duration is the last node carrying the shared
         // info-icon description (after Frequency, Rhythm, and Gaps).
         setInsightsTabContent(
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             events = listOf(eventAt(2, endedAt = daysAgo(2) + 60_000L), eventAt(1)),
         )
 

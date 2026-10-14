@@ -4,7 +4,6 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.loggedZone
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.GapStats
 import com.secondmonday.hodith.domain.HeatmapLevel
@@ -168,26 +167,26 @@ internal fun insightsTabState(
     mostRecentActivityAcrossCasesAt: Long? = null,
 ): InsightsTabState {
     // Spec §9 active span: each event counts on every calendar day it was active, not just its start
-    // day. A finished event runs occurredAt..endedAt; a still-running START_STOP event runs to now
-    // (matching ongoingEventsIn's rule that only START_STOP can be ongoing); a point event stays on
-    // its single day. A Case that no longer tracks duration (durationMode NONE) renders every event
-    // as a point whatever endedAt is stored — collapse it here so spanEnd / hasMultiDayEvent /
-    // computeGapStats all see point events with no further branching. The stored value is untouched
-    // (eventsWithTags still carries it) and the Event duration card is separately gated off below.
+    // day. A finished event runs occurredAt..endedAt; a still-running event runs to now
+    // (matching ongoingEventsIn's rule); a point event stays on its single day. A Case that doesn't
+    // track duration renders every event as a point whatever endedAt is stored — collapse it here
+    // so spanEnd / hasMultiDayEvent / computeGapStats all see point events with no further
+    // branching. The stored value is untouched (eventsWithTags still carries it) and the Event
+    // duration card is separately gated off below.
     val events =
         eventsWithTags
             .map { it.event }
-            .let { list -> if (case.durationMode.tracksDuration) list else list.map { it.copy(endedAt = null) } }
+            .let { list -> if (case.tracksDuration) list else list.map { it.copy(endedAt = null) } }
     if (events.isEmpty()) return InsightsTabState.NothingLogged
 
-    fun spanEnd(event: EventEntity) = activeSpanEnd(event, case.durationMode, now)
+    fun spanEnd(event: EventEntity) = activeSpanEnd(event, case.tracksDuration, now)
 
     // A still-running event's open end is "now," not a captured instant, so it resolves via the
     // live current zone rather than the event's own (possibly stale, pre-travel) offset — matching
     // BigPictureGrid's private coveredDates, which makes the same call for the same reason. Every
     // other event's span resolves in its own captured offset, so it places on the calendar day it
     // actually happened, not wherever the device currently is.
-    val ongoingEvents = ongoingEventsIn(case, events).toSet()
+    val ongoingEvents = ongoingEventsIn(case, events, now).toSet()
 
     fun endZoneFor(event: EventEntity) = if (event in ongoingEvents) zone else event.loggedZone()
 
@@ -292,8 +291,8 @@ private fun statsSections(
     val taggedEventCount = eventsWithTags.count { it.tags.isNotEmpty() }
 
     val duration =
-        if (case.durationMode.tracksDuration) {
-            computeDurationStats(events, case.durationMode, now)?.let {
+        if (case.tracksDuration) {
+            computeDurationStats(events, case.tracksDuration, now)?.let {
                 DurationDisplay(it.averageMinutes, it.longestMinutes, it.totalMinutes, it.shortestMinutes)
             }
         } else {
@@ -337,7 +336,7 @@ private fun statsSections(
                         TagOutcome.INTENSITY.takeIf { intensity != null },
                         TagOutcome.DURATION.takeIf { duration != null },
                     ),
-                durationMode = case.durationMode,
+                tracksDuration = case.tracksDuration,
                 now = now,
             ),
     )

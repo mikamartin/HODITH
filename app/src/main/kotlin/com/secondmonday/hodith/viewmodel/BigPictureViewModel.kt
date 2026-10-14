@@ -6,11 +6,9 @@ import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CaseEventDetail
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventTagName
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.data.zoneOffsetFromMinutes
 import com.secondmonday.hodith.di.DefaultDispatcher
 import com.secondmonday.hodith.domain.Clock
@@ -44,15 +42,15 @@ data class CalendarCase(
  * [intensity] carries through only for the day/week detail rows, and is null unless the Case has
  * intensity enabled. Duration is encoded on the grid only for an event whose active span covers
  * more than one calendar day: its icon then appears on every covered day and the start day's icon
- * is ringed. [endedAt] is null for a point event and for a `START_STOP` still-running one —
+ * is ringed. [endedAt] is null for a point event and for a still-running one with no stated end —
  * [isOngoing] tells those apart, and a running event's span runs to today. [endedAt] is also null
- * when the Case's `durationMode` no longer tracks duration (spec §9: every event is then a point);
- * this is a render projection, never persisted, and the stored value stays intact.
+ * when the Case's `tracksDuration` flag is off (spec §9: every event is then a point); this is a
+ * render projection, never persisted, and the stored value stays intact.
  *
- * [expectedEndAt] is the one case where [endedAt] *isn't* null on a still-running event: a `MANUAL`
- * event's stated/expected duration hasn't elapsed yet ([isStillRunning]), so there's a real
- * (not-yet-true) end instant to show rather than an open-ended "ongoing since" — the day/week
- * detail row reads this instead of [isOngoing] when it's set.
+ * [expectedEndAt] is the one case where [endedAt] *isn't* null on a still-running event: a stated/
+ * expected duration that hasn't elapsed yet ([isStillRunning]), so there's a real (not-yet-true)
+ * end instant to show rather than an open-ended "ongoing since" — the day/week detail row reads
+ * this instead of [isOngoing] when it's set.
  */
 data class CalendarEvent(
     val id: Long,
@@ -183,17 +181,19 @@ internal fun bigPictureUiState(
         events =
             cases.flatMap { case ->
                 eventsByCase[case.id].orEmpty().map { event ->
-                    val stillRunning = isStillRunning(event.endedAt, case.durationMode, nowMillis)
+                    val stillRunning = isStillRunning(event.endedAt, case.tracksDuration, nowMillis)
                     CalendarEvent(
                         id = event.id,
                         caseId = case.id,
                         occurredAt = event.occurredAt,
-                        // Spec §9: a Case that no longer tracks duration renders every event as a
+                        // Spec §9: a Case that doesn't track duration renders every event as a
                         // point — drop the stored endedAt here so coveredDates collapses to the
-                        // start day. START_STOP always tracks, so isOngoing is unaffected.
-                        endedAt = if (case.durationMode.tracksDuration) event.endedAt else null,
+                        // start day.
+                        endedAt = if (case.tracksDuration) event.endedAt else null,
                         isOngoing = stillRunning,
-                        expectedEndAt = event.endedAt.takeIf { case.durationMode == DurationMode.MANUAL && stillRunning },
+                        // A stated endedAt is only ever reached here while still running if it's in
+                        // the future (see isStillRunning) — the projected/expected end to show.
+                        expectedEndAt = event.endedAt.takeIf { stillRunning },
                         note = event.note,
                         // Detail-row only (spec §9: intensity is never on the grid); null unless the
                         // Case has intensity enabled, same gate the Insights row uses.

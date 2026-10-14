@@ -95,10 +95,7 @@ interface Voice {
     val caseLogFlowDetailSheet: String get() = "Detail sheet"
     val caseLogFlowInfoTitle: String
     val caseLogFlowInfoBody: String
-    val caseDurationModeLabel: String get() = "Duration"
-    val caseDurationModeNone: String get() = "None"
-    val caseDurationModeManual: String get() = "Manual"
-    val caseDurationModeStartStop: String get() = "Start/stop"
+    val caseTracksDurationLabel: String get() = "Track duration"
     val caseDurationModeInfoTitle: String
     val caseDurationModeInfoBody: String
     val caseIntensityToggleLabel: String get() = "Track intensity (1-5)"
@@ -113,15 +110,15 @@ interface Voice {
     val archiveCaseConfirmAction: String
     val archiveCaseCancelAction: String
 
-    /** Confirm shown when a Case leaves `START_STOP` mode while events are still running (spec §6). */
-    val leaveStartStopConfirmTitle: String
-    val leaveStartStopConfirmAction: String
-    val leaveStartStopCancelAction: String
+    /** Confirm shown when a Case turns duration tracking off while events are still running (spec §6 Story U2). */
+    val turnOffDurationConfirmTitle: String
+    val turnOffDurationConfirmAction: String
+    val turnOffDurationCancelAction: String
 
-    /** Confirm shown when a Case enters `START_STOP` mode while it has open-ended events (spec §6). */
-    val enterStartStopConfirmTitle: String
-    val enterStartStopConfirmAction: String
-    val enterStartStopCancelAction: String
+    /** Confirm shown when a Case turns duration tracking on while it has open-ended events (spec §6 Story U2). */
+    val turnOnDurationConfirmTitle: String
+    val turnOnDurationConfirmAction: String
+    val turnOnDurationCancelAction: String
 
     val archivedCasesTitle: String
     val archivedCasesEmptyState: String
@@ -152,34 +149,49 @@ interface Voice {
     val logSheetNewEventTitle: String
     val logSheetEditEventTitle: String
     val logSheetTimeLabel: String
+
+    /** The start-time label once the event has an end to pair it with (spec §6 Story U2) — [logSheetTimeLabel]'s counterpart for a duration-tracking Case. */
+    val logSheetStartedLabel: String
     val logSheetIntensityLabel: String
     val logSheetDurationLabel: String
 
-    /**
-     * Unit labels for the Manual-mode duration selector (spec §6). Structural chrome — a compact
-     * three-segment control inside the field — so these are shared defaults, not authored per voice.
-     */
-    val logSheetDurationUnitMinutes: String get() = "Min"
-    val logSheetDurationUnitHours: String get() = "Hr"
-    val logSheetDurationUnitDays: String get() = "Day"
+    /** The Duration fields' own label while the control reads Ongoing (spec §6 Story U2) — what's typed is a projection, not a fact yet; [logSheetDurationLabel] takes over once Ended. */
+    val logSheetPlannedDurationLabel: String
+
+    /** The three Days/Hours/Minutes duration field labels (spec §6 Story U2) — structural chrome, so these are shared defaults, not authored per voice. */
+    val logSheetDurationDaysLabel: String get() = "Days"
+    val logSheetDurationHoursLabel: String get() = "Hours"
+    val logSheetDurationMinutesLabel: String get() = "Min"
     val logSheetNoteLabel: String
     val logSheetNoteHint: String
     val logSheetTagsLabel: String get() = "Tags"
     val logSheetAddTagHint: String
     val logSheetRemoveTagDescription: String
     val logSheetSaveButton: String
+
+    /** Screen-level save-button wording for a brand-new event — fixed, never state-dependent (spec §6 Story U2); never flips with ongoing/ended, unlike today's "Start"/"Save". */
+    val logSheetCreateAction: String
     val logSheetPickerConfirm: String
     val logSheetPickerCancel: String
-    val logSheetStartButton: String
     val logSheetEndLabel: String
     val logSheetOngoingLabel: String
     val logSheetStopNowAction: String
 
-    /** Shown above `MANUAL`'s "Stop now" button once the typed duration projects past `now` — [end] is the computed, not-yet-true end time. */
-    fun logSheetExpectedEndNotice(end: String): String
+    /** The reopen action on an Ended draft (spec §6 Story U2) — distinct from the screen's own Create/Save button. */
+    val logSheetStartAgainAction: String
 
-    /** Clears an edited event's end time, putting it back into the ongoing state (spec §6). */
-    val logSheetBackToOngoingAction: String
+    /** Shown under the status row while ongoing (spec §6 Story U2) — [elapsed] is the real elapsed time so far, independent of whatever's typed in the Duration fields. */
+    fun logSheetOngoingForNotice(elapsed: String): String
+
+    /** End-time label, nothing stated yet (spec §6 Story U2). */
+    val logSheetEndTimeUnsetLabel: String
+
+    /** End-time label, a stated end still ahead of `now` — still Ongoing (spec §6 Story U2). */
+    val logSheetEndTimeFutureLabel: String
+
+    /** Unset end date/time button prompts (spec §6 Story U2) — shown until something's actually picked or typed. */
+    val logSheetChooseDateAction: String
+    val logSheetChooseTimeAction: String
 
     /** Shown under a time field when a picked value landed after `now`; the edit is discarded and the field keeps its prior value. */
     val logSheetFutureTimeNotice: String
@@ -622,18 +634,18 @@ interface Voice {
     fun ongoingCountIndicator(count: Int): String
 
     /**
-     * Trailing summary after [ongoingPillLabel] for a `MANUAL` event whose stated/expected
-     * duration hasn't elapsed yet — the counterpart of the elapsed-time trailing text
-     * [START_STOP][com.secondmonday.hodith.data.DurationMode.START_STOP] shows, used everywhere
-     * that elapsed text appears (History/Insights rows, Home, widgets).
+     * Trailing summary after [ongoingPillLabel] for an event with a stated/expected duration that
+     * hasn't elapsed yet — the counterpart of the plain elapsed-time trailing text shown when
+     * nothing's stated, used everywhere that elapsed text appears (History/Insights rows, Home,
+     * widgets).
      */
     fun ongoingExpectedEndTrailing(end: String): String
 
-    /** Body of the [leaveStartStopConfirmTitle] dialog — names how many events will be stopped. */
-    fun leaveStartStopConfirmBody(runningCount: Int): String
+    /** Body of the [turnOffDurationConfirmTitle] dialog — names how many events will be stopped. */
+    fun turnOffDurationConfirmBody(runningCount: Int): String
 
-    /** Body of the [enterStartStopConfirmTitle] dialog — names how many open-ended events become instant events. */
-    fun enterStartStopConfirmBody(openEndedCount: Int): String
+    /** Body of the [turnOnDurationConfirmTitle] dialog — names how many open-ended events become instant events. */
+    fun turnOnDurationConfirmBody(openEndedCount: Int): String
 
     /** Case Edit notice shown next to the intensity toggle, while it's on, for a Case that already has [eventCount] logged events. */
     fun enableIntensityNotice(eventCount: Int): String
@@ -1015,8 +1027,8 @@ object PlainVoice : Voice {
             "time, duration, intensity, and notes before saving."
     override val caseDurationModeInfoTitle = "About duration"
     override val caseDurationModeInfoBody =
-        "**None** skips duration entirely. **Manual** lets you type a duration when logging. **Start/stop** " +
-            "tracks an ongoing event live."
+        "**On:** each event can be stopped, left running, or given a planned length. **Off:** every event is " +
+            "just a point in time."
     override val caseCheckInInfoTitle = "About check-in"
     override val caseCheckInInfoBody =
         "**On:** gets a check-in nudge after a stretch of silence, using Settings' default interval.\n" +
@@ -1030,12 +1042,12 @@ object PlainVoice : Voice {
             "from Archived Cases."
     override val archiveCaseConfirmAction = "Archive"
     override val archiveCaseCancelAction = "Cancel"
-    override val leaveStartStopConfirmTitle = "Stop the running events?"
-    override val leaveStartStopConfirmAction = "Stop and switch"
-    override val leaveStartStopCancelAction = "Keep Start/Stop"
-    override val enterStartStopConfirmTitle = "Keep existing events as instant?"
-    override val enterStartStopConfirmAction = "Switch and keep them"
-    override val enterStartStopCancelAction = "Keep current mode"
+    override val turnOffDurationConfirmTitle = "Stop the running events?"
+    override val turnOffDurationConfirmAction = "Stop and turn off"
+    override val turnOffDurationCancelAction = "Keep tracking duration"
+    override val turnOnDurationConfirmTitle = "Keep existing events as instant?"
+    override val turnOnDurationConfirmAction = "Turn on and keep them"
+    override val turnOnDurationCancelAction = "Keep duration off"
     override val archivedCasesTitle = "Archived cases"
     override val archivedCasesEmptyState = "No archived cases."
     override val eventListEmptyState = "No events logged yet."
@@ -1063,23 +1075,29 @@ object PlainVoice : Voice {
     override val logSheetNewEventTitle = "Log an event"
     override val logSheetEditEventTitle = "Edit event"
     override val logSheetTimeLabel = "When"
+    override val logSheetStartedLabel = "Started"
     override val logSheetIntensityLabel = "Intensity"
     override val logSheetDurationLabel = "Duration"
+    override val logSheetPlannedDurationLabel = "Planned duration"
     override val logSheetNoteLabel = "Note (optional)"
     override val logSheetNoteHint = "Anything worth remembering"
     override val logSheetAddTagHint = "Add a tag"
     override val logSheetRemoveTagDescription = "Remove tag"
     override val logSheetSaveButton = "Save"
+    override val logSheetCreateAction = "Create"
     override val logSheetPickerConfirm = "OK"
     override val logSheetPickerCancel = "Cancel"
-    override val logSheetStartButton = "Start"
     override val logSheetEndLabel = "Ended"
     override val logSheetOngoingLabel = "Ongoing"
     override val logSheetStopNowAction = "Stop now"
+    override val logSheetStartAgainAction = "Start again"
 
-    override fun logSheetExpectedEndNotice(end: String) = "Set to end $end"
+    override fun logSheetOngoingForNotice(elapsed: String) = "Ongoing for $elapsed"
 
-    override val logSheetBackToOngoingAction = "Back to ongoing"
+    override val logSheetEndTimeUnsetLabel = "End time can be set manually"
+    override val logSheetEndTimeFutureLabel = "Set to end"
+    override val logSheetChooseDateAction = "Choose date"
+    override val logSheetChooseTimeAction = "Choose time"
     override val logSheetFutureTimeNotice = "Can't be in the future."
     override val logSheetStartAfterEndNotice = "Can't start after the end time."
     override val logSheetEndBeforeStartNotice = "Can't end before the start time."
@@ -1411,10 +1429,10 @@ object PlainVoice : Voice {
 
     override fun ongoingExpectedEndTrailing(end: String) = "ends $end"
 
-    override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "Switching away from Start/Stop stops all $runningCount running events right now."
+    override fun turnOffDurationConfirmBody(runningCount: Int) =
+        "Turning off duration tracking stops all $runningCount running events right now."
 
-    override fun enterStartStopConfirmBody(openEndedCount: Int) =
+    override fun turnOnDurationConfirmBody(openEndedCount: Int) =
         "$openEndedCount events have no end time. Their end time will be set to match their start time."
 
     override fun enableIntensityNotice(eventCount: Int) =
@@ -1638,8 +1656,8 @@ object IntenseVoice : Voice {
             "such detail."
     override val caseDurationModeInfoTitle = "On duration"
     override val caseDurationModeInfoBody =
-        "**None** takes no account of how long a thing lingers. **Manual** lets you name its length " +
-            "yourself. **Start/stop** watches it unfold in real time."
+        "**Kept:** each event can be sealed, left unfolding, or given a stated length. **Off:** every event " +
+            "is nothing but an instant."
     override val caseCheckInInfoTitle = "On check-ins"
     override val caseCheckInInfoBody =
         "**Kept:** the check-in nudge stirs once this case has gone silent too long, per Settings' interval.\n" +
@@ -1653,12 +1671,12 @@ object IntenseVoice : Voice {
             "or erased forever if you so choose."
     override val archiveCaseConfirmAction = "Retire it"
     override val archiveCaseCancelAction = "Abandon"
-    override val leaveStartStopConfirmTitle = "Stop what still runs?"
-    override val leaveStartStopConfirmAction = "Stop them and switch"
-    override val leaveStartStopCancelAction = "Keep Start/Stop"
-    override val enterStartStopConfirmTitle = "Freeze them in place?"
-    override val enterStartStopConfirmAction = "Freeze and switch"
-    override val enterStartStopCancelAction = "Keep current mode"
+    override val turnOffDurationConfirmTitle = "Stop what still runs?"
+    override val turnOffDurationConfirmAction = "Stop them and turn off"
+    override val turnOffDurationCancelAction = "Keep tracking it"
+    override val turnOnDurationConfirmTitle = "Freeze them in place?"
+    override val turnOnDurationConfirmAction = "Turn on and freeze them"
+    override val turnOnDurationCancelAction = "Leave duration be"
     override val archivedCasesTitle = "The archived cases"
     override val archivedCasesEmptyState = "Nothing archived yet."
     override val eventListEmptyState = "No evidence gathered yet."
@@ -1686,23 +1704,29 @@ object IntenseVoice : Voice {
     override val logSheetNewEventTitle = "Record the evidence"
     override val logSheetEditEventTitle = "Amend the record"
     override val logSheetTimeLabel = "The hour it happened"
+    override val logSheetStartedLabel = "The hour it began"
     override val logSheetIntensityLabel = "Severity"
     override val logSheetDurationLabel = "How long it lingered"
+    override val logSheetPlannedDurationLabel = "How long it's meant to linger"
     override val logSheetNoteLabel = "Notes (optional)"
     override val logSheetNoteHint = "Details worth keeping"
     override val logSheetAddTagHint = "Name a tag"
     override val logSheetRemoveTagDescription = "Strike this tag"
     override val logSheetSaveButton = "Commit to the record"
+    override val logSheetCreateAction = "Commit it"
     override val logSheetPickerConfirm = "So be it"
     override val logSheetPickerCancel = "Abandon"
-    override val logSheetStartButton = "Begin"
     override val logSheetEndLabel = "The hour it ended"
     override val logSheetOngoingLabel = "Still unfolding"
     override val logSheetStopNowAction = "Stop it now"
+    override val logSheetStartAgainAction = "Let it unfold again"
 
-    override fun logSheetExpectedEndNotice(end: String) = "Set to unfold until $end"
+    override fun logSheetOngoingForNotice(elapsed: String) = "Unfolding for $elapsed"
 
-    override val logSheetBackToOngoingAction = "Reopen it, still unfolding"
+    override val logSheetEndTimeUnsetLabel = "The hour it ends can be named"
+    override val logSheetEndTimeFutureLabel = "Due to end"
+    override val logSheetChooseDateAction = "Name the date"
+    override val logSheetChooseTimeAction = "Name the hour"
     override val logSheetFutureTimeNotice = "That hour hasn't happened yet."
     override val logSheetStartAfterEndNotice = "A beginning cannot follow its own end."
     override val logSheetEndBeforeStartNotice = "An end cannot precede its own beginning."
@@ -2034,9 +2058,9 @@ object IntenseVoice : Voice {
 
     override fun ongoingExpectedEndTrailing(end: String) = "until $end"
 
-    override fun leaveStartStopConfirmBody(runningCount: Int) = "Switching away stops all $runningCount that still run, right now."
+    override fun turnOffDurationConfirmBody(runningCount: Int) = "Turning it off stops all $runningCount that still run, right now."
 
-    override fun enterStartStopConfirmBody(openEndedCount: Int) =
+    override fun turnOnDurationConfirmBody(openEndedCount: Int) =
         "$openEndedCount events end nowhere. Each will be fixed to the moment it began."
 
     override fun enableIntensityNotice(eventCount: Int) =
@@ -2259,8 +2283,8 @@ object BrightVoice : Voice {
             "form for time, duration, intensity, and notes if you want more detail."
     override val caseDurationModeInfoTitle = "Duration, explained"
     override val caseDurationModeInfoBody =
-        "**None** means duration's not tracked. **Manual** lets you type in how long it took. " +
-            "**Start/stop** tracks it live."
+        "**On:** stop it, let it run, or give it a planned length. **Off:** every event is just a quick point " +
+            "in time."
     override val caseCheckInInfoTitle = "Check-in, explained"
     override val caseCheckInInfoBody =
         "**On:** you'll get a nudge after a quiet stretch, whatever Settings says.\n" +
@@ -2274,12 +2298,12 @@ object BrightVoice : Voice {
             "or to yeet it forever instead."
     override val archiveCaseConfirmAction = "Shelve it"
     override val archiveCaseCancelAction = "Nah, keep it out"
-    override val leaveStartStopConfirmTitle = "Stop what's still running?"
-    override val leaveStartStopConfirmAction = "Stop 'em and switch"
-    override val leaveStartStopCancelAction = "Nope, keep Start/Stop!"
-    override val enterStartStopConfirmTitle = "Keep the old ones as one-offs?"
-    override val enterStartStopConfirmAction = "Yep, switch and keep 'em"
-    override val enterStartStopCancelAction = "Nope, keep this mode!"
+    override val turnOffDurationConfirmTitle = "Stop what's still running?"
+    override val turnOffDurationConfirmAction = "Stop 'em and turn off"
+    override val turnOffDurationCancelAction = "Nope, keep tracking it!"
+    override val turnOnDurationConfirmTitle = "Keep the old ones as one-offs?"
+    override val turnOnDurationConfirmAction = "Yep, turn on and keep 'em"
+    override val turnOnDurationCancelAction = "Nope, leave duration off!"
     override val archivedCasesTitle = "The archive"
     override val archivedCasesEmptyState = "Nothing shelved yet. Tidy!"
     override val eventListEmptyState = "Nothing logged yet!"
@@ -2307,23 +2331,29 @@ object BrightVoice : Voice {
     override val logSheetNewEventTitle = "Log this event!"
     override val logSheetEditEventTitle = "Tweak this event!"
     override val logSheetTimeLabel = "When'd it happen?"
+    override val logSheetStartedLabel = "When'd it start?"
     override val logSheetIntensityLabel = "How intense?"
     override val logSheetDurationLabel = "How long?"
+    override val logSheetPlannedDurationLabel = "How long's it gonna be?"
     override val logSheetNoteLabel = "Note (optional)"
     override val logSheetNoteHint = "Spill the details"
     override val logSheetAddTagHint = "Slap on a tag"
     override val logSheetRemoveTagDescription = "Yeet this tag"
     override val logSheetSaveButton = "Log it!"
+    override val logSheetCreateAction = "Create it!"
     override val logSheetPickerConfirm = "Yep!"
     override val logSheetPickerCancel = "Cancel"
-    override val logSheetStartButton = "Start it!"
     override val logSheetEndLabel = "Wrapped up at"
     override val logSheetOngoingLabel = "Still going!"
     override val logSheetStopNowAction = "Stop the clock!"
+    override val logSheetStartAgainAction = "Start it again!"
 
-    override fun logSheetExpectedEndNotice(end: String) = "Should wrap up $end!"
+    override fun logSheetOngoingForNotice(elapsed: String) = "Going for $elapsed!"
 
-    override val logSheetBackToOngoingAction = "Actually, still going!"
+    override val logSheetEndTimeUnsetLabel = "You can set an end time whenever"
+    override val logSheetEndTimeFutureLabel = "Set to wrap up"
+    override val logSheetChooseDateAction = "Pick a date"
+    override val logSheetChooseTimeAction = "Pick a time"
     override val logSheetFutureTimeNotice = "You can't log the future!"
     override val logSheetStartAfterEndNotice = "That can't start after it ends!"
     override val logSheetEndBeforeStartNotice = "That can't end before it starts!"
@@ -2648,10 +2678,10 @@ object BrightVoice : Voice {
 
     override fun ongoingExpectedEndTrailing(end: String) = "until $end!"
 
-    override fun leaveStartStopConfirmBody(runningCount: Int) =
-        "Start/Stop is the only mode that tracks a live event, so switching away stops all $runningCount running ones right now."
+    override fun turnOffDurationConfirmBody(runningCount: Int) =
+        "Turning off duration tracking stops all $runningCount running ones right now."
 
-    override fun enterStartStopConfirmBody(openEndedCount: Int) =
+    override fun turnOnDurationConfirmBody(openEndedCount: Int) =
         "$openEndedCount events have no end time. They'll be set to end the moment they started!"
 
     override fun enableIntensityNotice(eventCount: Int) =

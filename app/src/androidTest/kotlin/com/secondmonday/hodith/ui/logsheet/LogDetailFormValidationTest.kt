@@ -6,13 +6,11 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDetailScreenUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.formatEventDate
@@ -71,17 +69,17 @@ class LogDetailFormValidationTest {
                     uiState =
                         LogDetailScreenUiState(
                             isLoading = false,
-                            durationMode = DurationMode.START_STOP,
+                            tracksDuration = true,
                             initialDraft =
                                 LogDraft(
                                     occurredAt = occurredAt,
                                     intensity = null,
-                                    durationAmount = "",
-                                    durationUnit = DurationUnit.MINUTES,
                                     note = "",
                                     tags = emptyList(),
                                     endedAt = endedAt,
-                                    existingEndedAt = endedAt,
+                                    daysInput = "1",
+                                    hoursInput = "1",
+                                    minutesInput = "0",
                                 ),
                             now = now,
                         ),

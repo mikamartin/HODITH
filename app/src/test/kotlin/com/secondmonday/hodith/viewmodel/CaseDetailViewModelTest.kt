@@ -2,7 +2,6 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
@@ -47,8 +46,8 @@ class CaseDetailViewModelTest {
 
     private fun viewModel() = CaseDetailViewModel(repository, settings, clock, SavedStateHandle(mapOf("caseId" to caseId)))
 
-    private fun testCase(durationMode: DurationMode = DurationMode.NONE) =
-        Fixtures.case(id = caseId, name = "Coffee", icon = "☕️", logFlow = LogFlow.DETAIL_SHEET, durationMode = durationMode)
+    private fun testCase(tracksDuration: Boolean = false) =
+        Fixtures.case(id = caseId, name = "Coffee", icon = "☕️", logFlow = LogFlow.DETAIL_SHEET, tracksDuration = tracksDuration)
 
     private fun testEvent(
         occurredAt: Long = clock.nowMillis(),
@@ -155,7 +154,7 @@ class CaseDetailViewModelTest {
     @Test
     fun `setHistorySortOrder changes the sort order and resets the window back to 30`() =
         runTest {
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(testCase(tracksDuration = true))
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = i.toLong())) }
             val vm = viewModel()
             vm.loadMoreHistoryEvents()
@@ -172,7 +171,7 @@ class CaseDetailViewModelTest {
     @Test
     fun `setHistorySortOrder persists across a fresh ViewModel instance`() =
         runTest {
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(testCase(tracksDuration = true))
             viewModel().setHistorySortOrder(HistorySortOrder.BY_END)
 
             viewModel().uiState.test {
@@ -186,7 +185,7 @@ class CaseDetailViewModelTest {
     fun `setHistoryDateFrom stores the picked date's local start-of-day millis and resets the window back to 30`() =
         runTest {
             val zone = ZoneId.systemDefault()
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(testCase(tracksDuration = true))
             val today = clock.nowMillis().toLocalDateIn(zone)
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = clock.nowMillis() + i)) }
             val vm = viewModel()
@@ -238,7 +237,7 @@ class CaseDetailViewModelTest {
     fun `setHistoryDateTo stores the picked date's local end-of-day millis and resets the window back to 30`() =
         runTest {
             val zone = ZoneId.systemDefault()
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(testCase(tracksDuration = true))
             val today = clock.nowMillis().toLocalDateIn(zone)
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = clock.nowMillis() + i)) }
             val vm = viewModel()
@@ -307,7 +306,7 @@ class CaseDetailViewModelTest {
     @Test
     fun `stopEvent sets endedAt to now`() =
         runTest {
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(testCase(tracksDuration = true))
             repository.insertEvent(testEvent(endedAt = null))
             val vm = viewModel()
 

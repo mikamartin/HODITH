@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.CaseEventSpan
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.SettingsRepository
@@ -43,17 +42,16 @@ data class HomeCaseRow(
     val todayCount: Int,
     val weekCount: Int,
     val logFlow: LogFlow,
-    val durationMode: DurationMode,
+    val tracksDuration: Boolean,
     val intensityEnabled: Boolean,
     val description: String? = null,
     /**
-     * The earliest-started still-running event (per [isStillRunning] — a `START_STOP` event with
-     * no `endedAt`, or a `MANUAL` event whose `endedAt` is still in the future), or null. Drives
-     * the single elapsed-time/expected-end display; past one running event the row shows
-     * [runningCount] instead.
+     * The earliest-started still-running event (per [isStillRunning] — no `endedAt` at all, or an
+     * `endedAt` still in the future), or null. Drives the single elapsed-time/expected-end
+     * display; past one running event the row shows [runningCount] instead.
      */
     val ongoingEvent: CaseEventSpan? = null,
-    /** How many events are currently running on this Case (0 unless `START_STOP`/`MANUAL`). */
+    /** How many events are currently running on this Case (0 unless it tracks duration). */
     val runningCount: Int = 0,
 )
 
@@ -75,7 +73,7 @@ data class HomeUiState(
 data class HomeLogSheetState(
     val caseId: Long,
     val caseName: String,
-    val durationMode: DurationMode,
+    val tracksDuration: Boolean,
     val intensityEnabled: Boolean,
     val tagSuggestions: List<TagEntity>,
     val draft: LogDraft,
@@ -135,9 +133,9 @@ class HomeViewModel
 
         /**
          * Routes a row's log-button tap per the Case's `logFlow`. The button stays a log/start
-         * affordance even while an event runs on a `START_STOP` Case (spec §6) — tapping it then
-         * starts a second concurrent event; stopping happens on the Case's own log rows, reached
-         * by tapping the row.
+         * affordance even while an event runs on a duration-tracking Case (spec §6) — tapping it
+         * then starts a second concurrent event; stopping happens on the Case's own log rows,
+         * reached by tapping the row.
          */
         fun onQuickLogTap(row: HomeCaseRow) {
             when (row.logFlow) {
@@ -162,7 +160,7 @@ class HomeViewModel
                     HomeLogSheetState(
                         caseId = row.caseId,
                         caseName = row.name,
-                        durationMode = row.durationMode,
+                        tracksDuration = row.tracksDuration,
                         intensityEnabled = row.intensityEnabled,
                         tagSuggestions = tagSuggestions,
                         draft = draftFrom(event = null, now = clock.nowMillis()),
@@ -184,7 +182,6 @@ class HomeViewModel
                         draft = draft,
                         existingEvent = null,
                         originalTags = emptyList(),
-                        durationMode = sheet.durationMode,
                         now = clock.nowMillis(),
                     )
                 val eventId = repository.insertEvent(plan.entity)
@@ -206,10 +203,10 @@ class HomeViewModel
  * ([HomeViewModel] passes `clock::nowMillis`; a widget passes its once-captured value).
  *
  * The ongoing indicator deliberately doesn't read `observeOpenEvents` (`endedAt IS NULL`): that
- * query can only ever see a `START_STOP` event, never a `MANUAL` one whose `endedAt` is merely
- * still in the future (per [isStillRunning]) — a state that expires purely by the passage of
- * time, not by any database write, so [eventSpans] (already loaded for the counts) is recomputed
- * against the fresh [now] on every call instead.
+ * query can only ever see an open event, never one whose `endedAt` is merely still in the future
+ * (per [isStillRunning]) — a state that expires purely by the passage of time, not by any
+ * database write, so [eventSpans] (already loaded for the counts) is recomputed against the
+ * fresh [now] on every call instead.
  */
 internal fun homeCaseRowsFlow(
     repository: HodithRepository,
@@ -245,18 +242,19 @@ internal fun homeCaseRows(
     val spansByCase = eventSpans.groupBy { it.caseId }
     return cases.map { case ->
         val spans = spansByCase[case.id].orEmpty()
-        val stillRunning = spans.filter { isStillRunning(it.endedAt, it.durationMode, nowMillis) }.sortedBy { it.occurredAt }
+        val stillRunning = spans.filter { isStillRunning(it.endedAt, it.tracksDuration, nowMillis) }.sortedBy { it.occurredAt }
         // Spec §9 active span: an event counts toward a window if its span reaches into it,
         // counted once whatever its length — so Home agrees with the calendar heatmap.
-        // activeSpanEnd handles the NONE-collapses-to-a-point and running-runs-to-now cases.
+        // activeSpanEnd handles the not-tracking-duration-collapses-to-a-point and
+        // running-runs-to-now cases.
         HomeCaseRow(
             caseId = case.id,
             icon = case.icon,
             name = case.name,
-            todayCount = spans.count { activeSpanEnd(it.occurredAt, it.endedAt, it.durationMode, nowMillis) >= startOfToday },
-            weekCount = spans.count { activeSpanEnd(it.occurredAt, it.endedAt, it.durationMode, nowMillis) >= startOfWeek },
+            todayCount = spans.count { activeSpanEnd(it.occurredAt, it.endedAt, it.tracksDuration, nowMillis) >= startOfToday },
+            weekCount = spans.count { activeSpanEnd(it.occurredAt, it.endedAt, it.tracksDuration, nowMillis) >= startOfWeek },
             logFlow = case.logFlow,
-            durationMode = case.durationMode,
+            tracksDuration = case.tracksDuration,
             intensityEnabled = case.intensityEnabled,
             description = case.description,
             ongoingEvent = stillRunning.firstOrNull(),

@@ -43,7 +43,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CaseEventSpan
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.CenteredEmptyState
 import com.secondmonday.hodith.ui.common.FabListBottomClearance
@@ -188,7 +187,7 @@ fun HomeScreen(
 
     if (logSheet != null) {
         LogDetailSheet(
-            durationMode = logSheet.durationMode,
+            tracksDuration = logSheet.tracksDuration,
             intensityEnabled = logSheet.intensityEnabled,
             initialDraft = logSheet.draft,
             tagSuggestions = logSheet.tagSuggestions,
@@ -262,7 +261,7 @@ private fun HomeCaseLogButton(
     onClick: () -> Unit,
 ) {
     val description =
-        if (row.durationMode == DurationMode.START_STOP) {
+        if (row.tracksDuration) {
             voice.startActionDescription(row.name)
         } else {
             voice.quickLogButtonDescription(row.name)
@@ -310,7 +309,6 @@ private fun HomeCaseRowBody(
                     OngoingTimeText(
                         startedAt = ongoing.occurredAt,
                         expectedEndAt = ongoing.endedAt,
-                        durationMode = row.durationMode,
                         now = now,
                         use24Hour = LocalTimeFormat.current.is24Hour,
                         voice = voice,
@@ -370,7 +368,6 @@ private fun BrightHomeCaseListItem(
                         OngoingTimeText(
                             startedAt = ongoing.occurredAt,
                             expectedEndAt = ongoing.endedAt,
-                            durationMode = row.durationMode,
                             now = now,
                             use24Hour = LocalTimeFormat.current.is24Hour,
                             voice = voice,
@@ -397,7 +394,7 @@ private val previewRows =
             todayCount = 1,
             weekCount = 4,
             logFlow = LogFlow.ONE_TAP,
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = false,
         ),
         HomeCaseRow(
@@ -407,7 +404,7 @@ private val previewRows =
             todayCount = 0,
             weekCount = 6,
             logFlow = LogFlow.ONE_TAP,
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = false,
         ),
         HomeCaseRow(
@@ -417,9 +414,9 @@ private val previewRows =
             todayCount = 2,
             weekCount = 5,
             logFlow = LogFlow.ONE_TAP,
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             intensityEnabled = false,
-            ongoingEvent = CaseEventSpan(caseId = 3, occurredAt = 0L, endedAt = null, durationMode = DurationMode.START_STOP),
+            ongoingEvent = CaseEventSpan(caseId = 3, occurredAt = 0L, endedAt = null, tracksDuration = true),
             runningCount = 2,
         ),
         HomeCaseRow(
@@ -429,10 +426,10 @@ private val previewRows =
             todayCount = 1,
             weekCount = 1,
             logFlow = LogFlow.DETAIL_SHEET,
-            durationMode = DurationMode.MANUAL,
+            tracksDuration = true,
             intensityEnabled = false,
             ongoingEvent =
-                CaseEventSpan(caseId = 4, occurredAt = 0L, endedAt = 2 * 60 * 60 * 1000L, durationMode = DurationMode.MANUAL),
+                CaseEventSpan(caseId = 4, occurredAt = 0L, endedAt = 2 * 60 * 60 * 1000L, tracksDuration = true),
             runningCount = 1,
         ),
     )

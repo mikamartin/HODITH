@@ -4,7 +4,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ExpectedPer
@@ -85,9 +84,9 @@ class CaseDetailViewModel
 
         /**
          * The History tab's capped, sorted page — re-queried (not re-sorted client-side) whenever
-         * the sort order, the date range, the loaded limit, or the Case's `durationMode` changes;
-         * the last of those matters because [HistorySortOrder.BY_END]'s "is this running?" check is
-         * only meaningful for a `START_STOP` Case (PROGRESS.md F4).
+         * the sort order, the date range, the loaded limit, or the Case's `tracksDuration` flag
+         * changes; the last of those matters because [HistorySortOrder.BY_END]'s "is this
+         * running?" check is only meaningful for a Case that tracks duration (PROGRESS.md F4).
          */
         @OptIn(ExperimentalCoroutinesApi::class)
         private val historyPage =
@@ -104,7 +103,7 @@ class CaseDetailViewModel
                         caseId,
                         query.order,
                         query.limit,
-                        query.case?.durationMode ?: DurationMode.NONE,
+                        query.case?.tracksDuration ?: false,
                         query.dateFrom,
                         query.dateTo,
                     )
@@ -187,14 +186,13 @@ class CaseDetailViewModel
          * is [com.secondmonday.hodith.viewmodel.LogDetailScreenViewModel]'s job, on its own screen.
          */
         fun saveNewEvent(draft: LogDraft) {
-            val durationMode = uiState.value.case?.durationMode ?: return
+            uiState.value.case ?: return
             val plan =
                 planSaveEvent(
                     caseId = caseId,
                     draft = draft,
                     existingEvent = null,
                     originalTags = emptyList(),
-                    durationMode = durationMode,
                     now = clock.nowMillis(),
                 )
             viewModelScope.launch {
@@ -250,14 +248,13 @@ internal fun formatExpectedFrequency(
  * Pure mapping of an event's optional fields (plus its tags) into its detail line, split out
  * from the Case Detail screen for the same reason as [formatEventTime]. Returns null when
  * there's nothing beyond the time to show. [isOngoing] should only ever be true for a
- * `START_STOP` case's still-open event (spec §6) — the caller is responsible for that gate,
- * since a plain `endedAt == null` alone is ambiguous with `NONE`/`MANUAL` events that simply
- * have no duration. An ongoing event's running state is drawn separately (the "Ongoing" pill
- * + live elapsed), so this only contributes its intensity/note/tags. A finished duration event
- * shows how long it lasted (via the same [formatElapsedDuration] the ongoing indicator uses)
- * only when [tracksDuration] — the Case's `durationMode != NONE` — and the span is non-zero;
- * a Case switched to `NONE`, or a zero-length event (`endedAt == occurredAt`), is a point
- * with no duration line. Stored `endedAt` is never read past this gate, so it survives intact.
+ * duration-tracking Case's still-running event (spec §6, per [isStillRunning]) — the caller is
+ * responsible for that gate. An ongoing event's running state is drawn separately (the "Ongoing"
+ * pill + live elapsed), so this only contributes its intensity/note/tags. A finished duration
+ * event shows how long it lasted (via the same [formatElapsedDuration] the ongoing indicator
+ * uses) only when [tracksDuration] and the span is non-zero; a Case that doesn't track duration,
+ * or a zero-length event (`endedAt == occurredAt`), is a point with no duration line. Stored
+ * `endedAt` is never read past this gate, so it survives intact.
  *
  * [showIntensity] defaults to true (the History tab always shows it); the Insights tab's intensity
  * drill-down dialog (spec §10) passes false, since every row there already shares the intensity

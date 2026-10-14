@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.testsupport.testCase
 import org.junit.Assert.assertEquals
@@ -117,50 +116,37 @@ class CaseEditValidationTest {
         assertFalse(validation.isValid)
     }
 
-    @Test
-    fun `one tap is allowed with no duration and no intensity`() {
-        assertTrue(isOneTapAllowed(DurationMode.NONE, intensityEnabled = false))
-    }
+    // Duration tracking no longer gates one-tap at all (spec §6 Story U2) -- a tracked event
+    // starts open-ended by default, exactly like an untracked one, so isOneTapAllowed/coerceLogFlow
+    // only take intensityEnabled now. There's nothing left to test for a duration dimension.
 
     @Test
-    fun `one tap is allowed with start-stop duration`() {
-        assertTrue(isOneTapAllowed(DurationMode.START_STOP, intensityEnabled = false))
-    }
-
-    @Test
-    fun `one tap is disallowed with manual duration`() {
-        assertFalse(isOneTapAllowed(DurationMode.MANUAL, intensityEnabled = false))
+    fun `one tap is allowed with no intensity`() {
+        assertTrue(isOneTapAllowed(intensityEnabled = false))
     }
 
     @Test
     fun `one tap is disallowed with intensity enabled`() {
-        assertFalse(isOneTapAllowed(DurationMode.NONE, intensityEnabled = true))
-    }
-
-    @Test
-    fun `logFlow is coerced to detail sheet when manual duration makes one tap invalid`() {
-        val result = coerceLogFlow(LogFlow.ONE_TAP, DurationMode.MANUAL, intensityEnabled = false)
-
-        assertEquals(LogFlow.DETAIL_SHEET, result)
+        assertFalse(isOneTapAllowed(intensityEnabled = true))
     }
 
     @Test
     fun `logFlow is coerced to detail sheet when intensity makes one tap invalid`() {
-        val result = coerceLogFlow(LogFlow.ONE_TAP, DurationMode.NONE, intensityEnabled = true)
+        val result = coerceLogFlow(LogFlow.ONE_TAP, intensityEnabled = true)
 
         assertEquals(LogFlow.DETAIL_SHEET, result)
     }
 
     @Test
     fun `logFlow is left alone when one tap is still valid`() {
-        val result = coerceLogFlow(LogFlow.ONE_TAP, DurationMode.START_STOP, intensityEnabled = false)
+        val result = coerceLogFlow(LogFlow.ONE_TAP, intensityEnabled = false)
 
         assertEquals(LogFlow.ONE_TAP, result)
     }
 
     @Test
     fun `detail sheet logFlow is never touched by coercion`() {
-        val result = coerceLogFlow(LogFlow.DETAIL_SHEET, DurationMode.MANUAL, intensityEnabled = true)
+        val result = coerceLogFlow(LogFlow.DETAIL_SHEET, intensityEnabled = true)
 
         assertEquals(LogFlow.DETAIL_SHEET, result)
     }
@@ -172,7 +158,7 @@ class CaseEditValidationTest {
                 name = "Migraine",
                 icon = "🤕",
                 logFlow = LogFlow.ONE_TAP,
-                durationMode = DurationMode.START_STOP,
+                tracksDuration = true,
                 intensityEnabled = true,
             )
 
@@ -186,7 +172,7 @@ class CaseEditValidationTest {
                 name = "Lost my keys",
                 icon = "🔑",
                 logFlow = LogFlow.ONE_TAP,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
                 intensityEnabled = false,
             )
 

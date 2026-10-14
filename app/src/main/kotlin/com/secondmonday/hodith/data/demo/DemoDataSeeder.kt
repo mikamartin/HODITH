@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.data.demo
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
@@ -112,10 +111,10 @@ private const val QUIET_SPELL_DAYS = 60L
 // TREND_MIN_SPAN_DAYS (56, domain-internal) for the frequency-shift finding too.
 private const val TRENDING_RECENT_PHASE_DAYS = 120L
 
-// A couple of START_STOP demo Cases end with an event still running (endedAt == null) so the
-// ongoing indicator, the Insights "current gap reads 0 while an event is active" rule (spec §10),
-// and the multiple-running-events path all have live data on a fresh "Load demo data". Ages are
-// measured back from now; the second is past a day so the elapsed indicator shows its "Xd Yh" form.
+// A couple of duration-tracking demo Cases end with an event still running (endedAt == null) so
+// the ongoing indicator, the Insights "current gap reads 0 while an event is active" rule (spec
+// §10), and the multiple-running-events path all have live data on a fresh "Load demo data". Ages
+// are measured back from now; the second is past a day so the elapsed indicator shows its "Xd Yh" form.
 private val ONGOING_EVENT_AGES_MILLIS = listOf(2L * MILLIS_PER_HOUR, 26L * MILLIS_PER_HOUR)
 
 private enum class SeedDensity { SPARSE, BURSTY, DENSE }
@@ -168,7 +167,7 @@ private data class WatchSeed(
 private data class CaseSeed(
     val name: String,
     val icon: String,
-    val durationMode: DurationMode,
+    val tracksDuration: Boolean,
     val intensityEnabled: Boolean,
     val density: SeedDensity,
     val notes: List<String>,
@@ -180,13 +179,15 @@ private data class CaseSeed(
     // widely-spaced, isolated-days history that turns into tight recent clusters, so gap shift,
     // streak shift, and frequency shift all fire together (see [TRENDING_RECENT_PHASE_DAYS]).
     val trendingShift: Boolean = false,
-    // Extra events left open (endedAt == null) at the end of the span. START_STOP Cases only —
-    // a null endedAt on a NONE/MANUAL Case would be a data bug, not an ongoing state.
+    // Extra events left open (endedAt == null) at the end of the span. Duration-tracking Cases
+    // only — a null endedAt on a Case that doesn't track duration would be a data bug, not an
+    // ongoing state.
     val ongoingEventCount: Int = 0,
     val tagOutcomeShift: TagOutcomeShiftSeed? = null,
     // Story C T6 showcase: applies TANTRUM_DURATION_EARLY_FACTOR..LATE_FACTOR's time-based scaling
     // and TANTRUM_EVENING_DURATION_FACTOR's evening bump to this Case's durations (see endedAtFor).
-    // START_STOP Cases only — a NONE/MANUAL Case never reaches endedAtFor's duration branch at all.
+    // Duration-tracking Cases only — a Case that doesn't track duration never reaches
+    // endedAtFor's duration branch at all.
     val durationTrendShift: Boolean = false,
     val tagTimingShift: TagTimingShiftSeed? = null,
     val tagComboShift: TagComboShowcaseSeed? = null,
@@ -213,7 +214,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Coffee",
             icon = "☕️",
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = false,
             density = SeedDensity.DENSE,
             notes = listOf("Perfectly balanced", "A bit weak", "Extra hot", "Oat milk today", "Burnt beans again"),
@@ -230,7 +231,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Migraine",
             icon = "🤕",
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             intensityEnabled = true,
             density = SeedDensity.BURSTY,
             notes = listOf("Started after screen time", "Woke up with it", "Triggered by wine", "Light sensitivity bad"),
@@ -250,7 +251,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Lost my keys",
             icon = "🔑",
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = false,
             // Unused — trendingShift replaces the density-driven generator entirely.
             density = SeedDensity.SPARSE,
@@ -261,7 +262,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Argument",
             icon = "💢",
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = true,
             density = SeedDensity.BURSTY,
             notes = listOf("About chores", "Over the phone", "Blew over quickly", "Still tense after"),
@@ -271,7 +272,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Tantrum",
             icon = "😭",
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             intensityEnabled = false,
             density = SeedDensity.DENSE,
             notes = listOf("Overtired, probably", "Wrong-colour cup incident", "Right before bedtime", "Grocery store meltdown"),
@@ -285,7 +286,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Nosebleed",
             icon = "🩸",
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = false,
             density = SeedDensity.SPARSE,
             notes = listOf("Dry air, probably", "Right after a sneeze", "Out of nowhere"),
@@ -297,7 +298,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Noisy neighbours",
             icon = "🔊",
-            durationMode = DurationMode.START_STOP,
+            tracksDuration = true,
             intensityEnabled = true,
             density = SeedDensity.BURSTY,
             notes = listOf("Party upstairs again", "Drilling at 8am", "Bass through the wall", "Shouting in the hallway"),
@@ -310,7 +311,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Heartburn",
             icon = "🔥",
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = true,
             density = SeedDensity.BURSTY,
             notes = listOf("After a big dinner", "Spicy food, worth it", "Woke me up", "Lying down made it worse"),
@@ -324,7 +325,7 @@ private val CASE_SEEDS =
         CaseSeed(
             name = "Skipped lunch",
             icon = "🍽️",
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = false,
             density = SeedDensity.BURSTY,
             notes = listOf("Meeting ran long", "Forgot entirely", "Too busy to stop", "Ate at my desk instead"),
@@ -361,7 +362,7 @@ class DemoDataSeeder
                             icon = caseSeed.icon,
                             createdAt = spanStart,
                             logFlow = LogFlow.ONE_TAP,
-                            durationMode = caseSeed.durationMode,
+                            tracksDuration = caseSeed.tracksDuration,
                             intensityEnabled = caseSeed.intensityEnabled,
                             checkInsEnabled = caseSeed.checkInsEnabled,
                             lastCheckInAt = null,
@@ -393,7 +394,7 @@ class DemoDataSeeder
                         }
                     val endedAt =
                         endedAtFor(
-                            caseSeed.durationMode,
+                            caseSeed.tracksDuration,
                             occurredAt,
                             now,
                             random,
@@ -448,9 +449,9 @@ class DemoDataSeeder
             val events = repository.observeEventsWithTagsForCase(caseId).first().map { it.event }
             val decision =
                 when (watch.kind) {
-                    WatchKind.OFTEN -> evaluateOften(watch, events, now, caseSeed.durationMode)
+                    WatchKind.OFTEN -> evaluateOften(watch, events, now, caseSeed.tracksDuration)
                     WatchKind.QUIET ->
-                        evaluateQuiet(watch, silenceAnchorForEvents(events, caseSeed.durationMode, now), createdAt, now)
+                        evaluateQuiet(watch, silenceAnchorForEvents(events, caseSeed.tracksDuration, now), createdAt, now)
                 }
             repository.insertWatch(
                 if (decision.shouldFire) {
@@ -595,7 +596,7 @@ private fun recentSurgeOccurrences(
     }
 
 private fun endedAtFor(
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     occurredAt: Long,
     spanEnd: Long,
     random: Random,
@@ -603,7 +604,7 @@ private fun endedAtFor(
     durationTrendShift: Boolean = false,
     spanStart: Long = occurredAt,
 ): Long? {
-    if (durationMode != DurationMode.START_STOP) return null
+    if (!tracksDuration) return null
     val trendMultiplier = if (durationTrendShift) durationTrendMultiplierFor(occurredAt, spanStart, spanEnd) else 1.0
     val duration = (random.nextLong(MIN_DURATION_MILLIS, MAX_DURATION_MILLIS) * durationBoostFactor * trendMultiplier).toLong()
     return (occurredAt + duration).coerceAtMost(spanEnd)

@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.data.CaseEventDetail
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.FakeHodithRepository
@@ -132,7 +131,7 @@ class BigPictureViewModelTest {
     }
 
     @Test
-    fun `bigPictureUiState carries endedAt and marks only a START_STOP open event as ongoing`() {
+    fun `bigPictureUiState carries endedAt and marks an open event on a tracking case as ongoing`() {
         val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
         val startMillis = Instant.parse("2026-05-18T09:00:00Z").toEpochMilli()
         val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
@@ -147,28 +146,20 @@ class BigPictureViewModelTest {
             loggedAt = startMillis,
         )
 
-        val cases =
-            listOf(
-                testCase(id = 1L).copy(durationMode = DurationMode.START_STOP),
-                testCase(id = 2L).copy(durationMode = DurationMode.MANUAL),
-            )
+        val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
         val eventDetails =
             listOf(
                 detailOf(event(1L, endedAt = null)),
                 detailOf(event(1L, endedAt = endMillis)),
-                detailOf(event(2L, endedAt = null)),
             )
 
         val events = bigPictureUiState(cases, eventDetails, emptyList(), nowMillis, zoneId).events
 
-        val open = events.single { it.caseId == 1L && it.endedAt == null }
-        val finished = events.single { it.caseId == 1L && it.endedAt != null }
-        val manual = events.single { it.caseId == 2L }
+        val open = events.single { it.endedAt == null }
+        val finished = events.single { it.endedAt != null }
         assertTrue(open.isOngoing)
         assertEquals(endMillis, finished.endedAt)
         assertEquals(false, finished.isOngoing)
-        // Only START_STOP can be ongoing — a MANUAL event with a null endedAt is a data quirk, not a running event.
-        assertEquals(false, manual.isOngoing)
     }
 
     @Test
@@ -187,7 +178,7 @@ class BigPictureViewModelTest {
         val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, loggedAt = startMillis)
-        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.NONE))
+        val cases = listOf(testCase(id = 1L).copy(tracksDuration = false))
 
         val mapped = bigPictureUiState(cases, listOf(detailOf(event)), emptyList(), nowMillis, zoneId).events.single()
 
@@ -196,13 +187,13 @@ class BigPictureViewModelTest {
     }
 
     @Test
-    fun `bigPictureUiState keeps a stored endedAt for a MANUAL Case`() {
+    fun `bigPictureUiState keeps a stored endedAt for a tracking Case`() {
         val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
         val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
         val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, loggedAt = startMillis)
-        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.MANUAL))
+        val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
 
         val mapped = bigPictureUiState(cases, listOf(detailOf(event)), emptyList(), nowMillis, zoneId).events.single()
 
@@ -211,13 +202,13 @@ class BigPictureViewModelTest {
     }
 
     @Test
-    fun `bigPictureUiState marks a MANUAL event with a future endedAt as ongoing with an expectedEndAt`() {
+    fun `bigPictureUiState marks an event with a future endedAt as ongoing with an expectedEndAt`() {
         val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
         val startMillis = Instant.parse("2026-05-20T09:00:00Z").toEpochMilli()
         val futureEndMillis = Instant.parse("2026-05-20T15:00:00Z").toEpochMilli()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = futureEndMillis, loggedAt = startMillis)
-        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.MANUAL))
+        val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
 
         val mapped = bigPictureUiState(cases, listOf(detailOf(event)), emptyList(), nowMillis, zoneId).events.single()
 
@@ -226,13 +217,13 @@ class BigPictureViewModelTest {
     }
 
     @Test
-    fun `bigPictureUiState has no expectedEndAt for a finished MANUAL event`() {
+    fun `bigPictureUiState has no expectedEndAt for a finished event`() {
         val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
         val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
         val pastEndMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = pastEndMillis, loggedAt = startMillis)
-        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.MANUAL))
+        val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
 
         val mapped = bigPictureUiState(cases, listOf(detailOf(event)), emptyList(), nowMillis, zoneId).events.single()
 
@@ -269,7 +260,7 @@ class BigPictureViewModelTest {
     fun `bigPictureUiState keeps a same-day endedAt on a duration-tracking Case so the row can show a duration`() {
         val occurredAt = Instant.parse("2026-05-16T09:10:00Z").toEpochMilli()
         val endedAt = Instant.parse("2026-05-16T09:50:00Z").toEpochMilli()
-        val cases = listOf(testCase(id = 1L).copy(durationMode = DurationMode.MANUAL))
+        val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
         val eventDetails = listOf(detailOf(Fixtures.event(caseId = 1L, occurredAt = occurredAt, endedAt = endedAt)))
 
         assertEquals(

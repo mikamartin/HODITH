@@ -3,7 +3,6 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.TagEntity
@@ -27,7 +26,7 @@ import javax.inject.Inject
  */
 data class LogDetailScreenUiState(
     val isLoading: Boolean = true,
-    val durationMode: DurationMode = DurationMode.NONE,
+    val tracksDuration: Boolean = false,
     val intensityEnabled: Boolean = false,
     val tagSuggestions: List<TagEntity> = emptyList(),
     val initialDraft: LogDraft? = null,
@@ -49,7 +48,6 @@ class LogDetailScreenViewModel
 
         private var loadedEvent: EventEntity? = null
         private var originalTags: List<TagEntity> = emptyList()
-        private var durationMode: DurationMode = DurationMode.NONE
 
         private val _uiState = MutableStateFlow(LogDetailScreenUiState())
         val uiState: StateFlow<LogDetailScreenUiState> = _uiState.asStateFlow()
@@ -68,12 +66,11 @@ class LogDetailScreenViewModel
                 }
                 loadedEvent = eventWithTags.event
                 originalTags = eventWithTags.tags
-                durationMode = case.durationMode
                 val now = clock.nowMillis()
                 _uiState.value =
                     LogDetailScreenUiState(
                         isLoading = false,
-                        durationMode = case.durationMode,
+                        tracksDuration = case.tracksDuration,
                         intensityEnabled = case.intensityEnabled,
                         tagSuggestions = repository.observeTagsForCase(caseId).first(),
                         initialDraft = draftFrom(eventWithTags.event, now = now, tags = eventWithTags.tags),
@@ -84,7 +81,7 @@ class LogDetailScreenViewModel
 
         fun save(draft: LogDraft) {
             val existing = loadedEvent ?: return
-            val plan = planSaveEvent(caseId, draft, existing, originalTags, durationMode, clock.nowMillis())
+            val plan = planSaveEvent(caseId, draft, existing, originalTags, clock.nowMillis())
             viewModelScope.launch {
                 val savedId =
                     if (plan.isUpdate) {

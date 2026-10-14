@@ -14,10 +14,10 @@ import org.junit.runner.RunWith
 
 /**
  * [RoomHodithRepository.observeHistoryEventsForCase] against a real Room database — the DAO-method
- * dispatch by [HistorySortOrder], the `durationMode == DurationMode.START_STOP` mapping to the DAO's
- * `isStartStopCase` parameter, and the `limit + 1` fetch-and-trim that computes
- * [HistoryEventsPage.hasMore] are this repository's own logic, not proven by [EventDaoTest] (which
- * only exercises the raw paged queries with a boolean handed to it directly) or
+ * dispatch by [HistorySortOrder], the `tracksDuration` pass-through to the DAO's own parameter of
+ * the same name, and the `limit + 1` fetch-and-trim that computes [HistoryEventsPage.hasMore] are
+ * this repository's own logic, not proven by [EventDaoTest] (which only exercises the raw paged
+ * queries with a boolean handed to it directly) or
  * [com.secondmonday.hodith.data.FakeHodithRepositoryTest] (a separate, parallel reimplementation
  * of the same contract, not this code).
  */
@@ -60,7 +60,7 @@ class RoomHodithRepositoryHistoryEventsTest {
                         caseId,
                         HistorySortOrder.BY_START,
                         limit = 3,
-                        durationMode = DurationMode.NONE,
+                        tracksDuration = false,
                         dateFrom = null,
                         dateTo = null,
                     ).first()
@@ -80,7 +80,7 @@ class RoomHodithRepositoryHistoryEventsTest {
                         caseId,
                         HistorySortOrder.BY_START,
                         limit = 3,
-                        durationMode = DurationMode.NONE,
+                        tracksDuration = false,
                         dateFrom = null,
                         dateTo = null,
                     ).first()
@@ -101,7 +101,7 @@ class RoomHodithRepositoryHistoryEventsTest {
                         caseId,
                         HistorySortOrder.BY_END,
                         limit = 10,
-                        durationMode = DurationMode.START_STOP,
+                        tracksDuration = true,
                         dateFrom = null,
                         dateTo = null,
                     ).first()
@@ -110,12 +110,12 @@ class RoomHodithRepositoryHistoryEventsTest {
         }
 
     @Test
-    fun observeHistoryEventsForCase_mapsDurationModeToIsStartStopCase_forTheBY_ENDQuery() =
+    fun observeHistoryEventsForCase_neverFloatsAnOpenEndedEvent_forACaseThatDoesNotTrackDuration() =
         runTest {
-            // Same shape as the dispatch test above, but MANUAL rather than START_STOP: the
-            // end-less event must NOT float. This proves the repository's own `durationMode ==
-            // DurationMode.START_STOP` line actually gates the floating behaviour, rather than
-            // just trusting EventDaoTest's direct `isStartStopCase` boolean cases.
+            // Same shape as the dispatch test above, but tracksDuration = false: the end-less
+            // event must NOT float. This proves the repository's own `tracksDuration` pass-through
+            // actually gates the floating behaviour, rather than just trusting EventDaoTest's
+            // direct boolean cases.
             val openEnded = db.eventDao().insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
             val laterFinished = db.eventDao().insert(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))
 
@@ -125,7 +125,7 @@ class RoomHodithRepositoryHistoryEventsTest {
                         caseId,
                         HistorySortOrder.BY_END,
                         limit = 10,
-                        durationMode = DurationMode.MANUAL,
+                        tracksDuration = false,
                         dateFrom = null,
                         dateTo = null,
                     ).first()
@@ -144,7 +144,7 @@ class RoomHodithRepositoryHistoryEventsTest {
                         caseId,
                         HistorySortOrder.BY_START,
                         limit = 10,
-                        durationMode = DurationMode.NONE,
+                        tracksDuration = false,
                         dateFrom = 1L,
                         dateTo = 3L,
                     ).first()
@@ -157,7 +157,7 @@ class RoomHodithRepositoryHistoryEventsTest {
                         caseId,
                         HistorySortOrder.BY_START,
                         limit = 10,
-                        durationMode = DurationMode.NONE,
+                        tracksDuration = false,
                         dateFrom = 3L,
                         dateTo = null,
                     ).first()

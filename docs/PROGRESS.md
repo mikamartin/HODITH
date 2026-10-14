@@ -6,72 +6,11 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 Items are grouped by how they connect, not by status alone:
 
-- **Story U — Duration unification** — collapsing Case-level `DurationMode` into a per-Case on/off switch plus a per-event ongoing/end-time/duration control (U1 prototype, U2 schema/engine/consumers, remaining).
 - **Standalone** — no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.
 - **Blocked** — gated on something external; not startable now.
 
 Each item carries a **trailer** (*Branch · Complexity · Priority · Area*; Complexity: S ≤ a day · M a few days · L a week-plus · XL a new module or multi-week, same scale as HODITH_SPEC §17; Priority: High gates the first release or corrects something wrong today · Medium worth doing before alpha · Low cosmetic or deferrable · Blocked can't start yet; Area is a loose bucket), zero or more **tags** (🎨 *Design decision* needs a human call before implementation · 🌐 *External action* work outside this repo · 🔍 *Investigation* needs a repro/diagnose pass before the fix is knowable), **Acceptance criteria**, and **Plan / Tests / Concern** detail.
-
-## Story U — Duration unification
-
-Collapsing the Case-level `DurationMode` (`NONE`/`MANUAL`/`START_STOP`) into a single per-Case `tracksDuration: Boolean` plus a per-*event* ongoing/end-time/duration state removes the parallel branching duplicated across `domain/ActiveSpan.kt`, `BigPictureViewModel`/`BigPictureGrid.kt`, `OngoingIndicator.kt`, `CaseDetailScreen.kt` (History), `InsightsTab.kt`, `HomeViewModel.kt`, `ShareCardState.kt`, `EventTimeFormat.kt`, and the `WatchEngine`/`StatsEngine`/`VerdictEngine`/`NotificationEvaluator`/`Ticker` consumers of `isStillRunning`/`activeSpanEnd`. Pre-release, so no careful migration is needed — `demo_backup.json` and test fixtures get hand-edited to the new shape rather than migrated.
-
-### U1 · Prototype the merged Edit Event / Case Edit UX
-
-*Branch: `feature/duration-unification` · Complexity: S · Priority: Medium · Area: Case/Event*
-
-Throwaway Compose Preview mockups (`ui/prototype/DurationUnificationPrototype.kt`) — no production code touched. Validated the control shape through several review rounds; the settled design is captured in **U2 → Notes from U1** below, not repeated here. Pending: user sign-off on moving to U2 (or another prototype pass). The prototype file is deleted once U2's real implementation supersedes it.
-
-### U2 · Implement the unified duration model
-
-*Branch: `feature/duration-unification` (continued) · Complexity: L–XL · Priority: Medium · Area: Case/Event*
-
-🎨 **Design decision** — needs U1 signed off first.
-
-**Acceptance criteria**
-
-- [ ] `DurationMode` replaced by `CaseEntity.tracksDuration: Boolean`; `EventEntity` needs no new columns beyond today's `occurredAt`/`endedAt` — ongoing is *derived* (`endedAt == null || endedAt > now`), not a stored flag; duration stays derived too.
-- [ ] `domain/ActiveSpan.kt`'s `isStillRunning`/`activeSpanEnd` rewritten for the two-state (tracks-duration or not) model, staying pure Kotlin with injected `Clock`/`now`, no `android.*` imports.
-- [ ] Every duplicated `isOngoing`/`expectedEndAt` branch found during exploration updated to the unified model: `BigPictureViewModel`/`BigPictureGrid.kt`, `OngoingIndicator.kt`, `CaseDetailScreen.kt`, `InsightsTab.kt`, `HomeViewModel.kt`, `ShareCardState.kt`, `EventTimeFormat.kt`, both Glance widgets, `WatchEngine`/`StatsEngine`/`VerdictEngine`/`NotificationEvaluator`/`Ticker`.
-- [ ] **Confirm-dialog / warning UX redesigned** for toggling `tracksDuration` on an existing Case with events (replacing today's leave-/enter-`START_STOP` dialogs in `CaseEditScreen.kt`/`CaseEditViewModel.kt`) — this was explicitly deferred out of U1's prototype and must not be dropped. Covers at minimum: turning tracking off while events are ongoing (they get closed), and turning tracking on for a Case with pre-existing events that have no end time.
-- [ ] `LogDetailViewModel.kt`'s `computeEndedAt`/`durationFieldsFor` and the `LogDetailForm`/`EndTimeSection`/`DurationSection` UI collapsed into the single validated control from U1 — **replaced by three plain Days/Hours/Minutes fields**, not one amount+unit field (see Notes below); `DurationUnit`/`durationUnitFor`/`durationFieldsFor` stay `Long`-only and need no decimal support, since the final prototype design dropped the single-field+unit-selector approach specifically to avoid fractional values.
-- [ ] Schema bump (no `AutoMigration`/hand migration needed pre-release); `demo_backup.json` and test fixtures hand-edited to the new shape.
-- [ ] Voice ×3 for any new/changed strings; no gamification language.
-- [ ] `HODITH_SPEC.md` synced with the new model (data model and Case/Event vocabulary sections).
-- [ ] Docs sweep for `DurationMode`/`MANUAL`/`START_STOP` mentions across `docs/`.
-
-**Notes from U1** (validated in `ui/prototype/DurationUnificationPrototype.kt` — read before starting, delete once superseded):
-
-- **Ongoing/Ended is derived, not stored** — `isOngoing = endedAt == null || endedAt > now`, mirroring today's MANUAL-mode `isStillRunning` exactly, just generalized to every tracked event rather than gated by Case-level mode. No separate ongoing flag/column.
-- **Duration is three plain fields — Days / Hours / Minutes — not one amount+unit field.** A simple floor-division decompose/compose pair (no unit-selection heuristics, no decimals: "1.5 days" is just "1" day + "12" hours) converts between a millis duration and the three fields. This was a deliberate pivot during U1 review away from an earlier single-field+unit-selector design specifically to avoid fractional values reaching `DurationUnit`/Insights/Big Picture/StatsEngine at all.
-- **The Duration fields and the end-time date/time buttons are always visible, but start empty/unset — never auto-filled with a live-elapsed guess.** They only get a value from an actual user action: typing into Days/Hours/Minutes, picking an end date/time, or tapping Stop (which commits the real elapsed duration as a fact). The end-time buttons prompt "Choose date"/"Choose time" until then; both stay two-way synced once something is set. Tapping "Start again" clears everything back to empty.
-- **A separate plain-text note under the status row reads "Ongoing for Xh Ym"** (reusing the real `formatElapsedDuration`) whenever the event is ongoing — independent of whatever is or isn't in the Duration fields, so "how long has this actually been running" stays answerable even when nothing's been typed.
-- **The end-time label has three states, not two**: "End time can be set manually" (nothing stated yet), "Set to end" (stated, still ahead of now — still Ongoing), "Ended at" (stated, already passed — Ended). The Duration fields get their own paired label: "Planned duration" while Ongoing (what's typed is a projection, not a fact yet), plain "Duration" (the real Voice key) once Ended.
-- **Status row**: "Ongoing"/"Ended" status word styled the same as the start-time label (reads as a label, not a heading) + a filled (not outlined) Stop/Start-again button — visually distinct from the outlined date/time selectors. Bright's `logSheetEndLabel` ("Wrapped up at") needs its trailing "at" dropped to "Wrapped up": it's a standalone status word now, not leading straight into an inline time value the old `EndTimeSection` layout assumed.
-- **New Voice copy needed** (prototype placeholders, not committed keys yet): "Started" (event start-time label — consider whether this simply replaces `logSheetTimeLabel` ["When"] rather than adding a second key), "Start again" (the reopen action — distinct from the screen's own Create/Save button), "Set to end" / "End time can be set manually" / "Ended at" (end-time section labels), "Planned duration" (Duration fields' label while Ongoing), "Ongoing for …" (the elapsed note), "Days" / "Hours" / "Min" (the three field labels), "Choose date" / "Choose time" (unset button prompts), "Create" (new-event save-button wording, see below). `logSheetStopNowAction` ("Stop now") and `logSheetDurationLabel` ("Duration") are reused as-is.
-- **Screen-level Save button wording is fixed, not state-dependent**: "Create" for a brand-new event, "Save" for editing an existing one — never flips with ongoing/ended (that was specifically today's START_STOP-only behaviour, and it collided with the duration control's own Stop/Start-again wording once tested).
-- **Superseded, don't carry over**: the old `ExpectedEndNotice`/`OngoingExpectedEndText` pattern (a notice with the time embedded) is replaced by the "Set to end" label + date/time buttons for Log/Edit Event. `OngoingExpectedEndText`/`OngoingTimeText` are also used by History/Home/Insights rows (`ui/common/OngoingIndicator.kt`) — those call sites need their own equivalent decision, not an automatic copy of the Log/Edit Event control's choice.
-- **Case Edit's duration switch** is one row: a "Track duration" label (placeholder, replaces `voice.caseDurationModeLabel` ["Duration"] now that this is an on/off switch, not a 3-way picker) + info icon + `Switch`, via `RowWithInfo` (`ui/common/SectionWithInfo.kt`) and `themedSwitchColors()` — the same shape as the check-in toggle (`WatchesTab.kt`) and Settings' cloud-backup toggle, not a new pattern.
-- **The end-date picker needs no "max = now" ceiling**, unlike today's start/end pickers (`MaxDateBoundDatePickerDialog` with `maxDateUtcMillis = now`) — picking a future date is how a projected/expected duration gets set. Picking a future date while editing an already-ended event is expected to just reopen it as Ongoing with a projected end, not an error case.
-- **Decided during U1 review**: the status row's "Ongoing"/"Ended" word is sufficient to distinguish a stated-future projection from a real past end — no extra visual treatment needed; Bright's "Wrapped up at" → "Wrapped up" trim ships as written, not reworded further; start-time editing (`TimeSection`'s pickers) is unchanged by this story — the prototype left it display-only on purpose, not as a gap to fill. (An earlier pass of this review had chosen full decimal support for a single amount+unit field — superseded by the Days/Hours/Minutes pivot above, which needs no decimals at all.)
-
-**Plan** — rename/schema first (behaviour-neutral where possible), then `ActiveSpan.kt`, then the confirm-dialog redesign, then each consumer, then the Log/Edit Event UI swap, then docs.
-
-**Tests** — `ActiveSpan` unit tests for the new two-state logic; `CaseEditViewModel`/`LogDetailViewModel` tests for the new switch and confirm-dialog flows; instrumented coverage for Case Edit, Log/Edit Event, Big Picture, History, Insights, Home, and both widgets reflecting the merged model.
-
-The end-date/duration editing logic specifically needs every **state transition** covered, not just the three states checked in isolation. States: **open-ended** Ongoing (`endedAt == null`), **planned** Ongoing (`endedAt` stated and still ahead of `now`), **Ended** (`endedAt` stated and in the past). Transitions to cover:
-
-- open-ended → planned: typing a Days/Hours/Minutes value, or picking an end date/time, that lands after `now`.
-- open-ended → Ended: Stop, or typing/picking a value that lands at or before `now`.
-- planned → Ended: Stop, or editing the duration/end time to a value that's now in the past.
-- planned → planned: editing to a different future value — stays Ongoing with the new projection.
-- planned → open-ended: clearing the Days/Hours/Minutes fields back to blank.
-- Ended → open-ended: Start again.
-- Ended → planned: editing the end time/duration into the future — reopens it as Ongoing, not an error case.
-- Ended → Ended: editing to a different past value — stays Ended with the new actual duration.
-
-At every state, duration and end-time must stay two-way synced — test both edit directions (typing a duration recomputes the end time; picking an end date/time recomputes the duration fields), not just one.
 
 ## Standalone
 

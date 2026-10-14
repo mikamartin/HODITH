@@ -25,13 +25,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.voiceFor
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDetailScreenUiState
 import com.secondmonday.hodith.viewmodel.LogDetailScreenViewModel
 import com.secondmonday.hodith.viewmodel.LogDraft
@@ -120,7 +118,7 @@ fun LogDetailScreen(
 
         LogDetailForm(
             isEditing = true,
-            durationMode = uiState.durationMode,
+            tracksDuration = uiState.tracksDuration,
             intensityEnabled = uiState.intensityEnabled,
             initialDraft = draft,
             tagSuggestions = uiState.tagSuggestions,
@@ -135,20 +133,20 @@ fun LogDetailScreen(
 private val previewUiState =
     LogDetailScreenUiState(
         isLoading = false,
-        durationMode = DurationMode.MANUAL,
+        tracksDuration = true,
         intensityEnabled = true,
         initialDraft =
             LogDraft(
                 occurredAt = 0L,
                 intensity = 3,
-                durationAmount = "45",
-                durationUnit = DurationUnit.MINUTES,
                 note = "Longer than it felt at the time.",
                 tags = listOf("morning"),
-                endedAt = null,
-                existingEndedAt = null,
+                endedAt = 45 * 60 * 1000L,
+                daysInput = "0",
+                hoursInput = "0",
+                minutesInput = "45",
             ),
-        now = 0L,
+        now = 45 * 60 * 1000L,
     )
 
 @Composable
