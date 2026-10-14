@@ -44,7 +44,7 @@ class LogDetailSheetTest {
         }
 
         composeTestRule.onNodeWithText(PlainVoice.logSheetAddTagHint).performTextInput("focus")
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
         assertNotNull(savedDraft)
     }

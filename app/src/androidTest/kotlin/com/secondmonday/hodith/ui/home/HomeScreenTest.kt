@@ -312,7 +312,7 @@ class HomeScreenTest {
             onSaveLogSheetEvent = { savedDraft = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
         assertEquals(sheetState.draft, savedDraft)
     }

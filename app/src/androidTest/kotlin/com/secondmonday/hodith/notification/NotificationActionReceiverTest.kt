@@ -136,9 +136,9 @@ class NotificationActionReceiverTest {
             )
 
             composeTestRule.waitUntil(timeoutMillis = 5_000) {
-                composeTestRule.onAllNodesWithText(PlainVoice.logSheetSaveButton).fetchSemanticsNodes().isNotEmpty()
+                composeTestRule.onAllNodesWithText(PlainVoice.logSheetCreateAction).fetchSemanticsNodes().isNotEmpty()
             }
-            composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+            composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
             val event = waitFor { repository.getMostRecentEventForCase(insertedCaseId) }
             assertNotNull("Expected saving the trampoline sheet to insert an event for the DETAIL_SHEET Case", event)

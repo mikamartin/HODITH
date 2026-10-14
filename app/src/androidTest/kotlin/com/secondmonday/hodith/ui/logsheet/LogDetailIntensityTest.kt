@@ -56,7 +56,7 @@ class LogDetailIntensityTest {
         }
 
         composeTestRule.onNodeWithText("1").assertIsSelected()
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
         assertEquals(1, savedDraft?.intensity)
     }
@@ -99,7 +99,7 @@ class LogDetailIntensityTest {
 
         composeTestRule.onNodeWithText("3").assertIsSelected()
         composeTestRule.onNodeWithText("1").assertIsNotSelected()
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
         assertEquals(3, savedDraft?.intensity)
     }
 
