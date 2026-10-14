@@ -96,8 +96,8 @@ interface Voice {
     val caseLogFlowInfoTitle: String
     val caseLogFlowInfoBody: String
     val caseTracksDurationLabel: String get() = "Track duration"
-    val caseDurationModeInfoTitle: String
-    val caseDurationModeInfoBody: String
+    val caseTracksDurationInfoTitle: String
+    val caseTracksDurationInfoBody: String
     val caseIntensityToggleLabel: String get() = "Track intensity (1-5)"
     val caseCheckInLabel: String get() = "Check-in"
     val caseCheckInInfoTitle: String
@@ -159,8 +159,8 @@ interface Voice {
     val logSheetPlannedDurationLabel: String
 
     /** The three Days/Hours/Minutes duration field labels (spec §6 Story U2) — structural chrome, so these are shared defaults, not authored per voice. */
-    val logSheetDurationDaysLabel: String get() = "Days"
-    val logSheetDurationHoursLabel: String get() = "Hours"
+    val logSheetDurationDaysLabel: String get() = "Day"
+    val logSheetDurationHoursLabel: String get() = "Hr"
     val logSheetDurationMinutesLabel: String get() = "Min"
     val logSheetNoteLabel: String
     val logSheetNoteHint: String
@@ -173,7 +173,7 @@ interface Voice {
     val logSheetCreateAction: String
     val logSheetPickerConfirm: String
     val logSheetPickerCancel: String
-    val logSheetEndLabel: String
+    val logSheetEndedStatusLabel: String
     val logSheetOngoingLabel: String
     val logSheetStopNowAction: String
 
@@ -1025,8 +1025,8 @@ object PlainVoice : Voice {
     override val caseLogFlowInfoBody =
         "**One tap** logs an event instantly with no extra fields. **Detail sheet** opens a short form for " +
             "time, duration, intensity, and notes before saving."
-    override val caseDurationModeInfoTitle = "About duration"
-    override val caseDurationModeInfoBody =
+    override val caseTracksDurationInfoTitle = "About duration"
+    override val caseTracksDurationInfoBody =
         "**On:** each event can be stopped, left running, or given a planned length. **Off:** every event is " +
             "just a point in time."
     override val caseCheckInInfoTitle = "About check-in"
@@ -1087,7 +1087,7 @@ object PlainVoice : Voice {
     override val logSheetCreateAction = "Create"
     override val logSheetPickerConfirm = "OK"
     override val logSheetPickerCancel = "Cancel"
-    override val logSheetEndLabel = "Ended"
+    override val logSheetEndedStatusLabel = "Ended"
     override val logSheetOngoingLabel = "Ongoing"
     override val logSheetStopNowAction = "Stop now"
     override val logSheetStartAgainAction = "Start again"
@@ -1654,8 +1654,8 @@ object IntenseVoice : Voice {
         "**One tap** records it the moment you touch it. No further rite required. **The detail sheet** " +
             "asks more of you: the hour, its length, its severity, its notes, reserved for cases that demand " +
             "such detail."
-    override val caseDurationModeInfoTitle = "On duration"
-    override val caseDurationModeInfoBody =
+    override val caseTracksDurationInfoTitle = "On duration"
+    override val caseTracksDurationInfoBody =
         "**Kept:** each event can be sealed, left unfolding, or given a stated length. **Off:** every event " +
             "is nothing but an instant."
     override val caseCheckInInfoTitle = "On check-ins"
@@ -1716,7 +1716,7 @@ object IntenseVoice : Voice {
     override val logSheetCreateAction = "Commit it"
     override val logSheetPickerConfirm = "So be it"
     override val logSheetPickerCancel = "Abandon"
-    override val logSheetEndLabel = "The hour it ended"
+    override val logSheetEndedStatusLabel = "The hour it ended"
     override val logSheetOngoingLabel = "Still unfolding"
     override val logSheetStopNowAction = "Stop it now"
     override val logSheetStartAgainAction = "Let it unfold again"
@@ -2281,8 +2281,8 @@ object BrightVoice : Voice {
     override val caseLogFlowInfoBody =
         "**One tap** logs it the second you tap. Zero fuss, zero fields. **Detail sheet** pops up a quick " +
             "form for time, duration, intensity, and notes if you want more detail."
-    override val caseDurationModeInfoTitle = "Duration, explained"
-    override val caseDurationModeInfoBody =
+    override val caseTracksDurationInfoTitle = "Duration, explained"
+    override val caseTracksDurationInfoBody =
         "**On:** stop it, let it run, or give it a planned length. **Off:** every event is just a quick point " +
             "in time."
     override val caseCheckInInfoTitle = "Check-in, explained"
@@ -2343,7 +2343,7 @@ object BrightVoice : Voice {
     override val logSheetCreateAction = "Create it!"
     override val logSheetPickerConfirm = "Yep!"
     override val logSheetPickerCancel = "Cancel"
-    override val logSheetEndLabel = "Wrapped up at"
+    override val logSheetEndedStatusLabel = "Wrapped up"
     override val logSheetOngoingLabel = "Still going!"
     override val logSheetStopNowAction = "Stop the clock!"
     override val logSheetStartAgainAction = "Start it again!"

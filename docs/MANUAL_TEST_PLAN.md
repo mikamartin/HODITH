@@ -44,8 +44,8 @@ which test.
    *display*, the pill/row rendering, and the row tap need a human (same `ListView` limitation) — the
    expected-end subtitle and the log button starting a second event and the row deep-link are
    covered on the Single-case widget by
-   `WidgetActionsFlowTest.manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle` and
-   `WidgetActionsFlowTest.logTap_startsASecondEventForARunningStartStopCase` and
+   `WidgetActionsFlowTest.trackedCaseWithFutureEndedAt_showsExpectedEndInSubtitle` and
+   `WidgetActionsFlowTest.logTap_startsASecondEventForARunningTrackedCase` and
    `WidgetActionsFlowTest.runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail`.
 7. **List widget today/this-week count for a duration event (spec §9/§14 active span).** On a
    duration-tracking Case, log an event that started before today and

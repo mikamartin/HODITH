@@ -17,6 +17,42 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feature/duration-unification — pre-merge cleanup pass
+
+**Scope:** A full CLEANUP_CHECKLIST.md walk-through of the whole `feature/duration-unification` diff requested before merge, including finally running the instrumented tests the previous pass on this branch had deferred for lack of an emulator.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the full `main..HEAD` diff (two independent passes, cross-verified against the actual source rather than taken on faith). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass on the final state. `connectedDebugAndroidTest`: the full scope (17 touched test classes, 259 tests) hit the shared AVD's own pre-existing flaky `system_server` watchdog crash twice in a row on a long run (a full-system process dump at an arbitrary point, not a test assertion failure — unrelated to this diff); recovered by restarting the emulator fresh rather than burning more time on a degraded instance. Final verification scoped to the 55 test methods that actually exercise `tracksDuration` behavior (as opposed to ones only touched by a mechanical fixture-constructor rename) — all 55 green on the fresh emulator in just over a minute.
+
+**Found & fixed:**
+- Naming leftover the original rename pass missed: `caseDurationModeInfoTitle`/`caseDurationModeInfoBody` (and their one call site, `CaseEditScreen.kt`) kept the old `DurationMode` name even though the control's own label had already become `caseTracksDurationLabel` — compiled fine (both sides still matched each other), just inconsistent with every other key in the same rename. Renamed to `caseTracksDurationInfoTitle`/`caseTracksDurationInfoBody` across the `Voice` interface, all three voice overrides, and the call site.
+- Stale retired-enum terminology left by the original mechanical find-and-replace: test names (`EventDaoTest.observeEventsWithTagsForCasePagedByEnd_floatsARunningStartStopEventAbove...` → `...TrackedEventAbove...`; `HomeScreenTest.nonOngoingStartStopRow_...` → `nonOngoingTrackedRow_...`; `WidgetActionsFlowTest.logTap_startsASecondEventForARunningStartStopCase`/`manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle` → `...RunningTrackedCase`/`trackedCaseWithFutureEndedAt_...`), a comment in `NotificationEvaluatorTest.kt` still describing a `MANUAL`/`NONE` case, and doc comments in three files outside the diff's own touched set (`Ticker.kt`, `EventTimeFormat.kt`, `WidgetCommon.kt`) still describing a `MANUAL` event — all now read in terms of `tracksDuration`. `MANUAL_TEST_PLAN.md`'s two citations of the renamed `WidgetActionsFlowTest` methods updated to match.
+- `UnifiedDurationSection`'s status-word `.removeSuffix(" at")` call (stripping Bright's "Wrapped up at" down to a standalone word, correct today only by coincidence with Plain/Intense wording) replaced: `Voice.logSheetEndLabel` renamed to `logSheetEndedStatusLabel` with Bright's value corrected to "Wrapped up" directly — the key already had exactly one caller, so it can just say what it means instead of being string-manipulated after the fact.
+- Duration field label inconsistency: `Days`/`Hours`/`Min` (two spelled out, one abbreviated, shown as three equal-width siblings in the same row) unified to `Day`/`Hr`/`Min`.
+- Confirmed `DemoDataSeeder.kt`/`DemoDataSeederTest.kt` are fully migrated: `DurationMode.NONE`/`START_STOP` → `tracksDuration = false`/`true` with identical semantics (no demo Case ever used `MANUAL`), no lingering `DurationMode`/`durationMode` references anywhere in `data/demo/`.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- Backup export/import schema gap: `BACKUP_SCHEMA_VERSION` wasn't bumped for the `durationMode`→`tracksDuration` rename, and `CaseEntity.tracksDuration` has no Moshi-visible default, so importing a pre-this-branch backup JSON would throw `JsonDataException` instead of restoring. Declined — every backup in existence right now is test data the user can adjust by hand, and `BACKUP_SCHEMA_VERSION` is expected to reset to 1 before any public release anyway, which would subsume this.
+- `DurationFieldInput`'s custom-built text field bypasses `OutlinedTextField`'s 56dp minimum height to stay compact for the 3-up Days/Hours/Minutes row, and may render under the 48dp accessibility touch-target guideline. Declined to add a minimum-height constraint — kept intentionally compact, the user's explicit call.
+- Splitting `UnifiedDurationSection` (~136 lines) into sub-composables — under the 150-line guideline; splitting now is optional polish, not a real problem.
+
+**Checks:**
+- Duplication: the Voice-layer rule held everywhere except the one missed rename above (now fixed). No copy-pasted composables; `UnifiedDurationSection` cleanly replaced `EndTimeSection`/`DurationSection`/`DurationUnitSelector`/`ExpectedEndNotice` (all deleted, not left dangling).
+- Decoupling: no `android.*` imports in `domain/`; no direct `System.currentTimeMillis()` outside `@Preview`-only code; day-bucketing still resolves via each event's own captured `utcOffsetMinutes`, not the device's current zone.
+- Complexity: `LogDetailForm` is ~176 lines, over the ~150-line guideline, but that's pre-existing on `main` (this branch actually shrank it slightly) — not a regression from this diff.
+- Hygiene: `git status` clean throughout; no secrets, local paths, or stray tooling files in the diff.
+- Hardcoded values: no new `Color(0xFF...)` literals; no new domain-layer magic numbers (the new `DURATION_FIELD_MAX_DIGITS` constant follows the existing pattern).
+- Accessibility: no new icon-only buttons without a `contentDescription`; the one borderline touch-target case is the declined `DurationFieldInput` item above.
+- Data model & migrations: the Room schema version bump (14→15) and matching `AutoMigrationSpec`/`15.json` are correct; `SchemaMigrationCoverageTest` passes. The backup/export gap is the one declined item above. Share card still excludes notes and gates tags the same way.
+- Background work/widgets/notifications: watch/notification debounce, single-group alerting, and widget Plain-light-only theming all unaffected; `isStillRunning`'s collapse of the old per-mode branches into one boolean check is internally consistent across `VerdictEngine`/`WatchEngine`/`NotificationEvaluator`/`OngoingEvent`/`ListWidget`.
+- Spec review: HODITH_SPEC.md fully describes the new model, with no stale `DurationMode`/`NONE`/`MANUAL`/`START_STOP` references anywhere in `docs/` outside this log's own (correctly historical) entries.
+- Tests: no weakened assertions found across the `CaseEditViewModelTest`/`LogDetailViewModelTest` rewrites — every removed test corresponds to an enum permutation that's now structurally impossible, not a dropped check; TESTING.md is accurate.
+
+**Docs updated:** MANUAL_TEST_PLAN.md (two `WidgetActionsFlowTest` method-name citations corrected to match the renamed tests); this entry (oldest entry, `fix/duplicate-case-warnings`, removed per the 5-entry retention rule).
+
+---
+
 ## feature/duration-unification
 
 **Scope:** Story U2 — collapsed the Case-level `DurationMode` enum (`NONE`/`MANUAL`/`START_STOP`) into a single `CaseEntity.tracksDuration: Boolean`, with per-event ongoing/ended state derived (`endedAt == null || endedAt > now`) rather than branched on mode. Landed across the schema, every domain engine, ~20 ViewModels/screens, both Glance widgets, Voice ×3, the Case Edit confirm-dialog redesign, and the Log/Edit Event Days/Hours/Minutes duration control. This pass finished migrating the remaining JVM unit test files and all instrumented test files off the retired enum, synced HODITH_SPEC.md/TESTING.md/MANUAL_TEST_PLAN.md/PROGRESS.md, and deleted the superseded `ui/prototype/DurationUnificationPrototype.kt`.
@@ -134,37 +170,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Docs updated:** HODITH_SPEC.md (§15, edit icon clause); TESTING.md (Widgets — chrome & trampoline row corrected and extended); MANUAL_TEST_PLAN.md (items 2 and 8 — stale long-press instruction and a stale test-name reference both corrected); DEV_PLAYBOOK.md (widget token table, `WidgetPlusGlyphSize` → `WidgetGlyphButtonSize`); PROGRESS.md (new Single-case widget edit-affordance follow-up item added); this entry (oldest entry, `chore/qa-audit`, removed per the 5-entry retention rule).
 
----
-
-## fix/duplicate-case-warnings
-
-**Scope:** Two related user-reported bugs: reloading demo data duplicated the seed set instead of replacing it, and Case Edit's duplicate-name check only looked at active Cases, letting a new/edited Case silently take an archived Case's name with no warning at all. Manual testing of the first implementation surfaced two further bugs: the duplicate-name check was skipped entirely whenever the icon wasn't yet selected (hiding a real duplicate warning behind the icon error), and a failed save's error could land off-screen with no way for the user to tell why saving did nothing.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to `SettingsScreenTest` on a Pixel 8 API 36 emulator — run twice, once catching a real on-device bug (see Found & fixed), once clean (35/35).
-
-**Found & fixed:**
-- Demo data duplication: `SettingsViewModel.loadDemoData()` now calls `hodithRepository.deleteAllData()` before `demoDataSeeder.seed()`, gated behind a new destructive `ConfirmDialog` (reusing the component "Delete all data" already uses) that warns all existing data will be wiped. `DemoDataSeeder.seed()` itself is unchanged — the fix is entirely at the trigger path.
-- Archived-name collision: `validateCaseEdit` now takes every other Case (active + archived) instead of just active ones, splitting the match into a blocking `nameDuplicate` (another active Case) and a separate, non-blocking `nameDuplicatesArchived` warning (only an archived Case). New `HodithRepository.getAllCases()` (delegating to `CaseDao`'s pre-existing, previously-unexposed `getAll()`) backs the lookup. New `Voice.caseNameDuplicateArchivedError` (all three voices) explains the three ways to resolve it — rename, restore the archived Case, or delete it — as supporting text under the name field, the same mechanism the existing duplicate-name error uses; no new dialog or navigation.
-- Save-time duplicate check wrongly skipped: `save()`'s short-circuit guard skipped the duplicate-name query whenever the icon was unset, even if the name itself was a genuine duplicate — a Case with both a duplicate name and no icon showed only the icon error, silently dropping the name warning. The query now skips only when the name itself is blank.
-- Silent failed save: `CaseEditForm` didn't scroll back to a validation error that fired on a field above the Save button, if the button only came into view by scrolling down a longer form — the save appeared to do nothing. Added a `LaunchedEffect` that scrolls the form back to the top whenever any of the four error flags turns true.
-- Real on-device bug caught by the new instrumented test: Plain's new `settingsLoadDemoDataConfirmAction` copy ("Load demo data") was identical to the button label that opens the dialog, so both text nodes coexisted on screen — ambiguous for both the Compose test and a real user. Changed to "Load it".
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- A name-matching "replace only the demo Cases" approach for the reseed fix (delete Cases whose name matches one of the 9 fixed `CASE_SEEDS` names) — simpler to wipe everything behind an explicit warning dialog instead, per the user's own suggestion once the name-matching design was shown; avoids a "replace" implying partial preservation when it's actually a full reset.
-- A richer `CaseEditValidation` error-kind enum instead of a second boolean (`nameDuplicatesArchived`) — two mutually-exclusive booleans match the existing `showNameError`/`showDuplicateNameError` sibling shape; an enum would be overkill for two states.
-- Adding `CaseEditScreenTest` coverage for the new archived-duplicate warning / scroll-to-top behavior — that file's own doc comment already declares full field-by-field form validation UI coverage (required-name, duplicate-name, icon-required errors) a separate, pre-existing, out-of-scope gap; singling out just the new branch would be inconsistent with every sibling branch staying untested at this layer.
-- A new TESTING.md row itemizing `DemoDataSeederTest`/`loadDemoData` test coverage generally — that area was never itemized in TESTING.md even before this change (developer-mode-only diagnostic tooling); only the one factually-stale clause (Case Edit's duplicate-name description) was corrected, not backfilled wholesale.
-
-**Checks:**
-- Duplication: no new composables; reused the existing `ConfirmDialog` component for the new Load-demo-data confirmation rather than a bespoke `AlertDialog`. `HodithRepository.getAllCases()` exposes a DAO query (`CaseDao.getAll()`) that already existed for backup/export, not a new overlapping one.
-- Decoupling: `validateCaseEdit` stays a pure, Compose-free function; the scroll-to-top effect is UI-only and lives in the Composable, not the ViewModel.
-- Dead code: no unused imports; `kotlinx.coroutines.flow.first` stays used elsewhere in `CaseEditViewModel.kt` (`stampOpenEndedEvents`) after its one `save()` call site was replaced.
-- Hygiene: `git status` clean; no secrets or local paths in the diff.
-- Naming: new Voice keys (`caseNameDuplicateArchivedError`; `settingsLoadDemoDataConfirmTitle`/`Body`/`Action`) added to all three voices in this commit, matching each voice's existing tone for their string family.
-- UI copy brevity: the new confirm dialog's title/body/action lengths matched against the sibling `settingsDeleteAllDataConfirm*`/`settingsImportConfirm*` strings. The archived-duplicate warning is deliberately longer than its one-line `caseNameDuplicateError` sibling since it explains three resolution paths, not one fact — it's field supporting text that wraps rather than a fixed-width control, so the length difference isn't a brevity violation.
-- Spec review: `HODITH_SPEC.md`'s Settings row updated to note Load demo data's new confirm-dialog/full-replace behavior. Case-name uniqueness rules were never documented in the spec at this level of detail before (same as required-name/max-length), so no divergence there.
-- Tests: regression tests added for both reported bugs (`SettingsViewModelTest` — reload no longer duplicates; `CaseEditValidationTest`/`CaseEditViewModelTest` — an archived-only duplicate is a separate non-blocking warning, and a duplicate name with no icon selected still surfaces) and for the two bugs the user found via manual testing on-device. Fixed the one existing `SettingsScreenTest` the behavior change broke (`loadDemoData` no longer taps straight through) and added its cancel counterpart.
-
-**Docs updated:** HODITH_SPEC.md (Settings row); TESTING.md (ViewModels row's Case Edit clause corrected; Compose UI row's Developer Mode clause extended); this entry (oldest entry, `fix/info-note-copy`, removed per the 5-entry retention rule).

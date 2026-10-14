@@ -228,9 +228,10 @@ class NotificationEvaluatorTest {
     @Test
     fun `evaluateCase counts QUIET silence from occurredAt for a Case that no longer tracks duration`() =
         runTest {
-            // Same event as the MANUAL test above (ran days 2..20) but the Case is now NONE, so spec
-            // §9/§10 read it as a point: silence counts from the day-2 start = 28 quiet days, which
-            // clears the 14-day threshold and fires. Reading the stored day-20 endedAt would give 10.
+            // Same event as the duration-tracking test above (ran days 2..20) but the Case no longer
+            // tracks duration, so spec §9/§10 read it as a point: silence counts from the day-2 start
+            // = 28 quiet days, which clears the 14-day threshold and fires. Reading the stored
+            // day-20 endedAt would give 10.
             repository.cases.value = listOf(case(createdAt = 0L, tracksDuration = false))
             repository.watches.value = listOf(watch(kind = WatchKind.QUIET, threshold = 14, windowDays = null))
             repository.events.value = listOf(event(occurredAt = millisAtDay(2), endedAt = millisAtDay(20)))

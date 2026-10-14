@@ -139,7 +139,7 @@ internal fun formatSpanDateTime(
 internal fun formatMediumDate(date: LocalDate): String = date.format(MEDIUM_DATE_FORMATTER)
 
 /**
- * A `MANUAL` event's projected/expected `endedAt` (spec §6), for the ongoing-indicator's trailing
+ * A still-running event's projected/expected `endedAt` (spec §6), for the ongoing-indicator's trailing
  * text (History/Insights rows, Home, widgets): bare time-of-day ([formatEventTimeOfDay]) when it
  * falls on the same calendar day as [now], else the fuller [formatSpanDateTime] — the same
  * same-day-vs-not rule Big Picture's own span endpoints use, and shared here so the ongoing

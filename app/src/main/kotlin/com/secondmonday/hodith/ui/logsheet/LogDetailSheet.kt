@@ -493,10 +493,8 @@ private fun UnifiedDurationSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Same text style the start-time label uses, so this reads as a label, not a heading.
-            // .removeSuffix(" at") drops Bright's "Wrapped up at" trailing preposition, written for
-            // a layout where it led straight into a time value — here it's a standalone status word.
             Text(
-                (if (isOngoing) voice.logSheetOngoingLabel else voice.logSheetEndLabel).removeSuffix(" at"),
+                if (isOngoing) voice.logSheetOngoingLabel else voice.logSheetEndedStatusLabel,
                 style = MaterialTheme.typography.labelLarge,
             )
             // Stop is the primary, more consequential action (filled); Start again just reopens a

@@ -256,7 +256,7 @@ class EventDaoTest {
         }
 
     @Test
-    fun observeEventsWithTagsForCasePagedByEnd_floatsARunningStartStopEventAboveAMoreRecentlyStartedFinishedOne() =
+    fun observeEventsWithTagsForCasePagedByEnd_floatsARunningTrackedEventAboveAMoreRecentlyStartedFinishedOne() =
         runTest {
             val running = eventDao.insert(testEvent(caseId = caseId, occurredAt = 100L, endedAt = null))
             val finished = eventDao.insert(testEvent(caseId = caseId, occurredAt = 200L, endedAt = 250L))

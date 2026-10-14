@@ -258,7 +258,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun nonOngoingStartStopRow_usesStartContentDescription() {
+    fun nonOngoingTrackedRow_usesStartContentDescription() {
         val startStopRow = oneTapRow.copy(tracksDuration = true)
         setHomeScreenContent(uiState = HomeUiState(cases = listOf(startStopRow), isLoading = false))
 

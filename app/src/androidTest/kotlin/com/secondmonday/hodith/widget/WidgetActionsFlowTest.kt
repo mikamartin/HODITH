@@ -91,7 +91,7 @@ class WidgetActionsFlowTest {
             context = ApplicationProvider.getApplicationContext()
             host = AppWidgetHost(context, HOST_ID)
             host.startListening()
-            // Deterministic for manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle's exact-text
+            // Deterministic for trackedCaseWithFutureEndedAt_showsExpectedEndInSubtitle's exact-text
             // assertion — the widget reads this from Settings (ListWidget.kt's rememberWidgetUse24Hour),
             // not a device/locale default that would vary by emulator image.
             originalTimeFormat = settingsRepository.observeTimeFormat().first()
@@ -129,7 +129,7 @@ class WidgetActionsFlowTest {
         }
 
     @Test
-    fun logTap_startsASecondEventForARunningStartStopCase() =
+    fun logTap_startsASecondEventForARunningTrackedCase() =
         runBlocking {
             val caseName = "Migraine ${System.currentTimeMillis()}"
             insertedCaseId =
@@ -209,7 +209,7 @@ class WidgetActionsFlowTest {
     }
 
     @Test
-    fun manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle() =
+    fun trackedCaseWithFutureEndedAt_showsExpectedEndInSubtitle() =
         runBlocking {
             val caseName = "Slow Cooker ${System.currentTimeMillis()}"
             insertedCaseId = repository.insertCase(testCase(name = caseName, tracksDuration = true))

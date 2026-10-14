@@ -321,8 +321,8 @@ private fun CaseEditForm(
 
         RowWithInfo(
             voice.caseTracksDurationLabel,
-            voice.caseDurationModeInfoTitle,
-            voice.caseDurationModeInfoBody,
+            voice.caseTracksDurationInfoTitle,
+            voice.caseTracksDurationInfoBody,
             voice.caseSectionInfoDescription,
         ) {
             Switch(checked = uiState.tracksDuration, onCheckedChange = onTracksDurationChange, colors = themedSwitchColors())

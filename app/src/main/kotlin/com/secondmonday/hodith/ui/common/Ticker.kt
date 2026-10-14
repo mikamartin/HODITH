@@ -17,11 +17,11 @@ private const val DEFAULT_TICK_INTERVAL_MILLIS = 60_000L
  * pattern CLAUDE.md reserves for verdict/notification/stats' injected `Clock`.
  *
  * Returned as a [MutableState] (not a read-only `State`) so a caller whose action changes whether
- * an event reads as still-running — e.g. Stop on a `MANUAL` event, where [isStillRunning] compares
- * the new `endedAt` against this very value — can write a fresh [clockNow] reading into it
- * immediately, rather than show a stale result for up to [intervalMillis] until the next tick.
- * `START_STOP`'s own Stop doesn't need this (its ongoing check is `endedAt == null`, independent
- * of `now`), but `MANUAL`'s does.
+ * an event reads as still-running — e.g. Stop on an event with a stated future `endedAt`, where
+ * [isStillRunning] compares the new `endedAt` against this very value — can write a fresh
+ * [clockNow] reading into it immediately, rather than show a stale result for up to
+ * [intervalMillis] until the next tick. A Stop that clears `endedAt` to null doesn't need this
+ * (its ongoing check is `endedAt == null`, independent of `now`), but a stated-`endedAt` Stop does.
  */
 @Composable
 fun rememberTickingNow(
