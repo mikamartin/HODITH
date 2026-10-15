@@ -7,6 +7,8 @@ import com.secondmonday.hodith.domain.HeatmapLevel
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.domain.RateUnit
 import com.secondmonday.hodith.domain.ShiftDirection
+import com.secondmonday.hodith.domain.TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT
+import com.secondmonday.hodith.domain.TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT
 import com.secondmonday.hodith.domain.TREND_SLOPE_MIN_SAMPLE_COUNT
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TagOutcome
@@ -603,8 +605,8 @@ class InsightsTabStateTest {
     @Test
     fun `stats trends reports a trend-slope finding only for the outcome whose stat card is shown`() {
         // intensityEnabled is false, so the intensity stat card is hidden -- but every event below
-        // still carries a real, stark early-low/late-high intensity value (case.intensityEnabled has
-        // no bearing on outcomeValueFor, which reads event.intensity directly), enough to clear
+        // still carries a real, stark early-low/late-high intensity value (outcomeValueFor itself
+        // reads event.intensity with no case.intensityEnabled check), enough to clear
         // TREND_SLOPE_MIN_SAMPLE_COUNT and the significance test on its own. This isolates
         // statsSections()'s own `statsShownOutcomes` wiring from computeTrendSlopeFindings' separate
         // per-event null filtering: only the wiring gate stands between this data and an INTENSITY
@@ -655,6 +657,30 @@ class InsightsTabStateTest {
                 .filter { it.kind == TrendFindingKind.TREND_SLOPE }
                 .map { it.outcome }
         assertEquals(listOf(TagOutcome.INTENSITY), trendSlopeOutcomes)
+    }
+
+    @Test
+    fun `stats trends omits a tag-outcome finding for intensity once the Case stops tracking it`() {
+        // Same gap as the trend-slope test above, for the other Pattern-tier outcome-typed detector:
+        // intensityEnabled is false (stat card hidden), but these events still carry real, stark
+        // tagged/untagged intensity values -- a planted tag->outcome signal strong enough to clear
+        // computeTagOutcomeFindings' own sample-size and significance thresholds on its own, so only
+        // statsSections()'s statsShownOutcomes wiring stands between this data and a leaked finding.
+        val case = testCase(createdAt = millisAtDay(0), intensityEnabled = false)
+        val tag = TagEntity(id = 1, name = "aura")
+        val taggedCount = TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + 5
+        val untaggedCount = TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT + 10
+        val totalCount = taggedCount + untaggedCount
+        val eventsWithTags =
+            (0 until totalCount).map { day ->
+                val tagged = day % 3 == 0
+                val event = testEvent(occurredAt = millisAtDay(day.toLong()), intensity = if (tagged) 5 else 1)
+                EventWithTags(event, if (tagged) listOf(tag) else emptyList())
+            }
+
+        val state = insightsTabState(case, eventsWithTags, now = millisAtDay(totalCount + 5L)) as InsightsTabState.Ready
+
+        assertTrue(state.stats.trends.none { it.kind == TrendFindingKind.TAG_OUTCOME && it.outcome == TagOutcome.INTENSITY })
     }
 
     // ---- stats.gaps streak fields / frequency-shift finding gating ----

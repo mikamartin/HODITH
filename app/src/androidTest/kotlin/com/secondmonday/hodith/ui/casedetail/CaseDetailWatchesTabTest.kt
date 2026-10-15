@@ -201,8 +201,9 @@ class CaseDetailWatchesTabTest {
     private fun verdictFor(
         watch: WatchEntity,
         events: List<EventEntity>,
+        intensityEnabled: Boolean = true,
     ): VerdictResult {
-        val (expectation, filtered) = expectationInputsFor(watch, events, NOW)
+        val (expectation, filtered) = expectationInputsFor(watch, events, NOW, intensityEnabled)
         return computeVerdict(expectation, filtered, NOW, tracksDuration = false)
     }
 

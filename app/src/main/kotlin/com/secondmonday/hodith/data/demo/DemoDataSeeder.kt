@@ -449,7 +449,7 @@ class DemoDataSeeder
             val events = repository.observeEventsWithTagsForCase(caseId).first().map { it.event }
             val decision =
                 when (watch.kind) {
-                    WatchKind.OFTEN -> evaluateOften(watch, events, now, caseSeed.tracksDuration)
+                    WatchKind.OFTEN -> evaluateOften(watch, events, now, caseSeed.tracksDuration, caseSeed.intensityEnabled)
                     WatchKind.QUIET ->
                         evaluateQuiet(watch, silenceAnchorForEvents(events, caseSeed.tracksDuration, now), createdAt, now)
                 }

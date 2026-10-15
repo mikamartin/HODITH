@@ -717,7 +717,7 @@ class StatsEngineTest {
     fun `computeTagOutcomeFindings reports a strong, low-variance intensity effect as significant`() {
         val eventsWithTags = intensityEventsWithTags(taggedIntensity = 5, untaggedIntensity = 1)
 
-        val result = computeTagOutcomeFindings(eventsWithTags)
+        val result = computeTagOutcomeFindings(eventsWithTags, TagOutcome.entries.toSet())
 
         assertEquals(1, result.size)
         val finding = result.single()
@@ -733,7 +733,7 @@ class StatsEngineTest {
     fun `computeTagOutcomeFindings reports a DOWN direction when the tagged mean is lower`() {
         val eventsWithTags = intensityEventsWithTags(taggedIntensity = 1, untaggedIntensity = 5)
 
-        val finding = computeTagOutcomeFindings(eventsWithTags).single()
+        val finding = computeTagOutcomeFindings(eventsWithTags, TagOutcome.entries.toSet()).single()
 
         assertEquals(ShiftDirection.DOWN, finding.direction)
     }
@@ -749,7 +749,7 @@ class StatsEngineTest {
                     EventWithTags(eventAt(millisAtDay((day + 100).toLong()), intensity = 3), emptyList())
                 }
 
-        assertTrue(computeTagOutcomeFindings(eventsWithTags).isEmpty())
+        assertTrue(computeTagOutcomeFindings(eventsWithTags, TagOutcome.entries.toSet()).isEmpty())
     }
 
     @Test
@@ -761,7 +761,7 @@ class StatsEngineTest {
                 taggedCount = TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT - 1,
             )
 
-        assertTrue(computeTagOutcomeFindings(eventsWithTags).isEmpty())
+        assertTrue(computeTagOutcomeFindings(eventsWithTags, TagOutcome.entries.toSet()).isEmpty())
     }
 
     @Test
@@ -773,7 +773,7 @@ class StatsEngineTest {
                 untaggedCount = TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT - 1,
             )
 
-        assertTrue(computeTagOutcomeFindings(eventsWithTags).isEmpty())
+        assertTrue(computeTagOutcomeFindings(eventsWithTags, TagOutcome.entries.toSet()).isEmpty())
     }
 
     @Test
@@ -796,7 +796,7 @@ class StatsEngineTest {
                     EventWithTags(eventAt(millisAtDay((index + 100).toLong()), intensity = intensity), emptyList())
                 }
 
-        assertTrue(computeTagOutcomeFindings(eventsWithTags).none { it.tagName == "aura" })
+        assertTrue(computeTagOutcomeFindings(eventsWithTags, TagOutcome.entries.toSet()).none { it.tagName == "aura" })
     }
 
     @Test
@@ -819,7 +819,7 @@ class StatsEngineTest {
                 EventWithTags(eventAt(occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE), emptyList())
             }
 
-        assertTrue(computeTagOutcomeFindings(tagged + untagged).none { it.tagName == "aura" })
+        assertTrue(computeTagOutcomeFindings(tagged + untagged, TagOutcome.entries.toSet()).none { it.tagName == "aura" })
     }
 
     @Test
@@ -855,7 +855,7 @@ class StatsEngineTest {
                 taggedFor(tagD, intensity = 2, offset = 300) + // still clears the 20% floor against the diluted baseline
                 baseline
 
-        val result = computeTagOutcomeFindings(eventsWithTags)
+        val result = computeTagOutcomeFindings(eventsWithTags, TagOutcome.entries.toSet())
 
         assertEquals(TAG_OUTCOME_MAX_FINDINGS, result.size)
         assertEquals(listOf("tagA", "tagB", "tagC"), result.map { it.tagName })
@@ -885,7 +885,7 @@ class StatsEngineTest {
     fun `computeTagOutcomeFindings reports a strong, low-variance duration effect as significant`() {
         val eventsWithTags = durationEventsWithTags(taggedMinutes = 90, untaggedMinutes = 30)
 
-        val result = computeTagOutcomeFindings(eventsWithTags)
+        val result = computeTagOutcomeFindings(eventsWithTags, TagOutcome.entries.toSet())
 
         assertEquals(1, result.size)
         val finding = result.single()
@@ -913,7 +913,7 @@ class StatsEngineTest {
                 EventWithTags(eventAt(millisAtDay(day.toLong()), intensity = 1), emptyList())
             }
 
-        val finding = computeTagOutcomeFindings(validTagged + noIntensityTagged + untagged).single()
+        val finding = computeTagOutcomeFindings(validTagged + noIntensityTagged + untagged, TagOutcome.entries.toSet()).single()
 
         assertEquals(5.0, finding.withTagMean, 0.0001)
         assertEquals(TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT, finding.sampleCount)
@@ -936,7 +936,7 @@ class StatsEngineTest {
                 EventWithTags(eventAt(occurredAt, endedAt = occurredAt + 30 * MILLIS_PER_MINUTE), emptyList())
             }
 
-        val finding = computeTagOutcomeFindings(validTagged + stillRunningTagged + untagged).single()
+        val finding = computeTagOutcomeFindings(validTagged + stillRunningTagged + untagged, TagOutcome.entries.toSet()).single()
 
         assertEquals(90.0, finding.withTagMean, 0.0001)
         assertEquals(TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT, finding.sampleCount)
@@ -961,7 +961,7 @@ class StatsEngineTest {
                 EventWithTags(eventAt(occurredAt, endedAt = occurredAt + 30 * MILLIS_PER_MINUTE), emptyList())
             }
 
-        val finding = computeTagOutcomeFindings(validTagged + reversedTagged + untagged).single()
+        val finding = computeTagOutcomeFindings(validTagged + reversedTagged + untagged, TagOutcome.entries.toSet()).single()
 
         assertEquals(90.0, finding.withTagMean, 0.0001)
         assertEquals(TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT, finding.sampleCount)
@@ -987,7 +987,7 @@ class StatsEngineTest {
             }
 
         val finding =
-            computeTagOutcomeFindings(validTagged + notYetElapsedTagged + untagged, true, now).single()
+            computeTagOutcomeFindings(validTagged + notYetElapsedTagged + untagged, TagOutcome.entries.toSet(), true, now).single()
 
         assertEquals(90.0, finding.withTagMean, 0.0001)
         assertEquals(TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT, finding.sampleCount)
@@ -1008,7 +1008,7 @@ class StatsEngineTest {
                 EventWithTags(eventAt(occurredAt, endedAt = occurredAt + 30 * MILLIS_PER_MINUTE, intensity = 1), emptyList())
             }
 
-        val result = computeTagOutcomeFindings(tagged + untagged)
+        val result = computeTagOutcomeFindings(tagged + untagged, TagOutcome.entries.toSet())
 
         assertEquals(2, result.size)
         assertEquals(setOf(TagOutcome.INTENSITY, TagOutcome.DURATION), result.map { it.outcome }.toSet())

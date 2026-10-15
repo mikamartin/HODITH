@@ -97,7 +97,7 @@ class NotificationEvaluator
                             // ([start, end)) — +1 so an event occurring at exactly `now` (e.g. the
                             // one that just triggered this immediate-eval hook) still counts.
                             val events = repo.eventsInWindow(case.id, 0L, now + 1)
-                            evaluateOften(watch, events, now, case.tracksDuration)
+                            evaluateOften(watch, events, now, case.tracksDuration, case.intensityEnabled)
                         }
                         WatchKind.QUIET -> {
                             evaluateQuiet(watch, silenceAnchorFor(repo, case, now), case.createdAt, now)

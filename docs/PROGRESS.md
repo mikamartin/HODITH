@@ -47,23 +47,6 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none for the audit itself.
 
-### Intensity-toggle: trend/notification code ignores the Case flag
-
-*Branch: none yet · Complexity: S · Priority: Medium · Area: Insights*
-
-🔍 **Investigation**
-
-Found while fixing the "intensity can be logged without a rating" bug (`fix/intensity-required-when-enabled`). Insights' intensity stat panel correctly hides itself once `Case.intensityEnabled` is off (`InsightsTabState` gates on the live flag), but `outcomeValueFor` (trend/notification code) still reads `EventEntity.intensity` directly with no `intensityEnabled` check — so ratings logged while a Case tracked intensity can keep quietly influencing trend/notification output even after the Case stops tracking it and its own Insights panel is hidden.
-
-**Acceptance criteria**
-
-- [ ] `outcomeValueFor` (or its caller) checks `Case.intensityEnabled` the same way `InsightsTabState` does, so a Case with intensity off is read consistently everywhere, not just on the Insights panel.
-- [ ] A test with intensity turned off after rated events exist, confirming trend/notification no longer factor in those old ratings.
-
-**Plan** — find every `outcomeValueFor` call site, gate it on the live flag.
-
-**Tests** — a `WatchEngine`/trend test with intensity toggled off after rated events exist.
-
 ### Single-case widget has no persistent in-widget way to reopen its Case picker
 
 *Branch: none yet · Complexity: S · Priority: Low · Area: Widgets*

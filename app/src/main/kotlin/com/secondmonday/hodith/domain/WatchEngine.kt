@@ -40,11 +40,16 @@ fun oftenWindowStart(
  * than merely inconsistent. [allEvents] should be unbounded (every event that could possibly be
  * relevant to the Case), not pre-windowed: [computeVerdict] does its own span-overlap window
  * filtering and needs to see events whose span started before the window but still reaches into it.
+ * [intensityEnabled] is the Case's own flag, not [watch]'s — [WatchEntity.minIntensity] is stored
+ * independently of it (toggling intensity tracking off doesn't clear a watch's configured floor),
+ * so a Case that's stopped tracking intensity must stop applying it here too, the same way
+ * `InsightsTabState` stops reading stale per-event ratings once its own flag is off.
  */
 fun expectationInputsFor(
     watch: WatchEntity,
     allEvents: List<EventEntity>,
     now: Long,
+    intensityEnabled: Boolean = true,
 ): Pair<Expectation, List<EventEntity>> {
     val windowStart = oftenWindowStart(now, watch.windowDays)
     val expectation =
@@ -56,7 +61,7 @@ fun expectationInputsFor(
         )
     val minIntensity = watch.minIntensity
     val filteredEvents =
-        if (minIntensity == null) {
+        if (minIntensity == null || !intensityEnabled) {
             allEvents
         } else {
             allEvents.filter { it.intensity != null && it.intensity >= minIntensity }
@@ -75,8 +80,9 @@ fun evaluateOften(
     allEvents: List<EventEntity>,
     now: Long,
     tracksDuration: Boolean,
+    intensityEnabled: Boolean = true,
 ): WatchDecision {
-    val (expectation, filteredEvents) = expectationInputsFor(watch, allEvents, now)
+    val (expectation, filteredEvents) = expectationInputsFor(watch, allEvents, now, intensityEnabled)
     val result = computeVerdict(expectation, filteredEvents, now, tracksDuration)
     return evaluateWatch(watch, conditionMet = result.observedRate >= result.expectedRate, now = now)
 }

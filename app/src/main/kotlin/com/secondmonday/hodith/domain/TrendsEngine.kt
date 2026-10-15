@@ -35,6 +35,9 @@ internal const val TRENDS_MAX_FINDINGS = 8
  * [computeTagOutcomeFindings] (Story C T4) is the first detector able to report
  * [TrendReliability.PATTERN], since a result only exists here once it's already cleared a real
  * permutation-significance test; a non-significant candidate never reaches this function at all.
+ * Like [computeTrendSlopeFindings]/[computeTimeOfDaySplitFindings] below, it's gated per outcome on
+ * [statsShownOutcomes], so a tag → outcome finding can't surface for an outcome whose own stat card
+ * is hidden (e.g. intensity once a Case's `intensityEnabled` flag is off).
  * [computeChangePoint] (Story C T5) is appended after tag → outcome, the second
  * [TrendReliability.PATTERN]-only detector — same "suppressed, not shown as Hint" rule as tag →
  * outcome, backed by its own timeline-shuffle permutation test rather than tag → outcome's
@@ -160,7 +163,7 @@ internal fun computeTrendFindings(
                 latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
-    computeTagOutcomeFindings(eventsWithTags, tracksDuration, now).forEach {
+    computeTagOutcomeFindings(eventsWithTags, statsShownOutcomes, tracksDuration, now).forEach {
         findings +=
             TrendFinding(
                 kind = TrendFindingKind.TAG_OUTCOME,

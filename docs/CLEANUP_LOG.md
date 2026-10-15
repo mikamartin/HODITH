@@ -17,6 +17,35 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/intensity-toggle-gating
+
+**Scope:** PROGRESS.md item "Intensity-toggle: trend/notification code ignores the Case flag" (filed as a follow-up while fixing `fix/intensity-required-when-enabled`): `InsightsTabState` correctly hides the Insights intensity stat card once `Case.intensityEnabled` is off, but two downstream readers of `EventEntity.intensity` had no awareness of the flag at all — a `TAG_OUTCOME` Trends finding on `TagOutcome.INTENSITY` could still surface from stale per-event ratings, and an `OFTEN` Watch's `minIntensity` floor kept filtering by them too, both after the Case's own stat card and panel had already gone quiet about intensity.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `test` (full unit suite), `lintDebug`, and `assembleDebug` all pass. `connectedDebugAndroidTest` not run this pass — no emulator driven directly (this repo's convention); the one instrumented change (`CaseDetailWatchesTabTest`'s `verdictFor` helper gaining a defaulted `intensityEnabled` param) is behaviorally inert for every existing test there, left for the user's own device run.
+
+**Found & fixed:**
+- `StatsEngine.computeTagOutcomeFindings` gained the `eligibleOutcomes: Set<TagOutcome>` parameter its siblings `computeTrendSlopeFindings`/`computeTimeOfDaySplitFindings` already had, filtering `TagOutcome.entries` the same way; `TrendsEngine.computeTrendFindings` now threads its existing `statsShownOutcomes` param through to it, so `InsightsTabState`'s already-correct gating reaches the tag-outcome detector for free.
+- `WatchEngine.expectationInputsFor`/`evaluateOften` gained an `intensityEnabled: Boolean = true` parameter; the `minIntensity` filter no longer applies when it's `false`, since `WatchEntity.minIntensity` is stored independently of the Case's own flag and survives it being turned off. Wired the live `Case`/`CaseSeed` flag through the three real call sites: `NotificationEvaluator`, `WatchesViewModel.watchCardState` (via `WatchesTab.kt`'s existing `uiState.intensityEnabled`), and `DemoDataSeeder`.
+- Regression tests added at both layers: `TrendsEngineTest` (a `TAG_OUTCOME` suppression test mirroring the existing trend-slope one), `InsightsTabStateTest` (end-to-end: intensity off, strong planted tag→intensity signal, no leaked finding), and `WatchEngineTest` (an `OFTEN` watch with `minIntensity` set but `intensityEnabled = false` counting events that would otherwise fail the floor).
+- Updated the 14 `StatsEngineTest`/5 `TrendsEngineTest` call sites that previously relied on `computeTagOutcomeFindings`/`computeTrendFindings`'s old gating-free default and would otherwise have silently stopped seeing their planted `TAG_OUTCOME` finding.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- Making `computeTagOutcomeFindings`'s new `eligibleOutcomes` param required (no default) while defaulting `WatchEngine`'s new `intensityEnabled` param to `true` looks inconsistent at a glance, but each matches its own file's existing convention: `computeTrendSlopeFindings`/`computeTimeOfDaySplitFindings` already require their gating param explicitly, while `WatchEngine`'s `tracksDuration`-adjacent params are already caller-supplied without a shared default elsewhere. Defaulting `intensityEnabled` kept ~20 existing `WatchEngineTest` call sites (none of which construct a `Case`) unchanged; requiring `eligibleOutcomes` kept `computeTagOutcomeFindings` consistent with its two siblings, at the cost of touching `StatsEngineTest`'s call sites once.
+
+**Checks:**
+- Duplication: no new detector/significance-test logic — reused the existing `eligibleOutcomes`/`statsShownOutcomes` gating mechanism and `WatchEngine`'s existing filter shape.
+- Decoupling: `StatsEngine.kt`/`TrendsEngine.kt`/`WatchEngine.kt` stay pure Kotlin (`domain/`), no `android.*` imports; every `now`/flag value stays caller-supplied.
+- Naming: no new `Voice` keys — no user-visible copy changed.
+- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
+- Spec review: `HODITH_SPEC.md` updated (§10 tag → outcome's gating, §11's `minIntensity` table row) — unintentional divergence (a genuine bug), not a deliberate spec change.
+- Tests: no weakened assertions — every touched call site either gained an explicit gating argument or a brand-new test exercising it; `StatsEngineTest`'s detector-math tests keep exercising every outcome unfiltered via `TagOutcome.entries.toSet()`.
+
+**Docs updated:** PROGRESS.md (the resolved item struck entirely); HODITH_SPEC.md (§10 tag → outcome gating, §11 `minIntensity` table row); TESTING.md (Watch evaluation and Stats & visual data prep rows extended); this entry (oldest entry, `fix/big-picture-day-detail-chronological-order`, removed per the 5-entry retention rule).
+
+---
+
 ## feature/case-edit-logging-toggle
 
 **Scope:** Reordered the Case edit/create form's logging control to the end of the form (after Track duration and Track intensity), replaced the two-option "One tap / Detail sheet" segmented chooser with a single "Enable one tap logging" `Switch`, hid it entirely (rather than just disabling it) once intensity tracking makes one-tap unavailable, dropped "(1-5)" from the Track intensity label, and restyled that label to match its sibling toggles.
@@ -138,34 +167,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Docs updated:** HODITH_SPEC.md (§6 new "Manual duration projecting past now" bullet, plus the Event table, §9 Active span, Big Picture, and §15 widget bullets); TESTING.md (Watch evaluation, Notification evaluation, Stats & visual data prep, Room DAOs, ViewModels, Compose UI, and Compose UI — Big Picture rows extended or corrected); MANUAL_TEST_PLAN.md (item 6 extended for the List widget's `MANUAL` row); this entry (oldest entry, `test/autosize-harness-investigation`, removed per the 5-entry retention rule).
 
----
-
-## fix/big-picture-day-detail-chronological-order
-
-**Scope:** User-reported: the Big Picture day/week detail dialogs listed a day's events grouped by Case (every event of Case A before any of Case B) instead of chronologically, with no distinct treatment for a multi-day span's "no real time that day" rows. Clarified with the user that HODITH has no literal "all-day event" concept — only a multi-day span's middle day (or any day a still-running event is merely carried through) genuinely has no boundary time; a span's own start/end day has a real clock time and should sort and read by it ("Started …"/"Ended …"), not the old blanket full-range label.
-
-**Walked:** CLEANUP_CHECKLIST.md against the diff, section by section. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to `BigPictureScreenTest` on a Pixel 8 API 36 emulator — 51/51 green, including the three new cases.
-
-**Found & fixed:**
-- `BigPictureGrid.kt`'s `DayEvent` replaced `isSpanStart`/`isSpanCarried` with `isSpanStart`/`isSpanEnd`/`isAllDay`, so a span's end day (a real boundary) is distinguished from a true middle day (none).
-- New pure `sortDayEvents` (`BigPictureFilterState.kt`): `isAllDay` rows sort first (nothing to sort by); every other row sorts by whichever boundary falls that day — start time, or end time for `isSpanEnd`.
-- `coveredDates` and the `eventsByDay`-building loop, previously private/inline inside the `BigPictureGrid` composable, extracted to pure `coveredDates`/`buildEventsByDay` in `BigPictureFilterState.kt` — both now unit-testable on the JVM without Compose, matching this file's own established rationale for `isTagVisible`/`resolveVisibleSelection`.
-- `EventDetailRow` labelling: a span's start day now reads "Started …", its finished end day "Ended …" (each a bare clock time), reserving the old "lasted …" full-range label for an actual no-boundary (`isAllDay`) day; the `isOngoing` branch is unchanged.
-- New `Voice.bigPictureEventSpanStarted`/`bigPictureEventSpanEnded`, given default (identical) bodies directly on the `Voice` interface rather than per-voice overrides — confirmed with the user that this label is deliberately the same wording in all three voices, same pattern as `bigPictureFilterCount`'s existing structural default. (A per-voice-override attempt first failed `VoiceTest`'s "no abstract key is identical across all three voices" check, which is exactly why structural/identical keys use interface defaults instead.)
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- A dedicated per-theme (Intense/Bright) visual pass for the new rows — declined since "Started …"/"Ended …" are plain-text labels reusing the existing row's typography/layout with no new colors or sizing; the user's own manual check (default theme) already confirmed the layout.
-
-**Checks:**
-- Duplication: no inline strings — the two new labels went through `Voice` (as interface defaults, not per-voice literals) in the same commit.
-- Decoupling: the extraction moves more logic *out* of the composable into pure, JVM-testable functions, not the other direction; day-bucketing still resolves via the event's own captured `utcOffsetMinutes` (`loggedZone()`), not the device's current zone.
-- Complexity: `buildEventsByDay`/`coveredDates`/`sortDayEvents` each still have exactly one production caller, but earn the split the same way this file's existing single-caller helpers do (JVM testability without Compose) — not a premature extraction.
-- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
-- Naming: new `Voice` keys follow the existing `bigPictureEventSpan*` convention.
-- UI copy brevity: "Started …"/"Ended …" are shorter than the siblings they partly replace ("Lasted … – …", "Ongoing since …") — no wrap risk.
-- Spec review: `HODITH_SPEC.md` §9 updated (chronological/all-day-pinned ordering, three-way Started/Ended/lasted label) — this was unintentional divergence (a genuine behavior bug/gap), not a deliberate spec change.
-- Tests: regression coverage added at both layers — `BigPictureFilterStateTest.kt` (JVM: same-day-duration-not-flagged-as-span, 2-day vs. 3+/4-day span flagging, a still-running event's carried days staying `isAllDay` forever and never falsely `isSpanEnd`, a still-running event started "today" staying a plain timed row, year-boundary date generation, offset-based date resolution, a full mixed-day integration case, sort ties/stability/empty-list) and `BigPictureScreenTest.kt` (instrumented: span start day, span end day, all-day-pinned-above-a-timed-row ordering).
-
-**Docs updated:** HODITH_SPEC.md (§9, day/week detail ordering and label rewritten); TESTING.md (ViewModels row extended for the three new pure functions; Compose UI — Big Picture row corrected for the new labels/ordering); this entry (oldest entry, `test/autosize-harness-investigation`, removed per the 5-entry retention rule).

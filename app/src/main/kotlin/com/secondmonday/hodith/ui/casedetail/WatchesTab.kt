@@ -83,8 +83,15 @@ internal fun WatchesTabContent(
                     }
                     items(uiState.watches, key = { it.id }) { watch ->
                         val cardState =
-                            remember(watch, uiState.events, uiState.tracksDuration, uiState.caseCreatedAt, now) {
-                                watchCardState(watch, uiState.events, uiState.tracksDuration, uiState.caseCreatedAt, now)
+                            remember(watch, uiState.events, uiState.tracksDuration, uiState.intensityEnabled, uiState.caseCreatedAt, now) {
+                                watchCardState(
+                                    watch,
+                                    uiState.events,
+                                    uiState.tracksDuration,
+                                    uiState.caseCreatedAt,
+                                    now,
+                                    intensityEnabled = uiState.intensityEnabled,
+                                )
                             }
                         WatchCard(
                             state = cardState,

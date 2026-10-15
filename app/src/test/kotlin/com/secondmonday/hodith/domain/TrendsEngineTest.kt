@@ -320,7 +320,13 @@ class TrendsEngineTest {
     @Test
     fun `computeTrendFindings reports a tag-outcome finding as PATTERN with the tag name and outcome attached`() {
         val findings =
-            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = strongTagOutcomeEventsWithTags())
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = strongTagOutcomeEventsWithTags(),
+                statsShownOutcomes = TagOutcome.entries.toSet(),
+            )
 
         val finding = findings.single { it.kind == TrendFindingKind.TAG_OUTCOME }
         assertEquals("aura", finding.tagName)
@@ -330,11 +336,34 @@ class TrendsEngineTest {
     }
 
     @Test
+    fun `computeTrendFindings suppresses a tag-outcome finding when its outcome isn't in statsShownOutcomes`() {
+        // Mirrors the trend-slope/time-of-day-split suppression tests below -- a Case with
+        // intensityEnabled off (no INTENSITY in statsShownOutcomes) must not leak a tag-outcome
+        // finding built from stale per-event intensity ratings, even with a strong planted signal.
+        val findings =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = strongTagOutcomeEventsWithTags(),
+                statsShownOutcomes = setOf(TagOutcome.DURATION),
+            )
+
+        assertTrue(findings.none { it.kind == TrendFindingKind.TAG_OUTCOME })
+    }
+
+    @Test
     fun `computeTrendFindings ranks the Pattern tag-outcome finding ahead of the Hint recurrence shape`() {
         val gapStats = gapStatsOf(recurrenceSpikePastGaps)
 
         val findings =
-            computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = strongTagOutcomeEventsWithTags())
+            computeTrendFindings(
+                gapStats,
+                activeDates = emptyList(),
+                trendStats = null,
+                eventsWithTags = strongTagOutcomeEventsWithTags(),
+                statsShownOutcomes = TagOutcome.entries.toSet(),
+            )
 
         assertEquals(listOf(TrendFindingKind.TAG_OUTCOME, TrendFindingKind.RECURRENCE_SHAPE), findings.map { it.kind })
     }
@@ -354,7 +383,14 @@ class TrendsEngineTest {
                 EventWithTags(event, if (tagged) listOf(tag) else emptyList())
             }
 
-        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = eventsWithTags)
+        val findings =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = eventsWithTags,
+                statsShownOutcomes = TagOutcome.entries.toSet(),
+            )
 
         val finding = findings.single { it.kind == TrendFindingKind.TAG_OUTCOME }
         assertEquals(TagOutcome.DURATION, finding.outcome)
@@ -643,7 +679,13 @@ class TrendsEngineTest {
     @Test
     fun `computeTrendFindings carries the p-value on Pattern findings and leaves it null on Hints`() {
         val findings =
-            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = strongTagOutcomeEventsWithTags())
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = strongTagOutcomeEventsWithTags(),
+                statsShownOutcomes = TagOutcome.entries.toSet(),
+            )
 
         val tagOutcome = findings.single { it.kind == TrendFindingKind.TAG_OUTCOME }
         assertTrue(tagOutcome.pValue != null && tagOutcome.pValue < TAG_OUTCOME_SIGNIFICANCE_ALPHA)
@@ -750,8 +792,13 @@ class TrendsEngineTest {
         val events = strongTagOutcomeEventsWithTags("aura")
 
         val finding =
-            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = events)
-                .single { it.kind == TrendFindingKind.TAG_OUTCOME }
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = events,
+                statsShownOutcomes = TagOutcome.entries.toSet(),
+            ).single { it.kind == TrendFindingKind.TAG_OUTCOME }
 
         val outcome = checkNotNull(finding.outcome)
         val expected = events.filter { it.carries("aura") && it.event.hasValueFor(outcome) }.maxOf { it.event.latestActivityAt() }
