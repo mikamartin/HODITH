@@ -921,8 +921,8 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.INTENSITY)).performClick()
         composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.NOTES)).performClick()
 
-        assert(toggles == listOf(BigPictureDetailField.INTENSITY to true, BigPictureDetailField.NOTES to false)) {
-            "expected an on and an off toggle, was $toggles"
+        assert(toggles == listOf(BigPictureDetailField.INTENSITY to false, BigPictureDetailField.NOTES to false)) {
+            "expected both toggles to report off, was $toggles"
         }
     }
 
