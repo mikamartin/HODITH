@@ -17,6 +17,29 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/bright-intensity-label
+
+**Scope:** User-reported Bright voice copy issue: `eventIntensityLabel` read "Feels like a 3!" with no word "intensity" anywhere, so the bare number in the dot-separated event summary row didn't clearly map to an intensity rating (unlike Plain's "Intensity 3" and Intense's "Intensity: 3"). Changed to "Intensity: 3!" — keeps Bright's exclamation-mark style, matches the other two voices' explicit wording.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (a single-line string change). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. No instrumented run — no new/changed test behavior; every existing test calls `BrightVoice.eventIntensityLabel(n)` dynamically rather than asserting the literal string, so none needed touching.
+
+**Found & fixed:**
+- `Voice.kt`'s `BrightVoice.eventIntensityLabel` changed from `"Feels like a $intensity!"` to `"Intensity: $intensity!"`.
+
+**Deferred:** nothing.
+
+**Checks:**
+- Duplication: this isn't a new inline string — it's the existing `Voice` layer's `eventIntensityLabel`, already called from `CaseDetailViewModel`'s shared `eventDetailSummary` helper.
+- Naming: not a new `Voice` key, so the "all three voices in the same commit" rule doesn't apply; Plain/Intense were reviewed and already say "Intensity" explicitly, so neither needed a change.
+- UI Copy Brevity: "Intensity: 3!" is the same length class as Plain/Intense's own intensity labels and no longer than its neighbouring summary fragments (duration, tags).
+- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
+- Spec review: HODITH_SPEC.md doesn't quote this string — nothing to update.
+- Tests: confirmed no test hardcoded the old "Feels like" string; full unit suite green against the new copy.
+
+**Docs updated:** this entry (oldest entry, `feature/duration-unification`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/big-picture-selector-chip-contrast
 
 **Scope:** User-reported Big Picture Case/Tag filter popup inconsistencies across voices: Case and Tag chips used different selected/unselected conventions, Intense's selected Case chip read weaker (greyer) than unselected, and Bright's Tag chip selected/unselected contrast was nearly invisible. Two follow-on issues surfaced during manual verification: Intense's bulk-action/dismiss button row wrapped, and the read-only legend row could grow unboundedly with a large partial selection, crowding out the calendar grid.
@@ -143,23 +166,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: no weakened assertions found across the `CaseEditViewModelTest`/`LogDetailViewModelTest` rewrites — every removed test corresponds to an enum permutation that's now structurally impossible, not a dropped check; TESTING.md is accurate.
 
 **Docs updated:** MANUAL_TEST_PLAN.md (two `WidgetActionsFlowTest` method-name citations corrected to match the renamed tests); this entry (oldest entry, `fix/duplicate-case-warnings`, removed per the 5-entry retention rule).
-
----
-
-## feature/duration-unification
-
-**Scope:** Story U2 — collapsed the Case-level `DurationMode` enum (`NONE`/`MANUAL`/`START_STOP`) into a single `CaseEntity.tracksDuration: Boolean`, with per-event ongoing/ended state derived (`endedAt == null || endedAt > now`) rather than branched on mode. Landed across the schema, every domain engine, ~20 ViewModels/screens, both Glance widgets, Voice ×3, the Case Edit confirm-dialog redesign, and the Log/Edit Event Days/Hours/Minutes duration control. This pass finished migrating the remaining JVM unit test files and all instrumented test files off the retired enum, synced HODITH_SPEC.md/TESTING.md/MANUAL_TEST_PLAN.md/PROGRESS.md, and deleted the superseded `ui/prototype/DurationUnificationPrototype.kt`.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass; `compileDebugAndroidTestKotlin` confirms every instrumented test file compiles, but no emulator was available this pass to actually run `connectedDebugAndroidTest` — flagged under Deferred below rather than silently skipped.
-
-**Found & fixed:**
-- Self-caught correctness bug mid-migration: several already-edited test fixtures blindly mapped the old `MANUAL`/`START_STOP` enum values to `tracksDuration = true` without checking the paired event's `endedAt`. Under the old model, a `MANUAL` event with `endedAt == null` read as "not yet given a duration," not running; under the new unified rule, `tracksDuration = true` plus a null `endedAt` always means running — a silent semantic drift that would have corrupted several tests' actual day-counting results without failing outright. Caught by auditing every `eventAtDay`/bare-`testEvent` call site against its enclosing test's tracking flag before continuing the mechanical pass (`InsightsTabStateTest`, `WatchEngineTest`, `VerdictEngineTest`, `FakeHodithRepositoryTest`).
-- `LogDetailViewModelTest.kt` was missing the DST spring-forward regression test the old `computeEndedAt` had for its fixed-24h day scaling — ported it to the new `composeDuration` function, which has the identical property, rather than letting the coverage silently disappear in the rewrite.
-- `LogDetailSheet.kt`'s preview-only `UnifiedDurationSectionPreviewContent` had a `remember { draft = ... }` block that only mutates state and returns `Unit` — a real `lintDebug` error (`RememberReturnType`), not a style nit. Folded the mutation into the initial `mutableStateOf` computation instead.
-- `CaseDetailScreenTest.kt`'s `startStopCase` fixture renamed to `trackedCase` for clarity under the new model — first attempted via a PowerShell regex replace, which silently corrupted the file's UTF-8 encoding (mojibake on its em dashes/emoji) and added a BOM, and mangled one test's method name mid-rename. Caught by diffing before compiling; reverted and redone with exact-string edits instead.
-
-**Deferred:**
-- Running the new/updated instrumented tests on a real device (`connectedDebugAndroidTest`) — no emulator available this pass; `compileDebugAndroidTestKotlin` confirms every file compiles. Needs a human pass before merge, per this repo's standing workflow.
-
-**Docs updated:** HODITH_SPEC.md (§5 data model, §6 logging flows + the duration-tracking transition contract, §8 comparison math, §9 active span, §10 stats, §14 Case Edit, §15 widgets); TESTING.md (every `DurationMode`/`START_STOP`/`MANUAL` reference across the Verdict/Watch/Notification/Stats/ViewModels/Room DAO/Compose UI rows); MANUAL_TEST_PLAN.md (items 6-7); PROGRESS.md (Story U struck entirely — implementation, tests and docs are done, and the prototype file is deleted); this entry (oldest entry, `fix/widget-row-sizing`, removed per the 5-entry retention rule).
 
