@@ -549,6 +549,15 @@ private fun FilterLegendRow(
     if (caseLegend is CaseLegendState.AllSelected && tagLegend is TagLegendState.AllSelected) {
         return
     }
+    // Only the itemized "Some" lists can grow long enough to crowd out the calendar below -- the
+    // AllSelected/UntaggedOnly branches are always a single, short, fixed-length chip. A long "Some"
+    // list doesn't get truncated with a "+N" remainder (see bigPictureLegendFits's doc) -- it's
+    // this row or nothing, same as the all-selected case above.
+    val caseLabels = (caseLegend as? CaseLegendState.Some)?.cases?.map { "${it.icon} ${it.name}" }.orEmpty()
+    val tagLabels = (tagLegend as? TagLegendState.Some)?.tags.orEmpty()
+    if (!bigPictureLegendFits(caseLabels, tagLabels)) {
+        return
+    }
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -875,25 +884,47 @@ private fun CaseFilterChip(
 ) {
     when (LocalCardDecorationStyle.current) {
         CardDecorationStyle.BRIGHT -> BrightCaseFilterChip(case = case, selected = selected, onToggle = onToggle)
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE -> {
+        CardDecorationStyle.PLAIN -> {
             val background = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
             val border = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant
             val content = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-            Row(
-                modifier =
-                    Modifier
-                        .clip(CHIP_SHAPE)
-                        .background(background)
-                        .border(1.dp, border, CHIP_SHAPE)
-                        .then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(case.icon, style = MaterialTheme.typography.labelSmall)
-                Text(case.name, style = MaterialTheme.typography.labelSmall, color = content)
-            }
+            CaseFilterChipRow(case = case, background = background, border = border, content = content, onToggle = onToggle)
         }
+        CardDecorationStyle.INTENSE -> {
+            // secondaryContainer is a grey that's lighter than the unselected `surface` in light mode
+            // (and barely darker in dark mode) -- selected would read as weaker than unselected.
+            // secondary/onSecondary are Intense's own mid-grey/inverse-contrast tokens, so selected
+            // gets a genuinely heavier fill without borrowing primaryContainer, which would make Case
+            // and Year share a colour family on this theme.
+            val background = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface
+            val border = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant
+            val content = if (selected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurfaceVariant
+            CaseFilterChipRow(case = case, background = background, border = border, content = content, onToggle = onToggle)
+        }
+    }
+}
+
+@Composable
+private fun CaseFilterChipRow(
+    case: CalendarCase,
+    background: Color,
+    border: Color,
+    content: Color,
+    onToggle: (() -> Unit)?,
+) {
+    Row(
+        modifier =
+            Modifier
+                .clip(CHIP_SHAPE)
+                .background(background)
+                .border(1.dp, border, CHIP_SHAPE)
+                .then(if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(case.icon, style = MaterialTheme.typography.labelSmall)
+        Text(case.name, style = MaterialTheme.typography.labelSmall, color = content)
     }
 }
 
@@ -904,9 +935,11 @@ private fun CaseFilterChip(
  * as monochrome plus exactly one accent (crimson/`primary`) and Bright as an exactly-two-color
  * pair (`primary`/`secondary`) — a third tinted chip type would break both budgets, and Plain has
  * no real third tone of its own either (`tertiaryContainer` there was never designed with this in
- * mind). Selected state reads from a visibly thicker, darker border plus darker text alone — no
- * checkmark and no fill, so the pill stays a single flat visual signal instead of stacking a fourth
- * cue onto the row. [onToggle] null renders a read-only pill.
+ * mind). Selected state reads from a visibly thicker border in the stronger `onSurface` role (not
+ * `outline` — on Bright, `outline`/`outlineVariant` are nearly indistinguishable, so a width-only
+ * signal washed out) plus bold text — still no checkmark and no fill, so the pill stays within the
+ * tint budget while giving selected two color-independent cues instead of one. [onToggle] null
+ * renders a read-only pill.
  */
 @Composable
 private fun TagFilterChip(
@@ -915,12 +948,13 @@ private fun TagFilterChip(
     onToggle: (() -> Unit)?,
 ) {
     val borderWidth = if (selected) 2.dp else 1.dp
-    val border = if (selected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant
+    val border = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant
     val content = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
     Text(
         text = tag,
         style = MaterialTheme.typography.labelSmall,
         color = content,
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
         modifier =
             Modifier
                 .clip(CHIP_SHAPE)
@@ -1043,7 +1077,7 @@ private fun CaseGroupChip(text: String) {
             BrightChip(selected = true, onToggle = null, tint = MaterialTheme.colorScheme.secondary) {
                 Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
             }
-        CardDecorationStyle.PLAIN, CardDecorationStyle.INTENSE ->
+        CardDecorationStyle.PLAIN ->
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelSmall,
@@ -1053,6 +1087,21 @@ private fun CaseGroupChip(text: String) {
                         .clip(CHIP_SHAPE)
                         .background(MaterialTheme.colorScheme.secondaryContainer)
                         .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, CHIP_SHAPE)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        // secondary/onSecondary, not secondaryContainer/onSecondaryContainer -- same reasoning as
+        // CaseFilterChip's Intense branch: secondaryContainer is too light to read as "selected"
+        // against Intense's white surface.
+        CardDecorationStyle.INTENSE ->
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondary,
+                modifier =
+                    Modifier
+                        .clip(CHIP_SHAPE)
+                        .background(MaterialTheme.colorScheme.secondary)
+                        .border(1.dp, MaterialTheme.colorScheme.secondary, CHIP_SHAPE)
                         .padding(horizontal = 10.dp, vertical = 6.dp),
             )
     }
