@@ -26,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
@@ -546,6 +547,7 @@ private fun HistoryFilterRow(
     var showRangePicker by remember { mutableStateOf(false) }
     var showFieldsDialog by remember { mutableStateOf(false) }
     val isRangeFiltered = dateFrom != null || dateTo != null
+    val isFieldsCustomized = visibleFields != HistoryRowField.entries.toSet()
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -572,7 +574,11 @@ private fun HistoryFilterRow(
         // Edit which fields each row shows (spec §6) — pinned right, same placement as
         // Big Picture's own detail-edit icon.
         IconButton(onClick = { showFieldsDialog = true }) {
-            Icon(Icons.Filled.Edit, contentDescription = voice.historyFieldsEditDescription)
+            Icon(
+                Icons.Filled.Edit,
+                contentDescription = voice.historyFieldsEditDescription,
+                tint = if (isFieldsCustomized) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+            )
         }
     }
     // Always shown, so an unset range reads as the Case's actual span rather than a bare "All time".
