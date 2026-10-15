@@ -416,6 +416,27 @@ class WatchEngineTest {
         assertTrue(result.shouldFire)
     }
 
+    @Test
+    fun `evaluateOften stops applying a watch's minIntensity floor once the Case's intensityEnabled flag is off`() {
+        // watch.minIntensity is stored independently of the Case's own flag, so it can still be set
+        // from when intensity tracking was on. These events would all fail a minIntensity = 3 floor,
+        // but once intensityEnabled is false they must count anyway, the same way InsightsTabState
+        // stops reading stale per-event ratings once its own flag is off.
+        val now = millisAtDay(10)
+        val events = listOf(event(millisAtDay(9), intensity = 2), event(millisAtDay(9), intensity = null))
+
+        val result =
+            evaluateOften(
+                watch(threshold = 2, windowDays = 7, minIntensity = 3),
+                allEvents = events,
+                now = now,
+                tracksDuration = false,
+                intensityEnabled = false,
+            )
+
+        assertTrue(result.shouldFire)
+    }
+
     // ---- evaluateOften: span-overlap, not occurredAt-only, windowing ----
 
     @Test

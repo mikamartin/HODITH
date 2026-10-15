@@ -493,7 +493,7 @@ class DemoDataSeederTest {
                 val events = repository.events.value.filter { it.caseId == case.id }
                 val decision =
                     when (watch.kind) {
-                        WatchKind.OFTEN -> evaluateOften(watch, events, NOW_MILLIS, case.tracksDuration)
+                        WatchKind.OFTEN -> evaluateOften(watch, events, NOW_MILLIS, case.tracksDuration, case.intensityEnabled)
                         WatchKind.QUIET ->
                             evaluateQuiet(
                                 watch,

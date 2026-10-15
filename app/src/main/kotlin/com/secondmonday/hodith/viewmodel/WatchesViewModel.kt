@@ -212,6 +212,7 @@ internal fun watchCardState(
     caseCreatedAt: Long,
     now: Long,
     zone: ZoneId = ZoneId.systemDefault(),
+    intensityEnabled: Boolean = true,
 ): WatchCardState {
     val base =
         WatchCardState(
@@ -232,7 +233,7 @@ internal fun watchCardState(
         )
     return when (watch.kind) {
         WatchKind.OFTEN -> {
-            val (expectation, filteredEvents) = expectationInputsFor(watch, events, now)
+            val (expectation, filteredEvents) = expectationInputsFor(watch, events, now, intensityEnabled)
             val result = computeVerdict(expectation, filteredEvents, now, tracksDuration, zone)
             base.copy(observedRate = result.observedRate, expectation = expectation, verdictResult = result)
         }

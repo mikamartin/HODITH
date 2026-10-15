@@ -459,13 +459,15 @@ internal const val TAG_TIMING_MAX_FINDINGS = 3
  * rather than a threshold check — the roster's first `Pattern`-capable detector. A (tag, outcome)
  * pair that clears the descriptive floor but not significance is dropped entirely, never reported —
  * the feasibility ruling's "suppressed, not shown as Hint" rule, since every kept result here already
- * carries a real test behind it, unlike every threshold-only detector above it. Results across both
- * outcomes are pooled, ordered by effect size (as [computeTagShareShift] orders its own results), and
- * capped at [TAG_OUTCOME_MAX_FINDINGS] — the second detector able to produce more than one finding
- * per Case.
+ * carries a real test behind it, unlike every threshold-only detector above it. Results are pooled
+ * across only the outcomes in [eligibleOutcomes] — the same per-outcome gate
+ * [computeTrendSlopeFindings]/[computeTimeOfDaySplitFindings] use — ordered by effect size (as
+ * [computeTagShareShift] orders its own results), and capped at [TAG_OUTCOME_MAX_FINDINGS] — the
+ * second detector able to produce more than one finding per Case.
  */
 internal fun computeTagOutcomeFindings(
     eventsWithTags: List<EventWithTags>,
+    eligibleOutcomes: Set<TagOutcome>,
     tracksDuration: Boolean = false,
     now: Long = 0L,
 ): List<TagOutcomeResult> {
@@ -474,7 +476,9 @@ internal fun computeTagOutcomeFindings(
 
     return tagNames
         .flatMap { tagName ->
-            TagOutcome.entries.mapNotNull { outcome -> tagOutcomeResultFor(eventsWithTags, caseId, tagName, outcome, tracksDuration, now) }
+            TagOutcome.entries
+                .filter { it in eligibleOutcomes }
+                .mapNotNull { outcome -> tagOutcomeResultFor(eventsWithTags, caseId, tagName, outcome, tracksDuration, now) }
         }.sortedByDescending { abs(it.withTagMean - it.withoutTagMean) / it.withoutTagMean }
         .take(TAG_OUTCOME_MAX_FINDINGS)
 }
