@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -305,13 +306,13 @@ class BigPictureViewModelTest {
     @Test
     fun `uiState keeps the current detail across a repository change`() =
         runTest {
-            settings.bigPictureDetail.value = BigPictureDetail.DEFAULT.with(BigPictureDetailField.INTENSITY, true)
+            settings.bigPictureDetail.value = BigPictureDetail.DEFAULT.with(BigPictureDetailField.INTENSITY, false)
             viewModel().uiState.test {
                 awaitLoadedItem { it.isLoading }
                 repository.cases.value = listOf(testCase())
                 val state = awaitItem()
                 assertEquals(1, state.cases.size)
-                assertTrue(state.detail.intensity)
+                assertFalse(state.detail.intensity)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -337,12 +338,12 @@ class BigPictureViewModelTest {
         runTest {
             val vm = viewModel()
 
-            vm.setDetail(BigPictureDetailField.INTENSITY, true)
-            assertEquals(BigPictureDetail.DEFAULT.copy(intensity = true), settings.bigPictureDetail.value)
+            vm.setDetail(BigPictureDetailField.INTENSITY, false)
+            assertEquals(BigPictureDetail.DEFAULT.copy(intensity = false), settings.bigPictureDetail.value)
 
             vm.setDetail(BigPictureDetailField.NOTES, false)
             assertEquals(
-                BigPictureDetail.DEFAULT.copy(intensity = true, notes = false),
+                BigPictureDetail.DEFAULT.copy(intensity = false, notes = false),
                 settings.bigPictureDetail.value,
             )
         }

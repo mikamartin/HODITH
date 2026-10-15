@@ -48,8 +48,8 @@ data class BigPictureDetail(
     fun serialize(): String = BigPictureDetailField.entries.filter { has(it) }.joinToString(",") { it.token }
 
     companion object {
-        /** Spec §9: notes, tags and same-day duration on; intensity an opt-in. */
-        val DEFAULT = BigPictureDetail(notes = true, tags = true, duration = true, intensity = false)
+        /** Spec §9: notes, tags, same-day duration and intensity all on. */
+        val DEFAULT = BigPictureDetail(notes = true, tags = true, duration = true, intensity = true)
 
         val ALL_OFF = BigPictureDetail(notes = false, tags = false, duration = false, intensity = false)
 

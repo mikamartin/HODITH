@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
@@ -907,7 +906,7 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.NOTES)).assertIsOn()
         composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.TAGS)).assertIsOn()
         composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.DURATION)).assertIsOn()
-        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.INTENSITY)).assertIsOff()
+        composeTestRule.onNodeWithTag(detailTag(BigPictureDetailField.INTENSITY)).assertIsOn()
     }
 
     @Test
