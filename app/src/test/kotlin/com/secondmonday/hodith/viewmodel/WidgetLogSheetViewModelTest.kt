@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
@@ -42,7 +41,7 @@ class WidgetLogSheetViewModelTest {
     private fun testCase(
         id: Long = 1L,
         name: String = "Coffee",
-        durationMode: DurationMode = DurationMode.NONE,
+        tracksDuration: Boolean = false,
         intensityEnabled: Boolean = false,
     ) = CaseEntity(
         id = id,
@@ -50,7 +49,7 @@ class WidgetLogSheetViewModelTest {
         icon = "☕️",
         createdAt = 0L,
         logFlow = LogFlow.DETAIL_SHEET,
-        durationMode = durationMode,
+        tracksDuration = tracksDuration,
         intensityEnabled = intensityEnabled,
         checkInsEnabled = true,
         lastCheckInAt = null,
@@ -69,14 +68,14 @@ class WidgetLogSheetViewModelTest {
     @Test
     fun `load populates state from the case and a fresh draft`() =
         runTest {
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true))
+            repository.cases.value = listOf(testCase(tracksDuration = true, intensityEnabled = true))
 
             val viewModel = newViewModel()
             viewModel.load(caseId = 1L)
 
             val state = viewModel.uiState.value
             assertEquals("Coffee", state?.caseName)
-            assertEquals(DurationMode.MANUAL, state?.durationMode)
+            assertTrue(state?.tracksDuration == true)
             assertTrue(state?.intensityEnabled == true)
             assertEquals(clock.nowMillis(), state?.draft?.occurredAt)
         }

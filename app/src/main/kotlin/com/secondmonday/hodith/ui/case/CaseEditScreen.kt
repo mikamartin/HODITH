@@ -34,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -54,12 +55,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.ConfirmDialog
+import com.secondmonday.hodith.ui.common.RowWithInfo
 import com.secondmonday.hodith.ui.common.SectionWithInfo
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.ToggleRow
+import com.secondmonday.hodith.ui.common.themedSwitchColors
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.theme.IconHalo
@@ -103,11 +105,11 @@ fun CaseEditRoute(
         onDescriptionChange = viewModel::onDescriptionChange,
         onIconSelect = viewModel::onIconSelect,
         onLogFlowChange = viewModel::onLogFlowChange,
-        onDurationModeChange = viewModel::onDurationModeChange,
-        onConfirmLeaveStartStop = viewModel::confirmLeaveStartStop,
-        onDismissLeaveStartStop = viewModel::dismissLeaveStartStop,
-        onConfirmEnterStartStop = viewModel::confirmEnterStartStop,
-        onDismissEnterStartStop = viewModel::dismissEnterStartStop,
+        onTracksDurationChange = viewModel::onTracksDurationChange,
+        onConfirmTurnOffDuration = viewModel::confirmTurnOffDuration,
+        onDismissTurnOffDuration = viewModel::dismissTurnOffDuration,
+        onConfirmTurnOnDuration = viewModel::confirmTurnOnDuration,
+        onDismissTurnOnDuration = viewModel::dismissTurnOnDuration,
         onIntensityToggle = viewModel::onIntensityToggle,
         onSave = viewModel::save,
         onArchive = viewModel::archive,
@@ -125,11 +127,11 @@ fun CaseEditScreen(
     onDescriptionChange: (String) -> Unit,
     onIconSelect: (String) -> Unit,
     onLogFlowChange: (LogFlow) -> Unit,
-    onDurationModeChange: (DurationMode) -> Unit,
-    onConfirmLeaveStartStop: () -> Unit,
-    onDismissLeaveStartStop: () -> Unit,
-    onConfirmEnterStartStop: () -> Unit,
-    onDismissEnterStartStop: () -> Unit,
+    onTracksDurationChange: (Boolean) -> Unit,
+    onConfirmTurnOffDuration: () -> Unit,
+    onDismissTurnOffDuration: () -> Unit,
+    onConfirmTurnOnDuration: () -> Unit,
+    onDismissTurnOnDuration: () -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
     onArchive: () -> Unit,
@@ -174,25 +176,25 @@ fun CaseEditScreen(
         )
     }
 
-    if (uiState.showLeaveStartStopConfirm) {
+    if (uiState.showTurnOffDurationConfirm) {
         ConfirmDialog(
-            title = voice.leaveStartStopConfirmTitle,
-            body = voice.leaveStartStopConfirmBody(uiState.runningEventCount),
-            confirmLabel = voice.leaveStartStopConfirmAction,
-            cancelLabel = voice.leaveStartStopCancelAction,
-            onDismiss = onDismissLeaveStartStop,
-            onConfirm = onConfirmLeaveStartStop,
+            title = voice.turnOffDurationConfirmTitle,
+            body = voice.turnOffDurationConfirmBody(uiState.runningEventCount),
+            confirmLabel = voice.turnOffDurationConfirmAction,
+            cancelLabel = voice.turnOffDurationCancelAction,
+            onDismiss = onDismissTurnOffDuration,
+            onConfirm = onConfirmTurnOffDuration,
         )
     }
 
-    if (uiState.showEnterStartStopConfirm) {
+    if (uiState.showTurnOnDurationConfirm) {
         ConfirmDialog(
-            title = voice.enterStartStopConfirmTitle,
-            body = voice.enterStartStopConfirmBody(uiState.runningEventCount),
-            confirmLabel = voice.enterStartStopConfirmAction,
-            cancelLabel = voice.enterStartStopCancelAction,
-            onDismiss = onDismissEnterStartStop,
-            onConfirm = onConfirmEnterStartStop,
+            title = voice.turnOnDurationConfirmTitle,
+            body = voice.turnOnDurationConfirmBody(uiState.runningEventCount),
+            confirmLabel = voice.turnOnDurationConfirmAction,
+            cancelLabel = voice.turnOnDurationCancelAction,
+            onDismiss = onDismissTurnOnDuration,
+            onConfirm = onConfirmTurnOnDuration,
         )
     }
 
@@ -236,7 +238,7 @@ fun CaseEditScreen(
             onDescriptionChange = onDescriptionChange,
             onIconSelect = onIconSelect,
             onLogFlowChange = onLogFlowChange,
-            onDurationModeChange = onDurationModeChange,
+            onTracksDurationChange = onTracksDurationChange,
             onIntensityToggle = onIntensityToggle,
             onSave = onSave,
             modifier = Modifier.padding(contentPadding),
@@ -253,7 +255,7 @@ private fun CaseEditForm(
     onDescriptionChange: (String) -> Unit,
     onIconSelect: (String) -> Unit,
     onLogFlowChange: (LogFlow) -> Unit,
-    onDurationModeChange: (DurationMode) -> Unit,
+    onTracksDurationChange: (Boolean) -> Unit,
     onIntensityToggle: (Boolean) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -313,26 +315,17 @@ private fun CaseEditForm(
                 options = listOf(LogFlow.ONE_TAP to voice.caseLogFlowOneTap, LogFlow.DETAIL_SHEET to voice.caseLogFlowDetailSheet),
                 selected = uiState.logFlow,
                 onSelect = onLogFlowChange,
-                enabled = { logFlow -> logFlow != LogFlow.ONE_TAP || isOneTapAllowed(uiState.durationMode, uiState.intensityEnabled) },
+                enabled = { logFlow -> logFlow != LogFlow.ONE_TAP || isOneTapAllowed(uiState.intensityEnabled) },
             )
         }
 
-        SectionWithInfo(
-            voice.caseDurationModeLabel,
-            voice.caseDurationModeInfoTitle,
-            voice.caseDurationModeInfoBody,
+        RowWithInfo(
+            voice.caseTracksDurationLabel,
+            voice.caseTracksDurationInfoTitle,
+            voice.caseTracksDurationInfoBody,
             voice.caseSectionInfoDescription,
         ) {
-            SegmentedChoiceRow(
-                options =
-                    listOf(
-                        DurationMode.NONE to voice.caseDurationModeNone,
-                        DurationMode.MANUAL to voice.caseDurationModeManual,
-                        DurationMode.START_STOP to voice.caseDurationModeStartStop,
-                    ),
-                selected = uiState.durationMode,
-                onSelect = onDurationModeChange,
-            )
+            Switch(checked = uiState.tracksDuration, onCheckedChange = onTracksDurationChange, colors = themedSwitchColors())
         }
 
         ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
@@ -480,12 +473,12 @@ private val previewUiState =
         description = "Any jog, walk, or run counted with intention.",
         icon = CASE_ICONS.first(),
         logFlow = LogFlow.DETAIL_SHEET,
-        durationMode = DurationMode.START_STOP,
+        tracksDuration = true,
         intensityEnabled = true,
         canArchive = true,
     )
 
-/** Exercises the full Bright form: fields, a selected icon, both segmented rows, and both switch states (one on, one off). */
+/** Exercises the full Bright form: fields, a selected icon, the logFlow segmented row, and both switch states (one on, one off). */
 @Preview(name = "CaseEditScreen — Bright light", showBackground = true, widthDp = 360, heightDp = 900)
 @Composable
 private fun CaseEditScreenBrightLightPreview() {
@@ -501,11 +494,11 @@ private fun CaseEditScreenBrightLightPreview() {
                 onDescriptionChange = {},
                 onIconSelect = {},
                 onLogFlowChange = {},
-                onDurationModeChange = {},
-                onConfirmLeaveStartStop = {},
-                onDismissLeaveStartStop = {},
-                onConfirmEnterStartStop = {},
-                onDismissEnterStartStop = {},
+                onTracksDurationChange = {},
+                onConfirmTurnOffDuration = {},
+                onDismissTurnOffDuration = {},
+                onConfirmTurnOnDuration = {},
+                onDismissTurnOnDuration = {},
                 onIntensityToggle = {},
                 onSave = {},
                 onArchive = {},
@@ -530,11 +523,11 @@ private fun CaseEditScreenBrightDarkPreview() {
                 onDescriptionChange = {},
                 onIconSelect = {},
                 onLogFlowChange = {},
-                onDurationModeChange = {},
-                onConfirmLeaveStartStop = {},
-                onDismissLeaveStartStop = {},
-                onConfirmEnterStartStop = {},
-                onDismissEnterStartStop = {},
+                onTracksDurationChange = {},
+                onConfirmTurnOffDuration = {},
+                onDismissTurnOffDuration = {},
+                onConfirmTurnOnDuration = {},
+                onDismissTurnOnDuration = {},
                 onIntensityToggle = {},
                 onSave = {},
                 onArchive = {},

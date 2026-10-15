@@ -105,7 +105,7 @@ class FakeHodithRepository : HodithRepository {
         caseId: Long,
         order: HistorySortOrder,
         limit: Int,
-        durationMode: DurationMode,
+        tracksDuration: Boolean,
         dateFrom: Long?,
         dateTo: Long?,
     ): Flow<HistoryEventsPage> =
@@ -121,7 +121,7 @@ class FakeHodithRepository : HodithRepository {
                     HistorySortOrder.BY_START ->
                         forCase.sortedWith(compareByDescending<EventEntity> { it.occurredAt }.thenByDescending { it.id })
                     HistorySortOrder.BY_END -> {
-                        fun isRunning(e: EventEntity) = durationMode == DurationMode.START_STOP && e.endedAt == null
+                        fun isRunning(e: EventEntity) = tracksDuration && e.endedAt == null
                         forCase.sortedWith(
                             compareByDescending<EventEntity> { isRunning(it) }
                                 .thenByDescending { it.endedAt ?: it.occurredAt }
@@ -146,7 +146,7 @@ class FakeHodithRepository : HodithRepository {
             val activeById = caseList.filterNot { it.archived }.associateBy { it.id }
             eventList.mapNotNull { event ->
                 activeById[event.caseId]?.let { case ->
-                    CaseEventSpan(event.caseId, event.occurredAt, event.endedAt, case.durationMode)
+                    CaseEventSpan(event.caseId, event.occurredAt, event.endedAt, case.tracksDuration)
                 }
             }
         }

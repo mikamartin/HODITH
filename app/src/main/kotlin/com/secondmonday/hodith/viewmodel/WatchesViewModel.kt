@@ -3,7 +3,6 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.HodithRepository
@@ -11,7 +10,6 @@ import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.WatchKind
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.Expectation
 import com.secondmonday.hodith.domain.VerdictResult
@@ -39,7 +37,7 @@ import javax.inject.Inject
 data class WatchesUiState(
     val watches: List<WatchEntity> = emptyList(),
     val events: List<EventEntity> = emptyList(),
-    val durationMode: DurationMode = DurationMode.NONE,
+    val tracksDuration: Boolean = false,
     val intensityEnabled: Boolean = false,
     val checkInsEnabled: Boolean = true,
     val caseCreatedAt: Long = 0L,
@@ -79,7 +77,7 @@ class WatchesViewModel
                 WatchesUiState(
                     watches = watches,
                     events = eventsWithTags.map { it.event },
-                    durationMode = case?.durationMode ?: DurationMode.NONE,
+                    tracksDuration = case?.tracksDuration ?: false,
                     intensityEnabled = case?.intensityEnabled ?: false,
                     checkInsEnabled = case?.checkInsEnabled ?: true,
                     caseCreatedAt = case?.createdAt ?: 0L,
@@ -184,8 +182,8 @@ class WatchesViewModel
 /**
  * Everything a bell-tab Watch card needs to render — settings line, Now line, and (OFTEN
  * only) the [Expectation]/[VerdictResult] pair the card renders as the tier-gated comparison
- * line — computed once as a pure function of the Watch, the Case's full event history, its
- * duration mode, its creation time, and now. Mirrors `insightsTabState`'s
+ * line — computed once as a pure function of the Watch, the Case's full event history, whether
+ * it tracks duration, its creation time, and now. Mirrors `insightsTabState`'s
  * pure-function-called-via-`remember` pattern (ui/casedetail/CaseDetailScreen.kt) rather than living
  * inside [WatchesViewModel]. Voice formatting itself stays in the Composable.
  */
@@ -210,7 +208,7 @@ data class WatchCardState(
 internal fun watchCardState(
     watch: WatchEntity,
     events: List<EventEntity>,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     caseCreatedAt: Long,
     now: Long,
     zone: ZoneId = ZoneId.systemDefault(),
@@ -225,7 +223,7 @@ internal fun watchCardState(
             lookbackDays = watch.windowDays,
             metric = watch.metric,
             minIntensity = watch.minIntensity,
-            tracksDuration = durationMode.tracksDuration,
+            tracksDuration = tracksDuration,
             firedDaysAgo = watch.lastFiredAt?.let { daysBetween(it, now, zone) },
             observedRate = null,
             silentDays = null,
@@ -235,11 +233,11 @@ internal fun watchCardState(
     return when (watch.kind) {
         WatchKind.OFTEN -> {
             val (expectation, filteredEvents) = expectationInputsFor(watch, events, now)
-            val result = computeVerdict(expectation, filteredEvents, now, durationMode, zone)
+            val result = computeVerdict(expectation, filteredEvents, now, tracksDuration, zone)
             base.copy(observedRate = result.observedRate, expectation = expectation, verdictResult = result)
         }
         WatchKind.QUIET -> {
-            val anchor = silenceAnchorForEvents(events, durationMode, now) ?: caseCreatedAt
+            val anchor = silenceAnchorForEvents(events, tracksDuration, now) ?: caseCreatedAt
             base.copy(silentDays = daysBetween(anchor, now, zone))
         }
     }

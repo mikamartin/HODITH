@@ -52,14 +52,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.HistorySortOrder
 import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.loggedZone
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.FrequencyGranularity
 import com.secondmonday.hodith.domain.caseHeroRate
 import com.secondmonday.hodith.domain.isStillRunning
@@ -163,17 +161,16 @@ fun CaseDetailScreen(
     val case = uiState.case
     val nowState = rememberTickingNow(clockNow = nowMillis)
     val now by nowState
-    // A MANUAL Stop changes whether the stopped event still reads as running (isStillRunning
-    // compares its new endedAt against `now`) — bump `now` immediately rather than wait for the
-    // next ~60s tick (Ticker.kt), or the row looks unchanged until then. START_STOP doesn't need
-    // this (its ongoing check is endedAt == null, independent of `now`), but this call site can't
-    // tell which mode a given event belongs to, so it always refreshes.
+    // Stop sets endedAt = now, and isStillRunning compares that against the composable's own
+    // `now` state — bump it immediately rather than wait for the next ~60s tick (Ticker.kt), or a
+    // stale `now` could still read as before the just-set endedAt and the row would look
+    // unchanged until the next tick.
     val onStopEventWithRefresh: (EventEntity) -> Unit = { event ->
         onStopEvent(event)
         nowState.value = nowMillis()
     }
     val ongoingEvents =
-        case?.let { ongoingEventsIn(it, uiState.events.map { eventWithTags -> eventWithTags.event }) }.orEmpty()
+        case?.let { ongoingEventsIn(it, uiState.events.map { eventWithTags -> eventWithTags.event }, now) }.orEmpty()
     // Non-null while the new-event log sheet is open, holding the `now` captured when it opened.
     // Editing an existing event is a separate destination (onEditEvent), not this sheet.
     var newEventSheetNow by remember { mutableStateOf<Long?>(null) }
@@ -349,7 +346,7 @@ fun CaseDetailScreen(
                         if (showNotificationEditor) {
                             WatchEditorSheet(
                                 voice = voice,
-                                durationMode = case.durationMode,
+                                tracksDuration = case.tracksDuration,
                                 intensityEnabled = case.intensityEnabled,
                                 editing = editingWatch,
                                 onDismiss = { showNotificationEditor = false },
@@ -391,7 +388,7 @@ fun CaseDetailScreen(
     val sheetNow = newEventSheetNow
     if (case != null && sheetNow != null) {
         LogDetailSheet(
-            durationMode = case.durationMode,
+            tracksDuration = case.tracksDuration,
             intensityEnabled = case.intensityEnabled,
             initialDraft = newEventDraft(),
             tagSuggestions = uiState.tagSuggestions,
@@ -500,7 +497,7 @@ private fun HistoryTabContent(
                                 caseName = case?.name.orEmpty(),
                                 now = now,
                                 voice = voice,
-                                durationMode = case?.durationMode ?: DurationMode.NONE,
+                                tracksDuration = case?.tracksDuration ?: false,
                                 visibleFields = visibleFields,
                                 onClick = { onEditEvent(eventWithTags.event) },
                                 onStopEvent = onStopEvent,
@@ -556,8 +553,8 @@ private fun HistoryFilterRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Start/end sort is only meaningful when the Case tracks duration (spec §6) — a
-        // `NONE` Case's `endedAt` is never shown, so "Ended" would order by an invisible field.
-        if (case.durationMode.tracksDuration) {
+        // non-tracking Case's `endedAt` is never shown, so "Ended" would order by an invisible field.
+        if (case.tracksDuration) {
             FilterTriggerChip(
                 label = voice.historySortLabel,
                 count = if (sortOrder == HistorySortOrder.BY_START) voice.historySortByStartLabel else voice.historySortByEndLabel,
@@ -652,7 +649,7 @@ private fun availableHistoryRowFields(case: CaseEntity): List<HistoryRowField> =
     buildList {
         add(HistoryRowField.NOTES)
         add(HistoryRowField.TAGS)
-        if (case.durationMode.tracksDuration) add(HistoryRowField.DURATION)
+        if (case.tracksDuration) add(HistoryRowField.DURATION)
         if (case.intensityEnabled) add(HistoryRowField.INTENSITY)
     }
 
@@ -677,7 +674,7 @@ private fun EventRow(
     caseName: String,
     now: Long,
     voice: Voice,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     visibleFields: Set<HistoryRowField>,
     onClick: () -> Unit,
     onStopEvent: (EventEntity) -> Unit,
@@ -693,7 +690,7 @@ private fun EventRow(
                     caseName,
                     now,
                     voice,
-                    durationMode,
+                    tracksDuration,
                     visibleFields,
                     onStopEvent,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -705,7 +702,7 @@ private fun EventRow(
                 caseName,
                 now,
                 voice,
-                durationMode,
+                tracksDuration,
                 visibleFields,
                 onStopEvent,
                 modifier =
@@ -723,13 +720,13 @@ private fun EventRowContent(
     caseName: String,
     now: Long,
     voice: Voice,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     visibleFields: Set<HistoryRowField>,
     onStopEvent: (EventEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val event = eventWithTags.event
-    val isOngoing = isStillRunning(event, durationMode, now)
+    val isOngoing = isStillRunning(event, tracksDuration, now)
 
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
@@ -737,14 +734,12 @@ private fun EventRowContent(
                 text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour, zone = event.loggedZone()),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            // A running event carries its own live elapsed time (START_STOP) or expected end
-            // (MANUAL) and Stop, so each of a Case's open events is legible and stoppable on its
-            // own (spec §6).
+            // A running event carries its own live elapsed time or expected end and Stop, so each
+            // of a Case's open events is legible and stoppable on its own (spec §6).
             if (isOngoing) {
                 OngoingTimeText(
                     startedAt = event.occurredAt,
                     expectedEndAt = event.endedAt,
-                    durationMode = durationMode,
                     now = now,
                     use24Hour = LocalTimeFormat.current.is24Hour,
                     voice = voice,
@@ -760,7 +755,7 @@ private fun EventRowContent(
                     tagNames = if (HistoryRowField.TAGS in visibleFields) eventWithTags.tags.map { it.name } else emptyList(),
                     voice = voice,
                     isOngoing = isOngoing,
-                    tracksDuration = durationMode.tracksDuration && HistoryRowField.DURATION in visibleFields,
+                    tracksDuration = tracksDuration && HistoryRowField.DURATION in visibleFields,
                     showIntensity = HistoryRowField.INTENSITY in visibleFields,
                 )
             if (details != null) {

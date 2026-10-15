@@ -4,10 +4,10 @@ package com.secondmonday.hodith.data
  * The flat per-event projection the Big Picture grid needs (spec §9) — `id`, `caseId`, timing,
  * and the two extra fields the day/week detail rows show (`intensity`, `note`), for every active
  * Case's events. Case-level gating — whether `endedAt`/`intensity` actually render, per the
- * owning Case's `durationMode`/`intensityEnabled` — is applied in `bigPictureUiState` from the
+ * owning Case's `tracksDuration`/`intensityEnabled` flags — is applied in `bigPictureUiState` from the
  * same active-case list the mapper already holds for its `CalendarCase`/`earliestMonth` output,
  * rather than duplicated onto this row the way [CaseEventSpan] carries its
- * own `durationMode`: Big Picture's mapper groups by `caseId` against a case list it already has,
+ * own `tracksDuration`: Big Picture's mapper groups by `caseId` against a case list it already has,
  * so joining the gating fields in here as well would just be the same value fetched twice.
  *
  * Deliberately not the full [EventEntity] / `CaseWithEventsAndTags` `@Relation` graph: that

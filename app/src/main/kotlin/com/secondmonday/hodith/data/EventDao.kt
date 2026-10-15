@@ -57,25 +57,25 @@ interface EventDao {
 
     /**
      * Capped page of a Case's events ordered by when they *ended* (spec §6, "Ended" order): any
-     * still-running event floats first — only meaningful when [isStartStopCase], since a
-     * `MANUAL`/`NONE` Case's events are never "running" the way the History tab's sort toggle means it —
-     * then by `endedAt` (or `occurredAt` for an end-less `MANUAL` entry, the same
-     * `IFNULL(endedAt, occurredAt)` [getLatestEventEndForCase] already reads), then `occurredAt`,
-     * then `id`, all descending. Same `limit + 1` peek-ahead contract and [dateFrom]/[dateTo]
-     * narrowing as [observeEventsWithTagsForCasePagedByStart].
+     * still-running (no `endedAt`) event floats first — only meaningful when [tracksDuration],
+     * since a Case that doesn't track duration never has a "running" event the way the History
+     * tab's sort toggle means it — then by `endedAt` (or `occurredAt` for an end-less entry, the
+     * same `IFNULL(endedAt, occurredAt)` [getLatestEventEndForCase] already reads), then
+     * `occurredAt`, then `id`, all descending. Same `limit + 1` peek-ahead contract and
+     * [dateFrom]/[dateTo] narrowing as [observeEventsWithTagsForCasePagedByStart].
      */
     @Transaction
     @Query(
         "SELECT * FROM events WHERE caseId = :caseId " +
             "AND (:dateFrom IS NULL OR occurredAt >= :dateFrom) AND (:dateTo IS NULL OR occurredAt <= :dateTo) " +
             "ORDER BY " +
-            "CASE WHEN :isStartStopCase = 1 AND endedAt IS NULL THEN 1 ELSE 0 END DESC, " +
+            "CASE WHEN :tracksDuration = 1 AND endedAt IS NULL THEN 1 ELSE 0 END DESC, " +
             "IFNULL(endedAt, occurredAt) DESC, occurredAt DESC, id DESC " +
             "LIMIT :limit",
     )
     fun observeEventsWithTagsForCasePagedByEnd(
         caseId: Long,
-        isStartStopCase: Boolean,
+        tracksDuration: Boolean,
         dateFrom: Long?,
         dateTo: Long?,
         limit: Int,
@@ -94,7 +94,7 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE caseId = :caseId AND endedAt IS NULL LIMIT 1")
     suspend fun getOngoingEvent(caseId: Long): EventEntity?
 
-    /** Whether the Case has an event whose `endedAt` is still after [now] — a `MANUAL` event's stated/expected duration that hasn't elapsed yet (spec §6). Only meaningful for a `MANUAL` Case. */
+    /** Whether the Case has an event whose `endedAt` is still after [now] — a stated/expected duration that hasn't elapsed yet (spec §6). Only meaningful for a Case that tracks duration. */
     @Query("SELECT EXISTS(SELECT 1 FROM events WHERE caseId = :caseId AND endedAt > :now)")
     suspend fun hasEventEndingAfter(
         caseId: Long,
@@ -103,12 +103,12 @@ interface EventDao {
 
     /**
      * Lean per-event projection for Home / the widgets' today / this-week counts — `caseId`,
-     * timing, and the owning Case's `durationMode`, for every active Case's events. One flat JOIN,
-     * no `@Relation`, no full-row hydration (see [CaseEventSpan]).
+     * timing, and the owning Case's `tracksDuration` flag, for every active Case's events. One
+     * flat JOIN, no `@Relation`, no full-row hydration (see [CaseEventSpan]).
      */
     @Query(
         "SELECT e.caseId AS caseId, e.occurredAt AS occurredAt, e.endedAt AS endedAt, " +
-            "c.durationMode AS durationMode " +
+            "c.tracksDuration AS tracksDuration " +
             "FROM events e JOIN cases c ON c.id = e.caseId WHERE c.archived = 0",
     )
     fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>>

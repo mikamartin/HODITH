@@ -34,21 +34,21 @@ which test.
 5. **List widget `DETAIL_SHEET` tap** on its `+` button — sheet opens via the trampoline, saves, and
    the event appears in-app. Only the row tap itself needs a human (same `ListView` limitation as item
    3) — the trampoline sheet it opens is covered end-to-end by `WidgetLogTrampolineActivityTest`.
-6. **List widget ongoing/elapsed.** Start an event on a `START_STOP` Case — the widget row shows the
+6. **List widget ongoing/elapsed.** Start an event on a duration-tracking Case — the widget row shows the
    "Ongoing" pill + ticking elapsed time, and keeps its `+` button (tapping it starts a second
    concurrent event, it never becomes a Stop). Run a second event at once (retro-log a still-open one
    from Case Detail, or use the seeded "Noisy neighbours" demo Case) — the row shows the pill + a
-   count. Log a `MANUAL`-case event whose typed duration projects past now (spec §6) — the row shows
+   count. Log an event on a duration-tracking Case whose typed duration projects past now (spec §6) — the row shows
    the pill + the expected end time instead of an elapsed count, honoring the Settings 12h/24h
    choice. Stop is only in Case Detail, reached by tapping the row. Only the ticking-elapsed/expected-end
    *display*, the pill/row rendering, and the row tap need a human (same `ListView` limitation) — the
-   `MANUAL` expected-end subtitle and the log button starting a second event and the row deep-link are
+   expected-end subtitle and the log button starting a second event and the row deep-link are
    covered on the Single-case widget by
-   `WidgetActionsFlowTest.manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle` and
-   `WidgetActionsFlowTest.logTap_startsASecondEventForARunningStartStopCase` and
+   `WidgetActionsFlowTest.trackedCaseWithFutureEndedAt_showsExpectedEndInSubtitle` and
+   `WidgetActionsFlowTest.logTap_startsASecondEventForARunningTrackedCase` and
    `WidgetActionsFlowTest.runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail`.
 7. **List widget today/this-week count for a duration event (spec §9/§14 active span).** On a
-   duration-tracking Case (`MANUAL` or `START_STOP`), log an event that started before today and
+   duration-tracking Case, log an event that started before today and
    ended earlier today, and start one that's still running. The row's count reads "Today: 2" — a
    duration event counts on every day its span was active, not only its start day, so a run stopped
    and logged today shows the same day. Only the List widget row needs a human (same `ListView`

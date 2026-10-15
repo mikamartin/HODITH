@@ -17,7 +17,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.HistoryRowField
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.ui.common.DateRangeFilterDialog
 import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
@@ -169,7 +168,7 @@ private fun availableHistoryRowFields(case: CaseEntity): List<HistoryRowField> =
     buildList {
         add(HistoryRowField.NOTES)
         add(HistoryRowField.TAGS)
-        if (case.durationMode.tracksDuration) add(HistoryRowField.DURATION)
+        if (case.tracksDuration) add(HistoryRowField.DURATION)
         if (case.intensityEnabled) add(HistoryRowField.INTENSITY)
     }
 

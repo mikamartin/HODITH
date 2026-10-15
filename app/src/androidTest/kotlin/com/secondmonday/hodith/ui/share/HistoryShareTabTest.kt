@@ -11,7 +11,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.domain.ChronologicalOrder
@@ -178,7 +177,7 @@ class HistoryShareTabTest {
         setContent(
             uiState =
                 HistoryShareUiState(
-                    case = testCase(id = 1L, durationMode = DurationMode.NONE, intensityEnabled = false),
+                    case = testCase(id = 1L, tracksDuration = false, intensityEnabled = false),
                     events = emptyList(),
                     selection = defaultSelection(),
                     isLoading = false,
@@ -196,7 +195,7 @@ class HistoryShareTabTest {
         setContent(
             uiState =
                 HistoryShareUiState(
-                    case = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = true),
+                    case = testCase(id = 1L, tracksDuration = true, intensityEnabled = true),
                     events = emptyList(),
                     selection = defaultSelection(),
                     isLoading = false,
@@ -213,7 +212,7 @@ class HistoryShareTabTest {
         setContent(
             uiState =
                 HistoryShareUiState(
-                    case = testCase(id = 1L, durationMode = DurationMode.NONE, intensityEnabled = false),
+                    case = testCase(id = 1L, tracksDuration = false, intensityEnabled = false),
                     events = emptyList(),
                     selection = defaultSelection(),
                     isLoading = false,

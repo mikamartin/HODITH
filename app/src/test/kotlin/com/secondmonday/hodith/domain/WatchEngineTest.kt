@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.WatchEntity
@@ -122,7 +121,7 @@ class WatchEngineTest {
         val events = List(3) { event(millisAtDay(9)) }
 
         val result =
-            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
+            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, tracksDuration = false)
 
         assertTrue(result.shouldFire)
     }
@@ -133,7 +132,7 @@ class WatchEngineTest {
         val events = List(2) { event(millisAtDay(9)) }
 
         val result =
-            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
+            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, tracksDuration = false)
 
         assertFalse(result.shouldFire)
     }
@@ -144,7 +143,7 @@ class WatchEngineTest {
         val events = List(3) { event(millisAtDay(2)) }
 
         val result =
-            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, durationMode = DurationMode.NONE)
+            evaluateOften(watch(threshold = 3, windowDays = 7), allEvents = events, now = now, tracksDuration = false)
 
         assertFalse(result.shouldFire)
     }
@@ -153,7 +152,7 @@ class WatchEngineTest {
     fun `evaluateOften re-arms once the rate ages back below threshold`() {
         val alreadyFired = watch(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(10))
 
-        val result = evaluateOften(alreadyFired, allEvents = emptyList(), now = millisAtDay(20), durationMode = DurationMode.NONE)
+        val result = evaluateOften(alreadyFired, allEvents = emptyList(), now = millisAtDay(20), tracksDuration = false)
 
         assertFalse(result.shouldFire)
         assertTrue(result.newArmed)
@@ -165,7 +164,7 @@ class WatchEngineTest {
         val alreadyFired = watch(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(9))
         val eventsAfterDeletion = List(2) { event(millisAtDay(9)) } // one of the original 3 events was deleted
 
-        val result = evaluateOften(alreadyFired, allEvents = eventsAfterDeletion, now = now, durationMode = DurationMode.NONE)
+        val result = evaluateOften(alreadyFired, allEvents = eventsAfterDeletion, now = now, tracksDuration = false)
 
         assertFalse(result.shouldFire)
         assertTrue(result.newArmed)
@@ -181,7 +180,7 @@ class WatchEngineTest {
                 watch(threshold = 1, windowDays = 7, enabled = false),
                 allEvents = events,
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             )
 
         assertFalse(result.shouldFire)
@@ -199,7 +198,7 @@ class WatchEngineTest {
                 watch(threshold = 3, windowDays = 7, armed = true),
                 allEvents = events,
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             )
 
         assertTrue(result.shouldFire)
@@ -213,7 +212,7 @@ class WatchEngineTest {
         val events = List(3) { event(millisAtDay(9)) }
         val alreadyFired = watch(threshold = 3, windowDays = 7, armed = false, lastFiredAt = millisAtDay(9))
 
-        val result = evaluateOften(alreadyFired, allEvents = events, now = now, durationMode = DurationMode.NONE)
+        val result = evaluateOften(alreadyFired, allEvents = events, now = now, tracksDuration = false)
 
         assertFalse(result.shouldFire)
         assertFalse(result.newArmed)
@@ -231,7 +230,7 @@ class WatchEngineTest {
                 watch(threshold = 1, windowDays = 7, expectedPer = ExpectedPer.DAY),
                 allEvents = List(eventCount) { event(millisAtDay(9)) },
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             ).shouldFire
 
         assertFalse(fires(6)) // 6/7 ≈ 0.857 per day, short of 1/day
@@ -248,7 +247,7 @@ class WatchEngineTest {
                 watch(threshold = 7, windowDays = 7, expectedPer = ExpectedPer.WEEK),
                 allEvents = List(eventCount) { event(millisAtDay(9)) },
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             ).shouldFire
 
         assertFalse(fires(6)) // (6/7)*7 = 6 per week, short of 7/week
@@ -265,7 +264,7 @@ class WatchEngineTest {
                 watch(threshold = 30, windowDays = 7, expectedPer = ExpectedPer.MONTH),
                 allEvents = List(eventCount) { event(millisAtDay(9)) },
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             ).shouldFire
 
         assertFalse(fires(6)) // (6/7)*30 ≈ 25.7 per month, short of 30/month
@@ -282,7 +281,7 @@ class WatchEngineTest {
                 watch(threshold = 90, windowDays = 7, expectedPer = ExpectedPer.QUARTER),
                 allEvents = List(eventCount) { event(millisAtDay(9)) },
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             ).shouldFire
 
         assertFalse(fires(6)) // (6/7)*90 ≈ 77.1 per quarter, short of 90/quarter
@@ -307,7 +306,7 @@ class WatchEngineTest {
                     watch(threshold = 1, windowDays = windowDays, expectedPer = ExpectedPer.DAY),
                     allEvents = List(eventCount) { event(eventDay) },
                     now = now,
-                    durationMode = DurationMode.NONE,
+                    tracksDuration = false,
                 ).shouldFire
 
             assertFalse("windowDays=$windowDays one event short", fires(windowDays - 1))
@@ -328,7 +327,7 @@ class WatchEngineTest {
                 watch(threshold = 3, windowDays = 10, expectedPer = ExpectedPer.WEEK),
                 allEvents = events,
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             )
 
         assertFalse(result.shouldFire)
@@ -338,7 +337,7 @@ class WatchEngineTest {
 
     @Test
     fun `evaluateOften DAYS_ACTIVE metric counts distinct active days, not raw event count`() {
-        // The "recurring fights" scenario (mirrors VerdictEngineTest): 3 overlapping START_STOP
+        // The "recurring fights" scenario (mirrors VerdictEngineTest): 3 overlapping duration
         // events span 24 distinct days out of a 30-day window, but only 3 raw events.
         val now = millisAtDay(30)
         val events =
@@ -353,14 +352,14 @@ class WatchEngineTest {
                 watch(threshold = 4, windowDays = 30, expectedPer = ExpectedPer.MONTH, metric = VerdictMetric.OCCURRENCE_COUNT),
                 allEvents = events,
                 now = now,
-                durationMode = DurationMode.START_STOP,
+                tracksDuration = true,
             )
         val daysActiveResult =
             evaluateOften(
                 watch(threshold = 4, windowDays = 30, expectedPer = ExpectedPer.MONTH, metric = VerdictMetric.DAYS_ACTIVE),
                 allEvents = events,
                 now = now,
-                durationMode = DurationMode.START_STOP,
+                tracksDuration = true,
             )
 
         assertFalse(occurrenceResult.shouldFire) // 3 raw events per month, short of 4/month
@@ -379,7 +378,7 @@ class WatchEngineTest {
                 watch(threshold = 1, windowDays = 7, minIntensity = 3),
                 allEvents = events,
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             )
 
         assertFalse(result.shouldFire)
@@ -395,7 +394,7 @@ class WatchEngineTest {
                 watch(threshold = 1, windowDays = 7, minIntensity = 3),
                 allEvents = events,
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             )
 
         assertFalse(result.shouldFire)
@@ -411,7 +410,7 @@ class WatchEngineTest {
                 watch(threshold = 1, windowDays = 7, minIntensity = 3),
                 allEvents = events,
                 now = now,
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
             )
 
         assertTrue(result.shouldFire)
@@ -432,7 +431,7 @@ class WatchEngineTest {
                 watch(threshold = 1, windowDays = 7),
                 allEvents = listOf(stillActiveDuringWindow),
                 now = now,
-                durationMode = DurationMode.MANUAL,
+                tracksDuration = true,
             )
 
         assertTrue(result.shouldFire)
@@ -448,7 +447,7 @@ class WatchEngineTest {
                 watch(threshold = 1, windowDays = 7),
                 allEvents = listOf(endedBeforeWindow),
                 now = now,
-                durationMode = DurationMode.MANUAL,
+                tracksDuration = true,
             )
 
         assertFalse(result.shouldFire)
@@ -524,7 +523,7 @@ class WatchEngineTest {
 
     @Test
     fun `silenceAnchorForEvents is null with no events`() {
-        assertNull(silenceAnchorForEvents(emptyList(), DurationMode.NONE, now = millisAtDay(30)))
+        assertNull(silenceAnchorForEvents(emptyList(), false, now = millisAtDay(30)))
     }
 
     @Test
@@ -535,56 +534,40 @@ class WatchEngineTest {
                 testEvent(id = 2L, occurredAt = millisAtDay(15), endedAt = millisAtDay(20)),
             )
 
-        assertEquals(millisAtDay(20), silenceAnchorForEvents(events, DurationMode.MANUAL, now = millisAtDay(30)))
+        assertEquals(millisAtDay(20), silenceAnchorForEvents(events, true, now = millisAtDay(30)))
     }
 
     @Test
-    fun `silenceAnchorForEvents anchors on now while a START_STOP event is still running`() {
+    fun `silenceAnchorForEvents anchors on now while an open event is still running`() {
         val events = listOf(testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = null))
 
-        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, DurationMode.START_STOP, now = millisAtDay(30)))
+        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, true, now = millisAtDay(30)))
     }
 
     @Test
-    fun `silenceAnchorForEvents anchors on now while a MANUAL event's endedAt hasn't elapsed yet`() {
+    fun `silenceAnchorForEvents anchors on now while a stated endedAt hasn't elapsed yet`() {
         val events = listOf(testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = millisAtDay(40)))
 
-        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, DurationMode.MANUAL, now = millisAtDay(30)))
+        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, true, now = millisAtDay(30)))
     }
 
     @Test
-    fun `silenceAnchorForEvents anchors on now with several START_STOP events running at once`() {
+    fun `silenceAnchorForEvents anchors on now with several open events running at once`() {
         val events =
             listOf(
                 testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = null),
                 testEvent(id = 2L, occurredAt = millisAtDay(5), endedAt = null),
             )
 
-        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, DurationMode.START_STOP, now = millisAtDay(30)))
+        assertEquals(millisAtDay(30), silenceAnchorForEvents(events, true, now = millisAtDay(30)))
     }
 
     @Test
     fun `silenceAnchorForEvents anchors on the latest occurredAt for a Case that no longer tracks duration`() {
         // Same event as the duration-tracking test above (ran days 2..10) but read as a point
-        // when durationMode is NONE -- the stored endedAt is ignored (spec §9/§10).
+        // when the Case doesn't track duration -- the stored endedAt is ignored (spec §9/§10).
         val events = listOf(testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = millisAtDay(10)))
 
-        assertEquals(millisAtDay(2), silenceAnchorForEvents(events, DurationMode.NONE, now = millisAtDay(30)))
-    }
-
-    @Test
-    fun `silenceAnchorForEvents falls back to occurredAt for a MANUAL event with no recorded duration`() {
-        // Regression: getLatestEventEndForCase runs MAX(IFNULL(endedAt, occurredAt)) in SQL, so an
-        // end-less MANUAL event isn't excluded from the max -- it contributes its own occurredAt.
-        // The most recent event here (day 25) has no duration entered; a version that dropped
-        // null-endedAt events outright would wrongly anchor on the earlier event's endedAt (day 10)
-        // instead, understating how recently this Case was actually active.
-        val events =
-            listOf(
-                testEvent(id = 1L, occurredAt = millisAtDay(2), endedAt = millisAtDay(10)),
-                testEvent(id = 2L, occurredAt = millisAtDay(25), endedAt = null),
-            )
-
-        assertEquals(millisAtDay(25), silenceAnchorForEvents(events, DurationMode.MANUAL, now = millisAtDay(30)))
+        assertEquals(millisAtDay(2), silenceAnchorForEvents(events, false, now = millisAtDay(30)))
     }
 }

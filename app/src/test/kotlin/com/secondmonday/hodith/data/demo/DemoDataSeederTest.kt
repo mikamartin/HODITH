@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.data.demo
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.WatchKind
@@ -354,8 +353,8 @@ class DemoDataSeederTest {
         runTest {
             seeder.seed()
 
-            // Tantrum is START_STOP with ongoingEventCount 0, so nothing on it should be left open
-            // — a guard that regular START_STOP events still get a real endedAt.
+            // Tantrum tracks duration with ongoingEventCount 0, so nothing on it should be left open
+            // — a guard that regular duration-tracked events still get a real endedAt.
             val tantrum = repository.cases.value.single { it.name == "Tantrum" }
             assertTrue(repository.events.value.none { it.caseId == tantrum.id && it.endedAt == null })
         }
@@ -365,14 +364,14 @@ class DemoDataSeederTest {
         runTest {
             seeder.seed()
 
-            val startStopCaseIds =
+            val trackingCaseIds =
                 repository.cases.value
-                    .filter { it.durationMode == DurationMode.START_STOP }
+                    .filter { it.tracksDuration }
                     .map { it.id }
                     .toSet()
             val stale =
                 repository.events.value.any {
-                    it.caseId in startStopCaseIds && it.endedAt == null && NOW_MILLIS - it.occurredAt >= MILLIS_PER_DAY
+                    it.caseId in trackingCaseIds && it.endedAt == null && NOW_MILLIS - it.occurredAt >= MILLIS_PER_DAY
                 }
             assertTrue(stale)
         }
@@ -461,7 +460,7 @@ class DemoDataSeederTest {
             watches.filter { it.minIntensity != null }.forEach { assertTrue(casesById.getValue(it.caseId).intensityEnabled) }
             watches
                 .filter { it.metric == VerdictMetric.DAYS_ACTIVE }
-                .forEach { assertTrue(casesById.getValue(it.caseId).durationMode != DurationMode.NONE) }
+                .forEach { assertTrue(casesById.getValue(it.caseId).tracksDuration) }
         }
 
     @Test
@@ -494,9 +493,14 @@ class DemoDataSeederTest {
                 val events = repository.events.value.filter { it.caseId == case.id }
                 val decision =
                     when (watch.kind) {
-                        WatchKind.OFTEN -> evaluateOften(watch, events, NOW_MILLIS, case.durationMode)
+                        WatchKind.OFTEN -> evaluateOften(watch, events, NOW_MILLIS, case.tracksDuration)
                         WatchKind.QUIET ->
-                            evaluateQuiet(watch, silenceAnchorForEvents(events, case.durationMode, NOW_MILLIS), case.createdAt, NOW_MILLIS)
+                            evaluateQuiet(
+                                watch,
+                                silenceAnchorForEvents(events, case.tracksDuration, NOW_MILLIS),
+                                case.createdAt,
+                                NOW_MILLIS,
+                            )
                     }
                 assertEquals("${case.name} ${watch.kind} would fire on the first evaluation", false, decision.shouldFire)
             }

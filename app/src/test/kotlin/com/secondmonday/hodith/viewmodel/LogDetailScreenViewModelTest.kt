@@ -2,7 +2,6 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.testsupport.testCase
@@ -48,7 +47,7 @@ class LogDetailScreenViewModelTest {
     fun `loads the event's fields and its Case's config into the draft`() =
         runTest {
             repository.cases.value =
-                listOf(testCase(id = caseId, durationMode = DurationMode.MANUAL, intensityEnabled = true))
+                listOf(testCase(id = caseId, tracksDuration = true, intensityEnabled = true))
             val eventId =
                 repository.insertEvent(
                     testEvent(caseId = caseId, occurredAt = 0L, endedAt = 45 * 60_000L, intensity = 3, note = "kept"),
@@ -57,11 +56,11 @@ class LogDetailScreenViewModelTest {
 
             viewModel(eventId).uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(DurationMode.MANUAL, state.durationMode)
+                assertTrue(state.tracksDuration)
                 assertTrue(state.intensityEnabled)
                 assertEquals("kept", state.initialDraft?.note)
                 assertEquals(3, state.initialDraft?.intensity)
-                assertEquals("45", state.initialDraft?.durationAmount)
+                assertEquals("45", state.initialDraft?.minutesInput)
                 assertEquals(listOf("focus"), state.initialDraft?.tags)
                 cancelAndIgnoreRemainingEvents()
             }

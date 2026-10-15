@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
 import app.cash.turbine.test
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
@@ -44,8 +43,8 @@ class HomeViewModelTest {
         id: Long = 1L,
         name: String = "Coffee",
         logFlow: LogFlow = LogFlow.ONE_TAP,
-        durationMode: DurationMode = DurationMode.NONE,
-    ) = Fixtures.case(id = id, name = name, icon = "☕️", logFlow = logFlow, durationMode = durationMode)
+        tracksDuration: Boolean = false,
+    ) = Fixtures.case(id = id, name = name, icon = "☕️", logFlow = logFlow, tracksDuration = tracksDuration)
 
     private fun testEvent(
         caseId: Long = 1L,
@@ -119,7 +118,7 @@ class HomeViewModelTest {
     @Test
     fun `onQuickLogTap on an ongoing START_STOP case starts a second concurrent event`() =
         runTest {
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(testCase(tracksDuration = true))
             repository.events.value = listOf(testEvent(endedAt = null))
             val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
 
@@ -140,7 +139,7 @@ class HomeViewModelTest {
     @Test
     fun `onQuickLogTap recombination happens synchronously under the injected test dispatcher`() =
         runTest {
-            repository.cases.value = listOf(testCase(durationMode = DurationMode.START_STOP))
+            repository.cases.value = listOf(testCase(tracksDuration = true))
             repository.events.value = listOf(testEvent(endedAt = null))
             val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
 
@@ -206,7 +205,7 @@ class HomeViewModelTest {
     @Test
     fun `saveLogSheetEvent inserts a new event with tags and clears the sheet`() =
         runTest {
-            repository.cases.value = listOf(testCase(logFlow = LogFlow.DETAIL_SHEET, durationMode = DurationMode.NONE))
+            repository.cases.value = listOf(testCase(logFlow = LogFlow.DETAIL_SHEET, tracksDuration = false))
             val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
             viewModel.uiState.test {
                 val row = awaitLoadedItem { it.isLoading }.cases.single()
@@ -235,7 +234,7 @@ class HomeViewModelTest {
     fun `saveLogSheetEvent on a running START_STOP case starts a second concurrent event`() =
         runTest {
             repository.cases.value =
-                listOf(testCase(logFlow = LogFlow.DETAIL_SHEET, durationMode = DurationMode.START_STOP))
+                listOf(testCase(logFlow = LogFlow.DETAIL_SHEET, tracksDuration = true))
             repository.events.value = listOf(testEvent(endedAt = null))
             val viewModel = HomeViewModel(repository, settingsRepository, clock, defaultDispatcher)
             viewModel.uiState.test {

@@ -5,7 +5,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.VerdictMetric
@@ -87,7 +86,7 @@ class CaseDetailWatchesTabTest {
     private fun setTabContent(
         watches: List<WatchEntity> = emptyList(),
         events: List<EventEntity> = emptyList(),
-        durationMode: DurationMode = DurationMode.NONE,
+        tracksDuration: Boolean = false,
         intensityEnabled: Boolean = false,
         checkInsEnabled: Boolean = true,
         onCheckInToggle: (Boolean) -> Unit = {},
@@ -101,7 +100,7 @@ class CaseDetailWatchesTabTest {
                     WatchesUiState(
                         watches = watches,
                         events = events,
-                        durationMode = durationMode,
+                        tracksDuration = tracksDuration,
                         intensityEnabled = intensityEnabled,
                         checkInsEnabled = checkInsEnabled,
                         caseCreatedAt = 0L,
@@ -204,7 +203,7 @@ class CaseDetailWatchesTabTest {
         events: List<EventEntity>,
     ): VerdictResult {
         val (expectation, filtered) = expectationInputsFor(watch, events, NOW)
-        return computeVerdict(expectation, filtered, NOW, DurationMode.NONE)
+        return computeVerdict(expectation, filtered, NOW, tracksDuration = false)
     }
 
     private fun settingsLine(
@@ -356,7 +355,7 @@ class CaseDetailWatchesTabTest {
     // ---- WatchEditorSheet ----
 
     private fun setEditorContent(
-        durationMode: DurationMode = DurationMode.NONE,
+        tracksDuration: Boolean = false,
         intensityEnabled: Boolean = false,
         editing: WatchEntity? = null,
         onDismiss: () -> Unit = {},
@@ -366,7 +365,7 @@ class CaseDetailWatchesTabTest {
         composeTestRule.setHodithContent {
             WatchEditorSheet(
                 voice = PlainVoice,
-                durationMode = durationMode,
+                tracksDuration = tracksDuration,
                 intensityEnabled = intensityEnabled,
                 editing = editing,
                 onDismiss = onDismiss,
@@ -440,13 +439,13 @@ class CaseDetailWatchesTabTest {
 
     @Test
     fun editor_measurePicker_hiddenForANonDurationTrackingCase() {
-        setEditorContent(durationMode = DurationMode.NONE)
+        setEditorContent(tracksDuration = false)
         composeTestRule.onNodeWithText(PlainVoice.watchesMetricLabel).assertDoesNotExist()
     }
 
     @Test
     fun editor_measurePicker_shownForADurationTrackingCase() {
-        setEditorContent(durationMode = DurationMode.MANUAL)
+        setEditorContent(tracksDuration = true)
         composeTestRule.onNodeWithText(PlainVoice.watchesMetricLabel).assertExists()
     }
 

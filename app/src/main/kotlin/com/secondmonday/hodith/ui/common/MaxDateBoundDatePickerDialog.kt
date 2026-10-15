@@ -14,10 +14,12 @@ import com.secondmonday.hodith.ui.voice.Voice
 
 /**
  * A plain `DatePickerDialog` + `DatePicker`, bound by a ceiling-only [SelectableDates] (no date
- * after [maxDateUtcMillis] is pickable) — shared by the Log sheet's own start/end date picker
- * (ceiling: "now") and Settings' delete-data cutoff date picker (ceiling: the chosen cutoff's own
- * max). Both read/write UTC-midnight millis, matching how Material3's `DatePicker` itself works;
- * callers own converting to/from their local timestamp.
+ * after [maxDateUtcMillis] is pickable) — shared by the Log sheet's own start-time date picker
+ * (ceiling: "now" — an event can't start in the future) and Settings' delete-data cutoff date
+ * picker (ceiling: the chosen cutoff's own max). The Log sheet's end-time picker has no ceiling at
+ * all (a future pick states a planned/expected duration), so it doesn't use this. Both read/write
+ * UTC-midnight millis, matching how Material3's `DatePicker` itself works; callers own converting
+ * to/from their local timestamp.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

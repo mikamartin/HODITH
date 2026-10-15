@@ -3,7 +3,6 @@ package com.secondmonday.hodith.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.domain.Clock
@@ -18,7 +17,7 @@ import javax.inject.Inject
 data class TagsListUiState(
     val caseIcon: String = "",
     val caseName: String = "",
-    val durationMode: DurationMode = DurationMode.NONE,
+    val tracksDuration: Boolean = false,
     val totalEventCount: Int = 0,
     val distinctTagCount: Int = 0,
     val taggedEventCount: Int = 0,
@@ -53,7 +52,7 @@ class TagsListViewModel
                         TagsListUiState(
                             caseIcon = insights.case.icon,
                             caseName = insights.case.name,
-                            durationMode = insights.case.durationMode,
+                            tracksDuration = insights.case.tracksDuration,
                             totalEventCount = stats?.totalEventCount ?: 0,
                             distinctTagCount = stats?.distinctTagCount ?: 0,
                             taggedEventCount = stats?.taggedEventCount ?: 0,

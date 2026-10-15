@@ -93,9 +93,9 @@ class WidgetLogTrampolineActivityTest {
             val scenario = ActivityScenario.launch<WidgetLogTrampolineActivity>(intent)
 
             composeTestRule.waitUntil(timeoutMillis = 5_000) {
-                composeTestRule.onAllNodesWithText(PlainVoice.logSheetSaveButton).fetchSemanticsNodes().isNotEmpty()
+                composeTestRule.onAllNodesWithText(PlainVoice.logSheetCreateAction).fetchSemanticsNodes().isNotEmpty()
             }
-            composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+            composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
             var attempts = 0
             while (scenario.state != Lifecycle.State.DESTROYED && attempts < 50) {

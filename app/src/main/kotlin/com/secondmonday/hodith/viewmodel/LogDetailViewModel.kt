@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.offsetMinutesAt
@@ -14,31 +13,24 @@ import java.time.ZoneOffset
 internal const val EVENT_NOTE_MAX_LENGTH = 280
 
 /**
- * Unit the Manual-mode duration amount is typed in (spec §6). Storage is always millis — this
- * is only how the integer in [LogDraft.durationAmount] is scaled, so a multi-day event doesn't
- * mean typing thousands of minutes. Integer amounts only (the field caps digits, matching
- * [com.secondmonday.hodith.ui.common.filterDigitInput]).
+ * Decomposes an elapsed duration into whole days/hours/minutes — no decimals anywhere: "1.5 days"
+ * is just "1" day + "12" hours (spec §6 Story U2's Days/Hours/Minutes duration control).
  */
-enum class DurationUnit(
-    val millis: Long,
-) {
-    MINUTES(MILLIS_PER_MINUTE),
-    HOURS(MILLIS_PER_HOUR),
-    DAYS(MILLIS_PER_DAY),
+internal fun decomposeDuration(durationMillis: Long): Triple<Long, Long, Long> {
+    val positive = durationMillis.coerceAtLeast(0L)
+    val days = positive / MILLIS_PER_DAY
+    val remainderAfterDays = positive % MILLIS_PER_DAY
+    val hours = remainderAfterDays / MILLIS_PER_HOUR
+    val minutes = (remainderAfterDays % MILLIS_PER_HOUR) / MILLIS_PER_MINUTE
+    return Triple(days, hours, minutes)
 }
 
-/**
- * The largest unit that renders [durationMillis] as a whole number, so an event stored as an
- * exact N hours or N days loads back onto that unit rather than a big minute count; anything
- * that doesn't divide cleanly (and any non-positive value) falls back to minutes.
- */
-internal fun durationUnitFor(durationMillis: Long): DurationUnit =
-    when {
-        durationMillis <= 0L -> DurationUnit.MINUTES
-        durationMillis % MILLIS_PER_DAY == 0L -> DurationUnit.DAYS
-        durationMillis % MILLIS_PER_HOUR == 0L -> DurationUnit.HOURS
-        else -> DurationUnit.MINUTES
-    }
+/** Inverse of [decomposeDuration]. */
+internal fun composeDuration(
+    days: Long,
+    hours: Long,
+    minutes: Long,
+): Long = days * MILLIS_PER_DAY + hours * MILLIS_PER_HOUR + minutes * MILLIS_PER_MINUTE
 
 /**
  * Draft state for [com.secondmonday.hodith.ui.logsheet.LogDetailSheet], the log detail sheet
@@ -51,16 +43,21 @@ internal fun durationUnitFor(durationMillis: Long): DurationUnit =
 data class LogDraft(
     val occurredAt: Long,
     val intensity: Int?,
-    /** MANUAL mode's typed duration amount, expressed in [durationUnit]s. Digits only; blank means no duration. */
-    val durationAmount: String,
-    /** Unit [durationAmount] is entered in (MANUAL mode only). */
-    val durationUnit: DurationUnit,
     val note: String,
     val tags: List<String>,
-    /** `START_STOP` mode's editable end time (spec §6) — null means still ongoing. */
+    /**
+     * Ongoing/ended state (spec §6 Story U2): `null` means open-ended (still ongoing, no stated
+     * end); a stated instant may already be in the past (Ended) or still ahead of `now` (a
+     * planned/projected duration, still Ongoing) — [isStillRunning][com.secondmonday.hodith.domain.isStillRunning]
+     * is the single rule for telling those apart. Never auto-filled with a live-elapsed guess —
+     * only [applyEndedAt]/[withDurationInput] (typing a value, picking an end date/time, or
+     * tapping Stop) ever set it.
+     */
     val endedAt: Long?,
-    /** `NONE` mode's pass-through — that mode has no duration control at all in the sheet. */
-    val existingEndedAt: Long?,
+    /** [endedAt] decomposed into Days/Hours/Minutes text fields, kept in sync with it by [applyEndedAt]/[withDurationInput] — blank together exactly when [endedAt] is null. */
+    val daysInput: String,
+    val hoursInput: String,
+    val minutesInput: String,
 )
 
 internal data class TagDiff(
@@ -78,95 +75,83 @@ internal fun draftFrom(
         return LogDraft(
             occurredAt = now,
             intensity = null,
-            durationAmount = "",
-            durationUnit = DurationUnit.MINUTES,
             note = "",
             tags = emptyList(),
             endedAt = null,
-            existingEndedAt = null,
+            daysInput = "",
+            hoursInput = "",
+            minutesInput = "",
         )
     }
-    // A non-positive stored span (a zero-length point event, or bad data from an old round-trip)
-    // has no duration to edit — leave the amount blank rather than showing "0" or a negative.
-    val (durationAmount, durationUnit) = durationFieldsFor(event.endedAt?.let { it - event.occurredAt })
+    val fields = event.endedAt?.let { decomposeDuration(it - event.occurredAt) }
     return LogDraft(
         occurredAt = event.occurredAt,
         intensity = event.intensity,
-        durationAmount = durationAmount,
-        durationUnit = durationUnit,
         note = event.note.orEmpty(),
         tags = tags.map { it.name },
         endedAt = event.endedAt,
-        existingEndedAt = event.endedAt,
+        daysInput = fields?.first?.toString().orEmpty(),
+        hoursInput = fields?.second?.toString().orEmpty(),
+        minutesInput = fields?.third?.toString().orEmpty(),
     )
 }
 
 /**
- * The amount/unit [LogDraft.durationAmount]/[LogDraft.durationUnit] pair that renders
- * [durationMillis] back onto the MANUAL duration field — shared by [draftFrom] (loading an
- * existing event) and [LogDraft.stoppedNow] (capping a still-projected one at elapsed-so-far). A
- * non-positive or null span has no duration to show, so the amount is blank rather than "0".
+ * Commits [at] as the ongoing/ended instant, re-deriving the Days/Hours/Minutes fields from it —
+ * `null` blanks all three (open-ended); a non-null instant decomposes the elapsed span since
+ * [LogDraft.occurredAt]. The single place both the end date/time pickers and Stop/Start-again
+ * funnel through, so the fields and [LogDraft.endedAt] can never drift apart.
  */
-private fun durationFieldsFor(durationMillis: Long?): Pair<String, DurationUnit> {
-    val positiveMillis = durationMillis?.takeIf { it > 0L }
-    val unit = positiveMillis?.let(::durationUnitFor) ?: DurationUnit.MINUTES
-    val amount = positiveMillis?.let { (it / unit.millis).toString() }.orEmpty()
-    return amount to unit
-}
-
-/**
- * "Stop now" for a `MANUAL` draft whose computed `endedAt` is still in the future (spec §6): caps
- * the duration at elapsed-so-far rather than writing `endedAt` directly, since MANUAL has no
- * `endedAt` field of its own in the sheet — only [draft.durationAmount]/[draft.durationUnit]
- * (mirrors [com.secondmonday.hodith.ui.logsheet.LogDetailSheet]'s `START_STOP` "Stop now", which
- * sets `endedAt = now` on its own draft field). Edits the draft only — the user still taps Save to
- * persist, same as that `START_STOP` counterpart.
- */
-internal fun LogDraft.stoppedNow(now: Long): LogDraft {
-    val (durationAmount, durationUnit) = durationFieldsFor((now - occurredAt).takeIf { it > 0L })
-    return copy(durationAmount = durationAmount, durationUnit = durationUnit)
-}
-
-/**
- * Parses the duration/end-time field into an `endedAt`. MANUAL scales the typed amount by its
- * unit ([durationUnit]) and adds it to the start; START_STOP reads the sheet's own editable end
- * time ([endedAt] — null means still ongoing), clamped to `[occurredAt, now]` since a real end
- * *timestamp* can't precede its own start or land in the future (unlike MANUAL's amount, which
- * may deliberately project past `now` — see [LogDraft.toEventEntity]). NONE has no duration
- * control at all in the sheet, so [existingEndedAt] is passed through unchanged rather than
- * nulled out, preserving a duration logged while the case was still in a different `durationMode`.
- */
-internal fun computeEndedAt(
-    occurredAt: Long,
-    durationMode: DurationMode,
-    durationAmountInput: String,
-    durationUnit: DurationUnit,
-    endedAt: Long?,
-    existingEndedAt: Long?,
-    now: Long,
-): Long? =
-    when (durationMode) {
-        DurationMode.MANUAL ->
-            durationAmountInput.toIntOrNull()?.takeIf { it > 0 }?.let { occurredAt + it * durationUnit.millis }
-        DurationMode.START_STOP -> endedAt?.coerceIn(occurredAt, now)
-        DurationMode.NONE -> existingEndedAt
+internal fun LogDraft.applyEndedAt(at: Long?): LogDraft =
+    if (at == null) {
+        copy(endedAt = null, daysInput = "", hoursInput = "", minutesInput = "")
+    } else {
+        val (days, hours, minutes) = decomposeDuration(at - occurredAt)
+        copy(endedAt = at, daysInput = days.toString(), hoursInput = hours.toString(), minutesInput = minutes.toString())
     }
 
+/** "Stop now" (spec §6 Story U2): commits the real elapsed duration as of [now], never before [LogDraft.occurredAt]. */
+internal fun LogDraft.stoppedNow(now: Long): LogDraft = applyEndedAt(now.coerceAtLeast(occurredAt))
+
+/** "Start again" (spec §6 Story U2): reopens an Ended draft back to open-ended. */
+internal fun LogDraft.startedAgain(): LogDraft = applyEndedAt(null)
+
 /**
- * [now] is a hard floor on [occurredAt] only, not just a UI nicety: an event can never be
+ * Re-derives [LogDraft.endedAt] from the typed Days/Hours/Minutes fields (spec §6 Story U2) —
+ * `null` (open-ended) when all three are blank, otherwise [LogDraft.occurredAt] plus
+ * [composeDuration] of the three, each parsed permissively (a non-blank, non-numeric value reads
+ * as 0 rather than rejecting the keystroke). This is how a planned/expected duration gets stated —
+ * the resulting `endedAt` may land in the future, which keeps the draft Ongoing rather than
+ * marking it Ended.
+ */
+internal fun LogDraft.withDurationInput(
+    days: String = daysInput,
+    hours: String = hoursInput,
+    minutes: String = minutesInput,
+): LogDraft {
+    val endedAt =
+        if (days.isBlank() && hours.isBlank() && minutes.isBlank()) {
+            null
+        } else {
+            occurredAt + composeDuration(days.toLongOrNull() ?: 0L, hours.toLongOrNull() ?: 0L, minutes.toLongOrNull() ?: 0L)
+        }
+    return copy(daysInput = days, hoursInput = hours, minutesInput = minutes, endedAt = endedAt)
+}
+
+/**
+ * [now] is a hard floor on [LogDraft.occurredAt] only, not just a UI nicety: an event can never be
  * persisted as having *started* in the future, regardless of what the date/time pickers allowed
  * through (defense in depth — the pickers also restrict this, but this is the authoritative
- * guard). MANUAL's `endedAt` is deliberately NOT clamped: a duration entered at logging time is
- * often a stated/expected length ("started now, this kind of thing runs about 2 hours") rather
- * than a fact only knowable in hindsight, so it's allowed to project past `now`. START_STOP's
- * `endedAt` IS clamped (inside [computeEndedAt]) since it's a real timestamp, not a stated
- * length.
+ * guard). [LogDraft.endedAt] is passed through exactly as the draft holds it — unlike `occurredAt`,
+ * it's deliberately not clamped to `now`: a stated/expected duration ("started now, this kind of
+ * thing runs about 2 hours") is allowed to project past `now`, same as an explicitly-stopped real
+ * timestamp is always already `<= now` by construction ([LogDraft.stoppedNow]) or validated by the
+ * end-time picker's own rejection notice before Save is even enabled.
  */
 internal fun LogDraft.toEventEntity(
     caseId: Long,
     existingId: Long,
     loggedAt: Long,
-    durationMode: DurationMode,
     now: Long,
 ): EventEntity {
     val clampedOccurredAt = occurredAt.coerceAtMost(now)
@@ -174,7 +159,7 @@ internal fun LogDraft.toEventEntity(
         id = existingId,
         caseId = caseId,
         occurredAt = clampedOccurredAt,
-        endedAt = computeEndedAt(clampedOccurredAt, durationMode, durationAmount, durationUnit, endedAt, existingEndedAt, now),
+        endedAt = endedAt,
         intensity = intensity,
         note = note.trim().take(EVENT_NOTE_MAX_LENGTH).takeIf { it.isNotEmpty() },
         loggedAt = loggedAt,
@@ -217,17 +202,11 @@ internal fun validateStartEdit(
         else -> null
     }
 
-/** Whether an end-field pick of [candidate] should be applied, given the current [occurredAt] and [now]. */
+/** Whether an end-field pick of [candidate] should be applied, given the current [occurredAt]. Unlike [validateStartEdit], a future candidate is valid — it's how a planned/expected duration gets stated (spec §6 Story U2). */
 internal fun validateEndEdit(
     candidate: Long,
     occurredAt: Long,
-    now: Long,
-): TimeEditRejection? =
-    when {
-        candidate > now -> TimeEditRejection.FUTURE
-        candidate < occurredAt -> TimeEditRejection.BEFORE_START
-        else -> null
-    }
+): TimeEditRejection? = if (candidate < occurredAt) TimeEditRejection.BEFORE_START else null
 
 /**
  * Applies a date picked from Material3's `DatePicker` (whose `selectedDateMillis` is always
@@ -332,7 +311,6 @@ internal fun planSaveEvent(
     draft: LogDraft,
     existingEvent: EventEntity?,
     originalTags: List<TagEntity>,
-    durationMode: DurationMode,
     now: Long,
 ): SaveEventPlan {
     val loggedAt = existingEvent?.loggedAt ?: now
@@ -341,7 +319,6 @@ internal fun planSaveEvent(
             caseId = caseId,
             existingId = existingEvent?.id ?: 0L,
             loggedAt = loggedAt,
-            durationMode = durationMode,
             now = now,
         )
     return SaveEventPlan(

@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.testsupport.millisAtDay
 import org.junit.Assert.assertEquals
@@ -20,7 +19,7 @@ private fun case(
     icon = "icon",
     createdAt = createdAt,
     logFlow = LogFlow.ONE_TAP,
-    durationMode = DurationMode.NONE,
+    tracksDuration = false,
     intensityEnabled = false,
     checkInsEnabled = checkInsEnabled,
     lastCheckInAt = lastCheckInAt,

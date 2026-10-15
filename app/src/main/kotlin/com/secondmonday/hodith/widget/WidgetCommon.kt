@@ -111,7 +111,7 @@ internal val CaseIdParam = ActionParameters.Key<Long>(EXTRA_CASE_ID)
 
 /**
  * The 12h/24h clock-format preference, for the one absolute clock time either widget shows (a
- * `MANUAL` event's expected end) — read from Settings like [WidgetLogTrampolineActivity]'s own log
+ * still-running event's expected end) — read from Settings like [WidgetLogTrampolineActivity]'s own log
  * sheet does, unlike the [WidgetPalette]/[PlainVoice][com.secondmonday.hodith.ui.voice.PlainVoice]
  * copy/palette both widgets otherwise pin regardless of the user's in-app theme (DEV_PLAYBOOK.md
  * §4): 12h/24h is a correctness preference, not a theme choice, so honoring it here is the same

@@ -27,11 +27,15 @@ import androidx.room.migration.Migration
  * than a migrated `triggers`, so existing trigger rows are discarded. v14 drops the `notifications`
  * table entirely (see [DropNotificationsTable]) now Notification is renamed to Watch; `watches` is
  * a same-shape fresh table, so existing Notification rows are discarded (no production installs
- * exist yet). `@Database.version` can't be read back via reflection (Room's annotation uses
- * [AnnotationRetention.BINARY]), so this is the one place migration-guard tests should get the
- * current version from instead of a second hardcoded literal.
+ * exist yet). v15 drops `cases.durationMode` (see [DropDurationModeColumn]) and adds
+ * `cases.tracksDuration` (a pure additive column with a static `false` default) now the 3-way
+ * `DurationMode` enum is replaced by a single on/off flag — no production installs exist yet, so
+ * old rows simply read as not tracking duration until re-set. `@Database.version` can't be read
+ * back via reflection (Room's annotation uses [AnnotationRetention.BINARY]), so this is the one
+ * place migration-guard tests should get the current version from instead of a second hardcoded
+ * literal.
  */
-const val HODITH_DATABASE_VERSION = 14
+const val HODITH_DATABASE_VERSION = 15
 
 /** Schema versions at or below this shipped without migrations; every version past it needs one. */
 const val SCHEMA_FREEZE_POINT = 6
@@ -56,6 +60,10 @@ class DropTriggersTable : AutoMigrationSpec
 @DeleteTable(tableName = "notifications")
 class DropNotificationsTable : AutoMigrationSpec
 
+/** v14 → v15: `cases.durationMode` dropped entirely (`DurationMode` replaced by `tracksDuration`). */
+@DeleteColumn(tableName = "cases", columnName = "durationMode")
+class DropDurationModeColumn : AutoMigrationSpec
+
 @Database(
     entities = [
         CaseEntity::class,
@@ -74,6 +82,7 @@ class DropNotificationsTable : AutoMigrationSpec
         AutoMigration(from = 11, to = 12, spec = DropHunchesTable::class),
         AutoMigration(from = 12, to = 13, spec = DropTriggersTable::class),
         AutoMigration(from = 13, to = 14, spec = DropNotificationsTable::class),
+        AutoMigration(from = 14, to = 15, spec = DropDurationModeColumn::class),
     ],
     exportSchema = true,
 )
@@ -95,6 +104,6 @@ abstract class HodithDatabase : RoomDatabase() {
          * annotation directly), so the schema-coverage guard counts them here. Bump when adding an
          * `AutoMigration` entry above.
          */
-        const val AUTO_MIGRATION_COUNT = 8
+        const val AUTO_MIGRATION_COUNT = 9
     }
 }

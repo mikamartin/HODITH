@@ -123,8 +123,8 @@ private fun <T> rememberSegmentedRowFontSizeHandle(options: List<Pair<T, String>
 }
 
 /**
- * Shared shape for a single-choice segmented row (Case Edit's logFlow/durationMode/check-in,
- * Settings' theme picker, Insights' frequency granularity). By default it is a full-width row with
+ * Shared shape for a single-choice segmented row (Case Edit's logFlow row, Settings' theme picker,
+ * Insights' frequency granularity). By default it is a full-width row with
  * a gap above it, for stacking under a section label; [stretchToFill] `= false` drops both so it
  * can sit inline beside a label instead. The row's own layout is applied before [modifier], so a
  * caller's modifier (a test tag, semantics) adds to it rather than replacing it.
@@ -311,16 +311,16 @@ private fun <T> BrightSegmentedChoiceRow(
 
 /**
  * Exercises [SegmentedChoiceRow] in both a two-option shape (Edit Case's logFlow row, with its
- * disabled-when-unavailable "One tap" option) and a three-option shape (durationMode/Settings'
- * theme picker), the two contexts named in PROGRESS.md's validation note for this control. Shared
- * across the Plain/Intense and Bright previews below since the content itself is decoration-style
- * agnostic -- [LocalCardDecorationStyle] is what picks [BrightSegmentedChoiceRow] vs. the M3
- * `SegmentedButton` branch.
+ * disabled-when-unavailable "One tap" option) and a three-option shape (Settings' theme picker,
+ * Insights' frequency granularity), the two contexts named in PROGRESS.md's validation note for
+ * this control. Shared across the Plain/Intense and Bright previews below since the content
+ * itself is decoration-style agnostic -- [LocalCardDecorationStyle] is what picks
+ * [BrightSegmentedChoiceRow] vs. the M3 `SegmentedButton` branch.
  */
 @Composable
 private fun SegmentedChoiceRowPreviewContent() {
     var logFlow by remember { mutableIntStateOf(0) }
-    var durationMode by remember { mutableIntStateOf(1) }
+    var granularity by remember { mutableIntStateOf(1) }
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         SegmentedChoiceRow(
             options = listOf(0 to "One tap", 1 to "Detail sheet"),
@@ -329,9 +329,9 @@ private fun SegmentedChoiceRowPreviewContent() {
             enabled = { it != 0 },
         )
         SegmentedChoiceRow(
-            options = listOf(0 to "None", 1 to "Manual", 2 to "Start/stop"),
-            selected = durationMode,
-            onSelect = { durationMode = it },
+            options = listOf(0 to "Day", 1 to "Week", 2 to "Month"),
+            selected = granularity,
+            onSelect = { granularity = it },
         )
     }
 }

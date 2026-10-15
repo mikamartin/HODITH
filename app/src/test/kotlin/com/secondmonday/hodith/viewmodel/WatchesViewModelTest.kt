@@ -2,7 +2,6 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.FakeHodithRepository
@@ -96,12 +95,12 @@ class WatchesViewModelTest {
         }
 
     @Test
-    fun `uiState carries the Case's durationMode, intensityEnabled, checkInsEnabled and events`() =
+    fun `uiState carries the Case's tracksDuration, intensityEnabled, checkInsEnabled and events`() =
         runTest {
             val case =
                 testCase(
                     id = caseId,
-                    durationMode = DurationMode.MANUAL,
+                    tracksDuration = true,
                     intensityEnabled = true,
                     checkInsEnabled = false,
                     createdAt = 500L,
@@ -111,7 +110,7 @@ class WatchesViewModelTest {
 
             viewModel().uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
-                assertEquals(DurationMode.MANUAL, state.durationMode)
+                assertTrue(state.tracksDuration)
                 assertTrue(state.intensityEnabled)
                 assertFalse(state.checkInsEnabled)
                 assertEquals(500L, state.caseCreatedAt)
@@ -271,7 +270,7 @@ class WatchesViewModelTest {
         val now = clock.nowMillis()
         val events = (1..20).map { testEvent(id = it.toLong(), caseId = caseId, occurredAt = now - it * MILLIS_PER_DAY) }
 
-        val state = watchCardState(watch, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+        val state = watchCardState(watch, events, tracksDuration = false, caseCreatedAt = 0L, now = now)
 
         assertEquals(WatchKind.OFTEN, state.kind)
         assertTrue((state.observedRate ?: 0.0) > 0.0)
@@ -285,7 +284,7 @@ class WatchesViewModelTest {
         val now = clock.nowMillis()
         val events = listOf(testEvent(id = 1L, caseId = caseId, occurredAt = now))
 
-        val state = watchCardState(watch, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+        val state = watchCardState(watch, events, tracksDuration = false, caseCreatedAt = 0L, now = now)
 
         assertEquals(ConfidenceTier.NO_VERDICT, state.verdictResult?.tier)
     }
@@ -308,7 +307,7 @@ class WatchesViewModelTest {
         val now = clock.nowMillis()
         val events = listOf(testEvent(id = 1L, caseId = caseId, occurredAt = now - 3 * MILLIS_PER_DAY))
 
-        val state = watchCardState(watch, events, DurationMode.NONE, caseCreatedAt = 0L, now = now)
+        val state = watchCardState(watch, events, tracksDuration = false, caseCreatedAt = 0L, now = now)
 
         assertEquals(WatchKind.QUIET, state.kind)
         assertEquals(3L, state.silentDays)
@@ -338,7 +337,7 @@ class WatchesViewModelTest {
             watchCardState(
                 watch,
                 emptyList<EventEntity>(),
-                DurationMode.NONE,
+                tracksDuration = false,
                 caseCreatedAt = now - 5 * MILLIS_PER_DAY,
                 now = now,
             )
@@ -352,7 +351,7 @@ class WatchesViewModelTest {
         val fired = oftenWatch(id = 1L, lastFiredAt = now - 2 * MILLIS_PER_DAY)
         val neverFired = oftenWatch(id = 2L, lastFiredAt = null)
 
-        assertEquals(2L, watchCardState(fired, emptyList(), DurationMode.NONE, 0L, now).firedDaysAgo)
-        assertNull(watchCardState(neverFired, emptyList(), DurationMode.NONE, 0L, now).firedDaysAgo)
+        assertEquals(2L, watchCardState(fired, emptyList(), false, 0L, now).firedDaysAgo)
+        assertNull(watchCardState(neverFired, emptyList(), false, 0L, now).firedDaysAgo)
     }
 }

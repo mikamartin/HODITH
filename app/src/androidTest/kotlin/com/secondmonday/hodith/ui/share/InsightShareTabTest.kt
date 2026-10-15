@@ -12,7 +12,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.TagEntity
@@ -60,7 +59,7 @@ private fun richEvents(): List<EventWithTags> =
     }
 
 /** A Case that tracks both duration and intensity. */
-private fun trackingCase() = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = true)
+private fun trackingCase() = testCase(id = 1L, tracksDuration = true, intensityEnabled = true)
 
 /** The hero's observed line contains this under every voice, so the hero is findable without knowing the exact day count. */
 private const val OBSERVED_LINE_FRAGMENT = "d observed"
@@ -226,7 +225,7 @@ class InsightShareTabTest {
         setContent(
             uiState =
                 storyState(
-                    case = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = true),
+                    case = testCase(id = 1L, tracksDuration = true, intensityEnabled = true),
                     events = richEvents(),
                 ),
         )
@@ -268,7 +267,7 @@ class InsightShareTabTest {
             tab = ShareTab.INSIGHTS,
             uiState =
                 storyState(
-                    case = testCase(id = 1L, durationMode = DurationMode.NONE, intensityEnabled = false),
+                    case = testCase(id = 1L, tracksDuration = false, intensityEnabled = false),
                     events = richEvents(),
                 ),
         )
@@ -283,7 +282,7 @@ class InsightShareTabTest {
             tab = ShareTab.INSIGHTS,
             uiState =
                 storyState(
-                    case = testCase(id = 1L, durationMode = DurationMode.MANUAL, intensityEnabled = false),
+                    case = testCase(id = 1L, tracksDuration = true, intensityEnabled = false),
                     events = richEvents(),
                 ),
         )

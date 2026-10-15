@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HistoryRowField
@@ -36,7 +35,7 @@ private fun millisAtDay(epochDay: Long): Long =
         .toEpochMilli()
 
 private fun testCase(
-    durationMode: DurationMode = DurationMode.NONE,
+    tracksDuration: Boolean = false,
     intensityEnabled: Boolean = false,
 ) = CaseEntity(
     id = 1L,
@@ -44,7 +43,7 @@ private fun testCase(
     icon = "☕",
     createdAt = millisAtDay(0),
     logFlow = LogFlow.ONE_TAP,
-    durationMode = durationMode,
+    tracksDuration = tracksDuration,
     intensityEnabled = intensityEnabled,
     checkInsEnabled = true,
     lastCheckInAt = null,
@@ -141,7 +140,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Story with no sections picked is the Summary beat alone`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
 
         val data = storyState(case, taggedInsightsState(case), selectedSections = emptySet())
 
@@ -232,7 +231,7 @@ class ShareCardStateTest {
 
     @Test
     fun `a single-event Case offers Rhythm but not Gaps, Streaks, Trends or Tags on the share card`() {
-        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
+        val case = testCase(tracksDuration = false, intensityEnabled = false)
         val oneEvent =
             listOf(
                 EventWithTags(
@@ -451,7 +450,7 @@ class ShareCardStateTest {
 
     @Test
     fun `duration and intensity stay null when selected but the Case doesn't track them`() {
-        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
+        val case = testCase(tracksDuration = false, intensityEnabled = false)
         val data =
             shareCardState(
                 case = case,
@@ -470,7 +469,7 @@ class ShareCardStateTest {
 
     @Test
     fun `duration and intensity appear when the Case tracks them and they're selected`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
         val data =
             shareCardState(
                 case = case,
@@ -483,7 +482,7 @@ class ShareCardStateTest {
                 generatedAtMillis = millisAtDay(NOW),
             )
 
-        // durationMode = MANUAL but no MANUAL-duration data was logged on these events, so
+        // tracksDuration = true but no duration data was logged on these events, so
         // computeDurationStats legitimately returns null here -- only intensity is asserted non-null.
         assertTrue(data.intensity != null)
     }
@@ -528,7 +527,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Square never carries Trends or Tags, even for a Case with tagged events`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
 
         val data = squareState(case, taggedInsightsState(case))
 
@@ -538,7 +537,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Square is unchanged by the Story-only section order and Tags`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
 
         val data = squareState(case, taggedInsightsState(case))
 
@@ -550,7 +549,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Square for a Case tracking neither shows Gaps and Rhythm only`() {
-        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
+        val case = testCase(tracksDuration = false, intensityEnabled = false)
 
         val data = squareState(case, readyInsightsState(case))
 
@@ -562,7 +561,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Square for a Case tracking intensity shows Intensity and no Rhythm`() {
-        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = true)
+        val case = testCase(tracksDuration = false, intensityEnabled = true)
 
         val data = squareState(case, readyInsightsState(case))
 
@@ -574,7 +573,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Square for a Case tracking duration shows Duration and no Rhythm`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = false)
+        val case = testCase(tracksDuration = true, intensityEnabled = false)
 
         val data = squareState(case, durationInsightsState(case))
 
@@ -587,7 +586,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Square for a Case tracking both shows Duration and Intensity and no Rhythm`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
 
         val data = squareState(case, durationInsightsState(case))
 
@@ -599,7 +598,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Square for a duration Case with no finished event yet drops the Duration panel without swapping in Rhythm`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = false)
+        val case = testCase(tracksDuration = true, intensityEnabled = false)
 
         val data = squareState(case, readyInsightsState(case))
 
@@ -695,7 +694,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Story Tags lists the three busiest tags, busiest first`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
 
         val data = storyState(case, taggedInsightsState(case), setOf(ShareInsightsSection.TAGS))
 
@@ -717,7 +716,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Story Tags is empty when not picked, even though the Case has tags`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
 
         val data = storyState(case, taggedInsightsState(case), setOf(ShareInsightsSection.GAPS))
 
@@ -735,7 +734,7 @@ class ShareCardStateTest {
 
     @Test
     fun `Story populates every picked section when the Case has data for all of them`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
         val stats = (taggedInsightsState(case) as InsightsTabState.Ready).stats
         val insightsState = readyWith(stats.copy(trends = listOf(ordinaryFinding(sampleCount = 6))))
 
@@ -925,7 +924,7 @@ class ShareCardStateTest {
 
     @Test
     fun `availableShareSections never offers Duration or Intensity for a Case that does not track them`() {
-        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
+        val case = testCase(tracksDuration = false, intensityEnabled = false)
         val stats = (readyInsightsState(case) as InsightsTabState.Ready).stats
 
         val sections = availableShareSections(stats)
@@ -936,7 +935,7 @@ class ShareCardStateTest {
 
     @Test
     fun `availableShareSections for a fully tracked, tagged Case lists Duration and Intensity and Tags`() {
-        val case = testCase(durationMode = DurationMode.MANUAL, intensityEnabled = true)
+        val case = testCase(tracksDuration = true, intensityEnabled = true)
         val stats = (taggedInsightsState(case) as InsightsTabState.Ready).stats
 
         val sections = availableShareSections(stats)
@@ -978,7 +977,7 @@ class ShareCardStateTest {
 
     @Test
     fun `historyShareCardState suppresses duration and intensity when the Case doesn't track them, even if selected`() {
-        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = false)
+        val case = testCase(tracksDuration = false, intensityEnabled = false)
         val events = listOf(historyShareEvent(day = 0, intensity = 3, durationMinutes = 30))
 
         val data =
@@ -1002,7 +1001,7 @@ class ShareCardStateTest {
 
     @Test
     fun `historyShareCardState omits a field from the row when the user turns it off, even if the Case tracks it`() {
-        val case = testCase(durationMode = DurationMode.NONE, intensityEnabled = true)
+        val case = testCase(tracksDuration = false, intensityEnabled = true)
         val events = listOf(historyShareEvent(day = 0, intensity = 3))
 
         val data =

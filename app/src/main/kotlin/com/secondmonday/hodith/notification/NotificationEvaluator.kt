@@ -1,12 +1,10 @@
 package com.secondmonday.hodith.notification
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.WatchKind
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.CheckInDecision
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.evaluateCheckIn
@@ -99,7 +97,7 @@ class NotificationEvaluator
                             // ([start, end)) — +1 so an event occurring at exactly `now` (e.g. the
                             // one that just triggered this immediate-eval hook) still counts.
                             val events = repo.eventsInWindow(case.id, 0L, now + 1)
-                            evaluateOften(watch, events, now, case.durationMode)
+                            evaluateOften(watch, events, now, case.tracksDuration)
                         }
                         WatchKind.QUIET -> {
                             evaluateQuiet(watch, silenceAnchorFor(repo, case, now), case.createdAt, now)
@@ -146,14 +144,13 @@ class NotificationEvaluator
         /**
          * The moment the silence clock counts from for `QUIET` and check-ins: the latest point
          * any event on the Case ended (spec §10 — a duration event's quiet stretch starts when it
-         * *ended*, not when it began), or [now] while the Case has an event still running — a
-         * `START_STOP` event with no `endedAt`, or a `MANUAL` event whose `endedAt` is still in the
-         * future (a stated/expected duration that hasn't elapsed yet) — so an active stretch never
-         * reads as silence. A Case that no longer tracks duration (`durationMode == NONE`, spec §9)
-         * reads every event as a point: silence counts from the latest `occurredAt`, ignoring any
-         * stored `endedAt`, so the notification/check-in clock agrees with the heatmap, gaps card
-         * and Big Picture, all of which collapse a non-tracking Case's spans. Null (⇒ count from
-         * Case creation) with no events.
+         * *ended*, not when it began), or [now] while the Case has an event still running — no
+         * `endedAt` at all, or an `endedAt` still in the future (a stated/expected duration that
+         * hasn't elapsed yet) — so an active stretch never reads as silence. A Case that doesn't
+         * track duration (spec §9) reads every event as a point: silence counts from the latest
+         * `occurredAt`, ignoring any stored `endedAt`, so the notification/check-in clock agrees
+         * with the heatmap, gaps card and Big Picture, all of which collapse a non-tracking Case's
+         * spans. Null (⇒ count from Case creation) with no events.
          *
          * [com.secondmonday.hodith.domain.silenceAnchorForEvents] implements this same rule (via
          * [com.secondmonday.hodith.domain.isStillRunning]) from an in-memory event list for the bell
@@ -165,9 +162,10 @@ class NotificationEvaluator
             case: CaseEntity,
             now: Long,
         ): Long? {
-            if (case.durationMode == DurationMode.START_STOP && repo.getOngoingEvent(case.id) != null) return now
-            if (case.durationMode == DurationMode.MANUAL && repo.hasEventEndingAfter(case.id, now)) return now
-            if (!case.durationMode.tracksDuration) return repo.getMostRecentEventForCase(case.id)?.occurredAt
+            if (case.tracksDuration && (repo.getOngoingEvent(case.id) != null || repo.hasEventEndingAfter(case.id, now))) {
+                return now
+            }
+            if (!case.tracksDuration) return repo.getMostRecentEventForCase(case.id)?.occurredAt
             return repo.getLatestEventEndForCase(case.id)
         }
     }

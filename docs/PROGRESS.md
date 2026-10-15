@@ -4,7 +4,7 @@ Main development (Phases 0–11) is complete. That build history lives in [CLEAN
 
 ## How this file is organised
 
-Items are grouped by status:
+Items are grouped by how they connect, not by status alone:
 
 - **Standalone** — no cross-dependencies; pick any when resources are thin.
 - **Deferred** — startable, but intentionally held back pending a trigger (usually real alpha usage) rather than gated on something external.

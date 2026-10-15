@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.VerdictMetric
@@ -192,7 +191,7 @@ class VerdictEngineTest {
         val now = millisAtDay(10)
         val windowStart = sinceStartWindowStart(caseCreatedAt, emptyList())
 
-        val result = computeVerdict(expectation(windowStart = windowStart), emptyList(), now, DurationMode.NONE)
+        val result = computeVerdict(expectation(windowStart = windowStart), emptyList(), now, false)
 
         assertEquals(ConfidenceTier.NO_VERDICT, result.tier)
         assertEquals(0, result.eventCount)
@@ -208,7 +207,7 @@ class VerdictEngineTest {
         val now = millisAtDay(40)
         val windowStart = sinceStartWindowStart(caseCreatedAt, listOf(retroEvent))
 
-        val result = computeVerdict(expectation(windowStart = windowStart), listOf(retroEvent), now, DurationMode.NONE)
+        val result = computeVerdict(expectation(windowStart = windowStart), listOf(retroEvent), now, false)
 
         // Window starts at day 0 (the retro-log), not day 30 (case creation) — 40 days, not 10.
         assertEquals(40L, result.windowDays)
@@ -220,7 +219,7 @@ class VerdictEngineTest {
         val events = eventsAt(count = 6, occurredAt = now)
         val windowStart = sinceStartWindowStart(caseCreatedAt = now, events = events)
 
-        val result = computeVerdict(expectation(windowStart = windowStart), events, now = now, DurationMode.NONE)
+        val result = computeVerdict(expectation(windowStart = windowStart), events, now = now, false)
 
         assertEquals(0L, result.windowDays)
         assertEquals(6, result.eventCount)
@@ -238,7 +237,7 @@ class VerdictEngineTest {
         val windowStart = sinceStartWindowStart(caseCreatedAt, events)
         val theExpectation = expectation(count = 5, per = ExpectedPer.WEEK, windowStart = windowStart)
 
-        val result = computeVerdict(theExpectation, events, now, DurationMode.NONE)
+        val result = computeVerdict(theExpectation, events, now, false)
 
         assertEquals(ConfidenceTier.CONFIDENT, result.tier)
         assertEquals(2.1, result.observedRate, DELTA)
@@ -256,7 +255,7 @@ class VerdictEngineTest {
         val windowStart = sinceStartWindowStart(caseCreatedAt, events)
         val theExpectation = expectation(count = 1, per = ExpectedPer.DAY, windowStart = windowStart)
 
-        val result = computeVerdict(theExpectation, events, now, DurationMode.NONE)
+        val result = computeVerdict(theExpectation, events, now, false)
 
         assertEquals(ConfidenceTier.PRELIMINARY, result.tier)
         assertEquals(1.0, result.observedRate, DELTA)
@@ -282,7 +281,7 @@ class VerdictEngineTest {
                 .toEpochMilli()
         val windowStart = sinceStartWindowStart(caseCreatedAt, emptyList())
 
-        val result = computeVerdict(expectation(windowStart = windowStart), emptyList(), now, DurationMode.NONE, zone)
+        val result = computeVerdict(expectation(windowStart = windowStart), emptyList(), now, false, zone)
 
         assertEquals(14L, result.windowDays)
     }
@@ -291,7 +290,7 @@ class VerdictEngineTest {
 
     @Test
     fun `computeVerdict days-active metric is driven by distinct active days, not raw event count, for overlapping spans`() {
-        // The "recurring fights" scenario: 3 START_STOP events, each 8 days, overlapping, spread
+        // The "recurring fights" scenario: 3 duration events, each 8 days, overlapping, spread
         // across a 30-day window. Days 0-14 and 20-28 are all active — 24 of 30 days.
         val events =
             listOf(
@@ -303,7 +302,7 @@ class VerdictEngineTest {
         val windowStart = sinceStartWindowStart(millisAtDay(0), events)
         val theExpectation = expectation(count = 4, per = ExpectedPer.MONTH, metric = VerdictMetric.DAYS_ACTIVE, windowStart = windowStart)
 
-        val result = computeVerdict(theExpectation, events, now = now, DurationMode.START_STOP)
+        val result = computeVerdict(theExpectation, events, now = now, true)
 
         assertEquals(3, result.eventCount)
         assertEquals(24, result.activeDayCount)
@@ -322,7 +321,7 @@ class VerdictEngineTest {
         val now = Instant.parse("2026-01-06T02:00:00Z").toEpochMilli()
         val event = testEvent(occurredAt = start, endedAt = null).copy(utcOffsetMinutes = -600)
 
-        val days = distinctActiveDays(listOf(event), DurationMode.START_STOP, windowStartMillis = start, now = now, zone = ZoneOffset.UTC)
+        val days = distinctActiveDays(listOf(event), true, windowStartMillis = start, now = now, zone = ZoneOffset.UTC)
 
         // Jan 5 (the event's own start date, under its -10h offset) and Jan 6 (today, under the
         // live UTC zone) — two distinct days, not one.
@@ -344,14 +343,14 @@ class VerdictEngineTest {
                 expectation(per = ExpectedPer.MONTH, metric = VerdictMetric.OCCURRENCE_COUNT, windowStart = windowStart),
                 events,
                 now = now,
-                DurationMode.MANUAL,
+                false,
             )
         val daysActive =
             computeVerdict(
                 expectation(per = ExpectedPer.MONTH, metric = VerdictMetric.DAYS_ACTIVE, windowStart = windowStart),
                 events,
                 now = now,
-                DurationMode.MANUAL,
+                false,
             )
 
         assertEquals(3, occurrence.eventCount)
@@ -372,7 +371,7 @@ class VerdictEngineTest {
                 expectation(metric = VerdictMetric.DAYS_ACTIVE, windowStart = windowStart),
                 events,
                 now = millisAtDay(30),
-                DurationMode.MANUAL,
+                false,
             )
 
         assertEquals(2, result.eventCount)
@@ -389,7 +388,7 @@ class VerdictEngineTest {
                 expectation(count = 2, per = ExpectedPer.MONTH, metric = VerdictMetric.DAYS_ACTIVE, windowStart = windowStart),
                 events,
                 now = millisAtDay(20),
-                DurationMode.MANUAL,
+                true,
             )
 
         assertEquals(1, result.eventCount)
@@ -405,7 +404,7 @@ class VerdictEngineTest {
         val now = millisAtDay(160)
         val windowStart = rollingWindowStart(caseCreatedAt = millisAtDay(0), now = now)
 
-        val result = computeVerdict(expectation(windowStart = windowStart), events, now = now, DurationMode.NONE)
+        val result = computeVerdict(expectation(windowStart = windowStart), events, now = now, false)
 
         // Window is ~day 70..160: the day-0 event falls outside it. windowDays is a fixed 90-day
         // millis subtraction, so it can land a day either side of 90 across a DST transition —
@@ -427,14 +426,14 @@ class VerdictEngineTest {
                 expectation(windowStart = rollingWindowStart(caseCreatedAt, earlyNow)),
                 events,
                 now = earlyNow,
-                DurationMode.NONE,
+                false,
             )
         val late =
             computeVerdict(
                 expectation(windowStart = rollingWindowStart(caseCreatedAt, lateNow)),
                 events,
                 now = lateNow,
-                DurationMode.NONE,
+                false,
             )
 
         // Early: window floored at creation (day 0..50) catches the first three; late: window
@@ -448,7 +447,7 @@ class VerdictEngineTest {
         val events = listOf(event(millisAtDay(5)), event(millisAtDay(50)), event(millisAtDay(90)))
         val windowStart = customWindowStart(caseCreatedAt = millisAtDay(0), windowStartDate = millisAtDay(40))
 
-        val result = computeVerdict(expectation(windowStart = windowStart), events, now = millisAtDay(100), DurationMode.NONE)
+        val result = computeVerdict(expectation(windowStart = windowStart), events, now = millisAtDay(100), false)
 
         assertEquals(2, result.eventCount)
         assertEquals(60L, result.windowDays)
@@ -460,7 +459,7 @@ class VerdictEngineTest {
         // A start before the case existed degrades to the case's own creation, not a negative window.
         val windowStart = customWindowStart(caseCreatedAt = millisAtDay(0), windowStartDate = millisAtDay(-30))
 
-        val result = computeVerdict(expectation(windowStart = windowStart), events, now = millisAtDay(100), DurationMode.NONE)
+        val result = computeVerdict(expectation(windowStart = windowStart), events, now = millisAtDay(100), false)
 
         assertEquals(2, result.eventCount)
         assertEquals(100L, result.windowDays)
@@ -473,7 +472,7 @@ class VerdictEngineTest {
         val windowStart = customWindowStart(caseCreatedAt = millisAtDay(0), windowStartDate = millisAtDay(40))
         val theExpectation = expectation(metric = VerdictMetric.DAYS_ACTIVE, windowStart = windowStart)
 
-        val result = computeVerdict(theExpectation, events, now = millisAtDay(100), DurationMode.MANUAL)
+        val result = computeVerdict(theExpectation, events, now = millisAtDay(100), true)
 
         assertEquals(1, result.eventCount)
         // Only the in-window days count: day 40 through day 60 inclusive is 21 days.
@@ -486,7 +485,7 @@ class VerdictEngineTest {
         val windowStart = sinceStartWindowStart(caseCreatedAt = millisAtDay(0), events = events)
         val theExpectation = expectation(count = 5, per = ExpectedPer.WEEK, windowStart = windowStart)
 
-        val result = computeVerdict(theExpectation, events, now = millisAtDay(50), DurationMode.NONE)
+        val result = computeVerdict(theExpectation, events, now = millisAtDay(50), false)
 
         assertEquals(15, result.eventCount)
         assertEquals(50L, result.windowDays)

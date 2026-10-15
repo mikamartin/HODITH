@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
@@ -286,7 +285,7 @@ class StatsEngineTest {
     }
 
     @Test
-    fun `computeDurationStats excludes a MANUAL event whose endedAt is still in the future`() {
+    fun `computeDurationStats excludes an event whose endedAt is still in the future`() {
         val start = millisAtDay(0)
         val now = start + 60 * 60_000L
         val events =
@@ -295,7 +294,7 @@ class StatsEngineTest {
                 eventAt(start, endedAt = now + 60 * 60_000L), // not yet elapsed, excluded
             )
 
-        val result = computeDurationStats(events, DurationMode.MANUAL, now)!!
+        val result = computeDurationStats(events, true, now)!!
 
         assertEquals(15.0, result.averageMinutes, 0.0001)
         assertEquals(15L, result.shortestMinutes)
@@ -969,7 +968,7 @@ class StatsEngineTest {
     }
 
     @Test
-    fun `computeTagOutcomeFindings excludes a MANUAL event whose endedAt is still in the future from a duration comparison`() {
+    fun `computeTagOutcomeFindings excludes an event whose endedAt is still in the future from a duration comparison`() {
         val now = millisAtDay(1_000)
         val validTagged =
             (0 until TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT).map { day ->
@@ -988,7 +987,7 @@ class StatsEngineTest {
             }
 
         val finding =
-            computeTagOutcomeFindings(validTagged + notYetElapsedTagged + untagged, DurationMode.MANUAL, now).single()
+            computeTagOutcomeFindings(validTagged + notYetElapsedTagged + untagged, true, now).single()
 
         assertEquals(90.0, finding.withTagMean, 0.0001)
         assertEquals(TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT + TAG_OUTCOME_MIN_UNTAGGED_SAMPLE_COUNT, finding.sampleCount)

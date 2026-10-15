@@ -1,9 +1,9 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
+import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.testsupport.testEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -18,6 +18,75 @@ import java.time.ZonedDateTime
 
 class LogDetailViewModelTest {
     private val utc = ZoneId.of("UTC")
+
+    // Far beyond any occurredAt used below, so it never clamps unless a test is specifically
+    // exercising the clamp.
+    private val farFuture = 1_000_000_000_000L
+
+    // --- decomposeDuration / composeDuration ---
+
+    @Test
+    fun `decomposeDuration returns all zeros for a zero span`() {
+        assertEquals(Triple(0L, 0L, 0L), decomposeDuration(0L))
+    }
+
+    @Test
+    fun `decomposeDuration clamps a negative span to zero`() {
+        assertEquals(Triple(0L, 0L, 0L), decomposeDuration(-MILLIS_PER_HOUR))
+    }
+
+    @Test
+    fun `decomposeDuration splits a mixed span into whole days, hours and minutes`() {
+        val span = 2 * MILLIS_PER_DAY + 3 * MILLIS_PER_HOUR + 15 * MILLIS_PER_MINUTE
+
+        assertEquals(Triple(2L, 3L, 15L), decomposeDuration(span))
+    }
+
+    @Test
+    fun `decomposeDuration drops seconds-level remainder rather than rounding`() {
+        val span = 90 * MILLIS_PER_MINUTE + 30_000L
+
+        assertEquals(Triple(0L, 1L, 30L), decomposeDuration(span))
+    }
+
+    @Test
+    fun `composeDuration is the inverse of decomposeDuration`() {
+        val span = 5 * MILLIS_PER_DAY + 7 * MILLIS_PER_HOUR + 42 * MILLIS_PER_MINUTE
+        val (days, hours, minutes) = decomposeDuration(span)
+
+        assertEquals(span, composeDuration(days, hours, minutes))
+    }
+
+    @Test
+    fun `composeDuration with all zeros is zero`() {
+        assertEquals(0L, composeDuration(0L, 0L, 0L))
+    }
+
+    @Test
+    fun `composeDuration days scaling is fixed 24h chunks, so the wall clock shifts across a DST spring-forward`() {
+        val newYork = ZoneId.of("America/New_York")
+        // Noon on 2026-03-07, two days before the 2026-03-08 spring-forward (a 23-hour local day).
+        val occurredAt =
+            LocalDate
+                .of(2026, 3, 7)
+                .atTime(12, 0)
+                .atZone(newYork)
+                .toInstant()
+                .toEpochMilli()
+
+        val endedAt = occurredAt + composeDuration(6L, 0L, 0L)
+
+        // The stored span is exactly six fixed 24-hour chunks of millis — no calendar-aware scaling.
+        assertEquals(occurredAt + 6 * MILLIS_PER_DAY, endedAt)
+        // The spring-forward skipped an hour of wall time inside that window, so six 24h chunks
+        // land the wall clock at 13:00, not noon, on the 13th. By design (storage is millis) —
+        // this test pins the distortion rather than changing it.
+        assertEquals(
+            LocalDateTime.of(2026, 3, 13, 13, 0),
+            Instant.ofEpochMilli(endedAt).atZone(newYork).toLocalDateTime(),
+        )
+    }
+
     // --- draftFrom ---
 
     @Test
@@ -26,85 +95,48 @@ class LogDetailViewModelTest {
 
         assertEquals(1_000L, draft.occurredAt)
         assertNull(draft.intensity)
-        assertEquals("", draft.durationAmount)
-        assertEquals(DurationUnit.MINUTES, draft.durationUnit)
+        assertNull(draft.endedAt)
+        assertEquals("", draft.daysInput)
+        assertEquals("", draft.hoursInput)
+        assertEquals("", draft.minutesInput)
         assertEquals("", draft.note)
         assertTrue(draft.tags.isEmpty())
     }
 
     @Test
-    fun `draftFrom an existing event without a duration leaves the amount blank on minutes`() {
+    fun `draftFrom an open-ended event leaves endedAt null and the duration fields blank`() {
         val event = testEvent(occurredAt = 5_000L, endedAt = null)
 
         val draft = draftFrom(event, now = 99_999L)
 
-        assertEquals("", draft.durationAmount)
-        assertEquals(DurationUnit.MINUTES, draft.durationUnit)
+        assertNull(draft.endedAt)
+        assertEquals("", draft.daysInput)
+        assertEquals("", draft.hoursInput)
+        assertEquals("", draft.minutesInput)
     }
 
     @Test
-    fun `draftFrom loads a plain-minutes duration on the minutes unit`() {
-        val event = testEvent(occurredAt = 0L, endedAt = 90 * 60_000L)
+    fun `draftFrom a finished event decomposes the stored span into days, hours and minutes`() {
+        val event = testEvent(occurredAt = 0L, endedAt = 2 * MILLIS_PER_DAY + 3 * MILLIS_PER_HOUR + 15 * MILLIS_PER_MINUTE)
 
         val draft = draftFrom(event, now = 99_999L)
 
-        assertEquals("90", draft.durationAmount)
-        assertEquals(DurationUnit.MINUTES, draft.durationUnit)
+        assertEquals(2 * MILLIS_PER_DAY + 3 * MILLIS_PER_HOUR + 15 * MILLIS_PER_MINUTE, draft.endedAt)
+        assertEquals("2", draft.daysInput)
+        assertEquals("3", draft.hoursInput)
+        assertEquals("15", draft.minutesInput)
     }
 
     @Test
-    fun `draftFrom loads an exact-hours duration on the hours unit`() {
-        val event = testEvent(occurredAt = 0L, endedAt = 2 * MILLIS_PER_HOUR)
-
-        val draft = draftFrom(event, now = 99_999L)
-
-        assertEquals("2", draft.durationAmount)
-        assertEquals(DurationUnit.HOURS, draft.durationUnit)
-    }
-
-    @Test
-    fun `draftFrom loads an exact-days duration on the days unit`() {
-        val event = testEvent(occurredAt = 0L, endedAt = 3 * MILLIS_PER_DAY)
-
-        val draft = draftFrom(event, now = 99_999L)
-
-        assertEquals("3", draft.durationAmount)
-        assertEquals(DurationUnit.DAYS, draft.durationUnit)
-    }
-
-    @Test
-    fun `draftFrom falls back to minutes when the duration is not a whole number of hours`() {
-        val event = testEvent(occurredAt = 0L, endedAt = 150 * 60_000L)
-
-        val draft = draftFrom(event, now = 99_999L)
-
-        assertEquals("150", draft.durationAmount)
-        assertEquals(DurationUnit.MINUTES, draft.durationUnit)
-    }
-
-    @Test
-    fun `draftFrom leaves the amount blank for a zero-length event`() {
+    fun `draftFrom a zero-length event decomposes to all zeros, not blank`() {
         val event = testEvent(occurredAt = 10_000L, endedAt = 10_000L)
 
         val draft = draftFrom(event, now = 99_999L)
 
-        assertEquals("", draft.durationAmount)
-        assertEquals(DurationUnit.MINUTES, draft.durationUnit)
-    }
-
-    @Test
-    fun `draftFrom leaves the amount blank for a reversed stored endedAt`() {
-        val event = testEvent(occurredAt = 60_000L, endedAt = 0L)
-
-        val draft = draftFrom(event, now = 99_999L)
-
-        assertEquals("", draft.durationAmount)
-    }
-
-    @Test
-    fun `durationUnitFor is minutes for a zero or negative span`() {
-        assertEquals(DurationUnit.MINUTES, durationUnitFor(0L))
-        assertEquals(DurationUnit.MINUTES, durationUnitFor(-MILLIS_PER_HOUR))
+        assertEquals(10_000L, draft.endedAt)
+        assertEquals("0", draft.daysInput)
+        assertEquals("0", draft.hoursInput)
+        assertEquals("0", draft.minutesInput)
     }
 
     @Test
@@ -126,209 +158,120 @@ class LogDetailViewModelTest {
         assertEquals(listOf("work", "morning"), draft.tags)
     }
 
+    // --- LogDraft#applyEndedAt / stoppedNow / startedAgain ---
+
     @Test
-    fun `draftFrom carries over the event's existingEndedAt and endedAt verbatim`() {
-        val event = testEvent(occurredAt = 0L, endedAt = 12_345L)
+    fun `applyEndedAt with null clears endedAt and blanks every duration field`() {
+        val draft = testDraft(occurredAt = 0L, endedAt = 500L, daysInput = "0", hoursInput = "0", minutesInput = "8")
 
-        val draft = draftFrom(event, now = 0L)
+        val result = draft.applyEndedAt(null)
 
-        assertEquals(12_345L, draft.existingEndedAt)
-        assertEquals(12_345L, draft.endedAt)
+        assertNull(result.endedAt)
+        assertEquals("", result.daysInput)
+        assertEquals("", result.hoursInput)
+        assertEquals("", result.minutesInput)
     }
 
     @Test
-    fun `draftFrom with no event has a null existingEndedAt and endedAt`() {
-        val draft = draftFrom(event = null, now = 0L)
+    fun `applyEndedAt with an instant decomposes the elapsed span since occurredAt`() {
+        val draft = testDraft(occurredAt = 1_000L)
 
-        assertNull(draft.existingEndedAt)
-        assertNull(draft.endedAt)
-    }
+        val result = draft.applyEndedAt(1_000L + 90 * MILLIS_PER_MINUTE)
 
-    // --- computeEndedAt ---
-
-    @Test
-    fun `computeEndedAt passes existingEndedAt through unchanged when duration mode is NONE`() {
-        val endedAt =
-            computeEndedAt(0L, DurationMode.NONE, "30", DurationUnit.MINUTES, endedAt = null, existingEndedAt = 999L, now = farFuture)
-
-        assertEquals(999L, endedAt)
+        assertEquals(1_000L + 90 * MILLIS_PER_MINUTE, result.endedAt)
+        assertEquals("0", result.daysInput)
+        assertEquals("1", result.hoursInput)
+        assertEquals("30", result.minutesInput)
     }
 
     @Test
-    fun `computeEndedAt is null for NONE mode when there is no existingEndedAt`() {
-        assertNull(
-            computeEndedAt(0L, DurationMode.NONE, "30", DurationUnit.MINUTES, endedAt = null, existingEndedAt = null, now = farFuture),
-        )
+    fun `stoppedNow commits now as endedAt when now is after occurredAt`() {
+        val draft = testDraft(occurredAt = 1_000L)
+
+        val result = draft.stoppedNow(now = 9_000L)
+
+        assertEquals(9_000L, result.endedAt)
     }
 
     @Test
-    fun `computeEndedAt is null for START_STOP mode when the draft's endedAt is null (still ongoing)`() {
-        assertNull(
-            computeEndedAt(
-                0L,
-                DurationMode.START_STOP,
-                "30",
-                DurationUnit.MINUTES,
-                endedAt = null,
-                existingEndedAt = 777L,
-                now = farFuture,
-            ),
-        )
+    fun `stoppedNow never commits an endedAt before occurredAt`() {
+        val draft = testDraft(occurredAt = 9_000L)
+
+        val result = draft.stoppedNow(now = 1_000L)
+
+        assertEquals(9_000L, result.endedAt)
     }
 
     @Test
-    fun `computeEndedAt uses the draft's endedAt for START_STOP mode when set`() {
-        val endedAt =
-            computeEndedAt(0L, DurationMode.START_STOP, "", DurationUnit.MINUTES, endedAt = 5_000L, existingEndedAt = null, now = farFuture)
+    fun `startedAgain reopens an ended draft back to open-ended`() {
+        val draft = testDraft(occurredAt = 0L, endedAt = 500L, daysInput = "0", hoursInput = "0", minutesInput = "8")
 
-        assertEquals(5_000L, endedAt)
+        val result = draft.startedAgain()
+
+        assertNull(result.endedAt)
+        assertEquals("", result.daysInput)
+        assertEquals("", result.hoursInput)
+        assertEquals("", result.minutesInput)
+    }
+
+    // --- LogDraft#withDurationInput ---
+
+    @Test
+    fun `withDurationInput with every field blank clears endedAt`() {
+        val draft = testDraft(occurredAt = 1_000L, endedAt = 500L)
+
+        val result = draft.withDurationInput(days = "", hours = "", minutes = "")
+
+        assertNull(result.endedAt)
     }
 
     @Test
-    fun `computeEndedAt clamps a START_STOP endedAt that precedes occurredAt`() {
-        val endedAt =
-            computeEndedAt(
-                occurredAt = 10_000L,
-                DurationMode.START_STOP,
-                "",
-                DurationUnit.MINUTES,
-                endedAt = 1_000L,
-                existingEndedAt = null,
-                now = farFuture,
-            )
+    fun `withDurationInput composes endedAt from the typed days, hours and minutes`() {
+        val draft = testDraft(occurredAt = 1_000L)
 
-        assertEquals(10_000L, endedAt)
+        val result = draft.withDurationInput(days = "1", hours = "2", minutes = "30")
+
+        assertEquals(1_000L + composeDuration(1L, 2L, 30L), result.endedAt)
     }
 
     @Test
-    fun `computeEndedAt clamps a START_STOP endedAt that is in the future`() {
-        val now = 10_000L
-        val endedAt =
-            computeEndedAt(
-                occurredAt = 0L,
-                DurationMode.START_STOP,
-                "",
-                DurationUnit.MINUTES,
-                endedAt = now + 60_000L,
-                existingEndedAt = null,
-                now = now,
-            )
+    fun `withDurationInput treats a non-numeric field as zero rather than rejecting it`() {
+        val draft = testDraft(occurredAt = 1_000L)
 
-        assertEquals(now, endedAt)
+        val result = draft.withDurationInput(days = "", hours = "abc", minutes = "15")
+
+        assertEquals(1_000L + 15 * MILLIS_PER_MINUTE, result.endedAt)
     }
 
     @Test
-    fun `computeEndedAt adds the parsed amount in minutes to occurredAt for MANUAL mode`() {
-        val endedAt =
-            computeEndedAt(1_000L, DurationMode.MANUAL, "5", DurationUnit.MINUTES, endedAt = null, existingEndedAt = null, now = farFuture)
+    fun `withDurationInput allows the composed endedAt to project past now`() {
+        // A stated/expected duration is a legitimate thing to log up front (spec section 6 Story
+        // U2) -- withDurationInput itself has no now parameter and never clamps against one.
+        val draft = testDraft(occurredAt = 1_000L)
 
-        assertEquals(1_000L + 5 * 60_000L, endedAt)
+        val result = draft.withDurationInput(days = "0", hours = "0", minutes = "120")
+
+        assertEquals(1_000L + 120 * MILLIS_PER_MINUTE, result.endedAt)
     }
 
     @Test
-    fun `computeEndedAt scales the parsed amount by the hours unit for MANUAL mode`() {
-        val endedAt =
-            computeEndedAt(1_000L, DurationMode.MANUAL, "2", DurationUnit.HOURS, endedAt = null, existingEndedAt = null, now = farFuture)
+    fun `withDurationInput keeps the typed field text even when a field is non-numeric`() {
+        val draft = testDraft(occurredAt = 1_000L)
 
-        assertEquals(1_000L + 2 * MILLIS_PER_HOUR, endedAt)
-    }
+        val result = draft.withDurationInput(days = "", hours = "abc", minutes = "15")
 
-    @Test
-    fun `computeEndedAt scales the parsed amount by the days unit for MANUAL mode`() {
-        val endedAt =
-            computeEndedAt(1_000L, DurationMode.MANUAL, "6", DurationUnit.DAYS, endedAt = null, existingEndedAt = null, now = farFuture)
-
-        assertEquals(1_000L + 6 * MILLIS_PER_DAY, endedAt)
-    }
-
-    @Test
-    fun `computeEndedAt for MANUAL mode ignores existingEndedAt and recomputes from the input`() {
-        val endedAt =
-            computeEndedAt(1_000L, DurationMode.MANUAL, "5", DurationUnit.MINUTES, endedAt = null, existingEndedAt = 999L, now = farFuture)
-
-        assertEquals(1_000L + 5 * 60_000L, endedAt)
-    }
-
-    @Test
-    fun `computeEndedAt is null for MANUAL mode with blank input, even with an existingEndedAt`() {
-        assertNull(
-            computeEndedAt(1_000L, DurationMode.MANUAL, "", DurationUnit.MINUTES, endedAt = null, existingEndedAt = 999L, now = farFuture),
-        )
-    }
-
-    @Test
-    fun `computeEndedAt is null for MANUAL mode with zero or negative amounts`() {
-        assertNull(
-            computeEndedAt(1_000L, DurationMode.MANUAL, "0", DurationUnit.HOURS, endedAt = null, existingEndedAt = null, now = farFuture),
-        )
-        assertNull(
-            computeEndedAt(1_000L, DurationMode.MANUAL, "-5", DurationUnit.HOURS, endedAt = null, existingEndedAt = null, now = farFuture),
-        )
-    }
-
-    @Test
-    fun `computeEndedAt is null for MANUAL mode with non-numeric input`() {
-        assertNull(
-            computeEndedAt(
-                1_000L,
-                DurationMode.MANUAL,
-                "abc",
-                DurationUnit.MINUTES,
-                endedAt = null,
-                existingEndedAt = null,
-                now = farFuture,
-            ),
-        )
-    }
-
-    @Test
-    fun `computeEndedAt correctly computes the longest input the duration field's digit cap allows`() {
-        // The sheet caps typed digits at DURATION_AMOUNT_MAX_DIGITS (5), so "99999" is the largest
-        // string computeEndedAt can ever actually receive. On the days unit that is also the biggest
-        // millis product; confirms the Int * Long math stays clear of overflowing to null.
-        val endedAt =
-            computeEndedAt(1_000L, DurationMode.MANUAL, "99999", DurationUnit.DAYS, endedAt = null, existingEndedAt = null, now = farFuture)
-
-        assertEquals(1_000L + 99_999 * MILLIS_PER_DAY, endedAt)
-    }
-
-    @Test
-    fun `computeEndedAt MANUAL days scaling is fixed 24h chunks, so the wall clock shifts across a DST spring-forward`() {
-        val newYork = ZoneId.of("America/New_York")
-        // Noon on 2026-03-07, two days before the 2026-03-08 spring-forward (a 23-hour local day).
-        val occurredAt =
-            LocalDate
-                .of(2026, 3, 7)
-                .atTime(12, 0)
-                .atZone(newYork)
-                .toInstant()
-                .toEpochMilli()
-
-        val endedAt =
-            computeEndedAt(occurredAt, DurationMode.MANUAL, "6", DurationUnit.DAYS, endedAt = null, existingEndedAt = null, now = farFuture)
-
-        // The stored span is exactly six fixed 24-hour chunks of millis — no calendar-aware scaling.
-        assertEquals(occurredAt + 6 * MILLIS_PER_DAY, endedAt)
-        // The spring-forward skipped an hour of wall time inside that window, so six 24h chunks
-        // land the wall clock at 13:00, not noon, on the 13th. By design (storage is millis) —
-        // this test pins the distortion rather than changing it.
-        assertEquals(
-            LocalDateTime.of(2026, 3, 13, 13, 0),
-            Instant.ofEpochMilli(endedAt!!).atZone(newYork).toLocalDateTime(),
-        )
+        assertEquals("", result.daysInput)
+        assertEquals("abc", result.hoursInput)
+        assertEquals("15", result.minutesInput)
     }
 
     // --- LogDraft#toEventEntity ---
-
-    // Far beyond any occurredAt used below, so it never clamps unless a test is specifically
-    // exercising the clamp.
-    private val farFuture = 1_000_000_000_000L
 
     @Test
     fun `toEventEntity trims blank note to null`() {
         val draft = testDraft(note = "   ")
 
-        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.NONE, now = farFuture)
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, now = farFuture)
 
         assertNull(entity.note)
     }
@@ -337,7 +280,7 @@ class LogDetailViewModelTest {
     fun `toEventEntity trims surrounding whitespace from a non-blank note`() {
         val draft = testDraft(note = "  Ouch  ")
 
-        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.NONE, now = farFuture)
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, now = farFuture)
 
         assertEquals("Ouch", entity.note)
     }
@@ -346,17 +289,16 @@ class LogDetailViewModelTest {
     fun `toEventEntity truncates a note beyond the max length`() {
         val draft = testDraft(note = "a".repeat(EVENT_NOTE_MAX_LENGTH + 10))
 
-        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.NONE, now = farFuture)
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, now = farFuture)
 
         assertEquals(EVENT_NOTE_MAX_LENGTH, entity.note?.length)
     }
 
     @Test
-    fun `toEventEntity carries caseId, existingId and loggedAt through unchanged`() {
+    fun `toEventEntity carries caseId, existingId, loggedAt and intensity through unchanged`() {
         val draft = testDraft(occurredAt = 42L, intensity = 2)
 
-        val entity =
-            draft.toEventEntity(caseId = 7L, existingId = 99L, loggedAt = 123L, durationMode = DurationMode.NONE, now = farFuture)
+        val entity = draft.toEventEntity(caseId = 7L, existingId = 99L, loggedAt = 123L, now = farFuture)
 
         assertEquals(7L, entity.caseId)
         assertEquals(99L, entity.id)
@@ -366,50 +308,19 @@ class LogDetailViewModelTest {
     }
 
     @Test
-    fun `toEventEntity computes endedAt from the duration amount and its unit`() {
-        val draft = testDraft(durationAmount = "15", durationUnit = DurationUnit.MINUTES)
-
-        val entity =
-            draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.MANUAL, now = farFuture)
-
-        assertEquals(15 * 60_000L, entity.endedAt)
-    }
-
-    @Test
-    fun `toEventEntity scales the duration amount by a non-minutes unit`() {
-        val draft = testDraft(durationAmount = "3", durationUnit = DurationUnit.DAYS)
-
-        val entity =
-            draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.MANUAL, now = farFuture)
-
-        assertEquals(3 * MILLIS_PER_DAY, entity.endedAt)
-    }
-
-    @Test
-    fun `toEventEntity preserves an existing duration when editing under NONE mode`() {
-        val draft = testDraft(existingEndedAt = 55_000L)
-
-        val underNone = draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, durationMode = DurationMode.NONE, now = farFuture)
-
-        assertEquals(55_000L, underNone.endedAt)
-    }
-
-    @Test
-    fun `toEventEntity is still ongoing for START_STOP mode when the draft's endedAt is null`() {
+    fun `toEventEntity passes a null endedAt through as still open-ended`() {
         val draft = testDraft(endedAt = null)
 
-        val entity =
-            draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, durationMode = DurationMode.START_STOP, now = farFuture)
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, now = farFuture)
 
         assertNull(entity.endedAt)
     }
 
     @Test
-    fun `toEventEntity uses the draft's endedAt for START_STOP mode when set`() {
+    fun `toEventEntity passes a stated endedAt through verbatim`() {
         val draft = testDraft(occurredAt = 1_000L, endedAt = 55_000L)
 
-        val entity =
-            draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, durationMode = DurationMode.START_STOP, now = farFuture)
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 5L, loggedAt = 0L, now = farFuture)
 
         assertEquals(55_000L, entity.endedAt)
     }
@@ -419,7 +330,7 @@ class LogDetailViewModelTest {
         val now = 10_000L
         val draft = testDraft(occurredAt = now + 60_000L)
 
-        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.NONE, now = now)
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, now = now)
 
         assertEquals(now, entity.occurredAt)
     }
@@ -429,34 +340,19 @@ class LogDetailViewModelTest {
         val now = 10_000L
         val draft = testDraft(occurredAt = now - 60_000L)
 
-        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.NONE, now = now)
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, now = now)
 
         assertEquals(now - 60_000L, entity.occurredAt)
     }
 
     @Test
-    fun `toEventEntity clamps occurredAt but computes endedAt from the clamped value, not the original`() {
+    fun `toEventEntity never clamps endedAt even when it projects past now`() {
         val now = 10_000L
-        // occurredAt is in the future and gets clamped to now; MANUAL's 30-minute duration is
-        // then applied on top of the *clamped* start, not the original future one.
-        val draft = testDraft(occurredAt = now + 60_000L, durationAmount = "30", durationUnit = DurationUnit.MINUTES)
+        val draft = testDraft(occurredAt = now, endedAt = now + 2 * MILLIS_PER_HOUR)
 
-        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.MANUAL, now = now)
+        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, now = now)
 
-        assertEquals(now, entity.occurredAt)
-        assertEquals(now + 30 * 60_000L, entity.endedAt)
-    }
-
-    @Test
-    fun `toEventEntity allows a MANUAL duration to project endedAt past now`() {
-        // Started right now; a stated/expected 2-hour duration is a legitimate thing to log
-        // up front, not something that requires waiting around to confirm.
-        val now = 10_000L
-        val draft = testDraft(occurredAt = now, durationAmount = "120", durationUnit = DurationUnit.MINUTES)
-
-        val entity = draft.toEventEntity(caseId = 1L, existingId = 0L, loggedAt = 0L, durationMode = DurationMode.MANUAL, now = now)
-
-        assertEquals(now + 120 * 60_000L, entity.endedAt)
+        assertEquals(now + 2 * MILLIS_PER_HOUR, entity.endedAt)
     }
 
     // --- planSaveEvent ---
@@ -465,7 +361,7 @@ class LogDetailViewModelTest {
     fun `planSaveEvent for a new event is an insert with loggedAt set to now`() {
         val draft = testDraft(occurredAt = 500L)
 
-        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = null, originalTags = emptyList(), DurationMode.NONE, now = 1_000L)
+        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = null, originalTags = emptyList(), now = 1_000L)
 
         assertTrue(!plan.isUpdate)
         assertEquals(1_000L, plan.entity.loggedAt)
@@ -477,7 +373,7 @@ class LogDetailViewModelTest {
         val existing = testEvent(occurredAt = 500L, endedAt = null).copy(id = 42L, loggedAt = 111L)
         val draft = testDraft(occurredAt = 500L)
 
-        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), DurationMode.NONE, now = 1_000L)
+        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), now = 1_000L)
 
         assertTrue(plan.isUpdate)
         assertEquals(111L, plan.entity.loggedAt)
@@ -487,10 +383,9 @@ class LogDetailViewModelTest {
     @Test
     fun `planSaveEvent reopening a stopped event clears endedAt`() {
         val existing = testEvent(occurredAt = 500L, endedAt = 800L).copy(id = 42L)
-        val draft = testDraft(occurredAt = 500L, endedAt = null, existingEndedAt = 800L)
+        val draft = testDraft(occurredAt = 500L, endedAt = null)
 
-        val plan =
-            planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), DurationMode.START_STOP, now = 9_000L)
+        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), now = 9_000L)
 
         assertNull(plan.entity.endedAt)
     }
@@ -498,10 +393,9 @@ class LogDetailViewModelTest {
     @Test
     fun `planSaveEvent editing a stopped event keeps the new endedAt`() {
         val existing = testEvent(occurredAt = 500L, endedAt = 800L).copy(id = 42L)
-        val draft = testDraft(occurredAt = 500L, endedAt = 850L, existingEndedAt = 800L)
+        val draft = testDraft(occurredAt = 500L, endedAt = 850L)
 
-        val plan =
-            planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), DurationMode.START_STOP, now = 9_000L)
+        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = existing, originalTags = emptyList(), now = 9_000L)
 
         assertEquals(850L, plan.entity.endedAt)
     }
@@ -511,19 +405,10 @@ class LogDetailViewModelTest {
         val work = TagEntity(id = 1, name = "work")
         val draft = testDraft(tags = listOf("home"))
 
-        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = null, originalTags = listOf(work), DurationMode.NONE, now = 0L)
+        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = null, originalTags = listOf(work), now = 0L)
 
         assertEquals(setOf("home"), plan.tagDiff.toAdd)
         assertEquals(setOf(work), plan.tagDiff.toRemove)
-    }
-
-    @Test
-    fun `planSaveEvent threads durationMode through to the built entity`() {
-        val draft = testDraft(occurredAt = 0L, durationAmount = "10", durationUnit = DurationUnit.MINUTES)
-
-        val plan = planSaveEvent(caseId = 1L, draft, existingEvent = null, originalTags = emptyList(), DurationMode.MANUAL, now = 0L)
-
-        assertEquals(10 * 60_000L, plan.entity.endedAt)
     }
 
     // --- tagDiff ---
@@ -638,20 +523,17 @@ class LogDetailViewModelTest {
     }
 
     @Test
-    fun `validateEndEdit rejects a future candidate regardless of the start time`() {
-        assertEquals(TimeEditRejection.FUTURE, validateEndEdit(candidate = 10_001L, occurredAt = 0L, now = 10_000L))
+    fun `validateEndEdit rejects a candidate before the start time`() {
+        assertEquals(TimeEditRejection.BEFORE_START, validateEndEdit(candidate = 4_999L, occurredAt = 5_000L))
     }
 
     @Test
-    fun `validateEndEdit rejects a non-future candidate before the start time`() {
-        assertEquals(TimeEditRejection.BEFORE_START, validateEndEdit(candidate = 4_999L, occurredAt = 5_000L, now = 10_000L))
-    }
-
-    @Test
-    fun `validateEndEdit accepts a candidate at or before now and at or after the start time`() {
-        assertNull(validateEndEdit(candidate = 5_000L, occurredAt = 5_000L, now = 10_000L))
-        assertNull(validateEndEdit(candidate = 5_001L, occurredAt = 5_000L, now = 10_000L))
-        assertNull(validateEndEdit(candidate = 10_000L, occurredAt = 5_000L, now = 10_000L))
+    fun `validateEndEdit accepts a candidate at or after the start time, even projecting past now`() {
+        // A future end time is how a planned/expected duration gets stated (spec section 6 Story
+        // U2) -- validateEndEdit takes no now parameter and never rejects on that basis.
+        assertNull(validateEndEdit(candidate = 5_000L, occurredAt = 5_000L))
+        assertNull(validateEndEdit(candidate = 5_001L, occurredAt = 5_000L))
+        assertNull(validateEndEdit(candidate = 1_000_000_000L, occurredAt = 5_000L))
     }
 
     // --- toDatePickerUtcMillis / datePickerDateAtLocalStartOfDay ---
@@ -723,20 +605,20 @@ class LogDetailViewModelTest {
     private fun testDraft(
         occurredAt: Long = 0L,
         intensity: Int? = null,
-        durationAmount: String = "",
-        durationUnit: DurationUnit = DurationUnit.MINUTES,
         note: String = "",
         tags: List<String> = emptyList(),
         endedAt: Long? = null,
-        existingEndedAt: Long? = null,
+        daysInput: String = "",
+        hoursInput: String = "",
+        minutesInput: String = "",
     ) = LogDraft(
         occurredAt = occurredAt,
         intensity = intensity,
-        durationAmount = durationAmount,
-        durationUnit = durationUnit,
         note = note,
         tags = tags,
         endedAt = endedAt,
-        existingEndedAt = existingEndedAt,
+        daysInput = daysInput,
+        hoursInput = hoursInput,
+        minutesInput = minutesInput,
     )
 }

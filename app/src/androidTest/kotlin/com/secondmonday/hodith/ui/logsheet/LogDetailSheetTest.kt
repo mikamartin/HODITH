@@ -5,7 +5,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -33,7 +32,7 @@ class LogDetailSheetTest {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVoice provides PlainVoice) {
                 LogDetailSheet(
-                    durationMode = DurationMode.NONE,
+                    tracksDuration = false,
                     intensityEnabled = false,
                     initialDraft = draft(),
                     tagSuggestions = emptyList(),
@@ -45,7 +44,7 @@ class LogDetailSheetTest {
         }
 
         composeTestRule.onNodeWithText(PlainVoice.logSheetAddTagHint).performTextInput("focus")
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
         assertNotNull(savedDraft)
     }

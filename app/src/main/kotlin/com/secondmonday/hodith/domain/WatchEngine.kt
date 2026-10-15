@@ -1,9 +1,7 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.WatchEntity
-import com.secondmonday.hodith.data.tracksDuration
 
 /**
  * Spec §11: both Watch kinds are edge-triggered — fire once when their condition first
@@ -76,17 +74,17 @@ fun evaluateOften(
     watch: WatchEntity,
     allEvents: List<EventEntity>,
     now: Long,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
 ): WatchDecision {
     val (expectation, filteredEvents) = expectationInputsFor(watch, allEvents, now)
-    val result = computeVerdict(expectation, filteredEvents, now, durationMode)
+    val result = computeVerdict(expectation, filteredEvents, now, tracksDuration)
     return evaluateWatch(watch, conditionMet = result.observedRate >= result.expectedRate, now = now)
 }
 
 /**
  * In-memory counterpart of `NotificationEvaluator.silenceAnchorFor`'s own doc comment
  * (notification/NotificationEvaluator.kt) — the same rule (any still-running event, per
- * [isStillRunning], reads as "now"; a Case that no longer tracks duration anchors on the latest
+ * [isStillRunning], reads as "now"; a Case that doesn't track duration anchors on the latest
  * `occurredAt`; otherwise the latest of each event's `endedAt` or its own `occurredAt` when no
  * duration was recorded — the same `MAX(IFNULL(endedAt, occurredAt))`
  * [EventDao.getLatestEventEndForCase] runs in SQL), restated here rather than shared because the
@@ -98,12 +96,12 @@ fun evaluateOften(
  */
 fun silenceAnchorForEvents(
     events: List<EventEntity>,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     now: Long,
 ): Long? {
     if (events.isEmpty()) return null
-    if (events.any { isStillRunning(it, durationMode, now) }) return now
-    if (!durationMode.tracksDuration) return events.maxOf { it.occurredAt }
+    if (events.any { isStillRunning(it, tracksDuration, now) }) return now
+    if (!tracksDuration) return events.maxOf { it.occurredAt }
     return events.maxOf { it.endedAt ?: it.occurredAt }
 }
 

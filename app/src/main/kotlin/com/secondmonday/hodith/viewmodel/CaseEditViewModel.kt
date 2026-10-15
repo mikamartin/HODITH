@@ -4,7 +4,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
@@ -42,7 +41,7 @@ data class CaseEditUiState(
     val description: String = "",
     val icon: String? = null,
     val logFlow: LogFlow = LogFlow.DETAIL_SHEET,
-    val durationMode: DurationMode = DurationMode.NONE,
+    val tracksDuration: Boolean = false,
     val intensityEnabled: Boolean = false,
     val showNameError: Boolean = false,
     val showDuplicateNameError: Boolean = false,
@@ -52,14 +51,15 @@ data class CaseEditUiState(
     val canArchive: Boolean = false,
     val isArchived: Boolean = false,
     /**
-     * Events on this Case with no end time — running events under `START_STOP`, open-ended one-tap /
-     * quick logs otherwise. Gates both duration-mode confirms (spec §6).
+     * Events on this Case with no end time — open-ended running events or quick logs, whichever
+     * the Case's `tracksDuration` flag was when they were logged. Gates both turn-on/turn-off
+     * duration-tracking confirms (spec §6 Story U2).
      */
     val runningEventCount: Int = 0,
     /** Total events already logged on this Case, regardless of end-time state — gates the intensity-toggle notice (spec §6). */
     val loggedEventCount: Int = 0,
-    val showLeaveStartStopConfirm: Boolean = false,
-    val showEnterStartStopConfirm: Boolean = false,
+    val showTurnOffDurationConfirm: Boolean = false,
+    val showTurnOnDurationConfirm: Boolean = false,
 )
 
 @HiltViewModel
@@ -75,7 +75,7 @@ class CaseEditViewModel
     ) : ViewModel() {
         private val caseId: Long? = savedStateHandle.get<Long>("caseId")?.takeIf { it != NO_CASE_ID }
         private var existingCase: CaseEntity? = null
-        private var pendingDurationMode: DurationMode? = null
+        private var pendingTracksDuration: Boolean? = null
         private var stopRunningOnSave = false
         private var convertOpenEndedOnSave = false
 
@@ -120,74 +120,73 @@ class CaseEditViewModel
 
         fun onLogFlowChange(logFlow: LogFlow) = _uiState.update { it.copy(logFlow = logFlow) }
 
-        fun onDurationModeChange(durationMode: DurationMode) {
-            // A fresh mode decision supersedes any stamp a held-then-abandoned earlier toggle armed —
-            // otherwise NONE→START_STOP→NONE (both confirmed) before a single save() would leave both
-            // flags set and stamp `endedAt = now` on a days-old point. The transitions below are keyed
-            // off the Case's *persisted* mode, not the unsaved in-memory one, so an intermediate
-            // never-saved START_STOP can't be "left".
+        fun onTracksDurationChange(tracksDuration: Boolean) {
+            // A fresh decision supersedes any stamp a held-then-abandoned earlier toggle armed —
+            // otherwise off→on→off (both confirmed) before a single save() would leave both flags
+            // set and stamp `endedAt = now` on a days-old point. The transitions below are keyed
+            // off the Case's *persisted* flag, not the unsaved in-memory one, so an intermediate
+            // never-saved flip can't be "left".
             stopRunningOnSave = false
             convertOpenEndedOnSave = false
-            pendingDurationMode = null
+            pendingTracksDuration = null
 
-            val persistedMode = existingCase?.durationMode
+            val persistedTracksDuration = existingCase?.tracksDuration
             val runningCount = _uiState.value.runningEventCount
 
-            val leavingStartStop = persistedMode == DurationMode.START_STOP && durationMode != DurationMode.START_STOP
-            if (leavingStartStop && runningCount > 0) {
-                pendingDurationMode = durationMode
-                _uiState.update { it.copy(showLeaveStartStopConfirm = true) }
+            val turningOff = persistedTracksDuration == true && !tracksDuration
+            if (turningOff && runningCount > 0) {
+                pendingTracksDuration = tracksDuration
+                _uiState.update { it.copy(showTurnOffDurationConfirm = true) }
                 return
             }
-            // Entering START_STOP reinterprets every open-ended event as a live ongoing span
+            // Turning tracking on reinterprets every open-ended event as a live ongoing span
             // (spec §6) — hold the switch until the user confirms collapsing them to instant events.
-            val enteringStartStop =
-                persistedMode != null && persistedMode != DurationMode.START_STOP && durationMode == DurationMode.START_STOP
-            if (enteringStartStop && runningCount > 0) {
-                pendingDurationMode = durationMode
-                _uiState.update { it.copy(showEnterStartStopConfirm = true) }
+            val turningOn = persistedTracksDuration == false && tracksDuration
+            if (turningOn && runningCount > 0) {
+                pendingTracksDuration = tracksDuration
+                _uiState.update { it.copy(showTurnOnDurationConfirm = true) }
                 return
             }
-            applyDurationMode(durationMode)
+            applyTracksDuration(tracksDuration)
         }
 
-        /** Proceed with a mode change that was held back by [showLeaveStartStopConfirm]. */
-        fun confirmLeaveStartStop() {
-            val next = pendingDurationMode ?: return
+        /** Proceed with a change that was held back by [showTurnOffDurationConfirm]. */
+        fun confirmTurnOffDuration() {
+            val next = pendingTracksDuration ?: return
             stopRunningOnSave = true
-            _uiState.update { it.copy(showLeaveStartStopConfirm = false) }
-            applyDurationMode(next)
+            _uiState.update { it.copy(showTurnOffDurationConfirm = false) }
+            applyTracksDuration(next)
         }
 
-        fun dismissLeaveStartStop() {
-            pendingDurationMode = null
-            _uiState.update { it.copy(showLeaveStartStopConfirm = false) }
+        fun dismissTurnOffDuration() {
+            pendingTracksDuration = null
+            _uiState.update { it.copy(showTurnOffDurationConfirm = false) }
         }
 
-        /** Proceed with a switch into `START_STOP` that was held back by [showEnterStartStopConfirm]. */
-        fun confirmEnterStartStop() {
-            val next = pendingDurationMode ?: return
+        /** Proceed with a change that was held back by [showTurnOnDurationConfirm]. */
+        fun confirmTurnOnDuration() {
+            val next = pendingTracksDuration ?: return
             convertOpenEndedOnSave = true
-            _uiState.update { it.copy(showEnterStartStopConfirm = false) }
-            applyDurationMode(next)
+            _uiState.update { it.copy(showTurnOnDurationConfirm = false) }
+            applyTracksDuration(next)
         }
 
-        fun dismissEnterStartStop() {
-            pendingDurationMode = null
-            _uiState.update { it.copy(showEnterStartStopConfirm = false) }
+        fun dismissTurnOnDuration() {
+            pendingTracksDuration = null
+            _uiState.update { it.copy(showTurnOnDurationConfirm = false) }
         }
 
-        private fun applyDurationMode(durationMode: DurationMode) {
-            pendingDurationMode = null
+        private fun applyTracksDuration(tracksDuration: Boolean) {
+            pendingTracksDuration = null
             _uiState.update {
-                it.copy(durationMode = durationMode, logFlow = coerceLogFlow(it.logFlow, durationMode, it.intensityEnabled))
+                it.copy(tracksDuration = tracksDuration, logFlow = coerceLogFlow(it.logFlow, it.intensityEnabled))
             }
         }
 
         /**
-         * Stamp `endedAt` on every currently open-ended event of [caseId] — used by both duration-mode
-         * transitions (spec §6): [endedAt] returns `now` when leaving `START_STOP`, the event's own
-         * `occurredAt` when entering it.
+         * Stamp `endedAt` on every currently open-ended event of [caseId] — used by both
+         * tracks-duration transitions (spec §6 Story U2): [endedAt] returns `now` when turning
+         * tracking off, the event's own `occurredAt` when turning it on.
          */
         private suspend fun stampOpenEndedEvents(
             caseId: Long,
@@ -202,7 +201,7 @@ class CaseEditViewModel
 
         fun onIntensityToggle(enabled: Boolean) {
             _uiState.update {
-                it.copy(intensityEnabled = enabled, logFlow = coerceLogFlow(it.logFlow, it.durationMode, enabled))
+                it.copy(intensityEnabled = enabled, logFlow = coerceLogFlow(it.logFlow, enabled))
             }
             val loggedEventCount = _uiState.value.loggedEventCount
             if (loggedEventCount > 0) {
@@ -246,18 +245,18 @@ class CaseEditViewModel
                             description = description,
                             icon = icon,
                             logFlow = state.logFlow,
-                            durationMode = state.durationMode,
+                            tracksDuration = state.tracksDuration,
                             intensityEnabled = state.intensityEnabled,
                         ),
                     )
-                    // Leaving START_STOP: stop every still-running event at the moment of the switch.
-                    if (stopRunningOnSave && state.durationMode != DurationMode.START_STOP) {
+                    // Turning tracking off: stop every still-running event at the moment of the switch.
+                    if (stopRunningOnSave && !state.tracksDuration) {
                         val stoppedAt = clock.nowMillis()
                         stampOpenEndedEvents(current.id) { stoppedAt }
                     }
-                    // Entering START_STOP: collapse open-ended events to instant events at their own
+                    // Turning tracking on: collapse open-ended events to instant events at their own
                     // start (not "now"), so a point logged days ago doesn't become a live ongoing span.
-                    if (convertOpenEndedOnSave && state.durationMode == DurationMode.START_STOP) {
+                    if (convertOpenEndedOnSave && state.tracksDuration) {
                         stampOpenEndedEvents(current.id) { it.occurredAt }
                     }
                 } else {
@@ -271,7 +270,7 @@ class CaseEditViewModel
                             icon = icon,
                             createdAt = clock.nowMillis(),
                             logFlow = state.logFlow,
-                            durationMode = state.durationMode,
+                            tracksDuration = state.tracksDuration,
                             intensityEnabled = state.intensityEnabled,
                             checkInsEnabled = true,
                             lastCheckInAt = null,
@@ -311,8 +310,8 @@ internal fun CaseEntity.toUiState() =
         name = name,
         description = description.orEmpty(),
         icon = icon,
-        logFlow = coerceLogFlow(logFlow, durationMode, intensityEnabled),
-        durationMode = durationMode,
+        logFlow = coerceLogFlow(logFlow, intensityEnabled),
+        tracksDuration = tracksDuration,
         intensityEnabled = intensityEnabled,
         canArchive = true,
     )
@@ -360,22 +359,19 @@ internal fun validateCaseEdit(
 }
 
 /**
- * One-tap is an instant insert with no fields, so it can never capture a typed [DurationMode.MANUAL]
- * duration or an intensity rating. [DurationMode.START_STOP] is unaffected — a one-tap Start/Stop is
- * a legitimate flow.
+ * One-tap is an instant insert with no fields, so it can never capture an intensity rating.
+ * Duration tracking doesn't gate it (spec §6 Story U2): a tracked event starts open-ended by
+ * default, exactly like a non-tracked one, so a one-tap quick-log is always a legitimate way to
+ * start it — any duration gets stated later, from the Case's own log rows.
  */
-internal fun isOneTapAllowed(
-    durationMode: DurationMode,
-    intensityEnabled: Boolean,
-): Boolean = durationMode != DurationMode.MANUAL && !intensityEnabled
+internal fun isOneTapAllowed(intensityEnabled: Boolean): Boolean = !intensityEnabled
 
 /** Auto-corrects away from [LogFlow.ONE_TAP] the moment it becomes invalid; never auto-restores it. */
 internal fun coerceLogFlow(
     logFlow: LogFlow,
-    durationMode: DurationMode,
     intensityEnabled: Boolean,
 ): LogFlow =
-    if (logFlow == LogFlow.ONE_TAP && !isOneTapAllowed(durationMode, intensityEnabled)) {
+    if (logFlow == LogFlow.ONE_TAP && !isOneTapAllowed(intensityEnabled)) {
         LogFlow.DETAIL_SHEET
     } else {
         logFlow

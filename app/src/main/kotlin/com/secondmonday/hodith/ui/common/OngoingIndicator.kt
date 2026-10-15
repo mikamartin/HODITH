@@ -23,7 +23,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.ui.theme.HodithTheme
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
@@ -68,10 +67,10 @@ fun OngoingElapsedText(
 }
 
 /**
- * [OngoingElapsedText]'s `MANUAL`-mode counterpart: a `MANUAL` event's stated/expected duration is
- * a known future instant, not an open-ended run, so its trailing text names when it's due to end
- * rather than counting up how long it's been running. See [formatExpectedEndTime] for why this
- * stays compact rather than a full date+weekday string.
+ * [OngoingElapsedText]'s counterpart for a stated/expected end: a known future instant, not an
+ * open-ended run, so its trailing text names when it's due to end rather than counting up how
+ * long it's been running. See [formatExpectedEndTime] for why this stays compact rather than a
+ * full date+weekday string.
  */
 @Composable
 fun OngoingExpectedEndText(
@@ -90,26 +89,26 @@ fun OngoingExpectedEndText(
 }
 
 /**
- * Picks [OngoingElapsedText] for a `START_STOP` event or [OngoingExpectedEndText] for a `MANUAL`
- * one — the single branch every per-event "is this still running" row (the History tab, Insights
- * drill-down rows, Home) would otherwise duplicate. [expectedEndAt] is only read for `MANUAL`.
+ * Picks [OngoingElapsedText] when nothing's stated ([expectedEndAt] null) or
+ * [OngoingExpectedEndText] when a future end is stated — the single branch every per-event "is
+ * this still running" row (the History tab, Insights drill-down rows, Home) would otherwise
+ * duplicate.
  */
 @Composable
 fun OngoingTimeText(
     startedAt: Long,
     expectedEndAt: Long?,
-    durationMode: DurationMode,
     now: Long,
     use24Hour: Boolean,
     voice: Voice,
     zone: ZoneId = ZoneId.systemDefault(),
     modifier: Modifier = Modifier,
 ) {
-    if (durationMode == DurationMode.START_STOP) {
+    if (expectedEndAt == null) {
         OngoingElapsedText(startedAt = startedAt, now = now, voice = voice, modifier = modifier)
     } else {
         OngoingExpectedEndText(
-            expectedEndAt = expectedEndAt!!,
+            expectedEndAt = expectedEndAt,
             now = now,
             use24Hour = use24Hour,
             voice = voice,

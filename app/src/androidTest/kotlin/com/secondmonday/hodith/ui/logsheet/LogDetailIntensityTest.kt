@@ -5,12 +5,10 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.LogDetailScreenUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import org.junit.Assert.assertEquals
@@ -33,12 +31,12 @@ class LogDetailIntensityTest {
         LogDraft(
             occurredAt = 0L,
             intensity = intensity,
-            durationAmount = "",
-            durationUnit = DurationUnit.MINUTES,
             note = "",
             tags = emptyList(),
             endedAt = null,
-            existingEndedAt = null,
+            daysInput = "",
+            hoursInput = "",
+            minutesInput = "",
         )
 
     @Smoke
@@ -47,7 +45,7 @@ class LogDetailIntensityTest {
         var savedDraft: LogDraft? = null
         composeTestRule.setHodithContent {
             LogDetailSheet(
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
                 intensityEnabled = true,
                 initialDraft = draft(),
                 tagSuggestions = emptyList(),
@@ -58,7 +56,7 @@ class LogDetailIntensityTest {
         }
 
         composeTestRule.onNodeWithText("1").assertIsSelected()
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
         assertEquals(1, savedDraft?.intensity)
     }
@@ -67,7 +65,7 @@ class LogDetailIntensityTest {
     fun newEvent_tappingSelectedChoiceAgain_doesNotDeselect() {
         composeTestRule.setHodithContent {
             LogDetailSheet(
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
                 intensityEnabled = true,
                 initialDraft = draft(),
                 tagSuggestions = emptyList(),
@@ -87,7 +85,7 @@ class LogDetailIntensityTest {
         var savedDraft: LogDraft? = null
         composeTestRule.setHodithContent {
             LogDetailSheet(
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
                 intensityEnabled = true,
                 initialDraft = draft(),
                 tagSuggestions = emptyList(),
@@ -101,7 +99,7 @@ class LogDetailIntensityTest {
 
         composeTestRule.onNodeWithText("3").assertIsSelected()
         composeTestRule.onNodeWithText("1").assertIsNotSelected()
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
         assertEquals(3, savedDraft?.intensity)
     }
 
@@ -113,7 +111,7 @@ class LogDetailIntensityTest {
                 uiState =
                     LogDetailScreenUiState(
                         isLoading = false,
-                        durationMode = DurationMode.NONE,
+                        tracksDuration = false,
                         intensityEnabled = true,
                         initialDraft = draft(),
                     ),
@@ -135,7 +133,7 @@ class LogDetailIntensityTest {
                 uiState =
                     LogDetailScreenUiState(
                         isLoading = false,
-                        durationMode = DurationMode.NONE,
+                        tracksDuration = false,
                         intensityEnabled = true,
                         initialDraft = draft(),
                     ),
@@ -160,7 +158,7 @@ class LogDetailIntensityTest {
                 uiState =
                     LogDetailScreenUiState(
                         isLoading = false,
-                        durationMode = DurationMode.NONE,
+                        tracksDuration = false,
                         intensityEnabled = true,
                         initialDraft = ratedDraft(intensity = 2),
                     ),

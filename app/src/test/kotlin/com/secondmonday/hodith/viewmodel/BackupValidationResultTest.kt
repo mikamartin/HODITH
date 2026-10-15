@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.ExpectedPer
@@ -31,7 +30,7 @@ private fun testCase(
     icon = icon,
     createdAt = 0L,
     logFlow = LogFlow.ONE_TAP,
-    durationMode = DurationMode.NONE,
+    tracksDuration = false,
     intensityEnabled = false,
     checkInsEnabled = true,
     lastCheckInAt = null,

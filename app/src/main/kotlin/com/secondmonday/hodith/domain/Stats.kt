@@ -54,7 +54,7 @@ data class TrendStats(
     val priorCount: Int,
 )
 
-/** Spec §10 duration stats — only meaningful when the Case's `durationMode != NONE`. */
+/** Spec §10 duration stats — only meaningful when the Case's `tracksDuration` is true. */
 data class DurationStats(
     val averageMinutes: Double,
     val shortestMinutes: Long,

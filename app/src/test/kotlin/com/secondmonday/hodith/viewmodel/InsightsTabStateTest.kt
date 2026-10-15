@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.viewmodel
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.data.offsetMinutesAt
@@ -204,8 +203,10 @@ class InsightsTabStateTest {
 
     @Test
     fun `heatmap shades every day a finished multi-day event covered, not just its start`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
-        val events = listOf(eventAtDay(0), durationEvent(startDay = 2, endDay = 6))
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
+        // finishedPoint(0), not eventAtDay(0): a bare null-ended event would itself read as
+        // ongoing on a tracking Case and span to now, which isn't what this test is about.
+        val events = listOf(finishedPoint(0), durationEvent(startDay = 2, endDay = 6))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
@@ -214,7 +215,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `heatmap shades a still-running event through today`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         // finishedPoint(0), not eventAtDay(0): a bare null-ended event would itself read as ongoing
         // on a START_STOP Case and also span to now, masking whether the day-3 event drives this.
         val events = listOf(finishedPoint(0), durationEvent(startDay = 3, endDay = null))
@@ -229,7 +230,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `a still-running event's open end shades through today via the live current zone, not its own stale captured offset`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         // Started at noon on day 3 so a 10h-earlier offset reading still lands on day 3 (2am), not
         // the day before — isolating the skew's effect to the "now" side, which is what this test
         // is actually about. The running event's own captured offset is 10 hours further west than
@@ -252,9 +253,10 @@ class InsightsTabStateTest {
 
     @Test
     fun `streak counts every day a multi-day event covered as one consecutive run`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
-        // A lone point event (run of 1) plus a 4-day span (days 10..13).
-        val events = listOf(eventAtDay(0), durationEvent(startDay = 10, endDay = 13))
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
+        // A lone point event (run of 1; finishedPoint, not eventAtDay, so it doesn't itself read
+        // as ongoing and span to now) plus a 4-day span (days 10..13).
+        val events = listOf(finishedPoint(0), durationEvent(startDay = 10, endDay = 13))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
 
@@ -263,7 +265,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `an event that crosses midnight marks both calendar days`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         val crossMidnight =
             testEvent(
                 caseId = 1,
@@ -271,7 +273,9 @@ class InsightsTabStateTest {
                 endedAt = millisAtDay(6) + 1 * 3_600_000L,
                 loggedAt = millisAtDay(5),
             )
-        val events = listOf(eventAtDay(0), crossMidnight)
+        // finishedPoint(0), not eventAtDay(0): a bare null-ended event would itself read as
+        // ongoing on a tracking Case and span to now, which isn't what this test is about.
+        val events = listOf(finishedPoint(0), crossMidnight)
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
@@ -281,7 +285,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `a NONE-mode null-ended event stays a single point in the heatmap and streak`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = false)
         val events = listOf(eventAtDay(0), eventAtDay(5))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
@@ -294,7 +298,7 @@ class InsightsTabStateTest {
     fun `overlapping duration events merge into one streak and stack on the shared days`() {
         // The reported case: a 5-day event (days 0..4) and a 12-day event (days 1..12) overlap,
         // so their union is a single 13-day run and days 1..4 carry both events.
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         val events = listOf(durationEvent(startDay = 0, endDay = 4), durationEvent(startDay = 1, endDay = 12))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
@@ -306,7 +310,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `a still-running event extends the streak through today`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         // A finished same-day event on day 0 (a run of 1), then an event started day 5 and never
         // stopped; "now" is day 12, so days 5..12 are all active -> an 8-day run.
         val events = listOf(durationEvent(startDay = 0, endDay = 0), durationEvent(startDay = 5, endDay = null))
@@ -318,9 +322,10 @@ class InsightsTabStateTest {
 
     @Test
     fun `frequency-over-time is hidden and rhythm relabelled once the Case has a multi-day event`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
-        // A 4-day event (days 15..18) plus a point event on day 19; "now" is day 20.
-        val events = listOf(durationEvent(startDay = 15, endDay = 18), eventAtDay(19))
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
+        // A 4-day event (days 15..18) plus a point event on day 19 (finishedPoint, not eventAtDay,
+        // so it doesn't itself read as ongoing and span to now); "now" is day 20.
+        val events = listOf(durationEvent(startDay = 15, endDay = 18), finishedPoint(19))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
 
@@ -334,10 +339,12 @@ class InsightsTabStateTest {
 
     @Test
     fun `frequency-over-time is shown and start-anchored when every event fits within a day`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
-        // A same-day duration event (day 15) plus four point events; "now" is day 20.
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
+        // A same-day duration event (day 15) plus four point events (finishedPoint, not eventAtDay,
+        // so none of them itself reads as ongoing and spans to now -- the test is specifically
+        // about every event fitting within a day); "now" is day 20.
         val events =
-            listOf(durationEvent(startDay = 15, endDay = 15)) + (16L..19L).map { eventAtDay(it) }
+            listOf(durationEvent(startDay = 15, endDay = 15)) + (16L..19L).map { finishedPoint(it) }
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
 
@@ -352,7 +359,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `a still-running event that began before today makes the Case multi-day`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         // Started day 5, never stopped; "now" is day 12 -> its active span is days 5..12. The other
         // event is a finished point (finishedPoint, not eventAtDay) so it can't be the running one.
         val events = listOf(finishedPoint(0), durationEvent(startDay = 5, endDay = null))
@@ -367,7 +374,7 @@ class InsightsTabStateTest {
     fun `a NONE Case renders a stored multi-day endedAt as a point in the heatmap and streak`() {
         // The Case was switched to NONE but an old event still carries a 5-day endedAt (§9): it
         // must collapse to its start day, not span.
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = false)
         val events = listOf(eventAtDay(0), durationEvent(startDay = 2, endDay = 6))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
@@ -378,7 +385,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `a NONE Case with a stored multi-day endedAt keeps the frequency card visible`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = false)
         val events = listOf(durationEvent(startDay = 15, endDay = 18), eventAtDay(19))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
@@ -396,7 +403,7 @@ class InsightsTabStateTest {
     fun `a NONE Case reads the current gap from occurredAt, not a stored endedAt`() {
         // A duration event ran days 1..14 but the Case is now NONE; "now" is day 20. The silence
         // counts from day 1, where the START_STOP version (below) would report 0 at day 14.
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = false)
         val events = listOf(eventAtDay(0), durationEvent(startDay = 1, endDay = 14))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
@@ -528,7 +535,7 @@ class InsightsTabStateTest {
         // Same widening shape as the point-event case above, but every event is a multi-day span
         // rather than an instant -- proves computeTrendFindings inherits the same duration-aware
         // gapStats/activeDates the rest of Insights already relies on, with no new gating needed.
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         val events =
             listOf(0L to 1L, 4L to 5L, 8L to 9L, 12L to 13L, 32L to 34L, 52L to 54L, 72L to 74L)
                 .map { (start, end) -> durationEvent(start, end, caseId = 0L) }
@@ -603,7 +610,7 @@ class InsightsTabStateTest {
         // per-event null filtering: only the wiring gate stands between this data and an INTENSITY
         // finding, so a broken/omitted gate would leak one through here even though every StatsEngineTest
         // detector-level test would still pass.
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP, intensityEnabled = false)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true, intensityEnabled = false)
         val count = TREND_SLOPE_MIN_SAMPLE_COUNT + 8
         val mid = count / 2
         val events =
@@ -625,12 +632,12 @@ class InsightsTabStateTest {
 
     @Test
     fun `stats trends only reports a trend-slope finding for intensity when duration isn't tracked, even with real endedAt data present`() {
-        // The mirror of the case above: durationMode is NONE, so the duration stat card is hidden --
+        // The mirror of the case above: tracksDuration is false, so the duration stat card is hidden --
         // but every event still carries a real endedAt (outcomeValueFor(DURATION) reads it directly,
-        // independent of durationMode) forming an equally stark slope. Pins the gate's other
+        // independent of tracksDuration) forming an equally stark slope. Pins the gate's other
         // direction, since a bug that swapped which null-check guards which outcome would pass the
         // test above but fail this one.
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE, intensityEnabled = true)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = false, intensityEnabled = true)
         val count = TREND_SLOPE_MIN_SAMPLE_COUNT + 8
         val mid = count / 2
         val events =
@@ -676,9 +683,12 @@ class InsightsTabStateTest {
 
     @Test
     fun `frequency-shift finding still counts a multi-day event once, unaffected by its span (spec section 9)`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
-        val pointEvents = listOf(eventAtDay(0), eventAtDay(20), eventAtDay(70), eventAtDay(80))
-        val asPoint = insightsTabState(case, (pointEvents + eventAtDay(85)).withoutTags(), now = millisAtDay(90))
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
+        // finishedPoint, not eventAtDay, throughout: a bare null-ended event would itself read as
+        // ongoing on a tracking Case and span to now, which would corrupt the point-vs-span
+        // comparison this test is actually about.
+        val pointEvents = listOf(finishedPoint(0), finishedPoint(20), finishedPoint(70), finishedPoint(80))
+        val asPoint = insightsTabState(case, (pointEvents + finishedPoint(85)).withoutTags(), now = millisAtDay(90))
         val asSpan = insightsTabState(case, (pointEvents + durationEvent(85, 95)).withoutTags(), now = millisAtDay(90))
 
         val point = (asPoint as InsightsTabState.Ready).stats.trends.single { it.kind == TrendFindingKind.FREQUENCY_SHIFT }
@@ -692,9 +702,9 @@ class InsightsTabStateTest {
     // ---- stats.duration card gate (spec section 10) ----
 
     @Test
-    fun `duration card is present for a MANUAL Case with finished durations`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
-        val events = listOf(testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L), eventAtDay(3))
+    fun `duration card is present for a tracking Case with finished durations`() {
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
+        val events = listOf(testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L), finishedPoint(3))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
@@ -703,7 +713,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `duration card carries the shortest finished duration alongside the longest`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         val events =
             listOf(
                 testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L),
@@ -766,7 +776,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `duration card is absent for a NONE Case even when events carry a stored endedAt`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = false)
         val events = listOf(testEvent(occurredAt = millisAtDay(0), endedAt = millisAtDay(0) + 30 * 60_000L), eventAtDay(3))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
@@ -778,7 +788,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `gaps display reports a zero current gap while a START_STOP event is running`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         // The day-5 event is still open (endedAt == null), so the Case is running right now.
         val events = listOf(eventAtDay(0), eventAtDay(5))
 
@@ -791,7 +801,7 @@ class InsightsTabStateTest {
     fun `gaps display keeps the current gap growing for a NONE-mode case with a null-ended event`() {
         // Same events, but a NONE-mode Case can't be "running" — a null endedAt there is just a
         // one-tap event, so the current gap still counts from the last one.
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.NONE)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = false)
         val events = listOf(eventAtDay(0), eventAtDay(5))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
@@ -805,7 +815,7 @@ class InsightsTabStateTest {
         // the old start-anchored math reported 13 days. Both events are finished, so nothing is
         // "running" (finishedPoint, not eventAtDay) — this exercises the end-anchored reach itself,
         // not the eventActiveNow short-circuit that a bare null-ended filler would trip.
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         val events = listOf(finishedPoint(0), durationEvent(startDay = 1, endDay = 14))
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(14)) as InsightsTabState.Ready
@@ -815,7 +825,7 @@ class InsightsTabStateTest {
 
     @Test
     fun `gaps display keeps the active stretch out of the longest gap`() {
-        val case = testCase(createdAt = millisAtDay(0), durationMode = DurationMode.START_STOP)
+        val case = testCase(createdAt = millisAtDay(0), tracksDuration = true)
         // Past gaps: 2, 2 days. The 36-day active stretch to "now" must not become the longest.
         val events = listOf(eventAtDay(0), eventAtDay(2), eventAtDay(4))
 

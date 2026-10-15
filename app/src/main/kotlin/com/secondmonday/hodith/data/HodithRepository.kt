@@ -49,12 +49,12 @@ interface HodithRepository {
         caseId: Long,
         order: HistorySortOrder,
         limit: Int,
-        durationMode: DurationMode,
+        tracksDuration: Boolean,
         dateFrom: Long?,
         dateTo: Long?,
     ): Flow<HistoryEventsPage>
 
-    /** Lean per-event projection (timing + Case `durationMode`) for every active Case — Home / widget counts (spec §9/§14). */
+    /** Lean per-event projection (timing + Case `tracksDuration` flag) for every active Case — Home / widget counts (spec §9/§14). */
     fun observeActiveCaseEventSpans(): Flow<List<CaseEventSpan>>
 
     /** Lean per-event projection (timing, intensity, note) for every active Case — the Big Picture grid (spec §9). */
@@ -76,10 +76,10 @@ interface HodithRepository {
     /** Latest moment any event on the Case ended (`endedAt`, or the start for a point/still-open event); null with no events. */
     suspend fun getLatestEventEndForCase(caseId: Long): Long?
 
-    /** An event on the Case with no `endedAt`, if any. Only meaningful for a `START_STOP` Case (spec §6). */
+    /** An event on the Case with no `endedAt`, if any. Only meaningful for a Case that tracks duration (spec §6). */
     suspend fun getOngoingEvent(caseId: Long): EventEntity?
 
-    /** Whether the Case has an event whose `endedAt` is still after [now]. Only meaningful for a `MANUAL` Case (spec §6). */
+    /** Whether the Case has an event whose `endedAt` is still after [now]. Only meaningful for a Case that tracks duration (spec §6). */
     suspend fun hasEventEndingAfter(
         caseId: Long,
         now: Long,

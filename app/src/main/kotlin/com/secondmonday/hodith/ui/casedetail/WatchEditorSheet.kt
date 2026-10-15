@@ -39,12 +39,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.WatchEntity
 import com.secondmonday.hodith.data.WatchKind
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.INTENSITY_MAX
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.FrequencyPicker
@@ -125,7 +123,7 @@ internal fun isIntensityLevelHighlighted(
 @Composable
 internal fun WatchEditorSheet(
     voice: Voice,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     intensityEnabled: Boolean,
     editing: WatchEntity?,
     onDismiss: () -> Unit,
@@ -179,7 +177,7 @@ internal fun WatchEditorSheet(
 
     // A hidden picker's stale state (e.g. a DAYS_ACTIVE metric prefilled from before the Case
     // stopped tracking duration) never reaches onSave -- these are what's actually rendered/saved.
-    val activeMetric = if (durationMode.tracksDuration) metric else VerdictMetric.OCCURRENCE_COUNT
+    val activeMetric = if (tracksDuration) metric else VerdictMetric.OCCURRENCE_COUNT
     val activePer = coerceExpectedPer(activeMetric, expectedPer)
     val activeMinIntensity = if (intensityEnabled) minIntensity else null
 
@@ -233,7 +231,7 @@ internal fun WatchEditorSheet(
             }
 
             if (kind == WatchKind.OFTEN) {
-                if (durationMode.tracksDuration) {
+                if (tracksDuration) {
                     Column {
                         Text(voice.watchesMetricLabel, style = MaterialTheme.typography.labelLarge)
                         SegmentedChoiceRow(

@@ -1,25 +1,26 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
+import com.secondmonday.hodith.domain.isStillRunning
 
 /**
- * Every open-ended event on the Case, earliest-started first. Only `START_STOP` cases can be
- * ongoing — `NONE`/`MANUAL` events always carry a real `endedAt` (or no duration at all), so a
- * null `endedAt` there would be a data bug, not an ongoing state, and this deliberately doesn't
- * surface it as one. Spec §6's "one ongoing event per Case" is about the Start affordance
- * (Start becomes Stop, so a second one can't be started from that button) — retro-logging and a
- * fast stop/restart both legitimately leave more than one event open at once. Shared by Home's
- * and Case Detail's mapping so that rule lives in exactly one place.
+ * Every still-running event on the Case (per [isStillRunning]: no `endedAt` at all, or an
+ * `endedAt` still in the future), earliest-started first. Only a Case that tracks duration can be
+ * ongoing — a Case that doesn't has no running-event concept at all, and this deliberately doesn't
+ * surface one. Spec §6's "one ongoing event per Case" is about the Start affordance (Start becomes
+ * Stop, so a second one can't be started from that button) — retro-logging and a fast stop/restart
+ * both legitimately leave more than one event open at once. Shared by Home's and Case Detail's
+ * mapping so that rule lives in exactly one place.
  */
 internal fun ongoingEventsIn(
     case: CaseEntity,
     events: List<EventEntity>,
+    now: Long,
 ): List<EventEntity> {
-    if (case.durationMode != DurationMode.START_STOP) return emptyList()
-    return events.filter { it.endedAt == null }.sortedBy { it.occurredAt }
+    if (!case.tracksDuration) return emptyList()
+    return events.filter { isStillRunning(it, case.tracksDuration, now) }.sortedBy { it.occurredAt }
 }
 
 /**
@@ -30,7 +31,8 @@ internal fun ongoingEventsIn(
 internal fun ongoingEventIn(
     case: CaseEntity,
     events: List<EventEntity>,
-): EventEntity? = ongoingEventsIn(case, events).firstOrNull()
+    now: Long,
+): EventEntity? = ongoingEventsIn(case, events, now).firstOrNull()
 
 /**
  * Renders the time since [startMillis] as of [nowMillis] for the ongoing indicator: minutes

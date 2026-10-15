@@ -2,7 +2,6 @@ package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventTagCrossRef
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.TagEntity
@@ -41,17 +40,17 @@ class TagsListViewModelTest {
     private fun viewModel(clock: FakeClock) = TagsListViewModel(repository, clock, SavedStateHandle(mapOf("caseId" to caseId)))
 
     @Test
-    fun `uiState carries the case icon, name, and duration mode`() =
+    fun `uiState carries the case icon, name, and tracksDuration`() =
         runTest {
             repository.cases.value =
-                listOf(testCase(id = caseId, name = "Coffee", icon = "☕", createdAt = millisAtDay(0), durationMode = DurationMode.MANUAL))
+                listOf(testCase(id = caseId, name = "Coffee", icon = "☕", createdAt = millisAtDay(0), tracksDuration = true))
             repository.events.value = listOf(eventAtDay(0))
 
             viewModel(FakeClock(millisAtDay(10))).uiState.test {
                 val state = awaitLoadedItem { it.isLoading }
                 assertEquals("☕", state.caseIcon)
                 assertEquals("Coffee", state.caseName)
-                assertEquals(DurationMode.MANUAL, state.durationMode)
+                assertTrue(state.tracksDuration)
                 cancelAndIgnoreRemainingEvents()
             }
         }

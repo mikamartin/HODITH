@@ -8,7 +8,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.domain.TagBreakdownEntry
@@ -36,7 +35,7 @@ fun TagsListRoute(
         taggedEventCount = uiState.taggedEventCount,
         tags = uiState.tags,
         eventsWithTags = uiState.eventsWithTags,
-        durationMode = uiState.durationMode,
+        tracksDuration = uiState.tracksDuration,
         caseIcon = uiState.caseIcon,
         caseName = uiState.caseName,
         nowMillis = viewModel::nowMillis,
@@ -59,7 +58,7 @@ fun TagsListScreen(
     taggedEventCount: Int,
     tags: List<TagBreakdownEntry>,
     eventsWithTags: List<EventWithTags>,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     caseIcon: String,
     caseName: String,
     nowMillis: () -> Long,
@@ -96,7 +95,7 @@ fun TagsListScreen(
             title = voice.insightsTagDrillDownTitle(tagName),
             events = eventsWithTag(eventsWithTags, tagName),
             now = now,
-            durationMode = durationMode,
+            tracksDuration = tracksDuration,
             voice = voice,
             suppressTagName = tagName,
             onEditEvent = onEditEvent,

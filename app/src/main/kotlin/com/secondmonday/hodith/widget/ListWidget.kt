@@ -45,7 +45,6 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.secondmonday.hodith.MainActivity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
@@ -235,8 +234,8 @@ private fun CaseRow(
             }
             Spacer(modifier = GlanceModifier.width(WidgetLogButtonSpacing))
             // The log button stays put whether or not an event runs (spec §6) — on a running
-            // `START_STOP` Case it starts a second one. Stop lives in Case Detail, opened by tapping
-            // the row.
+            // duration-tracking Case it starts a second one. Stop lives in Case Detail, opened by
+            // tapping the row.
             val tapAction =
                 when (row.logFlow) {
                     LogFlow.ONE_TAP -> actionRunCallback<QuickLogAction>(actionParametersOf(CaseIdParam to row.caseId))
@@ -314,10 +313,10 @@ internal fun WidgetCaseSubtitle(
             text =
                 when {
                     row.runningCount >= 2 -> PlainVoice.ongoingCountIndicator(row.runningCount)
-                    ongoing.durationMode == DurationMode.START_STOP -> formatElapsedDuration(ongoing.occurredAt, now)
+                    ongoing.endedAt == null -> formatElapsedDuration(ongoing.occurredAt, now)
                     else ->
                         PlainVoice.ongoingExpectedEndTrailing(
-                            formatExpectedEndTime(ongoing.endedAt!!, now, use24Hour),
+                            formatExpectedEndTime(ongoing.endedAt, now, use24Hour),
                         )
                 },
             style = TextStyle(color = ColorProvider(WidgetPalette.onSurfaceMuted), fontSize = WidgetSubtitleSize),

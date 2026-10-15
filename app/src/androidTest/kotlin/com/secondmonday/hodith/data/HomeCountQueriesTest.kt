@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 /**
  * The lean projections Home / the widgets read instead of the full `CaseWithEvents` `@Relation`.
  * The today/this-week count *math* is JVM-tested in `HomeViewModelMappingTest`; this proves the
- * queries feed it the right rows — the `events JOIN cases` projection carrying `durationMode`, the
+ * queries feed it the right rows — the `events JOIN cases` projection carrying `tracksDuration`, the
  * archived exclusion, and the scalar count.
  */
 @RunWith(AndroidJUnit4::class)
@@ -34,10 +34,10 @@ class HomeCountQueriesTest {
 
     @Smoke
     @Test
-    fun observeActiveCaseEventSpans_projectsTimingAndTheOwningCasesDurationMode() =
+    fun observeActiveCaseEventSpans_projectsTimingAndTheOwningCasesTracksDuration() =
         runTest {
-            val tracking = caseDao.insert(testCase(name = "Tracked", durationMode = DurationMode.START_STOP))
-            val point = caseDao.insert(testCase(name = "Point", durationMode = DurationMode.NONE))
+            val tracking = caseDao.insert(testCase(name = "Tracked", tracksDuration = true))
+            val point = caseDao.insert(testCase(name = "Point", tracksDuration = false))
             eventDao.insert(testEvent(caseId = tracking, occurredAt = 100L, endedAt = 400L))
             eventDao.insert(testEvent(caseId = point, occurredAt = 200L, endedAt = null))
 
@@ -45,8 +45,8 @@ class HomeCountQueriesTest {
 
             assertEquals(
                 listOf(
-                    CaseEventSpan(tracking, 100L, 400L, DurationMode.START_STOP),
-                    CaseEventSpan(point, 200L, null, DurationMode.NONE),
+                    CaseEventSpan(tracking, 100L, 400L, true),
+                    CaseEventSpan(point, 200L, null, false),
                 ),
                 spans,
             )

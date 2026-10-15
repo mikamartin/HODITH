@@ -1,6 +1,5 @@
 package com.secondmonday.hodith.domain
 
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.VerdictMetric
@@ -26,8 +25,8 @@ internal const val ABOUT_RIGHT_MAX_RATIO = 1.25
 internal const val MORE_MAX_RATIO = 2.0
 
 /**
- * A pure function of an [Expectation], its Case's events, the Case's duration mode, and the
- * current time. Verdicts are computed fresh on every read, never stored, so this is the app's
+ * A pure function of an [Expectation], its Case's events, whether the Case tracks duration, and
+ * the current time. Verdicts are computed fresh on every read, never stored, so this is the app's
  * most unit-testable — and riskiest to get wrong — surface.
  *
  * The observation window is `[expectation.windowStart, now]`. Events whose active span never
@@ -39,7 +38,7 @@ internal fun computeVerdict(
     expectation: Expectation,
     events: List<EventEntity>,
     now: Long,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     zone: ZoneId = ZoneId.systemDefault(),
 ): VerdictResult {
     val windowStartMillis = expectation.windowStart
@@ -47,9 +46,9 @@ internal fun computeVerdict(
 
     // In-window = the event's active span intersects [windowStart, now]: it must reach into the
     // window (span-overlap, not just occurredAt) and must have started by now.
-    val inWindow = events.filter { it.occurredAt <= now && activeSpanEnd(it, durationMode, now) >= windowStartMillis }
+    val inWindow = events.filter { it.occurredAt <= now && activeSpanEnd(it, tracksDuration, now) >= windowStartMillis }
     val eventCount = inWindow.size
-    val activeDayCount = distinctActiveDays(inWindow, durationMode, windowStartMillis, now, zone)
+    val activeDayCount = distinctActiveDays(inWindow, tracksDuration, windowStartMillis, now, zone)
     val observationCount = if (expectation.metric == VerdictMetric.DAYS_ACTIVE) activeDayCount else eventCount
 
     val tier = confidenceTierFor(observationCount, windowDays)
@@ -81,7 +80,7 @@ internal fun computeVerdict(
  */
 internal fun distinctActiveDays(
     events: List<EventEntity>,
-    durationMode: DurationMode,
+    tracksDuration: Boolean,
     windowStartMillis: Long,
     now: Long,
     zone: ZoneId,
@@ -90,8 +89,8 @@ internal fun distinctActiveDays(
     val windowEndDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
     val days = mutableSetOf<LocalDate>()
     for (event in events) {
-        val endZone = if (isStillRunning(event, durationMode, now)) zone else event.loggedZone()
-        for (date in datesCovered(event.occurredAt, activeSpanEnd(event, durationMode, now), event.loggedZone(), endZone)) {
+        val endZone = if (isStillRunning(event, tracksDuration, now)) zone else event.loggedZone()
+        for (date in datesCovered(event.occurredAt, activeSpanEnd(event, tracksDuration, now), event.loggedZone(), endZone)) {
             if (!date.isBefore(windowStartDate) && !date.isAfter(windowEndDate)) days += date
         }
     }

@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.data.CaseEntity
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.LogFlow
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +38,7 @@ class SingleCaseWidgetConfigureViewModelTest {
         icon = "☕️",
         createdAt = 0L,
         logFlow = LogFlow.ONE_TAP,
-        durationMode = DurationMode.NONE,
+        tracksDuration = false,
         intensityEnabled = false,
         checkInsEnabled = true,
         lastCheckInAt = null,

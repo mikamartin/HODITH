@@ -5,7 +5,6 @@ import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.loggedZone
-import com.secondmonday.hodith.data.tracksDuration
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.domain.HISTORY_SHARE_CARD_ENTRY_CAP
 import com.secondmonday.hodith.domain.HeroRate
@@ -253,7 +252,7 @@ private fun squareInsights(
     observedDays: Long,
     generatedAtMillis: Long,
 ): ShareCardData.Insights {
-    val tracksNeither = !case.durationMode.tracksDuration && !case.intensityEnabled
+    val tracksNeither = !case.tracksDuration && !case.intensityEnabled
     val gaps = stats?.gaps?.takeIf { it.shortestGapDays != null }
 
     return ShareCardData.Insights(
@@ -278,7 +277,7 @@ private fun squareInsights(
  * [HISTORY_SHARE_CARD_ENTRY_CAP] is dropped, so a long range never grows the card past a readable
  * length (spec §13). The card has one shape, the content-sized one Story uses.
  * Each kept row reuses [eventDetailSummary]'s primitive overload directly: [fields] and the Case's
- * own [CaseEntity.durationMode]/[CaseEntity.intensityEnabled] both gate Duration/Intensity, so
+ * own [CaseEntity.tracksDuration]/[CaseEntity.intensityEnabled] both gate Duration/Intensity, so
  * neither shows unless the Case tracks it *and* the user left it on. [displayName] arrives
  * pre-resolved, matching how [shareCardState] already takes it resolved rather than deriving it
  * from [CaseEntity.name] itself. [dateFrom]/[dateTo] are the same local-day-boundary millis
@@ -358,7 +357,7 @@ private fun historyCardRow(
     voice: Voice,
 ): HistoryCardRow {
     val event = eventWithTags.event
-    val isOngoing = isStillRunning(event, case.durationMode, now)
+    val isOngoing = isStillRunning(event, case.tracksDuration, now)
 
     return HistoryCardRow(
         timestamp = formatEventTime(event.occurredAt, now, use24Hour, zone = event.loggedZone()),
@@ -371,7 +370,7 @@ private fun historyCardRow(
                 tagNames = if (HistoryRowField.TAGS in fields) eventWithTags.tags.map { it.name } else emptyList(),
                 voice = voice,
                 isOngoing = isOngoing,
-                tracksDuration = case.durationMode.tracksDuration && HistoryRowField.DURATION in fields,
+                tracksDuration = case.tracksDuration && HistoryRowField.DURATION in fields,
                 showIntensity = case.intensityEnabled && HistoryRowField.INTENSITY in fields,
             ),
     )

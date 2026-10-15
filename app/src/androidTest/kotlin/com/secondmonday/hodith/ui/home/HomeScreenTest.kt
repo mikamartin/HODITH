@@ -9,7 +9,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CaseEventSpan
-import com.secondmonday.hodith.data.DurationMode
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
@@ -17,7 +16,6 @@ import com.secondmonday.hodith.ui.common.overlapsRect
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.DurationUnit
 import com.secondmonday.hodith.viewmodel.HomeCaseRow
 import com.secondmonday.hodith.viewmodel.HomeLogSheetState
 import com.secondmonday.hodith.viewmodel.HomeUiState
@@ -52,11 +50,11 @@ class HomeScreenTest {
             todayCount = 0,
             weekCount = 0,
             logFlow = LogFlow.ONE_TAP,
-            durationMode = DurationMode.NONE,
+            tracksDuration = false,
             intensityEnabled = false,
         )
 
-    private val ongoingEvent = CaseEventSpan(caseId = 2L, occurredAt = 0L, endedAt = null, durationMode = DurationMode.START_STOP)
+    private val ongoingEvent = CaseEventSpan(caseId = 2L, occurredAt = 0L, endedAt = null, tracksDuration = true)
 
     private fun setHomeScreenContent(
         uiState: HomeUiState = HomeUiState(cases = listOf(oneTapRow), isLoading = false),
@@ -199,7 +197,7 @@ class HomeScreenTest {
     @Test
     fun ongoingRow_showsOngoingPill_andKeepsTheStartButton() {
         val ongoingRow =
-            oneTapRow.copy(caseId = 2L, name = "Ongoing Case", durationMode = DurationMode.START_STOP, ongoingEvent = ongoingEvent)
+            oneTapRow.copy(caseId = 2L, name = "Ongoing Case", tracksDuration = true, ongoingEvent = ongoingEvent)
         var quickLogTapped: HomeCaseRow? = null
         setHomeScreenContent(
             uiState = HomeUiState(cases = listOf(ongoingRow), isLoading = false),
@@ -217,15 +215,15 @@ class HomeScreenTest {
     }
 
     @Test
-    fun manualOngoingRow_showsExpectedEndInsteadOfElapsed() {
+    fun trackedOngoingRow_withAStatedEndedAt_showsExpectedEndInsteadOfElapsed() {
         val nowMillis = 10_000L
         val expectedEndAt = 90_000L
         val manualRow =
             oneTapRow.copy(
                 caseId = 2L,
                 name = "Slow Cooker",
-                durationMode = DurationMode.MANUAL,
-                ongoingEvent = CaseEventSpan(caseId = 2L, occurredAt = 0L, endedAt = expectedEndAt, durationMode = DurationMode.MANUAL),
+                tracksDuration = true,
+                ongoingEvent = CaseEventSpan(caseId = 2L, occurredAt = 0L, endedAt = expectedEndAt, tracksDuration = true),
             )
         setHomeScreenContent(
             uiState = HomeUiState(cases = listOf(manualRow), isLoading = false),
@@ -233,7 +231,7 @@ class HomeScreenTest {
         )
 
         composeTestRule.onNodeWithText(PlainVoice.ongoingPillLabel).assertExists()
-        // MANUAL's expected-end time stands in for START_STOP's elapsed-time trailing text.
+        // A stated endedAt's expected-end time stands in for the plain elapsed-time trailing text.
         val expectedTrailing =
             PlainVoice.ongoingExpectedEndTrailing(formatExpectedEndTime(expectedEndAt, nowMillis, use24Hour = false))
         composeTestRule.onNodeWithText(expectedTrailing).assertExists()
@@ -245,7 +243,7 @@ class HomeScreenTest {
             oneTapRow.copy(
                 caseId = 2L,
                 name = "Busy Case",
-                durationMode = DurationMode.START_STOP,
+                tracksDuration = true,
                 ongoingEvent = ongoingEvent,
                 runningCount = 3,
             )
@@ -260,8 +258,8 @@ class HomeScreenTest {
     }
 
     @Test
-    fun nonOngoingStartStopRow_usesStartContentDescription() {
-        val startStopRow = oneTapRow.copy(durationMode = DurationMode.START_STOP)
+    fun nonOngoingTrackedRow_usesStartContentDescription() {
+        val startStopRow = oneTapRow.copy(tracksDuration = true)
         setHomeScreenContent(uiState = HomeUiState(cases = listOf(startStopRow), isLoading = false))
 
         composeTestRule.onNodeWithContentDescription(PlainVoice.startActionDescription(startStopRow.name)).assertExists()
@@ -293,19 +291,19 @@ class HomeScreenTest {
             HomeLogSheetState(
                 caseId = 9L,
                 caseName = "Sheet Case",
-                durationMode = DurationMode.NONE,
+                tracksDuration = false,
                 intensityEnabled = false,
                 tagSuggestions = emptyList(),
                 draft =
                     LogDraft(
                         occurredAt = 0L,
                         intensity = null,
-                        durationAmount = "",
-                        durationUnit = DurationUnit.MINUTES,
                         note = "",
                         tags = emptyList(),
                         endedAt = null,
-                        existingEndedAt = null,
+                        daysInput = "",
+                        hoursInput = "",
+                        minutesInput = "",
                     ),
             )
         var savedDraft: LogDraft? = null
@@ -314,7 +312,7 @@ class HomeScreenTest {
             onSaveLogSheetEvent = { savedDraft = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.logSheetSaveButton).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.logSheetCreateAction).performClick()
 
         assertEquals(sheetState.draft, savedDraft)
     }
