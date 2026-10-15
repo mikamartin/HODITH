@@ -58,8 +58,6 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.RowWithInfo
-import com.secondmonday.hodith.ui.common.SectionWithInfo
-import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.common.themedSwitchColors
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
@@ -310,15 +308,6 @@ private fun CaseEditForm(
 
         IconPickerSection(uiState = uiState, voice = voice, onIconSelect = onIconSelect)
 
-        SectionWithInfo(voice.caseLogFlowLabel, voice.caseLogFlowInfoTitle, voice.caseLogFlowInfoBody, voice.caseSectionInfoDescription) {
-            SegmentedChoiceRow(
-                options = listOf(LogFlow.ONE_TAP to voice.caseLogFlowOneTap, LogFlow.DETAIL_SHEET to voice.caseLogFlowDetailSheet),
-                selected = uiState.logFlow,
-                onSelect = onLogFlowChange,
-                enabled = { logFlow -> logFlow != LogFlow.ONE_TAP || isOneTapAllowed(uiState.intensityEnabled) },
-            )
-        }
-
         RowWithInfo(
             voice.caseTracksDurationLabel,
             voice.caseTracksDurationInfoTitle,
@@ -328,7 +317,28 @@ private fun CaseEditForm(
             Switch(checked = uiState.tracksDuration, onCheckedChange = onTracksDurationChange, colors = themedSwitchColors())
         }
 
-        ToggleRow(label = voice.caseIntensityToggleLabel, checked = uiState.intensityEnabled, onCheckedChange = onIntensityToggle)
+        ToggleRow(
+            label = voice.caseIntensityToggleLabel,
+            checked = uiState.intensityEnabled,
+            onCheckedChange = onIntensityToggle,
+            labelStyle = MaterialTheme.typography.labelLarge,
+            colors = themedSwitchColors(),
+        )
+
+        if (isOneTapAllowed(uiState.intensityEnabled)) {
+            RowWithInfo(
+                voice.caseOneTapToggleLabel,
+                voice.caseOneTapInfoTitle,
+                voice.caseOneTapInfoBody,
+                voice.caseSectionInfoDescription,
+            ) {
+                Switch(
+                    checked = uiState.logFlow == LogFlow.ONE_TAP,
+                    onCheckedChange = { checked -> onLogFlowChange(if (checked) LogFlow.ONE_TAP else LogFlow.DETAIL_SHEET) },
+                    colors = themedSwitchColors(),
+                )
+            }
+        }
 
         Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
             Text(voice.caseSaveButton)

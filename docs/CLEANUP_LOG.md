@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feature/case-edit-logging-toggle
+
+**Scope:** Reordered the Case edit/create form's logging control to the end of the form (after Track duration and Track intensity), replaced the two-option "One tap / Detail sheet" segmented chooser with a single "Enable one tap logging" `Switch`, hid it entirely (rather than just disabling it) once intensity tracking makes one-tap unavailable, dropped "(1-5)" from the Track intensity label, and restyled that label to match its sibling toggles.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff, twice — the first pass's "considered and declined" call on the `ToggleRow` duplication below was the user's to make, not mine; raised it and the user asked for the fix instead, so it's folded into this same pass rather than left deferred. `ktlintCheck`, `test` (full unit suite), `lintDebug`, and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to every screen touching `ToggleRow` on a connected emulator — `CaseEditScreenTest` (20/20), `HistoryShareTabTest` (18/18), `InsightShareTabTest` (25/25), `CaseDetailScreenTest` (35/35), `BigPictureScreenTest` (51/51) — all green, 149/149 total.
+
+**Found & fixed:**
+- Replaced the `SectionWithInfo` + `SegmentedChoiceRow(LogFlow.ONE_TAP/DETAIL_SHEET)` block with `RowWithInfo` wrapping a single `Switch` bound to `logFlow == ONE_TAP`, the whole row wrapped in `isOneTapAllowed(uiState.intensityEnabled)` so it's omitted outright — not merely disabled — once intensity tracking is on.
+- `Voice.kt`: removed `caseLogFlowLabel`/`caseLogFlowOneTap`/`caseLogFlowDetailSheet` (no longer rendered anywhere); renamed `caseLogFlowInfoTitle`/`caseLogFlowInfoBody` to `caseOneTapInfoTitle`/`caseOneTapInfoBody` and rewrote the copy in all three voices — dropping the now-irrelevant "Detail sheet" explanation, and adding a note that one-tap logging on a duration-tracking Case starts the event running until stopped (spec §6 Story U2 behavior that already held, but was previously undocumented in the info dialog).
+- `CaseEditScreenTest.kt`: updated node lookups to the new label; changed the intensity-gated test from `assertIsNotEnabled` to `assertDoesNotExist` (now hidden, not disabled — renamed accordingly); split the single info-dialog test in two, since the reorder moved Track duration's info icon to the first position (first icon → Track duration's dialog now; a new test covers the last icon → the new one-tap dialog).
+- `ui.common.ToggleRow` collapsed from two same-named, same-package composables (`ToggleRow.kt`'s whole-row-toggleable version and `ThemedToggle.kt`'s themed-`Switch`-owns-click version) into one canonical `ToggleRow.kt`, with `labelStyle`/`colors` params defaulting to each existing call site's current look (`LocalTextStyle.current`/`SwitchDefaults.colors()`) so none of the four live call sites (Share's section picker, History Share's field picker, Big Picture's overview-detail dialog, Case Detail's check-ins row) changed appearance. `ThemedToggle.kt` now holds only `themedSwitchColors()`. Track intensity restyled via the merged component (`labelStyle = MaterialTheme.typography.labelLarge` to match Track duration's bolder label, `colors = themedSwitchColors()`) instead of a one-off inline `Row`; dropped the "(1-5)" suffix from `caseIntensityToggleLabel` in the same change.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- UI Copy Brevity: "Enable one tap logging" runs longer than its new siblings "Track duration"/"Track intensity". Flagged per the checklist, but the wording was the user's explicit instruction for this change, not an incidental pick — kept as specified.
+
+**Checks:**
+- Duplication: the `ToggleRow` duplication (see Found & fixed) was the only one found and is now fixed; no inline Voice strings added.
+- Decoupling: no ViewModel/domain changes; `isOneTapAllowed` reused exactly as before, called from the Composable the same way the segmented control's `enabled` lambda used it.
+- Complexity: `CaseEditForm` is ~90 lines, unchanged bracket, under the 150-line guideline.
+- Dead code & hygiene: unused imports removed throughout; `git status` clean. `HODITH_SPEC.md` describes `logFlow`/`tracksDuration`/`intensityEnabled` only at the data-model level, never this screen's specific control shape, so nothing there was stale.
+- Naming: new Voice keys (`caseOneTapToggleLabel`, `caseOneTapInfoTitle`, `caseOneTapInfoBody`) follow the existing `case*` convention and landed in all three voices in the same commit.
+- Accessibility: reused the same `Switch`/`RowWithInfo`/`ToggleRow` building blocks already in place; no new icon-only button added. Manual light/dark verification left to the user per this repo's convention.
+- Data model/migrations/widgets/notifications: untouched — `LogFlow` and its widget/notification dispatch are unchanged; only the Case-edit screen's control for setting it changed.
+- Spec review: no divergence — see Dead code & hygiene above. TESTING.md's `ToggleRow` semantics-merging note (Known environment issues) still accurate — the kept shape is exactly the one it describes.
+- Tests: no weakened assertions — the intensity-gated test got strictly stronger (hidden, not just disabled); every other `ToggleRow` call site's existing tests stayed green unmodified, confirming the merge didn't change their behavior.
+
+**Docs updated:** PROGRESS.md (the `ToggleRow` duplication item added during the first pass removed again — fixed in this same branch rather than left as backlog); this entry (oldest entry, `fix/widget-edit-affordance`, removed per the 5-entry retention rule).
+
+---
+
 ## feature/duration-unification — pre-merge cleanup pass
 
 **Scope:** A full CLEANUP_CHECKLIST.md walk-through of the whole `feature/duration-unification` diff requested before merge, including finally running the instrumented tests the previous pass on this branch had deferred for lack of an emulator.
@@ -137,36 +169,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: regression coverage added at both layers — `BigPictureFilterStateTest.kt` (JVM: same-day-duration-not-flagged-as-span, 2-day vs. 3+/4-day span flagging, a still-running event's carried days staying `isAllDay` forever and never falsely `isSpanEnd`, a still-running event started "today" staying a plain timed row, year-boundary date generation, offset-based date resolution, a full mixed-day integration case, sort ties/stability/empty-list) and `BigPictureScreenTest.kt` (instrumented: span start day, span end day, all-day-pinned-above-a-timed-row ordering).
 
 **Docs updated:** HODITH_SPEC.md (§9, day/week detail ordering and label rewritten); TESTING.md (ViewModels row extended for the three new pure functions; Compose UI — Big Picture row corrected for the new labels/ordering); this entry (oldest entry, `test/autosize-harness-investigation`, removed per the 5-entry retention rule).
-
----
-
-## fix/widget-edit-affordance
-
-**Scope:** Two user-reported bugs on the List widget's configure flow, found and fixed in sequence in the same session. First: the empty-widget message told users to long-press and tap Edit to pick Cases, but tapping it only opened the app (not the picker it promised), and long-press on the user's launcher only resizes — there's no reachable "Edit" affordance that way. Fixed by adding a persistent header edit icon (present in both the empty and populated states) and wiring it, plus the empty-state message, to relaunch the real `android:configure` Activity. That change made the Activity reachable from an already-placed widget for the first time, which exposed two further latent bugs that only ever held for first-ever setup: re-editing opened the app instead of returning to the widget, and re-editing always started from a blank selection instead of the widget's real one.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to the touched classes (`WidgetChromeNavigationTest`, `ListWidgetConfigureFlowTest`, `WidgetActionsFlowTest`) on a Pixel 8 API 36 emulator, across three passes as the diff grew — all green each time (8/8, 2/2, 6/6 most recently).
-
-**Found & fixed:**
-- `ListWidget.kt`'s header restructured into a `Row` with a persistent "✎" edit icon (`MinTapTarget`-sized, accessibility-labeled) alongside the title, present in both the empty and populated states; both it and the empty-state message now relaunch `ListWidgetConfigureActivity` via a real `ACTION_APPWIDGET_CONFIGURE` intent instead of opening `MainActivity`.
-- `Voice.kt`: `widgetConfigureBody` and `widgetNoCasesSelectedMessage` reworded in all three voices to drop the false long-press/Edit claim; new `widgetEditButtonDescription` added to all three.
-- Reported bug: re-editing opened the app instead of returning to the widget. `ListWidgetConfigureActivity` had no declared task affinity, so launching it from a widget tap (a cross-process click Android runs with `FLAG_ACTIVITY_NEW_TASK`) merged it onto an existing `MainActivity` task sharing the default affinity, and finishing it revealed that task instead of the home screen. Fixed with `android:taskAffinity=""` on `ListWidgetConfigureActivity` — and, preemptively, on `SingleCaseWidgetConfigureActivity`, since it shares the identical manifest pattern and would hit the same bug the moment its own edit icon lands (tracked in PROGRESS.md).
-- Reported bug: re-editing always started from a blank selection. `ListWidgetConfigureViewModel`'s `init` hardcoded `selectedCaseIds = emptySet()` — harmless on first-ever configure, wrong once an edit icon can reopen the picker on an already-configured widget. Replaced with a `load(initialSelectedCaseIds)` the Activity calls after reading the widget's real `CaseIdsKey` state via Glance's `getAppWidgetState`, guarded against a second call (e.g. a rotation) wiping an in-progress selection back to the original.
-- Checklist-surfaced (Accessibility section, not user-reported): the header restructure had moved the title's clickable padding from the `Text` onto the `Row`, shrinking its tap target from the already-documented ~37dp trade-off down to just its bare text line height. Moved the padding back onto the `Text` itself, alongside the icon's own independent 48dp target, before this ever shipped.
-- Checklist-surfaced (Hardcoded Values section): the new edit icon reused `WidgetPlusGlyphSize`, a token named for one specific glyph (the quick-log "+") now backing three unrelated glyph buttons. Renamed to `WidgetGlyphButtonSize` across both widgets and every referencing test/doc.
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- A client-side Intent-flag fix (`FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK`) for the task-affinity bug instead of the manifest attribute — the manifest fix is the conventional, documented approach for `android:configure` Activities and holds regardless of future launch paths, rather than depending on assumptions about Glance's own `PendingIntent` flag construction.
-
-**Checks:**
-- Duplication: no new composables; the edit icon reuses the existing "glyph-as-`Text`-in-a-sized-`Box`" pattern the quick-log "+" button already established. All new/changed strings went through `Voice` in all three voices in the same commit.
-- Decoupling: `ListWidgetConfigureViewModel.load` stays Context/Glance-free (a plain `Set<Long>` parameter) — the Activity owns the Context-bound Glance read, matching the class's own documented read/write split.
-- Accessibility: the new edit icon is `.size(MinTapTarget)` with a non-empty content description in all three voices; the title's tap target confirmed not regressed (see Found & fixed).
-- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
-- Naming: `widgetEditButtonDescription` matches the existing `widget*` Voice key convention; the `WidgetGlyphButtonSize` rename keeps the token's name accurate to what it now controls.
-- Spec review: `HODITH_SPEC.md` §15 gained one clause noting the List widget's header edit icon, and that the Single-case widget doesn't have one yet.
-- Tests: regression tests added for both reported bugs — `WidgetChromeNavigationTest`'s renamed `listWidget_emptyStateTap_opensConfigureActivity` plus two new edit-icon tests (tap behavior, content description); `ListWidgetConfigureFlowTest`'s new re-edit test seeding an existing selection and asserting it renders pre-checked; `ListWidgetConfigureViewModelTest` extended with `load`-seeding and double-call-guard unit tests. The task-affinity fix itself has no practical automated test (it's about which OS task an Activity lands in) — it relies on manifest correctness plus the user's own on-device confirmation.
-
-**Docs updated:** HODITH_SPEC.md (§15, edit icon clause); TESTING.md (Widgets — chrome & trampoline row corrected and extended); MANUAL_TEST_PLAN.md (items 2 and 8 — stale long-press instruction and a stale test-name reference both corrected); DEV_PLAYBOOK.md (widget token table, `WidgetPlusGlyphSize` → `WidgetGlyphButtonSize`); PROGRESS.md (new Single-case widget edit-affordance follow-up item added); this entry (oldest entry, `chore/qa-audit`, removed per the 5-entry retention rule).
-

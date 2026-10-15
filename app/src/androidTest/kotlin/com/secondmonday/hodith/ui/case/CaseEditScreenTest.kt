@@ -1,10 +1,10 @@
 package com.secondmonday.hodith.ui.case
 
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -154,7 +154,7 @@ class CaseEditScreenTest {
     fun logFlow_oneTapEnabled_whenNoDurationAndNoIntensity() {
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, tracksDuration = false))
 
-        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsEnabled()
+        composeTestRule.onNodeWithText(PlainVoice.caseOneTapToggleLabel).assertIsEnabled()
     }
 
     @Test
@@ -163,14 +163,14 @@ class CaseEditScreenTest {
         // starts open-ended by default, exactly like a non-tracked one.
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, tracksDuration = true))
 
-        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsEnabled()
+        composeTestRule.onNodeWithText(PlainVoice.caseOneTapToggleLabel).assertIsEnabled()
     }
 
     @Test
-    fun logFlow_oneTapDisabled_whenIntensityEnabled() {
+    fun logFlow_oneTapHidden_whenIntensityEnabled() {
         setContent(uiState = CaseEditUiState(isEditing = true, isLoading = false, intensityEnabled = true))
 
-        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowOneTap).assertIsNotEnabled()
+        composeTestRule.onNodeWithText(PlainVoice.caseOneTapToggleLabel).assertDoesNotExist()
     }
 
     @Test
@@ -181,10 +181,24 @@ class CaseEditScreenTest {
             .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
             .onFirst()
             .performClick()
-        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowInfoTitle).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.caseTracksDurationInfoTitle).assertExists()
 
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
-        composeTestRule.onNodeWithText(PlainVoice.caseLogFlowInfoTitle).assertDoesNotExist()
+        composeTestRule.onNodeWithText(PlainVoice.caseTracksDurationInfoTitle).assertDoesNotExist()
+    }
+
+    @Test
+    fun oneTapInfoIcon_opensAndDismissesDialog() {
+        setContent()
+
+        composeTestRule
+            .onAllNodesWithContentDescription(PlainVoice.caseSectionInfoDescription)
+            .onLast()
+            .performClick()
+        composeTestRule.onNodeWithText(PlainVoice.caseOneTapInfoTitle).assertExists()
+
+        composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
+        composeTestRule.onNodeWithText(PlainVoice.caseOneTapInfoTitle).assertDoesNotExist()
     }
 
     @Test

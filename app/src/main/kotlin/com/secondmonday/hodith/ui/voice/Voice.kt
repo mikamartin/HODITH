@@ -90,15 +90,13 @@ interface Voice {
     val caseIconSectionCollapseDescription: String
     val caseSectionInfoDescription: String
     val infoDialogDismissAction: String
-    val caseLogFlowLabel: String get() = "Logging"
-    val caseLogFlowOneTap: String get() = "One tap"
-    val caseLogFlowDetailSheet: String get() = "Detail sheet"
-    val caseLogFlowInfoTitle: String
-    val caseLogFlowInfoBody: String
+    val caseOneTapToggleLabel: String get() = "Enable one tap logging"
+    val caseOneTapInfoTitle: String
+    val caseOneTapInfoBody: String
     val caseTracksDurationLabel: String get() = "Track duration"
     val caseTracksDurationInfoTitle: String
     val caseTracksDurationInfoBody: String
-    val caseIntensityToggleLabel: String get() = "Track intensity (1-5)"
+    val caseIntensityToggleLabel: String get() = "Track intensity"
     val caseCheckInLabel: String get() = "Check-in"
     val caseCheckInInfoTitle: String
     val caseCheckInInfoBody: String
@@ -1021,10 +1019,10 @@ object PlainVoice : Voice {
     override val caseIconSectionCollapseDescription = "Hide icon choices"
     override val caseSectionInfoDescription = "More info"
     override val infoDialogDismissAction = "Got it"
-    override val caseLogFlowInfoTitle = "About logging"
-    override val caseLogFlowInfoBody =
-        "**One tap** logs an event instantly with no extra fields. **Detail sheet** opens a short form for " +
-            "time, duration, intensity, and notes before saving."
+    override val caseOneTapInfoTitle = "About one tap logging"
+    override val caseOneTapInfoBody =
+        "Logs an event instantly, with no note or tags. If duration tracking is on, the event starts running " +
+            "until you stop it."
     override val caseTracksDurationInfoTitle = "About duration"
     override val caseTracksDurationInfoBody =
         "**On:** each event can be stopped, left running, or given a planned length. **Off:** every event is " +
@@ -1649,11 +1647,10 @@ object IntenseVoice : Voice {
     override val caseIconSectionCollapseDescription = "Conceal the icons"
     override val caseSectionInfoDescription = "Explain more"
     override val infoDialogDismissAction = "Understood"
-    override val caseLogFlowInfoTitle = "On the manner of recording"
-    override val caseLogFlowInfoBody =
-        "**One tap** records it the moment you touch it. No further rite required. **The detail sheet** " +
-            "asks more of you: the hour, its length, its severity, its notes, reserved for cases that demand " +
-            "such detail."
+    override val caseOneTapInfoTitle = "On the one-tap rite"
+    override val caseOneTapInfoBody =
+        "Records the instant you touch it, with no note or tags set down. No further rite required. When " +
+            "duration is kept, that instant simply begins unfolding, left running until you choose to seal it."
     override val caseTracksDurationInfoTitle = "On duration"
     override val caseTracksDurationInfoBody =
         "**Kept:** each event can be sealed, left unfolding, or given a stated length. **Off:** every event " +
@@ -2277,10 +2274,10 @@ object BrightVoice : Voice {
     override val caseIconSectionCollapseDescription = "Tuck the icons away"
     override val caseSectionInfoDescription = "Wait, what does this mean?"
     override val infoDialogDismissAction = "Got it!"
-    override val caseLogFlowInfoTitle = "Logging, explained"
-    override val caseLogFlowInfoBody =
-        "**One tap** logs it the second you tap. Zero fuss, zero fields. **Detail sheet** pops up a quick " +
-            "form for time, duration, intensity, and notes if you want more detail."
+    override val caseOneTapInfoTitle = "One tap, explained"
+    override val caseOneTapInfoBody =
+        "Logs it the second you tap, no note or tags. Zero fuss, zero fields! If duration tracking is on, it " +
+            "just starts running until you hit stop."
     override val caseTracksDurationInfoTitle = "Duration, explained"
     override val caseTracksDurationInfoBody =
         "**On:** stop it, let it run, or give it a planned length. **Off:** every event is just a quick point " +
