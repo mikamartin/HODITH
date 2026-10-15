@@ -217,3 +217,33 @@ internal fun bigPictureTagLegend(
         selectedTagNames.isEmpty() -> TagLegendState.UntaggedOnly
         else -> TagLegendState.Some(allTagNames.filter { it in selectedTagNames })
     }
+
+// A rough character budget for the legend row's generous multi-line space, not an exact
+// rendered-width measurement (that would need real text measurement, and would need to be redone
+// per theme given how much chip chrome -- halo rings, border widths -- varies between them). A
+// typical phone's content width after the screen's own padding holds somewhere around 35-40
+// labelSmall characters per line; three lines and a little slack land near 120. CHROME_CHARS
+// approximates each chip's own padding/border/gap (not part of the label text) as
+// character-equivalent width, so a chip with a short label still "costs" something even if its
+// label alone would fit many times over.
+internal const val LEGEND_VISIBLE_CHAR_BUDGET = 120
+internal const val LEGEND_CHIP_CHROME_CHARS = 5
+
+/**
+ * Whether the legend row's itemized Case/Tag chips fit a generous multi-line budget. A plain
+ * item-count cap can't track actual rendered width when case/tag names range from a couple of
+ * characters to a full sentence, and a partial list plus a "+N" remainder reads as a disabled
+ * button and can't say which group the hidden items came from once one group collapses to a
+ * single label -- so this is deliberately all-or-nothing: the legend either lists every selected
+ * Case/Tag, or (when the caller finds this false) shows nothing at all, same as it already does
+ * when every Case and Tag is selected. The trigger chips above still state the counts either way.
+ * [caseLabels]/[tagLabels] are the exact text each chip would render (Case icon+name, Tag name).
+ */
+internal fun bigPictureLegendFits(
+    caseLabels: List<String>,
+    tagLabels: List<String>,
+    budget: Int = LEGEND_VISIBLE_CHAR_BUDGET,
+): Boolean {
+    val totalCost = (caseLabels + tagLabels).sumOf { it.length + LEGEND_CHIP_CHROME_CHARS }
+    return totalCost <= budget
+}

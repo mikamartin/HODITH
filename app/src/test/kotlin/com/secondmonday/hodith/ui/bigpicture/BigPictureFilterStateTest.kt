@@ -102,6 +102,37 @@ class BigPictureFilterStateTest {
         assertEquals(TagLegendState.AllSelected, bigPictureTagLegend(emptyList(), emptySet()))
     }
 
+    @Test
+    fun `bigPictureLegendFits is true for no labels at all`() {
+        assertTrue(bigPictureLegendFits(emptyList(), emptyList(), budget = 0))
+    }
+
+    @Test
+    fun `bigPictureLegendFits is true right at the budget boundary, false one over it`() {
+        val cost = "Coffee".length + LEGEND_CHIP_CHROME_CHARS
+        assertTrue(bigPictureLegendFits(listOf("Coffee"), emptyList(), budget = cost))
+        assertFalse(bigPictureLegendFits(listOf("Coffee"), emptyList(), budget = cost - 1))
+    }
+
+    @Test
+    fun `bigPictureLegendFits counts case and tag labels against one shared budget`() {
+        val caseCost = "Coffee".length + LEGEND_CHIP_CHROME_CHARS
+        val tagCost = "weekend".length + LEGEND_CHIP_CHROME_CHARS
+        assertTrue(bigPictureLegendFits(listOf("Coffee"), listOf("weekend"), budget = caseCost + tagCost))
+        assertFalse(bigPictureLegendFits(listOf("Coffee"), listOf("weekend"), budget = caseCost + tagCost - 1))
+    }
+
+    @Test
+    fun `bigPictureLegendFits is false once a long partial selection exceeds the real budget`() {
+        val manySelectedCases = (1..10).map { "A fairly long case name number $it" }
+        assertFalse(bigPictureLegendFits(manySelectedCases, emptyList(), budget = LEGEND_VISIBLE_CHAR_BUDGET))
+    }
+
+    @Test
+    fun `bigPictureLegendFits is true for a short partial selection at the real default budget`() {
+        assertTrue(bigPictureLegendFits(listOf("Coffee"), listOf("weekend")))
+    }
+
     private val jan2026 = YearMonth.of(2026, 1)
     private val mar2026 = YearMonth.of(2026, 3)
     private val dec2025 = YearMonth.of(2025, 12)
