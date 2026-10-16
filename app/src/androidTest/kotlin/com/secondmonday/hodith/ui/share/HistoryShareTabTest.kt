@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.secondmonday.hodith.data.HistoryRowField
+import com.secondmonday.hodith.data.pdf.HistoryPdfContent
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.testtags.Smoke
@@ -25,6 +26,7 @@ import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -49,6 +51,7 @@ class HistoryShareTabTest {
         onDateToPicked: (LocalDate) -> Unit = {},
         onFieldToggle: (HistoryRowField, Boolean) -> Unit = { _, _ -> },
         onShareClick: () -> Unit = {},
+        onSharePdfClick: (HistoryPdfContent) -> Unit = {},
     ) {
         composeTestRule.setHodithContent {
             ShareScreen(
@@ -67,7 +70,7 @@ class HistoryShareTabTest {
                 onFieldToggle = onFieldToggle,
                 onHistorySortOrderSelect = onSortOrderSelect,
                 onHistoryShareClick = onShareClick,
-                onHistorySharePdfClick = {},
+                onHistorySharePdfClick = onSharePdfClick,
             )
         }
         composeTestRule.onNodeWithText(PlainVoice.shareTabHistoryLabel).performClick()
@@ -170,7 +173,10 @@ class HistoryShareTabTest {
             onSortOrderSelect = { selected = it },
         )
 
-        composeTestRule.onNodeWithText(PlainVoice.shareHistorySortOldestLabel).performScrollTo().performClick()
+        // By tag, not by label text: a ToggleRow's label/Switch semantics don't reliably merge
+        // into one clickable node in every context (see HISTORY_SHARE_FIELD_TOGGLE_TAG_PREFIX's
+        // own doc comment) - the sort control is a ToggleRow too now (feature/pdf-export).
+        composeTestRule.onNodeWithTag(HISTORY_SHARE_SORT_TOGGLE_TAG).performScrollTo().performClick()
 
         assertEquals(ChronologicalOrder.OLDEST_FIRST, selected)
     }
@@ -244,10 +250,51 @@ class HistoryShareTabTest {
             onShareClick = { clicked = true },
         )
 
-        // History's image action is its own button now that the PDF action sits beside it (feature/pdf-export).
-        composeTestRule.onNode(hasText(PlainVoice.shareAsImageActionLabel) and hasClickAction()).performClick()
+        composeTestRule.onNode(hasText(PlainVoice.shareOpenDescription) and hasClickAction()).performClick()
 
         assert(clicked)
+    }
+
+    @Test
+    fun pdfToggle_on_routesTheShareButtonToThePdfCallbackInstead() {
+        var imageClicked = false
+        var pdfClicked = false
+        setContent(
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
+            onShareClick = { imageClicked = true },
+            onSharePdfClick = { pdfClicked = true },
+        )
+
+        composeTestRule.onNodeWithTag(HISTORY_SHARE_PDF_TOGGLE_TAG).performScrollTo().performClick()
+        composeTestRule.onNode(hasText(PlainVoice.shareOpenDescription) and hasClickAction()).performClick()
+
+        assertTrue(pdfClicked)
+        assertFalse(imageClicked)
+    }
+
+    @Test
+    fun pdfToggle_on_hidesTheImagePreview() {
+        setContent(
+            uiState =
+                HistoryShareUiState(
+                    case = testCase(id = 1L),
+                    events = emptyList(),
+                    selection = defaultSelection(),
+                    isLoading = false,
+                ),
+        )
+
+        composeTestRule.onNodeWithText(PlainVoice.sharePreviewLabel).assertExists()
+
+        composeTestRule.onNodeWithTag(HISTORY_SHARE_PDF_TOGGLE_TAG).performScrollTo().performClick()
+
+        composeTestRule.onNodeWithText(PlainVoice.sharePreviewLabel).assertDoesNotExist()
     }
 
     @Test

@@ -23,6 +23,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
 import org.junit.Assert.assertEquals
@@ -46,6 +47,7 @@ class OffscreenCaptureTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    @Smoke
     @Test
     fun capturesFixedSizeContentWithoutAffectingVisibleLayout() {
         var captured: Bitmap? = null

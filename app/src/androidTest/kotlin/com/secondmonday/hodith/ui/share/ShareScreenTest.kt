@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -82,14 +83,8 @@ class ShareScreenTest {
         composeTestRule.onNodeWithText(label).performClick()
     }
 
-    /** Summary tab only - its one button is still [PlainVoice.shareOpenDescription] (image-only, no PDF action). */
+    /** One button on every tab (feature/pdf-export) - Insights/History route it to the image or PDF callback depending on their own toggle instead of showing a second button. */
     private fun shareButton() = composeTestRule.onNode(hasText(PlainVoice.shareOpenDescription) and hasClickAction())
-
-    /** Insights/History tabs' image-share action, once the single button splits into two (feature/pdf-export). */
-    private fun imageShareButton() = composeTestRule.onNode(hasText(PlainVoice.shareAsImageActionLabel) and hasClickAction())
-
-    /** Insights/History tabs' PDF-share action. */
-    private fun pdfShareButton() = composeTestRule.onNode(hasText(PlainVoice.shareAsPdfActionLabel) and hasClickAction())
 
     @Smoke
     @Test
@@ -146,11 +141,9 @@ class ShareScreenTest {
         var historyShares = 0
         setContent(events = events(), onInsightShare = { insightShares++ }, onHistoryShare = { historyShares++ })
 
-        // Summary keeps the one image-only button; Insights' image action is a separate button
-        // once the PDF action sits beside it (feature/pdf-export).
         shareButton().performScrollTo().performClick()
         openTab(PlainVoice.shareTabInsightsLabel)
-        imageShareButton().performScrollTo().performClick()
+        shareButton().performScrollTo().performClick()
 
         assertEquals(2, insightShares)
         assertEquals(0, historyShares)
@@ -163,42 +156,45 @@ class ShareScreenTest {
         setContent(events = events(), onInsightShare = { insightShares++ }, onHistoryShare = { historyShares++ })
 
         openTab(PlainVoice.shareTabHistoryLabel)
-        imageShareButton().performScrollTo().performClick()
+        shareButton().performScrollTo().performClick()
 
         assertEquals(0, insightShares)
         assertEquals(1, historyShares)
     }
 
     @Test
-    fun pdfButton_onInsights_firesInsightSharePdfOnly() {
+    fun pdfToggle_onInsights_routesShareButtonToInsightPdfOnly() {
         var insightPdfs = 0
         var historyPdfs = 0
         setContent(events = events(), onInsightSharePdf = { insightPdfs++ }, onHistorySharePdf = { historyPdfs++ })
 
         openTab(PlainVoice.shareTabInsightsLabel)
-        pdfShareButton().performScrollTo().performClick()
+        composeTestRule.onNodeWithTag(INSIGHT_SHARE_PDF_TOGGLE_TAG).performScrollTo().performClick()
+        shareButton().performScrollTo().performClick()
 
         assertEquals(1, insightPdfs)
         assertEquals(0, historyPdfs)
     }
 
     @Test
-    fun pdfButton_onHistory_firesHistorySharePdfOnly() {
+    fun pdfToggle_onHistory_routesShareButtonToHistoryPdfOnly() {
         var insightPdfs = 0
         var historyPdfs = 0
         setContent(events = events(), onInsightSharePdf = { insightPdfs++ }, onHistorySharePdf = { historyPdfs++ })
 
         openTab(PlainVoice.shareTabHistoryLabel)
-        pdfShareButton().performScrollTo().performClick()
+        composeTestRule.onNodeWithTag(HISTORY_SHARE_PDF_TOGGLE_TAG).performScrollTo().performClick()
+        shareButton().performScrollTo().performClick()
 
         assertEquals(0, insightPdfs)
         assertEquals(1, historyPdfs)
     }
 
     @Test
-    fun summaryTab_hasNoPdfButton() {
+    fun summaryTab_hasNoPdfToggle() {
         setContent(events = events())
 
-        pdfShareButton().assertDoesNotExist()
+        composeTestRule.onNodeWithTag(INSIGHT_SHARE_PDF_TOGGLE_TAG).assertDoesNotExist()
+        composeTestRule.onNodeWithTag(HISTORY_SHARE_PDF_TOGGLE_TAG).assertDoesNotExist()
     }
 }

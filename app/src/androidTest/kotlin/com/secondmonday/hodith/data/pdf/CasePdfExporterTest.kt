@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.secondmonday.hodith.domain.PDF_HISTORY_FIRST_PAGE_ROW_CAPACITY
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
@@ -47,14 +46,41 @@ class CasePdfExporterTest {
         return PdfRenderer(pfd).use { it.pageCount }
     }
 
-    private fun historyContent(rowCount: Int) =
-        HistoryPdfContent(
-            caseName = "Coffee",
-            kicker = "History",
-            dateRangeText = "Jan 1 – Jan 31",
-            generatedAtText = "counted with HODITH app · Jan 31, 9:00 AM",
-            rows = (1..rowCount).map { HistoryPdfRow(timestamp = "Jan $it, 9:00 AM", detail = "Note #$it") },
+    private val columns =
+        HistoryPdfColumns(
+            startHeader = "Start",
+            endHeader = "End",
+            durationHeader = "Duration",
+            intensityHeader = "Intensity",
+            tagsHeader = "Tags",
+            notesHeader = "Notes",
         )
+
+    private fun historyContent(
+        rowCount: Int,
+        columns: HistoryPdfColumns = this.columns,
+    ) = HistoryPdfContent(
+        documentTitle = "HODITH Record",
+        caseName = "Coffee",
+        kicker = "History",
+        countedWithText = "counted with HODITH app · Jan 31, 9:00 AM",
+        dateRangeLabel = "Date range",
+        dateRangeText = "Jan 1 – Jan 31",
+        recordCountText = "$rowCount events",
+        appLinkText = null,
+        columns = columns,
+        rows =
+            (1..rowCount).map {
+                HistoryPdfRow(
+                    start = "Jan $it, 9:00 AM",
+                    end = "Jan $it, 9:30 AM",
+                    duration = "30m",
+                    intensity = "3",
+                    tags = "#tag$it",
+                    notes = "Note #$it",
+                )
+            },
+    )
 
     @Test
     fun exportHistoryPdf_fewRows_producesOnePage() =
@@ -73,11 +99,56 @@ class CasePdfExporterTest {
         }
 
     @Test
-    fun exportHistoryPdf_rowsOverFirstPageCapacity_paginatesToASecondPage() =
+    fun exportHistoryPdf_manyRows_paginatesToMultiplePages() =
         runBlocking {
-            val uri = exporter.exportHistoryPdf(historyContent(rowCount = PDF_HISTORY_FIRST_PAGE_ROW_CAPACITY + 1), "test-history-overflow")
+            val uri = exporter.exportHistoryPdf(historyContent(rowCount = 60), "test-history-overflow")
 
-            assertEquals(2, pageCount(uri))
+            assertTrue("Expected more than one page for 60 rows", pageCount(uri) > 1)
+        }
+
+    @Test
+    fun exportHistoryPdf_longNoteWraps_withoutThrowing() =
+        runBlocking {
+            val longNoteContent =
+                historyContent(rowCount = 1).copy(
+                    rows =
+                        listOf(
+                            HistoryPdfRow(
+                                start = "Jan 1, 9:00 AM",
+                                end = "Jan 1, 9:30 AM",
+                                duration = "30m",
+                                intensity = "3",
+                                tags = "#tag",
+                                notes = "A very long note ".repeat(30),
+                            ),
+                        ),
+                )
+
+            val uri = exporter.exportHistoryPdf(longNoteContent, "test-history-long-note")
+
+            assertEquals(1, pageCount(uri))
+        }
+
+    @Test
+    fun exportHistoryPdf_onlyStartColumn_stillFillsTheTableWidth() =
+        runBlocking {
+            val minimalColumns =
+                HistoryPdfColumns(
+                    startHeader = "Start",
+                    endHeader = null,
+                    durationHeader = null,
+                    intensityHeader = null,
+                    tagsHeader = null,
+                    notesHeader = null,
+                )
+            val content =
+                historyContent(rowCount = 2, columns = minimalColumns).let { base ->
+                    base.copy(rows = base.rows.map { it.copy(end = null, duration = null, intensity = null, tags = null, notes = null) })
+                }
+
+            val uri = exporter.exportHistoryPdf(content, "test-history-start-only")
+
+            assertEquals(1, pageCount(uri))
         }
 
     @Test
@@ -86,10 +157,13 @@ class CasePdfExporterTest {
             val chartBitmap = Bitmap.createBitmap(200, 100, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLUE) }
             val content =
                 InsightsPdfContent(
+                    documentTitle = "HODITH Record",
                     caseName = "Coffee",
                     kicker = "Insights",
+                    countedWithText = "counted with HODITH app · Jan 31, 9:00 AM",
+                    dateRangeLabel = "Date range",
                     dateRangeText = "Jan 1 – Jan 31",
-                    generatedAtText = "counted with HODITH app · Jan 31, 9:00 AM",
+                    appLinkText = null,
                     statLines = listOf("Gaps: Min 1d, Avg 2d, Max 5d", "Top tags: coffee (12)"),
                     chartBitmap = chartBitmap,
                 )
@@ -104,10 +178,13 @@ class CasePdfExporterTest {
         runBlocking {
             val content =
                 InsightsPdfContent(
+                    documentTitle = "HODITH Record",
                     caseName = "Coffee",
                     kicker = "Insights",
+                    countedWithText = "counted with HODITH app · Jan 31, 9:00 AM",
+                    dateRangeLabel = "Date range",
                     dateRangeText = "Jan 1 – Jan 31",
-                    generatedAtText = "counted with HODITH app · Jan 31, 9:00 AM",
+                    appLinkText = "github.com/mikamartin/HODITH",
                     statLines = listOf("Gaps: Min 1d, Avg 2d, Max 5d"),
                     chartBitmap = null,
                 )

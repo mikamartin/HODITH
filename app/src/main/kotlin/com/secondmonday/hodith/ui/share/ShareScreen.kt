@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,7 +19,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -67,9 +65,10 @@ import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import com.secondmonday.hodith.viewmodel.historyPdfContent
-import com.secondmonday.hodith.viewmodel.historyRangeBounds
 import com.secondmonday.hodith.viewmodel.insightsPdfStatLines
 import com.secondmonday.hodith.viewmodel.insightsTabState
+import com.secondmonday.hodith.viewmodel.pdfAppLinkText
+import com.secondmonday.hodith.viewmodel.pdfDateRangeBounds
 import com.secondmonday.hodith.viewmodel.shareCardState
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.merge
@@ -262,9 +261,11 @@ fun ShareScreen(
                 )
 
                 val displayName = shareDisplayName(typedName, case.name)
+                var insightsPdfMode by rememberSaveable { mutableStateOf(false) }
+                var historyPdfMode by rememberSaveable { mutableStateOf(false) }
                 // Recomputed independently of InsightShareTab's own internal copy (same cheap,
                 // memoization-friendly call - see its comment) because only this scope has what
-                // feature/pdf-export's PDF buttons need: displayName and the resolved Voice, both
+                // feature/pdf-export's PDF button needs: displayName and the resolved Voice, both
                 // local to this composable, not the ViewModel.
                 val today = remember(now) { Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate() }
                 val pdfInsightsState = remember(case, insightState.events, today) { insightsTabState(case, insightState.events, now) }
@@ -283,12 +284,15 @@ fun ShareScreen(
                             generatedAtMillis = now,
                             sectionOrder = insightState.sectionOrder,
                         )
-                    val (fromText, toText) = historyRangeBounds(case.createdAt, null, now, now)
+                    val (fromText, toText) = pdfDateRangeBounds(case.createdAt, null, now)
                     return InsightsPdfContent(
+                        documentTitle = voice.sharePdfDocumentTitle,
                         caseName = displayName,
                         kicker = voice.shareTabInsightsLabel,
+                        countedWithText = voice.sharePdfGeneratedLine(formatCardTimestamp(now, use24Hour)),
+                        dateRangeLabel = voice.sharePdfDateRangeLabel,
                         dateRangeText = voice.shareHistoryRangeNote(fromText, toText),
-                        generatedAtText = voice.shareCardFooter(formatCardTimestamp(now, use24Hour)),
+                        appLinkText = pdfAppLinkText(),
                         statLines = insightsPdfStatLines(cardData, voice),
                         chartBitmap = null,
                     )
@@ -329,11 +333,14 @@ fun ShareScreen(
                             graphicsLayer = graphicsLayer,
                             onSectionToggle = onSectionToggle,
                             onSectionMove = onSectionMove,
+                            pdfMode = insightsPdfMode,
+                            onPdfModeChange = { insightsPdfMode = it },
                         )
                         // Off-screen (see OffscreenCapture/OffscreenCaptureTest) - rendered at the
                         // PDF's own content width, not the phone's, so every tick label fits
-                        // instead of the mobile card's sparser label spacing.
-                        if (pdfFrequency != null) {
+                        // instead of the mobile card's sparser label spacing. Only kept hot while
+                        // PDF mode is actually on, so flipping the toggle is what starts it recording.
+                        if (insightsPdfMode && pdfFrequency != null) {
                             OffscreenCapture(
                                 graphicsLayer = chartGraphicsLayer,
                                 widthPx = PDF_CHART_CAPTURE_WIDTH_PX,
@@ -349,6 +356,8 @@ fun ShareScreen(
                             now = now,
                             displayName = displayName,
                             graphicsLayer = graphicsLayer,
+                            pdfMode = historyPdfMode,
+                            onPdfModeChange = { historyPdfMode = it },
                             onDateFromPicked = onDateFromPicked,
                             onDateToPicked = onDateToPicked,
                             onFieldToggle = onFieldToggle,
@@ -356,30 +365,21 @@ fun ShareScreen(
                         )
                 }
 
-                when (tab) {
-                    // A square snapshot doesn't read as a document, so Summary stays image-only.
-                    ShareTab.SUMMARY ->
-                        Button(onClick = onInsightShareClick, modifier = Modifier.fillMaxWidth()) {
-                            Text(voice.shareOpenDescription)
+                // One button per tab, same shape as Summary's: Insights/History route it to the
+                // image or PDF handler depending on their own toggle instead of showing a second
+                // button (feature/pdf-export).
+                val onShareClick =
+                    when (tab) {
+                        ShareTab.SUMMARY -> onInsightShareClick
+                        ShareTab.INSIGHTS -> {
+                            { if (insightsPdfMode) onInsightSharePdfClick(buildInsightsPdfContent()) else onInsightShareClick() }
                         }
-                    ShareTab.INSIGHTS ->
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedButton(onClick = onInsightShareClick, modifier = Modifier.weight(1f)) {
-                                Text(voice.shareAsImageActionLabel)
-                            }
-                            Button(onClick = { onInsightSharePdfClick(buildInsightsPdfContent()) }, modifier = Modifier.weight(1f)) {
-                                Text(voice.shareAsPdfActionLabel)
-                            }
+                        ShareTab.HISTORY -> {
+                            { if (historyPdfMode) onHistorySharePdfClick(buildHistoryPdfContent()) else onHistoryShareClick() }
                         }
-                    ShareTab.HISTORY ->
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedButton(onClick = onHistoryShareClick, modifier = Modifier.weight(1f)) {
-                                Text(voice.shareAsImageActionLabel)
-                            }
-                            Button(onClick = { onHistorySharePdfClick(buildHistoryPdfContent()) }, modifier = Modifier.weight(1f)) {
-                                Text(voice.shareAsPdfActionLabel)
-                            }
-                        }
+                    }
+                Button(onClick = onShareClick, modifier = Modifier.fillMaxWidth()) {
+                    Text(voice.shareOpenDescription)
                 }
             }
         }

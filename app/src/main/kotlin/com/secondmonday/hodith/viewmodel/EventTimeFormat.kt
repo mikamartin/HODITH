@@ -39,6 +39,9 @@ private val SPAN_DATE_TIME_24H = DateTimeFormatter.ofPattern("MMM d, HH:mm", Loc
 private val SPAN_DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM d", Locale.US)
 private val WEEKDAY_DAY_FORMATTER = DateTimeFormatter.ofPattern("EEE d", Locale.US)
 private val MEDIUM_DATE_FORMATTER = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)
+private val PDF_CELL_DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
+private val PDF_CELL_WEEKDAY_TIME_12H = DateTimeFormatter.ofPattern("EEE h:mm a", Locale.US)
+private val PDF_CELL_WEEKDAY_TIME_24H = DateTimeFormatter.ofPattern("EEE HH:mm", Locale.US)
 
 /**
  * The event-list row: weekday, date and time. The year shows only when [occurredAt] falls in a
@@ -63,6 +66,22 @@ internal fun formatEventTime(
             else -> EVENT_TIME_WITH_YEAR_12H
         }
     return eventZoned.format(formatter)
+}
+
+/**
+ * The History PDF table's two-line Start/End cell text (feature/pdf-export): the date on one
+ * line, the weekday and time on the next - e.g. "Oct 3, 2025" / "Fri 6:07 PM". Always carries the
+ * year, same reasoning as [formatPdfDateRangeBound]. [use24Hour] still follows the Settings time
+ * format choice, same as everywhere else a clock time is shown.
+ */
+internal fun formatHistoryPdfCellTimestamp(
+    occurredAt: Long,
+    use24Hour: Boolean,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String {
+    val zoned = Instant.ofEpochMilli(occurredAt).atZone(zone)
+    val timeFormatter = if (use24Hour) PDF_CELL_WEEKDAY_TIME_24H else PDF_CELL_WEEKDAY_TIME_12H
+    return "${zoned.format(PDF_CELL_DATE_FORMATTER)}\n${zoned.format(timeFormatter)}"
 }
 
 /** Date-only counterpart of [formatEventTime], for the log sheet's separate date/time buttons. */
@@ -107,6 +126,25 @@ internal fun historyRangeBounds(
     now: Long,
     zone: ZoneId = ZoneId.systemDefault(),
 ): Pair<String, String> = formatDateRangeBound(dateFrom ?: createdAt, now, zone) to formatDateRangeBound(dateTo ?: now, now, zone)
+
+/**
+ * A PDF's date-range bound (feature/pdf-export): always carries the year, unlike
+ * [formatDateRangeBound]'s same-year omission - a PDF has no "today" of its own to compare
+ * against once it's out of the app, so a date from the current calendar year would otherwise
+ * read as ambiguous the moment the year turns over.
+ */
+internal fun formatPdfDateRangeBound(
+    occurredAt: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(MEDIUM_DATE_FORMATTER)
+
+/** [pdfDateRangeBounds]'s counterpart of [historyRangeBounds] - same fallback rules, year-always bounds. */
+internal fun pdfDateRangeBounds(
+    createdAt: Long,
+    dateFrom: Long?,
+    dateTo: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): Pair<String, String> = formatPdfDateRangeBound(dateFrom ?: createdAt, zone) to formatPdfDateRangeBound(dateTo, zone)
 
 /** Time-only counterpart of [formatEventTime], for the log sheet's separate date/time buttons. */
 internal fun formatEventTimeOfDay(
