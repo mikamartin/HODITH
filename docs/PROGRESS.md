@@ -111,11 +111,11 @@ Each instrumented shard spends about five minutes outside test execution. On the
 - [ ] Tests use `IntentsRule` (or init and release per test), so recorded intents don't leak between tests.
 - [ ] The About privacy-policy link and Contact Us assert the built intent's action and URI or address.
 - [ ] Manual plan About 1 and 2 reworded to cover only the external app handoff.
-- [ ] If the share-sheet step is included: the test matches the wrapped chooser intent and the FileProvider URI.
+- [ ] If the share-sheet step is included: the test matches the wrapped chooser intent and the FileProvider URI, across every `ACTION_SEND` call site currently in the app — the Summary/Insights/History image share cards (`image/png`) and the Insights/History PDF exports (`application/pdf`).
 
 **Plan** — add the dependency and pin, land one smoke test, then the About tests. The share-sheet test comes last, since chooser matching is the most fragile.
 
-**Tests** — `AboutScreenTest` (privacy link, Contact Us); `SettingsScreenTest` (Contact Us row); the share-sheet step only if included.
+**Tests** — `AboutScreenTest` (privacy link, Contact Us); `SettingsScreenTest` (Contact Us row); `ShareScreenTest` (image and PDF share actions) for the share-sheet step only if included.
 
 **Concern** — intercepted intents never launch a real app, so resolution to the right app is not proven. The blocked "Rate the app" item would reuse this dependency.
 

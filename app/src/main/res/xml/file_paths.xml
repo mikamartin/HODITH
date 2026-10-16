@@ -2,4 +2,5 @@
 <paths>
     <!-- Only this subfolder of the cache dir is exposed via FileProvider, not the whole cache root. -->
     <cache-path name="shared_cards" path="shared_cards/" />
+    <cache-path name="exported_pdfs" path="exported_pdfs/" />
 </paths>

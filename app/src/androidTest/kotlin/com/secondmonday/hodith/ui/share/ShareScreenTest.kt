@@ -13,6 +13,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.secondmonday.hodith.data.EventWithTags
+import com.secondmonday.hodith.data.pdf.HistoryPdfContent
+import com.secondmonday.hodith.data.pdf.InsightsPdfContent
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
@@ -43,6 +45,8 @@ class ShareScreenTest {
         events: List<EventWithTags> = emptyList(),
         onInsightShare: () -> Unit = {},
         onHistoryShare: () -> Unit = {},
+        onInsightSharePdf: (InsightsPdfContent) -> Unit = {},
+        onHistorySharePdf: (HistoryPdfContent) -> Unit = {},
     ) {
         val case = testCase(id = 1L)
         val now = millisAtDay(60)
@@ -58,15 +62,18 @@ class ShareScreenTest {
                     ),
                 now = now,
                 graphicsLayer = rememberGraphicsLayer(),
+                chartGraphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
                 onSectionToggle = { _, _ -> },
                 onSectionMove = { _, _, _ -> },
                 onInsightShareClick = onInsightShare,
+                onInsightSharePdfClick = onInsightSharePdf,
                 onDateFromPicked = {},
                 onDateToPicked = {},
                 onFieldToggle = { _, _ -> },
                 onHistorySortOrderSelect = {},
                 onHistoryShareClick = onHistoryShare,
+                onHistorySharePdfClick = onHistorySharePdf,
             )
         }
     }
@@ -75,7 +82,14 @@ class ShareScreenTest {
         composeTestRule.onNodeWithText(label).performClick()
     }
 
+    /** Summary tab only - its one button is still [PlainVoice.shareOpenDescription] (image-only, no PDF action). */
     private fun shareButton() = composeTestRule.onNode(hasText(PlainVoice.shareOpenDescription) and hasClickAction())
+
+    /** Insights/History tabs' image-share action, once the single button splits into two (feature/pdf-export). */
+    private fun imageShareButton() = composeTestRule.onNode(hasText(PlainVoice.shareAsImageActionLabel) and hasClickAction())
+
+    /** Insights/History tabs' PDF-share action. */
+    private fun pdfShareButton() = composeTestRule.onNode(hasText(PlainVoice.shareAsPdfActionLabel) and hasClickAction())
 
     @Smoke
     @Test
@@ -132,9 +146,11 @@ class ShareScreenTest {
         var historyShares = 0
         setContent(events = events(), onInsightShare = { insightShares++ }, onHistoryShare = { historyShares++ })
 
+        // Summary keeps the one image-only button; Insights' image action is a separate button
+        // once the PDF action sits beside it (feature/pdf-export).
         shareButton().performScrollTo().performClick()
         openTab(PlainVoice.shareTabInsightsLabel)
-        shareButton().performScrollTo().performClick()
+        imageShareButton().performScrollTo().performClick()
 
         assertEquals(2, insightShares)
         assertEquals(0, historyShares)
@@ -147,9 +163,42 @@ class ShareScreenTest {
         setContent(events = events(), onInsightShare = { insightShares++ }, onHistoryShare = { historyShares++ })
 
         openTab(PlainVoice.shareTabHistoryLabel)
-        shareButton().performScrollTo().performClick()
+        imageShareButton().performScrollTo().performClick()
 
         assertEquals(0, insightShares)
         assertEquals(1, historyShares)
+    }
+
+    @Test
+    fun pdfButton_onInsights_firesInsightSharePdfOnly() {
+        var insightPdfs = 0
+        var historyPdfs = 0
+        setContent(events = events(), onInsightSharePdf = { insightPdfs++ }, onHistorySharePdf = { historyPdfs++ })
+
+        openTab(PlainVoice.shareTabInsightsLabel)
+        pdfShareButton().performScrollTo().performClick()
+
+        assertEquals(1, insightPdfs)
+        assertEquals(0, historyPdfs)
+    }
+
+    @Test
+    fun pdfButton_onHistory_firesHistorySharePdfOnly() {
+        var insightPdfs = 0
+        var historyPdfs = 0
+        setContent(events = events(), onInsightSharePdf = { insightPdfs++ }, onHistorySharePdf = { historyPdfs++ })
+
+        openTab(PlainVoice.shareTabHistoryLabel)
+        pdfShareButton().performScrollTo().performClick()
+
+        assertEquals(0, insightPdfs)
+        assertEquals(1, historyPdfs)
+    }
+
+    @Test
+    fun summaryTab_hasNoPdfButton() {
+        setContent(events = events())
+
+        pdfShareButton().assertDoesNotExist()
     }
 }

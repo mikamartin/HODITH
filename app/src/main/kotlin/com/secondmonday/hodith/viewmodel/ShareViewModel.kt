@@ -11,6 +11,8 @@ import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.orderedShareSections
+import com.secondmonday.hodith.data.pdf.InsightsPdfContent
+import com.secondmonday.hodith.data.pdf.PdfExporter
 import com.secondmonday.hodith.data.reorderVisibleSections
 import com.secondmonday.hodith.data.share.ShareImageExporter
 import com.secondmonday.hodith.domain.Clock
@@ -47,6 +49,7 @@ data class ShareUiState(
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
 private const val SHARE_FILE_NAME_PREFIX = "hodith-share-card"
+private const val INSIGHTS_PDF_FILE_NAME_PREFIX = "hodith-insights-record"
 
 @HiltViewModel
 class ShareViewModel
@@ -55,6 +58,7 @@ class ShareViewModel
         private val repository: HodithRepository,
         private val clock: Clock,
         private val shareImageExporter: ShareImageExporter,
+        private val pdfExporter: PdfExporter,
         private val settingsRepository: SettingsRepository,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
@@ -118,6 +122,18 @@ class ShareViewModel
             viewModelScope.launch {
                 val uri = shareImageExporter.exportToShareUri(bitmap, SHARE_FILE_NAME_PREFIX)
                 _shareRequests.send(uri)
+            }
+        }
+
+        private val _pdfRequests = Channel<Uri>(Channel.BUFFERED)
+
+        /** One-shot, same shape as [shareRequests]: [content] arrives fully assembled by the Composable (Voice text, chart bitmap), this just writes it and emits the resulting Uri. */
+        val pdfRequests: Flow<Uri> = _pdfRequests.receiveAsFlow()
+
+        fun sharePdf(content: InsightsPdfContent) {
+            viewModelScope.launch {
+                val uri = pdfExporter.exportInsightsPdf(content, INSIGHTS_PDF_FILE_NAME_PREFIX)
+                _pdfRequests.send(uri)
             }
         }
     }

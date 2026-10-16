@@ -102,15 +102,18 @@ class InsightShareTabTest {
                     ),
                 now = now,
                 graphicsLayer = rememberGraphicsLayer(),
+                chartGraphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
                 onSectionToggle = onSectionToggle,
                 onSectionMove = { _, _, _ -> },
                 onInsightShareClick = {},
+                onInsightSharePdfClick = {},
                 onDateFromPicked = {},
                 onDateToPicked = {},
                 onFieldToggle = { _, _ -> },
                 onHistorySortOrderSelect = {},
                 onHistoryShareClick = {},
+                onHistorySharePdfClick = {},
             )
         }
         if (tab != ShareTab.SUMMARY) composeTestRule.onNodeWithText(tabLabel(tab)).performClick()

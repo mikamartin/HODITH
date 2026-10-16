@@ -852,6 +852,14 @@ interface Voice {
     // ---- Share cards (Phase 10, spec §13) ----
     val shareOpenDescription: String
 
+    /**
+     * The Insights and History tabs' two share actions (feature/pdf-export), once a PDF record
+     * sits beside the image card. [shareOpenDescription] is kept as-is for the Summary tab's one
+     * button — a square snapshot doesn't read as a document, so it stays image-only.
+     */
+    val shareAsImageActionLabel: String
+    val shareAsPdfActionLabel: String
+
     /** The Share screen's top-bar title — structural, identical across all three voices. The share button keeps [shareOpenDescription]. */
     val shareScreenTitle: String get() = "Share"
 
@@ -1593,6 +1601,8 @@ object PlainVoice : Voice {
     override val widgetEditButtonDescription = "Edit widget Cases"
 
     override val shareOpenDescription = "Share"
+    override val shareAsImageActionLabel = "Share as image"
+    override val shareAsPdfActionLabel = "Share as PDF"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "event" else "events"
 
@@ -2220,6 +2230,8 @@ object IntenseVoice : Voice {
     override val widgetEditButtonDescription = "Edit the cases watching this widget"
 
     override val shareOpenDescription = "Share the record"
+    override val shareAsImageActionLabel = "Share the image"
+    override val shareAsPdfActionLabel = "Share the record"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "entry" else "entries"
 
@@ -2842,6 +2854,8 @@ object BrightVoice : Voice {
     override val widgetEditButtonDescription = "Edit your stars!"
 
     override val shareOpenDescription = "Share it!"
+    override val shareAsImageActionLabel = "Share as a picture!"
+    override val shareAsPdfActionLabel = "Share as a PDF!"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "log" else "logs"
 

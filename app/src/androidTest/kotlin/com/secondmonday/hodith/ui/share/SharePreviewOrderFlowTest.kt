@@ -24,6 +24,9 @@ import com.secondmonday.hodith.data.HodithDatabase
 import com.secondmonday.hodith.data.RoomHodithRepository
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.createInMemoryDatabase
+import com.secondmonday.hodith.data.pdf.HistoryPdfContent
+import com.secondmonday.hodith.data.pdf.InsightsPdfContent
+import com.secondmonday.hodith.data.pdf.PdfExporter
 import com.secondmonday.hodith.data.share.ShareImageExporter
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
@@ -103,6 +106,7 @@ class SharePreviewOrderFlowTest {
                 repository = repository,
                 clock = FakeClock(DAY_MILLIS * 20),
                 shareImageExporter = UnusedExporter,
+                pdfExporter = UnusedPdfExporter,
                 settingsRepository = settings,
                 savedStateHandle = SavedStateHandle(mapOf("caseId" to caseId)),
             ).also { viewModelStore.put(VIEW_MODEL_KEY, it) }
@@ -134,15 +138,18 @@ class SharePreviewOrderFlowTest {
                     ),
                 now = DAY_MILLIS * 20,
                 graphicsLayer = rememberGraphicsLayer(),
+                chartGraphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
                 onSectionToggle = { _, _ -> },
                 onSectionMove = viewModel::moveSection,
                 onInsightShareClick = {},
+                onInsightSharePdfClick = {},
                 onDateFromPicked = {},
                 onDateToPicked = {},
                 onFieldToggle = { _, _ -> },
                 onHistorySortOrderSelect = {},
                 onHistoryShareClick = {},
+                onHistorySharePdfClick = {},
             )
         }
         composeTestRule.waitUntil { viewModel.uiState.value.case != null }
@@ -184,6 +191,19 @@ class SharePreviewOrderFlowTest {
             object : ShareImageExporter {
                 override suspend fun exportToShareUri(
                     bitmap: Bitmap,
+                    fileNamePrefix: String,
+                ): Uri = error("not used by the order flow")
+            }
+
+        val UnusedPdfExporter =
+            object : PdfExporter {
+                override suspend fun exportInsightsPdf(
+                    content: InsightsPdfContent,
+                    fileNamePrefix: String,
+                ): Uri = error("not used by the order flow")
+
+                override suspend fun exportHistoryPdf(
+                    content: HistoryPdfContent,
                     fileNamePrefix: String,
                 ): Uri = error("not used by the order flow")
             }

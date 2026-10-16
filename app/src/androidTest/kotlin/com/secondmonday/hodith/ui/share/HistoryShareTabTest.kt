@@ -56,15 +56,18 @@ class HistoryShareTabTest {
                 historyState = uiState,
                 now = now,
                 graphicsLayer = rememberGraphicsLayer(),
+                chartGraphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
                 onSectionToggle = { _, _ -> },
                 onSectionMove = { _, _, _ -> },
                 onInsightShareClick = {},
+                onInsightSharePdfClick = {},
                 onDateFromPicked = onDateFromPicked,
                 onDateToPicked = onDateToPicked,
                 onFieldToggle = onFieldToggle,
                 onHistorySortOrderSelect = onSortOrderSelect,
                 onHistoryShareClick = onShareClick,
+                onHistorySharePdfClick = {},
             )
         }
         composeTestRule.onNodeWithText(PlainVoice.shareTabHistoryLabel).performClick()
@@ -241,7 +244,8 @@ class HistoryShareTabTest {
             onShareClick = { clicked = true },
         )
 
-        composeTestRule.onNode(hasText(PlainVoice.shareOpenDescription) and hasClickAction()).performClick()
+        // History's image action is its own button now that the PDF action sits beside it (feature/pdf-export).
+        composeTestRule.onNode(hasText(PlainVoice.shareAsImageActionLabel) and hasClickAction()).performClick()
 
         assert(clicked)
     }
