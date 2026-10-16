@@ -2657,7 +2657,7 @@ object BrightVoice : Voice {
 
     override fun clearArchiveConfirmBody(caseCount: Int) = "$caseCount shelved cases go away with it. No take-backs, for real this time."
 
-    override fun eventIntensityLabel(intensity: Int) = "Feels like a $intensity!"
+    override fun eventIntensityLabel(intensity: Int) = "Intensity: $intensity!"
 
     override fun eventDurationLabel(duration: String) = "Went on for $duration"
 
