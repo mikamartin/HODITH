@@ -24,8 +24,8 @@ class BigPictureDetailTest {
     // ---- DEFAULT ----
 
     @Test
-    fun `DEFAULT is notes, tags and duration on with intensity off`() {
-        assertEquals(BigPictureDetail(notes = true, tags = true, duration = true, intensity = false), BigPictureDetail.DEFAULT)
+    fun `DEFAULT is notes, tags, duration and intensity all on`() {
+        assertEquals(BigPictureDetail(notes = true, tags = true, duration = true, intensity = true), BigPictureDetail.DEFAULT)
     }
 
     // ---- has / with ----
@@ -42,9 +42,9 @@ class BigPictureDetailTest {
     @Test
     fun `with flips exactly one field and leaves the other three`() {
         val before = BigPictureDetail.DEFAULT
-        val after = before.with(INTENSITY, true)
+        val after = before.with(INTENSITY, false)
 
-        assertTrue(after.intensity)
+        assertFalse(after.intensity)
         assertEquals(before.notes, after.notes)
         assertEquals(before.tags, after.tags)
         assertEquals(before.duration, after.duration)

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -340,6 +341,7 @@ private fun FilterSummaryRow(
     var showTagsDialog by remember { mutableStateOf(false) }
     var showYearDialog by remember { mutableStateOf(false) }
     var showDetailDialog by remember { mutableStateOf(false) }
+    val isDetailCustomized = detail != BigPictureDetail.DEFAULT
 
     Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
         Row(
@@ -373,7 +375,11 @@ private fun FilterSummaryRow(
             // Edit which fields the day/week detail rows carry (spec §9) — the filters above stay
             // left-aligned, this stays pinned right.
             IconButton(onClick = { showDetailDialog = true }) {
-                Icon(Icons.Filled.Edit, contentDescription = voice.bigPictureDetailEditDescription)
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = voice.bigPictureDetailEditDescription,
+                    tint = if (isDetailCustomized) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                )
             }
         }
         FilterLegendRow(
