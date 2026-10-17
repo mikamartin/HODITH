@@ -15,7 +15,6 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.pdf.HistoryPdfContent
-import com.secondmonday.hodith.data.pdf.InsightsPdfContent
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.testtags.Smoke
@@ -46,7 +45,6 @@ class ShareScreenTest {
         events: List<EventWithTags> = emptyList(),
         onInsightShare: () -> Unit = {},
         onHistoryShare: () -> Unit = {},
-        onInsightSharePdf: (InsightsPdfContent) -> Unit = {},
         onHistorySharePdf: (HistoryPdfContent) -> Unit = {},
     ) {
         val case = testCase(id = 1L)
@@ -63,12 +61,10 @@ class ShareScreenTest {
                     ),
                 now = now,
                 graphicsLayer = rememberGraphicsLayer(),
-                chartGraphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
                 onSectionToggle = { _, _ -> },
                 onSectionMove = { _, _, _ -> },
                 onInsightShareClick = onInsightShare,
-                onInsightSharePdfClick = onInsightSharePdf,
                 onDateFromPicked = {},
                 onDateToPicked = {},
                 onFieldToggle = { _, _ -> },
@@ -83,7 +79,7 @@ class ShareScreenTest {
         composeTestRule.onNodeWithText(label).performClick()
     }
 
-    /** One button on every tab (feature/pdf-export) - Insights/History route it to the image or PDF callback depending on their own toggle instead of showing a second button. */
+    /** One button on every tab (feature/pdf-export) - History routes it to the image or PDF callback depending on its own toggle instead of showing a second button; Summary/Insights are always image-only. */
     private fun shareButton() = composeTestRule.onNode(hasText(PlainVoice.shareOpenDescription) and hasClickAction())
 
     @Smoke
@@ -163,38 +159,23 @@ class ShareScreenTest {
     }
 
     @Test
-    fun pdfToggle_onInsights_routesShareButtonToInsightPdfOnly() {
-        var insightPdfs = 0
-        var historyPdfs = 0
-        setContent(events = events(), onInsightSharePdf = { insightPdfs++ }, onHistorySharePdf = { historyPdfs++ })
-
-        openTab(PlainVoice.shareTabInsightsLabel)
-        composeTestRule.onNodeWithTag(INSIGHT_SHARE_PDF_TOGGLE_TAG).performScrollTo().performClick()
-        shareButton().performScrollTo().performClick()
-
-        assertEquals(1, insightPdfs)
-        assertEquals(0, historyPdfs)
-    }
-
-    @Test
     fun pdfToggle_onHistory_routesShareButtonToHistoryPdfOnly() {
-        var insightPdfs = 0
         var historyPdfs = 0
-        setContent(events = events(), onInsightSharePdf = { insightPdfs++ }, onHistorySharePdf = { historyPdfs++ })
+        setContent(events = events(), onHistorySharePdf = { historyPdfs++ })
 
         openTab(PlainVoice.shareTabHistoryLabel)
         composeTestRule.onNodeWithTag(HISTORY_SHARE_PDF_TOGGLE_TAG).performScrollTo().performClick()
         shareButton().performScrollTo().performClick()
 
-        assertEquals(0, insightPdfs)
         assertEquals(1, historyPdfs)
     }
 
     @Test
-    fun summaryTab_hasNoPdfToggle() {
+    fun summaryAndInsightsTabs_haveNoPdfToggle() {
         setContent(events = events())
 
-        composeTestRule.onNodeWithTag(INSIGHT_SHARE_PDF_TOGGLE_TAG).assertDoesNotExist()
+        composeTestRule.onNodeWithTag(HISTORY_SHARE_PDF_TOGGLE_TAG).assertDoesNotExist()
+        openTab(PlainVoice.shareTabInsightsLabel)
         composeTestRule.onNodeWithTag(HISTORY_SHARE_PDF_TOGGLE_TAG).assertDoesNotExist()
     }
 }

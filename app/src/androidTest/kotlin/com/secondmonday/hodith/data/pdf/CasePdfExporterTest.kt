@@ -1,7 +1,6 @@
 package com.secondmonday.hodith.data.pdf
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,12 +16,11 @@ import org.junit.runner.RunWith
 import javax.inject.Inject
 
 /**
- * The one piece of feature/pdf-export nothing else exercises end to end: everything upstream
- * (pagination math in `PdfLayoutTest`, the chart-capture mechanism in `OffscreenCaptureTest`) is
- * unit/mechanism-tested, but only this actually calls [PdfDocument][android.graphics.pdf.PdfDocument]
- * and reads the result back as a real PDF via [PdfRenderer] - the happy path the generation step
- * can be automated for, same split `CasePdfExporter`'s own doc comment and the project's standing
- * Espresso-Intents deferral describe: generation is covered here, the share-sheet hand-off stays manual.
+ * The one piece of the History PDF export nothing else exercises end to end: only this actually
+ * calls [PdfDocument][android.graphics.pdf.PdfDocument] and reads the result back as a real PDF
+ * via [PdfRenderer] - the happy path the generation step can be automated for, same split
+ * `CasePdfExporter`'s own doc comment and the project's standing Espresso-Intents deferral
+ * describe: generation is covered here, the share-sheet hand-off stays manual.
  */
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -147,49 +145,6 @@ class CasePdfExporterTest {
                 }
 
             val uri = exporter.exportHistoryPdf(content, "test-history-start-only")
-
-            assertEquals(1, pageCount(uri))
-        }
-
-    @Test
-    fun exportInsightsPdf_withStatLinesAndChart_producesAValidPage() =
-        runBlocking {
-            val chartBitmap = Bitmap.createBitmap(200, 100, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLUE) }
-            val content =
-                InsightsPdfContent(
-                    documentTitle = "HODITH Record",
-                    caseName = "Coffee",
-                    kicker = "Insights",
-                    countedWithText = "counted with HODITH app · Jan 31, 9:00 AM",
-                    dateRangeLabel = "Date range",
-                    dateRangeText = "Jan 1 – Jan 31",
-                    appLinkText = null,
-                    statLines = listOf("Gaps: Min 1d, Avg 2d, Max 5d", "Top tags: coffee (12)"),
-                    chartBitmap = chartBitmap,
-                )
-
-            val uri = exporter.exportInsightsPdf(content, "test-insights")
-
-            assertTrue(pageCount(uri) >= 1)
-        }
-
-    @Test
-    fun exportInsightsPdf_withNoChart_stillProducesAValidPage() =
-        runBlocking {
-            val content =
-                InsightsPdfContent(
-                    documentTitle = "HODITH Record",
-                    caseName = "Coffee",
-                    kicker = "Insights",
-                    countedWithText = "counted with HODITH app · Jan 31, 9:00 AM",
-                    dateRangeLabel = "Date range",
-                    dateRangeText = "Jan 1 – Jan 31",
-                    appLinkText = "github.com/mikamartin/HODITH",
-                    statLines = listOf("Gaps: Min 1d, Avg 2d, Max 5d"),
-                    chartBitmap = null,
-                )
-
-            val uri = exporter.exportInsightsPdf(content, "test-insights-no-chart")
 
             assertEquals(1, pageCount(uri))
         }

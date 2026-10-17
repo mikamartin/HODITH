@@ -51,9 +51,7 @@ internal const val SECTION_HANDLE_TAG_PREFIX = "section_handle_"
 
 /**
  * The Summary and Insights tabs: one Insight card in the format the tab names. Insights (Story) adds the section picker
- * and the "Share as PDF" toggle above the preview (feature/pdf-export - [pdfMode] on hides the card, same shape as
- * [HistoryShareTab]'s); Summary (Square) is a fixed preset built from the Case's own settings and has no toggle at all,
- * so its two params default away for that call site.
+ * above the preview; Summary (Square) is a fixed preset built from the Case's own settings and has no picker at all.
  */
 @Composable
 internal fun InsightShareTab(
@@ -64,8 +62,6 @@ internal fun InsightShareTab(
     graphicsLayer: GraphicsLayer,
     onSectionToggle: (ShareInsightsSection, Boolean) -> Unit,
     onSectionMove: (available: List<ShareInsightsSection>, from: Int, to: Int) -> Unit,
-    pdfMode: Boolean = false,
-    onPdfModeChange: (Boolean) -> Unit = {},
 ) {
     val voice = LocalVoice.current
     val case = uiState.case ?: return
@@ -79,14 +75,7 @@ internal fun InsightShareTab(
     val selection = uiState.selection
 
     if (format == ShareCardFormat.STORY) {
-        ToggleRow(
-            label = voice.shareAsPdfActionLabel,
-            checked = pdfMode,
-            onCheckedChange = onPdfModeChange,
-            modifier = Modifier.testTag(INSIGHT_SHARE_PDF_TOGGLE_TAG),
-        )
-        // The picker lists only the sections this Case has data for, in the user's saved order -
-        // stays visible regardless of pdfMode, since it still picks what the PDF's stat lines cover.
+        // The picker lists only the sections this Case has data for, in the user's saved order.
         val stats = (insightsState as? InsightsTabState.Ready)?.stats
         val availableSections = availableShareSections(stats)
         val orderedAvailable = uiState.sectionOrder.filter { it in availableSections }
@@ -99,28 +88,23 @@ internal fun InsightShareTab(
         )
     }
 
-    if (!pdfMode) {
-        val cardData =
-            shareCardState(
-                case = case,
-                displayName = displayName,
-                insightsState = insightsState,
-                eventCount = events.size,
-                observedDays = observationSpanDays(events, case.createdAt, now),
-                format = format,
-                selectedSections = selection.selectedSections,
-                generatedAtMillis = now,
-                sectionOrder = uiState.sectionOrder,
-            )
+    val cardData =
+        shareCardState(
+            case = case,
+            displayName = displayName,
+            insightsState = insightsState,
+            eventCount = events.size,
+            observedDays = observationSpanDays(events, case.createdAt, now),
+            format = format,
+            selectedSections = selection.selectedSections,
+            generatedAtMillis = now,
+            sectionOrder = uiState.sectionOrder,
+        )
 
-        SharePreviewStage(voice = voice, graphicsLayer = graphicsLayer) { captureModifier ->
-            ShareCardTemplate(data = cardData, voice = voice, modifier = captureModifier)
-        }
+    SharePreviewStage(voice = voice, graphicsLayer = graphicsLayer) { captureModifier ->
+        ShareCardTemplate(data = cardData, voice = voice, modifier = captureModifier)
     }
 }
-
-/** Test hook only - the Insights tab's PDF-mode toggle. */
-internal const val INSIGHT_SHARE_PDF_TOGGLE_TAG = "insight_share_pdf_toggle"
 
 /**
  * [availableSections] arrives in the user's saved order, so only sections the Case has data for get a

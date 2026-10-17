@@ -1,9 +1,7 @@
 package com.secondmonday.hodith.data.pdf
 
-import android.graphics.Bitmap
-
 /**
- * The document-level fields both PDF types share (feature/pdf-export) - a masthead title, the
+ * The document-level fields the PDF type's header needs (feature/pdf-export) - a masthead title, the
  * Case's own name/kicker, a "counted with / generated at" provenance line (also repeated in the
  * footer, so it survives a page being separated from the rest when printed), a labelled date
  * range, and an optional app link (blank/`null` until the app has a public page to point to -
@@ -14,37 +12,15 @@ interface PdfDocumentHeader {
     val documentTitle: String
     val caseName: String
 
-    /** `null` omits the kicker line entirely (and the gap it would take) rather than drawing a blank one - the History PDF has none, since "History" read as a stray leftover label once the table itself already makes the document's nature obvious. */
+    /** `null` omits the kicker line entirely (and the gap it would take) rather than drawing a blank one - "History" read as a stray leftover label once the table itself already makes the document's nature obvious, so the History PDF has none. */
     val kicker: String?
     val countedWithText: String
     val dateRangeLabel: String
     val dateRangeText: String
 
-    /** Already-formatted total row count, shown under the date range - `null` for the Insights PDF, which has no row list of its own. */
+    /** Already-formatted total row count, shown under the date range. */
     val recordCountText: String?
     val appLinkText: String?
-}
-
-/**
- * Everything [PdfExporter.exportInsightsPdf] needs to draw, already resolved by the caller
- * (strings formatted, sections picked) so the exporter stays pure drawing code with no Voice or
- * domain lookups of its own. [statLines] is one already-formatted line per stat the user has
- * selected (see [com.secondmonday.hodith.data.ShareInsightsSection]'s picker, the same one the
- * Insight share card uses). [chartBitmap] is `null` whenever there's no frequency chart to show
- * (a multi-day-event Case, or too few events) - a page without a chart block, not a blank one.
- */
-data class InsightsPdfContent(
-    override val documentTitle: String,
-    override val caseName: String,
-    override val kicker: String?,
-    override val countedWithText: String,
-    override val dateRangeLabel: String,
-    override val dateRangeText: String,
-    override val appLinkText: String?,
-    val statLines: List<String>,
-    val chartBitmap: Bitmap?,
-) : PdfDocumentHeader {
-    override val recordCountText: String? = null
 }
 
 /**

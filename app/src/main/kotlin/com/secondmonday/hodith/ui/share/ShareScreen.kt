@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -45,10 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.pdf.HistoryPdfContent
-import com.secondmonday.hodith.data.pdf.InsightsPdfContent
 import com.secondmonday.hodith.domain.ChronologicalOrder
-import com.secondmonday.hodith.domain.observationSpanDays
-import com.secondmonday.hodith.ui.casedetail.FrequencyCard
 import com.secondmonday.hodith.ui.common.HodithTab
 import com.secondmonday.hodith.ui.common.HodithTabRow
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
@@ -59,30 +55,17 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CASE_NAME_MAX_LENGTH
 import com.secondmonday.hodith.viewmodel.HistoryShareUiState
 import com.secondmonday.hodith.viewmodel.HistoryShareViewModel
-import com.secondmonday.hodith.viewmodel.InsightsTabState
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
-import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import com.secondmonday.hodith.viewmodel.historyPdfContent
-import com.secondmonday.hodith.viewmodel.insightsPdfStatLines
-import com.secondmonday.hodith.viewmodel.insightsTabState
-import com.secondmonday.hodith.viewmodel.pdfAppLinkText
-import com.secondmonday.hodith.viewmodel.pdfDateRangeBounds
-import com.secondmonday.hodith.viewmodel.shareCardState
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 
 private const val IMAGE_MIME_TYPE = "image/png"
 private const val PDF_MIME_TYPE = "application/pdf"
-
-/** Targets roughly 200dpi at the PDF's own content width/chart-box height (feature/pdf-export) - sharp enough to print, validated by the chart-legibility spike this replaced. */
-private const val PDF_CHART_CAPTURE_WIDTH_PX = 1440
-private const val PDF_CHART_CAPTURE_HEIGHT_PX = 600
 
 /** The Share screen's three tabs. Summary and Insights are the two formats of one card; History is the Case's log. */
 internal enum class ShareTab { SUMMARY, INSIGHTS, HISTORY }
@@ -102,19 +85,7 @@ fun ShareRoute(
     val historyState by historyViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val graphicsLayer = rememberGraphicsLayer()
-    val chartGraphicsLayer = rememberGraphicsLayer()
     val scope = rememberCoroutineScope()
-
-    // Mirrors ShareScreen's own check (it needs the same answer to decide whether to render the
-    // off-screen chart capture at all): a chart bitmap is only ever read back when one was
-    // actually recorded - chartGraphicsLayer.toImageBitmap() on a layer nothing drew into would
-    // be reading content that was never rendered.
-    val hasFrequencyChart =
-        insightState.case?.let { case ->
-            (insightsTabState(case, insightState.events, insightViewModel.nowMillis()) as? InsightsTabState.Ready)?.stats?.frequency !=
-                null
-        }
-            ?: false
 
     LaunchedEffect(Unit) {
         merge(insightViewModel.shareRequests, historyViewModel.shareRequests).collectLatest { uri ->
@@ -122,7 +93,7 @@ fun ShareRoute(
         }
     }
     LaunchedEffect(Unit) {
-        merge(insightViewModel.pdfRequests, historyViewModel.pdfRequests).collectLatest { uri ->
+        historyViewModel.pdfRequests.collectLatest { uri ->
             launchShareSheet(context, uri, PDF_MIME_TYPE)
         }
     }
@@ -132,17 +103,10 @@ fun ShareRoute(
         historyState = historyState,
         now = insightViewModel.nowMillis(),
         graphicsLayer = graphicsLayer,
-        chartGraphicsLayer = chartGraphicsLayer,
         onBack = onBack,
         onSectionToggle = insightViewModel::setSectionSelected,
         onSectionMove = insightViewModel::moveSection,
         onInsightShareClick = { scope.launch { insightViewModel.share(graphicsLayer.toImageBitmap().asAndroidBitmap()) } },
-        onInsightSharePdfClick = { content ->
-            scope.launch {
-                val chartBitmap = if (hasFrequencyChart) chartGraphicsLayer.toImageBitmap().asAndroidBitmap() else null
-                insightViewModel.sharePdf(content.copy(chartBitmap = chartBitmap))
-            }
-        },
         onDateFromPicked = historyViewModel::setDateFrom,
         onDateToPicked = historyViewModel::setDateTo,
         onFieldToggle = historyViewModel::setFieldSelected,
@@ -174,12 +138,10 @@ fun ShareScreen(
     historyState: HistoryShareUiState,
     now: Long,
     graphicsLayer: GraphicsLayer,
-    chartGraphicsLayer: GraphicsLayer,
     onBack: () -> Unit,
     onSectionToggle: (ShareInsightsSection, Boolean) -> Unit,
     onSectionMove: (available: List<ShareInsightsSection>, from: Int, to: Int) -> Unit,
     onInsightShareClick: () -> Unit,
-    onInsightSharePdfClick: (InsightsPdfContent) -> Unit,
     onDateFromPicked: (LocalDate?) -> Unit,
     onDateToPicked: (LocalDate) -> Unit,
     onFieldToggle: (HistoryRowField, Boolean) -> Unit,
@@ -261,42 +223,7 @@ fun ShareScreen(
                 )
 
                 val displayName = shareDisplayName(typedName, case.name)
-                var insightsPdfMode by rememberSaveable { mutableStateOf(false) }
                 var historyPdfMode by rememberSaveable { mutableStateOf(false) }
-                // Recomputed independently of InsightShareTab's own internal copy (same cheap,
-                // memoization-friendly call - see its comment) because only this scope has what
-                // feature/pdf-export's PDF button needs: displayName and the resolved Voice, both
-                // local to this composable, not the ViewModel.
-                val today = remember(now) { Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate() }
-                val pdfInsightsState = remember(case, insightState.events, today) { insightsTabState(case, insightState.events, now) }
-                val pdfFrequency = (pdfInsightsState as? InsightsTabState.Ready)?.stats?.frequency
-
-                fun buildInsightsPdfContent(): InsightsPdfContent {
-                    val cardData =
-                        shareCardState(
-                            case = case,
-                            displayName = displayName,
-                            insightsState = pdfInsightsState,
-                            eventCount = insightState.events.size,
-                            observedDays = observationSpanDays(insightState.events.map { it.event }, case.createdAt, now),
-                            format = ShareCardFormat.STORY,
-                            selectedSections = insightState.selection.selectedSections,
-                            generatedAtMillis = now,
-                            sectionOrder = insightState.sectionOrder,
-                        )
-                    val (fromText, toText) = pdfDateRangeBounds(case.createdAt, null, now)
-                    return InsightsPdfContent(
-                        documentTitle = voice.sharePdfDocumentTitle,
-                        caseName = displayName,
-                        kicker = voice.shareTabInsightsLabel,
-                        countedWithText = voice.sharePdfGeneratedLine(formatCardTimestamp(now, use24Hour)),
-                        dateRangeLabel = voice.sharePdfDateRangeLabel,
-                        dateRangeText = voice.shareHistoryRangeNote(fromText, toText),
-                        appLinkText = pdfAppLinkText(),
-                        statLines = insightsPdfStatLines(cardData, voice),
-                        chartBitmap = null,
-                    )
-                }
 
                 fun buildHistoryPdfContent(): HistoryPdfContent =
                     historyPdfContent(
@@ -324,7 +251,7 @@ fun ShareScreen(
                             onSectionToggle = onSectionToggle,
                             onSectionMove = onSectionMove,
                         )
-                    ShareTab.INSIGHTS -> {
+                    ShareTab.INSIGHTS ->
                         InsightShareTab(
                             format = ShareCardFormat.STORY,
                             uiState = insightState,
@@ -333,23 +260,7 @@ fun ShareScreen(
                             graphicsLayer = graphicsLayer,
                             onSectionToggle = onSectionToggle,
                             onSectionMove = onSectionMove,
-                            pdfMode = insightsPdfMode,
-                            onPdfModeChange = { insightsPdfMode = it },
                         )
-                        // Off-screen (see OffscreenCapture/OffscreenCaptureTest) - rendered at the
-                        // PDF's own content width, not the phone's, so every tick label fits
-                        // instead of the mobile card's sparser label spacing. Only kept hot while
-                        // PDF mode is actually on, so flipping the toggle is what starts it recording.
-                        if (insightsPdfMode && pdfFrequency != null) {
-                            OffscreenCapture(
-                                graphicsLayer = chartGraphicsLayer,
-                                widthPx = PDF_CHART_CAPTURE_WIDTH_PX,
-                                heightPx = PDF_CHART_CAPTURE_HEIGHT_PX,
-                            ) {
-                                FrequencyCard(pdfFrequency, null, {}, voice, tickCountOverride = pdfFrequency.bars.size)
-                            }
-                        }
-                    }
                     ShareTab.HISTORY ->
                         HistoryShareTab(
                             uiState = historyState,
@@ -365,15 +276,13 @@ fun ShareScreen(
                         )
                 }
 
-                // One button per tab, same shape as Summary's: Insights/History route it to the
-                // image or PDF handler depending on their own toggle instead of showing a second
-                // button (feature/pdf-export).
+                // One button per tab, same shape as Summary's: History routes it to the image or
+                // PDF handler depending on its own toggle instead of showing a second button
+                // (feature/pdf-export); Insights and Summary are always image-only.
                 val onShareClick =
                     when (tab) {
                         ShareTab.SUMMARY -> onInsightShareClick
-                        ShareTab.INSIGHTS -> {
-                            { if (insightsPdfMode) onInsightSharePdfClick(buildInsightsPdfContent()) else onInsightShareClick() }
-                        }
+                        ShareTab.INSIGHTS -> onInsightShareClick
                         ShareTab.HISTORY -> {
                             { if (historyPdfMode) onHistorySharePdfClick(buildHistoryPdfContent()) else onHistoryShareClick() }
                         }

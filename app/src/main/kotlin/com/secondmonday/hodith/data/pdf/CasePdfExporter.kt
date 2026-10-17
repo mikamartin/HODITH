@@ -1,27 +1,21 @@
 package com.secondmonday.hodith.data.pdf
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.core.content.FileProvider
-import com.secondmonday.hodith.domain.PDF_CHART_BLOCK_HEIGHT_PT
 import com.secondmonday.hodith.domain.PDF_CONTENT_HEIGHT_PT
 import com.secondmonday.hodith.domain.PDF_CONTENT_WIDTH_PT
 import com.secondmonday.hodith.domain.PDF_FOOTER_BLOCK_HEIGHT_PT
 import com.secondmonday.hodith.domain.PDF_HEADER_BLOCK_HEIGHT_PT
-import com.secondmonday.hodith.domain.PDF_INSIGHTS_CONTINUATION_LINE_CAPACITY
-import com.secondmonday.hodith.domain.PDF_INSIGHTS_FIRST_PAGE_LINE_CAPACITY
 import com.secondmonday.hodith.domain.PDF_PAGE_HEIGHT_PT
 import com.secondmonday.hodith.domain.PDF_PAGE_MARGIN_PT
 import com.secondmonday.hodith.domain.PDF_PAGE_WIDTH_PT
-import com.secondmonday.hodith.domain.PDF_STAT_LINE_HEIGHT_PT
 import com.secondmonday.hodith.domain.PDF_TABLE_CELL_HORIZONTAL_PADDING_PT
 import com.secondmonday.hodith.domain.PDF_TABLE_DURATION_COLUMN_WIDTH_PT
 import com.secondmonday.hodith.domain.PDF_TABLE_END_COLUMN_WIDTH_PT
@@ -32,7 +26,6 @@ import com.secondmonday.hodith.domain.PDF_TABLE_ROW_VERTICAL_PADDING_PT
 import com.secondmonday.hodith.domain.PDF_TABLE_START_COLUMN_WIDTH_PT
 import com.secondmonday.hodith.domain.PDF_TABLE_TAGS_COLUMN_WIDTH_PT
 import com.secondmonday.hodith.domain.exportFileTimestamp
-import com.secondmonday.hodith.domain.paginatePdfItems
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -66,32 +59,17 @@ private val HISTORY_CONTINUATION_ROWS_BUDGET_PT =
     (PDF_CONTENT_HEIGHT_PT - PDF_FOOTER_BLOCK_HEIGHT_PT - PDF_TABLE_HEADER_ROW_HEIGHT_PT).toFloat()
 
 /**
- * Writes Insights/History PDFs into a dedicated cache subfolder (same reasoning as
+ * Writes a Case's History PDF into a dedicated cache subfolder (same reasoning as
  * [com.secondmonday.hodith.data.share.ComposeShareImageExporter] - only this subfolder is ever
  * exposed via [FileProvider], not the whole cache root) and hands back a `content://` [Uri].
  * Pages are plain `android.graphics.pdf.PdfDocument`/[Canvas] drawing - no new dependency, vector
- * text throughout except the one captured chart bitmap. Files are transient, same lifecycle as
- * the share-card PNGs.
+ * text throughout. Files are transient, same lifecycle as the share-card PNGs.
  */
 class CasePdfExporter
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
     ) : PdfExporter {
-        override suspend fun exportInsightsPdf(
-            content: InsightsPdfContent,
-            fileNamePrefix: String,
-        ): Uri =
-            writePdf(fileNamePrefix) { document ->
-                val pages =
-                    paginatePdfItems(content.statLines, PDF_INSIGHTS_FIRST_PAGE_LINE_CAPACITY, PDF_INSIGHTS_CONTINUATION_LINE_CAPACITY)
-                pages.forEachIndexed { pageIndex, lines ->
-                    val page = document.startPage(pageInfo(pageIndex + 1))
-                    drawInsightsPage(page.canvas, content, lines, isFirstPage = pageIndex == 0)
-                    document.finishPage(page)
-                }
-            }
-
         override suspend fun exportHistoryPdf(
             content: HistoryPdfContent,
             fileNamePrefix: String,
@@ -125,22 +103,6 @@ class CasePdfExporter
 private fun pageInfo(pageNumber: Int): PdfDocument.PageInfo =
     PdfDocument.PageInfo.Builder(PDF_PAGE_WIDTH_PT, PDF_PAGE_HEIGHT_PT, pageNumber).create()
 
-private fun drawInsightsPage(
-    canvas: Canvas,
-    content: InsightsPdfContent,
-    lines: List<String>,
-    isFirstPage: Boolean,
-) {
-    var y = PDF_PAGE_MARGIN_PT.toFloat()
-    if (isFirstPage) y = drawDocumentHeader(canvas, content, y)
-    lines.forEach { line ->
-        canvas.drawText(line, PDF_PAGE_MARGIN_PT.toFloat(), y, bodyPaint())
-        y += PDF_STAT_LINE_HEIGHT_PT
-    }
-    if (isFirstPage) content.chartBitmap?.let { drawChart(canvas, it, y) }
-    drawFooter(canvas, content)
-}
-
 private fun drawHistoryPage(
     canvas: Canvas,
     content: HistoryPdfContent,
@@ -167,12 +129,11 @@ private fun drawHistoryPage(
 }
 
 /**
- * Shared by both PDF types - the masthead title, the Case's own name/kicker, the "counted with /
- * generated" line, then (visually separated by [HEADER_SECTION_GAP_PT] and set larger/bolder,
- * since these read as the document's own facts rather than its provenance) the labelled date
- * range and, for History, the total row count under it. Returns the y just past the fixed header
- * block, so the content below it always starts at the same offset regardless of how long any of
- * these lines actually are, or whether the record-count line is even present.
+ * The masthead title, the Case's own name/kicker, the "counted with / generated" line, then
+ * (visually separated by [HEADER_SECTION_GAP_PT] and set larger/bolder, since these read as the
+ * document's own facts rather than its provenance) the labelled date range and the total row
+ * count under it. Returns the y just past the fixed header block, so the content below it always
+ * starts at the same offset regardless of how long any of these lines actually are.
  */
 private fun drawDocumentHeader(
     canvas: Canvas,
@@ -206,24 +167,6 @@ private fun drawFooter(
     val y = (PDF_PAGE_HEIGHT_PT - PDF_PAGE_MARGIN_PT).toFloat() - FOOTER_BASELINE_OFFSET_PT
     val text = header.appLinkText?.let { "${header.countedWithText}$FOOTER_LINE_SEPARATOR$it" } ?: header.countedWithText
     canvas.drawText(text, PDF_PAGE_MARGIN_PT.toFloat(), y, footerPaint())
-}
-
-/**
- * [toImageBitmap] (see `OffscreenCapture`/`OffscreenCaptureTest`) hands back a GPU-backed
- * `Config.HARDWARE` bitmap, which a software [Canvas] like a PDF page's can't draw directly -
- * confirmed by the capture mechanism's own validation test, not assumed here. Scaled to fit
- * [PDF_CONTENT_WIDTH_PT] by [PDF_CHART_BLOCK_HEIGHT_PT] without distorting its aspect ratio.
- */
-private fun drawChart(
-    canvas: Canvas,
-    bitmap: Bitmap,
-    startY: Float,
-) {
-    val software = if (bitmap.config == Bitmap.Config.HARDWARE) bitmap.copy(Bitmap.Config.ARGB_8888, false) else bitmap
-    val scale = minOf(PDF_CONTENT_WIDTH_PT.toFloat() / software.width, PDF_CHART_BLOCK_HEIGHT_PT.toFloat() / software.height)
-    val left = PDF_PAGE_MARGIN_PT.toFloat()
-    val rect = RectF(left, startY, left + software.width * scale, startY + software.height * scale)
-    canvas.drawBitmap(software, null, rect, null)
 }
 
 // ---- History table: columns, wrapped-cell layout, height-aware pagination, grid ----
@@ -296,8 +239,7 @@ private fun buildCellLayout(
 /**
  * Greedily packs rows into pages by their real (wrapped) height instead of a fixed per-page
  * count - a row that wraps to extra lines for a long note takes proportionally more of the
- * page's budget. An empty [rowLayouts] still yields one (empty) page, matching
- * [paginatePdfItems]'s same rule for the Insights PDF.
+ * page's budget. An empty [rowLayouts] still yields one (empty) page.
  */
 private fun paginateHistoryRows(
     rowLayouts: List<HistoryRowLayout>,

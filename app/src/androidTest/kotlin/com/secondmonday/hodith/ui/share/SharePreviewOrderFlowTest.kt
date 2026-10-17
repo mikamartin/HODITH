@@ -25,9 +25,6 @@ import com.secondmonday.hodith.data.HodithDatabase
 import com.secondmonday.hodith.data.RoomHodithRepository
 import com.secondmonday.hodith.data.ShareInsightsSection
 import com.secondmonday.hodith.data.createInMemoryDatabase
-import com.secondmonday.hodith.data.pdf.HistoryPdfContent
-import com.secondmonday.hodith.data.pdf.InsightsPdfContent
-import com.secondmonday.hodith.data.pdf.PdfExporter
 import com.secondmonday.hodith.data.share.ShareImageExporter
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
@@ -107,7 +104,6 @@ class SharePreviewOrderFlowTest {
                 repository = repository,
                 clock = FakeClock(DAY_MILLIS * 20),
                 shareImageExporter = UnusedExporter,
-                pdfExporter = UnusedPdfExporter,
                 settingsRepository = settings,
                 savedStateHandle = SavedStateHandle(mapOf("caseId" to caseId)),
             ).also { viewModelStore.put(VIEW_MODEL_KEY, it) }
@@ -139,12 +135,10 @@ class SharePreviewOrderFlowTest {
                     ),
                 now = DAY_MILLIS * 20,
                 graphicsLayer = rememberGraphicsLayer(),
-                chartGraphicsLayer = rememberGraphicsLayer(),
                 onBack = {},
                 onSectionToggle = { _, _ -> },
                 onSectionMove = viewModel::moveSection,
                 onInsightShareClick = {},
-                onInsightSharePdfClick = {},
                 onDateFromPicked = {},
                 onDateToPicked = {},
                 onFieldToggle = { _, _ -> },
@@ -159,7 +153,7 @@ class SharePreviewOrderFlowTest {
         composeTestRule.onNodeWithText(PlainVoice.shareTabInsightsLabel).performClick()
 
         // Drag from the row's title, not the grip: the whole row is the drag target. The picker comes before the card, so its copy is first.
-        // Scrolled into view first: the new "Share as PDF" toggle above the picker (feature/pdf-export) pushed this row further down the tab's scrollable column.
+        // Scrolled into view first: the row can sit below the fold in the tab's scrollable column.
         val rhythmRow = composeTestRule.onAllNodesWithText(PlainVoice.insightsSectionLabelRhythmStarts).onFirst()
         rhythmRow.performScrollTo()
         rhythmRow.performTouchInput {
@@ -195,19 +189,6 @@ class SharePreviewOrderFlowTest {
             object : ShareImageExporter {
                 override suspend fun exportToShareUri(
                     bitmap: Bitmap,
-                    fileNamePrefix: String,
-                ): Uri = error("not used by the order flow")
-            }
-
-        val UnusedPdfExporter =
-            object : PdfExporter {
-                override suspend fun exportInsightsPdf(
-                    content: InsightsPdfContent,
-                    fileNamePrefix: String,
-                ): Uri = error("not used by the order flow")
-
-                override suspend fun exportHistoryPdf(
-                    content: HistoryPdfContent,
                     fileNamePrefix: String,
                 ): Uri = error("not used by the order flow")
             }

@@ -853,10 +853,9 @@ interface Voice {
     val shareOpenDescription: String
 
     /**
-     * The Insights and History tabs' "Share as PDF" toggle (feature/pdf-export): off shows the
-     * image card and [shareOpenDescription]'s button shares it; on hides the card and the same
-     * button shares a PDF record instead. The Summary tab has no toggle at all — a square
-     * snapshot doesn't read as a document, so it stays image-only.
+     * The History tab's "Share as PDF" toggle (feature/pdf-export): off shows the image card and
+     * [shareOpenDescription]'s button shares it; on hides the card and the same button shares a
+     * PDF record instead. Summary and Insights have no toggle at all and stay image-only.
      */
     val shareAsPdfActionLabel: String
 

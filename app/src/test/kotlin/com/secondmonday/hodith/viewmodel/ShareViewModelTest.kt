@@ -8,7 +8,6 @@ import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.ShareInsightsSection
-import com.secondmonday.hodith.data.pdf.FakePdfExporter
 import com.secondmonday.hodith.data.share.FakeShareImageExporter
 import com.secondmonday.hodith.domain.FakeClock
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +28,6 @@ class ShareViewModelTest {
     private val repository = FakeHodithRepository()
     private val clock = FakeClock(1_000_000L)
     private val shareImageExporter = FakeShareImageExporter()
-    private val pdfExporter = FakePdfExporter()
     private val caseId = 1L
 
     @Before
@@ -45,7 +43,7 @@ class ShareViewModelTest {
     private val settingsRepository = FakeSettingsRepository()
 
     private fun viewModel() =
-        ShareViewModel(repository, clock, shareImageExporter, pdfExporter, settingsRepository, SavedStateHandle(mapOf("caseId" to caseId)))
+        ShareViewModel(repository, clock, shareImageExporter, settingsRepository, SavedStateHandle(mapOf("caseId" to caseId)))
 
     private fun testCase() =
         CaseEntity(
