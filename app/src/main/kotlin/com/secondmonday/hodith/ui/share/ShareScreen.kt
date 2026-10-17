@@ -43,11 +43,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.ShareInsightsSection
+import com.secondmonday.hodith.data.pdf.HistoryPdfContent
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.ui.common.HodithTab
 import com.secondmonday.hodith.ui.common.HodithTabRow
 import com.secondmonday.hodith.ui.theme.CardDecorationStyle
 import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
+import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.CASE_NAME_MAX_LENGTH
@@ -56,12 +58,14 @@ import com.secondmonday.hodith.viewmodel.HistoryShareViewModel
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
+import com.secondmonday.hodith.viewmodel.historyPdfContent
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-private const val SHARE_MIME_TYPE = "image/png"
+private const val IMAGE_MIME_TYPE = "image/png"
+private const val PDF_MIME_TYPE = "application/pdf"
 
 /** The Share screen's three tabs. Summary and Insights are the two formats of one card; History is the Case's log. */
 internal enum class ShareTab { SUMMARY, INSIGHTS, HISTORY }
@@ -85,7 +89,12 @@ fun ShareRoute(
 
     LaunchedEffect(Unit) {
         merge(insightViewModel.shareRequests, historyViewModel.shareRequests).collectLatest { uri ->
-            launchShareSheet(context, uri)
+            launchShareSheet(context, uri, IMAGE_MIME_TYPE)
+        }
+    }
+    LaunchedEffect(Unit) {
+        historyViewModel.pdfRequests.collectLatest { uri ->
+            launchShareSheet(context, uri, PDF_MIME_TYPE)
         }
     }
 
@@ -103,6 +112,7 @@ fun ShareRoute(
         onFieldToggle = historyViewModel::setFieldSelected,
         onHistorySortOrderSelect = historyViewModel::setSortOrder,
         onHistoryShareClick = { scope.launch { historyViewModel.share(graphicsLayer.toImageBitmap().asAndroidBitmap()) } },
+        onHistorySharePdfClick = historyViewModel::sharePdf,
         modifier = modifier,
     )
 }
@@ -110,10 +120,11 @@ fun ShareRoute(
 private fun launchShareSheet(
     context: Context,
     uri: Uri,
+    mimeType: String,
 ) {
     val intent =
         Intent(Intent.ACTION_SEND).apply {
-            type = SHARE_MIME_TYPE
+            type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -136,9 +147,11 @@ fun ShareScreen(
     onFieldToggle: (HistoryRowField, Boolean) -> Unit,
     onHistorySortOrderSelect: (ChronologicalOrder) -> Unit,
     onHistoryShareClick: () -> Unit,
+    onHistorySharePdfClick: (HistoryPdfContent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val voice = LocalVoice.current
+    val use24Hour = LocalTimeFormat.current.is24Hour
     var tab by rememberSaveable { mutableStateOf(ShareTab.SUMMARY) }
     // Null until the field is edited, so an untouched field shows the Case's own name. Held here, above the tabs,
     // so a switch between them never clears what was typed.
@@ -210,6 +223,23 @@ fun ShareScreen(
                 )
 
                 val displayName = shareDisplayName(typedName, case.name)
+                var historyPdfMode by rememberSaveable { mutableStateOf(false) }
+
+                fun buildHistoryPdfContent(): HistoryPdfContent =
+                    historyPdfContent(
+                        case = case,
+                        displayName = displayName,
+                        events = historyState.events,
+                        sortOrder = historyState.selection.sortOrder,
+                        dateFrom = historyState.selection.dateFrom,
+                        dateTo = historyState.selection.dateTo,
+                        fields = historyState.selection.fields,
+                        use24Hour = use24Hour,
+                        voice = voice,
+                        now = now,
+                        generatedAtMillis = now,
+                    )
+
                 when (tab) {
                     ShareTab.SUMMARY ->
                         InsightShareTab(
@@ -237,6 +267,8 @@ fun ShareScreen(
                             now = now,
                             displayName = displayName,
                             graphicsLayer = graphicsLayer,
+                            pdfMode = historyPdfMode,
+                            onPdfModeChange = { historyPdfMode = it },
                             onDateFromPicked = onDateFromPicked,
                             onDateToPicked = onDateToPicked,
                             onFieldToggle = onFieldToggle,
@@ -244,10 +276,18 @@ fun ShareScreen(
                         )
                 }
 
-                Button(
-                    onClick = if (tab == ShareTab.HISTORY) onHistoryShareClick else onInsightShareClick,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
+                // One button per tab, same shape as Summary's: History routes it to the image or
+                // PDF handler depending on its own toggle instead of showing a second button
+                // (feature/pdf-export); Insights and Summary are always image-only.
+                val onShareClick =
+                    when (tab) {
+                        ShareTab.SUMMARY -> onInsightShareClick
+                        ShareTab.INSIGHTS -> onInsightShareClick
+                        ShareTab.HISTORY -> {
+                            { if (historyPdfMode) onHistorySharePdfClick(buildHistoryPdfContent()) else onHistoryShareClick() }
+                        }
+                    }
+                Button(onClick = onShareClick, modifier = Modifier.fillMaxWidth()) {
                     Text(voice.shareOpenDescription)
                 }
             }

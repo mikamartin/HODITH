@@ -451,16 +451,20 @@ private fun YearMonth.monthYearLabel(): String = "${month.name.lowercase().repla
 
 /** Spec §10 frequency-over-time: a bar chart with a granularity override (Day/Week/Month), `null` meaning auto-pick. */
 @Composable
-private fun FrequencyCard(
+internal fun FrequencyCard(
     display: FrequencyDisplay,
     granularityOverride: FrequencyGranularity?,
     onGranularityChange: (FrequencyGranularity?) -> Unit,
     voice: Voice,
+    // Mobile card width needs the phone-tuned, sparse tick count from frequencyTickCount; a wider
+    // host (feature/pdf-export's PDF chart capture, rendered at the page's own content width, not
+    // the phone's) has room to label every bar instead, so it passes bars.size here.
+    tickCountOverride: Int? = null,
 ) {
     val locale = LocalLocale.current.platformLocale
     val tickIndices =
-        remember(display.bars.size, display.granularity) {
-            frequencyTickIndices(display.bars.size, frequencyTickCount(display.granularity))
+        remember(display.bars.size, display.granularity, tickCountOverride) {
+            frequencyTickIndices(display.bars.size, tickCountOverride ?: frequencyTickCount(display.granularity))
         }
 
     InsightsCard {

@@ -6,6 +6,7 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.pdf.FakePdfExporter
 import com.secondmonday.hodith.data.share.FakeShareImageExporter
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.domain.FakeClock
@@ -31,6 +32,7 @@ class HistoryShareViewModelTest {
     private val repository = FakeHodithRepository()
     private val clock = FakeClock(zone.startOfDayMillis(today) + 12 * 60 * 60 * 1000L) // noon today
     private val shareImageExporter = FakeShareImageExporter()
+    private val pdfExporter = FakePdfExporter()
     private val caseId = 1L
 
     @Before
@@ -43,7 +45,18 @@ class HistoryShareViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = HistoryShareViewModel(repository, clock, shareImageExporter, SavedStateHandle(mapOf("caseId" to caseId)))
+    private fun viewModel() =
+        HistoryShareViewModel(
+            repository,
+            clock,
+            shareImageExporter,
+            pdfExporter,
+            SavedStateHandle(
+                mapOf(
+                    "caseId" to caseId,
+                ),
+            ),
+        )
 
     private fun testCase() =
         CaseEntity(
