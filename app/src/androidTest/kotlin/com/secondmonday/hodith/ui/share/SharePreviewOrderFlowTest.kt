@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
@@ -143,6 +144,7 @@ class SharePreviewOrderFlowTest {
                 onFieldToggle = { _, _ -> },
                 onHistorySortOrderSelect = {},
                 onHistoryShareClick = {},
+                onHistorySharePdfClick = {},
             )
         }
         composeTestRule.waitUntil { viewModel.uiState.value.case != null }
@@ -151,7 +153,10 @@ class SharePreviewOrderFlowTest {
         composeTestRule.onNodeWithText(PlainVoice.shareTabInsightsLabel).performClick()
 
         // Drag from the row's title, not the grip: the whole row is the drag target. The picker comes before the card, so its copy is first.
-        composeTestRule.onAllNodesWithText(PlainVoice.insightsSectionLabelRhythmStarts).onFirst().performTouchInput {
+        // Scrolled into view first: the row can sit below the fold in the tab's scrollable column.
+        val rhythmRow = composeTestRule.onAllNodesWithText(PlainVoice.insightsSectionLabelRhythmStarts).onFirst()
+        rhythmRow.performScrollTo()
+        rhythmRow.performTouchInput {
             down(center)
             advanceEventTime(1_000)
             moveBy(Offset(0f, -3_000f))

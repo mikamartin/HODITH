@@ -51,7 +51,7 @@ internal const val SECTION_HANDLE_TAG_PREFIX = "section_handle_"
 
 /**
  * The Summary and Insights tabs: one Insight card in the format the tab names. Insights (Story) adds the section picker
- * above the preview; Summary (Square) is a fixed preset built from the Case's own settings, so it has no controls.
+ * above the preview; Summary (Square) is a fixed preset built from the Case's own settings and has no picker at all.
  */
 @Composable
 internal fun InsightShareTab(
@@ -74,19 +74,6 @@ internal fun InsightShareTab(
     val insightsState = remember(case, uiState.events, today) { insightsTabState(case, uiState.events, now) }
     val selection = uiState.selection
 
-    val cardData =
-        shareCardState(
-            case = case,
-            displayName = displayName,
-            insightsState = insightsState,
-            eventCount = events.size,
-            observedDays = observationSpanDays(events, case.createdAt, now),
-            format = format,
-            selectedSections = selection.selectedSections,
-            generatedAtMillis = now,
-            sectionOrder = uiState.sectionOrder,
-        )
-
     if (format == ShareCardFormat.STORY) {
         // The picker lists only the sections this Case has data for, in the user's saved order.
         val stats = (insightsState as? InsightsTabState.Ready)?.stats
@@ -100,6 +87,19 @@ internal fun InsightShareTab(
             onSectionMove = { from, to -> onSectionMove(orderedAvailable, from, to) },
         )
     }
+
+    val cardData =
+        shareCardState(
+            case = case,
+            displayName = displayName,
+            insightsState = insightsState,
+            eventCount = events.size,
+            observedDays = observationSpanDays(events, case.createdAt, now),
+            format = format,
+            selectedSections = selection.selectedSections,
+            generatedAtMillis = now,
+            sectionOrder = uiState.sectionOrder,
+        )
 
     SharePreviewStage(voice = voice, graphicsLayer = graphicsLayer) { captureModifier ->
         ShareCardTemplate(data = cardData, voice = voice, modifier = captureModifier)

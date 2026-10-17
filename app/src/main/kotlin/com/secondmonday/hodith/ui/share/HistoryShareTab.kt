@@ -19,7 +19,6 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.ui.common.DateRangeFilterDialog
-import com.secondmonday.hodith.ui.common.SegmentedChoiceRow
 import com.secondmonday.hodith.ui.common.ToggleRow
 import com.secondmonday.hodith.ui.theme.LocalTimeFormat
 import com.secondmonday.hodith.ui.voice.LocalVoice
@@ -34,10 +33,12 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * The History tab: the Case's own entries, as a card. Controls (range, fields, sort) sit above the preview, since a long
- * log's rows would otherwise crowd the filters below the fold (spec §13 design pass, `docs/mockups/log-share-prototype.html`).
- * The card is capped the same way the final card is (`historyShareCardState`), and its own truncation note says when the
- * range holds more than fits.
+ * The History tab: the Case's own entries, as a card or - once [pdfMode] is on - a PDF record
+ * instead (feature/pdf-export). Controls (range, sharing mode, fields) sit above the preview,
+ * since a long log's rows would otherwise crowd the filters below the fold (spec §13 design pass,
+ * `docs/mockups/log-share-prototype.html`). The card is capped the same way the final card is
+ * (`historyShareCardState`), and its own truncation note says when the range holds more than fits
+ * - the PDF path (built by the caller from the same [uiState]) has no such cap.
  */
 @Composable
 internal fun HistoryShareTab(
@@ -45,6 +46,8 @@ internal fun HistoryShareTab(
     now: Long,
     displayName: String,
     graphicsLayer: GraphicsLayer,
+    pdfMode: Boolean,
+    onPdfModeChange: (Boolean) -> Unit,
     onDateFromPicked: (LocalDate?) -> Unit,
     onDateToPicked: (LocalDate) -> Unit,
     onFieldToggle: (HistoryRowField, Boolean) -> Unit,
@@ -57,38 +60,69 @@ internal fun HistoryShareTab(
     val selection = uiState.selection
 
     DateRangeSection(case.createdAt, selection, now, zone, onDateFromPicked, onDateToPicked, voice)
+    SharingModeSection(pdfMode, onPdfModeChange, selection.sortOrder, onSortOrderSelect, voice)
     FieldsSection(case, selection.fields, onFieldToggle, voice)
-    // No label here: the fields section above already carries the "Include" heading.
-    SegmentedChoiceRow(
-        options =
-            listOf(
-                ChronologicalOrder.NEWEST_FIRST to voice.shareHistorySortNewestLabel,
-                ChronologicalOrder.OLDEST_FIRST to voice.shareHistorySortOldestLabel,
-            ),
-        selected = selection.sortOrder,
-        onSelect = onSortOrderSelect,
-    )
 
-    val cardData =
-        historyShareCardState(
-            case = case,
-            displayName = displayName,
-            events = uiState.events,
-            sortOrder = selection.sortOrder,
-            dateFrom = selection.dateFrom,
-            dateTo = selection.dateTo,
-            fields = selection.fields,
-            use24Hour = use24Hour,
-            voice = voice,
-            now = now,
-            generatedAtMillis = now,
-            zone = zone,
-        )
+    if (!pdfMode) {
+        val cardData =
+            historyShareCardState(
+                case = case,
+                displayName = displayName,
+                events = uiState.events,
+                sortOrder = selection.sortOrder,
+                dateFrom = selection.dateFrom,
+                dateTo = selection.dateTo,
+                fields = selection.fields,
+                use24Hour = use24Hour,
+                voice = voice,
+                now = now,
+                generatedAtMillis = now,
+                zone = zone,
+            )
 
-    SharePreviewStage(voice = voice, graphicsLayer = graphicsLayer) { captureModifier ->
-        ShareCardTemplate(data = cardData, voice = voice, modifier = captureModifier)
+        SharePreviewStage(voice = voice, graphicsLayer = graphicsLayer) { captureModifier ->
+            ShareCardTemplate(data = cardData, voice = voice, modifier = captureModifier)
+        }
     }
 }
+
+/**
+ * The two toggles that pick *how* the Case shares, kept apart from [FieldsSection]'s "Include"
+ * group below since they're a different kind of choice (format and order, not which fields show).
+ * The sort toggle reuses [com.secondmonday.hodith.ui.common.ToggleRow] rather than
+ * [SegmentedChoiceRow] now that a second toggle sits beside it, for one consistent control shape.
+ */
+@Composable
+private fun SharingModeSection(
+    pdfMode: Boolean,
+    onPdfModeChange: (Boolean) -> Unit,
+    sortOrder: ChronologicalOrder,
+    onSortOrderSelect: (ChronologicalOrder) -> Unit,
+    voice: Voice,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        ToggleRow(
+            label = voice.shareAsPdfActionLabel,
+            checked = pdfMode,
+            onCheckedChange = onPdfModeChange,
+            modifier = Modifier.testTag(HISTORY_SHARE_PDF_TOGGLE_TAG),
+        )
+        ToggleRow(
+            label = voice.shareHistorySortOldestLabel,
+            checked = sortOrder == ChronologicalOrder.OLDEST_FIRST,
+            onCheckedChange = { oldestFirst ->
+                onSortOrderSelect(if (oldestFirst) ChronologicalOrder.OLDEST_FIRST else ChronologicalOrder.NEWEST_FIRST)
+            },
+            modifier = Modifier.testTag(HISTORY_SHARE_SORT_TOGGLE_TAG),
+        )
+    }
+}
+
+/** Test hook only - the PDF-mode toggle's own tag, since its label text ([Voice.shareAsPdfActionLabel]) is shared with the Insights tab's toggle. */
+internal const val HISTORY_SHARE_PDF_TOGGLE_TAG = "history_share_pdf_toggle"
+
+/** Test hook only - the sort toggle's own tag. */
+internal const val HISTORY_SHARE_SORT_TOGGLE_TAG = "history_share_sort_toggle"
 
 @Composable
 private fun DateRangeSection(

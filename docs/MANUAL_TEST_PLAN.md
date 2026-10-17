@@ -154,6 +154,22 @@ the entry cap reach the card. Those are checked by `ShareScreenTest` (the typed 
 draws). Capture renders the same composable those tests draw, so steps 1 and 2 only need to prove the
 capture and the handoff.
 
+## PDF records
+
+`CasePdfExporter` generating a valid, correctly-paginated PDF is covered end to end by
+`CasePdfExporterTest` (real file, read back via `PdfRenderer`), and the content feeding it — column
+gating, row formatting, ongoing-event handling — by `HistoryPdfContentBuilderTest`. This step is
+about the one thing nothing above can prove: the real share-sheet handoff, same seam as the image
+cards above (and the same reason the project's Espresso-Intents item stays deferred).
+
+1. **The "Share as PDF" toggle reaches the real share sheet with a real PDF.** From a Case with a
+   handful of logged events (some with long notes, to check wrapping), open the Share screen,
+   switch to History, turn on "Share as PDF" — the card preview disappears — then tap Share and
+   pick a target (e.g. a messenger app, or a PDF viewer/"Save to Drive"). It produces a real,
+   openable PDF, not a blank/corrupt file. Check while there: the document title, date range and
+   record count read correctly, the table's borders/columns/wrapping look right with no cut-off
+   text, and multi-page Cases paginate without a broken row across the page break.
+
 ## About & Contact
 
 The callbacks themselves (tapping the row/link invokes the right function) are instrumented-tested

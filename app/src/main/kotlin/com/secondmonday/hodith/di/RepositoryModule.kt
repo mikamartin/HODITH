@@ -6,6 +6,8 @@ import com.secondmonday.hodith.data.RoomHodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.data.backup.BackupFileWriter
 import com.secondmonday.hodith.data.backup.ContentResolverBackupFileWriter
+import com.secondmonday.hodith.data.pdf.CasePdfExporter
+import com.secondmonday.hodith.data.pdf.PdfExporter
 import com.secondmonday.hodith.data.share.ComposeShareImageExporter
 import com.secondmonday.hodith.data.share.ShareImageExporter
 import com.secondmonday.hodith.notification.Notifier
@@ -44,4 +46,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindShareImageExporter(composeShareImageExporter: ComposeShareImageExporter): ShareImageExporter
+
+    @Binds
+    @Singleton
+    abstract fun bindPdfExporter(casePdfExporter: CasePdfExporter): PdfExporter
 }

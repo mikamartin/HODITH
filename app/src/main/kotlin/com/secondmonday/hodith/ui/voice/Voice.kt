@@ -852,11 +852,40 @@ interface Voice {
     // ---- Share cards (Phase 10, spec §13) ----
     val shareOpenDescription: String
 
+    /**
+     * The History tab's "Share as PDF" toggle (feature/pdf-export): off shows the image card and
+     * [shareOpenDescription]'s button shares it; on hides the card and the same button shares a
+     * PDF record instead. Summary and Insights have no toggle at all and stay image-only.
+     */
+    val shareAsPdfActionLabel: String
+
     /** The Share screen's top-bar title — structural, identical across all three voices. The share button keeps [shareOpenDescription]. */
     val shareScreenTitle: String get() = "Share"
 
     /** [timestamp] is the card's own generation date and time — a still-open [com.secondmonday.hodith.domain.TrendFindingKind.WENT_QUIET] finding is only true at the moment the card is made, and dating the whole card (not just that one finding) is the honest reading for every snapshot section on it. */
     fun shareCardFooter(timestamp: String): String = "counted with HODITH app${DOT_SEPARATOR}$timestamp"
+
+    /** The PDF record's own masthead line, above the Case's name (feature/pdf-export) — the app's own name/tagline, structural and identical across all three voices, the one piece of document-level copy a PDF needs that the image cards never did (a card is always seen inside the app itself, never as a standalone file). */
+    val sharePdfDocumentTitle: String get() = "How often does it happen?"
+
+    /**
+     * [timestamp] is the PDF's own generation date and time, same input as [shareCardFooter] but
+     * explicit about what it means - a standalone file has no surrounding app chrome to make that
+     * obvious the way a card does, so "generated on" says it directly rather than the card's
+     * terser "counted with ... {timestamp}". Shown both in the header summary and repeated in
+     * every page's footer.
+     */
+    fun sharePdfGeneratedLine(timestamp: String): String = "Counted with HODITH app, generated on $timestamp"
+
+    /** The PDF's date-range line gets a plain label in front of it — structural, identical across all three voices, unlike the card's bare [shareHistoryRangeNote]. */
+    val sharePdfDateRangeLabel: String get() = "Date range"
+
+    /** The History PDF's total row count, shown under the date range (feature/pdf-export) — reuses [shareSquareEventNoun] rather than a new noun, so "records" doesn't become a fourth word for the same thing [shareSquareEventNoun]'s "event(s)"/"entry/entries"/"log(s)" already cover. */
+    fun sharePdfRecordCount(count: Int): String = "$count ${shareSquareEventNoun(count)}"
+
+    /** The History PDF table's Start/End column headers — structural, identical across all three voices; Duration/Intensity/Tags/Notes reuse existing section/field labels. */
+    val sharePdfColumnStartLabel: String get() = "Start"
+    val sharePdfColumnEndLabel: String get() = "End"
 
     /** Intense skin's rotated corner stamp — structural, shown on the Intense skin only; never rendered under Plain/Bright. */
     val shareIntenseStampLabel: String get() = "Case File"
@@ -1593,6 +1622,7 @@ object PlainVoice : Voice {
     override val widgetEditButtonDescription = "Edit widget Cases"
 
     override val shareOpenDescription = "Share"
+    override val shareAsPdfActionLabel = "Share as PDF"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "event" else "events"
 
@@ -2220,6 +2250,7 @@ object IntenseVoice : Voice {
     override val widgetEditButtonDescription = "Edit the cases watching this widget"
 
     override val shareOpenDescription = "Share the record"
+    override val shareAsPdfActionLabel = "Share the record"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "entry" else "entries"
 
@@ -2842,6 +2873,7 @@ object BrightVoice : Voice {
     override val widgetEditButtonDescription = "Edit your stars!"
 
     override val shareOpenDescription = "Share it!"
+    override val shareAsPdfActionLabel = "Share as a PDF!"
 
     override fun shareSquareEventNoun(eventCount: Int) = if (eventCount == 1) "log" else "logs"
 

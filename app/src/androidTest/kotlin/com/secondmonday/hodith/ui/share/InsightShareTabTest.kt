@@ -111,6 +111,7 @@ class InsightShareTabTest {
                 onFieldToggle = { _, _ -> },
                 onHistorySortOrderSelect = {},
                 onHistoryShareClick = {},
+                onHistorySharePdfClick = {},
             )
         }
         if (tab != ShareTab.SUMMARY) composeTestRule.onNodeWithText(tabLabel(tab)).performClick()

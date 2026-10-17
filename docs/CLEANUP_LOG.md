@@ -17,6 +17,72 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feature/pdf-export — remove Insights PDF
+
+**Scope:** Dropped PDF export for the Insights tab entirely, keeping it as a History-only feature. The Insights PDF's content builder reduced most panels (Gaps, Streaks, Duration, Intensity, Tags) to plain "Label: value" text lines and dropped Rhythm and Trends outright (no text form exists for a heatmap grid or a narrative finding); its one real graphic, a separately-captured Frequency chart, is `null` whenever a Case tracks multi-day/duration events or has too few events — leaving the PDF text-only in exactly the case the user hit. Closing that gap would mean either capturing the whole share card as one image (forces Square format on the page, loses real/searchable text) or extending the existing per-chart capture to Rhythm/Intensity too (requires generalizing `PdfLayout.kt`'s pagination math from one fixed chart block to a variable number of variable-position image blocks, each with its own eligibility gating) — real feature work for unclear payoff on a document most users will rarely compare against the image card. History's PDF (a real bordered table) was unaffected and stays as-is.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against `git diff` (16 changed files, 4 deleted, 0 new). `ktlintCheck`, `lintDebug`, `test` (full unit suite, `PdfLayoutTest` gone with the constants it tested), `compileDebugAndroidTestKotlin`, and `assembleDebug` all pass. `connectedDebugAndroidTest` deferred — no emulator/device was available in this session; the touched instrumented suites (`ShareScreenTest`, `InsightShareTabTest`, `SharePreviewOrderFlowTest`, `HistoryShareTabTest`, `CasePdfExporterTest`) need a run on the user's own device before merge, per this repo's standing instrumented-test convention.
+
+**Found & fixed:**
+- Initial exploration missed one call site: `HistoryShareTabTest.kt` also called `ShareScreen(...)` with the now-removed `chartGraphicsLayer`/`onInsightSharePdfClick` params. Caught by a post-edit grep sweep for every deleted symbol across `app/src`, not by the original file-by-file plan — a reminder that a map built from one exploration pass needs re-verifying against the real diff, not trusted as exhaustive.
+- `ShareScreen.kt` picked up two unused imports (`pdfAppLinkText`, `pdfDateRangeBounds`) once `buildInsightsPdfContent()` was deleted — caught by `ktlintCheck`, not by inspection.
+- `ShareScreenTest.kt`'s `summaryTab_hasNoPdfToggle` test referenced the now-deleted `INSIGHT_SHARE_PDF_TOGGLE_TAG` constant; renamed to `summaryAndInsightsTabs_haveNoPdfToggle` and rewritten to assert History's toggle tag is absent from both tabs instead, since there's no Insights-specific tag left to check.
+- Confirmed `CasePdfExporterTest`'s five remaining History tests (few rows, zero rows, many rows/pagination, long-note wrapping, missing optional columns) already cover `drawHistoryPage`/table pagination fully on their own — no coverage gap opened by removing the two Insights tests.
+- Confirmed `FakePdfExporter` stays meaningfully exercised after losing its `exportInsightsPdf` override: `HistoryShareViewModelTest` still constructs `HistoryShareViewModel` with it.
+
+**Deferred:**
+- `connectedDebugAndroidTest` — see Walked above; needs the user's device.
+
+**Considered and declined:** nothing new; this pass only removes code the prior two `feature/pdf-export` passes added.
+
+**Checks:**
+- Duplication: none introduced; pure removal.
+- Decoupling: untouched — `PdfLayout.kt` stays `android.*`-free, `CasePdfExporter` still takes no `viewmodel`/`ui` imports.
+- Complexity: `CasePdfExporter.kt` shrank from ~300 to ~230 lines by dropping `exportInsightsPdf`/`drawInsightsPage`/`drawChart`; no new functions added.
+- Dead code & hygiene: every import touched by a deletion was swept for staleness (`ktlintCheck` catching the two misses above); `git status` clean throughout, no secrets or local paths.
+- Naming: no new files; `FakePdfExporter`/`CasePdfExporter`/`PdfExporter` keep their names with one fewer method each.
+- Hardcoded values, accessibility, data model/migrations, background work/widgets/notifications, deprecated APIs: untouched — N/A.
+- Spec review: `HODITH_SPEC.md` §13's "PDF record" bullet rewritten History-only; the Frequency sentence that referenced the Insights PDF rewritten to state it never appears on any Insights share output; §14's Insights Share-preview row dropped its "Share as PDF" toggle mention.
+- Tests: covered above (coverage review, the renamed `ShareScreenTest` case); `TESTING.md` and `MANUAL_TEST_PLAN.md` brought up to date (see Docs updated).
+
+**Docs updated:** HODITH_SPEC.md (§13 PDF record bullet + Frequency sentence, §14 Insights Share-preview row); TESTING.md (dropped the `PdfLayoutTest` JVM row, reworded the ShareScreenTest/Insights-tab instrumented rows and the `CasePdfExporterTest` row); MANUAL_TEST_PLAN.md (PDF records section narrowed to History only); PROGRESS.md (the `ACTION_SEND` coverage line narrowed to the History PDF export); `Voice.kt`'s `shareAsPdfActionLabel` doc comment reworded to describe a History-only toggle (the string itself is unchanged); this entry (oldest entry, `feature/case-edit-logging-toggle`, removed per the 5-entry retention rule).
+
+---
+
+## feature/pdf-export — toggle/table redesign pass
+
+**Scope:** A follow-on redesign pass on top of the already-committed `feature/pdf-export` base, driven by hands-on user feedback: the two-button image/PDF split replaced with a single "Share as PDF" toggle per tab; the History table rebuilt as a real bordered, multi-column grid (Start/End/Duration/Intensity/Tags/Notes) with genuine text wrapping instead of a joined detail string; the document header redesigned (masthead title, a visually separated and larger date-range section, a record count, explicit "generated on" wording); Start/End cells reformatted to two lines (date, then weekday + time honoring the 12h/24h setting) with the year always shown; and the PDF filename brought onto the same timestamp convention as the JSON/CSV exports.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against `git diff HEAD` (14 changed files, 3 new). `ktlintCheck`, `lintDebug`, `test` (full unit suite, including two new test files), and `assembleDebug` all pass. Instrumented: the `ui.share` package (117/117) and `CasePdfExporterTest` (7/7, confirmed on two separate devices) were run earlier in this pass; the final round of edits (removing notes truncation, removing the "History" kicker, narrowing the Start/End columns, recalibrating the header gap) were verified visually by the user directly on their own device rather than re-run by me, per their explicit request to hold off on further automated instrumented batches while they tested.
+
+**Found & fixed:**
+- **Zero direct unit coverage** for `historyPdfContent`'s column-gating, row-building and ongoing-event logic — it was only ever exercised indirectly through hand-built content objects in `CasePdfExporterTest`, never through the actual builder function. Added `HistoryPdfContentBuilderTest` (column gating for each optional column; ongoing vs. zero-length-point vs. finished-duration event handling; tag/note formatting; record count reflecting the filtered match count). Writing it caught a real bug in the test itself on the first pass, not the implementation: a `null` `endedAt` reads as *ongoing* on a tracking Case, not "no duration" — the existing `finishedPoint` fixture exists precisely to disambiguate that, and the first draft used a plain `testEvent` instead.
+- `OffscreenCaptureTest` was missing the `@Smoke` tag every other `@UiTest` class in `ui/share` carries on its one representative happy-path test — added.
+- The header block's fixed height (`PDF_HEADER_BLOCK_HEIGHT_PT`) had been sized for "kicker line and record-count line both present" — a combination that never actually occurs (Insights has a kicker and no count, History has a count and no kicker) — leaving a visible ~40pt gap before the table on every real document. Recalculated against the actual drawn content (~97-99pt either way) and dropped 140→115pt.
+- The `PDF_TABLE_CELL_MAX_LINES`/ellipsize truncation on table cells directly contradicted the user's ask ("longer notes are truncated which should not happen"); removed in favor of unbounded `StaticLayout` wrapping, with row heights already real-measured per row rather than assumed, so this didn't require touching the pagination math.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- The two-line `pdfDateRangeBounds(...)` + `voice.shareHistoryRangeNote(...)` pattern appears identically in `ShareScreen.kt`'s inline Insights-PDF builder and in `HistoryPdfContentBuilder.kt`. Declined to extract a shared helper for it — two call sites, two lines each, sitting in functions whose surrounding context genuinely differs (one always spans the Case's full history, the other honors a user-picked range); a new function for this would add more indirection than it saves.
+
+**Checks:**
+- Duplication: the one instance above, considered and declined. No copy-pasted composables — the Insights/History PDF toggles are each one line wrapping the existing `ToggleRow`, not worth a shared wrapper for two call sites. Every new Voice string reused an existing one where the meaning already matched (`sharePdfDateRangeLabel`, `sharePdfRecordCount` reusing `shareSquareEventNoun`, `sharePdfGeneratedLine`); Start/End column headers are the only genuinely new strings this pass needed.
+- Decoupling: no `android.*` imports in `domain/PdfLayout.kt` or the new `domain/ExportFileTimestamp.kt`; `CasePdfExporter.kt`'s one `System.currentTimeMillis()` call matches the existing `ComposeShareImageExporter` precedent (filename uniqueness, not business logic); the exporter still imports nothing from `viewmodel`/`ui`.
+- Complexity: `CasePdfExporter.kt` is ~300 lines but stays a collection of small, single-purpose drawing/layout functions; its largest function (`drawDocumentHeader`) is about 20 lines.
+- Hygiene: `git status` clean throughout; no secrets, local paths, or leftover TODO/FIXME; no stray prototype artifacts (the earlier feature work's two capture spikes were already cleared in the prior commit).
+- Naming: new files (`domain/ExportFileTimestamp.kt`, `viewmodel/PdfAppLink.kt`, `viewmodel/HistoryPdfContentBuilderTest.kt`) follow convention and sit in the right package. `sharePdfDocumentTitle` converted from three per-voice overrides to one shared default (the user wanted the literal app tagline, not voice-flavored copy); `shareAsImageActionLabel` removed cleanly (no longer needed once the toggle replaced the two-button split) with no dangling references anywhere.
+- Hardcoded values: PDF drawing constants (text sizes, gaps, colors) stay as named private consts local to the exporter since nothing else needs them; the layout-math constants pagination depends on stay in `domain/PdfLayout.kt`, narrowed/recalibrated rather than left as guesses.
+- Accessibility: no new icon-only buttons; `ToggleRow` is an existing, already-accessible shared component reused as-is.
+- Data model, migrations, widgets, notifications: untouched — N/A.
+- Deprecated APIs: `StaticLayout.Builder.obtain(...)` is the current, non-deprecated API; no new compiler warnings introduced this pass.
+- Spec review: `HODITH_SPEC.md` §13 updated with a new "PDF record" bullet (the toggle, the document's structure) and a one-line fix to the pre-existing "Frequency never appears on a share card" sentence, which the Insights PDF now contradicts for that path specifically; §14's two Share-preview table rows cross-reference it.
+- Tests: covered above — new JVM coverage for the content builder, the missing `@Smoke` tag, and `TESTING.md`/`MANUAL_TEST_PLAN.md` both brought up to date (see Docs updated).
+
+**Docs updated:** HODITH_SPEC.md (§13 new bullet + one sentence fix, §14 two table rows); TESTING.md (new JVM row for `PdfLayoutTest`/`HistoryPdfContentBuilderTest`, three reworded Share instrumented rows, one new `CasePdfExporterTest` row); MANUAL_TEST_PLAN.md (new "PDF records" section); this entry (oldest entry, `feature/duration-unification — pre-merge cleanup pass`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/bright-intensity-label
 
 **Scope:** User-reported Bright voice copy issue: `eventIntensityLabel` read "Feels like a 3!" with no word "intensity" anywhere, so the bare number in the dot-separated event summary row didn't clearly map to an intensity rating (unlike Plain's "Intensity 3" and Intense's "Intensity: 3"). Changed to "Intensity: 3!" — keeps Bright's exclamation-mark style, matches the other two voices' explicit wording.
@@ -98,72 +164,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: no weakened assertions — every touched call site either gained an explicit gating argument or a brand-new test exercising it; `StatsEngineTest`'s detector-math tests keep exercising every outcome unfiltered via `TagOutcome.entries.toSet()`.
 
 **Docs updated:** PROGRESS.md (the resolved item struck entirely); HODITH_SPEC.md (§10 tag → outcome gating, §11 `minIntensity` table row); TESTING.md (Watch evaluation and Stats & visual data prep rows extended); this entry (oldest entry, `fix/big-picture-day-detail-chronological-order`, removed per the 5-entry retention rule).
-
----
-
-## feature/case-edit-logging-toggle
-
-**Scope:** Reordered the Case edit/create form's logging control to the end of the form (after Track duration and Track intensity), replaced the two-option "One tap / Detail sheet" segmented chooser with a single "Enable one tap logging" `Switch`, hid it entirely (rather than just disabling it) once intensity tracking makes one-tap unavailable, dropped "(1-5)" from the Track intensity label, and restyled that label to match its sibling toggles.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff, twice — the first pass's "considered and declined" call on the `ToggleRow` duplication below was the user's to make, not mine; raised it and the user asked for the fix instead, so it's folded into this same pass rather than left deferred. `ktlintCheck`, `test` (full unit suite), `lintDebug`, and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to every screen touching `ToggleRow` on a connected emulator — `CaseEditScreenTest` (20/20), `HistoryShareTabTest` (18/18), `InsightShareTabTest` (25/25), `CaseDetailScreenTest` (35/35), `BigPictureScreenTest` (51/51) — all green, 149/149 total.
-
-**Found & fixed:**
-- Replaced the `SectionWithInfo` + `SegmentedChoiceRow(LogFlow.ONE_TAP/DETAIL_SHEET)` block with `RowWithInfo` wrapping a single `Switch` bound to `logFlow == ONE_TAP`, the whole row wrapped in `isOneTapAllowed(uiState.intensityEnabled)` so it's omitted outright — not merely disabled — once intensity tracking is on.
-- `Voice.kt`: removed `caseLogFlowLabel`/`caseLogFlowOneTap`/`caseLogFlowDetailSheet` (no longer rendered anywhere); renamed `caseLogFlowInfoTitle`/`caseLogFlowInfoBody` to `caseOneTapInfoTitle`/`caseOneTapInfoBody` and rewrote the copy in all three voices — dropping the now-irrelevant "Detail sheet" explanation, and adding a note that one-tap logging on a duration-tracking Case starts the event running until stopped (spec §6 Story U2 behavior that already held, but was previously undocumented in the info dialog).
-- `CaseEditScreenTest.kt`: updated node lookups to the new label; changed the intensity-gated test from `assertIsNotEnabled` to `assertDoesNotExist` (now hidden, not disabled — renamed accordingly); split the single info-dialog test in two, since the reorder moved Track duration's info icon to the first position (first icon → Track duration's dialog now; a new test covers the last icon → the new one-tap dialog).
-- `ui.common.ToggleRow` collapsed from two same-named, same-package composables (`ToggleRow.kt`'s whole-row-toggleable version and `ThemedToggle.kt`'s themed-`Switch`-owns-click version) into one canonical `ToggleRow.kt`, with `labelStyle`/`colors` params defaulting to each existing call site's current look (`LocalTextStyle.current`/`SwitchDefaults.colors()`) so none of the four live call sites (Share's section picker, History Share's field picker, Big Picture's overview-detail dialog, Case Detail's check-ins row) changed appearance. `ThemedToggle.kt` now holds only `themedSwitchColors()`. Track intensity restyled via the merged component (`labelStyle = MaterialTheme.typography.labelLarge` to match Track duration's bolder label, `colors = themedSwitchColors()`) instead of a one-off inline `Row`; dropped the "(1-5)" suffix from `caseIntensityToggleLabel` in the same change.
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- UI Copy Brevity: "Enable one tap logging" runs longer than its new siblings "Track duration"/"Track intensity". Flagged per the checklist, but the wording was the user's explicit instruction for this change, not an incidental pick — kept as specified.
-
-**Checks:**
-- Duplication: the `ToggleRow` duplication (see Found & fixed) was the only one found and is now fixed; no inline Voice strings added.
-- Decoupling: no ViewModel/domain changes; `isOneTapAllowed` reused exactly as before, called from the Composable the same way the segmented control's `enabled` lambda used it.
-- Complexity: `CaseEditForm` is ~90 lines, unchanged bracket, under the 150-line guideline.
-- Dead code & hygiene: unused imports removed throughout; `git status` clean. `HODITH_SPEC.md` describes `logFlow`/`tracksDuration`/`intensityEnabled` only at the data-model level, never this screen's specific control shape, so nothing there was stale.
-- Naming: new Voice keys (`caseOneTapToggleLabel`, `caseOneTapInfoTitle`, `caseOneTapInfoBody`) follow the existing `case*` convention and landed in all three voices in the same commit.
-- Accessibility: reused the same `Switch`/`RowWithInfo`/`ToggleRow` building blocks already in place; no new icon-only button added. Manual light/dark verification left to the user per this repo's convention.
-- Data model/migrations/widgets/notifications: untouched — `LogFlow` and its widget/notification dispatch are unchanged; only the Case-edit screen's control for setting it changed.
-- Spec review: no divergence — see Dead code & hygiene above. TESTING.md's `ToggleRow` semantics-merging note (Known environment issues) still accurate — the kept shape is exactly the one it describes.
-- Tests: no weakened assertions — the intensity-gated test got strictly stronger (hidden, not just disabled); every other `ToggleRow` call site's existing tests stayed green unmodified, confirming the merge didn't change their behavior.
-
-**Docs updated:** PROGRESS.md (the `ToggleRow` duplication item added during the first pass removed again — fixed in this same branch rather than left as backlog); this entry (oldest entry, `fix/widget-edit-affordance`, removed per the 5-entry retention rule).
-
----
-
-## feature/duration-unification — pre-merge cleanup pass
-
-**Scope:** A full CLEANUP_CHECKLIST.md walk-through of the whole `feature/duration-unification` diff requested before merge, including finally running the instrumented tests the previous pass on this branch had deferred for lack of an emulator.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the full `main..HEAD` diff (two independent passes, cross-verified against the actual source rather than taken on faith). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass on the final state. `connectedDebugAndroidTest`: the full scope (17 touched test classes, 259 tests) hit the shared AVD's own pre-existing flaky `system_server` watchdog crash twice in a row on a long run (a full-system process dump at an arbitrary point, not a test assertion failure — unrelated to this diff); recovered by restarting the emulator fresh rather than burning more time on a degraded instance. Final verification scoped to the 55 test methods that actually exercise `tracksDuration` behavior (as opposed to ones only touched by a mechanical fixture-constructor rename) — all 55 green on the fresh emulator in just over a minute.
-
-**Found & fixed:**
-- Naming leftover the original rename pass missed: `caseDurationModeInfoTitle`/`caseDurationModeInfoBody` (and their one call site, `CaseEditScreen.kt`) kept the old `DurationMode` name even though the control's own label had already become `caseTracksDurationLabel` — compiled fine (both sides still matched each other), just inconsistent with every other key in the same rename. Renamed to `caseTracksDurationInfoTitle`/`caseTracksDurationInfoBody` across the `Voice` interface, all three voice overrides, and the call site.
-- Stale retired-enum terminology left by the original mechanical find-and-replace: test names (`EventDaoTest.observeEventsWithTagsForCasePagedByEnd_floatsARunningStartStopEventAbove...` → `...TrackedEventAbove...`; `HomeScreenTest.nonOngoingStartStopRow_...` → `nonOngoingTrackedRow_...`; `WidgetActionsFlowTest.logTap_startsASecondEventForARunningStartStopCase`/`manualCaseWithFutureEndedAt_showsExpectedEndInSubtitle` → `...RunningTrackedCase`/`trackedCaseWithFutureEndedAt_...`), a comment in `NotificationEvaluatorTest.kt` still describing a `MANUAL`/`NONE` case, and doc comments in three files outside the diff's own touched set (`Ticker.kt`, `EventTimeFormat.kt`, `WidgetCommon.kt`) still describing a `MANUAL` event — all now read in terms of `tracksDuration`. `MANUAL_TEST_PLAN.md`'s two citations of the renamed `WidgetActionsFlowTest` methods updated to match.
-- `UnifiedDurationSection`'s status-word `.removeSuffix(" at")` call (stripping Bright's "Wrapped up at" down to a standalone word, correct today only by coincidence with Plain/Intense wording) replaced: `Voice.logSheetEndLabel` renamed to `logSheetEndedStatusLabel` with Bright's value corrected to "Wrapped up" directly — the key already had exactly one caller, so it can just say what it means instead of being string-manipulated after the fact.
-- Duration field label inconsistency: `Days`/`Hours`/`Min` (two spelled out, one abbreviated, shown as three equal-width siblings in the same row) unified to `Day`/`Hr`/`Min`.
-- Confirmed `DemoDataSeeder.kt`/`DemoDataSeederTest.kt` are fully migrated: `DurationMode.NONE`/`START_STOP` → `tracksDuration = false`/`true` with identical semantics (no demo Case ever used `MANUAL`), no lingering `DurationMode`/`durationMode` references anywhere in `data/demo/`.
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- Backup export/import schema gap: `BACKUP_SCHEMA_VERSION` wasn't bumped for the `durationMode`→`tracksDuration` rename, and `CaseEntity.tracksDuration` has no Moshi-visible default, so importing a pre-this-branch backup JSON would throw `JsonDataException` instead of restoring. Declined — every backup in existence right now is test data the user can adjust by hand, and `BACKUP_SCHEMA_VERSION` is expected to reset to 1 before any public release anyway, which would subsume this.
-- `DurationFieldInput`'s custom-built text field bypasses `OutlinedTextField`'s 56dp minimum height to stay compact for the 3-up Days/Hours/Minutes row, and may render under the 48dp accessibility touch-target guideline. Declined to add a minimum-height constraint — kept intentionally compact, the user's explicit call.
-- Splitting `UnifiedDurationSection` (~136 lines) into sub-composables — under the 150-line guideline; splitting now is optional polish, not a real problem.
-
-**Checks:**
-- Duplication: the Voice-layer rule held everywhere except the one missed rename above (now fixed). No copy-pasted composables; `UnifiedDurationSection` cleanly replaced `EndTimeSection`/`DurationSection`/`DurationUnitSelector`/`ExpectedEndNotice` (all deleted, not left dangling).
-- Decoupling: no `android.*` imports in `domain/`; no direct `System.currentTimeMillis()` outside `@Preview`-only code; day-bucketing still resolves via each event's own captured `utcOffsetMinutes`, not the device's current zone.
-- Complexity: `LogDetailForm` is ~176 lines, over the ~150-line guideline, but that's pre-existing on `main` (this branch actually shrank it slightly) — not a regression from this diff.
-- Hygiene: `git status` clean throughout; no secrets, local paths, or stray tooling files in the diff.
-- Hardcoded values: no new `Color(0xFF...)` literals; no new domain-layer magic numbers (the new `DURATION_FIELD_MAX_DIGITS` constant follows the existing pattern).
-- Accessibility: no new icon-only buttons without a `contentDescription`; the one borderline touch-target case is the declined `DurationFieldInput` item above.
-- Data model & migrations: the Room schema version bump (14→15) and matching `AutoMigrationSpec`/`15.json` are correct; `SchemaMigrationCoverageTest` passes. The backup/export gap is the one declined item above. Share card still excludes notes and gates tags the same way.
-- Background work/widgets/notifications: watch/notification debounce, single-group alerting, and widget Plain-light-only theming all unaffected; `isStillRunning`'s collapse of the old per-mode branches into one boolean check is internally consistent across `VerdictEngine`/`WatchEngine`/`NotificationEvaluator`/`OngoingEvent`/`ListWidget`.
-- Spec review: HODITH_SPEC.md fully describes the new model, with no stale `DurationMode`/`NONE`/`MANUAL`/`START_STOP` references anywhere in `docs/` outside this log's own (correctly historical) entries.
-- Tests: no weakened assertions found across the `CaseEditViewModelTest`/`LogDetailViewModelTest` rewrites — every removed test corresponds to an enum permutation that's now structurally impossible, not a dropped check; TESTING.md is accurate.
-
-**Docs updated:** MANUAL_TEST_PLAN.md (two `WidgetActionsFlowTest` method-name citations corrected to match the renamed tests); this entry (oldest entry, `fix/duplicate-case-warnings`, removed per the 5-entry retention rule).
 

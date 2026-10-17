@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.CheckInDefaultInterval
 import com.secondmonday.hodith.data.TimeFormat
+import com.secondmonday.hodith.domain.exportFileTimestamp
 import com.secondmonday.hodith.ui.common.ConfirmDialog
 import com.secondmonday.hodith.ui.common.LocalSegmentedRowFontSizeCoordinator
 import com.secondmonday.hodith.ui.common.Plank
@@ -66,19 +67,10 @@ import com.secondmonday.hodith.viewmodel.SettingsUiState
 import com.secondmonday.hodith.viewmodel.SettingsViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 private const val BACKUP_MIME_TYPE = "application/json"
 private const val CSV_MIME_TYPE = "text/csv"
 private const val CONTACT_EMAIL_URI = "mailto:hello@secondmondaystudios.com"
-
-/** No seconds: precise enough to tell apart same-day exports without a needlessly long filename. */
-private val EXPORT_FILE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm")
-
-private fun exportFileTimestamp(nowMillis: Long): String =
-    Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault()).format(EXPORT_FILE_TIMESTAMP_FORMATTER)
 
 private fun backupFileName(nowMillis: Long) = "hodith-backup-${exportFileTimestamp(nowMillis)}.json"
 

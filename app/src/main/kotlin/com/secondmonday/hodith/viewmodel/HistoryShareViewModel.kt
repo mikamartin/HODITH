@@ -9,6 +9,8 @@ import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.HistoryRowField
 import com.secondmonday.hodith.data.HodithRepository
+import com.secondmonday.hodith.data.pdf.HistoryPdfContent
+import com.secondmonday.hodith.data.pdf.PdfExporter
 import com.secondmonday.hodith.data.share.ShareImageExporter
 import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.domain.Clock
@@ -51,6 +53,7 @@ data class HistoryShareUiState(
 
 private const val STOP_TIMEOUT_MILLIS = 5_000L
 private const val HISTORY_SHARE_FILE_NAME_PREFIX = "hodith-history-share-card"
+private const val HISTORY_PDF_FILE_NAME_PREFIX = "hodith-history-record"
 
 /** Local start-of-day millis for [date] in this zone. */
 internal fun ZoneId.startOfDayMillis(date: LocalDate): Long =
@@ -76,6 +79,7 @@ class HistoryShareViewModel
         private val repository: HodithRepository,
         private val clock: Clock,
         private val shareImageExporter: ShareImageExporter,
+        private val pdfExporter: PdfExporter,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
@@ -129,6 +133,17 @@ class HistoryShareViewModel
             viewModelScope.launch {
                 val uri = shareImageExporter.exportToShareUri(bitmap, HISTORY_SHARE_FILE_NAME_PREFIX)
                 _shareRequests.send(uri)
+            }
+        }
+
+        private val _pdfRequests = Channel<Uri>(Channel.BUFFERED)
+        val pdfRequests: Flow<Uri> = _pdfRequests.receiveAsFlow()
+
+        /** [content] arrives fully assembled by the Composable (Voice text, uncapped rows); this just writes it and emits the resulting Uri - no bitmap capture needed, unlike [ShareViewModel.sharePdf]. */
+        fun sharePdf(content: HistoryPdfContent) {
+            viewModelScope.launch {
+                val uri = pdfExporter.exportHistoryPdf(content, HISTORY_PDF_FILE_NAME_PREFIX)
+                _pdfRequests.send(uri)
             }
         }
     }
