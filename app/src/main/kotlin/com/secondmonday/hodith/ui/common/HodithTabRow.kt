@@ -53,7 +53,7 @@ fun HodithTab(
     ) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             CompositionLocalProvider(LocalContentColor provides contentColor) {
-                ProvideTextStyle(MaterialTheme.typography.titleSmall) { content() }
+                ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
             }
         }
         Box(

@@ -17,6 +17,45 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/cases-intense-typography-roles
+
+**Scope:** User-reported: Intense voice's distinctive display face (Oswald, bold) seemed to be missing from most of the Cases screens, showing up correctly only in filters, some labels, and buttons. Traced to `Type.kt`'s typography-swap mechanism itself being correct (no wiring bug) — several call sites on Cases screens were just choosing a body-face role (`titleSmall`) for text that functions as a header/label, instead of a display-face role (`labelLarge`).
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (3 changed `.kt` files, 1 doc). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. No instrumented test run needed — see Tests below.
+
+**Found & fixed:**
+- `InsightsTab.kt`: all 8 Case Detail Insights-tab section headers (Heatmap, Frequency, Rhythm, Gaps & streaks, Trends, Duration, Intensity, Tags) were rendering on `titleSmall`. The 5 `SectionWithInfo(...)` call sites explicitly overrode `labelStyle` down to `titleSmall`; deleted the override so each falls back to `SectionWithInfo`'s own correct default (`labelLarge`). The 3 plain `Text(voice.X, style = titleSmall)` call sites changed to `labelLarge` directly.
+- `WatchesTab.kt`: the Watch card's own title and the headline observed-rate figure both used `titleSmall` + a manually bolted-on `fontWeight = FontWeight.Bold`; changed to `labelLarge`, keeping the explicit `FontWeight.Bold` override so Plain's cards stay visually bold the same way `CardEyebrow` (same file) already deliberately forces bold regardless of theme, rather than only getting Plain's default `SemiBold` display weight.
+- `HodithTabRow.kt`: `HodithTab`'s `ProvideTextStyle(titleSmall)` hardcoded the body face for every tab label — fixed to `labelLarge`. Shared by Case Detail's History/Insights tabs and the Share screen's tabs, so both get the correct role in the same fix; no new inconsistency introduced.
+- Confirmed before changing: Material3's default `Typography()` gives `titleSmall` and `labelLarge` the identical base size/line-height/weight (14sp/20sp/Medium) — so every change above swaps only font family and the theme's display weight, not layout size. The two dynamic strings touched (`WatchesTab.kt`'s card title and rate label) already wrap without truncation (`Modifier.weight(1f)`, no `maxLines`/`overflow`), so the bolder Intense/Bright display weight can't clip them; the section/tab labels touched are fixed English words identical across all three voices (`Voice.kt`'s own doc comments confirm this), so there was no longer-Intense/Bright-phrasing wrap risk to check either.
+
+**Deferred:**
+- Two broader, non-Cases-specific gaps found during the same audit — spun out as one new PROGRESS.md item rather than fixed here, since both need a design call first: every screen's `TopAppBar` title (About, Archived Cases, Case Edit, Log Detail, Manage Tags, Share) renders unstyled/body-face though `Type.kt`'s comment says the app bar should take the display face; and `HomeScreen.kt`'s Bright-only case-list item manually overrides a case name to the display face with no Intense/Plain equivalent.
+
+**Considered and declined:**
+- `CaseDetailScreen.kt`'s `TopAppBar` title (the case name itself) — initially flagged, then declined: `Type.kt`'s own comment says case names stay body-face (`titleMedium`), matching `ArchivedCasesScreen.kt`'s and `HomeScreen.kt`'s Plain/Intense case-name rows. Correct as-is; folded into the deferred PROGRESS.md item's reasoning instead of touched here.
+- `ArchivedCasesScreen.kt`'s case-name row (`titleMedium`) — declined for the same reason; matches the established case-name-is-body-face pattern exactly.
+- `WatchesTab.kt`'s empty-state title (`titleMedium`) — declined; matches the app-wide empty-state convention (`CenteredEmptyState` is unstyled/body-face everywhere else too), no sibling pattern argues for display-face here.
+- `CaseEditScreen.kt`'s icon-grid selected-icon labels (`titleMedium`) — declined; these render emoji glyphs, so font-family has no visible effect either way.
+- `DateRangeFilterDialog.kt`'s date-range headline (`titleLarge` → `titleMedium`) — declined; its own comment explains this is a deliberate width-only downsize for a dialog-width row, and the text it styles (a selected date range) is content, not a label, so body-face was already the right role.
+
+**Checks:**
+- Duplication: no new composables, strings, or logic; pure style-role correction reusing existing `Voice` keys and the existing `SectionWithInfo`/`labelLarge` default.
+- Decoupling: no ViewModel/Repository/domain code touched; no `android.*` imports added.
+- Complexity: no new composables or structural changes, only `style =`/`ProvideTextStyle(...)` argument swaps.
+- Dead code & hygiene: `git status` clean throughout; `ktlintCheck` found nothing stray after the `labelStyle` line deletions.
+- Naming: no new files, no new `Voice` keys.
+- Hardcoded values: none introduced.
+- Accessibility: no tap-target or contrast changes; light/dark unaffected (role swap only touches font family/weight, not color).
+- UI Copy Brevity: checked above (Found & fixed, last bullet) — no label-fit issue from the weight/face change.
+- Data model/migrations, background work/widgets/notifications, deprecated APIs: untouched — N/A.
+- Spec review: `HODITH_SPEC.md` doesn't describe typography roles at this level of detail; no divergence to reconcile.
+- Tests: no behavior change — a style-role correction, not new logic — so no new test coverage; existing Compose UI tests for Case Detail/Insights/Watches/Share tabs assert content and interaction, not font family, and stay unaffected.
+
+**Docs updated:** PROGRESS.md (new Standalone item for the two deferred findings); this entry (oldest entry, `fix/big-picture-selector-chip-contrast`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/widget-case-name-overlap
 
 **Scope:** User-reported bug: in both widget "add/edit" configure dialogs (List widget's multi-select `Switch` row, Single-case widget's single-select `RadioButton` row), a long Case name had no width constraint on its label `Text`, so it was measured at its full intrinsic width and could grow past the row's own bounds, overlapping the toggle/radio control instead of stopping short of it.
@@ -137,36 +176,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: confirmed no test hardcoded the old "Feels like" string; full unit suite green against the new copy.
 
 **Docs updated:** this entry (oldest entry, `feature/duration-unification`, removed per the 5-entry retention rule).
-
----
-
-## fix/big-picture-selector-chip-contrast
-
-**Scope:** User-reported Big Picture Case/Tag filter popup inconsistencies across voices: Case and Tag chips used different selected/unselected conventions, Intense's selected Case chip read weaker (greyer) than unselected, and Bright's Tag chip selected/unselected contrast was nearly invisible. Two follow-on issues surfaced during manual verification: Intense's bulk-action/dismiss button row wrapped, and the read-only legend row could grow unboundedly with a large partial selection, crowding out the calendar grid.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to `BigPictureScreenTest` on a connected emulator — 51/51 green, including `caseChipAndTagChip_haveEqualHeight_inSharedFlowRow`, which guards Case/Tag chip height parity and is touched by `TagFilterChip`'s new bold selected text.
-
-**Found & fixed:**
-- `CaseFilterChip`'s combined `PLAIN, INTENSE` branch split in two: Intense's selected Case fill moved from `secondaryContainer`/`onSecondaryContainer` (a grey lighter than the unselected `surface` in light mode) to `secondary`/`onSecondary`, so selected reads heavier than unselected instead of weaker; Plain unchanged. `CaseGroupChip` ("All Cases" aggregate legend label) got the identical fix, since it shares the same bug and sits beside the now-fixed per-case chips in the legend row.
-- `TagFilterChip`'s selected border moved from `outline` to `onSurface`, and selected text gained `FontWeight.Bold` — on Bright, `outline`/`outlineVariant` are nearly indistinguishable, so the old border-width-only signal was almost invisible. Tags stay tint-free (no fill/halo), preserving the documented one-accent (Intense) / two-colour (Bright) budget the original design called for.
-- Intense's bulk-action labels shortened (`bigPictureSelectAllAction`/`bigPictureClearAllAction`: "Select every one"/"Clear every selection" → "Select all"/"Clear all") and `bigPictureFilterCountAll` ("Every one" → "All") — the originals overflowed the info dialog's confirm-button row alongside the dismiss button, and the Year trigger chip once every dimension showed Intense's longer wording.
-- `FilterLegendRow`'s itemized Case/Tag list had no size cap, so a large partial selection could grow past the available screen space. First tried a character-budget "+N" remainder chip (`bigPictureLegendOverflow`); dropped after the user's manual testing showed it read as a disabled button, gave inconsistent line counts per theme (chip chrome width varies by theme), and placed the "+N" ambiguously once one group (e.g. Tags) had already collapsed to a single label. Replaced with a binary `bigPictureLegendFits` check: list every selected item, or (over a generous ~3-line character budget) show nothing at all — the same "trigger chips above still state the count" fallback the existing all-selected case already uses.
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- A per-item "+N" truncation of the legend row via Compose's built-in `FlowRowOverflow.expandIndicator` line-capping mechanism — declined twice: it's `@Deprecated("FlowLayout overflow is no longer maintained")` in this project's Compose version, and independent of that, its indicator is wired to expand the row on tap rather than stay static, which wasn't wanted here.
-
-**Checks:**
-- Duplication: `CaseFilterChipRow` extracted once Intense needed different token roles than Plain, so the two branches share one row layout instead of duplicating it; no new inline Voice strings (the dropped "+N" indicator would have needed none either, being numeral-only like `bigPictureFilterCount`'s existing default).
-- Decoupling: `bigPictureLegendFits` stays pure Kotlin in `BigPictureFilterState.kt` alongside the `bigPictureCaseLegend`/`bigPictureTagLegend` helpers it complements; no `android.*` imports.
-- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
-- Naming: `LEGEND_VISIBLE_CHAR_BUDGET`/`LEGEND_CHIP_CHROME_CHARS` named and documented rather than inlined; no new `Voice` keys — only three existing Intense-only values were edited, so the "all three voices in one commit" rule doesn't apply.
-- Hardcoded values: no new `Color(0xFF...)` literals — every chip fix reuses existing `ColorScheme` roles.
-- Accessibility: chip padding/touch targets unchanged; Plain/Intense/Bright contrast changes verified manually by the user across light and dark, per this repo's convention.
-- Deprecated APIs: see Considered and declined above — deliberately avoided.
-- Spec review: HODITH_SPEC.md §9 updated for the legend row's new show-everything-or-nothing rule on a long partial selection.
-- Tests: new unit coverage for `bigPictureLegendFits` (empty input, exact budget boundary, a shared Case+Tag budget, a realistic long selection against the real default budget); no existing test weakened.
-
-**Docs updated:** HODITH_SPEC.md (§9 Big Picture legend row); TESTING.md (`bigPictureLegendFits` added to the Big Picture filter helpers list); this entry (oldest entry, `feature/manual-duration-ongoing-stop`, removed per the 5-entry retention rule).
 
