@@ -17,6 +17,40 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/widget-case-name-overlap
+
+**Scope:** User-reported bug: in both widget "add/edit" configure dialogs (List widget's multi-select `Switch` row, Single-case widget's single-select `RadioButton` row), a long Case name had no width constraint on its label `Text`, so it was measured at its full intrinsic width and could grow past the row's own bounds, overlapping the toggle/radio control instead of stopping short of it.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (3 changed files, 2 new test files). `ktlintCheck`, `lintDebug`, and `test` (full unit suite) all pass. `connectedDebugAndroidTest` not run this pass — no emulator/device was available in this session; reasoned through (not run) compatibility with the existing `ListWidgetConfigureFlowTest`/`SingleCaseWidgetConfigureFlowTest` real-activity flow tests below, left for the user's own device run before merge, per this repo's standing instrumented-test convention.
+
+**Found & fixed:**
+- `ui/common/ToggleRow.kt`'s label `Text` (shared by every `Switch`-based label row in the app — Big Picture, Case Edit, Case Detail, Share tabs, and now the List widget's case picker) gained `Modifier.weight(1f)`, `maxLines = 1`, `overflow = TextOverflow.Ellipsis`, matching the established idiom elsewhere in the codebase (`WatchesTab.kt`, `InsightsTab.kt`, `HomeScreen.kt`).
+- `ListWidgetConfigureActivity.kt`'s private `CasePickerRow` was hand-rolling the exact `Row`/`Arrangement.SpaceBetween`/`Switch` shape `ToggleRow` already provides — duplication the original bug exposed. Replaced with a direct `ToggleRow(...)` call, removing five now-unused imports (`Arrangement`, `Row`, `fillMaxWidth`, `Switch`, `Alignment`, `Modifier`) along with it.
+- `SingleCaseWidgetConfigureActivity.kt`'s `CasePickerRow` (label then `RadioButton`, no description) can't reuse `ToggleRow` (`Switch`-specific) or the existing `RadioOptionRow` (radio-first, mandatory description, a different shape entirely — see Considered and declined) — given the same `weight`/`maxLines`/`overflow` treatment in place instead.
+- Both `rowControlNode`/`clickRowControl` test helpers (`WidgetConfigureTestFixtures.kt`) that the existing flow tests use were re-read against this change: `ListWidgetConfigureActivity`'s row now resolves to `ToggleRow`'s single merged (`Modifier.toggleable`) node, so `isToggleable()` + the text-bounds-overlap match still resolves to the same node as before (the weight change only narrows the inner `Text`, not the outer row's own bounds). `SingleCaseWidgetConfigureActivity`'s row has no row-level merge, so `isSelectable()` still matches the `RadioButton` directly; its position is unchanged by the fix, which only ever pulls the label in — if anything, this makes the vertical-bounds heuristic more reliable, not less, since the label can no longer wrap/grow unpredictably.
+
+**Deferred:**
+- `connectedDebugAndroidTest` — see Walked above; needs the user's device, same as the most recent PDF-export passes.
+
+**Considered and declined:**
+- Reusing `RadioOptionRow` for the single-case widget's row instead of fixing `CasePickerRow` in place: `RadioOptionRow` puts the `RadioButton` first in a fixed-width slot with a mandatory description line below the label — a different shape from this row's icon+name-then-radio, no-description layout. Forcing the fit would mean a bigger UI change than the bug called for.
+
+**Checks:**
+- Duplication: the `ListWidgetConfigureActivity` fix above removes a duplicated `Row` shape by routing through `ToggleRow`; the single-case row's near-identical-but-not-quite shape was evaluated for the same treatment and declined (see above).
+- Decoupling: no `ViewModel`/`Repository`/`domain` code touched — layout-only, inside existing Composables.
+- Complexity: no new composables; `ToggleRow`/both `CasePickerRow`s stay well under the line-count threshold.
+- Hygiene: `git status` clean throughout; no secrets or local paths; `ktlintCheck` caught no stray unused imports after the manual cleanup above.
+- Naming: two new `internal const val ..._TAG` constants (`TOGGLE_ROW_SWITCH_TAG`, `CASE_PICKER_RADIO_TAG`) follow the existing `HISTORY_SHARE_PDF_TOGGLE_TAG`/`SECTION_TOGGLE_TAG_PREFIX` convention, added purely for direct test access to each row's control; `SingleCaseWidgetConfigureActivity.CasePickerRow` changed from `private` to `internal` for the same reason, mirroring `SegmentedChoiceRow`'s existing public visibility for testability.
+- Accessibility: no tap-target size changes; the fix only prevents the label from encroaching on the existing `Switch`/`RadioButton` footprint.
+- UI Copy Brevity: N/A — no fixed UI label text changed; the truncated string is user-entered Case data, not app copy.
+- Hardcoded values, data model/migrations, deprecated APIs, spec review: untouched — N/A. `HODITH_SPEC.md` doesn't describe either dialog's row layout at this level of detail, so no divergence to reconcile.
+- Background work, widgets & notifications: the actual Glance widget tiles (`ListWidget.kt`, `SingleCaseWidget.kt`) were checked for the same bug and don't have it — `ListWidget.kt`'s case-name `Text` already has `maxLines = 1` inside a `.defaultWeight()` `Column`, and `SingleCaseWidget.kt` never displays the case name on-tile at all — so neither needed a change; Plain-light-only theming and `logFlow` handling are untouched either way.
+- Tests: two new instrumented Compose tests (`ToggleRowTest`, `CasePickerRowTest`), both `@UiTest`-tagged, bounds-based (not click-based) regressions modeled on `SegmentedChoiceRowTest`'s pattern — deliberately sidestepping the known `ToggleRow` merge-reliability caveat already documented in TESTING.md's "Known environment issues" rather than relying on click dispatch. Existing flow tests reviewed for compatibility, not re-run (see Walked/Deferred above). No `@Smoke` tag added — no shared-component row test in this codebase carries one.
+
+**Docs updated:** TESTING.md (shared-components row gains `ToggleRowTest`; the widget chrome/trampoline row gains `CasePickerRowTest`); this entry (oldest entry, `fix/intensity-toggle-gating`, removed per the 5-entry retention rule).
+
+---
+
 ## feature/pdf-export — remove Insights PDF
 
 **Scope:** Dropped PDF export for the Insights tab entirely, keeping it as a History-only feature. The Insights PDF's content builder reduced most panels (Gaps, Streaks, Duration, Intensity, Tags) to plain "Label: value" text lines and dropped Rhythm and Trends outright (no text form exists for a heatmap grid or a narrative finding); its one real graphic, a separately-captured Frequency chart, is `null` whenever a Case tracks multi-day/duration events or has too few events — leaving the PDF text-only in exactly the case the user hit. Closing that gap would mean either capturing the whole share card as one image (forces Square format on the page, loses real/searchable text) or extending the existing per-chart capture to Rhythm/Intensity too (requires generalizing `PdfLayout.kt`'s pagination math from one fixed chart block to a variable number of variable-position image blocks, each with its own eligibility gating) — real feature work for unclear payoff on a document most users will rarely compare against the image card. History's PDF (a real bordered table) was unaffected and stays as-is.
@@ -135,33 +169,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: new unit coverage for `bigPictureLegendFits` (empty input, exact budget boundary, a shared Case+Tag budget, a realistic long selection against the real default budget); no existing test weakened.
 
 **Docs updated:** HODITH_SPEC.md (§9 Big Picture legend row); TESTING.md (`bigPictureLegendFits` added to the Big Picture filter helpers list); this entry (oldest entry, `feature/manual-duration-ongoing-stop`, removed per the 5-entry retention rule).
-
----
-
-## fix/intensity-toggle-gating
-
-**Scope:** PROGRESS.md item "Intensity-toggle: trend/notification code ignores the Case flag" (filed as a follow-up while fixing `fix/intensity-required-when-enabled`): `InsightsTabState` correctly hides the Insights intensity stat card once `Case.intensityEnabled` is off, but two downstream readers of `EventEntity.intensity` had no awareness of the flag at all — a `TAG_OUTCOME` Trends finding on `TagOutcome.INTENSITY` could still surface from stale per-event ratings, and an `OFTEN` Watch's `minIntensity` floor kept filtering by them too, both after the Case's own stat card and panel had already gone quiet about intensity.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff. `ktlintCheck`, `test` (full unit suite), `lintDebug`, and `assembleDebug` all pass. `connectedDebugAndroidTest` not run this pass — no emulator driven directly (this repo's convention); the one instrumented change (`CaseDetailWatchesTabTest`'s `verdictFor` helper gaining a defaulted `intensityEnabled` param) is behaviorally inert for every existing test there, left for the user's own device run.
-
-**Found & fixed:**
-- `StatsEngine.computeTagOutcomeFindings` gained the `eligibleOutcomes: Set<TagOutcome>` parameter its siblings `computeTrendSlopeFindings`/`computeTimeOfDaySplitFindings` already had, filtering `TagOutcome.entries` the same way; `TrendsEngine.computeTrendFindings` now threads its existing `statsShownOutcomes` param through to it, so `InsightsTabState`'s already-correct gating reaches the tag-outcome detector for free.
-- `WatchEngine.expectationInputsFor`/`evaluateOften` gained an `intensityEnabled: Boolean = true` parameter; the `minIntensity` filter no longer applies when it's `false`, since `WatchEntity.minIntensity` is stored independently of the Case's own flag and survives it being turned off. Wired the live `Case`/`CaseSeed` flag through the three real call sites: `NotificationEvaluator`, `WatchesViewModel.watchCardState` (via `WatchesTab.kt`'s existing `uiState.intensityEnabled`), and `DemoDataSeeder`.
-- Regression tests added at both layers: `TrendsEngineTest` (a `TAG_OUTCOME` suppression test mirroring the existing trend-slope one), `InsightsTabStateTest` (end-to-end: intensity off, strong planted tag→intensity signal, no leaked finding), and `WatchEngineTest` (an `OFTEN` watch with `minIntensity` set but `intensityEnabled = false` counting events that would otherwise fail the floor).
-- Updated the 14 `StatsEngineTest`/5 `TrendsEngineTest` call sites that previously relied on `computeTagOutcomeFindings`/`computeTrendFindings`'s old gating-free default and would otherwise have silently stopped seeing their planted `TAG_OUTCOME` finding.
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- Making `computeTagOutcomeFindings`'s new `eligibleOutcomes` param required (no default) while defaulting `WatchEngine`'s new `intensityEnabled` param to `true` looks inconsistent at a glance, but each matches its own file's existing convention: `computeTrendSlopeFindings`/`computeTimeOfDaySplitFindings` already require their gating param explicitly, while `WatchEngine`'s `tracksDuration`-adjacent params are already caller-supplied without a shared default elsewhere. Defaulting `intensityEnabled` kept ~20 existing `WatchEngineTest` call sites (none of which construct a `Case`) unchanged; requiring `eligibleOutcomes` kept `computeTagOutcomeFindings` consistent with its two siblings, at the cost of touching `StatsEngineTest`'s call sites once.
-
-**Checks:**
-- Duplication: no new detector/significance-test logic — reused the existing `eligibleOutcomes`/`statsShownOutcomes` gating mechanism and `WatchEngine`'s existing filter shape.
-- Decoupling: `StatsEngine.kt`/`TrendsEngine.kt`/`WatchEngine.kt` stay pure Kotlin (`domain/`), no `android.*` imports; every `now`/flag value stays caller-supplied.
-- Naming: no new `Voice` keys — no user-visible copy changed.
-- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
-- Spec review: `HODITH_SPEC.md` updated (§10 tag → outcome's gating, §11's `minIntensity` table row) — unintentional divergence (a genuine bug), not a deliberate spec change.
-- Tests: no weakened assertions — every touched call site either gained an explicit gating argument or a brand-new test exercising it; `StatsEngineTest`'s detector-math tests keep exercising every outcome unfiltered via `TagOutcome.entries.toSet()`.
-
-**Docs updated:** PROGRESS.md (the resolved item struck entirely); HODITH_SPEC.md (§10 tag → outcome gating, §11 `minIntensity` table row); TESTING.md (Watch evaluation and Stats & visual data prep rows extended); this entry (oldest entry, `fix/big-picture-day-detail-chronological-order`, removed per the 5-entry retention rule).
 

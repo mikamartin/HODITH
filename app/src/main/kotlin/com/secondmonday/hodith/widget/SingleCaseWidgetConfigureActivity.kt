@@ -20,6 +20,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -143,8 +145,10 @@ private fun CasePickerDialog(
     )
 }
 
+internal const val CASE_PICKER_RADIO_TAG = "case_picker_radio"
+
 @Composable
-private fun CasePickerRow(
+internal fun CasePickerRow(
     case: CaseEntity,
     selected: Boolean,
     onSelect: () -> Unit,
@@ -154,7 +158,16 @@ private fun CasePickerRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("${case.icon}  ${case.name}")
-        RadioButton(selected = selected, onClick = onSelect)
+        Text(
+            "${case.icon}  ${case.name}",
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        RadioButton(
+            selected = selected,
+            onClick = onSelect,
+            modifier = Modifier.testTag(CASE_PICKER_RADIO_TAG),
+        )
     }
 }
