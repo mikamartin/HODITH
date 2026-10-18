@@ -17,6 +17,40 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/single-case-widget-missing-case-edit-icon
+
+**Scope:** PROGRESS.md item: the Single-case widget had no persistent in-widget way back into its Case picker. Decided against a persistent edit icon on a *populated* Single-case widget (remove-and-recreate already covers that, and the widget is already a dense 1x1 square) — the one real gap is when the bound Case gets deleted: the widget fell back to an unconstrained "Case is gone" message with no way to rebind short of deleting the widget outright. Fixed by showing a "✎" edit icon in that missing-Case state only, in the exact slot the "+" log button normally occupies, reopening `SingleCaseWidgetConfigureActivity` to rebind. Also removed, per explicit request: the one-line description under the title in both widgets' configure dialogs (List and Single-case) — the title alone is self-explanatory.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (7 changed `.kt` files, 3 docs). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` run scoped to `WidgetChromeNavigationTest` + `SingleCaseWidgetConfigureFlowTest` (14 tests, all green) — the emulator initially had no HODITH package installed at all (a Gradle up-to-date/device-state mismatch, not a code issue), resolved with `installDebug installDebugAndroidTest --rerun-tasks` plus `adb shell appwidget grantbind`.
+
+**Found & fixed:**
+- `SingleCaseWidget.kt`: `provideGlance` now computes `appWidgetId` (mirroring `ListWidget.kt`); the missing-Case branch is a new private `SingleCaseMissingContent` composable structured like `SingleCaseContent` (weighted message area + a bottom `MinTapTarget` slot) instead of one unconstrained full-size `Text` — this also fixes the reported symptom of the "Case is gone" message rendering oversized, as if sized for the bigger widget. The bottom slot is a "✎" glyph (neutral `onSurface` color, no filled box — matching the List widget's header edit icon's look, not the "+" log button's accent/bold/filled-box look it replaces) that reopens `SingleCaseWidgetConfigureActivity` via the same `ACTION_APPWIDGET_CONFIGURE`/`EXTRA_APPWIDGET_ID` intent shape `ListWidget.kt`'s header icon uses.
+- `Voice.kt`: added `singleCaseWidgetEditButtonDescription` (×3 voices) for the new icon's `contentDescription`; removed `widgetConfigureBody`/`singleCaseWidgetConfigureBody` (×3 voices each) and their `item { Text(...) }` lines in `ListWidgetConfigureActivity.kt`/`SingleCaseWidgetConfigureActivity.kt`'s `LazyColumn`s.
+- `WidgetCommon.kt`'s `WidgetGlyphButtonSize` doc comment and `SingleCaseWidgetConfigureActivity.kt`'s class doc comment updated to describe the new third caller / re-bind entry point.
+- Tests: `WidgetChromeNavigationTest` gained a tap-opens-Activity test and a content-description test for the new icon (plus a class KDoc update); `SingleCaseWidgetConfigureFlowTest` gained a real end-to-end test — insert and bind a Case, delete it, confirm the missing-Case state renders, reopen the same configure Activity, and confirm rebinding to a different real Case clears the missing-Case message. Reviewed the rest of the widget test suite (`WidgetActionsFlowTest`, `WidgetLogTrampolineActivityTest`, `WidgetRefreshWorkerTest`, `WidgetTokenFidelityTest`, both ViewModel unit tests, `WidgetConfigureTestFixtures.kt`) — none touch the missing-Case path or the removed body text, so none needed changes.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- A persistent edit icon on a *populated* Single-case widget — explicitly declined by the user; remove-and-recreate is an acceptable path there, and the 1x1 square is already dense (icon, subtitle, log button).
+
+**Checks:**
+- Duplication: the new icon reuses `MinTapTarget`/`WidgetGlyphButtonSize`/`WidgetPalette` tokens and the exact `ACTION_APPWIDGET_CONFIGURE` intent shape already established by `ListWidget.kt`'s header icon — no new pattern introduced.
+- Decoupling: no `ViewModel`/`Repository`/domain code touched; `SingleCaseWidgetConfigureViewModel` needed no change at all (it already seeds `selectedCaseId = null` unconditionally, which is exactly right for a re-bind with nothing to preselect).
+- Complexity: one new composable (`SingleCaseMissingContent`, ~40 lines), mirroring the existing `SingleCaseContent` shape; no new abstraction layer.
+- Dead code & hygiene: removed the now-unused `glanceContext` local in `SingleCaseWidget.kt` left over from the old inline `Text`'s `clickable`; `git status` clean throughout; ktlint found nothing stray.
+- Naming: new `Voice` key added to all three voices in the same commit; no new files.
+- Hardcoded values: none introduced — all sizes/colors pull from existing `WidgetCommon.kt` tokens.
+- Accessibility: new edit icon has a non-empty, voice-backed `contentDescription`; its tap target is the existing `MinTapTarget`-sized slot (≥48dp).
+- UI Copy Brevity: the three new `singleCaseWidgetEditButtonDescription` strings checked against their `widgetEditButtonDescription` sibling for length/tone parity per voice.
+- Background Work, Widgets & Notifications: missing-Case state still renders via `WidgetPalette`'s fixed Plain-light palette, matching the widgets' theming constraint.
+- Spec review: `HODITH_SPEC.md` §15 updated — removed the stale "Single-case widget doesn't have this yet" note on the List widget's edit-icon bullet, and added a sentence to the Single-case widget's own bullet describing the missing-Case rebind path and the no-persistent-edit-affordance-while-bound decision.
+- Tests: bug fixed (no rebind path) → regression test added (the new `SingleCaseWidgetConfigureFlowTest` case); all new instrumented tests actually run on a device before this entry was written.
+
+**Docs updated:** PROGRESS.md (resolved item struck entirely); HODITH_SPEC.md (§15, two bullets); TESTING.md (Widgets — chrome & trampoline row); this entry (oldest entry, `fix/bright-intensity-label`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/cases-intense-typography-roles
 
 **Scope:** User-reported: Intense voice's distinctive display face (Oswald, bold) seemed to be missing from most of the Cases screens, showing up correctly only in filters, some labels, and buttons. Traced to `Type.kt`'s typography-swap mechanism itself being correct (no wiring bug) — several call sites on Cases screens were just choosing a body-face role (`titleSmall`) for text that functions as a header/label, instead of a display-face role (`labelLarge`).
@@ -153,27 +187,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: covered above — new JVM coverage for the content builder, the missing `@Smoke` tag, and `TESTING.md`/`MANUAL_TEST_PLAN.md` both brought up to date (see Docs updated).
 
 **Docs updated:** HODITH_SPEC.md (§13 new bullet + one sentence fix, §14 two table rows); TESTING.md (new JVM row for `PdfLayoutTest`/`HistoryPdfContentBuilderTest`, three reworded Share instrumented rows, one new `CasePdfExporterTest` row); MANUAL_TEST_PLAN.md (new "PDF records" section); this entry (oldest entry, `feature/duration-unification — pre-merge cleanup pass`, removed per the 5-entry retention rule).
-
----
-
-## fix/bright-intensity-label
-
-**Scope:** User-reported Bright voice copy issue: `eventIntensityLabel` read "Feels like a 3!" with no word "intensity" anywhere, so the bare number in the dot-separated event summary row didn't clearly map to an intensity rating (unlike Plain's "Intensity 3" and Intense's "Intensity: 3"). Changed to "Intensity: 3!" — keeps Bright's exclamation-mark style, matches the other two voices' explicit wording.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (a single-line string change). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. No instrumented run — no new/changed test behavior; every existing test calls `BrightVoice.eventIntensityLabel(n)` dynamically rather than asserting the literal string, so none needed touching.
-
-**Found & fixed:**
-- `Voice.kt`'s `BrightVoice.eventIntensityLabel` changed from `"Feels like a $intensity!"` to `"Intensity: $intensity!"`.
-
-**Deferred:** nothing.
-
-**Checks:**
-- Duplication: this isn't a new inline string — it's the existing `Voice` layer's `eventIntensityLabel`, already called from `CaseDetailViewModel`'s shared `eventDetailSummary` helper.
-- Naming: not a new `Voice` key, so the "all three voices in the same commit" rule doesn't apply; Plain/Intense were reviewed and already say "Intensity" explicitly, so neither needed a change.
-- UI Copy Brevity: "Intensity: 3!" is the same length class as Plain/Intense's own intensity labels and no longer than its neighbouring summary fragments (duration, tags).
-- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
-- Spec review: HODITH_SPEC.md doesn't quote this string — nothing to update.
-- Tests: confirmed no test hardcoded the old "Feels like" string; full unit suite green against the new copy.
-
-**Docs updated:** this entry (oldest entry, `feature/duration-unification`, removed per the 5-entry retention rule).
 

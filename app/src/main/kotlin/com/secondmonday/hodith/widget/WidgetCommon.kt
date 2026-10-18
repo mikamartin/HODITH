@@ -61,7 +61,8 @@ internal val WidgetSubtitleSize = 12.sp
 internal val WidgetPillTextSize = 11.sp
 
 /** Shared by every square glyph-in-a-[MinTapTarget]-box widget button — the "+" quick-log button
- * (List and Single-case) and the List widget header's "✎" edit icon. */
+ * (List and Single-case), the List widget header's "✎" edit icon, and the Single-case widget's
+ * missing-Case "✎" edit icon. */
 internal val WidgetGlyphButtonSize = 20.sp
 internal val WidgetHeaderTitleSize = 14.sp
 internal val WidgetInfoMessageSize = 14.sp

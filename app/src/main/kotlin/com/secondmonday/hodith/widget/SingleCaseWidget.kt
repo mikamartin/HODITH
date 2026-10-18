@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.widget
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
@@ -14,6 +15,7 @@ import androidx.glance.LocalContext
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
@@ -59,6 +61,7 @@ class SingleCaseWidget : GlanceAppWidget() {
         id: GlanceId,
     ) {
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
 
         provideContent {
             // Read reactively via currentState()/produceState rather than one-shot suspend reads
@@ -85,7 +88,6 @@ class SingleCaseWidget : GlanceAppWidget() {
             val use24Hour by rememberWidgetUse24Hour(entryPoint)
 
             GlanceTheme {
-                val glanceContext = LocalContext.current
                 Box(
                     modifier =
                         GlanceModifier
@@ -97,20 +99,7 @@ class SingleCaseWidget : GlanceAppWidget() {
                 ) {
                     val currentRow = row
                     if (currentRow == null) {
-                        Text(
-                            text = PlainVoice.widgetCaseNotFoundMessage,
-                            style =
-                                TextStyle(
-                                    color = ColorProvider(WidgetPalette.onSurfaceMuted),
-                                    fontSize = WidgetInfoMessageSize,
-                                    textAlign = TextAlign.Center,
-                                ),
-                            modifier =
-                                GlanceModifier
-                                    .fillMaxSize()
-                                    .padding(WidgetSingleCaseOuterPadding)
-                                    .clickable(actionStartActivity(Intent(glanceContext, MainActivity::class.java))),
-                        )
+                        SingleCaseMissingContent(appWidgetId)
                     } else {
                         SingleCaseContent(currentRow, now, use24Hour)
                     }
@@ -122,6 +111,63 @@ class SingleCaseWidget : GlanceAppWidget() {
 
 class SingleCaseWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = SingleCaseWidget()
+}
+
+/**
+ * The Single-case widget's missing-Case state (its bound Case was deleted) — mirrors
+ * [SingleCaseContent]'s layout (weighted message area + a bottom [MinTapTarget]-height slot) so the
+ * "✎" edit button lands exactly where the "+" log button would, rather than an unconstrained
+ * full-size message with no way back into the picker short of deleting the widget.
+ */
+@Composable
+private fun SingleCaseMissingContent(appWidgetId: Int) {
+    val context = LocalContext.current
+    val openApp = actionStartActivity(Intent(context, MainActivity::class.java))
+    val openConfigure =
+        actionStartActivity(
+            Intent(context, SingleCaseWidgetConfigureActivity::class.java)
+                .setAction(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
+        )
+    Column(
+        modifier = GlanceModifier.fillMaxSize().padding(WidgetSingleCaseOuterPadding),
+        horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
+    ) {
+        Column(
+            modifier =
+                GlanceModifier
+                    .defaultWeight()
+                    .fillMaxWidth()
+                    .clickable(openApp),
+            horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
+            verticalAlignment = Alignment.Vertical.CenterVertically,
+        ) {
+            Text(
+                text = PlainVoice.widgetCaseNotFoundMessage,
+                style =
+                    TextStyle(
+                        color = ColorProvider(WidgetPalette.onSurfaceMuted),
+                        fontSize = WidgetInfoMessageSize,
+                        textAlign = TextAlign.Center,
+                    ),
+            )
+        }
+        Spacer(modifier = GlanceModifier.height(WidgetSingleCaseLogButtonSpacing))
+        Box(
+            modifier =
+                GlanceModifier
+                    .fillMaxWidth()
+                    .height(MinTapTarget)
+                    .clickable(openConfigure)
+                    .semantics { contentDescription = PlainVoice.singleCaseWidgetEditButtonDescription },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "✎",
+                style = TextStyle(color = ColorProvider(WidgetPalette.onSurface), fontSize = WidgetGlyphButtonSize),
+            )
+        }
+    }
 }
 
 @Composable

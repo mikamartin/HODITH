@@ -40,10 +40,15 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * The Single-case widget's mandatory `android:configure` activity (spec §15). Shows a
+ * The Single-case widget's mandatory `android:configure` activity (spec §15) — the system launches
+ * this automatically every time the widget is added, before it shows any content, and it's also the
+ * missing-Case "✎" edit icon's re-bind path once the widget's Case has been deleted
+ * ([com.secondmonday.hodith.widget.SingleCaseWidget]'s `SingleCaseMissingContent`). Shows a
  * single-select picker — each widget instance is bound to its own Case via this widget's own
  * Glance [CaseIdKey] state (per-instance, not a Case flag), mirroring
- * [ListWidgetConfigureActivity]'s multi-select picker for the List widget.
+ * [ListWidgetConfigureActivity]'s multi-select picker for the List widget. Unlike that Activity,
+ * there's no existing selection to seed here: on first placement nothing is bound yet, and on a
+ * re-bind the previously bound Case is exactly the one that's gone.
  */
 @AndroidEntryPoint
 class SingleCaseWidgetConfigureActivity : ComponentActivity() {
@@ -123,7 +128,6 @@ private fun CasePickerDialog(
                 Text(voice.widgetConfigureNoCasesMessage)
             } else {
                 LazyColumn {
-                    item { Text(voice.singleCaseWidgetConfigureBody) }
                     items(items = cases, key = { it.id }) { case ->
                         CasePickerRow(
                             case = case,

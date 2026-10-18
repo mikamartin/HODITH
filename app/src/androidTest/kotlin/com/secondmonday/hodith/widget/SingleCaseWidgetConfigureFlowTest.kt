@@ -103,6 +103,48 @@ class SingleCaseWidgetConfigureFlowTest {
         }
 
     @Test
+    fun singleCaseWidget_rebindsAfterCaseDeleted_viaEditIcon() =
+        runBlocking {
+            val suffix = System.currentTimeMillis()
+            val oldIcon = "🐛"
+            val newIcon = "🫖"
+            val oldName = "Coffee $suffix"
+            val newName = "Tea $suffix"
+            val oldCaseId = repository.insertCase(testCase(name = oldName, icon = oldIcon))
+            insertedCaseIds += oldCaseId
+            insertedCaseIds += repository.insertCase(testCase(name = newName, icon = newIcon))
+
+            val appWidgetId = bindWidgetId()
+            configureWidgetFor(appWidgetId, oldName)
+            awaitRenderedIcon(appWidgetId, oldIcon)
+
+            // Delete the bound Case out from under the widget — same state its missing-Case "✎"
+            // edit icon (WidgetChromeNavigationTest) exists to recover from.
+            repository.getCase(oldCaseId)?.let { repository.deleteCase(it) }
+
+            var texts = collectRenderedText(appWidgetId)
+            var attempts = 0
+            while (texts.none { it == PlainVoice.widgetCaseNotFoundMessage } && attempts < 30) {
+                Thread.sleep(200)
+                texts = collectRenderedText(appWidgetId)
+                attempts++
+            }
+            assertTrue(
+                "Widget should show the missing-Case message after its Case was deleted, but saw: $texts",
+                texts.any { it == PlainVoice.widgetCaseNotFoundMessage },
+            )
+
+            // Reopen the same configure Activity the missing-Case edit icon launches, and rebind.
+            configureWidgetFor(appWidgetId, newName)
+
+            val rebindTexts = awaitRenderedIcon(appWidgetId, newIcon)
+            assertFalse(
+                "Widget should no longer show the missing-Case message after rebinding, but saw: $rebindTexts",
+                rebindTexts.any { it == PlainVoice.widgetCaseNotFoundMessage },
+            )
+        }
+
+    @Test
     fun singleCaseWidget_twoInstances_eachShowsItsOwnCase() =
         runBlocking {
             val suffix = System.currentTimeMillis()
