@@ -12,8 +12,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
+
+internal const val TOGGLE_ROW_SWITCH_TAG = "toggle_row_switch"
 
 /**
  * A label + [Switch] where the whole row toggles, not just the switch — a bigger tap target, and
@@ -45,7 +49,18 @@ fun ToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = labelStyle)
-        Switch(checked = checked, onCheckedChange = null, colors = colors)
+        Text(
+            label,
+            style = labelStyle,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = colors,
+            modifier = Modifier.testTag(TOGGLE_ROW_SWITCH_TAG),
+        )
     }
 }
