@@ -343,7 +343,7 @@ private fun CalendarHeatmapCard(
     val visibleMonths = if (expanded) orderedMonths else orderedMonths.take(HEATMAP_DEFAULT_MONTH_COUNT)
 
     InsightsCard {
-        Text(voice.insightsSectionLabelHeatmap, style = MaterialTheme.typography.titleSmall)
+        Text(voice.insightsSectionLabelHeatmap, style = MaterialTheme.typography.labelLarge)
         HeatmapWeekdayHeader()
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             visibleMonths.forEach { month -> HeatmapMonthGrid(month, voice, onDayTap) }
@@ -473,7 +473,6 @@ internal fun FrequencyCard(
             infoTitle = voice.insightsFrequencyInfoTitle,
             infoBody = voice.insightsFrequencyInfoBody(display.granularity),
             infoDescription = voice.caseSectionInfoDescription,
-            labelStyle = MaterialTheme.typography.titleSmall,
         ) {
             SegmentedChoiceRow(
                 options =
@@ -658,7 +657,6 @@ private fun RhythmCard(
             infoTitle = rhythmInfoTitle(voice, display.plottedByStart),
             infoBody = "",
             infoDescription = voice.caseSectionInfoDescription,
-            labelStyle = MaterialTheme.typography.titleSmall,
             infoContent = {
                 RhythmInfoContent(
                     voice = voice,
@@ -737,7 +735,6 @@ private fun GapsCard(
             infoTitle = voice.insightsGapsInfoTitle,
             infoBody = voice.insightsGapsInfoBody,
             infoDescription = voice.caseSectionInfoDescription,
-            labelStyle = MaterialTheme.typography.titleSmall,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 rows.minAvgMax?.let {
@@ -784,7 +781,6 @@ private fun TrendsCard(
             infoTitle = voice.insightsTrendsInfoTitle,
             infoBody = voice.insightsTrendsInfoBody,
             infoDescription = voice.caseSectionInfoDescription,
-            labelStyle = MaterialTheme.typography.titleSmall,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 findings.take(visibleCount).forEachIndexed { index, finding ->
@@ -1089,7 +1085,6 @@ private fun DurationCard(
             infoTitle = voice.insightsDurationInfoTitle,
             infoBody = voice.insightsDurationInfoBody,
             infoDescription = voice.caseSectionInfoDescription,
-            labelStyle = MaterialTheme.typography.titleSmall,
         ) {
             MinAvgMaxRow(voice.shareMinAvgMaxLabels(), durationMinAvgMax(display))
         }
@@ -1108,7 +1103,7 @@ private fun IntensityCard(
     onIntensityTap: (Int) -> Unit,
 ) {
     InsightsCard {
-        Text(voice.insightsSectionLabelIntensity, style = MaterialTheme.typography.titleSmall)
+        Text(voice.insightsSectionLabelIntensity, style = MaterialTheme.typography.labelLarge)
         StatRow(voice.insightsIntensityAverageLabel, formatIntensity(display.averageIntensity))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             (INTENSITY_MIN..INTENSITY_MAX).forEach { value ->
@@ -1181,7 +1176,7 @@ private fun TagsCard(
 ) {
     val collapsed = distinctTagCount > TAGS_COMPACT_MAX
     InsightsCard {
-        Text(voice.insightsSectionLabelTags, style = MaterialTheme.typography.titleSmall)
+        Text(voice.insightsSectionLabelTags, style = MaterialTheme.typography.labelLarge)
         TagsSummary(totalEventCount, taggedEventCount, distinctTagCount, voice)
         tagsVisibleEntries(tags).forEach { tag ->
             StatRow(

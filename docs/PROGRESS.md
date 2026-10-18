@@ -47,6 +47,28 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none for the audit itself.
 
+### App bar titles and Home's Bright-only case-name override don't follow Type.kt's display/body split
+
+*Branch: none yet — investigation first · Complexity: S · Priority: Low · Area: Design/Theme*
+
+🔍 **Investigation** · 🎨 **Design decision** — found while fixing `fix/cases-intense-typography-roles` (Intense's display face missing from several Cases-screen headers). Two related but broader gaps turned up that aren't Cases-specific and need a call before touching, so they weren't folded into that fix.
+
+`Type.kt`'s doc comment says the app bar, section labels, and buttons take the display face; everything else (including case names) stays body-face. Two call sites don't match that split:
+
+- Every screen's `TopAppBar` title (About, Archived Cases, Case Edit, Log Detail, Manage Tags, Share) renders unstyled, defaulting to Material3's `titleLarge` (body face) instead of a display-face role — uniform across the app, not a Cases regression. Case Detail's app bar is correctly excluded from this: its title is the case name itself, which is meant to stay body-face.
+- `HomeScreen.kt`'s Bright-only case-list item manually overrides a case name's `fontFamily` to the display face — the one place in the app a case name does this. No Intense/Plain equivalent exists, so Intense's Home case names currently read the same body-face treatment as Plain's, just in a different body font (SourceSerif4 vs. Inter) — not visibly "themed" the way Bright's bespoke override is. Decided: all three voices should look visually distinct on Home's case names, via one standard rule applied the same way to all three — not a voice-specific override like Bright's current one-off.
+
+**Acceptance criteria**
+
+- [ ] Decide whether non-case-name `TopAppBar` titles should move to a display-face role (e.g. `headlineSmall` or `labelLarge`), checked against a Compose Preview at phone width before landing.
+- [ ] Home's case-name styling redesigned as one standard rule applied identically in code across Plain/Intense/Bright (no per-voice special-casing), while still rendering visibly differently per voice — e.g. a shared role/weight/colour-token decision that naturally differs per theme's own typography and colour scheme, rather than a bespoke `fontFamily.copy(...)` override for one voice.
+- [ ] `HomeScreen.kt`'s existing Bright-only override removed once the standard approach lands, leaving a single code path for all three voices' case-name text.
+- [ ] Whatever is chosen, checked across all three voices in both light and dark before landing.
+
+**Plan** — design-decision pass first; no code until a direction is picked for each half.
+
+**Tests** — none until a direction is picked.
+
 ### Single-case widget has no persistent in-widget way to reopen its Case picker
 
 *Branch: none yet · Complexity: S · Priority: Low · Area: Widgets*
