@@ -103,7 +103,7 @@ fun ArchivedCasesScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(voice.archivedCasesTitle) },
+                title = { Text(voice.archivedCasesTitle, style = MaterialTheme.typography.headlineSmall) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)

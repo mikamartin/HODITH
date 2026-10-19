@@ -17,6 +17,42 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/app-bar-titles-home-case-name-display-body-split
+
+**Scope:** Resolved the PROGRESS.md item (deferred from `fix/cases-intense-typography-roles`): every screen's `TopAppBar` title defaulted to Material3's `titleLarge` (body-face) instead of `Type.kt`'s display-face rule, and `HomeScreen.kt`'s Bright-only case row manually swapped its case name to the display face with no Plain/Intense equivalent. A follow-up audit (asked for explicitly, not part of the original item) widened the pass to find other display/body-split drift app-wide before landing.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (13 changed `.kt` files, 0 new). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. No instrumented test run needed — grepped `app/src/androidTest` for every touched style role (`titleLarge`/`titleMedium`/`titleSmall`/`labelLarge`/`headlineSmall`) and confirmed no existing instrumented test touches any of the 10 changed screens/composables; a font-family/weight-only change has nothing for a content/interaction-based Compose test to catch either way. User reviewed the result on-device/Preview across all three voices, light and dark, before this pass closed out.
+
+**Found & fixed:**
+- Six `TopAppBar` titles (`ShareScreen.kt`, `CaseEditScreen.kt`, `LogDetailScreen.kt`, `AboutScreen.kt`, `ManageTagsScreen.kt`, `ArchivedCasesScreen.kt`) — unstyled → `MaterialTheme.typography.headlineSmall`.
+- Two bottom-sheet headers that play the identical screen-title role but aren't a literal `TopAppBar`, caught by the follow-up audit: `LogDetailSheet.kt`'s "New event" header and `WatchEditorSheet.kt`'s "Create/Edit Watch" header, both `titleLarge` → `headlineSmall`. `LogDetailSheet`'s own KDoc already documented that its header slot mirrors `LogDetailScreen`'s `TopAppBar` title exactly — leaving it unfixed would have made "New event" and "Edit event" diverge in face right after this same pass aligned them.
+- `HomeScreen.kt`: extracted a shared `homeCaseNameStyle()` (`titleMedium` + `FontWeight.Bold`, body-face) used by both `HomeCaseRowBody` (Plain/Intense) and `BrightHomeCaseListItem`, replacing Bright's one-off `fontFamily`-swap override. Removes both the Plain/Intense-vs-Bright asymmetry the PROGRESS.md item flagged and the small style-definition duplication between the two composables.
+- `BigPictureGrid.kt`'s month-group divider header (`titleSmall` → `labelLarge`) — found by the follow-up audit, not the original item: it sat directly above `WeekdayHeader`'s `labelSmall` in the same screen, a visible same-screen face mismatch.
+- Inline comments added at the three body-face/display-face exceptions that had none before, so each survives future refactors without being re-flagged as a bug: `CaseDetailScreen.kt`'s app bar (case name stays body-face), `InsightsDetailScaffold.kt`'s title (same reason, alongside its existing structural KDoc), and `ShareCardTemplate.kt`'s `SummaryFigure` (display-face is a deliberate branding exception, not an oversight).
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- `ShareCardTemplate.kt`'s `SummaryFigure` hero stat (`displaySmall`) — technically outside `Type.kt`'s app-bar/section-label/button list, but it's a branded number, not prose; declined as a style change, marked with an inline comment instead (see Found & fixed).
+- `InfoDialog.kt`/`ConfirmDialog.kt` titles — checked during the audit; both already inherit Material3's `AlertDialog` default `headlineSmall` title style (unlike `TopAppBar`'s `titleLarge` default, the actual bug this pass fixes elsewhere), so every dialog title in the app already matched the display-face rule with no change needed.
+
+**Checks:**
+- Duplication: the Home case-name style duplication between `HomeCaseRowBody` and `BrightHomeCaseListItem` is what this pass removes (see Found & fixed); no new duplication introduced — the 8 `headlineSmall` title swaps each sit in their own screen's existing `TopAppBar`/header call, the established direct-`MaterialTheme.typography` pattern used throughout the app, not a repeated pattern that needs its own abstraction.
+- Decoupling: no `ViewModel`/`Repository`/domain code touched; no `android.*` imports added.
+- Complexity: `homeCaseNameStyle()` follows the existing lowercase-`@Composable`-helper-returning-a-style/shape convention already in the codebase (`caseEditTextFieldShape()`, `themedSwitchColors()`, `frequencyBarBrush()`); two call sites, not a single-caller extraction.
+- Dead code & hygiene: `git status` clean throughout (exactly the 13 intended files); `ktlintCheck` found no unused imports after removing `BrightHomeCaseListItem`'s old `nameStyle` local.
+- Naming: no new files, no new `Voice` keys; `homeCaseNameStyle()` matches the naming precedent above.
+- Hardcoded values: none introduced.
+- Accessibility: no tap-target or contrast changes; confirmed by the user across all three voices in both light and dark (see Walked).
+- UI Copy Brevity: N/A — no label text changed, style-role swaps only.
+- Data model/migrations, background work/widgets/notifications, deprecated APIs: untouched — N/A.
+- Spec review: `HODITH_SPEC.md` §12's theme/font table is unaffected — it names each theme's font pairing, not the display/body role-assignment rule, which lives only in `Type.kt`'s own doc comment and is unchanged by this pass (a conformance fix, not a rule change).
+- Tests: no behavior change — font-family/weight-role correction only — so no new test coverage; see Walked above for why no existing instrumented test could or needs to catch this.
+
+**Docs updated:** PROGRESS.md (resolved item struck/removed); this entry (oldest entry, `feature/pdf-export — remove Insights PDF`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/single-case-widget-missing-case-edit-icon — remove hidden content, add render-test guard
 
 **Scope:** Continuation of the same open PR: reviewing the previous pass's "✎" edit icon on a real emulator surfaced two rendering bugs the existing instrumented suite doesn't catch — an archived/deleted Case's "Case is gone" message clips down to a single word, and some Case icons clip at the bottom. Traced the root cause to `WidgetRenderTestFixtures.kt`'s `renderedView()`, which only calls `AppWidgetHost.createView()` — no `measure()`/`layout()`, no `AppWidgetHostView` size options, never attached to a window — so every `WidgetActionsFlowTest` assertion walks an unmeasured View tree that proves nothing about the widget's real, non-resizable declared size (`single_case_widget_info.xml`: `minWidth="60dp" minHeight="60dp"`, no `resizeMode`). Rather than patch the symptom, redesigned the Single-case widget to stop rendering content that can't reliably fit: bound-Case state now shows only the icon (its own non-weighted zone, sized to its own content, so a sibling can never starve it of height) and a log button filling the rest of the tile — no subtitle, "Ongoing" pill, elapsed time, or count; missing-Case state shows "Edit" + "✎" filling the same shape, both reopening the configure Activity, with the old message and its separate `MainActivity` tap removed outright.
@@ -163,36 +199,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: two new instrumented Compose tests (`ToggleRowTest`, `CasePickerRowTest`), both `@UiTest`-tagged, bounds-based (not click-based) regressions modeled on `SegmentedChoiceRowTest`'s pattern — deliberately sidestepping the known `ToggleRow` merge-reliability caveat already documented in TESTING.md's "Known environment issues" rather than relying on click dispatch. Existing flow tests reviewed for compatibility, not re-run (see Walked/Deferred above). No `@Smoke` tag added — no shared-component row test in this codebase carries one.
 
 **Docs updated:** TESTING.md (shared-components row gains `ToggleRowTest`; the widget chrome/trampoline row gains `CasePickerRowTest`); this entry (oldest entry, `fix/intensity-toggle-gating`, removed per the 5-entry retention rule).
-
----
-
-## feature/pdf-export — remove Insights PDF
-
-**Scope:** Dropped PDF export for the Insights tab entirely, keeping it as a History-only feature. The Insights PDF's content builder reduced most panels (Gaps, Streaks, Duration, Intensity, Tags) to plain "Label: value" text lines and dropped Rhythm and Trends outright (no text form exists for a heatmap grid or a narrative finding); its one real graphic, a separately-captured Frequency chart, is `null` whenever a Case tracks multi-day/duration events or has too few events — leaving the PDF text-only in exactly the case the user hit. Closing that gap would mean either capturing the whole share card as one image (forces Square format on the page, loses real/searchable text) or extending the existing per-chart capture to Rhythm/Intensity too (requires generalizing `PdfLayout.kt`'s pagination math from one fixed chart block to a variable number of variable-position image blocks, each with its own eligibility gating) — real feature work for unclear payoff on a document most users will rarely compare against the image card. History's PDF (a real bordered table) was unaffected and stays as-is.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against `git diff` (16 changed files, 4 deleted, 0 new). `ktlintCheck`, `lintDebug`, `test` (full unit suite, `PdfLayoutTest` gone with the constants it tested), `compileDebugAndroidTestKotlin`, and `assembleDebug` all pass. `connectedDebugAndroidTest` deferred — no emulator/device was available in this session; the touched instrumented suites (`ShareScreenTest`, `InsightShareTabTest`, `SharePreviewOrderFlowTest`, `HistoryShareTabTest`, `CasePdfExporterTest`) need a run on the user's own device before merge, per this repo's standing instrumented-test convention.
-
-**Found & fixed:**
-- Initial exploration missed one call site: `HistoryShareTabTest.kt` also called `ShareScreen(...)` with the now-removed `chartGraphicsLayer`/`onInsightSharePdfClick` params. Caught by a post-edit grep sweep for every deleted symbol across `app/src`, not by the original file-by-file plan — a reminder that a map built from one exploration pass needs re-verifying against the real diff, not trusted as exhaustive.
-- `ShareScreen.kt` picked up two unused imports (`pdfAppLinkText`, `pdfDateRangeBounds`) once `buildInsightsPdfContent()` was deleted — caught by `ktlintCheck`, not by inspection.
-- `ShareScreenTest.kt`'s `summaryTab_hasNoPdfToggle` test referenced the now-deleted `INSIGHT_SHARE_PDF_TOGGLE_TAG` constant; renamed to `summaryAndInsightsTabs_haveNoPdfToggle` and rewritten to assert History's toggle tag is absent from both tabs instead, since there's no Insights-specific tag left to check.
-- Confirmed `CasePdfExporterTest`'s five remaining History tests (few rows, zero rows, many rows/pagination, long-note wrapping, missing optional columns) already cover `drawHistoryPage`/table pagination fully on their own — no coverage gap opened by removing the two Insights tests.
-- Confirmed `FakePdfExporter` stays meaningfully exercised after losing its `exportInsightsPdf` override: `HistoryShareViewModelTest` still constructs `HistoryShareViewModel` with it.
-
-**Deferred:**
-- `connectedDebugAndroidTest` — see Walked above; needs the user's device.
-
-**Considered and declined:** nothing new; this pass only removes code the prior two `feature/pdf-export` passes added.
-
-**Checks:**
-- Duplication: none introduced; pure removal.
-- Decoupling: untouched — `PdfLayout.kt` stays `android.*`-free, `CasePdfExporter` still takes no `viewmodel`/`ui` imports.
-- Complexity: `CasePdfExporter.kt` shrank from ~300 to ~230 lines by dropping `exportInsightsPdf`/`drawInsightsPage`/`drawChart`; no new functions added.
-- Dead code & hygiene: every import touched by a deletion was swept for staleness (`ktlintCheck` catching the two misses above); `git status` clean throughout, no secrets or local paths.
-- Naming: no new files; `FakePdfExporter`/`CasePdfExporter`/`PdfExporter` keep their names with one fewer method each.
-- Hardcoded values, accessibility, data model/migrations, background work/widgets/notifications, deprecated APIs: untouched — N/A.
-- Spec review: `HODITH_SPEC.md` §13's "PDF record" bullet rewritten History-only; the Frequency sentence that referenced the Insights PDF rewritten to state it never appears on any Insights share output; §14's Insights Share-preview row dropped its "Share as PDF" toggle mention.
-- Tests: covered above (coverage review, the renamed `ShareScreenTest` case); `TESTING.md` and `MANUAL_TEST_PLAN.md` brought up to date (see Docs updated).
-
-**Docs updated:** HODITH_SPEC.md (§13 PDF record bullet + Frequency sentence, §14 Insights Share-preview row); TESTING.md (dropped the `PdfLayoutTest` JVM row, reworded the ShareScreenTest/Insights-tab instrumented rows and the `CasePdfExporterTest` row); MANUAL_TEST_PLAN.md (PDF records section narrowed to History only); PROGRESS.md (the `ACTION_SEND` coverage line narrowed to the History PDF export); `Voice.kt`'s `shareAsPdfActionLabel` doc comment reworded to describe a History-only toggle (the string itself is unchanged); this entry (oldest entry, `feature/case-edit-logging-toggle`, removed per the 5-entry retention rule).
 

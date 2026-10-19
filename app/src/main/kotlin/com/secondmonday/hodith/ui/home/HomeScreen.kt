@@ -271,6 +271,14 @@ private fun HomeCaseLogButton(
     }
 }
 
+/**
+ * Home's case-name style: body-face [titleMedium][androidx.compose.material3.Typography.titleMedium]
+ * (case names stay body-face, Type.kt) with Bold weight so each voice's own body font reads
+ * distinctly here, without a per-voice override.
+ */
+@Composable
+private fun homeCaseNameStyle() = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+
 @Composable
 private fun HomeCaseRowBody(
     row: HomeCaseRow,
@@ -293,7 +301,7 @@ private fun HomeCaseRowBody(
         Text(text = row.icon, style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = row.name, style = MaterialTheme.typography.titleMedium)
+            Text(text = row.name, style = homeCaseNameStyle())
             if (row.description != null) {
                 Text(
                     text = row.description,
@@ -337,11 +345,6 @@ private fun BrightHomeCaseListItem(
     val ongoing = row.ongoingEvent
     val now by rememberTickingNow(clockNow = nowMillis)
     val tint = if (isEvenRow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-    val nameStyle =
-        MaterialTheme.typography.titleMedium.copy(
-            fontFamily = MaterialTheme.typography.labelLarge.fontFamily,
-            fontWeight = FontWeight.Bold,
-        )
 
     GlowCard(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
@@ -352,7 +355,7 @@ private fun BrightHomeCaseListItem(
             IconHalo(tint = tint) { Text(text = row.icon, style = MaterialTheme.typography.headlineSmall) }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = row.name, style = nameStyle)
+                Text(text = row.name, style = homeCaseNameStyle())
                 if (row.description != null) {
                     Text(
                         text = row.description,

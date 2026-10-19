@@ -133,7 +133,7 @@ fun LogDetailSheet(
             // The sheet's drag handle provides the top gap; keep the wider bottom inset it had.
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
         ) {
-            Text(voice.logSheetNewEventTitle, style = MaterialTheme.typography.titleLarge)
+            Text(voice.logSheetNewEventTitle, style = MaterialTheme.typography.headlineSmall)
         }
     }
 }

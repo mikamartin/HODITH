@@ -211,7 +211,12 @@ fun CaseEditScreen(
             },
         topBar = {
             TopAppBar(
-                title = { Text(if (uiState.isEditing) voice.editCaseTitle else voice.newCaseTitle) },
+                title = {
+                    Text(
+                        if (uiState.isEditing) voice.editCaseTitle else voice.newCaseTitle,
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)

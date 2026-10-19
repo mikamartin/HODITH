@@ -97,7 +97,7 @@ fun LogDetailScreen(
             },
         topBar = {
             TopAppBar(
-                title = { Text(voice.logSheetEditEventTitle) },
+                title = { Text(voice.logSheetEditEventTitle, style = MaterialTheme.typography.headlineSmall) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)

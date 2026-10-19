@@ -187,6 +187,8 @@ fun CaseDetailScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                // Unstyled on purpose: the title is the case name, which stays body-face
+                // (Type.kt) like HomeScreen's and ArchivedCasesScreen's case-name rows.
                 title = { Text(case?.let { "${it.icon} ${it.name}" }.orEmpty()) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

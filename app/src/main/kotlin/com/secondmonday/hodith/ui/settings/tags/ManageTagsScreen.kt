@@ -87,7 +87,7 @@ fun ManageTagsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(voice.manageTagsScreenTitle) },
+                title = { Text(voice.manageTagsScreenTitle, style = MaterialTheme.typography.headlineSmall) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)

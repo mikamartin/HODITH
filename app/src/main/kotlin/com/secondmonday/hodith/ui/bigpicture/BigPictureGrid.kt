@@ -244,7 +244,7 @@ fun BigPictureGrid(
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text(
                             text = "${month.monthLabel()} ›",
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                             modifier =
                                 Modifier
