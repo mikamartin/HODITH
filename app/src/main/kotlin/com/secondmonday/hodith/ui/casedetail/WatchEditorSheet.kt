@@ -201,7 +201,7 @@ internal fun WatchEditorSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = if (editing == null) voice.watchesCreateTitle else voice.watchesEditTitle,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.weight(1f),
                 )
                 if (editing != null) {

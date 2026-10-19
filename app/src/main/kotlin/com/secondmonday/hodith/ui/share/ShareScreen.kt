@@ -169,7 +169,7 @@ fun ShareScreen(
             },
         topBar = {
             TopAppBar(
-                title = { Text(voice.shareScreenTitle) },
+                title = { Text(voice.shareScreenTitle, style = MaterialTheme.typography.headlineSmall) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = voice.backButtonDescription)

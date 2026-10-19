@@ -57,6 +57,10 @@ internal fun InsightsDetailScaffold(
         topBar = {
             TopAppBar(
                 title = {
+                    // Both lines stay body-face on purpose: despite the name, sectionLabel here
+                    // is paired with the case name as a single title, not the display-face
+                    // "section label" convention used elsewhere (e.g. SectionWithInfo); the case
+                    // name beneath it is the real reason it reads as body (Type.kt).
                     Column {
                         Text(sectionLabel, style = MaterialTheme.typography.titleMedium)
                         Text(

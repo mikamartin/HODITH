@@ -409,7 +409,11 @@ private fun SummaryBeat(
     }
 }
 
-/** A big figure with its small unit hanging off the end, e.g. "2.1" + "/week". */
+/**
+ * A big figure with its small unit hanging off the end, e.g. "2.1" + "/week". `displaySmall` is
+ * a deliberate branding exception outside Type.kt's app-bar/section-label/button list — a hero
+ * stat figure, not prose, so it reads in the display face by design.
+ */
 @Composable
 private fun SummaryFigure(
     figure: String,
