@@ -95,11 +95,49 @@ class SingleCaseWidgetConfigureFlowTest {
                 renderAttempts++
             }
 
-            assertFalse(
-                "Widget still shows the Case-not-found message after the real configure flow",
-                texts.any { it.contains(PlainVoice.widgetCaseNotFoundMessage) },
-            )
             assertTrue("Expected the bound Case's icon '$caseIcon' to render, but saw: $texts", texts.any { it == caseIcon })
+        }
+
+    @Test
+    fun singleCaseWidget_rebindsAfterCaseDeleted_viaEditIcon() =
+        runBlocking {
+            val suffix = System.currentTimeMillis()
+            val oldIcon = "🐛"
+            val newIcon = "🫖"
+            val oldName = "Coffee $suffix"
+            val newName = "Tea $suffix"
+            val oldCaseId = repository.insertCase(testCase(name = oldName, icon = oldIcon))
+            insertedCaseIds += oldCaseId
+            insertedCaseIds += repository.insertCase(testCase(name = newName, icon = newIcon))
+
+            val appWidgetId = bindWidgetId()
+            configureWidgetFor(appWidgetId, oldName)
+            awaitRenderedIcon(appWidgetId, oldIcon)
+
+            // Delete the bound Case out from under the widget — same state its missing-Case "Edit"
+            // label/"✎" edit icon (WidgetChromeNavigationTest) exists to recover from.
+            repository.getCase(oldCaseId)?.let { repository.deleteCase(it) }
+
+            var texts = collectRenderedText(appWidgetId)
+            var attempts = 0
+            while (texts.none { it == PlainVoice.singleCaseWidgetEditLabel } && attempts < 30) {
+                Thread.sleep(200)
+                texts = collectRenderedText(appWidgetId)
+                attempts++
+            }
+            assertTrue(
+                "Widget should show the missing-Case 'Edit' label after its Case was deleted, but saw: $texts",
+                texts.any { it == PlainVoice.singleCaseWidgetEditLabel },
+            )
+
+            // Reopen the same configure Activity the missing-Case edit icon launches, and rebind.
+            configureWidgetFor(appWidgetId, newName)
+
+            val rebindTexts = awaitRenderedIcon(appWidgetId, newIcon)
+            assertFalse(
+                "Widget should no longer show the missing-Case 'Edit' label after rebinding, but saw: $rebindTexts",
+                rebindTexts.any { it == PlainVoice.singleCaseWidgetEditLabel },
+            )
         }
 
     @Test

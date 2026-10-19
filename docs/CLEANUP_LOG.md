@@ -17,6 +17,82 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## fix/single-case-widget-missing-case-edit-icon — remove hidden content, add render-test guard
+
+**Scope:** Continuation of the same open PR: reviewing the previous pass's "✎" edit icon on a real emulator surfaced two rendering bugs the existing instrumented suite doesn't catch — an archived/deleted Case's "Case is gone" message clips down to a single word, and some Case icons clip at the bottom. Traced the root cause to `WidgetRenderTestFixtures.kt`'s `renderedView()`, which only calls `AppWidgetHost.createView()` — no `measure()`/`layout()`, no `AppWidgetHostView` size options, never attached to a window — so every `WidgetActionsFlowTest` assertion walks an unmeasured View tree that proves nothing about the widget's real, non-resizable declared size (`single_case_widget_info.xml`: `minWidth="60dp" minHeight="60dp"`, no `resizeMode`). Rather than patch the symptom, redesigned the Single-case widget to stop rendering content that can't reliably fit: bound-Case state now shows only the icon (its own non-weighted zone, sized to its own content, so a sibling can never starve it of height) and a log button filling the rest of the tile — no subtitle, "Ongoing" pill, elapsed time, or count; missing-Case state shows "Edit" + "✎" filling the same shape, both reopening the configure Activity, with the old message and its separate `MainActivity` tap removed outright.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (9 changed/new `.kt`/gradle files, 4 docs). `ktlintCheck`, `lintDebug`, `test` (full unit suite, including the new `WidgetCaseSubtitleTest`), and `assembleDebug` all pass. `connectedDebugAndroidTest` scoped to `WidgetActionsFlowTest` + `WidgetChromeNavigationTest` + `SingleCaseWidgetConfigureFlowTest` (18/18 passed on a Pixel 8 API 36 emulator).
+
+**Found & fixed:**
+- `SingleCaseWidget.kt`: `SingleCaseContent`'s icon moved out of the weighted `Column` it shared with the now-removed subtitle into its own non-weighted `Box` sized to its own content (the actual fix for the icon-clipping bug), and its "+" button swapped `.height(MinTapTarget)` for `.defaultWeight()` to fill the rest of the tile. `SingleCaseMissingContent` mirrors the same shape with the new "Edit" label and the resized "✎" icon (kept borderless, matching its existing styling — no background was added just because the box grew); the old message and its `MainActivity` tap are gone entirely. Dropped the now-unused `now`/`use24Hour` params from `SingleCaseContent` and the dead `use24Hour` local/`rememberWidgetUse24Hour` call from `provideGlance` (the `now` local itself stays — `homeCaseRowsFlow` still needs it). Caught on the user's own on-device look (not by any test): the "Edit" label's `Text` had no `fontWeight` set, reading thinner than every other widget text label (`WidgetCaseNameSize`'s `FontWeight.Medium`, the header's Bold) — only the glyph-only "✎"/"+" texts are weight-less by design. Added `FontWeight.Medium` to match the Case name convention, the closer analog since "Edit" is a short readable word, not a glyph.
+- `Voice.kt`: removed `widgetCaseNotFoundMessage` (×3 voices) entirely; added `singleCaseWidgetEditLabel` for the new visible label, distinct from the existing `singleCaseWidgetEditButtonDescription` content description. Initially added as ×3 per-voice overrides, then simplified on review: widget chrome only ever renders `PlainVoice` regardless of the user's in-app theme (DEV_PLAYBOOK.md §4), so `singleCaseWidgetEditLabel` and three other pre-existing widget-chrome keys that had the same invisible-but-still-written-three-ways shape (`widgetNoCasesSelectedMessage`, `widgetEditButtonDescription`, `singleCaseWidgetEditButtonDescription`) all collapsed to a single `get() = "literal"` default in the `Voice` interface, with every per-voice override deleted — the same "structural, identical across voices" pattern this file already uses for `sharePdfDocumentTitle`/`widgetTodayCount`, just not yet applied to these four.
+- `WidgetCommon.kt`: `MinTapTarget`/`WidgetGlyphButtonSize` doc comments corrected — they no longer claim every glyph button (including Single-case's) sits in a fixed `MinTapTarget` box; values and the List widget's own usage are unchanged.
+- `docs/CLEANUP_CHECKLIST.md`: new Tests-section line asking whether a widget instrumented test's fixture actually constrains measurement to the widget's real declared size, generalized beyond this widget.
+- Tests: `WidgetActionsFlowTest` lost two tests with nothing left to assert (subtitle, today-count) and had `runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail` rewritten to `singleCaseWidget_iconTap_opensCaseDetail` (drops the pill/subtitle/`WidgetPillTextSize` assertions, keeps the icon-tap-opens-`MainActivity` check), which also let the `SettingsRepository`/`TimeFormat` pinning that only existed for the deleted subtitle test come out of `setUp`/`tearDown`. `WidgetChromeNavigationTest` lost the missing-Case message tests and gained `singleCaseWidget_missingCase_editLabelTap_opensConfigureActivity` alongside the existing edit-icon ones. `SingleCaseWidgetConfigureFlowTest` repointed its missing-Case poll/assertions from the deleted message string to the new label.
+- **Caught mid-pass, not by the checklist walk itself:** removing `WidgetActionsFlowTest`'s subtitle tests also removed the *only* instrumented coverage of the List widget's own "Ongoing" pill/elapsed/today-count text — that text comes from `WidgetCaseSubtitle`, a function shared by both widgets, and the List widget's `LazyColumn` rows can never be reached by `AppWidgetHost.createView()` at all, so the Single-case widget was the only vehicle any test ever had for exercising that shared code. First pass left this as a manual-only regression in MANUAL_TEST_PLAN.md; caught on review before landing. Fixed properly instead of accepted: added `androidx.glance:glance-testing`/`glance-appwidget-testing` (`libs.versions.toml`/`app/build.gradle.kts`, version `1.1.1` to match the existing `glance` version) and a new JVM test, `WidgetCaseSubtitleTest`, composing `WidgetCaseSubtitle` directly via Glance's own unit-testing library — no `AppWidgetHost`, no device, and zero changes to `ListWidget.kt` or either widget's production code. Needed `testOptions.unitTests.isReturnDefaultValues = true` (`app/build.gradle.kts`) — the library touches `android.os.Bundle` internally even though the composable under test never reads a real `Context`, which the stock `android.jar` stub otherwise throws on.
+- **On-device confirmation (the actual point of this investigation):** the user placed the redesigned widget on a real launcher and confirmed both states — neither the Case icon nor the missing-Case "Edit"/"✎" content clips any more, and both the icon/label zone and the body-filling button feel like proper, comfortably tappable targets. This is the one thing in this whole pass instrumented tests structurally can't prove (Task A's finding) — it had to be eyes-on, and now it has been.
+
+**Deferred:** nothing — see the on-device confirmation below (Found & fixed), the last thing instrumented tests structurally can't prove (Task A's finding).
+
+**Considered and declined:**
+- Constraining `WidgetRenderTestFixtures.kt`'s `renderedView()` to measure/layout against the XML's declared 60dp minWidth/minHeight — declined: a real launcher sizes a non-resizable widget by its own grid-cell geometry, not a naive dp→px conversion of the manifest minimums, so a hardcoded constraint would look like real-size verification without actually being one. The new checklist line is the mitigation instead.
+- Keeping an instrumented render-size assertion for `WidgetPillTextSize` — declined: it was only ever reachable through the Single-case widget's now-removed pill (the List widget's own pill lives inside an un-instrumentable `LazyColumn`); `WidgetTokenFidelityTest` still locks the token's value.
+- Giving the resized "✎" box a surface-colored background to match the "+" button now that both fill the whole body — declined: the task called for a sizing change, not a styling one, and the borderless look is unchanged from what shipped in the previous pass on this same branch.
+
+**Checks:**
+- Duplication: no new composables or patterns; reused existing `WidgetSingleCaseOuterPadding`/`WidgetSingleCaseLogButtonSpacing`/`WidgetIconGlyphSize`/`WidgetGlyphButtonSize`/`WidgetLogButtonCornerRadius` tokens throughout.
+- Decoupling: no `ViewModel`/`Repository`/domain code touched; no `android.*` imports added anywhere that shouldn't have them.
+- Complexity: `SingleCaseContent`/`SingleCaseMissingContent` stayed the same two-composable shape at roughly the same line count; no new abstraction layer.
+- Dead code & hygiene: removed the now-unused `TextAlign` import, the dropped `now`/`use24Hour` params, and — in `WidgetActionsFlowTest.kt` — the `SettingsRepository`/`TimeFormat` pinning and `MILLIS_PER_*`/`formatExpectedEndTime`/`assertTrue` imports that existed only to support the deleted subtitle test; `git status` clean throughout, `ktlintCheck` caught nothing stray.
+- Naming: new `Voice` key `singleCaseWidgetEditLabel` follows the existing `sharePdfDocumentTitle`/`widgetTodayCount` default-only naming/shape rather than being added "to all three voices" as distinct text, since it never varies by voice; renamed/new test methods follow the existing `camelCase_describingBehavior` convention in each file.
+- Hardcoded values: none introduced; every size/color pulls from existing `WidgetCommon.kt` tokens.
+- Repo hygiene: `git status` clean except the one new tracked test file; diffed the full changeset for secret-shaped strings/local paths — none found; `app/build.gradle.kts`/`gradle/libs.versions.toml` changes are shared tooling config, not local setup, so they belong in the repo.
+- Accessibility: the icon/label zone and the "+"/"✎" button both stay clickable, and the "✎" box keeps its existing content description; confirmed on the user's own device (see Found & fixed) that both zones are comfortably tappable now that the top zone is sized to its own content rather than a fixed box — not just asserted from reading the code.
+- UI Copy Brevity: N/A for per-voice tone/length comparison — `singleCaseWidgetEditLabel` has one fixed string, not three to compare; checked only that "Edit" itself fits the body-filling zone alongside the "✎" icon.
+- Data model, migrations: untouched — N/A.
+- Deprecated APIs: no new deprecation warnings from the build output after adding `glance-testing`/`glance-appwidget-testing`; the two warnings the build already prints (Moshi's Kapt codegen, `srcDirs`'s vararg overload) are pre-existing and untouched by this diff.
+- Background Work, Widgets & Notifications: Single-case widget still renders via `WidgetPalette`'s fixed Plain-light palette and still respects each Case's `logFlow`; the List widget's own code, constants, and tests are untouched by this pass.
+- Spec review: `HODITH_SPEC.md` §15's Single-case bullet rewritten to match the new icon-zone/body-button shape and the "Edit"/"✎" missing-Case state; the List widget's own bullet is untouched.
+- Tests: the test/reality gap this pass investigates → the CLEANUP_CHECKLIST.md guard above, since the real fix is removing the untestable content, not a regression test for a harness that can't be trusted; every test that would otherwise pass against now-dead code (`widgetCaseNotFoundMessage`, pill/subtitle assertions) was updated or removed; all touched instrumented tests actually ran on a device (18/18) before this entry was written; the coverage loss this pass's own test deletions caused (see Found & fixed) was caught and fixed with `WidgetCaseSubtitleTest` rather than written off as newly manual, and that new JVM test passed (4/4) before this entry was written too.
+
+**Docs updated:** HODITH_SPEC.md (§15 Single-case bullet); TESTING.md (Widgets — chrome & trampoline row, seed list item 3); MANUAL_TEST_PLAN.md (items 6, 7, 9, 11); CLEANUP_CHECKLIST.md (new Tests-section line); this entry (oldest entry, `feature/pdf-export — toggle/table redesign pass`, removed per the 5-entry retention rule).
+
+---
+
+## fix/single-case-widget-missing-case-edit-icon
+
+**Scope:** PROGRESS.md item: the Single-case widget had no persistent in-widget way back into its Case picker. Decided against a persistent edit icon on a *populated* Single-case widget (remove-and-recreate already covers that, and the widget is already a dense 1x1 square) — the one real gap is when the bound Case gets deleted: the widget fell back to an unconstrained "Case is gone" message with no way to rebind short of deleting the widget outright. Fixed by showing a "✎" edit icon in that missing-Case state only, in the exact slot the "+" log button normally occupies, reopening `SingleCaseWidgetConfigureActivity` to rebind. Also removed, per explicit request: the one-line description under the title in both widgets' configure dialogs (List and Single-case) — the title alone is self-explanatory.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (7 changed `.kt` files, 3 docs). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` run scoped to `WidgetChromeNavigationTest` + `SingleCaseWidgetConfigureFlowTest` (14 tests, all green) — the emulator initially had no HODITH package installed at all (a Gradle up-to-date/device-state mismatch, not a code issue), resolved with `installDebug installDebugAndroidTest --rerun-tasks` plus `adb shell appwidget grantbind`.
+
+**Found & fixed:**
+- `SingleCaseWidget.kt`: `provideGlance` now computes `appWidgetId` (mirroring `ListWidget.kt`); the missing-Case branch is a new private `SingleCaseMissingContent` composable structured like `SingleCaseContent` (weighted message area + a bottom `MinTapTarget` slot) instead of one unconstrained full-size `Text` — this also fixes the reported symptom of the "Case is gone" message rendering oversized, as if sized for the bigger widget. The bottom slot is a "✎" glyph (neutral `onSurface` color, no filled box — matching the List widget's header edit icon's look, not the "+" log button's accent/bold/filled-box look it replaces) that reopens `SingleCaseWidgetConfigureActivity` via the same `ACTION_APPWIDGET_CONFIGURE`/`EXTRA_APPWIDGET_ID` intent shape `ListWidget.kt`'s header icon uses.
+- `Voice.kt`: added `singleCaseWidgetEditButtonDescription` (×3 voices) for the new icon's `contentDescription`; removed `widgetConfigureBody`/`singleCaseWidgetConfigureBody` (×3 voices each) and their `item { Text(...) }` lines in `ListWidgetConfigureActivity.kt`/`SingleCaseWidgetConfigureActivity.kt`'s `LazyColumn`s.
+- `WidgetCommon.kt`'s `WidgetGlyphButtonSize` doc comment and `SingleCaseWidgetConfigureActivity.kt`'s class doc comment updated to describe the new third caller / re-bind entry point.
+- Tests: `WidgetChromeNavigationTest` gained a tap-opens-Activity test and a content-description test for the new icon (plus a class KDoc update); `SingleCaseWidgetConfigureFlowTest` gained a real end-to-end test — insert and bind a Case, delete it, confirm the missing-Case state renders, reopen the same configure Activity, and confirm rebinding to a different real Case clears the missing-Case message. Reviewed the rest of the widget test suite (`WidgetActionsFlowTest`, `WidgetLogTrampolineActivityTest`, `WidgetRefreshWorkerTest`, `WidgetTokenFidelityTest`, both ViewModel unit tests, `WidgetConfigureTestFixtures.kt`) — none touch the missing-Case path or the removed body text, so none needed changes.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- A persistent edit icon on a *populated* Single-case widget — explicitly declined by the user; remove-and-recreate is an acceptable path there, and the 1x1 square is already dense (icon, subtitle, log button).
+
+**Checks:**
+- Duplication: the new icon reuses `MinTapTarget`/`WidgetGlyphButtonSize`/`WidgetPalette` tokens and the exact `ACTION_APPWIDGET_CONFIGURE` intent shape already established by `ListWidget.kt`'s header icon — no new pattern introduced.
+- Decoupling: no `ViewModel`/`Repository`/domain code touched; `SingleCaseWidgetConfigureViewModel` needed no change at all (it already seeds `selectedCaseId = null` unconditionally, which is exactly right for a re-bind with nothing to preselect).
+- Complexity: one new composable (`SingleCaseMissingContent`, ~40 lines), mirroring the existing `SingleCaseContent` shape; no new abstraction layer.
+- Dead code & hygiene: removed the now-unused `glanceContext` local in `SingleCaseWidget.kt` left over from the old inline `Text`'s `clickable`; `git status` clean throughout; ktlint found nothing stray.
+- Naming: new `Voice` key added to all three voices in the same commit; no new files.
+- Hardcoded values: none introduced — all sizes/colors pull from existing `WidgetCommon.kt` tokens.
+- Accessibility: new edit icon has a non-empty, voice-backed `contentDescription`; its tap target is the existing `MinTapTarget`-sized slot (≥48dp).
+- UI Copy Brevity: the three new `singleCaseWidgetEditButtonDescription` strings checked against their `widgetEditButtonDescription` sibling for length/tone parity per voice.
+- Background Work, Widgets & Notifications: missing-Case state still renders via `WidgetPalette`'s fixed Plain-light palette, matching the widgets' theming constraint.
+- Spec review: `HODITH_SPEC.md` §15 updated — removed the stale "Single-case widget doesn't have this yet" note on the List widget's edit-icon bullet, and added a sentence to the Single-case widget's own bullet describing the missing-Case rebind path and the no-persistent-edit-affordance-while-bound decision.
+- Tests: bug fixed (no rebind path) → regression test added (the new `SingleCaseWidgetConfigureFlowTest` case); all new instrumented tests actually run on a device before this entry was written.
+
+**Docs updated:** PROGRESS.md (resolved item struck entirely); HODITH_SPEC.md (§15, two bullets); TESTING.md (Widgets — chrome & trampoline row); this entry (oldest entry, `fix/bright-intensity-label`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/cases-intense-typography-roles
 
 **Scope:** User-reported: Intense voice's distinctive display face (Oswald, bold) seemed to be missing from most of the Cases screens, showing up correctly only in filters, some labels, and buttons. Traced to `Type.kt`'s typography-swap mechanism itself being correct (no wiring bug) — several call sites on Cases screens were just choosing a body-face role (`titleSmall`) for text that functions as a header/label, instead of a display-face role (`labelLarge`).
@@ -119,61 +195,4 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: covered above (coverage review, the renamed `ShareScreenTest` case); `TESTING.md` and `MANUAL_TEST_PLAN.md` brought up to date (see Docs updated).
 
 **Docs updated:** HODITH_SPEC.md (§13 PDF record bullet + Frequency sentence, §14 Insights Share-preview row); TESTING.md (dropped the `PdfLayoutTest` JVM row, reworded the ShareScreenTest/Insights-tab instrumented rows and the `CasePdfExporterTest` row); MANUAL_TEST_PLAN.md (PDF records section narrowed to History only); PROGRESS.md (the `ACTION_SEND` coverage line narrowed to the History PDF export); `Voice.kt`'s `shareAsPdfActionLabel` doc comment reworded to describe a History-only toggle (the string itself is unchanged); this entry (oldest entry, `feature/case-edit-logging-toggle`, removed per the 5-entry retention rule).
-
----
-
-## feature/pdf-export — toggle/table redesign pass
-
-**Scope:** A follow-on redesign pass on top of the already-committed `feature/pdf-export` base, driven by hands-on user feedback: the two-button image/PDF split replaced with a single "Share as PDF" toggle per tab; the History table rebuilt as a real bordered, multi-column grid (Start/End/Duration/Intensity/Tags/Notes) with genuine text wrapping instead of a joined detail string; the document header redesigned (masthead title, a visually separated and larger date-range section, a record count, explicit "generated on" wording); Start/End cells reformatted to two lines (date, then weekday + time honoring the 12h/24h setting) with the year always shown; and the PDF filename brought onto the same timestamp convention as the JSON/CSV exports.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against `git diff HEAD` (14 changed files, 3 new). `ktlintCheck`, `lintDebug`, `test` (full unit suite, including two new test files), and `assembleDebug` all pass. Instrumented: the `ui.share` package (117/117) and `CasePdfExporterTest` (7/7, confirmed on two separate devices) were run earlier in this pass; the final round of edits (removing notes truncation, removing the "History" kicker, narrowing the Start/End columns, recalibrating the header gap) were verified visually by the user directly on their own device rather than re-run by me, per their explicit request to hold off on further automated instrumented batches while they tested.
-
-**Found & fixed:**
-- **Zero direct unit coverage** for `historyPdfContent`'s column-gating, row-building and ongoing-event logic — it was only ever exercised indirectly through hand-built content objects in `CasePdfExporterTest`, never through the actual builder function. Added `HistoryPdfContentBuilderTest` (column gating for each optional column; ongoing vs. zero-length-point vs. finished-duration event handling; tag/note formatting; record count reflecting the filtered match count). Writing it caught a real bug in the test itself on the first pass, not the implementation: a `null` `endedAt` reads as *ongoing* on a tracking Case, not "no duration" — the existing `finishedPoint` fixture exists precisely to disambiguate that, and the first draft used a plain `testEvent` instead.
-- `OffscreenCaptureTest` was missing the `@Smoke` tag every other `@UiTest` class in `ui/share` carries on its one representative happy-path test — added.
-- The header block's fixed height (`PDF_HEADER_BLOCK_HEIGHT_PT`) had been sized for "kicker line and record-count line both present" — a combination that never actually occurs (Insights has a kicker and no count, History has a count and no kicker) — leaving a visible ~40pt gap before the table on every real document. Recalculated against the actual drawn content (~97-99pt either way) and dropped 140→115pt.
-- The `PDF_TABLE_CELL_MAX_LINES`/ellipsize truncation on table cells directly contradicted the user's ask ("longer notes are truncated which should not happen"); removed in favor of unbounded `StaticLayout` wrapping, with row heights already real-measured per row rather than assumed, so this didn't require touching the pagination math.
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- The two-line `pdfDateRangeBounds(...)` + `voice.shareHistoryRangeNote(...)` pattern appears identically in `ShareScreen.kt`'s inline Insights-PDF builder and in `HistoryPdfContentBuilder.kt`. Declined to extract a shared helper for it — two call sites, two lines each, sitting in functions whose surrounding context genuinely differs (one always spans the Case's full history, the other honors a user-picked range); a new function for this would add more indirection than it saves.
-
-**Checks:**
-- Duplication: the one instance above, considered and declined. No copy-pasted composables — the Insights/History PDF toggles are each one line wrapping the existing `ToggleRow`, not worth a shared wrapper for two call sites. Every new Voice string reused an existing one where the meaning already matched (`sharePdfDateRangeLabel`, `sharePdfRecordCount` reusing `shareSquareEventNoun`, `sharePdfGeneratedLine`); Start/End column headers are the only genuinely new strings this pass needed.
-- Decoupling: no `android.*` imports in `domain/PdfLayout.kt` or the new `domain/ExportFileTimestamp.kt`; `CasePdfExporter.kt`'s one `System.currentTimeMillis()` call matches the existing `ComposeShareImageExporter` precedent (filename uniqueness, not business logic); the exporter still imports nothing from `viewmodel`/`ui`.
-- Complexity: `CasePdfExporter.kt` is ~300 lines but stays a collection of small, single-purpose drawing/layout functions; its largest function (`drawDocumentHeader`) is about 20 lines.
-- Hygiene: `git status` clean throughout; no secrets, local paths, or leftover TODO/FIXME; no stray prototype artifacts (the earlier feature work's two capture spikes were already cleared in the prior commit).
-- Naming: new files (`domain/ExportFileTimestamp.kt`, `viewmodel/PdfAppLink.kt`, `viewmodel/HistoryPdfContentBuilderTest.kt`) follow convention and sit in the right package. `sharePdfDocumentTitle` converted from three per-voice overrides to one shared default (the user wanted the literal app tagline, not voice-flavored copy); `shareAsImageActionLabel` removed cleanly (no longer needed once the toggle replaced the two-button split) with no dangling references anywhere.
-- Hardcoded values: PDF drawing constants (text sizes, gaps, colors) stay as named private consts local to the exporter since nothing else needs them; the layout-math constants pagination depends on stay in `domain/PdfLayout.kt`, narrowed/recalibrated rather than left as guesses.
-- Accessibility: no new icon-only buttons; `ToggleRow` is an existing, already-accessible shared component reused as-is.
-- Data model, migrations, widgets, notifications: untouched — N/A.
-- Deprecated APIs: `StaticLayout.Builder.obtain(...)` is the current, non-deprecated API; no new compiler warnings introduced this pass.
-- Spec review: `HODITH_SPEC.md` §13 updated with a new "PDF record" bullet (the toggle, the document's structure) and a one-line fix to the pre-existing "Frequency never appears on a share card" sentence, which the Insights PDF now contradicts for that path specifically; §14's two Share-preview table rows cross-reference it.
-- Tests: covered above — new JVM coverage for the content builder, the missing `@Smoke` tag, and `TESTING.md`/`MANUAL_TEST_PLAN.md` both brought up to date (see Docs updated).
-
-**Docs updated:** HODITH_SPEC.md (§13 new bullet + one sentence fix, §14 two table rows); TESTING.md (new JVM row for `PdfLayoutTest`/`HistoryPdfContentBuilderTest`, three reworded Share instrumented rows, one new `CasePdfExporterTest` row); MANUAL_TEST_PLAN.md (new "PDF records" section); this entry (oldest entry, `feature/duration-unification — pre-merge cleanup pass`, removed per the 5-entry retention rule).
-
----
-
-## fix/bright-intensity-label
-
-**Scope:** User-reported Bright voice copy issue: `eventIntensityLabel` read "Feels like a 3!" with no word "intensity" anywhere, so the bare number in the dot-separated event summary row didn't clearly map to an intensity rating (unlike Plain's "Intensity 3" and Intense's "Intensity: 3"). Changed to "Intensity: 3!" — keeps Bright's exclamation-mark style, matches the other two voices' explicit wording.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (a single-line string change). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. No instrumented run — no new/changed test behavior; every existing test calls `BrightVoice.eventIntensityLabel(n)` dynamically rather than asserting the literal string, so none needed touching.
-
-**Found & fixed:**
-- `Voice.kt`'s `BrightVoice.eventIntensityLabel` changed from `"Feels like a $intensity!"` to `"Intensity: $intensity!"`.
-
-**Deferred:** nothing.
-
-**Checks:**
-- Duplication: this isn't a new inline string — it's the existing `Voice` layer's `eventIntensityLabel`, already called from `CaseDetailViewModel`'s shared `eventDetailSummary` helper.
-- Naming: not a new `Voice` key, so the "all three voices in the same commit" rule doesn't apply; Plain/Intense were reviewed and already say "Intensity" explicitly, so neither needed a change.
-- UI Copy Brevity: "Intensity: 3!" is the same length class as Plain/Intense's own intensity labels and no longer than its neighbouring summary fragments (duration, tags).
-- Hygiene: `git status` clean throughout; no secrets or local paths in the diff.
-- Spec review: HODITH_SPEC.md doesn't quote this string — nothing to update.
-- Tests: confirmed no test hardcoded the old "Feels like" string; full unit suite green against the new copy.
-
-**Docs updated:** this entry (oldest entry, `feature/duration-unification`, removed per the 5-entry retention rule).
 

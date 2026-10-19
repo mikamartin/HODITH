@@ -137,7 +137,6 @@ private fun CasePickerDialog(
                 Text(voice.widgetConfigureNoCasesMessage)
             } else {
                 LazyColumn {
-                    item { Text(voice.widgetConfigureBody) }
                     items(items = cases, key = { it.id }) { case ->
                         CasePickerRow(
                             case = case,

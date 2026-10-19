@@ -95,6 +95,7 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Bug fixed → regression test added?
 - [ ] Features removed/renamed → tests updated so they don't pass against dead code?
 - [ ] New instrumented tests actually ran on a device before committing?
+- [ ] **New widget instrumented test — does the test fixture actually constrain the rendered view's measurement/layout to the widget's real, non-resizable declared size (`minWidth`/`minHeight`/`resizeMode` in its `appwidget-provider` XML), rather than relying on `AppWidgetHost.createView()`'s unconstrained measurement (`WidgetRenderTestFixtures.kt`'s `renderedView()` does not)?** A node existing in an unmeasured View tree proves nothing about whether it's visible at the widget's true size — if the fixture doesn't constrain it, don't write an assertion that depends on layout/wrapping fitting within that size.
 - [ ] New instrumented test constructing a ViewModel directly (not via Hilt/`ViewModelProvider`) against a real Room db (`createInMemoryDatabase()`)? If that ViewModel's `uiState` uses `stateIn(viewModelScope, ...)` over a Room-backed Flow, register it in a `ViewModelStore` and clear the store before `db.close()` in `tearDown()` — otherwise a live collector can race the connection pool close.
 - [ ] New instrumented test class — tagged `@UiTest` if it's a Compose screen test (drives CI's shard split)? Does one of its tests deserve `@Smoke` as the class's representative happy path?
 - [ ] Is [TESTING.md](TESTING.md) accurate? Counts, new rows, Deferrals in/out.

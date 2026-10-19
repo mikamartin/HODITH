@@ -1,5 +1,6 @@
 package com.secondmonday.hodith.widget
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
@@ -14,6 +15,7 @@ import androidx.glance.LocalContext
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
@@ -35,7 +37,6 @@ import androidx.glance.semantics.semantics
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
-import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.secondmonday.hodith.MainActivity
@@ -59,6 +60,7 @@ class SingleCaseWidget : GlanceAppWidget() {
         id: GlanceId,
     ) {
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
 
         provideContent {
             // Read reactively via currentState()/produceState rather than one-shot suspend reads
@@ -82,10 +84,8 @@ class SingleCaseWidget : GlanceAppWidget() {
                         }
                     }
                 }
-            val use24Hour by rememberWidgetUse24Hour(entryPoint)
 
             GlanceTheme {
-                val glanceContext = LocalContext.current
                 Box(
                     modifier =
                         GlanceModifier
@@ -97,22 +97,9 @@ class SingleCaseWidget : GlanceAppWidget() {
                 ) {
                     val currentRow = row
                     if (currentRow == null) {
-                        Text(
-                            text = PlainVoice.widgetCaseNotFoundMessage,
-                            style =
-                                TextStyle(
-                                    color = ColorProvider(WidgetPalette.onSurfaceMuted),
-                                    fontSize = WidgetInfoMessageSize,
-                                    textAlign = TextAlign.Center,
-                                ),
-                            modifier =
-                                GlanceModifier
-                                    .fillMaxSize()
-                                    .padding(WidgetSingleCaseOuterPadding)
-                                    .clickable(actionStartActivity(Intent(glanceContext, MainActivity::class.java))),
-                        )
+                        SingleCaseMissingContent(appWidgetId)
                     } else {
-                        SingleCaseContent(currentRow, now, use24Hour)
+                        SingleCaseContent(currentRow)
                     }
                 }
             }
@@ -124,12 +111,61 @@ class SingleCaseWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = SingleCaseWidget()
 }
 
+/**
+ * The Single-case widget's missing-Case state (its bound Case was deleted or archived) — mirrors
+ * [SingleCaseContent]'s shape (a non-weighted top zone sized to its own content, then a button
+ * filling the rest of the tile) so the layout stays visually consistent between states. Both the
+ * "Edit" label and the "✎" icon reopen [SingleCaseWidgetConfigureActivity] — there is no message
+ * area and no way to open the app directly in this state; the only action available is
+ * reconfiguring.
+ */
 @Composable
-private fun SingleCaseContent(
-    row: HomeCaseRow,
-    now: Long,
-    use24Hour: Boolean,
-) {
+private fun SingleCaseMissingContent(appWidgetId: Int) {
+    val context = LocalContext.current
+    val openConfigure =
+        actionStartActivity(
+            Intent(context, SingleCaseWidgetConfigureActivity::class.java)
+                .setAction(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
+        )
+    Column(
+        modifier = GlanceModifier.fillMaxSize().padding(WidgetSingleCaseOuterPadding),
+        horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
+    ) {
+        Box(
+            modifier = GlanceModifier.fillMaxWidth().clickable(openConfigure),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = PlainVoice.singleCaseWidgetEditLabel,
+                style =
+                    TextStyle(
+                        color = ColorProvider(WidgetPalette.onSurface),
+                        fontSize = WidgetIconGlyphSize,
+                        fontWeight = FontWeight.Medium,
+                    ),
+            )
+        }
+        Spacer(modifier = GlanceModifier.height(WidgetSingleCaseLogButtonSpacing))
+        Box(
+            modifier =
+                GlanceModifier
+                    .fillMaxWidth()
+                    .defaultWeight()
+                    .clickable(openConfigure)
+                    .semantics { contentDescription = PlainVoice.singleCaseWidgetEditButtonDescription },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "✎",
+                style = TextStyle(color = ColorProvider(WidgetPalette.onSurface), fontSize = WidgetGlyphButtonSize),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SingleCaseContent(row: HomeCaseRow) {
     val context = LocalContext.current
     val caseDetailIntent =
         Intent(context, MainActivity::class.java)
@@ -139,17 +175,17 @@ private fun SingleCaseContent(
         modifier = GlanceModifier.fillMaxSize().padding(WidgetSingleCaseOuterPadding),
         horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
     ) {
-        Column(
+        // Non-weighted and sized to its own content, so a sibling can never squeeze it out of
+        // room — unlike the icon+subtitle Column this replaced, which could clip the icon itself
+        // when the subtitle demanded more space than the tile's true (non-resizable) size allowed.
+        Box(
             modifier =
                 GlanceModifier
-                    .defaultWeight()
                     .fillMaxWidth()
                     .clickable(actionStartActivity(intent = caseDetailIntent)),
-            horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
-            verticalAlignment = Alignment.Vertical.CenterVertically,
+            contentAlignment = Alignment.Center,
         ) {
             Text(text = row.icon, style = TextStyle(fontSize = WidgetIconGlyphSize))
-            WidgetCaseSubtitle(row = row, now = now, use24Hour = use24Hour)
         }
         Spacer(modifier = GlanceModifier.height(WidgetSingleCaseLogButtonSpacing))
         // The log button stays put whether or not an event runs (spec §6) — on a running
@@ -169,7 +205,7 @@ private fun SingleCaseContent(
             modifier =
                 GlanceModifier
                     .fillMaxWidth()
-                    .height(MinTapTarget)
+                    .defaultWeight()
                     .background(WidgetPalette.surface)
                     .cornerRadius(WidgetLogButtonCornerRadius)
                     .clickable(tapAction)
