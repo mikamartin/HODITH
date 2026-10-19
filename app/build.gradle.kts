@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ktlint)
@@ -67,12 +68,12 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
-// Room 2.8.4's MigrationTestHelper (room-migration-bundle) needs kotlinx-serialization-core
-// 1.8.1 to deserialize schemas/*.json, but the pinned Compose BOM's constraint set strictly
-// pins it to 1.7.3, causing an AbstractMethodError at test runtime. No production code uses
-// kotlinx.serialization, so force it only for the androidTest configurations rather than
-// touching the pinned Compose BOM (DEV_PLAYBOOK §6).
-configurations.matching { it.name.contains("AndroidTest") }.configureEach {
+// BackupSerializer (data/backup) uses kotlinx-serialization-json for export/import, and Room
+// 2.8.4's MigrationTestHelper (room-migration-bundle) needs kotlinx-serialization-core 1.8.1 to
+// deserialize schemas/*.json — but the pinned Compose BOM's constraint set strictly pins it to
+// 1.7.3, causing an AbstractMethodError at test runtime. Force the newer version everywhere
+// rather than touching the pinned Compose BOM (DEV_PLAYBOOK §6).
+configurations.configureEach {
     resolutionStrategy {
         force(
             "org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1",
@@ -112,8 +113,7 @@ dependencies {
 
     implementation(libs.datastore.preferences)
 
-    implementation(libs.moshi)
-    ksp(libs.moshi.kotlin.codegen)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.glance.appwidget)
 

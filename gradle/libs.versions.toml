@@ -16,7 +16,7 @@ glance = "1.1.1"
 work = "2.11.2"
 hiltWork = "1.2.0"
 datastorePreferences = "1.1.7"
-moshi = "1.15.2"
+kotlinxSerialization = "1.8.1"
 coroutines = "1.11.0"
 turbine = "1.2.1"
 errorProneAnnotations = "2.47.0"
@@ -58,8 +58,7 @@ room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 
-moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
-moshi-kotlin-codegen = { module = "com.squareup.moshi:moshi-kotlin-codegen", version.ref = "moshi" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 glance-testing = { module = "androidx.glance:glance-testing", version.ref = "glance" }
@@ -85,6 +84,7 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref =
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }

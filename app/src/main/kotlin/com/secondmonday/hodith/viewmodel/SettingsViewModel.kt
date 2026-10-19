@@ -15,7 +15,6 @@ import com.secondmonday.hodith.data.backup.BackupSerializer
 import com.secondmonday.hodith.data.backup.CsvBackupSerializer
 import com.secondmonday.hodith.data.demo.DemoDataSeeder
 import com.secondmonday.hodith.domain.Clock
-import com.squareup.moshi.JsonDataException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +24,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.serialization.SerializationException
 import java.io.IOException
 import javax.inject.Inject
 
@@ -173,9 +173,7 @@ class SettingsViewModel
             val backup =
                 try {
                     backupSerializer.fromJson(json, declaredVersion)
-                } catch (e: JsonDataException) {
-                    return BackupEvent.ImportFailure(ImportFailureReason.INVALID)
-                } catch (e: IOException) {
+                } catch (e: SerializationException) {
                     return BackupEvent.ImportFailure(ImportFailureReason.INVALID)
                 }
 

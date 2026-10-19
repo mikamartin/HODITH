@@ -3,7 +3,7 @@ package com.secondmonday.hodith.data
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
-import com.squareup.moshi.JsonClass
+import kotlinx.serialization.Serializable
 
 @Entity(
     tableName = "event_tags",
@@ -24,7 +24,7 @@ import com.squareup.moshi.JsonClass
     ],
     indices = [Index("eventId"), Index("tagId")],
 )
-@JsonClass(generateAdapter = true)
+@Serializable
 data class EventTagCrossRef(
     val eventId: Long,
     val tagId: Long,

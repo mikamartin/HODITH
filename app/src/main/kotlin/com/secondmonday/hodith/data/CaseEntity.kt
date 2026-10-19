@@ -3,10 +3,10 @@ package com.secondmonday.hodith.data
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.squareup.moshi.JsonClass
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "cases")
-@JsonClass(generateAdapter = true)
+@Serializable
 data class CaseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,

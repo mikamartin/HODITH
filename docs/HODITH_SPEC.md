@@ -320,7 +320,7 @@ Bottom navigation: **Home · Big Picture · Settings**.
 ## 16. Data, privacy, distribution
 
 - All data local: Room DB + DataStore prefs. No network permission in the manifest.
-- **Export/import**: full JSON (Moshi), schema-versioned (`schemaVersion: 1`). Import checks the file's shape and content — field rules and referential integrity across the backup — before writing anything, then restores atomically inside one transaction. A CSV export sits alongside it for tabular use: one row per event across all active (non-archived) Cases, export-only since a flattened tabular shape can't round-trip back into the relational schema.
+- **Export/import**: full JSON (kotlinx.serialization), schema-versioned (`schemaVersion: 1`). Import checks the file's shape and content — field rules and referential integrity across the backup — before writing anything, then restores atomically inside one transaction. A CSV export sits alongside it for tabular use: one row per event across all active (non-archived) Cases, export-only since a flattened tabular shape can't round-trip back into the relational schema.
 - Android auto-backup enabled by default (`allowBackup`, unrestricted `data_extraction_rules.xml`), with a Settings toggle (default on) to opt out — documented on the About screen. One toggle governs both cloud backup and device-transfer, since both go through the same `onFullBackup` path on API 31+; enforcement lives in `HodithBackupAgent`, since the manifest flags themselves are static and can't be flipped at runtime. Opting out only stops future backups — it doesn't purge a backup already made.
 - Free, no ads, no IAP at launch.
 - Play data-safety form: no data collected.
@@ -340,7 +340,7 @@ The list, in no particular priority order:
 
 ## 18. Tech stack
 
-The tooling version matrix and gotchas live in DEV_PLAYBOOK §5.
+The tooling version matrix and gotchas live in DEV_PLAYBOOK §7.
 
 | Layer | Technology |
 |---|---|
@@ -352,8 +352,22 @@ The tooling version matrix and gotchas live in DEV_PLAYBOOK §5.
 | DI | Hilt |
 | Navigation | Navigation Compose |
 | Settings | DataStore Preferences |
-| Serialisation | Moshi (export/import) |
+| Serialisation | kotlinx.serialization (export/import) |
 | Background | WorkManager (watch & check-in evaluation) |
 | Min SDK | API 31 (Android 12) |
 
 Suggested package: `com.secondmonday.hodith`.
+
+## 19. Multiplatform roadmap
+
+HODITH's planned route to an iOS build is Compose Multiplatform (CMP) rather than a second native UI — Material 3 and Navigation Compose both run on iOS under CMP, and the app's UI is plain enough (lists, forms, charts) that sharing Compose outweighs investing in SwiftUI-specific polish. This isn't scheduled work; it's the standing architectural direction so current changes don't quietly make the eventual port harder. See [CLEANUP_CHECKLIST.md](../docs/CLEANUP_CHECKLIST.md)'s Decoupling section for the per-change checks this implies, and `PROGRESS.md` for the concrete migration items.
+
+Decisions made so far:
+
+- **UI & logic sharing**: domain/data/viewmodel/ui move into a `commonMain` KMP source set; `androidMain`/`iosMain` hold only the platform `actual`s behind seams that already exist as interfaces (`HodithRepository`, `Notifier`, `PdfExporter`, `ShareImageExporter`, `BackupFileWriter`).
+- **DI**: Hilt has no iOS target. Dagger/Hilt stays for the Android module in the interim; a KMP-compatible replacement (Koin is the leading candidate) is needed once the module split starts, since `hilt-navigation-compose` ties ViewModel injection to it directly.
+- **Persistence**: Room 2.8.x has official KMP/Native support; moving the schema to a shared module needs restructuring to Room's multiplatform `RoomDatabaseConstructor` setup, not a library swap.
+- **Settings**: DataStore Preferences has a multiplatform artifact; `DataStoreSettingsRepository`'s direct `Context`/`android.text.format.DateFormat` use needs an iOS-side equivalent for the 24-hour-format OS query.
+- **Serialisation**: kotlinx.serialization (done — see `data/backup/BackupSerializer.kt`). Chosen over Moshi specifically because Moshi has no Kotlin/Native target.
+- **Date/time**: `java.time` has no Kotlin/Native target either. `kotlinx-datetime` is the planned replacement, tracked as its own item in `PROGRESS.md` given its size (domain math in `VerdictEngine`/`StatsEngine`/etc. plus a `viewmodel`/`ui` cascade) and the real API gaps to fill (no direct equivalent to `TemporalAdjusters` or `DateTimeFormatter`-style locale formatting).
+- **Platform-specific, expected to be rewritten per platform regardless of the above**: PDF export, share-image export, backup file I/O (SAF vs. `UIDocumentPickerViewController`), notifications (`NotificationManager` vs. `UNUserNotificationCenter`), and widgets (Jetpack Glance has no CMP/iOS equivalent at all — iOS widgets are a from-scratch WidgetKit build).

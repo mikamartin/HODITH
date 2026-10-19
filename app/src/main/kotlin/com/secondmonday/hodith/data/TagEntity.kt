@@ -3,10 +3,10 @@ package com.secondmonday.hodith.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.squareup.moshi.JsonClass
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "tags", indices = [Index("name", unique = true)])
-@JsonClass(generateAdapter = true)
+@Serializable
 data class TagEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,

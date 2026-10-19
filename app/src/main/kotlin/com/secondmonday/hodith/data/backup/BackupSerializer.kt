@@ -1,10 +1,13 @@
 package com.secondmonday.hodith.data.backup
 
-import com.squareup.moshi.JsonAdapter
-import com.squareup.moshi.JsonDataException
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
-import java.io.IOException
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.intOrNull
 import javax.inject.Inject
 
 private const val SCHEMA_VERSION_KEY = "schemaVersion"
@@ -13,7 +16,7 @@ private const val SCHEMA_VERSION_KEY = "schemaVersion"
 interface BackupUpgradeStep {
     val fromVersion: Int
 
-    fun upgrade(raw: Map<String, Any?>): Map<String, Any?>
+    fun upgrade(raw: JsonObject): JsonObject
 }
 
 /**
@@ -31,63 +34,59 @@ private val UPGRADE_STEPS: List<BackupUpgradeStep> = emptyList()
  * unit-testable against a fake [BackupUpgradeStep] without a real historical payload to test.
  */
 internal fun applyUpgradeSteps(
-    raw: Map<String, Any?>,
+    raw: JsonObject,
     declaredVersion: Int,
     targetVersion: Int,
     steps: List<BackupUpgradeStep>,
-): Map<String, Any?> =
+): JsonObject =
     steps
         .filter { it.fromVersion in declaredVersion until targetVersion }
         .sortedBy { it.fromVersion }
         .fold(raw) { payload, step -> step.upgrade(payload) }
 
-/** JSON <-> [BackupData]. Callers handle [JsonDataException]/[IOException] on malformed input. */
+/** JSON <-> [BackupData]. Callers handle [SerializationException] on malformed input. */
 class BackupSerializer
     @Inject
     constructor(
-        moshi: Moshi,
+        private val json: Json,
     ) {
-        private val adapter = moshi.adapter(BackupData::class.java)
-        private val rawMapAdapter: JsonAdapter<Map<String, Any?>> =
-            moshi.adapter(Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java))
+        fun toJson(data: BackupData): String = json.encodeToString(data)
 
-        fun toJson(data: BackupData): String = adapter.toJson(data)
-
-        fun fromJson(json: String): BackupData = adapter.fromJson(json) ?: throw JsonDataException("Backup JSON parsed to null")
+        fun fromJson(content: String): BackupData = json.decodeFromString<BackupData>(content)
 
         /**
-         * Reads just `schemaVersion` from [json] without requiring the rest of the payload to match
-         * the current [BackupData] shape, so callers can decide how to handle an older or newer file
-         * before running it through the strict adapter. Returns null if [json] isn't a parseable
-         * JSON object at all - a genuinely malformed/non-JSON payload, not merely an old one.
+         * Reads just `schemaVersion` from [content] without requiring the rest of the payload to
+         * match the current [BackupData] shape, so callers can decide how to handle an older or
+         * newer file before running it through the strict decoder. Returns null if [content] isn't
+         * a parseable JSON object at all - a genuinely malformed/non-JSON payload, not merely an
+         * old one.
          */
-        fun peekSchemaVersion(json: String): Int? =
+        fun peekSchemaVersion(content: String): Int? =
             try {
-                val raw = rawMapAdapter.fromJson(json) ?: return null
-                // Moshi's generic Map<String, Any?> adapter decodes JSON numbers as Double, never Int.
-                (raw[SCHEMA_VERSION_KEY] as? Double)?.toInt() ?: BACKUP_SCHEMA_VERSION
-            } catch (e: JsonDataException) {
-                null
-            } catch (e: IOException) {
+                val raw = json.parseToJsonElement(content) as? JsonObject ?: return null
+                (raw[SCHEMA_VERSION_KEY] as? JsonPrimitive)?.intOrNull ?: BACKUP_SCHEMA_VERSION
+            } catch (e: SerializationException) {
                 null
             }
 
         /**
-         * Parses [json] declared at [declaredVersion]. At the current version this is identical to
-         * [fromJson]. For an older version, folds the raw payload through [applyUpgradeSteps] before
-         * parsing - a no-op fold (no matching step registered, the only case reachable today) falls
-         * through to the strict parse unchanged, so it still succeeds or fails on its own merits
-         * rather than silently dropping data.
+         * Parses [content] declared at [declaredVersion]. At the current version this is identical
+         * to [fromJson]. For an older version, folds the raw payload through [applyUpgradeSteps]
+         * before decoding - a no-op fold (no matching step registered, the only case reachable
+         * today) falls through to the strict decode unchanged, so it still succeeds or fails on its
+         * own merits rather than silently dropping data.
          */
         fun fromJson(
-            json: String,
+            content: String,
             declaredVersion: Int,
         ): BackupData {
-            if (declaredVersion == BACKUP_SCHEMA_VERSION) return fromJson(json)
+            if (declaredVersion == BACKUP_SCHEMA_VERSION) return fromJson(content)
 
-            val raw = rawMapAdapter.fromJson(json) ?: throw JsonDataException("Backup JSON parsed to null")
+            val raw =
+                json.parseToJsonElement(content) as? JsonObject
+                    ?: throw SerializationException("Backup JSON is not an object")
             val upgraded = applyUpgradeSteps(raw, declaredVersion, BACKUP_SCHEMA_VERSION, UPGRADE_STEPS)
 
-            return adapter.fromJsonValue(upgraded) ?: throw JsonDataException("Backup JSON parsed to null")
+            return json.decodeFromJsonElement<BackupData>(upgraded)
         }
     }
