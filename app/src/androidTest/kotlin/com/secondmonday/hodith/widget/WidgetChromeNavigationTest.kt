@@ -29,17 +29,19 @@ import org.junit.runner.RunWith
 
 /**
  * Covers the widget chrome that lives outside the List widget's `LazyColumn` — its title, header
- * edit icon, and empty-state message, plus the Single-case widget's missing-Case state (message
- * and its own "✎" edit icon). The title and the Single-case message open [MainActivity] with no
+ * edit icon, and empty-state message, plus the Single-case widget's missing-Case state (its "Edit"
+ * label and its own "✎" edit icon, both filling the tile). The title opens [MainActivity] with no
  * Case deep link; the List widget's empty-state message and header edit icon reopen
- * [ListWidgetConfigureActivity], and the Single-case widget's missing-Case edit icon reopens
- * [SingleCaseWidgetConfigureActivity] (both the real `android:configure` flow, so the Case picker
- * shows). Unlike the row content *inside* the List widget's `LazyColumn` (see
- * [WidgetActionsFlowTest]'s doc comment on why that can't be driven here), these boxes render
- * directly into the host view and are clickable as soon as `AppWidgetHost.createView()` returns —
- * including the edit icons, which render regardless of whether any Cases are selected/bound.
+ * [ListWidgetConfigureActivity], and the Single-case widget's missing-Case "Edit" label and "✎"
+ * icon both reopen [SingleCaseWidgetConfigureActivity] (the real `android:configure` flow, so the
+ * Case picker shows) — there is no message area and no MainActivity path in this state; the only
+ * action available is reconfiguring. Unlike the row content *inside* the List widget's
+ * `LazyColumn` (see [WidgetActionsFlowTest]'s doc comment on why that can't be driven here), these
+ * boxes render directly into the host view and are clickable as soon as
+ * `AppWidgetHost.createView()` returns — including the edit icons, which render regardless of
+ * whether any Cases are selected/bound.
  *
- * The Single-case "Case is gone" tests bind to a Case id that was never inserted rather than
+ * The Single-case missing-Case tests bind to a Case id that was never inserted rather than
  * deleting a real one — functionally identical from the widget's point of view (its bound id just
  * doesn't match any active Case), and avoids a delete-then-wait-for-recompose race. (A real
  * delete-then-rebind end-to-end flow is covered separately by
@@ -107,10 +109,10 @@ class WidgetChromeNavigationTest {
     }
 
     @Test
-    fun singleCaseWidget_missingCaseTap_opensMainActivity() =
+    fun singleCaseWidget_missingCase_editLabelTap_opensConfigureActivity() =
         runBlocking {
             appWidgetId = bindAndRenderSingleCaseWidget(context, host, NONEXISTENT_CASE_ID)
-            assertTapOpensMainActivity(PlainVoice.widgetCaseNotFoundMessage)
+            assertTapOpens(SingleCaseWidgetConfigureActivity::class.java, PlainVoice.singleCaseWidgetEditLabel)
         }
 
     @Test
@@ -142,14 +144,6 @@ class WidgetChromeNavigationTest {
         runBlocking {
             bindAndRenderListWidget()
             val textView = waitForTextViewWithText(PlainVoice.widgetNoCasesSelectedMessage)
-            assertEquals(spToPx(context, WidgetInfoMessageSize.value), textView.textSize, 0.5f)
-        }
-
-    @Test
-    fun singleCaseWidget_missingCaseMessage_rendersAtWidgetInfoMessageSize() =
-        runBlocking {
-            appWidgetId = bindAndRenderSingleCaseWidget(context, host, NONEXISTENT_CASE_ID)
-            val textView = waitForTextViewWithText(PlainVoice.widgetCaseNotFoundMessage)
             assertEquals(spToPx(context, WidgetInfoMessageSize.value), textView.textSize, 0.5f)
         }
 

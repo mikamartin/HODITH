@@ -40,7 +40,11 @@ internal object WidgetPalette {
 }
 
 /** Minimum tappable target on any axis (Android accessibility guidance) — the widgets' compact
- * rows would otherwise size the "+" and "Stop" tap targets to their text alone. */
+ * rows would otherwise size the "+" and "Stop" tap targets to their text alone. Used as a fixed
+ * height by the List widget's "+" quick-log button and its header "✎" edit icon
+ * ([ListWidget]/`ListWidget.kt`); the Single-case widget's own "+"/"✎" controls instead fill
+ * whatever body space remains below their icon/label zone (`SingleCaseWidget.kt`) rather than
+ * being pinned to this value. */
 internal val MinTapTarget = 48.dp
 
 /** App widget corner radius — matches the system-drawn corner mask on Android 12+ hosts, and Home's
@@ -60,9 +64,11 @@ internal val WidgetCaseNameSize = 16.sp
 internal val WidgetSubtitleSize = 12.sp
 internal val WidgetPillTextSize = 11.sp
 
-/** Shared by every square glyph-in-a-[MinTapTarget]-box widget button — the "+" quick-log button
- * (List and Single-case), the List widget header's "✎" edit icon, and the Single-case widget's
- * missing-Case "✎" edit icon. */
+/** Shared by every glyph-only widget button regardless of how its containing box is sized — the
+ * List widget's "+" quick-log button and header "✎" edit icon (both fixed at [MinTapTarget]), and
+ * the Single-case widget's "+" quick-log button and missing-Case "✎" edit icon (each filling a
+ * weighted body box instead, `SingleCaseWidget.kt`) — kept at one size everywhere so the two
+ * widgets' buttons can't visually drift apart despite the different container shapes. */
 internal val WidgetGlyphButtonSize = 20.sp
 internal val WidgetHeaderTitleSize = 14.sp
 internal val WidgetInfoMessageSize = 14.sp

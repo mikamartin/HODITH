@@ -40,21 +40,22 @@ which test.
    from Case Detail, or use the seeded "Noisy neighbours" demo Case) — the row shows the pill + a
    count. Log an event on a duration-tracking Case whose typed duration projects past now (spec §6) — the row shows
    the pill + the expected end time instead of an elapsed count, honoring the Settings 12h/24h
-   choice. Stop is only in Case Detail, reached by tapping the row. Only the ticking-elapsed/expected-end
-   *display*, the pill/row rendering, and the row tap need a human (same `ListView` limitation) — the
-   expected-end subtitle and the log button starting a second event and the row deep-link are
-   covered on the Single-case widget by
-   `WidgetActionsFlowTest.trackedCaseWithFutureEndedAt_showsExpectedEndInSubtitle` and
-   `WidgetActionsFlowTest.logTap_startsASecondEventForARunningTrackedCase` and
-   `WidgetActionsFlowTest.runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail`.
+   choice. Stop is only in Case Detail, reached by tapping the row. Only the ticking-elapsed
+   *display* and the row's own on-screen layout need a human (same `ListView` limitation) — the log
+   button starting a second event is covered on the Single-case widget by
+   `WidgetActionsFlowTest.logTap_startsASecondEventForARunningTrackedCase`, and the shared text this
+   row renders (the pill label, the count, and the expected-end trailing text) is covered directly,
+   independent of either widget's own composable, by `WidgetCaseSubtitleTest` (Glance's own
+   unit-testing library, no `AppWidgetHost`/device needed) — added once the Single-case widget
+   stopped rendering a subtitle of its own (CLEANUP_LOG.md) left this content with no instrumented
+   path through either widget.
 7. **List widget today/this-week count for a duration event (spec §9/§14 active span).** On a
    duration-tracking Case, log an event that started before today and
    ended earlier today, and start one that's still running. The row's count reads "Today: 2" — a
    duration event counts on every day its span was active, not only its start day, so a run stopped
-   and logged today shows the same day. Only the List widget row needs a human (same `ListView`
-   limitation); the Single-case widget renders the identical count and is covered by
-   `WidgetActionsFlowTest.singleCaseWidget_todayCount_creditsADurationEventStillActiveToday`, and the
-   count math itself by `HomeViewModelMappingTest`.
+   and logged today shows the same day. Only the List widget row's own on-screen layout needs a
+   human (same `ListView` limitation); the count math itself is covered by
+   `HomeViewModelMappingTest`, and the rendered "Today: N" text by `WidgetCaseSubtitleTest`.
 8. **List widget configure flow, per-instance selection.** Add two List widgets to the home
    screen and pick a different set of Cases for each — each shows only its own picks, not the
    other's. Tap a placed List widget's header edit icon to reopen its picker and change its
@@ -64,17 +65,20 @@ which test.
    only its own picks after a re-edit — stay here. The picker reopening with the current selection
    already checked, rather than blank, is automated by
    `ListWidgetConfigureFlowTest.listWidgetConfigure_reopenedOnAlreadyConfiguredWidget_showsExistingSelectionChecked`.)
-9. **Single-case widget: tap the icon/count area to open Case details.** Tapping elsewhere on the
-    widget (not the dedicated `+` log button) opens that Case's detail screen. (The `+`/log button
-    itself — logging directly for `ONE_TAP`, via the trampoline sheet for `DETAIL_SHEET` — is covered
-    by `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase` for the `ONE_TAP` case; the
-    `DETAIL_SHEET` case's button tap doesn't have widget-click coverage yet, though the trampoline sheet
-    it opens does, via `WidgetLogTrampolineActivityTest`.)
+9. **Single-case widget: tap the icon to open Case details.** Tapping the icon (not the dedicated
+    `+` log button, which fills the rest of the tile) opens that Case's detail screen — automated by
+    `WidgetActionsFlowTest.singleCaseWidget_iconTap_opensCaseDetail`; kept here as a quick visual
+    sanity check since the icon's own non-weighted sizing is exactly what this redesign was fixing.
+    (The `+`/log button itself — logging directly for `ONE_TAP`, via the trampoline sheet for
+    `DETAIL_SHEET` — is covered by `WidgetActionsFlowTest.quickLogTap_insertsAnEventForAOneTapCase`
+    for the `ONE_TAP` case; the `DETAIL_SHEET` case's button tap doesn't have widget-click coverage
+    yet, though the trampoline sheet it opens does, via `WidgetLogTrampolineActivityTest`.)
 10. **Add two widgets for the same Case, one of them a List widget** — logging from the List
     widget refreshes the Single-case widget and the reverse. (Two Single-case widgets are automated by
     `WidgetActionsFlowTest.logFromOneWidget_refreshesASecondWidgetForTheSameCase`.)
-11. **Reboot device with an ongoing event** — both widgets still show the correct elapsed time
-    afterward, not a reset or stale value.
+11. **Reboot device with an ongoing event** — the List widget still shows the correct elapsed time
+    afterward, not a reset or stale value; the Single-case widget's log button still starts a second
+    event on the running Case rather than erroring (it no longer shows an elapsed time of its own).
 12. **List widget resize.** With several Cases selected, drag the widget's resize handles through a
     range of heights. No dead strip at the bottom (the old unconditional trailing spacer after the
     last row), and no large empty gap below a short list — the `LazyColumn` fills and scrolls

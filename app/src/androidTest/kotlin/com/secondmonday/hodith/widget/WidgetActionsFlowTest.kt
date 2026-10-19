@@ -12,23 +12,15 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.secondmonday.hodith.MainActivity
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.LogFlow
-import com.secondmonday.hodith.data.SettingsRepository
-import com.secondmonday.hodith.data.TimeFormat
 import com.secondmonday.hodith.data.testCase
 import com.secondmonday.hodith.data.testEvent
-import com.secondmonday.hodith.domain.MILLIS_PER_DAY
-import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
-import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.ui.voice.PlainVoice
-import com.secondmonday.hodith.viewmodel.formatExpectedEndTime
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -37,13 +29,12 @@ import javax.inject.Inject
 
 /**
  * Real end-to-end tests that drive the actual rendered Single-case widget View via a real
- * [AppWidgetHost] (same pattern as [ListWidgetConfigureFlowTest]): the [QuickLogAction]/
- * [StopEventAction] click-throughs, and a handful of render assertions ([HomeCaseRow]-derived
- * content that only a real Glance render produces — the "Ongoing" pill, the running-count
- * subtitle, the active-span today count).
+ * [AppWidgetHost] (same pattern as [ListWidgetConfigureFlowTest]): the [QuickLogAction] click-
+ * through, and a couple of render assertions ([HomeCaseRow]-derived content that only a real
+ * Glance render produces — the icon tap opening Case detail, the "+" glyph's render size).
  *
- * The two `ActionCallback`s have no unit coverage: they need a real `Context` with a live Hilt
- * component ([dagger.hilt.android.EntryPointAccessors]) and a real `WorkManager`
+ * The `ActionCallback` has no unit coverage: it needs a real `Context` with a live Hilt component
+ * ([dagger.hilt.android.EntryPointAccessors]) and a real `WorkManager`
  * ([WidgetRefreshWorker.enqueueRefresh]), neither of which exists on the JVM, and per
  * `docs/CLEANUP_LOG.md` this repo doesn't use Robolectric or a mocking library — so an instrumented
  * click-through, not an extracted seam, is the fitting way to cover this one-line-pass-through glue.
@@ -74,29 +65,19 @@ class WidgetActionsFlowTest {
     @Inject
     lateinit var repository: HodithRepository
 
-    @Inject
-    lateinit var settingsRepository: SettingsRepository
-
     private lateinit var context: Context
     private lateinit var host: AppWidgetHost
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var secondWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var insertedCaseId = 0L
-    private var originalTimeFormat = TimeFormat.TWELVE_HOUR
 
     @Before
-    fun setUp() =
-        runBlocking {
-            hiltRule.inject()
-            context = ApplicationProvider.getApplicationContext()
-            host = AppWidgetHost(context, HOST_ID)
-            host.startListening()
-            // Deterministic for trackedCaseWithFutureEndedAt_showsExpectedEndInSubtitle's exact-text
-            // assertion — the widget reads this from Settings (ListWidget.kt's rememberWidgetUse24Hour),
-            // not a device/locale default that would vary by emulator image.
-            originalTimeFormat = settingsRepository.observeTimeFormat().first()
-            settingsRepository.setTimeFormat(TimeFormat.TWELVE_HOUR)
-        }
+    fun setUp() {
+        hiltRule.inject()
+        context = ApplicationProvider.getApplicationContext()
+        host = AppWidgetHost(context, HOST_ID)
+        host.startListening()
+    }
 
     @After
     fun tearDown() =
@@ -111,7 +92,6 @@ class WidgetActionsFlowTest {
             if (insertedCaseId != 0L) {
                 repository.getCase(insertedCaseId)?.let { repository.deleteCase(it) }
             }
-            settingsRepository.setTimeFormat(originalTimeFormat)
         }
 
     @Test
@@ -171,27 +151,16 @@ class WidgetActionsFlowTest {
         }
 
     @Test
-    fun runningCase_showsOngoingPill_andTheCaseAreaOpensCaseDetail() {
+    fun singleCaseWidget_iconTap_opensCaseDetail() {
         runBlocking {
             val caseName = "Noisy neighbours ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, tracksDuration = true))
-            repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 0L, endedAt = null))
-            repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = 1_000L, endedAt = null))
+            val icon = "🐛"
+            insertedCaseId = repository.insertCase(testCase(name = caseName, icon = icon))
             appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
 
-            // The "Ongoing" pill renders inside the tappable Case area (the icon/subtitle column).
-            val caseArea = waitForClickableWithText(PlainVoice.ongoingPillLabel)
-
-            // With two events open, the subtitle's trailing text is a count, not one elapsed time.
-            assertTrue(
-                "Expected the running-count indicator in the widget subtitle",
-                collectText(renderedView(context, host, appWidgetId)).any { it.contains(PlainVoice.ongoingCountIndicator(2)) },
-            )
-
-            // WidgetPillTextSize mirrors Home's labelSmall (ui/theme/Type.kt) — DEV_PLAYBOOK.md §4.
-            val pillTextView = findTextViewWithText(renderedView(context, host, appWidgetId), PlainVoice.ongoingPillLabel)
-            assertNotNull("Expected the Ongoing pill's TextView to render", pillTextView)
-            assertEquals(spToPx(context, WidgetPillTextSize.value), pillTextView!!.textSize, 0.5f)
+            // The icon fills its own non-weighted zone at the top of the tile (SingleCaseWidget.kt);
+            // tapping it opens the Case's detail screen.
+            val caseArea = waitForClickableWithText(icon)
 
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             val monitor = Instrumentation.ActivityMonitor(MainActivity::class.java.name, null, false)
@@ -199,7 +168,7 @@ class WidgetActionsFlowTest {
             try {
                 instrumentation.runOnMainSync { caseArea.performClick() }
                 val activity: Activity? = monitor.waitForActivityWithTimeout(5_000)
-                assertNotNull("Expected tapping the Case area to open MainActivity", activity)
+                assertNotNull("Expected tapping the icon to open MainActivity", activity)
                 assertEquals(insertedCaseId, activity?.intent?.getLongExtra(EXTRA_CASE_ID, -1L))
                 activity?.finish()
             } finally {
@@ -208,59 +177,9 @@ class WidgetActionsFlowTest {
         }
     }
 
-    @Test
-    fun trackedCaseWithFutureEndedAt_showsExpectedEndInSubtitle() =
-        runBlocking {
-            val caseName = "Slow Cooker ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, tracksDuration = true))
-            // Real wall-clock, same reason as singleCaseWidget_todayCount below: the widget reads
-            // the injected (real) clock. A typed duration projecting an hour past now (spec §6).
-            val now = System.currentTimeMillis()
-            val expectedEndAt = now + MILLIS_PER_HOUR
-            repository.insertEvent(testEvent(caseId = insertedCaseId, occurredAt = now, endedAt = expectedEndAt))
-            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
-
-            waitForClickableWithText(PlainVoice.ongoingPillLabel)
-            // Matches the TWELVE_HOUR format setUp() pins Settings to.
-            val expectedTrailing = PlainVoice.ongoingExpectedEndTrailing(formatExpectedEndTime(expectedEndAt, now, use24Hour = false))
-            assertTrue(
-                "Expected the expected-end trailing text in the widget subtitle",
-                collectText(renderedView(context, host, appWidgetId)).any { it.contains(expectedTrailing) },
-            )
-        }
-
-    @Test
-    fun singleCaseWidget_todayCount_creditsADurationEventStillActiveToday() =
-        runBlocking {
-            val caseName = "Deep clean ${System.currentTimeMillis()}"
-            insertedCaseId = repository.insertCase(testCase(name = caseName, tracksDuration = true))
-            // Real wall-clock: the widget reads the injected (real) clock, so the event must be
-            // anchored to actual "now" for its span to land in today. Started two days ago, ended a
-            // minute ago — a pure-occurredAt count would read "Today: 0" the same day the event was
-            // finished and logged (spec §9/§14 active span). The one-minute margin keeps it robust
-            // except within a minute of local midnight; the count math itself is JVM-covered by
-            // HomeViewModelMappingTest, this just proves the widget renders it.
-            val now = System.currentTimeMillis()
-            repository.insertEvent(
-                testEvent(
-                    caseId = insertedCaseId,
-                    occurredAt = now - 2 * MILLIS_PER_DAY,
-                    endedAt = now - MILLIS_PER_MINUTE,
-                ),
-            )
-            appWidgetId = bindAndRenderSingleCaseWidget(context, host, insertedCaseId)
-
-            val rendered =
-                waitFor {
-                    collectText(renderedView(context, host, appWidgetId))
-                        .takeIf { texts -> texts.any { it == PlainVoice.widgetTodayCount(1) } }
-                }
-            assertNotNull("Expected the widget's today count to credit a duration event active today", rendered)
-        }
-
     // WidgetCaseNameSize has no render-test coverage here: the Single-case widget never shows
-    // row.name (only icon + subtitle), and the List widget's CaseRow that does render it lives
-    // inside a LazyColumn this harness can't populate (see this class's doc comment). The JVM
+    // row.name (only its icon), and the List widget's CaseRow that does render it lives inside a
+    // LazyColumn this harness can't populate (see this class's doc comment). The JVM
     // WidgetTokenFidelityTest is the only coverage for that token's fidelity to Plain's titleMedium.
 
     @Test

@@ -45,6 +45,15 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests {
+            // Glance's own unit-testing library (WidgetCaseSubtitleTest) touches android.os.Bundle
+            // under the hood even though the composable under test never reads a real Context —
+            // the stock android.jar stub throws on that call otherwise.
+            isReturnDefaultValues = true
+        }
+    }
+
     lint {
         // Deliberately pinned toolchain/dependency versions (see DEV_PLAYBOOK.md §5, "Tooling
         // Upgrade Reference") — these checks nag on every pin regardless of the reason it's held
@@ -119,6 +128,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlin.reflect)
+    testImplementation(libs.glance.testing)
+    testImplementation(libs.glance.appwidget.testing)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

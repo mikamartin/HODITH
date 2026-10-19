@@ -995,26 +995,27 @@ interface Voice {
     val singleCaseWidgetConfigureConfirmAction: String
 
     /** [com.secondmonday.hodith.widget.ListWidget]/[com.secondmonday.hodith.widget.SingleCaseWidget]'s
-     * own copy. Only [PlainVoice]'s versions ever render — the widgets' chrome is fixed regardless
-     * of in-app theme (DEV_PLAYBOOK.md §4) — but all three still get an entry per the Voice layer
-     * rule. */
-    val widgetNoCasesSelectedMessage: String
-
-    /** [com.secondmonday.hodith.widget.SingleCaseWidget] — shown when its bound Case has been
-     * deleted or archived since the widget was configured. */
-    val widgetCaseNotFoundMessage: String
+     * own copy. The widgets' chrome is fixed to [PlainVoice] regardless of in-app theme
+     * (DEV_PLAYBOOK.md §4), so this is structural and identical across all three voices rather than
+     * a per-voice override. */
+    val widgetNoCasesSelectedMessage: String get() = "No Cases picked for this widget yet. Tap to choose some."
 
     /** Accessibility label for [com.secondmonday.hodith.widget.ListWidget]'s header edit icon,
-     * which reopens the Case picker. Only [PlainVoice]'s version ever renders (same fixed-chrome
-     * convention as [widgetNoCasesSelectedMessage]), but all three still get an entry per the
-     * Voice layer rule. */
-    val widgetEditButtonDescription: String
+     * which reopens the Case picker. Structural and identical across all three voices — same
+     * fixed-chrome reasoning as [widgetNoCasesSelectedMessage]. */
+    val widgetEditButtonDescription: String get() = "Edit widget Cases"
 
     /** Accessibility label for [com.secondmonday.hodith.widget.SingleCaseWidget]'s missing-Case
-     * edit icon, which reopens the Case picker to rebind a deleted Case. Only [PlainVoice]'s
-     * version ever renders (same fixed-chrome convention as [widgetEditButtonDescription]), but
-     * all three still get an entry per the Voice layer rule. */
-    val singleCaseWidgetEditButtonDescription: String
+     * edit icon, which reopens the Case picker to rebind a deleted Case. Structural and identical
+     * across all three voices — same fixed-chrome reasoning as [widgetEditButtonDescription]. */
+    val singleCaseWidgetEditButtonDescription: String get() = "Edit this widget's Case"
+
+    /** [com.secondmonday.hodith.widget.SingleCaseWidget]'s missing-Case visible label, rendered
+     * above the "✎" icon that fills the rest of the tile — both reopen the Case picker to rebind a
+     * deleted or archived Case. Distinct from [singleCaseWidgetEditButtonDescription], that same
+     * icon's accessibility content description. Structural and identical across all three voices —
+     * same fixed-chrome reasoning as [singleCaseWidgetEditButtonDescription]. */
+    val singleCaseWidgetEditLabel: String get() = "Edit"
 
     fun widgetTodayCount(count: Int): String = "Today: $count"
 }
@@ -1618,11 +1619,6 @@ object PlainVoice : Voice {
 
     override val singleCaseWidgetConfigureTitle = "Pick a Case for this widget"
     override val singleCaseWidgetConfigureConfirmAction = "Add to widget"
-
-    override val widgetNoCasesSelectedMessage = "No Cases picked for this widget yet. Tap to choose some."
-    override val widgetCaseNotFoundMessage = "This Case is gone. Tap to open HODITH."
-    override val widgetEditButtonDescription = "Edit widget Cases"
-    override val singleCaseWidgetEditButtonDescription = "Edit this widget's Case"
 
     override val shareOpenDescription = "Share"
     override val shareAsPdfActionLabel = "Share as PDF"
@@ -2246,11 +2242,6 @@ object IntenseVoice : Voice {
     override val singleCaseWidgetConfigureTitle = "Which case shall haunt this widget?"
     override val singleCaseWidgetConfigureConfirmAction = "Bind to widget"
 
-    override val widgetNoCasesSelectedMessage = "Nothing stands watch here yet. Tap to summon a watcher."
-    override val widgetCaseNotFoundMessage = "This watch has ended. Tap to return to HODITH."
-    override val widgetEditButtonDescription = "Edit the cases watching this widget"
-    override val singleCaseWidgetEditButtonDescription = "Summon a different watcher"
-
     override val shareOpenDescription = "Share the record"
     override val shareAsPdfActionLabel = "Share the record"
 
@@ -2867,11 +2858,6 @@ object BrightVoice : Voice {
 
     override val singleCaseWidgetConfigureTitle = "Pick your widget's star!"
     override val singleCaseWidgetConfigureConfirmAction = "Add to widget!"
-
-    override val widgetNoCasesSelectedMessage = "No stars picked for this widget yet! Tap to choose some."
-    override val widgetCaseNotFoundMessage = "This Case wandered off! Tap to open HODITH."
-    override val widgetEditButtonDescription = "Edit your stars!"
-    override val singleCaseWidgetEditButtonDescription = "Pick a new star!"
 
     override val shareOpenDescription = "Share it!"
     override val shareAsPdfActionLabel = "Share as a PDF!"
