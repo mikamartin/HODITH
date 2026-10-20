@@ -18,6 +18,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.DataStoreSettingsRepository
@@ -39,6 +40,7 @@ import com.secondmonday.hodith.viewmodel.HistoryShareUiState
 import com.secondmonday.hodith.viewmodel.ShareViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -65,6 +67,7 @@ class SharePreviewOrderFlowTest {
     private lateinit var db: HodithDatabase
     private lateinit var viewModel: ShareViewModel
     private val viewModelStore = ViewModelStore()
+    private var viewModelJob: Job? = null
 
     @Before
     fun setUp() {
@@ -106,14 +109,21 @@ class SharePreviewOrderFlowTest {
                 shareImageExporter = UnusedExporter,
                 settingsRepository = settings,
                 savedStateHandle = SavedStateHandle(mapOf("caseId" to caseId)),
-            ).also { viewModelStore.put(VIEW_MODEL_KEY, it) }
+            ).also {
+                viewModelStore.put(VIEW_MODEL_KEY, it)
+                viewModelJob = it.viewModelScope.coroutineContext[Job]
+            }
     }
 
     @After
-    fun tearDown() {
-        viewModelStore.clear()
-        db.close()
-    }
+    fun tearDown() =
+        runBlocking {
+            viewModelStore.clear()
+            // Clearing only cancels the ViewModel's uiState collector; without this join a Room query
+            // already past its cancellation checkpoint can still race db.close() on the next line.
+            viewModelJob?.join()
+            db.close()
+        }
 
     @Smoke
     @Test
