@@ -17,6 +17,7 @@ work = "2.11.2"
 hiltWork = "1.2.0"
 datastorePreferences = "1.1.7"
 kotlinxSerialization = "1.8.1"
+kotlinxDatetime = "0.7.1"
 coroutines = "1.11.0"
 turbine = "1.2.1"
 errorProneAnnotations = "2.47.0"
@@ -59,6 +60,7 @@ room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 
 glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 glance-testing = { module = "androidx.glance:glance-testing", version.ref = "glance" }

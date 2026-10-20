@@ -110,6 +110,7 @@ HODITH's planned iOS route is Compose Multiplatform — see HODITH_SPEC.md §19 
 | foojay-resolver-convention | 1.0.0 | Pre-1.0 breaks on Gradle 9 |
 | Compose BOM | 2026.06.01 | check for newer at setup |
 | ktlint plugin | 14.2.0 | default style; `.editorconfig` exceptions: `@Composable` naming, test naming |
+| kotlinx-datetime | 0.7.1 | `java.time` → `kotlinx-datetime` migration (PROGRESS.md, HODITH_SPEC.md §19). No conflict with the pinned Compose BOM or Room 2.8.4 — verified via `./gradlew :app:dependencyInsight --dependency kotlinx-datetime --configuration debugRuntimeClasspath`, no force-pin needed |
 
 ### Gotchas
 1. **AGP 9 built-in Kotlin:** don't add `id("org.jetbrains.kotlin.android")` — classloader `ClassCastException`. Pin Kotlin via root `buildscript { classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20") }`.
