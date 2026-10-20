@@ -2,7 +2,10 @@ package com.secondmonday.hodith.data.backup
 
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.LogFlow
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -10,6 +13,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BackupSerializerTest {
@@ -65,6 +69,33 @@ class BackupSerializerTest {
         val restored = serializer.fromJson(serializer.toJson(backup))
 
         assertEquals(backup, restored)
+    }
+
+    @Test
+    fun `toJson writes a WatchEntity's defaulted fields instead of omitting them`() {
+        // kotlinx.serialization omits a field equal to its default unless the Json instance sets
+        // encodeDefaults = true. A round-trip-equality test can't catch a regression here - decoding
+        // falls back to the same Kotlin default whether or not the key was ever in the JSON - so
+        // this asserts on the JSON text itself, matching how BackupUpgradeStep's raw JsonObject
+        // inspection (and a human reading an exported file) would actually be affected.
+        val watch =
+            WatchEntity(
+                id = 1L,
+                caseId = 1L,
+                kind = WatchKind.OFTEN,
+                threshold = 3,
+                windowDays = 7,
+                expectedPer = ExpectedPer.WEEK,
+                minIntensity = null,
+                enabled = true,
+                lastFiredAt = null,
+            )
+        val backup = testBackup().copy(watches = listOf(watch))
+
+        val json = serializer.toJson(backup)
+
+        assertTrue(json.contains("\"armed\":true"))
+        assertTrue(json.contains("\"metric\":\"OCCURRENCE_COUNT\""))
     }
 
     @Test

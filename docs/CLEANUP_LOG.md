@@ -17,6 +17,46 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## chore/moshi-to-kotlinx-serialization
+
+**Scope:** First of two migrations clearing the way for HODITH's planned Compose Multiplatform iOS route (new HODITH_SPEC.md §19) — Moshi has no Kotlin/Native target. Swapped Moshi for kotlinx.serialization across the backup export/import path only; the sibling `java.time` → `kotlinx-datetime` migration is deliberately deferred as its own PROGRESS.md item given its size.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (13 changed `.kt`/`.kts`/`.toml` files, 6 docs). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. No instrumented test run needed — the one androidTest file touched (`BackupImportIntegrationTest`) only swaps its `Json` construction to match; left for the user's own device run before merge per this repo's standing convention, though the equivalent JVM-side coverage (`BackupSerializerTest`) already proves the real logic change.
+
+**Found & fixed:**
+- `BackupSerializer.kt`: rewritten on `kotlinx.serialization.json.Json`; `BackupUpgradeStep.upgrade` now takes/returns `JsonObject` instead of a raw `Map<String, Any?>`, which also removes the Double-coercion workaround Moshi's generic map adapter needed for `peekSchemaVersion`.
+- 5 Room entities + `BackupData`: `@JsonClass(generateAdapter = true)` → `@Serializable`.
+- `SettingsViewModel.kt`: collapsed the `JsonDataException`/`IOException` two-catch import-failure handling to a single `SerializationException` catch, since kotlinx.serialization throws one hierarchy for both malformed syntax and missing-field errors.
+- Gradle: Moshi and its KSP codegen removed; `kotlinx-serialization-json` and the Kotlin serialization plugin added; the pre-existing `kotlinx-serialization-core` version force (originally scoped to `androidTest` only, for Room's `MigrationTestHelper`) widened to apply repo-wide now that production code depends on the same library.
+- **Caught mid-pass, not by the checklist walk itself:** kotlinx.serialization's `Json` omits a field equal to its default value unless `encodeDefaults = true` is set — unlike Moshi's codegen, which always writes every property. Without that flag, every real export would have silently dropped `schemaVersion` (and `WatchEntity.armed`/`metric`), only caught because an existing test (`fromJson with a declared version below current...`) happened to depend on `schemaVersion` actually being present in the JSON text. Fixed by setting `encodeDefaults = true` on every `Json` instance (`SerializationModule`, and the three test files that construct `BackupSerializer` directly).
+- **Caught during this same pass's Tests check:** no test exercised `WatchEntity`'s own defaulted fields (`armed`/`metric`) at all — `testBackup()`'s fixture always used `watches = emptyList()`. Initially added a round-trip-equality test, then recognized it was trivially true regardless of the `encodeDefaults` bug (decoding always reconstructs the same Kotlin default whether or not the key was ever in the JSON text) — rewrote it to assert on the serialized JSON text itself instead, and verified by temporarily reverting `encodeDefaults` to `false` and confirming the new assertion (and only that one) then fails.
+- HODITH_SPEC.md §19 (new): a broken relative link (`../docs/CLEANUP_CHECKLIST.md`, written as if the file were one level above `docs/` instead of inside it) and a bare-text `PROGRESS.md` reference, both fixed to match every other doc's same-directory link convention.
+- DEV_PLAYBOOK.md gotcha #9: corrected ("no production code uses kotlinx.serialization" was no longer true) and reworded to state current fact rather than "also uses... now," which read as changelog narration.
+- HODITH_SPEC.md §18's own intro line ("tooling matrix lives in DEV_PLAYBOOK §5") fixed to §7 — a pre-existing stale cross-reference noticed while editing the same section, unrelated to this migration but a one-line fix in a file already being touched.
+
+**Deferred:** nothing.
+
+**Considered and declined:** nothing — this pass's scope (one library swap) left little room for a could-go-either-way call; the design decisions made along the way (`JsonObject` over `Map` for `BackupUpgradeStep`, a repo-wide force over an `androidTest`-scoped one) are covered under Found & fixed since each had a concrete reason, not a close call.
+
+**Checks:**
+- Duplication: N/A — no composables, ViewModel logic, or Dao queries touched.
+- Decoupling: no `android.*` import added anywhere; `SettingsViewModel.kt`'s catch-block change doesn't reach for a UI type.
+- Complexity: N/A — no composables, `LaunchedEffect`, or coroutine-scope code touched.
+- Dead code & hygiene: the broken relative link and narrative wording above are this section's findings; no unused imports after ktlint's own check; `git status` clean throughout, including after a temporary sabotage-and-revert check on the new test (confirmed no stray file was left behind).
+- Naming: no new files; the new test method follows the existing backtick-sentence convention already used in the same file.
+- Hardcoded values: N/A.
+- Accessibility: N/A — no UI touched.
+- UI Copy Brevity: N/A — no UI copy touched.
+- Data model, migrations & privacy: no entity/column added, no schema version bump (confirmed no new `app/schemas/*.json` file after `assembleDebug`); export/import JSON shape unchanged in content, only in encoding library.
+- Background Work, Widgets & Notifications: untouched — N/A.
+- Deprecated APIs: no new deprecation warnings in the build output beyond one pre-existing, unrelated `@param:` target warning (`DataStoreSettingsRepository.kt`, untouched by this diff).
+- Spec review: HODITH_SPEC.md §16/§18 updated off Moshi; new §19 documents the multiplatform roadmap this migration is the first step of.
+- Tests: the `encodeDefaults` gap above is this section's main finding — a regression test added and verified to actually catch the regression (see Found & fixed), not just written and trusted.
+
+**Docs updated:** HODITH_SPEC.md (§16, §18, new §19, §18 intro cross-reference fix); CLEANUP_CHECKLIST.md (two new forward-looking Decoupling checks); DEV_PLAYBOOK.md (gotcha #9 correction, §7 intro pointer to the roadmap); TESTING.md (Export/import row's Moshi-specific wording generalized); PROGRESS.md (new Standalone item for the sibling `java.time` migration); this entry (oldest entry, `fix/widget-case-name-overlap`, removed per the 5-entry retention rule).
+
+---
+
 ## fix/app-bar-titles-home-case-name-display-body-split
 
 **Scope:** Resolved the PROGRESS.md item (deferred from `fix/cases-intense-typography-roles`): every screen's `TopAppBar` title defaulted to Material3's `titleLarge` (body-face) instead of `Type.kt`'s display-face rule, and `HomeScreen.kt`'s Bright-only case row manually swapped its case name to the display face with no Plain/Intense equivalent. A follow-up audit (asked for explicitly, not part of the original item) widened the pass to find other display/body-split drift app-wide before landing.
@@ -165,38 +205,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: no behavior change — a style-role correction, not new logic — so no new test coverage; existing Compose UI tests for Case Detail/Insights/Watches/Share tabs assert content and interaction, not font family, and stay unaffected.
 
 **Docs updated:** PROGRESS.md (new Standalone item for the two deferred findings); this entry (oldest entry, `fix/big-picture-selector-chip-contrast`, removed per the 5-entry retention rule).
-
----
-
-## fix/widget-case-name-overlap
-
-**Scope:** User-reported bug: in both widget "add/edit" configure dialogs (List widget's multi-select `Switch` row, Single-case widget's single-select `RadioButton` row), a long Case name had no width constraint on its label `Text`, so it was measured at its full intrinsic width and could grow past the row's own bounds, overlapping the toggle/radio control instead of stopping short of it.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (3 changed files, 2 new test files). `ktlintCheck`, `lintDebug`, and `test` (full unit suite) all pass. `connectedDebugAndroidTest` not run this pass — no emulator/device was available in this session; reasoned through (not run) compatibility with the existing `ListWidgetConfigureFlowTest`/`SingleCaseWidgetConfigureFlowTest` real-activity flow tests below, left for the user's own device run before merge, per this repo's standing instrumented-test convention.
-
-**Found & fixed:**
-- `ui/common/ToggleRow.kt`'s label `Text` (shared by every `Switch`-based label row in the app — Big Picture, Case Edit, Case Detail, Share tabs, and now the List widget's case picker) gained `Modifier.weight(1f)`, `maxLines = 1`, `overflow = TextOverflow.Ellipsis`, matching the established idiom elsewhere in the codebase (`WatchesTab.kt`, `InsightsTab.kt`, `HomeScreen.kt`).
-- `ListWidgetConfigureActivity.kt`'s private `CasePickerRow` was hand-rolling the exact `Row`/`Arrangement.SpaceBetween`/`Switch` shape `ToggleRow` already provides — duplication the original bug exposed. Replaced with a direct `ToggleRow(...)` call, removing five now-unused imports (`Arrangement`, `Row`, `fillMaxWidth`, `Switch`, `Alignment`, `Modifier`) along with it.
-- `SingleCaseWidgetConfigureActivity.kt`'s `CasePickerRow` (label then `RadioButton`, no description) can't reuse `ToggleRow` (`Switch`-specific) or the existing `RadioOptionRow` (radio-first, mandatory description, a different shape entirely — see Considered and declined) — given the same `weight`/`maxLines`/`overflow` treatment in place instead.
-- Both `rowControlNode`/`clickRowControl` test helpers (`WidgetConfigureTestFixtures.kt`) that the existing flow tests use were re-read against this change: `ListWidgetConfigureActivity`'s row now resolves to `ToggleRow`'s single merged (`Modifier.toggleable`) node, so `isToggleable()` + the text-bounds-overlap match still resolves to the same node as before (the weight change only narrows the inner `Text`, not the outer row's own bounds). `SingleCaseWidgetConfigureActivity`'s row has no row-level merge, so `isSelectable()` still matches the `RadioButton` directly; its position is unchanged by the fix, which only ever pulls the label in — if anything, this makes the vertical-bounds heuristic more reliable, not less, since the label can no longer wrap/grow unpredictably.
-
-**Deferred:**
-- `connectedDebugAndroidTest` — see Walked above; needs the user's device, same as the most recent PDF-export passes.
-
-**Considered and declined:**
-- Reusing `RadioOptionRow` for the single-case widget's row instead of fixing `CasePickerRow` in place: `RadioOptionRow` puts the `RadioButton` first in a fixed-width slot with a mandatory description line below the label — a different shape from this row's icon+name-then-radio, no-description layout. Forcing the fit would mean a bigger UI change than the bug called for.
-
-**Checks:**
-- Duplication: the `ListWidgetConfigureActivity` fix above removes a duplicated `Row` shape by routing through `ToggleRow`; the single-case row's near-identical-but-not-quite shape was evaluated for the same treatment and declined (see above).
-- Decoupling: no `ViewModel`/`Repository`/`domain` code touched — layout-only, inside existing Composables.
-- Complexity: no new composables; `ToggleRow`/both `CasePickerRow`s stay well under the line-count threshold.
-- Hygiene: `git status` clean throughout; no secrets or local paths; `ktlintCheck` caught no stray unused imports after the manual cleanup above.
-- Naming: two new `internal const val ..._TAG` constants (`TOGGLE_ROW_SWITCH_TAG`, `CASE_PICKER_RADIO_TAG`) follow the existing `HISTORY_SHARE_PDF_TOGGLE_TAG`/`SECTION_TOGGLE_TAG_PREFIX` convention, added purely for direct test access to each row's control; `SingleCaseWidgetConfigureActivity.CasePickerRow` changed from `private` to `internal` for the same reason, mirroring `SegmentedChoiceRow`'s existing public visibility for testability.
-- Accessibility: no tap-target size changes; the fix only prevents the label from encroaching on the existing `Switch`/`RadioButton` footprint.
-- UI Copy Brevity: N/A — no fixed UI label text changed; the truncated string is user-entered Case data, not app copy.
-- Hardcoded values, data model/migrations, deprecated APIs, spec review: untouched — N/A. `HODITH_SPEC.md` doesn't describe either dialog's row layout at this level of detail, so no divergence to reconcile.
-- Background work, widgets & notifications: the actual Glance widget tiles (`ListWidget.kt`, `SingleCaseWidget.kt`) were checked for the same bug and don't have it — `ListWidget.kt`'s case-name `Text` already has `maxLines = 1` inside a `.defaultWeight()` `Column`, and `SingleCaseWidget.kt` never displays the case name on-tile at all — so neither needed a change; Plain-light-only theming and `logFlow` handling are untouched either way.
-- Tests: two new instrumented Compose tests (`ToggleRowTest`, `CasePickerRowTest`), both `@UiTest`-tagged, bounds-based (not click-based) regressions modeled on `SegmentedChoiceRowTest`'s pattern — deliberately sidestepping the known `ToggleRow` merge-reliability caveat already documented in TESTING.md's "Known environment issues" rather than relying on click dispatch. Existing flow tests reviewed for compatibility, not re-run (see Walked/Deferred above). No `@Smoke` tag added — no shared-component row test in this codebase carries one.
-
-**Docs updated:** TESTING.md (shared-components row gains `ToggleRowTest`; the widget chrome/trampoline row gains `CasePickerRowTest`); this entry (oldest entry, `fix/intensity-toggle-gating`, removed per the 5-entry retention rule).
-

@@ -360,7 +360,7 @@ Suggested package: `com.secondmonday.hodith`.
 
 ## 19. Multiplatform roadmap
 
-HODITH's planned route to an iOS build is Compose Multiplatform (CMP) rather than a second native UI — Material 3 and Navigation Compose both run on iOS under CMP, and the app's UI is plain enough (lists, forms, charts) that sharing Compose outweighs investing in SwiftUI-specific polish. This isn't scheduled work; it's the standing architectural direction so current changes don't quietly make the eventual port harder. See [CLEANUP_CHECKLIST.md](../docs/CLEANUP_CHECKLIST.md)'s Decoupling section for the per-change checks this implies, and `PROGRESS.md` for the concrete migration items.
+HODITH's planned route to an iOS build is Compose Multiplatform (CMP) rather than a second native UI — Material 3 and Navigation Compose both run on iOS under CMP, and the app's UI is plain enough (lists, forms, charts) that sharing Compose outweighs investing in SwiftUI-specific polish. This isn't scheduled work; it's the standing architectural direction so current changes don't quietly make the eventual port harder. See [CLEANUP_CHECKLIST.md](CLEANUP_CHECKLIST.md)'s Decoupling section for the per-change checks this implies, and [PROGRESS.md](PROGRESS.md) for the concrete migration items.
 
 Decisions made so far:
 
