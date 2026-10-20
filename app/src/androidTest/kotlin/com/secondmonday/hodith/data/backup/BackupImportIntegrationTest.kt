@@ -9,10 +9,10 @@ import com.secondmonday.hodith.data.testEvent
 import com.secondmonday.hodith.data.testWatch
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import com.secondmonday.hodith.testtags.Smoke
-import com.squareup.moshi.Moshi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -33,7 +33,13 @@ import javax.inject.Provider
 class BackupImportIntegrationTest {
     private lateinit var db: HodithDatabase
     private lateinit var repository: RoomHodithRepository
-    private val backupSerializer = BackupSerializer(Moshi.Builder().build())
+    private val backupSerializer =
+        BackupSerializer(
+            Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            },
+        )
 
     @Before
     fun setUp() {

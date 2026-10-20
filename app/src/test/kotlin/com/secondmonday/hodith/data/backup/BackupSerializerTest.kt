@@ -2,17 +2,28 @@ package com.secondmonday.hodith.data.backup
 
 import com.secondmonday.hodith.data.CaseEntity
 import com.secondmonday.hodith.data.EventEntity
+import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.LogFlow
-import com.squareup.moshi.JsonDataException
-import com.squareup.moshi.Moshi
+import com.secondmonday.hodith.data.WatchEntity
+import com.secondmonday.hodith.data.WatchKind
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.IOException
 
 class BackupSerializerTest {
-    private val serializer = BackupSerializer(Moshi.Builder().build())
+    private val serializer =
+        BackupSerializer(
+            Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            },
+        )
 
     private fun testBackup() =
         BackupData(
@@ -61,13 +72,40 @@ class BackupSerializerTest {
     }
 
     @Test
+    fun `toJson writes a WatchEntity's defaulted fields instead of omitting them`() {
+        // kotlinx.serialization omits a field equal to its default unless the Json instance sets
+        // encodeDefaults = true. A round-trip-equality test can't catch a regression here - decoding
+        // falls back to the same Kotlin default whether or not the key was ever in the JSON - so
+        // this asserts on the JSON text itself, matching how BackupUpgradeStep's raw JsonObject
+        // inspection (and a human reading an exported file) would actually be affected.
+        val watch =
+            WatchEntity(
+                id = 1L,
+                caseId = 1L,
+                kind = WatchKind.OFTEN,
+                threshold = 3,
+                windowDays = 7,
+                expectedPer = ExpectedPer.WEEK,
+                minIntensity = null,
+                enabled = true,
+                lastFiredAt = null,
+            )
+        val backup = testBackup().copy(watches = listOf(watch))
+
+        val json = serializer.toJson(backup)
+
+        assertTrue(json.contains("\"armed\":true"))
+        assertTrue(json.contains("\"metric\":\"OCCURRENCE_COUNT\""))
+    }
+
+    @Test
     fun `fromJson throws on malformed JSON`() {
-        assertThrows(IOException::class.java) { serializer.fromJson("not json") }
+        assertThrows(SerializationException::class.java) { serializer.fromJson("not json") }
     }
 
     @Test
     fun `fromJson throws when a required field is missing`() {
-        assertThrows(JsonDataException::class.java) { serializer.fromJson("""{"schemaVersion":1}""") }
+        assertThrows(SerializationException::class.java) { serializer.fromJson("""{"schemaVersion":1}""") }
     }
 
     @Test
@@ -107,20 +145,26 @@ class BackupSerializerTest {
 
     @Test
     fun `applyUpgradeSteps folds only steps whose fromVersion is in range, in order`() {
-        val stepFromZero = fakeUpgradeStep(fromVersion = 0) { raw -> raw + ("addedByZero" to "value") }
-        val stepFromFive = fakeUpgradeStep(fromVersion = 5) { raw -> raw + ("unreached" to true) }
+        val stepFromZero = fakeUpgradeStep(fromVersion = 0) { raw -> JsonObject(raw + ("addedByZero" to JsonPrimitive("value"))) }
+        val stepFromFive = fakeUpgradeStep(fromVersion = 5) { raw -> JsonObject(raw + ("unreached" to JsonPrimitive(true))) }
 
-        val result = applyUpgradeSteps(raw = emptyMap(), declaredVersion = 0, targetVersion = 1, steps = listOf(stepFromZero, stepFromFive))
+        val result =
+            applyUpgradeSteps(
+                raw = JsonObject(emptyMap()),
+                declaredVersion = 0,
+                targetVersion = 1,
+                steps = listOf(stepFromZero, stepFromFive),
+            )
 
-        assertEquals(mapOf("addedByZero" to "value"), result)
+        assertEquals(JsonObject(mapOf("addedByZero" to JsonPrimitive("value"))), result)
     }
 
     private fun fakeUpgradeStep(
         fromVersion: Int,
-        upgrade: (Map<String, Any?>) -> Map<String, Any?>,
+        upgrade: (JsonObject) -> JsonObject,
     ) = object : BackupUpgradeStep {
         override val fromVersion: Int = fromVersion
 
-        override fun upgrade(raw: Map<String, Any?>): Map<String, Any?> = upgrade(raw)
+        override fun upgrade(raw: JsonObject): JsonObject = upgrade(raw)
     }
 }

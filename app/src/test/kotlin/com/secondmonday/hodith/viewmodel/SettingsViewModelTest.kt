@@ -15,13 +15,13 @@ import com.secondmonday.hodith.data.demo.DemoDataSeeder
 import com.secondmonday.hodith.domain.FakeClock
 import com.secondmonday.hodith.testsupport.testCase
 import com.secondmonday.hodith.testsupport.testEvent
-import com.squareup.moshi.Moshi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -34,7 +34,13 @@ class SettingsViewModelTest {
     private val settingsRepository = FakeSettingsRepository()
     private val clock = FakeClock()
     private val demoDataSeeder = DemoDataSeeder(hodithRepository, clock)
-    private val backupSerializer = BackupSerializer(Moshi.Builder().build())
+    private val backupSerializer =
+        BackupSerializer(
+            Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            },
+        )
     private val csvBackupSerializer = CsvBackupSerializer()
     private val backupFileWriter = FakeBackupFileWriter()
 

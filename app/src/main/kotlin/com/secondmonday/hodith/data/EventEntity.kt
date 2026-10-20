@@ -5,7 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.squareup.moshi.JsonClass
+import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -22,7 +22,7 @@ import java.time.ZoneOffset
     ],
     indices = [Index("caseId")],
 )
-@JsonClass(generateAdapter = true)
+@Serializable
 data class EventEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val caseId: Long,

@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.squareup.moshi.JsonClass
+import kotlinx.serialization.Serializable
 
 @Entity(
     tableName = "watches",
@@ -18,7 +18,7 @@ import com.squareup.moshi.JsonClass
     ],
     indices = [Index("caseId")],
 )
-@JsonClass(generateAdapter = true)
+@Serializable
 data class WatchEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val caseId: Long,
