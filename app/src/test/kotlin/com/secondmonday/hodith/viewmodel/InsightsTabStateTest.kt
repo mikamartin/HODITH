@@ -15,6 +15,7 @@ import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendDirection
 import com.secondmonday.hodith.domain.TrendFindingKind
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.durationEvent
 import com.secondmonday.hodith.testsupport.eventAtDay
@@ -24,14 +25,16 @@ import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testCase
 import com.secondmonday.hodith.testsupport.testEvent
 import com.secondmonday.hodith.testsupport.withoutTags
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
-import java.time.LocalDate
-import java.time.YearMonth
 
 private val ZONE = TEST_ZONE
 
@@ -67,7 +70,7 @@ class InsightsTabStateTest {
     fun `rhythm cells carry the raw event count for their day-of-week and time-of-day bucket`() {
         val case = testCase(createdAt = millisAtDay(0))
         val occurredAt = millisAt(epochDay = 10, hour = 10)
-        val bucketDayOfWeek = Instant.ofEpochMilli(occurredAt).atZone(ZONE).dayOfWeek
+        val bucketDayOfWeek = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(ZONE).dayOfWeek
 
         val state = insightsTabState(case, eventsWithTags = listOf(testEvent(occurredAt = occurredAt)).withoutTags(), now = millisAtDay(90))
 
@@ -110,44 +113,24 @@ class InsightsTabStateTest {
     @Test
     fun `heatmap spans from the case's earliest month through the current month`() {
         // Case created in Jan 2026, "now" lands in March 2026 — three months of grids expected.
-        val createdAt =
-            LocalDate
-                .of(2026, 1, 15)
-                .atStartOfDay(ZONE)
-                .toInstant()
-                .toEpochMilli()
-        val now =
-            LocalDate
-                .of(2026, 3, 10)
-                .atStartOfDay(ZONE)
-                .toInstant()
-                .toEpochMilli()
+        val createdAt = LocalDate(2026, 1, 15).atStartOfDayIn(ZONE).toEpochMilliseconds()
+        val now = LocalDate(2026, 3, 10).atStartOfDayIn(ZONE).toEpochMilliseconds()
         val events = listOf(testEvent(occurredAt = createdAt), testEvent(occurredAt = now))
 
         val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
         assertEquals(
-            listOf(YearMonth.of(2026, 1), YearMonth.of(2026, 2), YearMonth.of(2026, 3)),
+            listOf(YearMonth(2026, Month(1)), YearMonth(2026, Month(2)), YearMonth(2026, Month(3))),
             state.heatmapMonths.map { it.month },
         )
     }
 
     @Test
     fun `heatmap shades a day with the case's busiest count at the top level`() {
-        val createdAt =
-            LocalDate
-                .of(2026, 3, 1)
-                .atStartOfDay(ZONE)
-                .toInstant()
-                .toEpochMilli()
-        val eventDate = LocalDate.of(2026, 3, 15)
-        val now =
-            LocalDate
-                .of(2026, 3, 20)
-                .atStartOfDay(ZONE)
-                .toInstant()
-                .toEpochMilli()
-        val events = listOf(eventAtDay(eventDate.toEpochDay()), testEvent(occurredAt = now))
+        val createdAt = LocalDate(2026, 3, 1).atStartOfDayIn(ZONE).toEpochMilliseconds()
+        val eventDate = LocalDate(2026, 3, 15)
+        val now = LocalDate(2026, 3, 20).atStartOfDayIn(ZONE).toEpochMilliseconds()
+        val events = listOf(eventAtDay(eventDate.toEpochDays()), testEvent(occurredAt = now))
 
         val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
@@ -165,23 +148,13 @@ class InsightsTabStateTest {
     fun `heatmap for the current month has no trailing week-row that's entirely in the future`() {
         // "Now" is the 2nd of the month, so only the first week-row has any real days in it —
         // the remaining 4-5 week-rows of the month grid would otherwise be entirely blank.
-        val createdAt =
-            LocalDate
-                .of(2026, 3, 1)
-                .atStartOfDay(ZONE)
-                .toInstant()
-                .toEpochMilli()
-        val now =
-            LocalDate
-                .of(2026, 3, 2)
-                .atStartOfDay(ZONE)
-                .toInstant()
-                .toEpochMilli()
+        val createdAt = LocalDate(2026, 3, 1).atStartOfDayIn(ZONE).toEpochMilliseconds()
+        val now = LocalDate(2026, 3, 2).atStartOfDayIn(ZONE).toEpochMilliseconds()
         val events = listOf(testEvent(occurredAt = createdAt), testEvent(occurredAt = now))
 
         val state = insightsTabState(testCase(createdAt = createdAt), events.withoutTags(), now) as InsightsTabState.Ready
 
-        val currentMonth = state.heatmapMonths.single { it.month == YearMonth.of(2026, 3) }
+        val currentMonth = state.heatmapMonths.single { it.month == YearMonth(2026, Month(3)) }
         assertTrue(currentMonth.weeks.size <= 2)
         assertTrue(currentMonth.weeks.last().any { it != null })
     }
@@ -200,7 +173,7 @@ class InsightsTabStateTest {
         heatmapMonths
             .flatMap { it.weeks.flatten() }
             .filterNotNull()
-            .single { it.date == LocalDate.ofEpochDay(epochDay) }
+            .single { it.date == LocalDate.fromEpochDays((epochDay).toInt()) }
             .level
 
     @Test
@@ -212,7 +185,7 @@ class InsightsTabStateTest {
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
-        assertTrue(state.shadedDates().containsAll((2L..6L).map { LocalDate.ofEpochDay(it) }))
+        assertTrue(state.shadedDates().containsAll((2L..6L).map { LocalDate.fromEpochDays((it).toInt()) }))
     }
 
     @Test
@@ -225,7 +198,7 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(9)) as InsightsTabState.Ready
 
         assertEquals(
-            (listOf(0L) + (3L..9L)).map { LocalDate.ofEpochDay(it) }.toSet(),
+            (listOf(0L) + (3L..9L)).map { LocalDate.fromEpochDays((it).toInt()) }.toSet(),
             state.shadedDates(),
         )
     }
@@ -248,7 +221,7 @@ class InsightsTabStateTest {
 
         // Day 9 must still be shaded — the stale -10h offset would otherwise roll "today" back to day 8.
         assertEquals(
-            (listOf(0L) + (3L..9L)).map { LocalDate.ofEpochDay(it) }.toSet(),
+            (listOf(0L) + (3L..9L)).map { LocalDate.fromEpochDays((it).toInt()) }.toSet(),
             state.shadedDates(),
         )
     }
@@ -282,7 +255,7 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
         assertEquals(2, state.stats.gaps.longestStreakDays)
-        assertTrue(state.shadedDates().containsAll(listOf(LocalDate.ofEpochDay(5), LocalDate.ofEpochDay(6))))
+        assertTrue(state.shadedDates().containsAll(listOf(LocalDate.fromEpochDays(5), LocalDate.fromEpochDays(6))))
     }
 
     @Test
@@ -293,7 +266,7 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
 
         assertEquals(1, state.stats.gaps.longestStreakDays)
-        assertEquals(setOf(LocalDate.ofEpochDay(0), LocalDate.ofEpochDay(5)), state.shadedDates())
+        assertEquals(setOf(LocalDate.fromEpochDays(0), LocalDate.fromEpochDays(5)), state.shadedDates())
     }
 
     @Test
@@ -332,7 +305,7 @@ class InsightsTabStateTest {
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(20)) as InsightsTabState.Ready
 
         // The heatmap still spreads the duration event across its four days...
-        assertTrue(state.shadedDates().containsAll((15L..18L).map { LocalDate.ofEpochDay(it) }))
+        assertTrue(state.shadedDates().containsAll((15L..18L).map { LocalDate.fromEpochDays((it).toInt()) }))
         // ...but a per-bucket count can't say "how often" for a span, so the card is dropped
         // and the rhythm grid announces that it plots starts.
         assertEquals(null, state.stats.frequency)
@@ -381,7 +354,7 @@ class InsightsTabStateTest {
 
         val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(10)) as InsightsTabState.Ready
 
-        assertEquals(setOf(LocalDate.ofEpochDay(0), LocalDate.ofEpochDay(2)), state.shadedDates())
+        assertEquals(setOf(LocalDate.fromEpochDays(0), LocalDate.fromEpochDays(2)), state.shadedDates())
         assertEquals(1, state.stats.gaps.longestStreakDays)
     }
 

@@ -9,9 +9,10 @@ import com.secondmonday.hodith.data.CaseEventDetail
 import com.secondmonday.hodith.data.EventTagName
 import com.secondmonday.hodith.data.HodithRepository
 import com.secondmonday.hodith.data.SettingsRepository
-import com.secondmonday.hodith.data.zoneOffsetFromMinutes
+import com.secondmonday.hodith.data.utcOffsetFromMinutes
 import com.secondmonday.hodith.di.DefaultDispatcher
 import com.secondmonday.hodith.domain.Clock
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.domain.isStillRunning
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
@@ -23,11 +24,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneId
-import java.time.ZoneOffset
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 /** One case's icon/name as shown in the Big Picture grid and its filter chips (spec §9). */
@@ -66,7 +67,7 @@ data class CalendarEvent(
 )
 
 /** This event's own captured offset, for bucketing its timestamps into the calendar day/hour they actually occurred in. */
-internal fun CalendarEvent.loggedZone(): ZoneOffset = zoneOffsetFromMinutes(utcOffsetMinutes)
+internal fun CalendarEvent.loggedZone(): UtcOffset = utcOffsetFromMinutes(utcOffsetMinutes)
 
 data class BigPictureUiState(
     val cases: List<CalendarCase> = emptyList(),
@@ -162,15 +163,15 @@ internal fun bigPictureUiState(
     eventDetails: List<CaseEventDetail>,
     tagNames: List<EventTagName>,
     nowMillis: Long,
-    zoneId: ZoneId = ZoneId.systemDefault(),
+    zoneId: TimeZone = TimeZone.currentSystemDefault(),
     detail: BigPictureDetail = BigPictureDetail.DEFAULT,
 ): BigPictureUiState {
-    val today = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate()
+    val today = Instant.fromEpochMilliseconds(nowMillis).toLocalDateTime(zoneId).date
     val currentMonth = YearMonth.from(today)
     val earliestMonth =
         cases
             .minOfOrNull { it.createdAt }
-            ?.let { YearMonth.from(Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate()) }
+            ?.let { YearMonth.from(Instant.fromEpochMilliseconds(it).toLocalDateTime(zoneId).date) }
             ?: currentMonth
     // Sorted so a detail row's pills read in a stable order — the flat projection returns them in
     // attach order, and the filter dialog's list is sorted too.

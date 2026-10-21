@@ -15,6 +15,7 @@ import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendFinding
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.computeDurationStats
 import com.secondmonday.hodith.domain.computeFrequencyStats
@@ -33,11 +34,12 @@ import com.secondmonday.hodith.domain.observationSpanDays
 import com.secondmonday.hodith.domain.pickFrequencyGranularity
 import com.secondmonday.hodith.domain.spansMultipleDays
 import com.secondmonday.hodith.domain.weeksInGrid
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneId
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * What the Case Detail Insights tab renders (spec §9-10's visuals half), derived fresh from raw
@@ -162,7 +164,7 @@ internal fun insightsTabState(
     case: CaseEntity,
     eventsWithTags: List<EventWithTags>,
     now: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
     frequencyGranularityOverride: FrequencyGranularity? = null,
     mostRecentActivityAcrossCasesAt: Long? = null,
 ): InsightsTabState {
@@ -188,11 +190,11 @@ internal fun insightsTabState(
     // actually happened, not wherever the device currently is.
     val ongoingEvents = ongoingEventsIn(case, events, now).toSet()
 
-    fun endZoneFor(event: EventEntity) = if (event in ongoingEvents) zone else event.loggedZone()
+    fun endZoneFor(event: EventEntity) = if (event in ongoingEvents) zone else event.loggedZone().asTimeZone()
 
     val countsByDay =
         events
-            .flatMap { event -> datesCovered(event.occurredAt, spanEnd(event), event.loggedZone(), endZoneFor(event)) }
+            .flatMap { event -> datesCovered(event.occurredAt, spanEnd(event), event.loggedZone().asTimeZone(), endZoneFor(event)) }
             .groupingBy { it }
             .eachCount()
     val maxDailyCount = countsByDay.values.maxOrNull() ?: 0
@@ -201,7 +203,7 @@ internal fun insightsTabState(
     // Any event whose active span crosses a calendar-day boundary makes "how often" ambiguous:
     // frequency-over-time is hidden and the rhythm grid is relabelled to "Start times" (spec §9).
     // A same-day duration event doesn't trip this.
-    val hasMultiDayEvent = events.any { spansMultipleDays(it.occurredAt, spanEnd(it), it.loggedZone(), endZoneFor(it)) }
+    val hasMultiDayEvent = events.any { spansMultipleDays(it.occurredAt, spanEnd(it), it.loggedZone().asTimeZone(), endZoneFor(it)) }
 
     return InsightsTabState.Ready(
         heatmapMonths = heatmapMonths(case, countsByDay, maxDailyCount, now, zone),
@@ -230,7 +232,7 @@ private fun statsSections(
     activeDates: List<LocalDate>,
     hasMultiDayEvent: Boolean,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     frequencyGranularityOverride: FrequencyGranularity?,
     mostRecentActivityAcrossCasesAt: Long?,
 ): StatsSections {
@@ -353,11 +355,11 @@ private fun heatmapMonths(
     countsByDay: Map<LocalDate, Int>,
     maxDailyCount: Int,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
 ): List<HeatmapMonth> {
-    val nowDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val nowDate = Instant.fromEpochMilliseconds(now).toLocalDateTime(zone).date
     val currentMonth = YearMonth.from(nowDate)
-    val caseCreatedDate = Instant.ofEpochMilli(case.createdAt).atZone(zone).toLocalDate()
+    val caseCreatedDate = Instant.fromEpochMilliseconds(case.createdAt).toLocalDateTime(zone).date
     val firstEventDate = countsByDay.keys.minOrNull()
     val earliestMonth = YearMonth.from(if (firstEventDate != null) minOf(firstEventDate, caseCreatedDate) else caseCreatedDate)
 
@@ -369,7 +371,7 @@ private fun heatmapMonths(
                 weeksInGrid(month)
                     .map { week ->
                         week.map { date ->
-                            if (date.isAfter(nowDate) || date.month != month.month) {
+                            if (date > nowDate || date.month != month.month) {
                                 null
                             } else {
                                 HeatmapDay(date = date, level = heatmapLevelFor(countsByDay[date] ?: 0, maxDailyCount))

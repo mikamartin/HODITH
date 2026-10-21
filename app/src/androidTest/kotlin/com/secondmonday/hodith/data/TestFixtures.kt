@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import java.time.ZoneId
+import kotlinx.datetime.TimeZone
 import javax.inject.Provider
 
 fun createInMemoryDatabase(): HodithDatabase =
@@ -54,7 +54,7 @@ fun testEvent(
     intensity: Int? = null,
     note: String? = null,
     loggedAt: Long = occurredAt,
-    utcOffsetMinutes: Int = ZoneId.systemDefault().offsetMinutesAt(occurredAt),
+    utcOffsetMinutes: Int = TimeZone.currentSystemDefault().offsetMinutesAt(occurredAt),
 ) = EventEntity(
     id = id,
     caseId = caseId,

@@ -23,8 +23,9 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.datePickerDateAtLocalStartOfDay
 import com.secondmonday.hodith.viewmodel.formatMediumDate
 import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
-import java.time.Instant
-import java.time.ZoneId
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /** Which data the "Delete Data" row's destructive flow targets. */
 private enum class DeleteDataMode { ALL, LOGS_ONLY }
@@ -64,7 +65,8 @@ internal fun DeleteDataFlow(
             onProceed = { showConfirm = true },
         )
     } else {
-        val logsDateLabel = formatMediumDate(Instant.ofEpochMilli(cutoffDate).atZone(ZoneId.systemDefault()).toLocalDate())
+        val logsDateLabel =
+            formatMediumDate(Instant.fromEpochMilliseconds(cutoffDate).toLocalDateTime(TimeZone.currentSystemDefault()).date)
         ConfirmDialog(
             title = if (mode == DeleteDataMode.ALL) voice.settingsDeleteAllDataConfirmTitle else voice.settingsDeleteDataLogsConfirmTitle,
             body =
@@ -123,7 +125,11 @@ private fun DeleteDataOptionsDialog(
                 if (mode == DeleteDataMode.LOGS_ONLY) {
                     Text(voice.settingsDeleteDataDateLabel, style = MaterialTheme.typography.labelLarge)
                     OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.padding(top = 4.dp)) {
-                        Text(formatMediumDate(Instant.ofEpochMilli(cutoffDate).atZone(ZoneId.systemDefault()).toLocalDate()))
+                        Text(
+                            formatMediumDate(
+                                Instant.fromEpochMilliseconds(cutoffDate).toLocalDateTime(TimeZone.currentSystemDefault()).date,
+                            ),
+                        )
                     }
                 }
             }
@@ -165,7 +171,7 @@ private fun DeleteDataCutoffDatePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (localMillis: Long) -> Unit,
 ) {
-    val zone = ZoneId.systemDefault()
+    val zone = TimeZone.currentSystemDefault()
     MaxDateBoundDatePickerDialog(
         initialDateUtcMillis = toDatePickerUtcMillis(selectedDate, zone),
         maxDateUtcMillis = toDatePickerUtcMillis(maxDate, zone),

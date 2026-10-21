@@ -6,9 +6,13 @@ import com.secondmonday.hodith.data.offsetMinutesAt
 import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZoneOffset
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.atTime
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 
 internal const val EVENT_NOTE_MAX_LENGTH = 280
 
@@ -165,7 +169,7 @@ internal fun LogDraft.toEventEntity(
         loggedAt = loggedAt,
         // Captured at the chosen occurredAt, not save-time now, so a retro-logged entry gets the
         // DST-correct historical offset for its actual date rather than today's.
-        utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(clampedOccurredAt),
+        utcOffsetMinutes = TimeZone.currentSystemDefault().offsetMinutesAt(clampedOccurredAt),
     )
 }
 
@@ -216,15 +220,11 @@ internal fun validateEndEdit(
 internal fun applyPickedDate(
     occurredAt: Long,
     pickedDateUtcMillis: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): Long {
-    val currentTime = Instant.ofEpochMilli(occurredAt).atZone(zone).toLocalTime()
-    val pickedDate = Instant.ofEpochMilli(pickedDateUtcMillis).atZone(ZoneOffset.UTC).toLocalDate()
-    return pickedDate
-        .atTime(currentTime)
-        .atZone(zone)
-        .toInstant()
-        .toEpochMilli()
+    val currentTime = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone).time
+    val pickedDate = Instant.fromEpochMilliseconds(pickedDateUtcMillis).toLocalDateTime(TimeZone.UTC).date
+    return LocalDateTime(pickedDate, currentTime).toInstant(zone).toEpochMilliseconds()
 }
 
 /** Applies a picked hour/minute to [occurredAt], keeping its existing date in [zone]. */
@@ -232,14 +232,10 @@ internal fun applyPickedTime(
     occurredAt: Long,
     hour: Int,
     minute: Int,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): Long {
-    val currentDate = Instant.ofEpochMilli(occurredAt).atZone(zone).toLocalDate()
-    return currentDate
-        .atTime(hour, minute)
-        .atZone(zone)
-        .toInstant()
-        .toEpochMilli()
+    val currentDate = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone).date
+    return currentDate.atTime(hour, minute).toInstant(zone).toEpochMilliseconds()
 }
 
 /**
@@ -250,15 +246,14 @@ internal fun applyPickedTime(
  */
 internal fun toDatePickerUtcMillis(
     localMillis: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): Long =
     Instant
-        .ofEpochMilli(localMillis)
-        .atZone(zone)
-        .toLocalDate()
-        .atStartOfDay(ZoneOffset.UTC)
-        .toInstant()
-        .toEpochMilli()
+        .fromEpochMilliseconds(localMillis)
+        .toLocalDateTime(zone)
+        .date
+        .atStartOfDayIn(TimeZone.UTC)
+        .toEpochMilliseconds()
 
 /**
  * The local start-of-day millis in [zone] for the date picked in Material3's `DatePicker` (a bare
@@ -267,15 +262,14 @@ internal fun toDatePickerUtcMillis(
  */
 internal fun datePickerDateAtLocalStartOfDay(
     pickedDateUtcMillis: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): Long =
     Instant
-        .ofEpochMilli(pickedDateUtcMillis)
-        .atZone(ZoneOffset.UTC)
-        .toLocalDate()
-        .atStartOfDay(zone)
-        .toInstant()
-        .toEpochMilli()
+        .fromEpochMilliseconds(pickedDateUtcMillis)
+        .toLocalDateTime(TimeZone.UTC)
+        .date
+        .atStartOfDayIn(zone)
+        .toEpochMilliseconds()
 
 /**
  * Which tags to add/remove so [originalTags] ends up matching [selectedNames]. Matching is

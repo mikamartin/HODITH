@@ -14,12 +14,16 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.LogDetailScreenUiState
 import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.formatEventDate
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.format.MonthNames
+import kotlinx.datetime.format.Padding
+import kotlinx.datetime.format.char
+import kotlinx.datetime.toInstant
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * Regression coverage for [LogDetailForm]'s start/end date guardrail: picking an invalid date no
@@ -35,12 +39,19 @@ class LogDetailFormValidationTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private val zone: ZoneId = ZoneId.systemDefault()
-    private val occurredDate = LocalDate.of(2024, 1, 9)
-    private val endedDate = LocalDate.of(2024, 1, 10)
-    private val nowDate = LocalDate.of(2024, 1, 15)
-    private val pickedDate = LocalDate.of(2024, 1, 14)
-    private val dayCellFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy")
+    private val zone: TimeZone = TimeZone.currentSystemDefault()
+    private val occurredDate = LocalDate(2024, 1, 9)
+    private val endedDate = LocalDate(2024, 1, 10)
+    private val nowDate = LocalDate(2024, 1, 15)
+    private val pickedDate = LocalDate(2024, 1, 14)
+    private val dayCellFormat =
+        LocalDate.Format {
+            monthName(MonthNames.ENGLISH_FULL)
+            char(' ')
+            day(Padding.NONE)
+            chars(", ")
+            year()
+        }
 
     private fun millisAt(
         date: LocalDate,
@@ -48,12 +59,11 @@ class LogDetailFormValidationTest {
     ): Long =
         date
             .atTime(hour, 0)
-            .atZone(zone)
-            .toInstant()
-            .toEpochMilli()
+            .toInstant(zone)
+            .toEpochMilliseconds()
 
     private fun clickDayCell(date: LocalDate) {
-        composeTestRule.onNodeWithText(dayCellFormatter.format(date), substring = true).performClick()
+        composeTestRule.onNodeWithText(dayCellFormat.format(date), substring = true).performClick()
     }
 
     @Test

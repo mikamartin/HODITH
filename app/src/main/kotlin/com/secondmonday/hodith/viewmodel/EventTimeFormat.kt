@@ -1,14 +1,20 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.domain.FrequencyGranularity
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.time.format.TextStyle
-import java.util.Locale
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.Month
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format.DayOfWeekNames
+import kotlinx.datetime.format.MonthNames
+import kotlinx.datetime.format.Padding
+import kotlinx.datetime.format.char
+import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.number
+import kotlinx.datetime.toLocalDateTime
 import kotlin.math.roundToInt
 
 /**
@@ -21,27 +27,158 @@ import kotlin.math.roundToInt
  * [formatMinutesDuration]. Compose passes `use24Hour` down from `LocalTimeFormat`; anything
  * genuinely inside a ViewModel would read it from an injected `SettingsRepository` instead.
  *
- * Dates are fixed `Locale.US` (the app's display locale) except [formatFrequencyTickLabel], whose
- * chart-axis labels follow the platform locale as they did before.
+ * Every date/time string here is fixed English, including [formatFrequencyTickLabel]'s chart-axis
+ * month label and any weekday name — `kotlinx-datetime` ships no arbitrary-locale name tables (see
+ * PROGRESS.md's `java.time` → `kotlinx-datetime` migration item), so this converges with the rest
+ * of the app's already Locale.US-fixed display rather than keeping that one spot alone tracking the
+ * platform locale.
  *
  * Note: `h:mm a` renders a plain ASCII space before AM/PM, whereas the JDK's localized SHORT time
- * uses a narrow no-break space — tests that assert on the 12-hour output match on substrings.
+ * used a narrow no-break space — tests that assert on the 12-hour output match on substrings.
  */
 
-private val EVENT_TIME_NO_YEAR_12H = DateTimeFormatter.ofPattern("MMM d, h:mm a, EEE", Locale.US)
-private val EVENT_TIME_NO_YEAR_24H = DateTimeFormatter.ofPattern("MMM d, HH:mm, EEE", Locale.US)
-private val EVENT_TIME_WITH_YEAR_12H = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a, EEE", Locale.US)
-private val EVENT_TIME_WITH_YEAR_24H = DateTimeFormatter.ofPattern("MMM d, yyyy, HH:mm, EEE", Locale.US)
-private val TIME_ONLY_12H = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
-private val TIME_ONLY_24H = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
-private val SPAN_DATE_TIME_12H = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US)
-private val SPAN_DATE_TIME_24H = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.US)
-private val SPAN_DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM d", Locale.US)
-private val WEEKDAY_DAY_FORMATTER = DateTimeFormatter.ofPattern("EEE d", Locale.US)
-private val MEDIUM_DATE_FORMATTER = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US)
-private val PDF_CELL_DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
-private val PDF_CELL_WEEKDAY_TIME_12H = DateTimeFormatter.ofPattern("EEE h:mm a", Locale.US)
-private val PDF_CELL_WEEKDAY_TIME_24H = DateTimeFormatter.ofPattern("EEE HH:mm", Locale.US)
+private fun Month.englishAbbreviated(): String = MonthNames.ENGLISH_ABBREVIATED.names[number - 1]
+
+internal fun Month.englishFull(): String = MonthNames.ENGLISH_FULL.names[number - 1]
+
+internal fun DayOfWeek.englishFull(): String = DayOfWeekNames.ENGLISH_FULL.names[isoDayNumber - 1]
+
+internal fun DayOfWeek.englishNarrow(): String = DayOfWeekNames.ENGLISH_ABBREVIATED.names[isoDayNumber - 1].take(1)
+
+private val EVENT_TIME_NO_YEAR_12H =
+    LocalDateTime.Format {
+        monthName(MonthNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+        chars(", ")
+        amPmHour(Padding.NONE)
+        char(':')
+        minute()
+        char(' ')
+        amPmMarker("AM", "PM")
+        chars(", ")
+        dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
+    }
+private val EVENT_TIME_NO_YEAR_24H =
+    LocalDateTime.Format {
+        monthName(MonthNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+        chars(", ")
+        hour()
+        char(':')
+        minute()
+        chars(", ")
+        dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
+    }
+private val EVENT_TIME_WITH_YEAR_12H =
+    LocalDateTime.Format {
+        monthName(MonthNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+        chars(", ")
+        year()
+        chars(", ")
+        amPmHour(Padding.NONE)
+        char(':')
+        minute()
+        char(' ')
+        amPmMarker("AM", "PM")
+        chars(", ")
+        dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
+    }
+private val EVENT_TIME_WITH_YEAR_24H =
+    LocalDateTime.Format {
+        monthName(MonthNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+        chars(", ")
+        year()
+        chars(", ")
+        hour()
+        char(':')
+        minute()
+        chars(", ")
+        dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
+    }
+private val TIME_ONLY_12H =
+    LocalTime.Format {
+        amPmHour(Padding.NONE)
+        char(':')
+        minute()
+        char(' ')
+        amPmMarker("AM", "PM")
+    }
+private val TIME_ONLY_24H =
+    LocalTime.Format {
+        hour()
+        char(':')
+        minute()
+    }
+private val SPAN_DATE_TIME_12H =
+    LocalDateTime.Format {
+        monthName(MonthNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+        chars(", ")
+        amPmHour(Padding.NONE)
+        char(':')
+        minute()
+        char(' ')
+        amPmMarker("AM", "PM")
+    }
+private val SPAN_DATE_TIME_24H =
+    LocalDateTime.Format {
+        monthName(MonthNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+        chars(", ")
+        hour()
+        char(':')
+        minute()
+    }
+private val SPAN_DATE_FORMATTER =
+    LocalDate.Format {
+        monthName(MonthNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+    }
+private val WEEKDAY_DAY_FORMATTER =
+    LocalDate.Format {
+        dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+    }
+
+// US medium date style ("Mar 7, 2026") — identical pattern to the PDF cell's own date line, so one
+// format serves both.
+private val MEDIUM_DATE_FORMATTER =
+    LocalDate.Format {
+        monthName(MonthNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        day(Padding.NONE)
+        chars(", ")
+        year()
+    }
+private val PDF_CELL_DATE_FORMATTER = MEDIUM_DATE_FORMATTER
+private val PDF_CELL_WEEKDAY_TIME_12H =
+    LocalDateTime.Format {
+        dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        amPmHour(Padding.NONE)
+        char(':')
+        minute()
+        char(' ')
+        amPmMarker("AM", "PM")
+    }
+private val PDF_CELL_WEEKDAY_TIME_24H =
+    LocalDateTime.Format {
+        dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
+        char(' ')
+        hour()
+        char(':')
+        minute()
+    }
 
 /**
  * The event-list row: weekday, date and time. The year shows only when [occurredAt] falls in a
@@ -53,11 +190,11 @@ internal fun formatEventTime(
     occurredAt: Long,
     now: Long,
     use24Hour: Boolean,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
-    val eventZoned = Instant.ofEpochMilli(occurredAt).atZone(zone)
-    val nowZoned = Instant.ofEpochMilli(now).atZone(zone)
-    val sameYear = eventZoned.year == nowZoned.year
+    val eventDateTime = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone)
+    val nowDateTime = Instant.fromEpochMilliseconds(now).toLocalDateTime(zone)
+    val sameYear = eventDateTime.year == nowDateTime.year
     val formatter =
         when {
             sameYear && use24Hour -> EVENT_TIME_NO_YEAR_24H
@@ -65,7 +202,7 @@ internal fun formatEventTime(
             use24Hour -> EVENT_TIME_WITH_YEAR_24H
             else -> EVENT_TIME_WITH_YEAR_12H
         }
-    return eventZoned.format(formatter)
+    return formatter.format(eventDateTime)
 }
 
 /**
@@ -77,24 +214,24 @@ internal fun formatEventTime(
 internal fun formatHistoryPdfCellTimestamp(
     occurredAt: Long,
     use24Hour: Boolean,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
-    val zoned = Instant.ofEpochMilli(occurredAt).atZone(zone)
+    val dateTime = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone)
     val timeFormatter = if (use24Hour) PDF_CELL_WEEKDAY_TIME_24H else PDF_CELL_WEEKDAY_TIME_12H
-    return "${zoned.format(PDF_CELL_DATE_FORMATTER)}\n${zoned.format(timeFormatter)}"
+    return "${PDF_CELL_DATE_FORMATTER.format(dateTime.date)}\n${timeFormatter.format(dateTime)}"
 }
 
 /** Date-only counterpart of [formatEventTime], for the log sheet's separate date/time buttons. */
 internal fun formatEventDate(
     occurredAt: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
-): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(MEDIUM_DATE_FORMATTER)
+    zone: TimeZone = TimeZone.currentSystemDefault(),
+): String = MEDIUM_DATE_FORMATTER.format(Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone).date)
 
 /** A share card's footer timestamp: the generation date (with its year, since a card outlives the day it was made) and the time of day, e.g. "Oct 1, 2026, 2:32 PM". */
 internal fun formatCardTimestamp(
     generatedAt: Long,
     use24Hour: Boolean,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): String = "${formatEventDate(generatedAt, zone)}, ${formatEventTimeOfDay(generatedAt, use24Hour, zone)}"
 
 /**
@@ -107,11 +244,16 @@ internal fun formatCardTimestamp(
 internal fun formatDateRangeBound(
     occurredAt: Long,
     now: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
-    val zoned = Instant.ofEpochMilli(occurredAt).atZone(zone)
-    val sameYear = zoned.year == Instant.ofEpochMilli(now).atZone(zone).year
-    return zoned.format(if (sameYear) SPAN_DATE_FORMATTER else MEDIUM_DATE_FORMATTER)
+    val date = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone).date
+    val sameYear =
+        date.year ==
+            Instant
+                .fromEpochMilliseconds(now)
+                .toLocalDateTime(zone)
+                .date.year
+    return (if (sameYear) SPAN_DATE_FORMATTER else MEDIUM_DATE_FORMATTER).format(date)
 }
 
 /**
@@ -124,7 +266,7 @@ internal fun historyRangeBounds(
     dateFrom: Long?,
     dateTo: Long?,
     now: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): Pair<String, String> = formatDateRangeBound(dateFrom ?: createdAt, now, zone) to formatDateRangeBound(dateTo ?: now, now, zone)
 
 /**
@@ -135,32 +277,32 @@ internal fun historyRangeBounds(
  */
 internal fun formatPdfDateRangeBound(
     occurredAt: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
-): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(MEDIUM_DATE_FORMATTER)
+    zone: TimeZone = TimeZone.currentSystemDefault(),
+): String = MEDIUM_DATE_FORMATTER.format(Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone).date)
 
 /** [pdfDateRangeBounds]'s counterpart of [historyRangeBounds] - same fallback rules, year-always bounds. */
 internal fun pdfDateRangeBounds(
     createdAt: Long,
     dateFrom: Long?,
     dateTo: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): Pair<String, String> = formatPdfDateRangeBound(dateFrom ?: createdAt, zone) to formatPdfDateRangeBound(dateTo, zone)
 
 /** Time-only counterpart of [formatEventTime], for the log sheet's separate date/time buttons. */
 internal fun formatEventTimeOfDay(
     occurredAt: Long,
     use24Hour: Boolean,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
-    val time = Instant.ofEpochMilli(occurredAt).atZone(zone).toLocalTime()
-    return time.format(if (use24Hour) TIME_ONLY_24H else TIME_ONLY_12H)
+    val time = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone).time
+    return (if (use24Hour) TIME_ONLY_24H else TIME_ONLY_12H).format(time)
 }
 
 /** Wall-clock time of a [LocalTime] already resolved to a zone — the Big Picture event-detail row. */
 internal fun formatClockTime(
     time: LocalTime,
     use24Hour: Boolean,
-): String = time.format(if (use24Hour) TIME_ONLY_24H else TIME_ONLY_12H)
+): String = (if (use24Hour) TIME_ONLY_24H else TIME_ONLY_12H).format(time)
 
 /**
  * "MMM d, h:mm a" — a Big Picture ongoing/span endpoint that fell on a different day than the row
@@ -170,11 +312,12 @@ internal fun formatClockTime(
 internal fun formatSpanDateTime(
     occurredAt: Long,
     use24Hour: Boolean,
-    zone: ZoneId = ZoneId.systemDefault(),
-): String = Instant.ofEpochMilli(occurredAt).atZone(zone).format(if (use24Hour) SPAN_DATE_TIME_24H else SPAN_DATE_TIME_12H)
+    zone: TimeZone = TimeZone.currentSystemDefault(),
+): String =
+    (if (use24Hour) SPAN_DATE_TIME_24H else SPAN_DATE_TIME_12H).format(Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone))
 
 /** Localized medium date — the Big Picture day/week detail dialog titles. */
-internal fun formatMediumDate(date: LocalDate): String = date.format(MEDIUM_DATE_FORMATTER)
+internal fun formatMediumDate(date: LocalDate): String = MEDIUM_DATE_FORMATTER.format(date)
 
 /**
  * A still-running event's projected/expected `endedAt` (spec §6), for the ongoing-indicator's trailing
@@ -190,30 +333,31 @@ internal fun formatExpectedEndTime(
     expectedEndAt: Long,
     now: Long,
     use24Hour: Boolean,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
-    val sameDay = Instant.ofEpochMilli(expectedEndAt).atZone(zone).toLocalDate() == Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val sameDay =
+        Instant.fromEpochMilliseconds(expectedEndAt).toLocalDateTime(zone).date ==
+            Instant.fromEpochMilliseconds(now).toLocalDateTime(zone).date
     return if (sameDay) formatEventTimeOfDay(expectedEndAt, use24Hour, zone) else formatSpanDateTime(expectedEndAt, use24Hour, zone)
 }
 
 /** "EEE d" — the per-day header inside the Big Picture week detail dialog. */
-internal fun formatWeekdayDayDate(date: LocalDate): String = date.format(WEEKDAY_DAY_FORMATTER)
+internal fun formatWeekdayDayDate(date: LocalDate): String = WEEKDAY_DAY_FORMATTER.format(date)
 
 /**
  * Frequency-chart tick label — deliberately numeric/short rather than authored copy (spec S9: the
  * old "Week of …" wrapper text crowded the chart once more than two ticks were shown), so unlike
- * every other formatter in this file it needs no `Voice` input. Follows the platform [locale] (the
- * chart's Day/Week/Month scale is chrome, not an event's own recorded time), same as before.
+ * every other formatter in this file it needs no `Voice` input. Fixed English, like every other
+ * formatter here (see this file's own doc comment) — no longer locale-parameterized.
  */
 internal fun formatFrequencyTickLabel(
     periodStart: LocalDate,
     granularity: FrequencyGranularity,
-    locale: Locale,
 ): String =
     when (granularity) {
-        FrequencyGranularity.DAY -> periodStart.format(DateTimeFormatter.ofPattern("d", locale))
-        FrequencyGranularity.WEEK -> periodStart.format(DateTimeFormatter.ofPattern("M/d", locale))
-        FrequencyGranularity.MONTH -> periodStart.month.getDisplayName(TextStyle.SHORT, locale)
+        FrequencyGranularity.DAY -> periodStart.day.toString()
+        FrequencyGranularity.WEEK -> "${periodStart.month.number}/${periodStart.day}"
+        FrequencyGranularity.MONTH -> periodStart.month.englishAbbreviated()
     }
 
 /**

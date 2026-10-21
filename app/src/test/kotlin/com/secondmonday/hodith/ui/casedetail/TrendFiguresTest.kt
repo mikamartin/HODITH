@@ -6,10 +6,10 @@ import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import kotlinx.datetime.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import java.time.LocalDate
 
 class TrendFiguresTest {
     @Test
@@ -142,7 +142,7 @@ class TrendFiguresTest {
                 20,
                 priorValue = 3.0,
                 recentValue = 9.0,
-                changePointDate = LocalDate.of(2026, 3, 14),
+                changePointDate = LocalDate(2026, 3, 14),
                 latestEvidenceAt = 0L,
             )
 

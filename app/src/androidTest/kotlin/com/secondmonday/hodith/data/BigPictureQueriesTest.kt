@@ -4,12 +4,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.testtags.Smoke
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.TimeZone
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.ZoneId
 
 /**
  * The lean projections the Big Picture grid reads instead of the full `CaseWithEventsAndTags`
@@ -55,7 +55,7 @@ class BigPictureQueriesTest {
                         endedAt = 400L,
                         intensity = 3,
                         note = "felt fine",
-                        utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(100L),
+                        utcOffsetMinutes = TimeZone.currentSystemDefault().offsetMinutesAt(100L),
                     ),
                 ),
                 details,

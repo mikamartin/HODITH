@@ -2,9 +2,11 @@ package com.secondmonday.hodith.data.backup
 
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.loggedZone
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
+import kotlinx.datetime.Instant
+import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.format.DateTimeComponents
+import kotlinx.datetime.format.char
+import kotlinx.datetime.format.format
 import javax.inject.Inject
 
 private const val CSV_HEADER = "case_name,occurred_at,ended_at,duration_minutes,intensity,tags,note"
@@ -12,7 +14,23 @@ private const val CRLF = "\r\n"
 private const val MILLIS_PER_MINUTE = 60_000L
 
 /** Always renders seconds and a numeric offset (`+00:00`, never `Z`) so every row is uniform regardless of whether a timestamp happens to fall on a whole minute. */
-private val TIMESTAMP_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxxx")
+private val TIMESTAMP_FORMAT =
+    DateTimeComponents.Format {
+        year()
+        char('-')
+        monthNumber()
+        char('-')
+        day()
+        char('T')
+        hour()
+        char(':')
+        minute()
+        char(':')
+        second()
+        offsetHours()
+        char(':')
+        offsetMinutesOfHour()
+    }
 
 /**
  * [BackupData] flattened into a human-readable, spreadsheet-friendly CSV: one row per event
@@ -65,8 +83,11 @@ class CsvBackupSerializer
 
         private fun isoOffsetDateTime(
             millis: Long,
-            offset: ZoneOffset,
-        ): String = TIMESTAMP_FORMATTER.format(Instant.ofEpochMilli(millis).atOffset(offset))
+            offset: UtcOffset,
+        ): String =
+            TIMESTAMP_FORMAT.format {
+                setDateTimeOffset(Instant.fromEpochMilliseconds(millis), offset)
+            }
 
         private fun csvField(value: String): String =
             if (value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {

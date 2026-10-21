@@ -1,18 +1,24 @@
 package com.secondmonday.hodith.ui.bigpicture
 
-import com.secondmonday.hodith.data.zoneOffsetFromMinutes
+import com.secondmonday.hodith.data.utcOffsetFromMinutes
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
+import kotlinx.datetime.atTime
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
-import java.time.YearMonth
 
 class BigPictureFilterStateTest {
-    private val today = LocalDate.of(2026, 3, 15)
+    private val today = LocalDate(2026, 3, 15)
 
     @Test
     fun `isPastOrToday is true for today itself`() {
@@ -21,12 +27,12 @@ class BigPictureFilterStateTest {
 
     @Test
     fun `isPastOrToday is true for a date before today`() {
-        assertEquals(true, isPastOrToday(today.minusDays(1), today))
+        assertEquals(true, isPastOrToday(today.minus(1, DateTimeUnit.DAY), today))
     }
 
     @Test
     fun `isPastOrToday is false for a date after today`() {
-        assertEquals(false, isPastOrToday(today.plusDays(1), today))
+        assertEquals(false, isPastOrToday(today.plus(1, DateTimeUnit.DAY), today))
     }
 
     @Test
@@ -133,14 +139,14 @@ class BigPictureFilterStateTest {
         assertTrue(bigPictureLegendFits(listOf("Coffee"), listOf("weekend")))
     }
 
-    private val jan2026 = YearMonth.of(2026, 1)
-    private val mar2026 = YearMonth.of(2026, 3)
-    private val dec2025 = YearMonth.of(2025, 12)
-    private val ascendingMonths = listOf(dec2025, jan2026, YearMonth.of(2026, 2), mar2026)
+    private val jan2026 = YearMonth(2026, Month(1))
+    private val mar2026 = YearMonth(2026, Month(3))
+    private val dec2025 = YearMonth(2025, Month(12))
+    private val ascendingMonths = listOf(dec2025, jan2026, YearMonth(2026, Month(2)), mar2026)
 
     @Test
     fun `monthsNewestFirst reverses an ascending list`() {
-        assertEquals(listOf(mar2026, YearMonth.of(2026, 2), jan2026, dec2025), monthsNewestFirst(ascendingMonths))
+        assertEquals(listOf(mar2026, YearMonth(2026, Month(2)), jan2026, dec2025), monthsNewestFirst(ascendingMonths))
     }
 
     @Test
@@ -170,7 +176,7 @@ class BigPictureFilterStateTest {
 
     @Test
     fun `filterMonthsByYear narrows to a year with several months`() {
-        assertEquals(listOf(jan2026, YearMonth.of(2026, 2), mar2026), filterMonthsByYear(ascendingMonths, 2026))
+        assertEquals(listOf(jan2026, YearMonth(2026, Month(2)), mar2026), filterMonthsByYear(ascendingMonths, 2026))
     }
 
     @Test
@@ -196,7 +202,7 @@ class BigPictureFilterStateTest {
 
     @Test
     fun `bigPictureYearOptions returns a single year when every month falls in it`() {
-        assertEquals(listOf(2026), bigPictureYearOptions(listOf(jan2026, YearMonth.of(2026, 2), mar2026)))
+        assertEquals(listOf(2026), bigPictureYearOptions(listOf(jan2026, YearMonth(2026, Month(2)), mar2026)))
     }
 
     @Test
@@ -366,7 +372,7 @@ class BigPictureFilterStateTest {
         hour: Int,
         minute: Int = 0,
         offsetMinutes: Int = 0,
-    ): Long = date.atTime(hour, minute).toInstant(zoneOffsetFromMinutes(offsetMinutes)).toEpochMilli()
+    ): Long = date.atTime(hour, minute).toInstant(utcOffsetFromMinutes(offsetMinutes)).toEpochMilliseconds()
 
     @Test
     fun `coveredDates returns a single date for a point event`() {
@@ -388,31 +394,31 @@ class BigPictureFilterStateTest {
                 id = 1L,
                 caseId = 1L,
                 occurredAt = millisAt(today, 23, 30),
-                endedAt = millisAt(today.plusDays(1), 0, 30),
+                endedAt = millisAt(today.plus(1, DateTimeUnit.DAY), 0, 30),
             )
-        assertEquals(listOf(today, today.plusDays(1)), coveredDates(span, today))
+        assertEquals(listOf(today, today.plus(1, DateTimeUnit.DAY)), coveredDates(span, today))
     }
 
     @Test
     fun `coveredDates spans a year boundary correctly`() {
-        val newYearsEve = LocalDate.of(2025, 12, 30)
+        val newYearsEve = LocalDate(2025, 12, 30)
         val span =
             CalendarEvent(
                 id = 1L,
                 caseId = 1L,
                 occurredAt = millisAt(newYearsEve, 9),
-                endedAt = millisAt(LocalDate.of(2026, 1, 2), 9),
+                endedAt = millisAt(LocalDate(2026, 1, 2), 9),
             )
         assertEquals(
-            listOf(LocalDate.of(2025, 12, 30), LocalDate.of(2025, 12, 31), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2)),
-            coveredDates(span, today = LocalDate.of(2026, 1, 2)),
+            listOf(LocalDate(2025, 12, 30), LocalDate(2025, 12, 31), LocalDate(2026, 1, 1), LocalDate(2026, 1, 2)),
+            coveredDates(span, today = LocalDate(2026, 1, 2)),
         )
     }
 
     @Test
     fun `coveredDates for a still-running event spans from its start date through today`() {
-        val ongoing = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minusDays(2), 9), isOngoing = true)
-        assertEquals(listOf(today.minusDays(2), today.minusDays(1), today), coveredDates(ongoing, today))
+        val ongoing = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minus(2, DateTimeUnit.DAY), 9), isOngoing = true)
+        assertEquals(listOf(today.minus(2, DateTimeUnit.DAY), today.minus(1, DateTimeUnit.DAY), today), coveredDates(ongoing, today))
     }
 
     @Test
@@ -429,10 +435,10 @@ class BigPictureFilterStateTest {
             CalendarEvent(
                 id = 1L,
                 caseId = 1L,
-                occurredAt = millisAt(LocalDate.of(2026, 1, 1), 23, 30, offsetMinutes = 0),
+                occurredAt = millisAt(LocalDate(2026, 1, 1), 23, 30, offsetMinutes = 0),
                 utcOffsetMinutes = 600,
             )
-        assertEquals(listOf(LocalDate.of(2026, 1, 2)), coveredDates(lateUtc, today = LocalDate.of(2026, 1, 2)))
+        assertEquals(listOf(LocalDate(2026, 1, 2)), coveredDates(lateUtc, today = LocalDate(2026, 1, 2)))
     }
 
     @Test
@@ -450,16 +456,16 @@ class BigPictureFilterStateTest {
     @Test
     fun `buildEventsByDay flags a 2-day span's start and end days with no middle isAllDay day`() {
         val span =
-            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 23), endedAt = millisAt(today.plusDays(1), 1))
+            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 23), endedAt = millisAt(today.plus(1, DateTimeUnit.DAY), 1))
         val byDay = buildEventsByDay(listOf(span), today)
-        assertEquals(setOf(today, today.plusDays(1)), byDay.keys)
+        assertEquals(setOf(today, today.plus(1, DateTimeUnit.DAY)), byDay.keys)
 
         val startDayEvent = byDay[today]!!.single()
         assertTrue(startDayEvent.isSpanStart)
         assertFalse(startDayEvent.isSpanEnd)
         assertFalse(startDayEvent.isAllDay)
 
-        val endDayEvent = byDay[today.plusDays(1)]!!.single()
+        val endDayEvent = byDay[today.plus(1, DateTimeUnit.DAY)]!!.single()
         assertFalse(endDayEvent.isSpanStart)
         assertTrue(endDayEvent.isSpanEnd)
         assertFalse(endDayEvent.isAllDay)
@@ -468,25 +474,25 @@ class BigPictureFilterStateTest {
     @Test
     fun `buildEventsByDay flags only the middle days of a longer span as isAllDay`() {
         val span =
-            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 9), endedAt = millisAt(today.plusDays(3), 17))
+            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today, 9), endedAt = millisAt(today.plus(3, DateTimeUnit.DAY), 17))
         val byDay = buildEventsByDay(listOf(span), today)
 
         assertTrue(byDay[today]!!.single().isSpanStart)
-        assertTrue(byDay[today.plusDays(1)]!!.single().isAllDay)
-        assertTrue(byDay[today.plusDays(2)]!!.single().isAllDay)
-        assertTrue(byDay[today.plusDays(3)]!!.single().isSpanEnd)
+        assertTrue(byDay[today.plus(1, DateTimeUnit.DAY)]!!.single().isAllDay)
+        assertTrue(byDay[today.plus(2, DateTimeUnit.DAY)]!!.single().isAllDay)
+        assertTrue(byDay[today.plus(3, DateTimeUnit.DAY)]!!.single().isSpanEnd)
     }
 
     @Test
     fun `buildEventsByDay keeps a still-running span's start day as isSpanStart but every carried day isAllDay, never isSpanEnd`() {
-        val ongoing = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minusDays(2), 9), isOngoing = true)
+        val ongoing = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minus(2, DateTimeUnit.DAY), 9), isOngoing = true)
         val byDay = buildEventsByDay(listOf(ongoing), today)
 
-        val startDayEvent = byDay[today.minusDays(2)]!!.single()
+        val startDayEvent = byDay[today.minus(2, DateTimeUnit.DAY)]!!.single()
         assertTrue(startDayEvent.isSpanStart)
         assertFalse(startDayEvent.isAllDay)
 
-        val carriedYesterday = byDay[today.minusDays(1)]!!.single()
+        val carriedYesterday = byDay[today.minus(1, DateTimeUnit.DAY)]!!.single()
         assertTrue(carriedYesterday.isAllDay)
         assertFalse(carriedYesterday.isSpanEnd)
 
@@ -510,9 +516,12 @@ class BigPictureFilterStateTest {
 
     @Test
     fun `buildEventsByDay orders a mixed day by real boundary time, all-day pinned first`() {
-        val carriedAllDay = CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minusDays(5), 9), isOngoing = true)
-        val startsAt8 = CalendarEvent(id = 2L, caseId = 1L, occurredAt = millisAt(today, 8), endedAt = millisAt(today.plusDays(2), 9))
-        val endsAt9 = CalendarEvent(id = 3L, caseId = 1L, occurredAt = millisAt(today.minusDays(3), 9), endedAt = millisAt(today, 9))
+        val carriedAllDay =
+            CalendarEvent(id = 1L, caseId = 1L, occurredAt = millisAt(today.minus(5, DateTimeUnit.DAY), 9), isOngoing = true)
+        val startsAt8 =
+            CalendarEvent(id = 2L, caseId = 1L, occurredAt = millisAt(today, 8), endedAt = millisAt(today.plus(2, DateTimeUnit.DAY), 9))
+        val endsAt9 =
+            CalendarEvent(id = 3L, caseId = 1L, occurredAt = millisAt(today.minus(3, DateTimeUnit.DAY), 9), endedAt = millisAt(today, 9))
         val plainAt10 = CalendarEvent(id = 4L, caseId = 1L, occurredAt = millisAt(today, 10))
 
         val byDay = buildEventsByDay(listOf(carriedAllDay, startsAt8, endsAt9, plainAt10), today)

@@ -21,6 +21,7 @@ import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
 import com.secondmonday.hodith.data.offsetMinutesAt
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.testtags.Smoke
 import com.secondmonday.hodith.testtags.UiTest
 import com.secondmonday.hodith.ui.common.setHodithContent
@@ -29,15 +30,19 @@ import com.secondmonday.hodith.ui.voice.PlainVoice
 import com.secondmonday.hodith.viewmodel.BigPictureUiState
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
+import com.secondmonday.hodith.viewmodel.formatMediumDate
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.atTime
+import kotlinx.datetime.minus
+import kotlinx.datetime.number
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.time.temporal.ChronoUnit
-import java.util.Locale
 
 /**
  * [BigPictureScreen] is a stateless composable driven entirely by plain data, so these tests
@@ -50,18 +55,19 @@ class BigPictureScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private val today = LocalDate.of(2026, 7, 23)
-    private val weekStart = LocalDate.of(2026, 7, 20)
+    private val today = LocalDate(2026, 7, 23)
+    private val weekStart = LocalDate(2026, 7, 20)
     private val currentMonth = YearMonth.from(today)
     private val case = CalendarCase(id = 1L, icon = "☕", name = "Coffee")
     private val monthTitle = "July 2026 ›"
-    private val earlierYearMonth = YearMonth.of(2025, 12)
+    private val earlierYearMonth = YearMonth(2025, Month.DECEMBER)
     private val earlierMonthTitle = "December 2025 ›"
 
     // The grid's month order is current-first/earliest-last (spec §9); with the full, unfiltered
     // range the earliest month is off-screen below the fold until the LazyColumn is scrolled to
     // it -- this is its index (last, since displayMonths reverses the ascending months list).
-    private val fullRangeEarliestMonthIndex = ChronoUnit.MONTHS.between(earlierYearMonth, currentMonth).toInt()
+    private val fullRangeEarliestMonthIndex =
+        (currentMonth.year - earlierYearMonth.year) * 12 + (currentMonth.month.number - earlierYearMonth.month.number)
 
     private fun scrollToEarliestMonth() {
         composeTestRule.onNode(hasScrollToIndexAction()).performScrollToIndex(fullRangeEarliestMonthIndex)
@@ -116,7 +122,7 @@ class BigPictureScreenTest {
         tags: List<String> = emptyList(),
         intensity: Int? = null,
     ): CalendarEvent {
-        val occurredAt = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val occurredAt = today.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
         return CalendarEvent(
             id = id,
             caseId = case.id,
@@ -165,7 +171,7 @@ class BigPictureScreenTest {
     fun dayDetailDialog_opensOnDayTap_showsEventNote() {
         setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))))
 
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
 
         composeTestRule.onNodeWithText("felt fine").assertExists()
     }
@@ -177,7 +183,7 @@ class BigPictureScreenTest {
         // since Compose's semantics tree doesn't care whether content is clipped from view.
         setContent(uiStateWith(cases = listOf(case), events = (1L..15L).map { eventToday(id = it) }))
 
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
 
         // One scrollable container is the grid's own month list; a second is the day dialog's own event list.
         composeTestRule.onAllNodes(hasScrollAction()).assertCountEquals(2)
@@ -198,7 +204,7 @@ class BigPictureScreenTest {
 
         composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
 
-        val formattedWeekStart = weekStart.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
+        val formattedWeekStart = formatMediumDate(weekStart)
         composeTestRule.onNodeWithText(PlainVoice.bigPictureWeekDetailTitle(formattedWeekStart)).assertExists()
     }
 
@@ -212,7 +218,7 @@ class BigPictureScreenTest {
         // "Cases" is structural copy shared by all three voices (Voice.kt's own default), so this
         // label is correct regardless of theme.
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).assertExists()
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
         composeTestRule.onNodeWithText("felt fine").assertExists()
     }
 
@@ -224,7 +230,7 @@ class BigPictureScreenTest {
         )
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureCasesFilterLabel).assertExists()
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
         composeTestRule.onNodeWithText("felt fine").assertExists()
     }
 
@@ -234,7 +240,7 @@ class BigPictureScreenTest {
             uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine", tags = listOf("late night")))),
         )
 
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
 
         // Midnight (today.atStartOfDay) formats as "12:00 AM"; it's a trailing span in the name line.
         composeTestRule.onNodeWithText("12:00 AM", substring = true).assertExists()
@@ -248,15 +254,14 @@ class BigPictureScreenTest {
         hour: Int,
     ) = date
         .atTime(hour, 0)
-        .atZone(ZoneId.systemDefault())
-        .toInstant()
-        .toEpochMilli()
+        .toInstant(TimeZone.currentSystemDefault())
+        .toEpochMilliseconds()
 
     // Fixtures build occurredAt via the device's own zone (millisAt/today.atStartOfDay), so their
     // utcOffsetMinutes must be captured the same way -- mirrors the production capture in
     // LogDetailViewModel.toEventEntity -- or a non-UTC test device diverges from the fixture's
     // assumed-UTC default and every clock-time/day-bucketing assertion in this file breaks.
-    private fun offsetAt(millis: Long) = ZoneId.systemDefault().offsetMinutesAt(millis)
+    private fun offsetAt(millis: Long) = TimeZone.currentSystemDefault().offsetMinutesAt(millis)
 
     @Test
     fun dayDetailDialog_spannedDay_showsSpanRangeInsteadOfClockTime() {
@@ -266,13 +271,13 @@ class BigPictureScreenTest {
                 id = 1L,
                 caseId = case.id,
                 occurredAt = millisAt(weekStart, 9),
-                endedAt = millisAt(weekStart.plusDays(2), 17),
+                endedAt = millisAt(weekStart.plus(2, DateTimeUnit.DAY), 17),
                 note = "rough stretch",
                 utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
 
-        composeTestRule.onNodeWithText(weekStart.plusDays(1).dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(weekStart.plus(1, DateTimeUnit.DAY).day.toString()).performClick()
 
         // The carried-day row carries the real start date + time, not a bare clock time.
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertExists()
@@ -288,13 +293,13 @@ class BigPictureScreenTest {
                 id = 1L,
                 caseId = case.id,
                 occurredAt = millisAt(weekStart, 9),
-                endedAt = millisAt(weekStart.plusDays(2), 17),
+                endedAt = millisAt(weekStart.plus(2, DateTimeUnit.DAY), 17),
                 note = "rough stretch",
                 utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
 
-        composeTestRule.onNodeWithText(weekStart.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(weekStart.day.toString()).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanStarted("9:00 AM")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertDoesNotExist()
@@ -307,13 +312,13 @@ class BigPictureScreenTest {
                 id = 1L,
                 caseId = case.id,
                 occurredAt = millisAt(weekStart, 9),
-                endedAt = millisAt(weekStart.plusDays(2), 17),
+                endedAt = millisAt(weekStart.plus(2, DateTimeUnit.DAY), 17),
                 note = "rough stretch",
                 utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(span)))
 
-        composeTestRule.onNodeWithText(weekStart.plusDays(2).dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(weekStart.plus(2, DateTimeUnit.DAY).day.toString()).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanEnded("5:00 PM")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertDoesNotExist()
@@ -328,22 +333,22 @@ class BigPictureScreenTest {
             CalendarEvent(
                 id = 1L,
                 caseId = case.id,
-                occurredAt = millisAt(weekStart.minusDays(3), 8),
+                occurredAt = millisAt(weekStart.minus(3, DateTimeUnit.DAY), 8),
                 isOngoing = true,
                 note = "forgot to stop",
-                utcOffsetMinutes = offsetAt(millisAt(weekStart.minusDays(3), 8)),
+                utcOffsetMinutes = offsetAt(millisAt(weekStart.minus(3, DateTimeUnit.DAY), 8)),
             )
         val timed =
             CalendarEvent(
                 id = 2L,
                 caseId = case.id,
-                occurredAt = millisAt(weekStart.plusDays(1), 7),
+                occurredAt = millisAt(weekStart.plus(1, DateTimeUnit.DAY), 7),
                 note = "plain errand",
-                utcOffsetMinutes = offsetAt(millisAt(weekStart.plusDays(1), 7)),
+                utcOffsetMinutes = offsetAt(millisAt(weekStart.plus(1, DateTimeUnit.DAY), 7)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(timed, carried)))
 
-        composeTestRule.onNodeWithText(weekStart.plusDays(1).dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(weekStart.plus(1, DateTimeUnit.DAY).day.toString()).performClick()
 
         val carriedTop = composeTestRule.onNodeWithText("forgot to stop").getBoundsInRoot().top
         val timedTop = composeTestRule.onNodeWithText("plain errand").getBoundsInRoot().top
@@ -358,15 +363,15 @@ class BigPictureScreenTest {
             CalendarEvent(
                 id = 1L,
                 caseId = case.id,
-                occurredAt = millisAt(weekStart.plusDays(1), 8),
+                occurredAt = millisAt(weekStart.plus(1, DateTimeUnit.DAY), 8),
                 isOngoing = true,
                 note = "forgot to stop",
-                utcOffsetMinutes = offsetAt(millisAt(weekStart.plusDays(1), 8)),
+                utcOffsetMinutes = offsetAt(millisAt(weekStart.plus(1, DateTimeUnit.DAY), 8)),
             )
         setContent(uiStateWith(cases = listOf(case), events = listOf(ongoing)))
 
         // today is the 23rd; the 22nd is a carried day of the still-running event.
-        composeTestRule.onNodeWithText(today.minusDays(1).dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.minus(1, DateTimeUnit.DAY).day.toString()).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEventOngoingSince("Jul 21, 8:00 AM")).assertExists()
     }
@@ -378,8 +383,8 @@ class BigPictureScreenTest {
             uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))),
             onOpenCase = { openedCaseId = it },
         )
-        val dayTitle = today.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        val dayTitle = formatMediumDate(today)
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
 
         composeTestRule.onNodeWithText("${case.icon} ${case.name}", substring = true).performClick()
 
@@ -410,7 +415,7 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText("urgent").assertExists()
         composeTestRule.onNodeWithText("later").assertDoesNotExist()
 
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
 
         composeTestRule.onNodeWithText("urgent note").assertExists()
         composeTestRule.onNodeWithText("later note").assertDoesNotExist()
@@ -429,7 +434,7 @@ class BigPictureScreenTest {
         // Confirm "urgent" was actually deselected (selection collapses to "Untagged only").
         composeTestRule.onNodeWithText(PlainVoice.bigPictureUntaggedOnlyLabel).assertExists()
 
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
 
         // Behavior change from the old always-expanded chips: zero tags selected now means
         // "untagged only", not "hide everything".
@@ -472,7 +477,7 @@ class BigPictureScreenTest {
             uiStateWith(cases = listOf(case), events = listOf(eventToday(note = "felt fine"))),
             onOpenCase = { openedCaseId = it },
         )
-        val formattedWeekStart = weekStart.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.US))
+        val formattedWeekStart = formatMediumDate(weekStart)
         composeTestRule.onNodeWithTag(BIG_PICTURE_TODAY_WEEK_CHEVRON_TAG).performClick()
 
         composeTestRule.onNodeWithText("${case.icon} ${case.name}", substring = true).performClick()
@@ -490,7 +495,7 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureNoCasesSelectedNote).assertExists()
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureDayDetailEmptyState).assertExists()
     }
 
@@ -578,7 +583,7 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.bigPictureSelectAllAction).performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
         composeTestRule.onNodeWithText("a note").assertExists()
         composeTestRule.onNodeWithText("b note").assertExists()
     }
@@ -787,7 +792,7 @@ class BigPictureScreenTest {
         composeTestRule.onNodeWithText(secondCase.name).performClick()
         composeTestRule.onNodeWithText(PlainVoice.infoDialogDismissAction).performClick()
 
-        composeTestRule.onNodeWithText(earlierDay.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(earlierDay.day.toString()).performClick()
 
         composeTestRule.onNodeWithText("coffee note").assertExists()
         composeTestRule.onNodeWithText("tea note").assertDoesNotExist()
@@ -827,7 +832,7 @@ class BigPictureScreenTest {
         // 99L doesn't exist among cases, so it's dropped; the remaining real id is every current
         // case, which collapses to "All", not a bogus "2 of 1".
         composeTestRule.onNodeWithText(": " + PlainVoice.bigPictureFilterCountAll).assertExists()
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureDayDetailEmptyState).assertDoesNotExist()
     }
 
@@ -836,7 +841,7 @@ class BigPictureScreenTest {
         setContent(uiStateWith(cases = listOf(case), events = listOf(eventToday()), visibleCaseIds = emptySet()))
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureNoCasesSelectedNote).assertExists()
-        composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(today.day.toString()).performClick()
         composeTestRule.onNodeWithText(PlainVoice.bigPictureDayDetailEmptyState).assertExists()
     }
 
@@ -885,7 +890,7 @@ class BigPictureScreenTest {
 
     private fun detailTag(field: BigPictureDetailField) = BIG_PICTURE_DETAIL_TOGGLE_TAG_PREFIX + field.name
 
-    private fun openDay() = composeTestRule.onNodeWithText(today.dayOfMonth.toString()).performClick()
+    private fun openDay() = composeTestRule.onNodeWithText(today.day.toString()).performClick()
 
     @Test
     fun dayDetailDialog_notelessEvent_showsNoPlaceholder() {
@@ -993,14 +998,14 @@ class BigPictureScreenTest {
                 id = 1L,
                 caseId = case.id,
                 occurredAt = millisAt(weekStart, 9),
-                endedAt = millisAt(weekStart.plusDays(2), 17),
+                endedAt = millisAt(weekStart.plus(2, DateTimeUnit.DAY), 17),
                 utcOffsetMinutes = offsetAt(millisAt(weekStart, 9)),
             )
         setContent(
             uiStateWith(cases = listOf(case), events = listOf(span), detail = BigPictureDetail.DEFAULT.copy(duration = true)),
         )
 
-        composeTestRule.onNodeWithText(weekStart.plusDays(1).dayOfMonth.toString()).performClick()
+        composeTestRule.onNodeWithText(weekStart.plus(1, DateTimeUnit.DAY).day.toString()).performClick()
 
         composeTestRule.onNodeWithText(PlainVoice.bigPictureEventSpanRange("Jul 20, 9:00 AM", "Jul 22, 5:00 PM")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.eventDurationLabel(""), substring = true).assertDoesNotExist()

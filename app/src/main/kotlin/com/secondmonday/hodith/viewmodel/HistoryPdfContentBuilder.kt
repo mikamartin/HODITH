@@ -11,7 +11,8 @@ import com.secondmonday.hodith.domain.ChronologicalOrder
 import com.secondmonday.hodith.domain.filterAndSortEvents
 import com.secondmonday.hodith.domain.isStillRunning
 import com.secondmonday.hodith.ui.voice.Voice
-import java.time.ZoneId
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
 
 /**
  * The History PDF's full counterpart of [historyShareCardState] - same filter pipeline, with
@@ -31,7 +32,7 @@ internal fun historyPdfContent(
     voice: Voice,
     now: Long,
     generatedAtMillis: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): HistoryPdfContent {
     val matches = filterAndSortEvents(events, from = dateFrom, to = dateTo, order = sortOrder)
     val (fromText, toText) = pdfDateRangeBounds(case.createdAt, dateFrom, dateTo, zone)
@@ -75,19 +76,19 @@ private fun historyPdfRow(
     use24Hour: Boolean,
     now: Long,
     voice: Voice,
-    zone: ZoneId,
+    zone: TimeZone,
 ): HistoryPdfRow {
     val event = eventWithTags.event
     val isOngoing = isStillRunning(event, case.tracksDuration, now)
     val end = event.endedAt?.takeIf { columns.endHeader != null && it > event.occurredAt }
 
     return HistoryPdfRow(
-        start = formatHistoryPdfCellTimestamp(event.occurredAt, use24Hour, event.loggedZone()),
+        start = formatHistoryPdfCellTimestamp(event.occurredAt, use24Hour, event.loggedZone().asTimeZone()),
         end =
             when {
                 columns.endHeader == null -> null
                 isOngoing -> voice.ongoingPillLabel
-                end != null -> formatHistoryPdfCellTimestamp(end, use24Hour, event.loggedZone())
+                end != null -> formatHistoryPdfCellTimestamp(end, use24Hour, event.loggedZone().asTimeZone())
                 else -> null
             },
         duration =

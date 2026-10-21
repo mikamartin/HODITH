@@ -1,11 +1,15 @@
 package com.secondmonday.hodith.ui.bigpicture
 
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.viewmodel.CalendarCase
 import com.secondmonday.hodith.viewmodel.CalendarEvent
 import com.secondmonday.hodith.viewmodel.loggedZone
-import java.time.Instant
-import java.time.LocalDate
-import java.time.YearMonth
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * Pure filter/legend logic for the Big Picture grid, split out of [BigPictureGrid] so it's
@@ -87,7 +91,7 @@ internal fun bigPictureAllTagNames(
 internal fun isPastOrToday(
     date: LocalDate,
     today: LocalDate,
-): Boolean = !date.isAfter(today)
+): Boolean = date <= today
 
 /**
  * A day's events, chronological instead of case-grouped: [DayEvent.isAllDay] rows (a multi-day span
@@ -112,15 +116,16 @@ internal fun coveredDates(
     event: CalendarEvent,
     today: LocalDate,
 ): List<LocalDate> {
-    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone()).toLocalDate()
+    val eventZone = event.loggedZone().asTimeZone()
+    val startDate = Instant.fromEpochMilliseconds(event.occurredAt).toLocalDateTime(eventZone).date
     val endDate =
         when {
             event.isOngoing -> today
-            event.endedAt != null -> Instant.ofEpochMilli(event.endedAt).atZone(event.loggedZone()).toLocalDate()
+            event.endedAt != null -> Instant.fromEpochMilliseconds(event.endedAt).toLocalDateTime(eventZone).date
             else -> startDate
         }
-    if (!endDate.isAfter(startDate)) return listOf(startDate)
-    return generateSequence(startDate) { it.plusDays(1) }.takeWhile { !it.isAfter(endDate) }.toList()
+    if (endDate <= startDate) return listOf(startDate)
+    return generateSequence(startDate) { it.plus(1, DateTimeUnit.DAY) }.takeWhile { it <= endDate }.toList()
 }
 
 /**

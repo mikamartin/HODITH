@@ -34,6 +34,8 @@ import com.secondmonday.hodith.viewmodel.LogDraft
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.formatEventTime
 import com.secondmonday.hodith.viewmodel.startOfDayMillis
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -41,8 +43,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
 
 /**
  * Second Compose UI instrumented test in the repo, closing the gap `TESTING.md` had twice
@@ -401,9 +401,9 @@ class CaseDetailScreenTest {
         // The chip itself stays terse ("Selected") -- a formatted date pair didn't fit the chip's
         // own width alongside the Sort chip and the pinned Edit icon. The actual bounds render as
         // a separate line underneath instead.
-        val zone = ZoneId.systemDefault()
-        val from = zone.startOfDayMillis(LocalDate.of(2026, 7, 3))
-        val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
+        val zone = TimeZone.currentSystemDefault()
+        val from = zone.startOfDayMillis(LocalDate(2026, 7, 3))
+        val to = zone.startOfDayMillis(LocalDate(2026, 8, 15))
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
             historyDateFrom = from,
@@ -436,9 +436,9 @@ class CaseDetailScreenTest {
         // current dateFrom/dateTo (via toDatePickerUtcMillis), and Confirm should hand both back
         // out through their own callback -- proving the combined onConfirm(from, to) wiring, not
         // just that the dialog opens.
-        val zone = ZoneId.systemDefault()
-        val from = zone.startOfDayMillis(LocalDate.of(2026, 7, 3))
-        val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
+        val zone = TimeZone.currentSystemDefault()
+        val from = zone.startOfDayMillis(LocalDate(2026, 7, 3))
+        val to = zone.startOfDayMillis(LocalDate(2026, 8, 15))
         var changedFrom: LocalDate? = null
         var changedTo: LocalDate? = null
         setCaseDetailScreenContent(
@@ -452,17 +452,17 @@ class CaseDetailScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.shareHistoryRangeLabel).performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
 
-        assertEquals(LocalDate.of(2026, 7, 3), changedFrom)
-        assertEquals(LocalDate.of(2026, 8, 15), changedTo)
+        assertEquals(LocalDate(2026, 7, 3), changedFrom)
+        assertEquals(LocalDate(2026, 8, 15), changedTo)
     }
 
     @Test
     fun historyRangeDialog_allTimeTap_clearsBothBoundsInOneTapAndClosesTheDialog() {
-        val zone = ZoneId.systemDefault()
-        val from = zone.startOfDayMillis(LocalDate.of(2026, 7, 3))
-        val to = zone.startOfDayMillis(LocalDate.of(2026, 8, 15))
-        var changedFrom: LocalDate? = LocalDate.of(2026, 7, 3)
-        var changedTo: LocalDate? = LocalDate.of(2026, 8, 15)
+        val zone = TimeZone.currentSystemDefault()
+        val from = zone.startOfDayMillis(LocalDate(2026, 7, 3))
+        val to = zone.startOfDayMillis(LocalDate(2026, 8, 15))
+        var changedFrom: LocalDate? = LocalDate(2026, 7, 3)
+        var changedTo: LocalDate? = LocalDate(2026, 8, 15)
         setCaseDetailScreenContent(
             events = listOf(EventWithTags(event = testEvent(id = 8L, caseId = 1L, occurredAt = 0L), tags = emptyList())),
             historyDateFrom = from,

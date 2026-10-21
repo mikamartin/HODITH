@@ -28,8 +28,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import java.util.Locale
 import javax.inject.Inject
 
@@ -74,7 +74,7 @@ class CaseDetailViewModel
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
-        private val zone = ZoneId.systemDefault()
+        private val zone = TimeZone.currentSystemDefault()
 
         private val historySortOrder = settingsRepository.observeHistorySortOrder()
         private val historyDateFrom = settingsRepository.observeHistoryDateFrom()

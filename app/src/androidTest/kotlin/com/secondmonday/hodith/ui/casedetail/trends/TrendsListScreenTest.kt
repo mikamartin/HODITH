@@ -16,10 +16,10 @@ import com.secondmonday.hodith.ui.casedetail.formatDays
 import com.secondmonday.hodith.ui.common.setHodithContent
 import com.secondmonday.hodith.ui.voice.BrightVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import kotlinx.datetime.LocalDate
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDate
 
 /**
  * [TrendsListScreen] is a stateless composable driven by plain data + callbacks, same pattern as
@@ -156,13 +156,13 @@ class TrendsListScreenTest {
                 sampleCount = 18,
                 priorValue = 10.0,
                 recentValue = 4.0,
-                changePointDate = LocalDate.of(2026, 7, 22),
+                changePointDate = LocalDate(2026, 7, 22),
             )
         setContent(findings = listOf(changePoint))
 
         composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(changePoint, bucketPhrase = "")).assertExists()
         composeTestRule
-            .onNodeWithText(PlainVoice.trendChangePointDetail(formatApproximateMonth(LocalDate.of(2026, 7, 22))))
+            .onNodeWithText(PlainVoice.trendChangePointDetail(formatApproximateMonth(LocalDate(2026, 7, 22))))
             .assertExists()
     }
 }

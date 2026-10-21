@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.ZoneId
+import kotlinx.datetime.TimeZone
 import javax.inject.Inject
 
 /**
@@ -211,7 +211,7 @@ internal fun watchCardState(
     tracksDuration: Boolean,
     caseCreatedAt: Long,
     now: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
     intensityEnabled: Boolean = true,
 ): WatchCardState {
     val base =
