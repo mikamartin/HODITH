@@ -49,28 +49,6 @@ Exploratory pass over the Intense and Bright themes (`Color.kt`, `GlowDecoration
 
 **Tests** — none until a direction is picked.
 
-### Migrate `java.time` to `kotlinx-datetime`
-
-*Branch: `chore/java-time-to-kotlinx-datetime` (if taken) · Complexity: L–XL · Priority: Medium · Area: Multiplatform*
-
-🎨 **Design decision** — `kotlinx-datetime` has no direct equivalent to `java.time.temporal.TemporalAdjusters` (e.g. "next Monday") or `DateTimeFormatter`-style locale-aware formatting; both need a hand-rolled replacement, not a drop-in swap. A human call is needed on each replacement's shape before landing it.
-
-Part of the Compose Multiplatform roadmap (HODITH_SPEC.md §19) — `java.time` has no Kotlin/Native target, so it blocks an iOS build as-is. Spans 35 files: 10 in `domain/` doing real math (`CalendarGrid`, `CalendarMath`, `ExportFileTimestamp`, `Insights`, `InsightsEngine`, `Stats`, `StatsEngine`, `Trends`, `TrendsEngine`, `VerdictEngine`), plus a cascade into `viewmodel/` (9 files) and `ui/` (13 files) wherever a domain type carrying a date/time crosses that boundary. Its sibling migration, Moshi → kotlinx.serialization, landed first since it was far smaller and fully contained to the backup/import path.
-
-**Acceptance criteria**
-
-- [ ] Every `domain/` file's `java.time` usage replaced with `kotlinx-datetime` equivalents, with existing unit tests (including DST/timezone-boundary cases) still green without weakening their assertions.
-- [ ] A chosen replacement for `TemporalAdjusters` usage (`CalendarGrid`'s month-grid day-of-week math) and for `DateTimeFormatter` usage (`ExportFileTimestamp`, display formatting in `viewmodel`/`ui`), each written up as a short rationale before landing.
-- [ ] Every `viewmodel/` and `ui/` call site touching a migrated domain type updated to match, with no remaining `java.time` import anywhere in `app/src/main/kotlin`.
-- [ ] `CsvBackupSerializer.kt`'s `java.time` usage (export formatting, not domain math) migrated alongside the rest for consistency, even though it isn't itself part of the domain cascade.
-- [ ] CLEANUP_CHECKLIST.md's `java.time` Decoupling check updated from a no-op to a real enforcement once this lands.
-
-**Plan** — start in `domain/`, file by file, keeping each file's own unit tests green before moving to the next; only then follow the cascade outward into `viewmodel`/`ui`. Decide the `TemporalAdjusters`/`DateTimeFormatter` replacements early, since multiple files depend on each.
-
-**Tests** — existing domain/viewmodel/ui test suites must stay green throughout; no new behavior, so no new tests expected beyond incidental gaps the migration surfaces.
-
-**Concern** — this is a mechanical-looking migration with real correctness risk: DST transitions, zone-offset math, and calendar-day bucketing are exactly the kind of logic that silently breaks when swapping date/time libraries. Each file's existing DST/zone tests must be read, not just re-run, to confirm they'd actually catch a regression in the new implementation.
-
 ## Deferred
 
 ### CI: per-shard emulator overhead outside test execution
