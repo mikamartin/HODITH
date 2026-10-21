@@ -4,10 +4,15 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.latestActivityAt
 import com.secondmonday.hodith.data.loggedZone
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.minus
+import kotlinx.datetime.toLocalDateTime
 import kotlin.math.abs
 
 /** Spec §10 frequency/trend: below this span, a Case hasn't been running long enough to bucket by week/month or trend at all. */
@@ -63,7 +68,7 @@ internal fun observationSpanDays(
     events: List<EventEntity>,
     caseCreatedAt: Long,
     now: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): Long {
     val startMillis = minOf(caseCreatedAt, events.minOfOrNull { it.occurredAt } ?: caseCreatedAt)
     return daysBetween(startMillis, now, zone)
@@ -83,8 +88,8 @@ private fun bucketStartFor(
 ): LocalDate =
     when (granularity) {
         FrequencyGranularity.DAY -> date
-        FrequencyGranularity.WEEK -> date.minusDays((date.dayOfWeek.value - 1).toLong())
-        FrequencyGranularity.MONTH -> date.withDayOfMonth(1)
+        FrequencyGranularity.WEEK -> date.minus(date.dayOfWeek.isoDayNumber - 1, DateTimeUnit.DAY)
+        FrequencyGranularity.MONTH -> LocalDate(date.year, date.month, 1)
     }
 
 private fun LocalDate.minusPeriods(
@@ -92,9 +97,9 @@ private fun LocalDate.minusPeriods(
     granularity: FrequencyGranularity,
 ): LocalDate =
     when (granularity) {
-        FrequencyGranularity.DAY -> minusDays(n.toLong())
-        FrequencyGranularity.WEEK -> minusWeeks(n.toLong())
-        FrequencyGranularity.MONTH -> minusMonths(n.toLong())
+        FrequencyGranularity.DAY -> minus(n, DateTimeUnit.DAY)
+        FrequencyGranularity.WEEK -> minus(n, DateTimeUnit.WEEK)
+        FrequencyGranularity.MONTH -> minus(n, DateTimeUnit.MONTH)
     }
 
 /**
@@ -106,15 +111,16 @@ internal fun computeFrequencyStats(
     now: Long,
     spanDays: Long,
     granularity: FrequencyGranularity = pickFrequencyGranularity(spanDays),
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): FrequencyStats {
-    val nowDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val nowDate = Instant.fromEpochMilliseconds(now).toLocalDateTime(zone).date
     val currentBucketStart = bucketStartFor(nowDate, granularity)
 
     val countsByBucket =
         events
-            .groupingBy { bucketStartFor(Instant.ofEpochMilli(it.occurredAt).atZone(it.loggedZone()).toLocalDate(), granularity) }
-            .eachCount()
+            .groupingBy {
+                bucketStartFor(Instant.fromEpochMilliseconds(it.occurredAt).toLocalDateTime(it.loggedZone().asTimeZone()).date, granularity)
+            }.eachCount()
 
     val buckets =
         (FREQUENCY_MAX_BUCKETS - 1 downTo 0).map { periodsAgo ->
@@ -144,7 +150,7 @@ internal fun timeOfDayFor(hour: Int): TimeOfDay =
 internal fun computeRhythmStats(events: List<EventEntity>): RhythmStats {
     val counts = mutableMapOf<Pair<DayOfWeek, TimeOfDay>, Int>()
     events.forEach { event ->
-        val dateTime = Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone())
+        val dateTime = Instant.fromEpochMilliseconds(event.occurredAt).toLocalDateTime(event.loggedZone().asTimeZone())
         val key = dateTime.dayOfWeek to timeOfDayFor(dateTime.hour)
         counts[key] = (counts[key] ?: 0) + 1
     }
@@ -426,7 +432,7 @@ internal const val TIME_OF_DAY_SPLIT_PERMUTATION_ITERATIONS = 1000
 
 /**
  * Spec §10 Trends "tag timing" finding (Story C T7): whether a tag's own events cluster into one
- * bucket of either [TimeOfDay] (4 buckets) or [java.time.DayOfWeek] (7 buckets) beyond the Case's
+ * bucket of either [TimeOfDay] (4 buckets) or [DayOfWeek] (7 buckets) beyond the Case's
  * overall rhythm there. Each dimension gets its own sample-size floors, tuned to its own bucket
  * count rather than sharing one: [TAG_TIMING_MIN_TAGGED_SAMPLE_COUNT_TIME_OF_DAY] matches
  * [TAG_OUTCOME_MIN_TAGGED_SAMPLE_COUNT] (~3.75 events per bucket across 4 buckets);
@@ -676,7 +682,7 @@ private fun timeOfDaySplitResultFor(
     val eveningGroup = mutableListOf<Double>()
     eventsWithTags.forEach { entry ->
         val value = outcomeValueFor(entry.event, outcome, tracksDuration, now) ?: return@forEach
-        val hour = Instant.ofEpochMilli(entry.event.occurredAt).atZone(entry.event.loggedZone()).hour
+        val hour = Instant.fromEpochMilliseconds(entry.event.occurredAt).toLocalDateTime(entry.event.loggedZone().asTimeZone()).hour
         when (timeOfDayFor(hour)) {
             TimeOfDay.MORNING, TimeOfDay.AFTERNOON -> dayGroup += value
             TimeOfDay.EVENING, TimeOfDay.NIGHT -> eveningGroup += value
@@ -756,7 +762,10 @@ private fun tagTimingResultFor(
 
     return when (dimension) {
         TagTimingDimension.WEEKDAY -> {
-            val buckets = eventsWithTags.map { Instant.ofEpochMilli(it.event.occurredAt).atZone(it.event.loggedZone()).dayOfWeek }
+            val buckets =
+                eventsWithTags.map {
+                    Instant.fromEpochMilliseconds(it.event.occurredAt).toLocalDateTime(it.event.loggedZone().asTimeZone()).dayOfWeek
+                }
             tagTimingCandidate(DayOfWeek.entries, buckets, taggedIndices, taggedSize, caseId, tagName, dimension)
                 ?.let { (peak, baseline, tagged, pValue) ->
                     TagTimingResult(
@@ -772,7 +781,12 @@ private fun tagTimingResultFor(
                 }
         }
         TagTimingDimension.TIME_OF_DAY -> {
-            val buckets = eventsWithTags.map { timeOfDayFor(Instant.ofEpochMilli(it.event.occurredAt).atZone(it.event.loggedZone()).hour) }
+            val buckets =
+                eventsWithTags.map {
+                    timeOfDayFor(
+                        Instant.fromEpochMilliseconds(it.event.occurredAt).toLocalDateTime(it.event.loggedZone().asTimeZone()).hour,
+                    )
+                }
             tagTimingCandidate(TimeOfDay.entries, buckets, taggedIndices, taggedSize, caseId, tagName, dimension)
                 ?.let { (peak, baseline, tagged, pValue) ->
                     TagTimingResult(
@@ -907,7 +921,12 @@ internal fun computeWeekdayWeekendFindings(eventsWithTags: List<EventWithTags>):
 
     val weekendCount =
         eventsWithTags.count { entry ->
-            val dayOfWeek = Instant.ofEpochMilli(entry.event.occurredAt).atZone(entry.event.loggedZone()).dayOfWeek
+            val dayOfWeek =
+                Instant
+                    .fromEpochMilliseconds(
+                        entry.event.occurredAt,
+                    ).toLocalDateTime(entry.event.loggedZone().asTimeZone())
+                    .dayOfWeek
             dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY
         }
     val observedShare = weekendCount.toDouble() / sampleCount

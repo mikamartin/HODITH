@@ -5,14 +5,15 @@ import com.secondmonday.hodith.testsupport.durationEvent
 import com.secondmonday.hodith.testsupport.eventAtDay
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.toInstant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.ZoneOffset
 
 class InsightsEngineTest {
     // ---- computeGapStats ----
@@ -273,25 +274,21 @@ class InsightsEngineTest {
 
     @Test
     fun `computeGapStats counts a past gap that straddles a DST spring-forward in calendar days`() {
-        val newYork = ZoneId.of("America/New_York")
+        val newYork = TimeZone.of("America/New_York")
         val noonMillis: (LocalDate) -> Long = {
-            it
-                .atTime(12, 0)
-                .atZone(newYork)
-                .toInstant()
-                .toEpochMilli()
+            it.atTime(12, 0).toInstant(newYork).toEpochMilliseconds()
         }
         // Two events a week apart around the 2026-03-08 spring-forward (a 23-hour local day).
         // The event-to-event gap resolves via the newer event's own captured offset (EventEntity.loggedZone()
-        // is a fixed ZoneOffset, not a DST-aware ZoneId), so each event carries America/New_York's
+        // is a fixed UtcOffset, not a DST-aware TimeZone), so each event carries America/New_York's
         // real historical offset for its own date rather than relying on `newYork`'s own DST rules.
         val events =
             listOf(
-                testEvent(occurredAt = noonMillis(LocalDate.of(2026, 3, 6))).copy(utcOffsetMinutes = -300), // EST
-                testEvent(occurredAt = noonMillis(LocalDate.of(2026, 3, 13))).copy(utcOffsetMinutes = -240), // EDT
+                testEvent(occurredAt = noonMillis(LocalDate(2026, 3, 6))).copy(utcOffsetMinutes = -300), // EST
+                testEvent(occurredAt = noonMillis(LocalDate(2026, 3, 13))).copy(utcOffsetMinutes = -240), // EDT
             )
 
-        val result = computeGapStats(events, now = noonMillis(LocalDate.of(2026, 3, 13)), zone = newYork)
+        val result = computeGapStats(events, now = noonMillis(LocalDate(2026, 3, 13)), zone = newYork)
 
         // Seven calendar days — the missing spring-forward hour must not shave it to 6.
         assertEquals(listOf(7L), result.pastGaps)
@@ -301,15 +298,15 @@ class InsightsEngineTest {
     fun `computeGapStats resolves an event-to-event gap via the newer event's own captured offset`() {
         // 2026-01-05T23:30Z is Jan 5 under UTC but already Jan 6 under a +9h offset — the newer
         // event's own offset decides which calendar day it lands on, not the device's current zone.
-        val firstOccurredAt = Instant.parse("2026-01-01T12:00:00Z").toEpochMilli()
-        val secondOccurredAt = Instant.parse("2026-01-05T23:30:00Z").toEpochMilli()
+        val firstOccurredAt = Instant.parse("2026-01-01T12:00:00Z").toEpochMilliseconds()
+        val secondOccurredAt = Instant.parse("2026-01-05T23:30:00Z").toEpochMilliseconds()
         val events =
             listOf(
                 testEvent(occurredAt = firstOccurredAt).copy(utcOffsetMinutes = 0),
                 testEvent(occurredAt = secondOccurredAt).copy(utcOffsetMinutes = 9 * 60),
             )
 
-        val result = computeGapStats(events, now = Instant.parse("2026-01-10T00:00:00Z").toEpochMilli(), zone = ZoneOffset.UTC)
+        val result = computeGapStats(events, now = Instant.parse("2026-01-10T00:00:00Z").toEpochMilliseconds(), zone = TimeZone.UTC)
 
         // Jan 1 to Jan 6 (the second event's own local date) is 5 days, not the 4 days a UTC reading
         // of the same instant (Jan 5) would give.
@@ -328,7 +325,7 @@ class InsightsEngineTest {
 
     @Test
     fun `computeStreakStats treats a single active day as a streak of one`() {
-        val result = computeStreakStats(listOf(LocalDate.ofEpochDay(5)))
+        val result = computeStreakStats(listOf(LocalDate.fromEpochDays(5)))
 
         assertEquals(1, result.longestStreakDays)
         assertEquals(1.0, result.averageStreakDays, 0.0001)
@@ -336,7 +333,7 @@ class InsightsEngineTest {
 
     @Test
     fun `computeStreakStats collapses consecutive days into a single run, duplicates and all`() {
-        val dates = listOf(0L, 1L, 1L, 2L, 3L).map { LocalDate.ofEpochDay(it) }
+        val dates = listOf(0L, 1L, 1L, 2L, 3L).map { LocalDate.fromEpochDays(it.toInt()) }
 
         val result = computeStreakStats(dates)
 
@@ -347,7 +344,7 @@ class InsightsEngineTest {
     @Test
     fun `computeStreakStats reports the longest run and the average across several runs`() {
         // Runs: [0,1,2] (3 days), [5] (1 day), [8,9] (2 days) -> longest 3, average 2.
-        val dates = listOf(0L, 1L, 2L, 5L, 8L, 9L).map { LocalDate.ofEpochDay(it) }
+        val dates = listOf(0L, 1L, 2L, 5L, 8L, 9L).map { LocalDate.fromEpochDays(it.toInt()) }
 
         val result = computeStreakStats(dates)
 
@@ -476,7 +473,7 @@ class InsightsEngineTest {
     @Test
     fun `computeStreakShift is null below the minimum sample count`() {
         // Only 3 one-day runs (below STREAK_SHIFT_MIN_SAMPLE_COUNT), all isolated days.
-        val dates = listOf(0L, 2L, 4L).map { LocalDate.ofEpochDay(it) }
+        val dates = listOf(0L, 2L, 4L).map { LocalDate.fromEpochDays(it.toInt()) }
 
         assertEquals(null, computeStreakShift(dates))
     }
@@ -486,7 +483,7 @@ class InsightsEngineTest {
         // First half: three 1-day runs. Second half: three 4-day runs.
         val isolatedDays = listOf(0L, 10L, 20L)
         val longRunStarts = listOf(100L, 200L, 300L)
-        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.ofEpochDay(it) }
+        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.fromEpochDays(it.toInt()) }
 
         assertEquals(ShiftDirection.UP, computeStreakShift(dates)?.direction)
     }
@@ -656,7 +653,7 @@ class InsightsEngineTest {
         assertEquals(3.0, result?.priorAverageDays ?: -1.0, 0.0001)
         assertEquals(9.0, result?.recentAverageDays ?: -1.0, 0.0001)
         assertEquals(20, result?.sampleCount)
-        assertEquals(LocalDate.ofEpochDay(30), result?.changePointDate)
+        assertEquals(LocalDate.fromEpochDays(30), result?.changePointDate)
     }
 
     @Test
@@ -696,7 +693,7 @@ class InsightsEngineTest {
         assertEquals(ShiftDirection.DOWN, result?.direction)
         assertEquals(9.0, result?.priorAverageDays ?: -1.0, 0.0001)
         assertEquals(19.0 / 11.0, result?.recentAverageDays ?: -1.0, 0.0001)
-        assertEquals(LocalDate.ofEpochDay(days[9]), result?.changePointDate)
+        assertEquals(LocalDate.fromEpochDays(days[9].toInt()), result?.changePointDate)
     }
 
     @Test
@@ -716,7 +713,7 @@ class InsightsEngineTest {
         assertEquals(ShiftDirection.DOWN, result?.direction)
         assertEquals(38.75, result?.priorAverageDays ?: -1.0, 0.0001)
         assertEquals(5.0, result?.recentAverageDays ?: -1.0, 0.0001)
-        assertEquals(LocalDate.ofEpochDay(days[4]), result?.changePointDate)
+        assertEquals(LocalDate.fromEpochDays(days[4].toInt()), result?.changePointDate)
     }
 
     @Test

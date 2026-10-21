@@ -5,10 +5,11 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.offsetAt
 import kotlinx.serialization.Serializable
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZoneOffset
 
 @Entity(
     tableName = "events",
@@ -47,17 +48,17 @@ fun quickLogEvent(
     intensity = null,
     note = null,
     loggedAt = now,
-    utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(now),
+    utcOffsetMinutes = TimeZone.currentSystemDefault().offsetMinutesAt(now),
 )
 
 /** This event's own captured offset, for bucketing its timestamps into the calendar day/hour they actually occurred in. */
-fun EventEntity.loggedZone(): ZoneOffset = zoneOffsetFromMinutes(utcOffsetMinutes)
+fun EventEntity.loggedZone(): UtcOffset = utcOffsetFromMinutes(utcOffsetMinutes)
 
 /** Epoch millis of this event's latest moment: its `endedAt` when that is later than its `occurredAt`, else its `occurredAt`. Trends uses it as "most recent evidence". */
 fun EventEntity.latestActivityAt(): Long = maxOf(occurredAt, endedAt ?: occurredAt)
 
 /** Shared conversion so every captured-offset holder (this entity, `CalendarEvent`) agrees on the same minutes-to-offset math. */
-fun zoneOffsetFromMinutes(minutes: Int): ZoneOffset = ZoneOffset.ofTotalSeconds(minutes * 60)
+fun utcOffsetFromMinutes(minutes: Int): UtcOffset = UtcOffset(seconds = minutes * 60)
 
 /** The UTC offset this zone's rules give at [atMillis] — not "now," so a backdated instant resolves its own historical (DST-correct) offset. */
-fun ZoneId.offsetMinutesAt(atMillis: Long): Int = rules.getOffset(Instant.ofEpochMilli(atMillis)).totalSeconds / 60
+fun TimeZone.offsetMinutesAt(atMillis: Long): Int = offsetAt(Instant.fromEpochMilliseconds(atMillis)).totalSeconds / 60

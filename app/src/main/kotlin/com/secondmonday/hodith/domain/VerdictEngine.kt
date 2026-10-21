@@ -4,9 +4,11 @@ import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.data.loggedZone
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /** Confidence tiers: both the observation count and the day count must clear their bar. */
 internal const val PRELIMINARY_MIN_EVENTS = 5
@@ -39,7 +41,7 @@ internal fun computeVerdict(
     events: List<EventEntity>,
     now: Long,
     tracksDuration: Boolean,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): VerdictResult {
     val windowStartMillis = expectation.windowStart
     val windowDays = daysBetween(windowStartMillis, now, zone)
@@ -83,15 +85,15 @@ internal fun distinctActiveDays(
     tracksDuration: Boolean,
     windowStartMillis: Long,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
 ): Int {
-    val windowStartDate = Instant.ofEpochMilli(windowStartMillis).atZone(zone).toLocalDate()
-    val windowEndDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val windowStartDate = Instant.fromEpochMilliseconds(windowStartMillis).toLocalDateTime(zone).date
+    val windowEndDate = Instant.fromEpochMilliseconds(now).toLocalDateTime(zone).date
     val days = mutableSetOf<LocalDate>()
     for (event in events) {
-        val endZone = if (isStillRunning(event, tracksDuration, now)) zone else event.loggedZone()
-        for (date in datesCovered(event.occurredAt, activeSpanEnd(event, tracksDuration, now), event.loggedZone(), endZone)) {
-            if (!date.isBefore(windowStartDate) && !date.isAfter(windowEndDate)) days += date
+        val endZone = if (isStillRunning(event, tracksDuration, now)) zone else event.loggedZone().asTimeZone()
+        for (date in datesCovered(event.occurredAt, activeSpanEnd(event, tracksDuration, now), event.loggedZone().asTimeZone(), endZone)) {
+            if (date >= windowStartDate && date <= windowEndDate) days += date
         }
     }
     return days.size

@@ -7,14 +7,19 @@ import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.millisAt
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.atTime
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 
 private val ZONE = TEST_ZONE
 
@@ -75,27 +80,25 @@ class StatsEngineTest {
         assertEquals(FREQUENCY_MAX_BUCKETS, result.buckets.size)
         assertEquals(2, result.buckets.last().count)
         assertEquals(1, result.buckets[result.buckets.size - 2].count)
-        assertEquals(LocalDate.ofEpochDay(today), result.buckets.last().periodStart)
+        assertEquals(LocalDate.fromEpochDays(today.toInt()), result.buckets.last().periodStart)
     }
 
     @Test
     fun `computeFrequencyStats buckets weekly counts to a Monday-aligned week start`() {
         // Anchor a Monday explicitly rather than relying on epoch-day 0's weekday.
-        val monday = LocalDate.of(2026, 1, 5) // a Monday
+        val monday = LocalDate(2026, 1, 5) // a Monday
         val now =
             monday
-                .plusDays(3)
-                .atStartOfDay(ZONE)
-                .toInstant()
-                .toEpochMilli() // Thursday same week
+                .plus(3, DateTimeUnit.DAY)
+                .atStartOfDayIn(ZONE)
+                .toEpochMilliseconds() // Thursday same week
         val events =
             listOf(
                 eventAt(
                     monday
-                        .plusDays(2)
-                        .atStartOfDay(ZONE)
-                        .toInstant()
-                        .toEpochMilli(),
+                        .plus(2, DateTimeUnit.DAY)
+                        .atStartOfDayIn(ZONE)
+                        .toEpochMilliseconds(),
                 ),
             )
 
@@ -108,14 +111,14 @@ class StatsEngineTest {
     @Test
     fun `computeFrequencyStats buckets an event by its own captured offset, not the device's current zone`() {
         // 2026-01-05T23:30Z: still Jan 5 under UTC, but already Jan 6 under a +9h offset (Tokyo).
-        val eventInstant = Instant.parse("2026-01-05T23:30:00Z").toEpochMilli()
+        val eventInstant = Instant.parse("2026-01-05T23:30:00Z").toEpochMilliseconds()
         val event = eventAt(eventInstant).copy(utcOffsetMinutes = 9 * 60)
-        val now = Instant.parse("2026-01-06T01:00:00Z").toEpochMilli()
+        val now = Instant.parse("2026-01-06T01:00:00Z").toEpochMilliseconds()
 
         val result =
-            computeFrequencyStats(listOf(event), now = now, spanDays = 10L, granularity = FrequencyGranularity.DAY, zone = ZoneOffset.UTC)
+            computeFrequencyStats(listOf(event), now = now, spanDays = 10L, granularity = FrequencyGranularity.DAY, zone = TimeZone.UTC)
 
-        assertEquals(LocalDate.of(2026, 1, 6), result.buckets.last().periodStart)
+        assertEquals(LocalDate(2026, 1, 6), result.buckets.last().periodStart)
         assertEquals(1, result.buckets.last().count)
         assertEquals(0, result.buckets[result.buckets.size - 2].count)
     }
@@ -149,29 +152,26 @@ class StatsEngineTest {
 
     @Test
     fun `computeRhythmStats counts events into their day-of-week and time-of-day cell`() {
-        val monday = LocalDate.of(2026, 1, 5) // a Monday
+        val monday = LocalDate(2026, 1, 5) // a Monday
         val events =
             listOf(
                 eventAt(
                     monday
                         .atTime(8, 0)
-                        .atZone(ZONE)
-                        .toInstant()
-                        .toEpochMilli(),
+                        .toInstant(ZONE)
+                        .toEpochMilliseconds(),
                 ),
                 eventAt(
                     monday
                         .atTime(9, 0)
-                        .atZone(ZONE)
-                        .toInstant()
-                        .toEpochMilli(),
+                        .toInstant(ZONE)
+                        .toEpochMilliseconds(),
                 ),
                 eventAt(
                     monday
                         .atTime(19, 0)
-                        .atZone(ZONE)
-                        .toInstant()
-                        .toEpochMilli(),
+                        .toInstant(ZONE)
+                        .toEpochMilliseconds(),
                 ),
             )
 
@@ -187,7 +187,7 @@ class StatsEngineTest {
     @Test
     fun `computeRhythmStats resolves an event's day-of-week and time-of-day via its own captured offset`() {
         // 2026-01-05T23:30Z is Monday night under UTC, but already Tuesday morning under a +9h offset.
-        val eventInstant = Instant.parse("2026-01-05T23:30:00Z").toEpochMilli()
+        val eventInstant = Instant.parse("2026-01-05T23:30:00Z").toEpochMilliseconds()
         val event = eventAt(eventInstant).copy(utcOffsetMinutes = 9 * 60)
 
         val result = computeRhythmStats(listOf(event))

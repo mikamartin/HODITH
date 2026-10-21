@@ -1,7 +1,7 @@
 package com.secondmonday.hodith.domain
 
 import com.secondmonday.hodith.data.EventWithTags
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 import kotlin.math.abs
 
 /**
