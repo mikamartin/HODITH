@@ -40,19 +40,26 @@ private fun tabLabel(tab: ShareTab): String =
         ShareTab.HISTORY -> PlainVoice.shareTabHistoryLabel
     }
 
-/** 12 events, 5 days apart — enough for the Trends section to have findings. */
+/**
+ * Days 15, 35, 45, 55 (`now` is day 60) -- the same sparse-then-dense shape StatsEngineTest's own
+ * cadence-window fixtures use: a 20-day gap then two 10-day gaps keeps the cadence-sized frequency
+ * window clamped at its 30-day cap (1 prior event vs. 3 recent, a real UP shift), rather than the
+ * old plain-uniform spacing, which can never clear the shift's magnitude floor at all -- enough for
+ * the Trends section to have findings.
+ */
 private fun trendsEligibleEvents(): List<EventWithTags> =
-    (0..55L step 5).map { day -> EventWithTags(testEvent(caseId = 1L, occurredAt = millisAtDay(day)), emptyList()) }
+    listOf(15L, 35L, 45L, 55L).map { day -> EventWithTags(testEvent(caseId = 1L, occurredAt = millisAtDay(day)), emptyList()) }
 
-/** 12 events, 5 days apart, none carrying a duration, intensity or tag. */
+/** Same four days as [trendsEligibleEvents], none carrying a duration, intensity or tag. */
 private fun bareEvents(): List<EventWithTags> = trendsEligibleEvents()
 
 /**
- * 12 events, 5 days apart, each lasting 30 minutes at intensity 3. Tags: "alpha" on all, "beta" on
- * the first three, "gamma" on the first two, "delta" on the first, so alpha, beta and gamma are the top three.
+ * Same four days as [trendsEligibleEvents] (so the Trends section still has a finding), each
+ * lasting 30 minutes at intensity 3. Tags: "alpha" on all, "beta" on the first three, "gamma" on
+ * the first two, "delta" on the first, so alpha, beta and gamma are the top three.
  */
 private fun richEvents(): List<EventWithTags> =
-    (0..55L step 5).mapIndexed { index, day ->
+    listOf(15L, 35L, 45L, 55L).mapIndexed { index, day ->
         val event = testEvent(caseId = 1L, occurredAt = millisAtDay(day), endedAt = millisAtDay(day) + 30 * 60_000L, intensity = 3)
         val tagNames = listOfNotNull("alpha", "beta".takeIf { index < 3 }, "gamma".takeIf { index < 2 }, "delta".takeIf { index < 1 })
         EventWithTags(event, tagNames.map { TagEntity(name = it) })
