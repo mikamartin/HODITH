@@ -144,9 +144,21 @@ class CaseEditScreenTest {
             theme = AppTheme.BRIGHT,
         )
 
-        composeTestRule.onNodeWithText(CASE_ICONS.first()).performClick()
+        composeTestRule.onNodeWithText(CASE_ICONS_DEFAULT.first()).performClick()
 
-        assertEquals(CASE_ICONS.first(), selected)
+        assertEquals(CASE_ICONS_DEFAULT.first(), selected)
+    }
+
+    @Test
+    fun iconPicker_onlyRendersIconsFromAvailableIcons_excludingOnesTakenByOtherCases() {
+        // availableCaseIcons (CaseEditViewModelTest) is what actually excludes another active
+        // Case's icon -- this just confirms the screen renders whatever uiState.availableIcons
+        // says, and nothing outside it.
+        val available = CASE_ICONS_DEFAULT.drop(1)
+        setContent(uiState = CaseEditUiState(isEditing = false, isLoading = false, availableIcons = available))
+
+        composeTestRule.onNodeWithText(CASE_ICONS_DEFAULT.first()).assertDoesNotExist()
+        composeTestRule.onNodeWithText(available.first()).assertExists()
     }
 
     @Smoke

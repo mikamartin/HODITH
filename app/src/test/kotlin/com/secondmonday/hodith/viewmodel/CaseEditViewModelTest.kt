@@ -10,6 +10,8 @@ import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
 import com.secondmonday.hodith.testsupport.Fixtures
 import com.secondmonday.hodith.testsupport.finishedEvent
 import com.secondmonday.hodith.testsupport.runningEvent
+import com.secondmonday.hodith.ui.case.CASE_ICONS_DEFAULT
+import com.secondmonday.hodith.ui.case.CASE_ICONS_RESERVE
 import com.secondmonday.hodith.widget.FakeWidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,6 +26,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.random.Random
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CaseEditViewModelTest {
@@ -100,6 +103,16 @@ class CaseEditViewModelTest {
             assertEquals("Coffee", state.name)
             assertEquals("Track cups", state.description)
             assertTrue(state.canArchive)
+        }
+
+    @Test
+    fun `a new case's availableIcons excludes an icon already used by an existing active case`() =
+        runTest {
+            repository.cases.value = listOf(existingCase()) // icon "☕️"
+            val vm = newCaseViewModel()
+
+            assertFalse("☕️" in vm.uiState.value.availableIcons)
+            assertEquals(42, vm.uiState.value.availableIcons.size)
         }
 
     @Test
@@ -614,4 +627,66 @@ class CaseEditViewModelTest {
                 assertEquals(1, notice.eventCount)
             }
         }
+
+    @Test
+    fun `availableCaseIcons with no active cases returns exactly the 42 defaults, in order`() {
+        val result = availableCaseIcons(allCases = emptyList(), editingCaseId = null)
+
+        assertEquals(CASE_ICONS_DEFAULT, result)
+    }
+
+    @Test
+    fun `availableCaseIcons excludes icons used by other active cases and backfills from reserve, keeping 42`() {
+        val takenDefaults = CASE_ICONS_DEFAULT.take(3)
+        val others = takenDefaults.mapIndexed { index, icon -> Fixtures.case(id = index + 1L, icon = icon) }
+
+        val result = availableCaseIcons(allCases = others, editingCaseId = null, random = Random(42))
+
+        assertEquals(42, result.size)
+        assertTrue(takenDefaults.none { it in result })
+        assertEquals(3, result.count { it in CASE_ICONS_RESERVE })
+    }
+
+    @Test
+    fun `availableCaseIcons pins the editing case's own icon back in even if another active case shares it`() {
+        val shared = CASE_ICONS_DEFAULT.first()
+        val others = listOf(Fixtures.case(id = 1L, icon = shared), Fixtures.case(id = 2L, icon = shared))
+
+        val result = availableCaseIcons(allCases = others, editingCaseId = 1L)
+
+        assertTrue(shared in result)
+        assertEquals(42, result.size)
+    }
+
+    @Test
+    fun `availableCaseIcons pins an obsolete icon outside both pools for the editing case`() {
+        val obsolete = "🧸"
+        val cases = listOf(Fixtures.case(id = 1L, icon = obsolete))
+
+        val result = availableCaseIcons(allCases = cases, editingCaseId = 1L)
+
+        assertTrue(obsolete in result)
+        assertEquals(42, result.size)
+    }
+
+    @Test
+    fun `availableCaseIcons does not exclude an archived case's icon`() {
+        val archivedIcon = CASE_ICONS_DEFAULT.first()
+        val cases = listOf(Fixtures.case(id = 1L, icon = archivedIcon, archived = true))
+
+        val result = availableCaseIcons(allCases = cases, editingCaseId = null)
+
+        assertEquals(CASE_ICONS_DEFAULT, result)
+    }
+
+    @Test
+    fun `availableCaseIcons falls back to duplicates once the entire pool is already in use`() {
+        val fullPool = CASE_ICONS_DEFAULT + CASE_ICONS_RESERVE
+        val others = fullPool.mapIndexed { index, icon -> Fixtures.case(id = index + 1L, icon = icon) }
+
+        val result = availableCaseIcons(allCases = others, editingCaseId = null)
+
+        assertEquals(42, result.size)
+        assertTrue(result.all { it in fullPool })
+    }
 }

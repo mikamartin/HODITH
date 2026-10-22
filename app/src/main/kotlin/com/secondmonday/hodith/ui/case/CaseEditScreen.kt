@@ -383,7 +383,7 @@ private fun IconPickerSection(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 8.dp).selectableGroup(),
             ) {
-                CASE_ICONS.forEach { icon ->
+                uiState.availableIcons.forEach { icon ->
                     IconChoice(icon = icon, selected = icon == uiState.icon, onClick = { onIconSelect(icon) })
                 }
             }
@@ -486,7 +486,7 @@ private val previewUiState =
         isLoading = false,
         name = "Went for a run",
         description = "Any jog, walk, or run counted with intention.",
-        icon = CASE_ICONS.first(),
+        icon = CASE_ICONS_DEFAULT.first(),
         logFlow = LogFlow.DETAIL_SHEET,
         tracksDuration = true,
         intensityEnabled = true,
@@ -556,8 +556,8 @@ private fun CaseEditScreenBrightDarkPreview() {
 @Composable
 private fun IconChoicePreviewContent() {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
-        IconChoice(icon = CASE_ICONS.first(), selected = true, onClick = {})
-        IconChoice(icon = CASE_ICONS.first(), selected = false, onClick = {})
+        IconChoice(icon = CASE_ICONS_DEFAULT.first(), selected = true, onClick = {})
+        IconChoice(icon = CASE_ICONS_DEFAULT.first(), selected = false, onClick = {})
     }
 }
 

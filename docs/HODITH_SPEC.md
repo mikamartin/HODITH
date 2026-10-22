@@ -39,7 +39,7 @@ The case → evidence framing is deliberate: it gives all three voices a shared 
 2. **Logging must survive real life.** Events happen mid-argument or mid-sneeze. One tap from the widget logs "it happened, now." Details are optional and can be added later. Retro-logging is first-class — you often only realize afterwards.
 3. **Statistical honesty.** With too little data the app says "not enough yet" rather than pretending a pattern exists — small-sample humility keeps the app trustworthy, and each Voice can flavor this state differently (§12).
 4. **Show, don't lecture.** The flagship visual — the Big Picture — puts all your cases on one shared calendar and lets your own eyes spot the patterns when icons land on the same day.
-5. **Every Case has a face.** Each Case gets an icon (emoji), shown everywhere it appears — Home, Big Picture, widgets, notifications. Icons are the primary way cases are told apart; color is never the only distinguisher (easier to remember, better for accessibility).
+5. **Every Case has a face.** Each Case gets an icon (emoji), shown everywhere it appears — Home, Big Picture, widgets, notifications. Icons are the primary way cases are told apart; color is never the only distinguisher (easier to remember, better for accessibility). The picker nudges toward every active Case having a distinct icon by hiding ones already taken, but never blocks a duplicate outright.
 6. **Nothing leaves through the app itself.** No accounts, no analytics, no network permission at all — export/import is the user's escape hatch. Android's own device backup can still carry the app's data off the phone if the user has that turned on; a Settings toggle opts out (§16).
 
 ## 4. Non-goals (v1)
@@ -61,7 +61,7 @@ Room (SQLite), local only. Timestamps stored as epoch millis UTC; each Event als
 | id | PK |
 | name | e.g. "Kiddo was rude"; unique case-insensitively among active Cases — an archived Case's name may be reused |
 | description | nullable String — optional longer freeform text beyond the title |
-| icon | emoji, required — the Case's visual identity everywhere |
+| icon | emoji, required — the Case's visual identity everywhere. Picked from a grid that always shows 42 icons: 42 curated defaults, backfilled at random from a 17-icon reserve whenever a default is already used by another active Case. Archiving a Case frees its icon immediately; unarchiving, or exhausting the whole pool (dozens of active Cases), can leave two Cases sharing an icon rather than being blocked. An icon outside both pools entirely (e.g. from a backup predating a pool change) stays on its Case and still shows selected, never silently dropped. |
 | createdAt | when the Case was opened; the earliest point any of its stats or visuals can look back to |
 | logFlow | `ONE_TAP` \| `DETAIL_SHEET` — what the widget/log button does |
 | tracksDuration | boolean — whether this Case's events can carry a duration or run open-ended (§6); off, every event is a plain point regardless of what's stored in `endedAt` |
