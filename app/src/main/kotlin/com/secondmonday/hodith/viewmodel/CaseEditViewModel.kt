@@ -10,6 +10,8 @@ import com.secondmonday.hodith.data.LogFlow
 import com.secondmonday.hodith.data.SettingsRepository
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.notification.NotificationPermissionRequestSignal
+import com.secondmonday.hodith.ui.case.CASE_ICONS_DEFAULT
+import com.secondmonday.hodith.ui.case.CASE_ICONS_RESERVE
 import com.secondmonday.hodith.widget.WidgetRefresher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -23,10 +25,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.random.Random
 
 private const val NO_CASE_ID = -1L
 internal const val CASE_NAME_MAX_LENGTH = 60
 internal const val CASE_DESCRIPTION_MAX_LENGTH = 90
+internal const val CASE_ICON_GRID_SIZE = 42
 
 /** One-shot signal to show a transient notice when `intensityEnabled` is flipped on a Case that already has logged events (spec §6). */
 data class IntensityToggleNotice(
@@ -40,6 +44,7 @@ data class CaseEditUiState(
     val name: String = "",
     val description: String = "",
     val icon: String? = null,
+    val availableIcons: List<String> = CASE_ICONS_DEFAULT,
     val logFlow: LogFlow = LogFlow.DETAIL_SHEET,
     val tracksDuration: Boolean = false,
     val intensityEnabled: Boolean = false,
@@ -87,13 +92,22 @@ class CaseEditViewModel
 
         init {
             val id = caseId
+            // Runs independently of the existingCase load below: whichever finishes first merges
+            // its own fields via .update, so the two never stomp each other regardless of order.
+            viewModelScope.launch {
+                val availableIcons = availableCaseIcons(repository.getAllCases(), id)
+                _uiState.update { it.copy(availableIcons = availableIcons) }
+            }
             if (id == null) {
                 _uiState.update { it.copy(isLoading = false) }
             } else {
                 viewModelScope.launch {
                     val case = repository.getCase(id)
                     existingCase = case
-                    _uiState.value = case?.toUiState() ?: CaseEditUiState(isEditing = true, isLoading = false)
+                    _uiState.update { current ->
+                        (case?.toUiState() ?: CaseEditUiState(isEditing = true, isLoading = false))
+                            .copy(availableIcons = current.availableIcons)
+                    }
                 }
                 viewModelScope.launch {
                     repository.observeEventsWithTagsForCase(id).collect { events ->
@@ -356,6 +370,46 @@ internal fun validateCaseEdit(
         nameDuplicatesArchived = nameDuplicatesArchived,
         iconValid = icon != null,
     )
+}
+
+/**
+ * Always returns exactly [limit] icons, so the picker grid never changes size. Prefers
+ * [CASE_ICONS_DEFAULT] icons not already used by another *active* Case, backfills from
+ * [CASE_ICONS_RESERVE] (shuffled, so which reserve icons appear varies) when a default is taken,
+ * and — only once every default and reserve icon is in use (dozens of active Cases) — backfills
+ * again with already-used icons so the grid still never shrinks. Archived Cases never reserve
+ * their icon. The Case being edited is exempt from its own icon's "in use" check, and that icon
+ * is pinned into the result even if it's outside both pools entirely (e.g. from a backup
+ * predating a pool change), so it's never silently hidden or treated as unselected.
+ */
+internal fun availableCaseIcons(
+    allCases: List<CaseEntity>,
+    editingCaseId: Long?,
+    random: Random = Random.Default,
+    limit: Int = CASE_ICON_GRID_SIZE,
+): List<String> {
+    val ownIcon = allCases.firstOrNull { it.id == editingCaseId }?.icon
+    val usedByOthers =
+        allCases
+            .asSequence()
+            .filter { !it.archived && it.id != editingCaseId }
+            .map { it.icon }
+            .toSet()
+
+    val fromDefault = CASE_ICONS_DEFAULT.filterNot { it in usedByOthers }
+    val fromReserve = CASE_ICONS_RESERVE.filterNot { it in usedByOthers }.shuffled(random).take(limit - fromDefault.size)
+    var result = fromDefault + fromReserve
+
+    if (result.size < limit) {
+        val duplicatesFallback = (CASE_ICONS_DEFAULT + CASE_ICONS_RESERVE).filter { it in usedByOthers }
+        result = result + duplicatesFallback.take(limit - result.size)
+    }
+    result = result.take(limit)
+
+    if (ownIcon != null && ownIcon !in result) {
+        result = if (result.size >= limit) result.dropLast(1) + ownIcon else result + ownIcon
+    }
+    return result
 }
 
 /**

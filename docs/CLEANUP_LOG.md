@@ -17,6 +17,38 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## feature/case-icon-picker
+
+**Scope:** User-requested redesign of the Case icon picker: reorganize icons by similar-icon grouping, grow the option count, and address that nothing stopped two Cases from sharing an icon. Reordered/expanded `CaseIcons.kt` into two pools — `CASE_ICONS_DEFAULT` (42, grouped by eye, no in-app labels) and `CASE_ICONS_RESERVE` (17) — and added `availableCaseIcons()` in `CaseEditViewModel.kt`: the picker always shows exactly 42 icons, preferring defaults not already used by another *active* Case, backfilled at random from the reserve, and falling back to duplicates only once the whole 59-icon pool is exhausted. Archiving frees an icon immediately; `save()`/`unarchive()` never block on a duplicate — uniqueness is a picker-filtering nudge, not a validation rule. An icon outside both pools (e.g. from an older backup) is pinned into its own Case's list so it's never silently hidden.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (6 changed `.kt` files, 1 doc). `ktlintCheck`, `lintDebug`, `test` (scoped to the changed suites — `CaseEditViewModelTest`, `ArchivedCasesViewModelTest`), and `assembleDebug` all pass. `connectedDebugAndroidTest` run scoped to `CaseEditScreenTest` (21/21, all green) on a real device.
+
+**Found & fixed:**
+- `availableCaseIcons()`'s `limit` parameter was a bare `42` default — extracted to `CASE_ICON_GRID_SIZE` alongside the file's existing `CASE_NAME_MAX_LENGTH`/`CASE_DESCRIPTION_MAX_LENGTH` constants (Hardcoded Values check).
+- `CASE_ICONS` (the old flat 40-icon list) renamed/split into `CASE_ICONS_DEFAULT`/`CASE_ICONS_RESERVE` everywhere it was referenced — `CaseEditScreen.kt`'s previews, `CaseEditScreenTest.kt`'s click-the-first-icon test — rather than leaving the old name around as a compatibility alias.
+
+**Deferred:** nothing.
+
+**Considered and declined:**
+- Persisting the reserve shuffle per device so backfilled icons stay stable across visits — declined per the design discussion: reserve icons only ever surface once a user has enough active Cases to exhaust the 42 defaults, a rare path where a fresh shuffle each time is more "fun bonus" than confusing.
+- A hard block on duplicate icons — declined; the design explicitly keeps uniqueness as a nudge (hide what's taken) rather than a validation rule, so `save()`/`archive()`/`unarchive()` stay untouched.
+
+**Checks:**
+- Duplication: no composable or ViewModel logic copy-pasted; `availableCaseIcons` is a single new pure function, same single-caller pattern as the existing `validateCaseEdit`.
+- Decoupling: all new logic lives in `CaseEditViewModel.kt` as a pure function over `List<CaseEntity>`/`Random`; `CaseEditScreen.kt`'s only change is iterating `uiState.availableIcons` instead of a flat constant — no business logic moved into the composable.
+- Complexity: `IconPickerSection` is otherwise untouched; no new abstraction layer beyond the one new pure function.
+- Dead code & hygiene: no stray `CASE_ICONS` references left (`git grep` confirmed); `git status` clean throughout.
+- Naming: no new files; `CASE_ICONS_DEFAULT`/`CASE_ICONS_RESERVE` read clearly against the old single `CASE_ICONS` name.
+- Hardcoded values: see Found & fixed above.
+- Accessibility: no new icon-only buttons or tap targets; existing `IconChoice`/`BrightIconChoice` sizing untouched.
+- Data Model, Migrations & Privacy: `CaseEntity.icon` stays an unvalidated `String` column — no schema change, confirmed by checking `HodithRepository.kt`/`BackupData.kt`/`CsvBackupSerializer` for any icon-pool validation (there was none, before or after this pass).
+- Spec review: `HODITH_SPEC.md` updated — §3 Case table (`icon` row) and §4 principle 5 — to describe the 42-icon grid, the random reserve backfill, and the soft/non-blocking uniqueness behaviour.
+- Tests: new pure-function logic fully covered (`CaseEditViewModelTest`: no-active-cases, exclude-and-backfill with a fixed seed, own-icon pinned back even when shared, obsolete-icon-outside-the-pool pinned, archived-Case icon not excluded, whole-pool-exhausted duplicate fallback); `ArchivedCasesViewModelTest` gained a regression test documenting that `unarchive()` allows a duplicate rather than blocking; `CaseEditScreenTest` gained a test confirming the screen renders exactly `uiState.availableIcons`; all new instrumented tests actually ran on a device (21/21) before this entry was written.
+
+**Docs updated:** HODITH_SPEC.md (§3 Case table, §4 principle 5); this entry (oldest entry, `fix/single-case-widget-missing-case-edit-icon`, removed per the 5-entry retention rule).
+
+---
+
 ## chore/java-time-to-kotlinx-datetime
 
 **Scope:** Second of the two migrations clearing the way for HODITH's planned Compose Multiplatform iOS route (HODITH_SPEC.md §19) — `java.time` has no Kotlin/Native target. Replaced every `java.time` usage in `app/src/main/kotlin` with `kotlinx-datetime` (0.7.1): the 10-file domain-layer math (`CalendarGrid`, `CalendarMath`, `ExportFileTimestamp`, `Insights`, `InsightsEngine`, `Stats`, `StatsEngine`, `Trends`, `TrendsEngine`, `VerdictEngine`), the `viewmodel`/`ui` cascade wherever a migrated domain type crosses that boundary, and `CsvBackupSerializer.kt`'s export formatting. Landed as a single branch staged in two logical commits (domain first, then the cascade), per the pre-landing design decision on scope.
@@ -171,36 +203,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 **Docs updated:** HODITH_SPEC.md (§15 Single-case bullet); TESTING.md (Widgets — chrome & trampoline row, seed list item 3); MANUAL_TEST_PLAN.md (items 6, 7, 9, 11); CLEANUP_CHECKLIST.md (new Tests-section line); this entry (oldest entry, `feature/pdf-export — toggle/table redesign pass`, removed per the 5-entry retention rule).
 
----
-
-## fix/single-case-widget-missing-case-edit-icon
-
-**Scope:** PROGRESS.md item: the Single-case widget had no persistent in-widget way back into its Case picker. Decided against a persistent edit icon on a *populated* Single-case widget (remove-and-recreate already covers that, and the widget is already a dense 1x1 square) — the one real gap is when the bound Case gets deleted: the widget fell back to an unconstrained "Case is gone" message with no way to rebind short of deleting the widget outright. Fixed by showing a "✎" edit icon in that missing-Case state only, in the exact slot the "+" log button normally occupies, reopening `SingleCaseWidgetConfigureActivity` to rebind. Also removed, per explicit request: the one-line description under the title in both widgets' configure dialogs (List and Single-case) — the title alone is self-explanatory.
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (7 changed `.kt` files, 3 docs). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. `connectedDebugAndroidTest` run scoped to `WidgetChromeNavigationTest` + `SingleCaseWidgetConfigureFlowTest` (14 tests, all green) — the emulator initially had no HODITH package installed at all (a Gradle up-to-date/device-state mismatch, not a code issue), resolved with `installDebug installDebugAndroidTest --rerun-tasks` plus `adb shell appwidget grantbind`.
-
-**Found & fixed:**
-- `SingleCaseWidget.kt`: `provideGlance` now computes `appWidgetId` (mirroring `ListWidget.kt`); the missing-Case branch is a new private `SingleCaseMissingContent` composable structured like `SingleCaseContent` (weighted message area + a bottom `MinTapTarget` slot) instead of one unconstrained full-size `Text` — this also fixes the reported symptom of the "Case is gone" message rendering oversized, as if sized for the bigger widget. The bottom slot is a "✎" glyph (neutral `onSurface` color, no filled box — matching the List widget's header edit icon's look, not the "+" log button's accent/bold/filled-box look it replaces) that reopens `SingleCaseWidgetConfigureActivity` via the same `ACTION_APPWIDGET_CONFIGURE`/`EXTRA_APPWIDGET_ID` intent shape `ListWidget.kt`'s header icon uses.
-- `Voice.kt`: added `singleCaseWidgetEditButtonDescription` (×3 voices) for the new icon's `contentDescription`; removed `widgetConfigureBody`/`singleCaseWidgetConfigureBody` (×3 voices each) and their `item { Text(...) }` lines in `ListWidgetConfigureActivity.kt`/`SingleCaseWidgetConfigureActivity.kt`'s `LazyColumn`s.
-- `WidgetCommon.kt`'s `WidgetGlyphButtonSize` doc comment and `SingleCaseWidgetConfigureActivity.kt`'s class doc comment updated to describe the new third caller / re-bind entry point.
-- Tests: `WidgetChromeNavigationTest` gained a tap-opens-Activity test and a content-description test for the new icon (plus a class KDoc update); `SingleCaseWidgetConfigureFlowTest` gained a real end-to-end test — insert and bind a Case, delete it, confirm the missing-Case state renders, reopen the same configure Activity, and confirm rebinding to a different real Case clears the missing-Case message. Reviewed the rest of the widget test suite (`WidgetActionsFlowTest`, `WidgetLogTrampolineActivityTest`, `WidgetRefreshWorkerTest`, `WidgetTokenFidelityTest`, both ViewModel unit tests, `WidgetConfigureTestFixtures.kt`) — none touch the missing-Case path or the removed body text, so none needed changes.
-
-**Deferred:** nothing.
-
-**Considered and declined:**
-- A persistent edit icon on a *populated* Single-case widget — explicitly declined by the user; remove-and-recreate is an acceptable path there, and the 1x1 square is already dense (icon, subtitle, log button).
-
-**Checks:**
-- Duplication: the new icon reuses `MinTapTarget`/`WidgetGlyphButtonSize`/`WidgetPalette` tokens and the exact `ACTION_APPWIDGET_CONFIGURE` intent shape already established by `ListWidget.kt`'s header icon — no new pattern introduced.
-- Decoupling: no `ViewModel`/`Repository`/domain code touched; `SingleCaseWidgetConfigureViewModel` needed no change at all (it already seeds `selectedCaseId = null` unconditionally, which is exactly right for a re-bind with nothing to preselect).
-- Complexity: one new composable (`SingleCaseMissingContent`, ~40 lines), mirroring the existing `SingleCaseContent` shape; no new abstraction layer.
-- Dead code & hygiene: removed the now-unused `glanceContext` local in `SingleCaseWidget.kt` left over from the old inline `Text`'s `clickable`; `git status` clean throughout; ktlint found nothing stray.
-- Naming: new `Voice` key added to all three voices in the same commit; no new files.
-- Hardcoded values: none introduced — all sizes/colors pull from existing `WidgetCommon.kt` tokens.
-- Accessibility: new edit icon has a non-empty, voice-backed `contentDescription`; its tap target is the existing `MinTapTarget`-sized slot (≥48dp).
-- UI Copy Brevity: the three new `singleCaseWidgetEditButtonDescription` strings checked against their `widgetEditButtonDescription` sibling for length/tone parity per voice.
-- Background Work, Widgets & Notifications: missing-Case state still renders via `WidgetPalette`'s fixed Plain-light palette, matching the widgets' theming constraint.
-- Spec review: `HODITH_SPEC.md` §15 updated — removed the stale "Single-case widget doesn't have this yet" note on the List widget's edit-icon bullet, and added a sentence to the Single-case widget's own bullet describing the missing-Case rebind path and the no-persistent-edit-affordance-while-bound decision.
-- Tests: bug fixed (no rebind path) → regression test added (the new `SingleCaseWidgetConfigureFlowTest` case); all new instrumented tests actually run on a device before this entry was written.
-
-**Docs updated:** PROGRESS.md (resolved item struck entirely); HODITH_SPEC.md (§15, two bullets); TESTING.md (Widgets — chrome & trampoline row); this entry (oldest entry, `fix/bright-intensity-label`, removed per the 5-entry retention rule).

@@ -85,6 +85,23 @@ class ArchivedCasesViewModelTest {
         }
 
     @Test
+    fun `unarchive proceeds even if another active case already has the same icon -- duplicates are allowed, not blocked`() =
+        runTest {
+            // unarchive() goes straight through the repository, unlike CaseEditViewModel.save(),
+            // which never even checks icon availability (CaseEditViewModelTest's
+            // availableCaseIcons coverage) -- this documents that a duplicate here is allowed by
+            // design, not a gap.
+            repository.cases.value = listOf(testCase(id = 1L, archived = false), testCase(id = 2L))
+            val viewModel = ArchivedCasesViewModel(repository, FakeWidgetRefresher())
+
+            viewModel.unarchive(caseId = 2L)
+
+            val active = repository.cases.value.filterNot { it.archived }
+            assertEquals(2, active.size)
+            assertTrue(active.all { it.icon == "☕️" })
+        }
+
+    @Test
     fun `deleteForever removes the case and its events`() =
         runTest {
             repository.cases.value = listOf(testCase(id = 1L))
