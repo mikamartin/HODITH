@@ -596,7 +596,7 @@ class InsightsTabStateTest {
                 testEvent(occurredAt = occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE, intensity = intensity)
             }
 
-        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(count + 5L)) as InsightsTabState.Ready
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(count.toLong())) as InsightsTabState.Ready
 
         val trendSlopeOutcomes =
             state.stats.trends
@@ -623,7 +623,7 @@ class InsightsTabStateTest {
                 testEvent(occurredAt = occurredAt, endedAt = occurredAt + minutes * MILLIS_PER_MINUTE, intensity = intensity)
             }
 
-        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(count + 5L)) as InsightsTabState.Ready
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(count.toLong())) as InsightsTabState.Ready
 
         val trendSlopeOutcomes =
             state.stats.trends
@@ -748,17 +748,22 @@ class InsightsTabStateTest {
     }
 
     @Test
-    fun `hero rate headlines the last 30 days and compares the 30 before once the trend applies`() {
+    fun `hero rate headlines the trend's own cadence-sized window and compares the window before once the trend applies`() {
+        // Events spaced 10+ days apart (median gap 15.0, the same shape StatsEngineTest's
+        // computeTrendStats fixtures use) keep the cadence-sized window clamped at its 30-day cap,
+        // matching the legacy fixed window: 3 recent (days 75,85,95) vs. 1 prior (day 55) -- day 10
+        // is a fifth event (HERO_RATE_MIN_EVENTS needs 5) placed well outside both windows, so it
+        // only affects the cadence median, not either count.
         val case = testCase(createdAt = millisAtDay(0))
-        val prior = listOf(eventAtDay(40), eventAtDay(45), eventAtDay(50))
-        val recent = listOf(eventAtDay(65), eventAtDay(70), eventAtDay(75), eventAtDay(80), eventAtDay(85), eventAtDay(88))
+        val events = listOf(eventAtDay(10), eventAtDay(55), eventAtDay(75), eventAtDay(85), eventAtDay(95))
 
-        val state = insightsTabState(case, (prior + recent).withoutTags(), now = millisAtDay(90)) as InsightsTabState.Ready
+        val state = insightsTabState(case, events.withoutTags(), now = millisAtDay(100)) as InsightsTabState.Ready
 
         val rate = state.stats.heroRate!!
         assertEquals(TrendDirection.UP, rate.comparison!!.direction)
-        assertEquals(6 * 7 / 30.0, rate.value, 0.0001)
-        assertEquals(3 * 7 / 30.0, rate.comparison.priorValue, 0.0001)
+        assertEquals(RateUnit.MONTH, rate.unit)
+        assertEquals(3.0, rate.value, 0.0001)
+        assertEquals(1.0, rate.comparison.priorValue, 0.0001)
     }
 
     @Test

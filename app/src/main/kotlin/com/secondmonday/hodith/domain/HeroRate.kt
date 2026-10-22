@@ -12,8 +12,8 @@ enum class RateUnit(
 }
 
 /**
- * How the last [TREND_WINDOW_DAYS] compare with the [TREND_WINDOW_DAYS] before, expressed in the
- * same [RateUnit] as the [HeroRate] it rides on. [priorValue] is that earlier window's rate;
+ * How the last [TrendStats.windowDays] compare with the [TrendStats.windowDays] before, expressed
+ * in the same [RateUnit] as the [HeroRate] it rides on. [priorValue] is that earlier window's rate;
  * [direction] comes straight from the counts, so [TrendDirection.FLAT] is reported here even though
  * the Trends list drops a flat comparison.
  */
@@ -23,9 +23,10 @@ data class HeroRateComparison(
 )
 
 /**
- * The Square share card's headline rate. With a [comparison] it is the last [TREND_WINDOW_DAYS]'s
- * rate; without one it is the overall rate across the observed span. [belowOnePerMonth] marks a
- * rate under one a month ([value] is then the true, sub-1 monthly figure and the card says "<1").
+ * The Square share card's headline rate. With a [comparison] it is the last window's rate (see
+ * [TrendStats.windowDays]); without one it is the overall rate across the observed span.
+ * [belowOnePerMonth] marks a rate under one a month ([value] is then the true, sub-1 monthly figure
+ * and the card says "<1").
  */
 data class HeroRate(
     val value: Double,
@@ -78,7 +79,7 @@ internal fun computeHeroRate(
     if (eventCount < HERO_RATE_MIN_EVENTS || observedDays < HERO_RATE_MIN_DAYS) return null
 
     val headlineCount = trendStats?.recentCount ?: eventCount
-    val windowDays = if (trendStats != null) TREND_WINDOW_DAYS else observedDays
+    val windowDays = trendStats?.windowDays ?: observedDays
     val unit = pickRateUnit(headlineCount, windowDays)
     val monthlyRateBelowOne = headlineCount.toLong() * RateUnit.MONTH.days < windowDays
 
@@ -88,7 +89,7 @@ internal fun computeHeroRate(
         belowOnePerMonth = monthlyRateBelowOne,
         comparison =
             trendStats?.let {
-                HeroRateComparison(direction = it.direction, priorValue = ratePer(unit, it.priorCount, TREND_WINDOW_DAYS))
+                HeroRateComparison(direction = it.direction, priorValue = ratePer(unit, it.priorCount, it.windowDays))
             },
     )
 }

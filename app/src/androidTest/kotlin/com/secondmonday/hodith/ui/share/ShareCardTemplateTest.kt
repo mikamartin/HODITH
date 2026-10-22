@@ -81,6 +81,7 @@ private val FREQUENCY_SHIFT_FINDING =
         sampleCount = 8,
         priorValue = 5.0,
         recentValue = 8.0,
+        windowDays = 30,
     )
 
 private val SAMPLE_RATE =
@@ -340,7 +341,7 @@ class ShareCardTemplateTest {
 
         composeTestRule.onNodeWithText(PlainVoice.insightsTrendHeadline(FREQUENCY_SHIFT_FINDING, bucketPhrase = "")).assertExists()
         composeTestRule.onNodeWithText(PlainVoice.trendReliabilityHintLabel).assertExists()
-        composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyShiftEvidenceLabel()).assertExists()
+        composeTestRule.onNodeWithText(PlainVoice.insightsFrequencyShiftEvidenceLabel(30)).assertExists()
     }
 
     @Test

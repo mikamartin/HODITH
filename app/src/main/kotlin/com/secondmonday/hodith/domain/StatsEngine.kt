@@ -22,9 +22,35 @@ internal const val STATS_MEDIUM_SPAN_MAX_DAYS = 182L // ~6 months
 /** Spec §10 frequency-over-time: at most this many bars, however fine the granularity. */
 internal const val FREQUENCY_MAX_BUCKETS = 12
 
-/** Spec §10 trend arrow: rolling comparison window, and the minimum Case span before it's shown at all. */
+/** Spec §10 trend arrow: legacy fixed comparison window, and the minimum Case span before it's shown at all. [TREND_WINDOW_DAYS] now only backs the defensive fallback in [computeTrendStats] when a Case's cadence can't be assessed — see [FREQUENCY_SHIFT_WINDOW_CADENCE_MULTIPLIER]'s own doc comment for the cadence-sized window that otherwise replaces it. */
 internal const val TREND_WINDOW_DAYS = 30L
 internal const val TREND_MIN_SPAN_DAYS = STATS_SHORT_SPAN_MAX_DAYS
+
+/**
+ * Spec §10 Trends "frequency shift" finding: the two floors a count delta must clear before firing
+ * at all — the same dual-threshold shape [SHIFT_MIN_FRACTION]/[SHIFT_MIN_ABSOLUTE_DAYS] use for
+ * gap/streak shift, closing the gap this detector previously had none of (any `recentCount !=
+ * priorCount` used to fire, even a 1-vs-0 difference).
+ */
+internal const val FREQUENCY_SHIFT_MIN_ABSOLUTE_COUNT_DELTA = 2
+internal const val FREQUENCY_SHIFT_MIN_RELATIVE_FRACTION = 0.3
+
+/**
+ * Spec §10 Trends "frequency shift" finding: the comparison window is sized to the Case's own
+ * cadence (`[FREQUENCY_SHIFT_WINDOW_CADENCE_MULTIPLIER] × typical interval`) rather than a fixed 30
+ * days, clamped to [FREQUENCY_SHIFT_MIN_WINDOW_DAYS]..[FREQUENCY_SHIFT_MAX_WINDOW_DAYS]. The floor
+ * keeps a fast-logging Case's window from getting too thin to compare; the cap is a hard calendar
+ * ceiling, not cadence-scaled — product decision: "past 30 days can't reasonably be called lately,"
+ * regardless of how sparse a Case's own rhythm is. A Case whose typical gap exceeds roughly
+ * [FREQUENCY_SHIFT_MAX_WINDOW_DAYS] / [FREQUENCY_SHIFT_WINDOW_CADENCE_MULTIPLIER] days just gets the
+ * flat cap — it will simply have a harder time clearing [FREQUENCY_SHIFT_MIN_ABSOLUTE_COUNT_DELTA]/
+ * [FREQUENCY_SHIFT_MIN_RELATIVE_FRACTION], which is the correct failure mode (no finding) rather
+ * than stretching "lately" to match its own rhythm. Falls back to the legacy fixed
+ * [TREND_WINDOW_DAYS] only when a Case's cadence can't be assessed at all (too little history).
+ */
+internal const val FREQUENCY_SHIFT_MIN_WINDOW_DAYS = 7L
+internal const val FREQUENCY_SHIFT_MAX_WINDOW_DAYS = 30L
+internal const val FREQUENCY_SHIFT_WINDOW_CADENCE_MULTIPLIER = 3.0
 
 /** Spec §10 rhythm heatmap: coarse time-of-day boundaries (hour-of-day, local time). */
 internal const val MORNING_START_HOUR = 6
@@ -56,6 +82,9 @@ internal const val TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION = 0.5
 
 /** Per-detector cap on [computeTagShareShift]'s own findings — independent of the shared [TRENDS_MAX_FINDINGS], so a Case with many tags can't crowd out every other detector's finding. */
 internal const val TAG_SHARE_SHIFT_MAX_FINDINGS = 3
+
+/** Each side of a tag's cadence-cut recent/prior window needs at least this many (all) Case events before its share means anything — the same "too thin a sample" floor [GAP_SHIFT_MIN_SEGMENT_COUNT] applies to the cadence-resized gap split. */
+internal const val TAG_SHARE_SHIFT_MIN_WINDOW_EVENT_COUNT = 3
 
 /**
  * A Case's full observation span in days, from the earlier of its creation or earliest (possibly
@@ -163,29 +192,58 @@ internal fun computeRhythmStats(events: List<EventEntity>): RhythmStats {
 }
 
 /**
- * Spec §10 trend arrow: last [TREND_WINDOW_DAYS] vs. the [TREND_WINDOW_DAYS] before, hidden
+ * Spec §10 trend arrow: last [TrendStats.windowDays] vs. the [TrendStats.windowDays] before, hidden
  * entirely (`null`) below [TREND_MIN_SPAN_DAYS] of observation — too little history for the
- * comparison to mean anything.
+ * comparison to mean anything. The window itself is sized to the Case's own event cadence (see
+ * [FREQUENCY_SHIFT_WINDOW_CADENCE_MULTIPLIER]'s doc comment), falling back to the legacy fixed
+ * [TREND_WINDOW_DAYS] only when cadence can't be assessed. A direction only fires once it clears
+ * [FREQUENCY_SHIFT_MIN_ABSOLUTE_COUNT_DELTA]/[FREQUENCY_SHIFT_MIN_RELATIVE_FRACTION]'s dual floor,
+ * and even then only if the Case's most recent event still falls inside its own cadence-relative
+ * recency threshold — otherwise the comparison window is itself stale (a burst sitting inside the
+ * window, with silence since), and the direction is reported as [TrendDirection.FLAT] rather than
+ * continuing to claim a shift that's no longer current.
  */
 internal fun computeTrendStats(
     events: List<EventEntity>,
     now: Long,
     spanDays: Long,
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): TrendStats? {
     if (spanDays < TREND_MIN_SPAN_DAYS) return null
 
-    val recentCutoff = now - TREND_WINDOW_DAYS * MILLIS_PER_DAY
-    val priorCutoff = now - 2 * TREND_WINDOW_DAYS * MILLIS_PER_DAY
+    val cadence = computeCadenceWindowFromTimestamps(events.map { it.occurredAt }, zone)
+    val windowDays =
+        cadence
+            ?.let { (FREQUENCY_SHIFT_WINDOW_CADENCE_MULTIPLIER * it.typicalIntervalDays).toLong() }
+            ?.coerceIn(FREQUENCY_SHIFT_MIN_WINDOW_DAYS, FREQUENCY_SHIFT_MAX_WINDOW_DAYS)
+            ?: TREND_WINDOW_DAYS
+
+    val recentCutoff = now - windowDays * MILLIS_PER_DAY
+    val priorCutoff = now - 2 * windowDays * MILLIS_PER_DAY
     val recentCount = events.count { it.occurredAt in (recentCutoff + 1)..now }
     val priorCount = events.count { it.occurredAt in (priorCutoff + 1)..recentCutoff }
 
-    val direction =
-        when {
-            recentCount > priorCount -> TrendDirection.UP
-            recentCount < priorCount -> TrendDirection.DOWN
-            else -> TrendDirection.FLAT
-        }
-    return TrendStats(direction = direction, recentCount = recentCount, priorCount = priorCount)
+    var direction = frequencyShiftDirectionFor(priorCount, recentCount)
+    if (direction != TrendDirection.FLAT && cadence != null) {
+        val daysSinceLatest = daysBetween(events.maxOf { it.occurredAt }, now, zone)
+        if (!isWithinCadenceRecency(cadence, daysSinceLatest)) direction = TrendDirection.FLAT
+    }
+    return TrendStats(direction = direction, recentCount = recentCount, priorCount = priorCount, windowDays = windowDays)
+}
+
+/** `null`-free sibling of [shiftDirectionFor]: [TrendDirection.FLAT] unless the change from [priorCount] to [recentCount] clears both [FREQUENCY_SHIFT_MIN_ABSOLUTE_COUNT_DELTA] and [FREQUENCY_SHIFT_MIN_RELATIVE_FRACTION]. */
+private fun frequencyShiftDirectionFor(
+    priorCount: Int,
+    recentCount: Int,
+): TrendDirection {
+    val delta = recentCount - priorCount
+    val fraction = if (priorCount == 0) Double.POSITIVE_INFINITY else abs(delta).toDouble() / priorCount
+    if (abs(delta) < FREQUENCY_SHIFT_MIN_ABSOLUTE_COUNT_DELTA ||
+        fraction < FREQUENCY_SHIFT_MIN_RELATIVE_FRACTION
+    ) {
+        return TrendDirection.FLAT
+    }
+    return if (delta > 0) TrendDirection.UP else TrendDirection.DOWN
 }
 
 /**
@@ -235,25 +293,43 @@ internal fun computeTagBreakdown(eventsWithTags: List<EventWithTags>): List<TagB
 
 /**
  * Spec §10 Trends "tag share shift" finding: whether a tag's share of the Case's own events has
- * shifted noticeably between the earlier and more recent half of its history (split by event
- * count, the same shape [computeGapShift]/[computeStreakShift] use, not a fixed day window).
- * Empty below [TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT] events; a tag with fewer than
- * [TAG_SHARE_SHIFT_MIN_TAG_COUNT] total occurrences is skipped entirely rather than reported as
- * stable. Results are ordered by effect size (largest share change first) and capped at
+ * shifted noticeably between the earlier and more recent half of its history. Unlike a plain
+ * count-based midpoint split, the recent/prior boundary is cut by *that tag's own* occurrence
+ * cadence (see [computeCadenceWindowFromTimestamps]'s own doc comment on why this must be the
+ * tag's rhythm, not the Case's) — a sparse tag inside an active Case has a different natural rhythm
+ * than the Case overall, and a count-based half split let a stale burst dominate "the recent half"
+ * for as long as the tag didn't recur. Empty below [TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT] events; a tag
+ * with fewer than [TAG_SHARE_SHIFT_MIN_TAG_COUNT] total occurrences is skipped entirely rather than
+ * reported as stable, as is a tag whose own cadence can't be assessed at all, or whose cadence-cut
+ * window leaves either side with fewer than [TAG_SHARE_SHIFT_MIN_WINDOW_EVENT_COUNT] events — both
+ * cases, deliberately, rather than falling back to the old count-based half split, since that
+ * fallback would silently reintroduce the exact staleness risk this cadence cut exists to close.
+ * Results are ordered by effect size (largest share change first) and capped at
  * [TAG_SHARE_SHIFT_MAX_FINDINGS], since this is the one Trends detector that can produce more than
  * one finding per Case.
  */
-internal fun computeTagShareShift(eventsWithTags: List<EventWithTags>): List<TagShareShiftResult> {
+internal fun computeTagShareShift(
+    eventsWithTags: List<EventWithTags>,
+    now: Long,
+    zone: TimeZone = TimeZone.currentSystemDefault(),
+): List<TagShareShiftResult> {
     if (eventsWithTags.size < TAG_SHARE_SHIFT_MIN_SAMPLE_COUNT) return emptyList()
 
     val sorted = eventsWithTags.sortedBy { it.event.occurredAt }
-    val mid = sorted.size / 2
-    val priorHalf = sorted.take(mid)
-    val recentHalf = sorted.takeLast(sorted.size - mid)
     val tagNames = sorted.flatMap { it.tags }.map { it.name }.distinct()
 
     return tagNames
         .mapNotNull { tagName ->
+            val tagTimestamps = sorted.filter { entry -> entry.tags.any { it.name == tagName } }.map { it.event.occurredAt }
+            val cadence = computeCadenceWindowFromTimestamps(tagTimestamps, zone) ?: return@mapNotNull null
+
+            val cutoff = now - (cadence.recencyThresholdDays * MILLIS_PER_DAY).toLong()
+            val recentHalf = sorted.filter { it.event.occurredAt >= cutoff }
+            val priorHalf = sorted.filter { it.event.occurredAt < cutoff }
+            if (recentHalf.size < TAG_SHARE_SHIFT_MIN_WINDOW_EVENT_COUNT || priorHalf.size < TAG_SHARE_SHIFT_MIN_WINDOW_EVENT_COUNT) {
+                return@mapNotNull null
+            }
+
             val priorCount = priorHalf.count { entry -> entry.tags.any { it.name == tagName } }
             val recentCount = recentHalf.count { entry -> entry.tags.any { it.name == tagName } }
             if (priorCount + recentCount < TAG_SHARE_SHIFT_MIN_TAG_COUNT) return@mapNotNull null
@@ -413,6 +489,24 @@ internal const val TREND_SLOPE_MIN_SAMPLE_COUNT = 12
 internal const val TREND_SLOPE_MIN_RELATIVE_DIFFERENCE = 0.2
 internal const val TREND_SLOPE_SIGNIFICANCE_ALPHA = 0.05
 internal const val TREND_SLOPE_PERMUTATION_ITERATIONS = 1000
+
+/**
+ * A significant slope over a qualifying outcome's *entire* history can still misrepresent the
+ * present in two ways: the qualifying events themselves may have gone stale (logging stopped, but
+ * the old slope is still reported as ongoing), or — distinct from staleness — the trend may have
+ * already reversed in the most recent data while the Case is still actively logging. Both are
+ * checked in [trendSlopeResultFor], against the same cadence window (the qualifying events' own
+ * occurrence rhythm, via [computeCadenceWindowFromTimestamps]): the first suppresses when the
+ * newest qualifying event is already older than the cadence-relative recency threshold; the second
+ * refits the slope over just the tail segment inside that same threshold and suppresses when its
+ * sign disagrees with the overall slope. [TREND_SLOPE_REVERSAL_MIN_SEGMENT_COUNT] is the floor
+ * before a second OLS fit on that tail segment means anything — higher than
+ * [GAP_SHIFT_MIN_SEGMENT_COUNT] since a slope, unlike a plain average, needs real spread along the
+ * x-axis to fit at all. Below that floor the reversal check is skipped, not treated as a
+ * suppression — too little recent data to contradict the overall fit isn't the same as a confirmed
+ * reversal.
+ */
+internal const val TREND_SLOPE_REVERSAL_MIN_SEGMENT_COUNT = 5
 
 /**
  * Spec §10 Trends "time-of-day split" finding (Story C T6): whether intensity or duration differs
@@ -618,6 +712,22 @@ private fun trendSlopeResultFor(
             olsSlope(x, y.shuffled(random))
         }
     if (pValue >= TREND_SLOPE_SIGNIFICANCE_ALPHA) return null
+
+    // x is a day offset from firstOccurredAt, reconstructable back to a timestamp (lossy only in the
+    // sub-day fraction, fine for a days-granularity recency/reversal check).
+    val timestamps = x.map { firstOccurredAt + (it * MILLIS_PER_DAY).toLong() }
+    val cadence = computeCadenceWindowFromTimestamps(timestamps)
+    if (cadence != null) {
+        val daysSinceLatest = daysBetween(timestamps.max(), now)
+        if (!isWithinCadenceRecency(cadence, daysSinceLatest)) return null
+
+        val recentCutoffMillis = timestamps.max() - (cadence.recencyThresholdDays * MILLIS_PER_DAY).toLong()
+        val recentIndices = timestamps.indices.filter { timestamps[it] >= recentCutoffMillis }
+        if (recentIndices.size >= TREND_SLOPE_REVERSAL_MIN_SEGMENT_COUNT) {
+            val recentSlope = olsSlope(recentIndices.map { x[it] }, recentIndices.map { y[it] })
+            if ((recentSlope > 0 && slope < 0) || (recentSlope < 0 && slope > 0)) return null
+        }
+    }
 
     return TrendSlopeResult(
         pValue = pValue,

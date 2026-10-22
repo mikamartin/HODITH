@@ -69,6 +69,36 @@ private fun readyEventsWithTags(): List<EventWithTags> =
 
 private const val NOW = 60L
 
+/**
+ * A real, deliberate gap-shift signal (3 tight early gaps, then 3 widening ones -- clears
+ * [GAP_SHIFT_MIN_SAMPLE_COUNT]/the magnitude floor with real margin), kept as its own fixture
+ * rather than reused from [readyEventsWithTags] -- that fixture's perfectly uniform 5-day spacing
+ * can never clear a real shift (any count/average difference it could show is sampling noise at
+ * the boundary, not a real signal), so pinning stats.trends non-empty needs a Case actually shaped
+ * to produce a finding, not an incidental artifact.
+ */
+private fun trendingReadyEventsWithTags(): List<EventWithTags> =
+    listOf(0L, 1L, 2L, 3L, 20L, 40L, 60L).map { day ->
+        EventWithTags(
+            EventEntity(
+                caseId = 1L,
+                occurredAt = millisAtDay(day),
+                endedAt = null,
+                intensity = 3,
+                note = null,
+                loggedAt = millisAtDay(day),
+            ),
+            emptyList(),
+        )
+    }
+
+private fun trendingReadyInsightsState(case: CaseEntity): InsightsTabState =
+    // now = day 85, not day 65: the currently-open gap (25 days) must itself be consistent with
+    // the claimed widening shift, or computeGapShift's live-gap contradiction gate correctly
+    // suppresses the finding -- a too-fresh `now` would make the live gap look like the shift had
+    // already reversed.
+    insightsTabState(case, trendingReadyEventsWithTags(), now = millisAtDay(85L))
+
 private fun readyInsightsState(case: CaseEntity): InsightsTabState = insightsTabState(case, readyEventsWithTags(), now = millisAtDay(NOW))
 
 private val ALL_SECTIONS = ShareInsightsSection.entries.toSet()
@@ -273,9 +303,9 @@ class ShareCardStateTest {
             shareCardState(
                 case = case,
                 displayName = case.name,
-                insightsState = readyInsightsState(case),
-                eventCount = 12,
-                observedDays = 60,
+                insightsState = trendingReadyInsightsState(case),
+                eventCount = 7,
+                observedDays = 85,
                 format = ShareCardFormat.STORY,
                 selectedSections = setOf(ShareInsightsSection.RHYTHM, ShareInsightsSection.TRENDS),
                 generatedAtMillis = millisAtDay(NOW),
@@ -295,17 +325,17 @@ class ShareCardStateTest {
             shareCardState(
                 case = case,
                 displayName = case.name,
-                insightsState = readyInsightsState(case),
-                eventCount = 12,
-                observedDays = 60,
+                insightsState = trendingReadyInsightsState(case),
+                eventCount = 7,
+                observedDays = 85,
                 format = ShareCardFormat.STORY,
                 selectedSections = setOf(ShareInsightsSection.RHYTHM),
                 generatedAtMillis = millisAtDay(NOW),
             )
 
-        // readyInsightsState's fixture is the same one `only the selected sections are populated`
-        // confirms yields a non-empty stats.trends -- proves this is selection gating, not an
-        // incidentally-empty findings list.
+        // trendingReadyInsightsState's fixture is the same one `only the selected sections are
+        // populated` confirms yields a non-empty stats.trends -- proves this is selection gating,
+        // not an incidentally-empty findings list.
         assertEquals(emptyList<Any>(), data.trends)
     }
 

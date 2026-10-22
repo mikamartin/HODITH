@@ -209,24 +209,79 @@ class StatsEngineTest {
 
     @Test
     fun `computeTrendStats reports UP when the recent window has more events than the prior one`() {
+        // Events spaced 10+ days apart (median gap 10.0) keep the cadence-sized window clamped at
+        // its 30-day cap, matching the legacy fixed window exactly: 3 recent (days 75,85,95) vs. 1
+        // prior (day 55) -- delta 2 clears FREQUENCY_SHIFT_MIN_ABSOLUTE_COUNT_DELTA, and the
+        // relative move (2/1) clears FREQUENCY_SHIFT_MIN_RELATIVE_FRACTION too.
         val today = 100L
-        val events = listOf(eventAtDay(today - 5), eventAtDay(today - 10), eventAtDay(today - 40))
+        val events = listOf(eventAtDay(today - 5), eventAtDay(today - 15), eventAtDay(today - 25), eventAtDay(today - 45))
 
         val result = computeTrendStats(events, now = millisAtDay(today), spanDays = TREND_MIN_SPAN_DAYS)
 
         assertEquals(TrendDirection.UP, result!!.direction)
-        assertEquals(2, result.recentCount)
+        assertEquals(3, result.recentCount)
         assertEquals(1, result.priorCount)
+        assertEquals(30L, result.windowDays)
     }
 
     @Test
     fun `computeTrendStats reports DOWN when the recent window has fewer events than the prior one`() {
+        // Same spacing/cap reasoning as the UP case above, mirrored: 1 recent (day 95) vs. 3 prior
+        // (days 45,55,65).
         val today = 100L
-        val events = listOf(eventAtDay(today - 5), eventAtDay(today - 40), eventAtDay(today - 45))
+        val events = listOf(eventAtDay(today - 5), eventAtDay(today - 35), eventAtDay(today - 45), eventAtDay(today - 55))
 
         val result = computeTrendStats(events, now = millisAtDay(today), spanDays = TREND_MIN_SPAN_DAYS)
 
         assertEquals(TrendDirection.DOWN, result!!.direction)
+        assertEquals(1, result.recentCount)
+        assertEquals(3, result.priorCount)
+    }
+
+    @Test
+    fun `computeTrendStats is FLAT when the count delta is too small to clear the magnitude floor`() {
+        // A 1-vs-0 difference -- exactly the pattern that used to fire with no floor at all.
+        val today = 100L
+        val events = listOf(eventAtDay(today - 5))
+
+        val result = computeTrendStats(events, now = millisAtDay(today), spanDays = TREND_MIN_SPAN_DAYS)
+
+        assertEquals(TrendDirection.FLAT, result!!.direction)
+    }
+
+    @Test
+    fun `computeTrendStats resizes the window to the Case's own cadence instead of a flat 30 days`() {
+        // Daily logging (median gap 1.0) clamps the window to its 7-day floor, not the legacy 30.
+        val today = 100L
+        val events = (0 until 20).map { eventAtDay(today - it) }
+
+        val result = computeTrendStats(events, now = millisAtDay(today), spanDays = TREND_MIN_SPAN_DAYS)
+
+        assertEquals(FREQUENCY_SHIFT_MIN_WINDOW_DAYS, result!!.windowDays)
+    }
+
+    @Test
+    fun `computeTrendStats suppresses an otherwise-firing shift once logging has gone stale relative to its own cadence`() {
+        // A steady every-10-days cadence (median 10.0, recency threshold 25, window clamped to the
+        // 30-day cap) that simply stopped: the newest event is 27 days old -- still inside the
+        // 30-day window (so the raw recent-vs-prior count comparison alone would fire DOWN, 1 vs.
+        // 3, clearing both magnitude floors), but older than the 25-day cadence-relative recency
+        // allowance, so the finding is suppressed instead of reporting a shift that's gone stale.
+        val today = 100L
+        val events =
+            listOf(
+                eventAtDay(today - 27),
+                eventAtDay(today - 37),
+                eventAtDay(today - 47),
+                eventAtDay(today - 57),
+                eventAtDay(
+                    today - 67,
+                ),
+            )
+
+        val result = computeTrendStats(events, now = millisAtDay(today), spanDays = TREND_MIN_SPAN_DAYS)
+
+        assertEquals(TrendDirection.FLAT, result!!.direction)
     }
 
     @Test
@@ -371,23 +426,30 @@ class StatsEngineTest {
 
     // ---- computeTagShareShift ----
 
+    // Ten events, one per day (0..9); `now` just after the last one. Every tag fixture below is
+    // built with internal gaps of 1 day between its own occurrences, so every tag's own cadence
+    // (median 1.0, threshold max(3, 2.5) = 3.0 days) cuts the same recent/prior boundary at day 7 --
+    // recentHalf = days 7,8,9 (3 events), priorHalf = days 0..6 (7 events) -- letting these tests
+    // reason about clean, comparable shares across tags without each one landing at a different cut.
+    private val tagShareShiftNow = millisAtDay(10)
+
     @Test
     fun `computeTagShareShift detects a tag rising between the earlier and more recent half`() {
         val decaf = TagEntity(id = 1, name = "decaf")
         val eventsWithTags =
             (0 until 10).map { day ->
-                val tagged = day == 4 || day in 5..8 // prior 1 of 5, recent 4 of 5
+                val tagged = day in 7..9 // prior 0 of 7, recent 3 of 3 -- only recent, confined and consecutive
                 EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(decaf) else emptyList())
             }
 
-        val result = computeTagShareShift(eventsWithTags)
+        val result = computeTagShareShift(eventsWithTags, tagShareShiftNow)
 
         assertEquals(1, result.size)
         val finding = result.single()
         assertEquals("decaf", finding.tagName)
         assertEquals(ShiftDirection.UP, finding.direction)
-        assertEquals(0.2, finding.priorShare, 0.0001)
-        assertEquals(0.8, finding.recentShare, 0.0001)
+        assertEquals(0.0, finding.priorShare, 0.0001)
+        assertEquals(1.0, finding.recentShare, 0.0001)
         assertEquals(10, finding.sampleCount)
     }
 
@@ -396,45 +458,48 @@ class StatsEngineTest {
         val soda = TagEntity(id = 2, name = "soda")
         val eventsWithTags =
             (0 until 10).map { day ->
-                val tagged = day in 0..3 || day == 5 // prior 4 of 5, recent 1 of 5
+                val tagged = day in 0..2 // prior 3 of 7, recent 0 of 3 -- only early, confined and consecutive
                 EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(soda) else emptyList())
             }
 
-        val result = computeTagShareShift(eventsWithTags)
+        val result = computeTagShareShift(eventsWithTags, tagShareShiftNow)
 
         assertEquals(1, result.size)
         val finding = result.single()
         assertEquals("soda", finding.tagName)
         assertEquals(ShiftDirection.DOWN, finding.direction)
-        assertEquals(0.8, finding.priorShare, 0.0001)
-        assertEquals(0.2, finding.recentShare, 0.0001)
+        assertEquals(3.0 / 7.0, finding.priorShare, 0.0001)
+        assertEquals(0.0, finding.recentShare, 0.0001)
     }
 
     @Test
     fun `computeTagShareShift finds nothing for a tag whose share hasn't moved`() {
+        // Days 1,3,6,8 (gaps 2,3,2; median 2.0, threshold max(3, 5.0) = 5.0, cutoff day 5) --
+        // 2 of 7 before, 2 of 5 after, same 0.4 share on both sides.
         val standup = TagEntity(id = 3, name = "standup")
         val eventsWithTags =
             (0 until 10).map { day ->
-                val tagged = day in setOf(0, 1, 5, 6) // 2 of 5 in each half
+                val tagged = day in setOf(1, 3, 6, 8)
                 EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(standup) else emptyList())
             }
 
-        assertTrue(computeTagShareShift(eventsWithTags).isEmpty())
+        assertTrue(computeTagShareShift(eventsWithTags, tagShareShiftNow).isEmpty())
     }
 
     @Test
     fun `computeTagShareShift finds nothing when only one of the two threshold floors is cleared`() {
-        // prior 3 of 5 (0.6), recent 4 of 5 (0.8): delta 0.2 clears TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION
-        // (0.15), but the relative move (0.2 / 0.6 = 0.33) doesn't clear TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION
-        // (0.5) -- both floors must clear, not just one.
+        // Days 0,1,2,6,7 -- prior 4 of 7 (0.5714), recent 1 of 3 (0.3333): delta 0.2381 clears
+        // TAG_SHARE_SHIFT_MIN_ABSOLUTE_FRACTION (0.15), but the relative move (0.2381 / 0.5714 =
+        // 0.4167) doesn't clear TAG_SHARE_SHIFT_MIN_RELATIVE_FRACTION (0.5) -- both floors must
+        // clear, not just one.
         val standing = TagEntity(id = 5, name = "standing")
         val eventsWithTags =
             (0 until 10).map { day ->
-                val tagged = day in setOf(0, 1, 2) || day in 5..8
+                val tagged = day in setOf(0, 1, 2, 6, 7)
                 EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(standing) else emptyList())
             }
 
-        assertTrue(computeTagShareShift(eventsWithTags).isEmpty())
+        assertTrue(computeTagShareShift(eventsWithTags, tagShareShiftNow).isEmpty())
     }
 
     @Test
@@ -445,23 +510,42 @@ class StatsEngineTest {
                 EventWithTags(eventAtDay(day.toLong()), listOf(decaf))
             }
 
-        assertTrue(computeTagShareShift(eventsWithTags).isEmpty())
+        assertTrue(computeTagShareShift(eventsWithTags, tagShareShiftNow).isEmpty())
     }
 
     @Test
-    fun `computeTagShareShift skips a tag with too few total occurrences even if its share swings sharply`() {
+    fun `computeTagShareShift skips a tag whose own cadence can't be assessed, even with a sharp swing`() {
         val rare = TagEntity(id = 4, name = "rare")
         val eventsWithTags =
             (0 until 10).map { day ->
-                val tagged = day == 5 || day == 6 // recent-only, but only 2 total -- below TAG_SHARE_SHIFT_MIN_TAG_COUNT
+                val tagged = day == 5 || day == 6 // only 2 occurrences -- below the cadence helper's own floor
                 EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(rare) else emptyList())
             }
 
-        assertTrue(computeTagShareShift(eventsWithTags).isEmpty())
+        assertTrue(computeTagShareShift(eventsWithTags, tagShareShiftNow).isEmpty())
+    }
+
+    @Test
+    fun `computeTagShareShift skips a tag whose cadence-cut window leaves too few events on one side`() {
+        // A tag confined to days 8,9 plus one earlier occurrence on day 0 (just enough occurrences
+        // to assess cadence: gaps 8, 1 -- median 4.5, threshold 11.25 days) -- its own cadence
+        // cutoff lands before day 0 entirely, leaving an empty "prior" window below
+        // TAG_SHARE_SHIFT_MIN_WINDOW_EVENT_COUNT.
+        val sparse = TagEntity(id = 6, name = "sparse")
+        val eventsWithTags =
+            (0 until 10).map { day ->
+                val tagged = day == 0 || day == 8 || day == 9
+                EventWithTags(eventAtDay(day.toLong()), if (tagged) listOf(sparse) else emptyList())
+            }
+
+        assertTrue(computeTagShareShift(eventsWithTags, tagShareShiftNow).isEmpty())
     }
 
     @Test
     fun `computeTagShareShift caps findings and orders them by effect size, strongest first`() {
+        // Each tag's own occurrences keep a 1-day internal gap (median 1.0, threshold 3.0, cutoff
+        // day 7 -- the same split every other test in this section uses), so all four are directly
+        // comparable on the same recentHalf (days 7,8,9) / priorHalf (days 0..6) split.
         val tagA = TagEntity(id = 1, name = "tagA")
         val tagB = TagEntity(id = 2, name = "tagB")
         val tagC = TagEntity(id = 3, name = "tagC")
@@ -470,14 +554,14 @@ class StatsEngineTest {
         val eventsWithTags =
             (0 until 10).map { day ->
                 val tags = mutableListOf<TagEntity>()
-                if (day in 5..9) tags += tagA // prior 0 of 5, recent 5 of 5 -- delta 1.0
-                if (day == 4 || day in 5..8) tags += tagB // prior 1 of 5, recent 4 of 5 -- delta 0.6
-                if (day == 3 || day in 5..7) tags += tagC // prior 1 of 5, recent 3 of 5 -- delta 0.4
-                if (day == 2 || day in 5..6) tags += tagD // prior 1 of 5, recent 2 of 5 -- delta 0.2
+                if (day in 7..9) tags += tagA // prior 0 of 7, recent 3 of 3 -- delta 1.0
+                if (day in 6..9) tags += tagB // prior 1 of 7, recent 3 of 3 -- delta 0.857
+                if (day in 5..9) tags += tagC // prior 2 of 7, recent 3 of 3 -- delta 0.714
+                if (day in setOf(4, 5, 6, 8, 9)) tags += tagD // prior 3 of 7, recent 2 of 3 -- delta 0.238
                 EventWithTags(eventAtDay(day.toLong()), tags)
             }
 
-        val result = computeTagShareShift(eventsWithTags)
+        val result = computeTagShareShift(eventsWithTags, tagShareShiftNow)
 
         assertEquals(TAG_SHARE_SHIFT_MAX_FINDINGS, result.size)
         assertEquals(listOf("tagA", "tagB", "tagC"), result.map { it.tagName })

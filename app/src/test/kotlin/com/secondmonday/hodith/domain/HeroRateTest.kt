@@ -12,13 +12,14 @@ class HeroRateTest {
     private fun trend(
         recent: Int,
         prior: Int,
+        windowDays: Long = 30L,
         direction: TrendDirection =
             when {
                 recent > prior -> TrendDirection.UP
                 recent < prior -> TrendDirection.DOWN
                 else -> TrendDirection.FLAT
             },
-    ) = TrendStats(direction = direction, recentCount = recent, priorCount = prior)
+    ) = TrendStats(direction = direction, recentCount = recent, priorCount = prior, windowDays = windowDays)
 
     // ---- pickRateUnit ----
 
@@ -96,6 +97,16 @@ class HeroRateTest {
         assertEquals(9 * 7 / 30.0, result.value, 0.0001)
         assertEquals(TrendDirection.UP, result.comparison!!.direction)
         assertEquals(6 * 7 / 30.0, result.comparison.priorValue, 0.0001)
+    }
+
+    @Test
+    fun `computeHeroRate uses the trend's own window, not a hardcoded 30 days`() {
+        // A cadence-sized 10-day window (not the legacy fixed 30) -- if computeHeroRate silently
+        // assumed 30 here, both the headline rate and the comparison's prior rate would be wrong.
+        val result = computeHeroRate(31, observedDays = 94, trendStats = trend(recent = 5, prior = 2, windowDays = 10))!!
+
+        assertEquals(5 * 7 / 10.0, result.value, 0.0001)
+        assertEquals(2 * 7 / 10.0, result.comparison!!.priorValue, 0.0001)
     }
 
     @Test
