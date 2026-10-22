@@ -1,6 +1,7 @@
 package com.secondmonday.hodith.viewmodel
 
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondmonday.hodith.data.HodithDatabase
 import com.secondmonday.hodith.data.RoomHodithRepository
@@ -11,6 +12,7 @@ import com.secondmonday.hodith.domain.TagSummary
 import com.secondmonday.hodith.notification.NotificationEvalScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -37,6 +39,7 @@ class ManageTagsViewModelDatabaseTest {
     private lateinit var db: HodithDatabase
     private lateinit var repository: RoomHodithRepository
     private lateinit var viewModelStore: ViewModelStore
+    private var viewModelJob: Job? = null
     private var eventId: Long = 0
 
     @Before
@@ -63,13 +66,21 @@ class ManageTagsViewModelDatabaseTest {
         }
 
     @After
-    fun tearDown() {
-        viewModelStore.clear()
-        Dispatchers.resetMain()
-        db.close()
-    }
+    fun tearDown() =
+        runBlocking {
+            viewModelStore.clear()
+            // Clearing only cancels the ViewModel's uiState collector; without this join a Room query
+            // already past its cancellation checkpoint can still race db.close() on the next line.
+            viewModelJob?.join()
+            Dispatchers.resetMain()
+            db.close()
+        }
 
-    private fun createViewModel(): ManageTagsViewModel = ManageTagsViewModel(repository).also { viewModelStore.put(VIEW_MODEL_KEY, it) }
+    private fun createViewModel(): ManageTagsViewModel =
+        ManageTagsViewModel(repository).also {
+            viewModelStore.put(VIEW_MODEL_KEY, it)
+            viewModelJob = it.viewModelScope.coroutineContext[Job]
+        }
 
     private suspend fun awaitState(
         viewModel: ManageTagsViewModel,
