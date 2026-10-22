@@ -7,12 +7,13 @@ import com.secondmonday.hodith.data.WatchKind
 import com.secondmonday.hodith.testsupport.TEST_ZONE
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.atStartOfDayIn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
 
 /**
  * Epoch millis at local midnight on an explicit calendar date, safely inside a single DST regime
@@ -24,11 +25,9 @@ private fun millisOnDate(
     year: Int,
     month: Int,
     day: Int,
-) = LocalDate
-    .of(year, month, day)
-    .atStartOfDay(TEST_ZONE)
-    .toInstant()
-    .toEpochMilli()
+) = LocalDate(year, month, day)
+    .atStartOfDayIn(TEST_ZONE)
+    .toEpochMilliseconds()
 
 private fun watch(
     kind: WatchKind = WatchKind.OFTEN,

@@ -1,11 +1,12 @@
 package com.secondmonday.hodith.domain
 
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * A Monday-start, Sunday-end grid of weeks covering [month], padded with the neighbouring
@@ -16,10 +17,10 @@ import java.time.temporal.TemporalAdjusters
 internal fun weeksInGrid(month: YearMonth): List<List<LocalDate>> {
     val firstOfMonth = month.atDay(1)
     val lastOfMonth = month.atEndOfMonth()
-    val gridStart = firstOfMonth.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val gridEnd = lastOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+    val gridStart = firstOfMonth.previousOrSame(DayOfWeek.MONDAY)
+    val gridEnd = lastOfMonth.nextOrSame(DayOfWeek.SUNDAY)
 
-    val days = generateSequence(gridStart) { it.plusDays(1) }.takeWhile { !it.isAfter(gridEnd) }.toList()
+    val days = generateSequence(gridStart) { it.plus(1, DateTimeUnit.DAY) }.takeWhile { it <= gridEnd }.toList()
     return days.chunked(7)
 }
 
@@ -36,13 +37,17 @@ internal fun weeksInGrid(month: YearMonth): List<List<LocalDate>> {
 internal fun datesCovered(
     startMillis: Long,
     endMillis: Long,
-    zone: ZoneId,
-    endZone: ZoneId = zone,
+    zone: TimeZone,
+    endZone: TimeZone = zone,
 ): List<LocalDate> {
-    val startDate = Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
+    val startDate = Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(zone).date
     val endDate =
-        if (endMillis <= startMillis) startDate else Instant.ofEpochMilli(endMillis).atZone(endZone).toLocalDate()
-    return generateSequence(startDate) { it.plusDays(1) }.takeWhile { !it.isAfter(endDate) }.toList()
+        if (endMillis <= startMillis) {
+            startDate
+        } else {
+            Instant.fromEpochMilliseconds(endMillis).toLocalDateTime(endZone).date
+        }
+    return generateSequence(startDate) { it.plus(1, DateTimeUnit.DAY) }.takeWhile { it <= endDate }.toList()
 }
 
 /**
@@ -54,11 +59,11 @@ internal fun datesCovered(
 internal fun spansMultipleDays(
     startMillis: Long,
     endMillis: Long,
-    zone: ZoneId,
-    endZone: ZoneId = zone,
+    zone: TimeZone,
+    endZone: TimeZone = zone,
 ): Boolean {
     if (endMillis <= startMillis) return false
-    val startDate = Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
-    val endDate = Instant.ofEpochMilli(endMillis).atZone(endZone).toLocalDate()
-    return endDate.isAfter(startDate)
+    val startDate = Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(zone).date
+    val endDate = Instant.fromEpochMilliseconds(endMillis).toLocalDateTime(endZone).date
+    return endDate > startDate
 }

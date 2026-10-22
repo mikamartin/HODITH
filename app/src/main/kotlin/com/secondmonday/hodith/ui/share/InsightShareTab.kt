@@ -39,8 +39,9 @@ import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.availableShareSections
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.shareCardState
-import java.time.Instant
-import java.time.ZoneId
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.math.roundToInt
 
 /** Test hook only — `onNodeWithText` is ambiguous once a section's label also appears in the live card preview above. */
@@ -70,7 +71,7 @@ internal fun InsightShareTab(
     // matching comment) -- memoizing on that day, not the raw value `now` returns fresh on every
     // recomposition, keeps this tab's own recomposition (e.g. every keystroke in the name field, every
     // section toggle) from re-running the full stats/Trends computation, now including Story C T4's permutation test.
-    val today = remember(now) { Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate() }
+    val today = remember(now) { Instant.fromEpochMilliseconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).date }
     val insightsState = remember(case, uiState.events, today) { insightsTabState(case, uiState.events, now) }
     val selection = uiState.selection
 

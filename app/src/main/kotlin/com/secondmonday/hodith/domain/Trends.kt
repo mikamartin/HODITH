@@ -1,7 +1,7 @@
 package com.secondmonday.hodith.domain
 
-import java.time.DayOfWeek
-import java.time.LocalDate
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 
 /**
  * Spec §10 Trends section: which detector produced a [TrendFinding] — the UI keys its sentence and

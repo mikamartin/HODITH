@@ -28,7 +28,7 @@ import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.formatElapsedDuration
 import com.secondmonday.hodith.viewmodel.formatExpectedEndTime
-import java.time.ZoneId
+import kotlinx.datetime.TimeZone
 
 /**
  * The "Ongoing" chip that marks a running event (spec §6). A plain [Surface] + [Text] rather than
@@ -78,7 +78,7 @@ fun OngoingExpectedEndText(
     now: Long,
     use24Hour: Boolean,
     voice: Voice,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
     modifier: Modifier = Modifier,
 ) {
     OngoingSummary(
@@ -101,7 +101,7 @@ fun OngoingTimeText(
     now: Long,
     use24Hour: Boolean,
     voice: Voice,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
     modifier: Modifier = Modifier,
 ) {
     if (expectedEndAt == null) {

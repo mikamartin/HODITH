@@ -6,25 +6,26 @@ import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.testsupport.testEvent
 import com.secondmonday.hodith.ui.voice.IntenseVoice
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.ZoneId
-import java.time.ZonedDateTime
 
 class CaseDetailFormattingTest {
-    private val utc = ZoneId.of("UTC")
+    private val utc = TimeZone.UTC
 
     // Exact-equality on the formatted string is avoided: the JDK's CLDR data inserts a
     // narrow no-break space before AM/PM (not a plain space), and that's an implementation
     // detail of the JDK version, not something this test should pin down.
     @Test
     fun `formatEventTime renders weekday, date and time, omitting the year when it matches now`() {
-        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
-        val now = ZonedDateTime.of(2026, 12, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val instant = LocalDateTime(2026, 7, 9, 15, 30, 0, 0).toInstant(utc)
+        val now = LocalDateTime(2026, 12, 1, 0, 0, 0, 0).toInstant(utc).toEpochMilliseconds()
 
-        val formatted = formatEventTime(instant.toEpochMilli(), now, use24Hour = false, zone = utc)
+        val formatted = formatEventTime(instant.toEpochMilliseconds(), now, use24Hour = false, zone = utc)
 
         assertTrue(formatted.contains("Thu"))
         assertTrue(formatted.contains("Jul 9"))
@@ -36,10 +37,10 @@ class CaseDetailFormattingTest {
 
     @Test
     fun `formatEventTime renders 24-hour time with no AM PM marker when use24Hour is set`() {
-        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
-        val now = ZonedDateTime.of(2026, 12, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val instant = LocalDateTime(2026, 7, 9, 15, 30, 0, 0).toInstant(utc)
+        val now = LocalDateTime(2026, 12, 1, 0, 0, 0, 0).toInstant(utc).toEpochMilliseconds()
 
-        val formatted = formatEventTime(instant.toEpochMilli(), now, use24Hour = true, zone = utc)
+        val formatted = formatEventTime(instant.toEpochMilliseconds(), now, use24Hour = true, zone = utc)
 
         assertTrue(formatted.contains("15:30"))
         assertTrue("expected no AM/PM marker in \"$formatted\"", !formatted.contains("PM"))
@@ -47,21 +48,21 @@ class CaseDetailFormattingTest {
 
     @Test
     fun `formatEventTime includes the year when it differs from now, in both formats`() {
-        val instant = ZonedDateTime.of(2025, 7, 9, 15, 30, 0, 0, utc).toInstant()
-        val now = ZonedDateTime.of(2026, 1, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val instant = LocalDateTime(2025, 7, 9, 15, 30, 0, 0).toInstant(utc)
+        val now = LocalDateTime(2026, 1, 1, 0, 0, 0, 0).toInstant(utc).toEpochMilliseconds()
 
-        assertTrue(formatEventTime(instant.toEpochMilli(), now, use24Hour = false, zone = utc).contains("2025"))
-        assertTrue(formatEventTime(instant.toEpochMilli(), now, use24Hour = true, zone = utc).contains("2025"))
+        assertTrue(formatEventTime(instant.toEpochMilliseconds(), now, use24Hour = false, zone = utc).contains("2025"))
+        assertTrue(formatEventTime(instant.toEpochMilliseconds(), now, use24Hour = true, zone = utc).contains("2025"))
     }
 
     @Test
     fun `formatEventTime reflects the requested zone, not just the instant`() {
-        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
-        val now = instant.toEpochMilli()
+        val instant = LocalDateTime(2026, 7, 9, 15, 30, 0, 0).toInstant(utc)
+        val now = instant.toEpochMilliseconds()
         // America/New_York is UTC-4 in July (daylight saving), so 15:30 UTC is 11:30 local.
-        val newYork = ZoneId.of("America/New_York")
+        val newYork = TimeZone.of("America/New_York")
 
-        val formatted = formatEventTime(instant.toEpochMilli(), now, use24Hour = false, zone = newYork)
+        val formatted = formatEventTime(instant.toEpochMilliseconds(), now, use24Hour = false, zone = newYork)
 
         assertTrue(formatted.contains("Jul 9"))
         assertTrue(formatted.contains("11:30"))

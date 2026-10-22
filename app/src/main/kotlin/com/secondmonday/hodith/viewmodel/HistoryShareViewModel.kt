@@ -25,9 +25,13 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 /**
@@ -56,21 +60,12 @@ private const val HISTORY_SHARE_FILE_NAME_PREFIX = "hodith-history-share-card"
 private const val HISTORY_PDF_FILE_NAME_PREFIX = "hodith-history-record"
 
 /** Local start-of-day millis for [date] in this zone. */
-internal fun ZoneId.startOfDayMillis(date: LocalDate): Long =
-    date
-        .atStartOfDay(this)
-        .toInstant()
-        .toEpochMilli()
+internal fun TimeZone.startOfDayMillis(date: LocalDate): Long = date.atStartOfDayIn(this).toEpochMilliseconds()
 
 /** Local end-of-day millis (23:59:59.999) for [date] in this zone — the inclusive upper bound [filterAndSortEvents] expects. */
-internal fun ZoneId.endOfDayMillis(date: LocalDate): Long =
-    date
-        .plusDays(1)
-        .atStartOfDay(this)
-        .toInstant()
-        .toEpochMilli() - 1
+internal fun TimeZone.endOfDayMillis(date: LocalDate): Long = date.plus(1, DateTimeUnit.DAY).atStartOfDayIn(this).toEpochMilliseconds() - 1
 
-internal fun Long.toLocalDateIn(zone: ZoneId): LocalDate = Instant.ofEpochMilli(this).atZone(zone).toLocalDate()
+internal fun Long.toLocalDateIn(zone: TimeZone): LocalDate = Instant.fromEpochMilliseconds(this).toLocalDateTime(zone).date
 
 @HiltViewModel
 class HistoryShareViewModel
@@ -83,7 +78,7 @@ class HistoryShareViewModel
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val caseId: Long = requireNotNull(savedStateHandle.get<Long>("caseId"))
-        private val zone = ZoneId.systemDefault()
+        private val zone = TimeZone.currentSystemDefault()
 
         private val selection =
             MutableStateFlow(

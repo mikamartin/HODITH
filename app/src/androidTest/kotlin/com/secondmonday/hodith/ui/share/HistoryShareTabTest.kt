@@ -25,13 +25,13 @@ import com.secondmonday.hodith.viewmodel.HistoryShareUiState
 import com.secondmonday.hodith.viewmodel.ShareUiState
 import com.secondmonday.hodith.viewmodel.formatDateRangeBound
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
+import kotlinx.datetime.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDate
 
 /**
  * The History tab of [ShareScreen]. Needs a real `GraphicsLayer` for the capture modifier, same reason
@@ -431,8 +431,8 @@ class HistoryShareTabTest {
         composeTestRule.onNodeWithText("Friday, January 16, 1970").performClick()
         composeTestRule.onNodeWithText(PlainVoice.logSheetPickerConfirm).performClick()
 
-        assertEquals(LocalDate.of(1970, 1, 15), changedFrom)
-        assertEquals(LocalDate.of(1970, 1, 16), changedTo)
+        assertEquals(LocalDate(1970, 1, 15), changedFrom)
+        assertEquals(LocalDate(1970, 1, 16), changedTo)
     }
 
     @Test
@@ -491,7 +491,7 @@ class HistoryShareTabTest {
     fun rangeDialog_confirmWithNoStartSelected_clearsFromToSinceTheBeginning() {
         // dateFrom starts null (since-the-beginning) in the default selection -- confirming
         // without touching the calendar should keep it null, not coerce it to some other value.
-        var changedFrom: LocalDate? = LocalDate.of(2026, 1, 1)
+        var changedFrom: LocalDate? = LocalDate(2026, 1, 1)
         setContent(
             uiState =
                 HistoryShareUiState(

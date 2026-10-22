@@ -51,14 +51,13 @@ import com.secondmonday.hodith.viewmodel.ShareCardData
 import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
 import com.secondmonday.hodith.viewmodel.StreakDisplay
+import com.secondmonday.hodith.viewmodel.englishNarrow
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
+import kotlinx.datetime.DayOfWeek
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.time.DayOfWeek
-import java.time.format.TextStyle
-import java.util.Locale
 
 private const val STORY_TAG = "story_card"
 private const val SQUARE_TAG = "square_card"
@@ -834,7 +833,7 @@ class ShareCardTemplateTest {
         val morning = composeTestRule.onNodeWithText(PlainVoice.insightsTimeOfDayMorning).getUnclippedBoundsInRoot()
         val mondayHeader =
             composeTestRule
-                .onNodeWithText(DayOfWeek.MONDAY.getDisplayName(TextStyle.NARROW, Locale.getDefault()))
+                .onNodeWithText(DayOfWeek.MONDAY.englishNarrow())
                 .getUnclippedBoundsInRoot()
         val gap = (mondayHeader.left - morning.right).value
 

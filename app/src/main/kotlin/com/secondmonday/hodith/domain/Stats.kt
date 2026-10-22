@@ -1,7 +1,7 @@
 package com.secondmonday.hodith.domain
 
-import java.time.DayOfWeek
-import java.time.LocalDate
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 
 /** Spec §10 frequency-over-time: bucket granularity, auto-picked from the Case's observation span. */
 enum class FrequencyGranularity {

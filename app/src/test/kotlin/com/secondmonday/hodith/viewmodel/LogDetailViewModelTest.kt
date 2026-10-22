@@ -5,19 +5,21 @@ import com.secondmonday.hodith.domain.MILLIS_PER_DAY
 import com.secondmonday.hodith.domain.MILLIS_PER_HOUR
 import com.secondmonday.hodith.domain.MILLIS_PER_MINUTE
 import com.secondmonday.hodith.testsupport.testEvent
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.number
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
 
 class LogDetailViewModelTest {
-    private val utc = ZoneId.of("UTC")
+    private val utc = TimeZone.UTC
 
     // Far beyond any occurredAt used below, so it never clamps unless a test is specifically
     // exercising the clamp.
@@ -64,15 +66,13 @@ class LogDetailViewModelTest {
 
     @Test
     fun `composeDuration days scaling is fixed 24h chunks, so the wall clock shifts across a DST spring-forward`() {
-        val newYork = ZoneId.of("America/New_York")
+        val newYork = TimeZone.of("America/New_York")
         // Noon on 2026-03-07, two days before the 2026-03-08 spring-forward (a 23-hour local day).
         val occurredAt =
-            LocalDate
-                .of(2026, 3, 7)
+            LocalDate(2026, 3, 7)
                 .atTime(12, 0)
-                .atZone(newYork)
-                .toInstant()
-                .toEpochMilli()
+                .toInstant(newYork)
+                .toEpochMilliseconds()
 
         val endedAt = occurredAt + composeDuration(6L, 0L, 0L)
 
@@ -82,8 +82,8 @@ class LogDetailViewModelTest {
         // land the wall clock at 13:00, not noon, on the 13th. By design (storage is millis) —
         // this test pins the distortion rather than changing it.
         assertEquals(
-            LocalDateTime.of(2026, 3, 13, 13, 0),
-            Instant.ofEpochMilli(endedAt).atZone(newYork).toLocalDateTime(),
+            LocalDateTime(2026, 3, 13, 13, 0),
+            Instant.fromEpochMilliseconds(endedAt).toLocalDateTime(newYork),
         )
     }
 
@@ -473,15 +473,15 @@ class LogDetailViewModelTest {
 
     @Test
     fun `applyPickedDate keeps the existing time-of-day and swaps only the date`() {
-        val occurredAt = ZonedDateTime.of(2026, 1, 1, 15, 30, 0, 0, utc).toInstant().toEpochMilli()
-        val pickedDateUtcMillis = ZonedDateTime.of(2026, 7, 9, 0, 0, 0, 0, ZoneOffset.UTC).toInstant().toEpochMilli()
+        val occurredAt = LocalDateTime(2026, 1, 1, 15, 30, 0, 0).toInstant(utc).toEpochMilliseconds()
+        val pickedDateUtcMillis = LocalDateTime(2026, 7, 9, 0, 0, 0, 0).toInstant(TimeZone.UTC).toEpochMilliseconds()
 
         val result = applyPickedDate(occurredAt, pickedDateUtcMillis, utc)
 
-        val resultZoned = Instant.ofEpochMilli(result).atZone(utc)
+        val resultZoned = Instant.fromEpochMilliseconds(result).toLocalDateTime(utc)
         assertEquals(2026, resultZoned.year)
-        assertEquals(7, resultZoned.monthValue)
-        assertEquals(9, resultZoned.dayOfMonth)
+        assertEquals(7, resultZoned.month.number)
+        assertEquals(9, resultZoned.day)
         assertEquals(15, resultZoned.hour)
         assertEquals(30, resultZoned.minute)
     }
@@ -490,12 +490,12 @@ class LogDetailViewModelTest {
 
     @Test
     fun `applyPickedTime keeps the existing date and swaps only the time`() {
-        val occurredAt = ZonedDateTime.of(2026, 7, 9, 8, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val occurredAt = LocalDateTime(2026, 7, 9, 8, 0, 0, 0).toInstant(utc).toEpochMilliseconds()
 
         val result = applyPickedTime(occurredAt, hour = 21, minute = 45, zone = utc)
 
-        val resultZoned = Instant.ofEpochMilli(result).atZone(utc)
-        assertEquals(9, resultZoned.dayOfMonth)
+        val resultZoned = Instant.fromEpochMilliseconds(result).toLocalDateTime(utc)
+        assertEquals(9, resultZoned.day)
         assertEquals(21, resultZoned.hour)
         assertEquals(45, resultZoned.minute)
     }
@@ -541,31 +541,31 @@ class LogDetailViewModelTest {
     @Test
     fun `toDatePickerUtcMillis maps a local instant to UTC-midnight of its calendar date`() {
         // 2026-07-09 23:30 in New York is still the 9th locally; the picker wants 2026-07-09 00:00 UTC.
-        val newYork = ZoneId.of("America/New_York")
-        val localMillis = ZonedDateTime.of(2026, 7, 9, 23, 30, 0, 0, newYork).toInstant().toEpochMilli()
+        val newYork = TimeZone.of("America/New_York")
+        val localMillis = LocalDateTime(2026, 7, 9, 23, 30, 0, 0).toInstant(newYork).toEpochMilliseconds()
 
         val result = toDatePickerUtcMillis(localMillis, newYork)
 
-        assertEquals(ZonedDateTime.of(2026, 7, 9, 0, 0, 0, 0, ZoneOffset.UTC).toInstant().toEpochMilli(), result)
+        assertEquals(LocalDateTime(2026, 7, 9, 0, 0, 0, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(), result)
     }
 
     @Test
     fun `datePickerDateAtLocalStartOfDay maps a picked UTC-midnight date to local start-of-day`() {
-        val newYork = ZoneId.of("America/New_York")
-        val pickedUtcMillis = ZonedDateTime.of(2026, 7, 9, 0, 0, 0, 0, ZoneOffset.UTC).toInstant().toEpochMilli()
+        val newYork = TimeZone.of("America/New_York")
+        val pickedUtcMillis = LocalDateTime(2026, 7, 9, 0, 0, 0, 0).toInstant(TimeZone.UTC).toEpochMilliseconds()
 
         val result = datePickerDateAtLocalStartOfDay(pickedUtcMillis, newYork)
 
-        val resultZoned = Instant.ofEpochMilli(result).atZone(newYork)
-        assertEquals(9, resultZoned.dayOfMonth)
+        val resultZoned = Instant.fromEpochMilliseconds(result).toLocalDateTime(newYork)
+        assertEquals(9, resultZoned.day)
         assertEquals(0, resultZoned.hour)
         assertEquals(0, resultZoned.minute)
     }
 
     @Test
     fun `the two picker helpers round-trip a date`() {
-        val zone = ZoneId.of("America/New_York")
-        val start = ZonedDateTime.of(2026, 3, 15, 0, 0, 0, 0, zone).toInstant().toEpochMilli()
+        val zone = TimeZone.of("America/New_York")
+        val start = LocalDateTime(2026, 3, 15, 0, 0, 0, 0).toInstant(zone).toEpochMilliseconds()
 
         val roundTripped = datePickerDateAtLocalStartOfDay(toDatePickerUtcMillis(start, zone), zone)
 
@@ -576,18 +576,18 @@ class LogDetailViewModelTest {
 
     @Test
     fun `formatEventDate renders only the date`() {
-        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
+        val instant = LocalDateTime(2026, 7, 9, 15, 30, 0, 0).toInstant(utc)
 
-        val formatted = formatEventDate(instant.toEpochMilli(), utc)
+        val formatted = formatEventDate(instant.toEpochMilliseconds(), utc)
 
         assertEquals("Jul 9, 2026", formatted)
     }
 
     @Test
     fun `formatEventTimeOfDay renders only the time`() {
-        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
+        val instant = LocalDateTime(2026, 7, 9, 15, 30, 0, 0).toInstant(utc)
 
-        val formatted = formatEventTimeOfDay(instant.toEpochMilli(), use24Hour = false, zone = utc)
+        val formatted = formatEventTimeOfDay(instant.toEpochMilliseconds(), use24Hour = false, zone = utc)
 
         assertTrue(formatted.contains("3:30"))
         assertTrue(formatted.contains("PM"))
@@ -595,9 +595,9 @@ class LogDetailViewModelTest {
 
     @Test
     fun `formatEventTimeOfDay renders 24-hour time when use24Hour is set`() {
-        val instant = ZonedDateTime.of(2026, 7, 9, 15, 30, 0, 0, utc).toInstant()
+        val instant = LocalDateTime(2026, 7, 9, 15, 30, 0, 0).toInstant(utc)
 
-        val formatted = formatEventTimeOfDay(instant.toEpochMilli(), use24Hour = true, zone = utc)
+        val formatted = formatEventTimeOfDay(instant.toEpochMilliseconds(), use24Hour = true, zone = utc)
 
         assertEquals("15:30", formatted)
     }

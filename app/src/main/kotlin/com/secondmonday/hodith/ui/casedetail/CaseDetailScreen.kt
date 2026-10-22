@@ -92,9 +92,11 @@ import com.secondmonday.hodith.viewmodel.historyRangeBounds
 import com.secondmonday.hodith.viewmodel.insightsTabState
 import com.secondmonday.hodith.viewmodel.ongoingEventsIn
 import com.secondmonday.hodith.viewmodel.rateText
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.toLocalDateTime
 
 private const val HISTORY_TAB = 0
 private const val INSIGHTS_TAB = 1
@@ -298,7 +300,8 @@ fun CaseDetailScreen(
                         // than the raw, minute-ticking `now` (Ticker.kt) skips identical recomputation
                         // on every tick -- worth doing now that Story C T4's tag-outcome detector makes
                         // that recomputation a real (permutation-test) cost, not just a cheap no-op.
-                        val today = remember(now) { Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate() }
+                        val today =
+                            remember(now) { Instant.fromEpochMilliseconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).date }
                         // Derived state — memoize so the many-pass aggregation recomputes only on a
                         // real input change, not on every unrelated recomposition of this screen.
                         val insightsState =
@@ -544,7 +547,7 @@ private fun HistoryFilterRow(
     visibleFields: Set<HistoryRowField>,
     onFieldVisibleChange: (HistoryRowField, Boolean) -> Unit,
 ) {
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = remember { TimeZone.currentSystemDefault() }
     var showSortDialog by remember { mutableStateOf(false) }
     var showRangePicker by remember { mutableStateOf(false) }
     var showFieldsDialog by remember { mutableStateOf(false) }
@@ -739,7 +742,7 @@ private fun EventRowContent(
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour, zone = event.loggedZone()),
+                text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour, zone = event.loggedZone().asTimeZone()),
                 style = MaterialTheme.typography.bodyLarge,
             )
             // A running event carries its own live elapsed time or expected end and Stop, so each
@@ -751,7 +754,7 @@ private fun EventRowContent(
                     now = now,
                     use24Hour = LocalTimeFormat.current.is24Hour,
                     voice = voice,
-                    zone = event.loggedZone(),
+                    zone = event.loggedZone().asTimeZone(),
                 )
             }
             val details =

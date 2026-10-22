@@ -17,22 +17,22 @@ import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
 import com.secondmonday.hodith.ui.casedetail.TRENDS_DEFAULT_VISIBLE_COUNT
 import com.secondmonday.hodith.ui.voice.PlainVoice
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
 
-private val ZONE = ZoneId.systemDefault()
+private val ZONE = TimeZone.currentSystemDefault()
 
 private fun millisAtDay(epochDay: Long): Long =
     LocalDate
-        .ofEpochDay(epochDay)
-        .atStartOfDay(ZONE)
-        .toInstant()
-        .toEpochMilli()
+        .fromEpochDays(epochDay.toInt())
+        .atStartOfDayIn(ZONE)
+        .toEpochMilliseconds()
 
 private fun testCase(
     tracksDuration: Boolean = false,

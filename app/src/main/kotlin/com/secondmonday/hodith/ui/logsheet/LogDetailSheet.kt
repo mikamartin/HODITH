@@ -90,8 +90,9 @@ import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
 import com.secondmonday.hodith.viewmodel.validateEndEdit
 import com.secondmonday.hodith.viewmodel.validateStartEdit
 import com.secondmonday.hodith.viewmodel.withDurationInput
-import java.time.Instant
-import java.time.ZoneId
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 private val INTENSITY_RANGE = 1..5
 private val INTENSITY_CHOICE_SIZE = 48.dp
@@ -163,7 +164,7 @@ fun LogDetailForm(
     header: @Composable ColumnScope.() -> Unit = {},
 ) {
     val voice = LocalVoice.current
-    val zone = ZoneId.systemDefault()
+    val zone = TimeZone.currentSystemDefault()
     // A new event on an intensity-enabled case starts pre-rated (spec §6) rather than letting Save
     // through with no rating at all. Editing an existing event never gets this default — its
     // stored intensity (including a legitimate null from before the case tracked this) is shown
@@ -351,7 +352,7 @@ fun DeleteEventConfirmDialog(
 @Composable
 private fun DateTimePickers(
     value: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     maxDateUtcMillis: Long?,
     voice: Voice,
     showDatePicker: Boolean,
@@ -407,7 +408,7 @@ private fun noticeText(
 @Composable
 private fun TimeSection(
     occurredAt: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     label: String,
     notice: String?,
     onDateClick: () -> Unit,
@@ -463,7 +464,7 @@ private fun TimeSection(
 private fun UnifiedDurationSection(
     draft: LogDraft,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     voice: Voice,
     notice: String?,
     onStopClick: () -> Unit,
@@ -681,7 +682,7 @@ private fun IntensityChoice(
 @Composable
 private fun LogDetailDatePickerDialog(
     occurredAt: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     maxDateUtcMillis: Long?,
     voice: Voice,
     onDismiss: () -> Unit,
@@ -749,12 +750,12 @@ private fun UnboundedDatePickerDialog(
 @Composable
 private fun LogDetailTimePickerDialog(
     occurredAt: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     voice: Voice,
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit,
 ) {
-    val current = Instant.ofEpochMilli(occurredAt).atZone(zone)
+    val current = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone)
     val timePickerState: TimePickerState =
         rememberTimePickerState(
             initialHour = current.hour,
@@ -902,7 +903,7 @@ private fun UnifiedDurationSectionPreviewContent(
         UnifiedDurationSection(
             draft = draft,
             now = now,
-            zone = ZoneId.systemDefault(),
+            zone = TimeZone.currentSystemDefault(),
             voice = LocalVoice.current,
             notice = null,
             onStopClick = { draft = draft.stoppedNow(now) },

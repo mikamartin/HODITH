@@ -29,8 +29,8 @@ import com.secondmonday.hodith.viewmodel.historyShareCardState
 import com.secondmonday.hodith.viewmodel.historyShareSelectorValue
 import com.secondmonday.hodith.viewmodel.isUnsetHistoryRange
 import com.secondmonday.hodith.viewmodel.toLocalDateIn
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 
 /**
  * The History tab: the Case's own entries, as a card or - once [pdfMode] is on - a PDF record
@@ -55,7 +55,7 @@ internal fun HistoryShareTab(
 ) {
     val voice = LocalVoice.current
     val use24Hour = LocalTimeFormat.current.is24Hour
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = remember { TimeZone.currentSystemDefault() }
     val case = uiState.case ?: return
     val selection = uiState.selection
 
@@ -129,7 +129,7 @@ private fun DateRangeSection(
     createdAt: Long,
     selection: HistoryShareSelection,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     onDateFromPicked: (LocalDate?) -> Unit,
     onDateToPicked: (LocalDate) -> Unit,
     voice: Voice,

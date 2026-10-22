@@ -27,12 +27,13 @@ import com.secondmonday.hodith.viewmodel.BackupEvent
 import com.secondmonday.hodith.viewmodel.SettingsUiState
 import com.secondmonday.hodith.viewmodel.formatMediumDate
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
-import java.time.Instant
-import java.time.ZoneId
 
 /** A fixed instant [setContent] hands back as "now" — 2026-01-15, arbitrary but deterministic. */
 private const val TEST_NOW_MILLIS = 1_768_435_200_000L
@@ -385,7 +386,8 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataButton).performScrollTo().performClick()
         composeTestRule.onNodeWithText(PlainVoice.settingsDeleteDataOptionLogsOnly).performClick()
 
-        val todayLabel = formatMediumDate(Instant.ofEpochMilli(TEST_NOW_MILLIS).atZone(ZoneId.systemDefault()).toLocalDate())
+        val todayLabel =
+            formatMediumDate(Instant.fromEpochMilliseconds(TEST_NOW_MILLIS).toLocalDateTime(TimeZone.currentSystemDefault()).date)
         composeTestRule.onNodeWithText(todayLabel).assertExists()
     }
 

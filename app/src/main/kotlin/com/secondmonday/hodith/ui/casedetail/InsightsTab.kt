@@ -39,7 +39,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -74,6 +73,7 @@ import com.secondmonday.hodith.domain.TimeOfDay
 import com.secondmonday.hodith.domain.TrendFinding
 import com.secondmonday.hodith.domain.TrendFindingKind
 import com.secondmonday.hodith.domain.TrendReliability
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.datesCovered
 import com.secondmonday.hodith.domain.heatmapLevelFor
@@ -112,6 +112,8 @@ import com.secondmonday.hodith.viewmodel.IntensityDisplay
 import com.secondmonday.hodith.viewmodel.RhythmDisplay
 import com.secondmonday.hodith.viewmodel.StatsSections
 import com.secondmonday.hodith.viewmodel.durationMinAvgMax
+import com.secondmonday.hodith.viewmodel.englishFull
+import com.secondmonday.hodith.viewmodel.englishNarrow
 import com.secondmonday.hodith.viewmodel.eventDetailSummary
 import com.secondmonday.hodith.viewmodel.formatClockTime
 import com.secondmonday.hodith.viewmodel.formatEventTime
@@ -122,13 +124,14 @@ import com.secondmonday.hodith.viewmodel.formatMinutesDuration
 import com.secondmonday.hodith.viewmodel.frequencyTickCount
 import com.secondmonday.hodith.viewmodel.frequencyTickIndices
 import com.secondmonday.hodith.viewmodel.gapsStatRows
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.YearMonth
-import java.time.ZoneId
-import java.time.format.TextStyle
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -181,8 +184,7 @@ internal fun InsightsTabContent(
     var selectedIntensity by remember { mutableStateOf<Int?>(null) }
     var selectedTag by remember { mutableStateOf<String?>(null) }
     var selectedRhythmCell by remember { mutableStateOf<Pair<DayOfWeek, TimeOfDay>?>(null) }
-    val zone = remember { ZoneId.systemDefault() }
-    val locale = LocalLocale.current.platformLocale
+    val zone = remember { TimeZone.currentSystemDefault() }
 
     when (state) {
         is InsightsTabState.NothingLogged ->
@@ -228,12 +230,12 @@ internal fun InsightsTabContent(
                         // A still-running event's open end is "now," not a captured instant, so it
                         // resolves via the live current zone rather than the event's own (possibly
                         // stale, pre-travel) offset — matching BigPictureGrid's private coveredDates.
-                        val endZone = if (isStillRunning(ew.event, case.tracksDuration, now)) zone else ew.event.loggedZone()
+                        val endZone = if (isStillRunning(ew.event, case.tracksDuration, now)) zone else ew.event.loggedZone().asTimeZone()
                         day in
                             datesCovered(
                                 ew.event.occurredAt,
                                 activeSpanEnd(ew.event, case.tracksDuration, now),
-                                ew.event.loggedZone(),
+                                ew.event.loggedZone().asTimeZone(),
                                 endZone,
                             )
                     }.sortedBy { it.event.occurredAt },
@@ -272,14 +274,18 @@ internal fun InsightsTabContent(
         )
     }
     selectedRhythmCell?.let { (day, timeOfDay) ->
-        val dayLabel = day.getDisplayName(TextStyle.FULL, locale)
+        val dayLabel = day.englishFull()
         val timeOfDayLabel = rhythmTimeOfDayLabel(voice, timeOfDay)
         InsightsDrillDownDialog(
             title = voice.insightsRhythmDrillDownTitle(dayLabel, timeOfDayLabel),
             events =
                 events
                     .filter { ew ->
-                        val dateTime = Instant.ofEpochMilli(ew.event.occurredAt).atZone(ew.event.loggedZone())
+                        val dateTime =
+                            Instant
+                                .fromEpochMilliseconds(
+                                    ew.event.occurredAt,
+                                ).toLocalDateTime(ew.event.loggedZone().asTimeZone())
                         dateTime.dayOfWeek == day && timeOfDayFor(dateTime.hour) == timeOfDay
                     }.sortedByDescending { it.event.occurredAt },
             now = now,
@@ -439,7 +445,7 @@ private fun HeatmapCell(
     ) {
         if (day != null) {
             Text(
-                text = day.date.dayOfMonth.toString(),
+                text = day.date.day.toString(),
                 style = MaterialTheme.typography.labelSmall,
                 color = day.level.toTextColor(),
             )
@@ -461,7 +467,6 @@ internal fun FrequencyCard(
     // the phone's) has room to label every bar instead, so it passes bars.size here.
     tickCountOverride: Int? = null,
 ) {
-    val locale = LocalLocale.current.platformLocale
     val tickIndices =
         remember(display.bars.size, display.granularity, tickCountOverride) {
             frequencyTickIndices(display.bars.size, tickCountOverride ?: frequencyTickCount(display.granularity))
@@ -527,7 +532,7 @@ internal fun FrequencyCard(
             Row(modifier = Modifier.fillMaxWidth().padding(top = FREQUENCY_TICK_LABEL_GAP.dp)) {
                 tickIndices.forEach { index ->
                     Text(
-                        text = formatFrequencyTickLabel(display.bars[index].periodStart, display.granularity, locale),
+                        text = formatFrequencyTickLabel(display.bars[index].periodStart, display.granularity),
                         modifier = Modifier.weight(1f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -643,13 +648,12 @@ private fun RhythmCard(
     voice: Voice,
     onCellTap: (DayOfWeek, TimeOfDay) -> Unit,
 ) {
-    val locale = LocalLocale.current.platformLocale
     val use24Hour = LocalTimeFormat.current.is24Hour
 
-    val morningStart = formatClockTime(LocalTime.of(MORNING_START_HOUR, 0), use24Hour)
-    val afternoonStart = formatClockTime(LocalTime.of(AFTERNOON_START_HOUR, 0), use24Hour)
-    val eveningStart = formatClockTime(LocalTime.of(EVENING_START_HOUR, 0), use24Hour)
-    val nightStart = formatClockTime(LocalTime.of(NIGHT_START_HOUR, 0), use24Hour)
+    val morningStart = formatClockTime(LocalTime(MORNING_START_HOUR, 0), use24Hour)
+    val afternoonStart = formatClockTime(LocalTime(AFTERNOON_START_HOUR, 0), use24Hour)
+    val eveningStart = formatClockTime(LocalTime(EVENING_START_HOUR, 0), use24Hour)
+    val nightStart = formatClockTime(LocalTime(NIGHT_START_HOUR, 0), use24Hour)
 
     InsightsCard {
         SectionWithInfo(
@@ -673,7 +677,7 @@ private fun RhythmCard(
                 Spacer(modifier = Modifier.width(RHYTHM_GRID_GAP.dp))
                 DayOfWeek.entries.forEach { day ->
                     Text(
-                        text = day.getDisplayName(TextStyle.NARROW, locale),
+                        text = day.englishNarrow(),
                         modifier = Modifier.width(RHYTHM_CELL_SIZE.dp),
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelSmall,
@@ -694,7 +698,7 @@ private fun RhythmCard(
                     Spacer(modifier = Modifier.width(RHYTHM_GRID_GAP.dp))
                     DayOfWeek.entries.forEach { day ->
                         val cell = display.cells.first { it.dayOfWeek == day && it.timeOfDay == timeOfDay }
-                        val dayLabel = day.getDisplayName(TextStyle.FULL, locale)
+                        val dayLabel = day.englishFull()
                         val timeOfDayLabel = rhythmTimeOfDayLabel(voice, timeOfDay)
                         val isTappable = cell.count > 0
                         Box(
@@ -925,7 +929,6 @@ private fun requiredOutcome(finding: TrendFinding): TagOutcome =
 internal fun trendBucketPhrase(
     finding: TrendFinding,
     voice: Voice,
-    locale: Locale,
 ): String {
     // Only the TAG_TIMING headline names a bucket; every other kind's headline ignores this phrase.
     if (finding.kind != TrendFindingKind.TAG_TIMING) return ""
@@ -938,7 +941,7 @@ internal fun trendBucketPhrase(
             ""
         }
     return voice.trendTimingBucket(
-        weekdayName = weekday?.getDisplayName(TextStyle.FULL, locale),
+        weekdayName = weekday?.englishFull(),
         timeOfDayLabel = timeOfDayLabel,
     )
 }
@@ -972,8 +975,7 @@ internal fun TrendFindingBody(
     voice: Voice,
     modifier: Modifier = Modifier,
 ) {
-    val locale = LocalLocale.current.platformLocale
-    val headline = voice.insightsTrendHeadline(finding, trendBucketPhrase(finding, voice, locale))
+    val headline = voice.insightsTrendHeadline(finding, trendBucketPhrase(finding, voice))
     val figures = trendFigures(finding, voice)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
@@ -1315,7 +1317,7 @@ private fun InsightsDrillDownEventRow(
 
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp)) {
         Text(
-            text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour, zone = event.loggedZone()),
+            text = formatEventTime(event.occurredAt, now, LocalTimeFormat.current.is24Hour, zone = event.loggedZone().asTimeZone()),
             style = MaterialTheme.typography.bodyLarge,
         )
         if (isOngoing) {
@@ -1325,7 +1327,7 @@ private fun InsightsDrillDownEventRow(
                 now = now,
                 use24Hour = LocalTimeFormat.current.is24Hour,
                 voice = voice,
-                zone = event.loggedZone(),
+                zone = event.loggedZone().asTimeZone(),
             )
         }
         val details =
@@ -1359,11 +1361,11 @@ internal fun formatPercent(share: Double): String = "${(share * 100).roundToInt(
  * grain on purpose.
  */
 internal fun formatApproximateMonth(date: LocalDate): String {
-    val monthName = date.month.getDisplayName(TextStyle.FULL, Locale.US)
+    val monthName = date.month.englishFull()
     val partOfMonth =
         when {
-            date.dayOfMonth <= 10 -> "early"
-            date.dayOfMonth <= 20 -> "mid-"
+            date.day <= 10 -> "early"
+            date.day <= 20 -> "mid-"
             else -> "late"
         }
     return if (partOfMonth == "mid-") "$partOfMonth$monthName" else "$partOfMonth $monthName"
@@ -1376,18 +1378,18 @@ private val previewFrequencyDisplayDay =
         granularity = FrequencyGranularity.DAY,
         bars =
             listOf(
-                FrequencyBar(LocalDate.of(2026, 9, 4), 1, 1f / 4),
-                FrequencyBar(LocalDate.of(2026, 9, 5), 0, 0f),
-                FrequencyBar(LocalDate.of(2026, 9, 6), 2, 2f / 4),
-                FrequencyBar(LocalDate.of(2026, 9, 7), 3, 3f / 4),
-                FrequencyBar(LocalDate.of(2026, 9, 8), 1, 1f / 4),
-                FrequencyBar(LocalDate.of(2026, 9, 9), 0, 0f),
-                FrequencyBar(LocalDate.of(2026, 9, 10), 4, 1f),
-                FrequencyBar(LocalDate.of(2026, 9, 11), 2, 2f / 4),
-                FrequencyBar(LocalDate.of(2026, 9, 12), 1, 1f / 4),
-                FrequencyBar(LocalDate.of(2026, 9, 13), 3, 3f / 4),
-                FrequencyBar(LocalDate.of(2026, 9, 14), 2, 2f / 4),
-                FrequencyBar(LocalDate.of(2026, 9, 15), 1, 1f / 4),
+                FrequencyBar(LocalDate(2026, 9, 4), 1, 1f / 4),
+                FrequencyBar(LocalDate(2026, 9, 5), 0, 0f),
+                FrequencyBar(LocalDate(2026, 9, 6), 2, 2f / 4),
+                FrequencyBar(LocalDate(2026, 9, 7), 3, 3f / 4),
+                FrequencyBar(LocalDate(2026, 9, 8), 1, 1f / 4),
+                FrequencyBar(LocalDate(2026, 9, 9), 0, 0f),
+                FrequencyBar(LocalDate(2026, 9, 10), 4, 1f),
+                FrequencyBar(LocalDate(2026, 9, 11), 2, 2f / 4),
+                FrequencyBar(LocalDate(2026, 9, 12), 1, 1f / 4),
+                FrequencyBar(LocalDate(2026, 9, 13), 3, 3f / 4),
+                FrequencyBar(LocalDate(2026, 9, 14), 2, 2f / 4),
+                FrequencyBar(LocalDate(2026, 9, 15), 1, 1f / 4),
             ),
     )
 
@@ -1396,18 +1398,18 @@ private val previewFrequencyDisplayWeek =
         granularity = FrequencyGranularity.WEEK,
         bars =
             listOf(
-                FrequencyBar(LocalDate.of(2026, 6, 29), 3, 3f / 5),
-                FrequencyBar(LocalDate.of(2026, 7, 6), 2, 2f / 5),
-                FrequencyBar(LocalDate.of(2026, 7, 13), 4, 4f / 5),
-                FrequencyBar(LocalDate.of(2026, 7, 20), 1, 1f / 5),
-                FrequencyBar(LocalDate.of(2026, 7, 27), 5, 1f),
-                FrequencyBar(LocalDate.of(2026, 8, 3), 3, 3f / 5),
-                FrequencyBar(LocalDate.of(2026, 8, 10), 2, 2f / 5),
-                FrequencyBar(LocalDate.of(2026, 8, 17), 4, 4f / 5),
-                FrequencyBar(LocalDate.of(2026, 8, 24), 3, 3f / 5),
-                FrequencyBar(LocalDate.of(2026, 8, 31), 1, 1f / 5),
-                FrequencyBar(LocalDate.of(2026, 9, 7), 2, 2f / 5),
-                FrequencyBar(LocalDate.of(2026, 9, 14), 3, 3f / 5),
+                FrequencyBar(LocalDate(2026, 6, 29), 3, 3f / 5),
+                FrequencyBar(LocalDate(2026, 7, 6), 2, 2f / 5),
+                FrequencyBar(LocalDate(2026, 7, 13), 4, 4f / 5),
+                FrequencyBar(LocalDate(2026, 7, 20), 1, 1f / 5),
+                FrequencyBar(LocalDate(2026, 7, 27), 5, 1f),
+                FrequencyBar(LocalDate(2026, 8, 3), 3, 3f / 5),
+                FrequencyBar(LocalDate(2026, 8, 10), 2, 2f / 5),
+                FrequencyBar(LocalDate(2026, 8, 17), 4, 4f / 5),
+                FrequencyBar(LocalDate(2026, 8, 24), 3, 3f / 5),
+                FrequencyBar(LocalDate(2026, 8, 31), 1, 1f / 5),
+                FrequencyBar(LocalDate(2026, 9, 7), 2, 2f / 5),
+                FrequencyBar(LocalDate(2026, 9, 14), 3, 3f / 5),
             ),
     )
 
@@ -1416,18 +1418,18 @@ private val previewFrequencyDisplayMonth =
         granularity = FrequencyGranularity.MONTH,
         bars =
             listOf(
-                FrequencyBar(LocalDate.of(2025, 10, 1), 5, 5f / 7),
-                FrequencyBar(LocalDate.of(2025, 11, 1), 3, 3f / 7),
-                FrequencyBar(LocalDate.of(2025, 12, 1), 6, 6f / 7),
-                FrequencyBar(LocalDate.of(2026, 1, 1), 4, 4f / 7),
-                FrequencyBar(LocalDate.of(2026, 2, 1), 2, 2f / 7),
-                FrequencyBar(LocalDate.of(2026, 3, 1), 7, 1f),
-                FrequencyBar(LocalDate.of(2026, 4, 1), 5, 5f / 7),
-                FrequencyBar(LocalDate.of(2026, 5, 1), 3, 3f / 7),
-                FrequencyBar(LocalDate.of(2026, 6, 1), 4, 4f / 7),
-                FrequencyBar(LocalDate.of(2026, 7, 1), 6, 6f / 7),
-                FrequencyBar(LocalDate.of(2026, 8, 1), 5, 5f / 7),
-                FrequencyBar(LocalDate.of(2026, 9, 1), 4, 4f / 7),
+                FrequencyBar(LocalDate(2025, 10, 1), 5, 5f / 7),
+                FrequencyBar(LocalDate(2025, 11, 1), 3, 3f / 7),
+                FrequencyBar(LocalDate(2025, 12, 1), 6, 6f / 7),
+                FrequencyBar(LocalDate(2026, 1, 1), 4, 4f / 7),
+                FrequencyBar(LocalDate(2026, 2, 1), 2, 2f / 7),
+                FrequencyBar(LocalDate(2026, 3, 1), 7, 1f),
+                FrequencyBar(LocalDate(2026, 4, 1), 5, 5f / 7),
+                FrequencyBar(LocalDate(2026, 5, 1), 3, 3f / 7),
+                FrequencyBar(LocalDate(2026, 6, 1), 4, 4f / 7),
+                FrequencyBar(LocalDate(2026, 7, 1), 6, 6f / 7),
+                FrequencyBar(LocalDate(2026, 8, 1), 5, 5f / 7),
+                FrequencyBar(LocalDate(2026, 9, 1), 4, 4f / 7),
             ),
     )
 
@@ -1734,11 +1736,9 @@ private val previewDrillDownEvents =
                     id = 1,
                     caseId = 1,
                     occurredAt =
-                        LocalDate
-                            .of(2026, 7, 14)
-                            .atStartOfDay(ZoneId.systemDefault())
-                            .toInstant()
-                            .toEpochMilli(),
+                        LocalDate(2026, 7, 14)
+                            .atStartOfDayIn(TimeZone.currentSystemDefault())
+                            .toEpochMilliseconds(),
                     endedAt = null,
                     intensity = 4,
                     note = "Woke up mid-thunderstorm",
@@ -1752,11 +1752,9 @@ private val previewDrillDownEvents =
                     id = 2,
                     caseId = 1,
                     occurredAt =
-                        LocalDate
-                            .of(2026, 7, 10)
-                            .atStartOfDay(ZoneId.systemDefault())
-                            .toInstant()
-                            .toEpochMilli(),
+                        LocalDate(2026, 7, 10)
+                            .atStartOfDayIn(TimeZone.currentSystemDefault())
+                            .toEpochMilliseconds(),
                     endedAt = null,
                     intensity = null,
                     note = null,
@@ -1773,11 +1771,9 @@ private fun InsightsDrillDownRowsPreviewContent() {
             InsightsDrillDownEventRow(
                 eventWithTags = eventWithTags,
                 now =
-                    LocalDate
-                        .of(2026, 7, 15)
-                        .atStartOfDay(ZoneId.systemDefault())
-                        .toInstant()
-                        .toEpochMilli(),
+                    LocalDate(2026, 7, 15)
+                        .atStartOfDayIn(TimeZone.currentSystemDefault())
+                        .toEpochMilliseconds(),
                 voice = LocalVoice.current,
                 tracksDuration = false,
                 onClick = {},

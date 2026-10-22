@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.data.AppTheme
 import com.secondmonday.hodith.data.BigPictureDetail
 import com.secondmonday.hodith.data.BigPictureDetailField
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.domain.weeksInGrid
 import com.secondmonday.hodith.ui.common.FilterTriggerChip
 import com.secondmonday.hodith.ui.common.InfoDialog
@@ -82,11 +83,20 @@ import com.secondmonday.hodith.viewmodel.formatSpanDateTime
 import com.secondmonday.hodith.viewmodel.formatWeekdayDayDate
 import com.secondmonday.hodith.viewmodel.loggedZone
 import kotlinx.coroutines.launch
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneId
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.atTime
+import kotlinx.datetime.minus
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.todayIn
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * The Big Picture flagship view (spec §9) — a scrollable multi-month calendar grid, every active
@@ -766,33 +776,34 @@ private fun EventDetailRow(
 ) {
     val event = dayEvent.event
     val use24Hour = LocalTimeFormat.current.is24Hour
-    val startDate = Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone()).toLocalDate()
+    val eventZone = event.loggedZone().asTimeZone()
+    val startDate = Instant.fromEpochMilliseconds(event.occurredAt).toLocalDateTime(eventZone).date
     val startTime =
         formatClockTime(
-            Instant.ofEpochMilli(event.occurredAt).atZone(event.loggedZone()).toLocalTime(),
+            Instant.fromEpochMilliseconds(event.occurredAt).toLocalDateTime(eventZone).time,
             use24Hour,
         )
     val timeLabel =
         when {
             event.expectedEndAt != null ->
                 voice.bigPictureEventExpectedEnd(
-                    formatClockTime(Instant.ofEpochMilli(event.expectedEndAt).atZone(event.loggedZone()).toLocalTime(), use24Hour),
+                    formatClockTime(Instant.fromEpochMilliseconds(event.expectedEndAt).toLocalDateTime(eventZone).time, use24Hour),
                 )
             event.isOngoing ->
                 voice.bigPictureEventOngoingSince(
                     // Started today → just the time (the dialog title already carries the date).
                     // Started earlier → date + time, so a carried-day row keeps the real start time.
-                    if (startDate == today) startTime else formatSpanDateTime(event.occurredAt, use24Hour, event.loggedZone()),
+                    if (startDate == today) startTime else formatSpanDateTime(event.occurredAt, use24Hour, eventZone),
                 )
             dayEvent.isSpanStart -> voice.bigPictureEventSpanStarted(startTime)
             dayEvent.isSpanEnd ->
                 voice.bigPictureEventSpanEnded(
-                    formatClockTime(Instant.ofEpochMilli(event.endedAt!!).atZone(event.loggedZone()).toLocalTime(), use24Hour),
+                    formatClockTime(Instant.fromEpochMilliseconds(event.endedAt!!).toLocalDateTime(eventZone).time, use24Hour),
                 )
             dayEvent.isAllDay ->
                 voice.bigPictureEventSpanRange(
-                    formatSpanDateTime(event.occurredAt, use24Hour, event.loggedZone()),
-                    formatSpanDateTime(event.endedAt!!, use24Hour, event.loggedZone()),
+                    formatSpanDateTime(event.occurredAt, use24Hour, eventZone),
+                    formatSpanDateTime(event.endedAt!!, use24Hour, eventZone),
                 )
             else -> startTime
         }
@@ -1265,7 +1276,7 @@ private fun PlainDayCell(
                 .padding(4.dp),
     ) {
         Text(
-            text = day.dayOfMonth.toString(),
+            text = day.day.toString(),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
             color = if (isToday) todayBorder else dayNumberColor,
@@ -1325,7 +1336,7 @@ private fun IntenseDayCell(
                 .clickable(onClick = onClick),
     ) {
         Text(
-            text = day.dayOfMonth.toString(),
+            text = day.day.toString(),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = tabContentColor,
@@ -1400,7 +1411,7 @@ private fun BrightDayCell(
         ) {
             Column(modifier = Modifier.padding(5.dp)) {
                 Text(
-                    text = day.dayOfMonth.toString(),
+                    text = day.day.toString(),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1468,6 +1479,7 @@ private data class PreviewSeedData(
     val currentMonth: YearMonth,
 )
 
+@OptIn(ExperimentalTime::class)
 private fun previewSeedData(): PreviewSeedData {
     val cases =
         listOf(
@@ -1480,8 +1492,8 @@ private fun previewSeedData(): PreviewSeedData {
         )
     val currentMonth = YearMonth.now()
     val earliestMonth = currentMonth.minusMonths(3)
-    val zoneId = ZoneId.systemDefault()
-    val today = LocalDate.now()
+    val zoneId = TimeZone.currentSystemDefault()
+    val today = Clock.System.todayIn(zoneId)
     val notes =
         listOf(
             "Right after the walk, felt great",
@@ -1504,9 +1516,8 @@ private fun previewSeedData(): PreviewSeedData {
                         occurredAt =
                             month
                                 .atDay((day % month.lengthOfMonth()) + 1)
-                                .atStartOfDay(zoneId)
-                                .toInstant()
-                                .toEpochMilli(),
+                                .atStartOfDayIn(zoneId)
+                                .toEpochMilliseconds(),
                         note = notes[caseIndex],
                     )
                 }
@@ -1518,9 +1529,8 @@ private fun previewSeedData(): PreviewSeedData {
                     occurredAt =
                         currentMonth
                             .atDay(15)
-                            .atStartOfDay(zoneId)
-                            .toInstant()
-                            .toEpochMilli(),
+                            .atStartOfDayIn(zoneId)
+                            .toEpochMilliseconds(),
                     note = notes[(caseId - 1).toInt()],
                     tags = if (caseId == 1L) listOf("weekend", "late night") else emptyList(),
                 )
@@ -1532,16 +1542,14 @@ private fun previewSeedData(): PreviewSeedData {
                     caseId = 2L,
                     occurredAt =
                         today
-                            .minusDays(9)
-                            .atStartOfDay(zoneId)
-                            .toInstant()
-                            .toEpochMilli(),
+                            .minus(9, DateTimeUnit.DAY)
+                            .atStartOfDayIn(zoneId)
+                            .toEpochMilliseconds(),
                     endedAt =
                         today
-                            .minusDays(5)
-                            .atStartOfDay(zoneId)
-                            .toInstant()
-                            .toEpochMilli(),
+                            .minus(5, DateTimeUnit.DAY)
+                            .atStartOfDayIn(zoneId)
+                            .toEpochMilliseconds(),
                     note = "Rough patch",
                 ),
                 CalendarEvent(
@@ -1549,10 +1557,9 @@ private fun previewSeedData(): PreviewSeedData {
                     caseId = 5L,
                     occurredAt =
                         today
-                            .minusDays(2)
-                            .atStartOfDay(zoneId)
-                            .toInstant()
-                            .toEpochMilli(),
+                            .minus(2, DateTimeUnit.DAY)
+                            .atStartOfDayIn(zoneId)
+                            .toEpochMilliseconds(),
                     isOngoing = true,
                     note = "Forgot to stop it",
                 ),
@@ -1560,6 +1567,7 @@ private fun previewSeedData(): PreviewSeedData {
     return PreviewSeedData(cases, events, earliestMonth, currentMonth)
 }
 
+@OptIn(ExperimentalTime::class)
 @Composable
 private fun BigPictureGridPreviewContent() {
     val seed = previewSeedData()
@@ -1568,7 +1576,7 @@ private fun BigPictureGridPreviewContent() {
         currentMonth = seed.currentMonth,
         cases = seed.cases,
         events = seed.events,
-        today = LocalDate.now(),
+        today = Clock.System.todayIn(TimeZone.currentSystemDefault()),
         onOpenCase = {},
     )
 }
@@ -1625,8 +1633,8 @@ private fun BigPictureGridBrightDarkPreview() {
  */
 @Composable
 private fun EventDetailRowsPreviewContent(detail: BigPictureDetail) {
-    val today = LocalDate.of(2026, 9, 9)
-    val zone = ZoneId.systemDefault()
+    val today = LocalDate(2026, 9, 9)
+    val zone = TimeZone.currentSystemDefault()
 
     fun at(
         day: LocalDate,
@@ -1634,15 +1642,21 @@ private fun EventDetailRowsPreviewContent(detail: BigPictureDetail) {
         minute: Int = 0,
     ) = day
         .atTime(hour, minute)
-        .atZone(zone)
-        .toInstant()
-        .toEpochMilli()
+        .toInstant(zone)
+        .toEpochMilliseconds()
 
     val coffee = CalendarCase(1, "☕", "Perfect coffee")
     val migraine = CalendarCase(2, "🤕", "Migraine")
     val workout = CalendarCase(3, "🏋️", "Workout")
     val argument = CalendarCase(4, "😤", "Argument")
-    val span = CalendarEvent(4, 4, at(today.minusDays(8), 20), endedAt = at(today.minusDays(5), 10), note = "Rough patch")
+    val span =
+        CalendarEvent(
+            4,
+            4,
+            at(today.minus(8, DateTimeUnit.DAY), 20),
+            endedAt = at(today.minus(5, DateTimeUnit.DAY), 10),
+            note = "Rough patch",
+        )
     val rows =
         listOf(
             DayEvent(

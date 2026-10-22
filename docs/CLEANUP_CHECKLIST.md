@@ -19,7 +19,7 @@ Run after any significant feature work or refactor (see [DEV_PLAYBOOK.md](DEV_PL
 - [ ] Does new day-bucketing or elapsed-time logic use the event's captured `utcOffsetMinutes` rather than the device's current offset (§5/§9)?
 - [ ] **Does verdict/watch/stats code import anything from `android.*`?** These modules stay pure Kotlin.
 - [ ] **Does new export/import code add a Moshi annotation instead of `@Serializable`?** (HODITH_SPEC.md §19 — Moshi has no Kotlin/Native target; kotlinx.serialization is the multiplatform-safe choice already adopted.)
-- [ ] **Does new domain/data code reach for `java.time` instead of `kotlinx-datetime`?** Only once the `kotlinx-datetime` migration (PROGRESS.md) has landed — until then `java.time` is still the project's only option, so this check is a no-op.
+- [ ] **Does any file under `app/src/main/kotlin` import `java.time.*`?** Run `git grep -n "^import java\.time" -- app/src/main/kotlin` against the diff (and periodically against the whole tree) — any hit is a regression now that the `kotlinx-datetime` migration has landed. New domain/data/viewmodel/ui code must use `kotlinx.datetime` equivalents exclusively.
 - [ ] Does the ViewModel directly reference UI types (Color, Dp, Composable functions)?
 - [ ] Does the data layer reference ViewModel or UI concerns?
 - [ ] Are new screens receiving the full ViewModel when they only need a subset? Pass specific lambdas or state instead.

@@ -17,6 +17,44 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 
 ---
 
+## chore/java-time-to-kotlinx-datetime
+
+**Scope:** Second of the two migrations clearing the way for HODITH's planned Compose Multiplatform iOS route (HODITH_SPEC.md §19) — `java.time` has no Kotlin/Native target. Replaced every `java.time` usage in `app/src/main/kotlin` with `kotlinx-datetime` (0.7.1): the 10-file domain-layer math (`CalendarGrid`, `CalendarMath`, `ExportFileTimestamp`, `Insights`, `InsightsEngine`, `Stats`, `StatsEngine`, `Trends`, `TrendsEngine`, `VerdictEngine`), the `viewmodel`/`ui` cascade wherever a migrated domain type crosses that boundary, and `CsvBackupSerializer.kt`'s export formatting. Landed as a single branch staged in two logical commits (domain first, then the cascade), per the pre-landing design decision on scope.
+
+**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (~60 changed `.kt` files across `main`/`test`/`androidTest`, 2 new files, 5 docs). `ktlintCheck`, `lintDebug`, `test` (full unit suite, 1225 tests), and `assembleDebug` all pass; `compileDebugAndroidTestKotlin` verified separately (the full instrumented source set compiles). No instrumented run against a device this pass — domain/viewmodel risk (DST, zone-offset math, calendar-day bucketing) is pure Kotlin and fully covered by the JVM suite; the only Android-surface pieces touched (Material3 DatePicker/DateRangePicker interop, Compose Previews) have no date-math risk of their own.
+
+**Found & fixed:**
+- Domain layer ported file by file, each file's own DST/zone-boundary tests read (not just re-run) before moving to the next, per the Concern this item's PROGRESS.md entry flagged.
+- `TemporalAdjusters.previousOrSame`/`nextOrSame` (no `kotlinx-datetime` equivalent) hand-rolled once via `DayOfWeek.isoDayNumber` in `domain/CalendarMath.kt`, shared by `CalendarGrid.kt`, `HomeViewModel.kt`, and a third use site found mid-pass, `data/demo/DemoDataSeeder.kt`'s weekend-showcase generator — not in the original 35-file estimate.
+- `YearMonth` (no `kotlinx-datetime` equivalent) hand-rolled as a small public `domain/YearMonth.kt` value type rather than reusing `LocalDate` with an implied day-of-month convention, keeping the type-level "this is a month" guarantee `BigPictureFilterState`/`InsightsTabState`/`CalendarGrid` all rely on.
+- `EventTimeFormat.kt`'s full formatter set ported to `kotlinx-datetime`'s format DSL; the two spots that previously followed the platform locale (the frequency-chart month label, the rhythm-grid/share-card weekday labels) are now fixed English, per the pre-landing locale decision — converging with the rest of the app's already `Locale.US`-fixed display. The now-dead `LocalLocale.current.platformLocale` reads and their `locale` parameters were traced and removed from `ShareCardTemplate.kt`/`InsightsTab.kt` in the same commit rather than left for a later pass.
+- `CsvBackupSerializer.kt`'s ISO-offset timestamp ported to `DateTimeComponents.Format` with explicit `offsetHours()`/`offsetMinutesOfHour()` fields, preserving the existing "a zero offset renders `+00:00`, never `Z`" behavior exactly (added a test pinning it, since no shortcut format does this by default).
+- A real formatting bug caught by the existing `EventTimeFormatTest` suite, not introduced silently: `kotlinx-datetime`'s `amPmHour()` format-DSL builder zero-pads by default, unlike `java.time`'s lowercase `h` pattern — produced "08:02 AM" instead of "8:02 AM" until an explicit `Padding.NONE` was added everywhere a 12-hour formatter uses it.
+- Two real coverage gaps closed alongside the migration (per this item's own acceptance criteria): `ExportFileTimestamp.kt` had no test file at all before this pass — added `ExportFileTimestampTest.kt`; `ShareCardTemplateTest.kt`'s narrow-weekday-label assertion built its expected string from `Locale.getDefault()`, which would have silently diverged from production's now-fixed-English output on a non-English test device — rewritten against the same `englishNarrow()` helper production uses.
+- `TESTING.md`'s Deferrals list carried a now-resolved entry about the frequency chart's month label only being locale-tested in `Locale.US` — removed outright rather than left describing a condition that stopped being true the moment the label itself stopped following locale.
+
+**Deferred:** nothing new. `StatsEngineTest`'s pre-existing lack of a named-zone DST case (noted during planning) remains a pre-existing gap, not newly introduced or masked by the port — left for a future QA audit pass per this item's own Tests note, not backfilled here.
+
+**Considered and declined:**
+- Switching every `kotlinx.datetime.Instant`/`Clock` reference to the newer `kotlin.time.Instant`/`kotlin.time.Clock` the library now re-exports from (0.7.1 deprecates its own prior aliases in favor of the stdlib types) — declined for this pass. The deprecation is a warning, not an error; `kotlinx.datetime.Instant` keeps every file in this already-large diff internally consistent with `TimeZone`/`LocalDate`/`UtcOffset`, none of which have a stdlib equivalent to migrate to instead. Left as a known, intentional residual for a separate future pass once the stdlib types are the clearly-settled convention.
+
+**Checks:**
+- Duplication: the shared `previousOrSame`/`nextOrSame` extensions and the `englishFull`/`englishNarrow`/`englishAbbreviated` name helpers are each defined once and reused across every call site that needs them, rather than re-derived per file.
+- Decoupling: `CLEANUP_CHECKLIST.md`'s `java.time` Decoupling check (this item's own last acceptance-criteria box) turned from a no-op into a real `git grep` command; verified zero hits across `app/src/main/kotlin`. Verdict/watch/stats code still imports nothing from `android.*`; day-bucketing still resolves each event's own captured `utcOffsetMinutes` (now a `UtcOffset`), not the device's current zone.
+- Complexity: no new composables or UI structure — a library swap under existing signatures, plus one new pure-Kotlin value type (`YearMonth`).
+- Dead code & hygiene: `ktlintCheck`'s unused-import rule found nothing stray after the pass; the `LocalLocale`/`Locale` cleanup above was this section's main finding; `git status` clean throughout.
+- Naming: `domain/YearMonth.kt` follows the existing `domain/` file-per-concept convention; no new `Voice` keys (no UI copy changed).
+- Hardcoded values: none introduced — the fixed-English name tables are `kotlinx-datetime`'s own `MonthNames`/`DayOfWeekNames` constants, not ad hoc literals.
+- Accessibility, Data model/migrations, Background work/widgets/notifications: untouched — N/A.
+- UI Copy Brevity: N/A — no `Voice` copy changed; the two hardcoded-English spots render the same English text length as before for English-locale users.
+- Deprecated APIs: addressed above (Considered and declined) for the `kotlin.time` aliases; the one other new warning (`LocalDate.monthNumber` deprecated in favor of `.month.number`) was trivial and fixed directly rather than deferred.
+- Spec review: HODITH_SPEC.md §19 updated to state the migration as complete, including the locale decision's outcome.
+- Tests: every existing domain/viewmodel/ui DST and zone-boundary test re-verified by reading its assertions against the ported implementation, not just by a green re-run (the Concern this item flagged); two new unit tests added (above) for the two real coverage gaps the migration surfaced.
+
+**Docs updated:** HODITH_SPEC.md (§19); PROGRESS.md (resolved item removed entirely); TESTING.md (Deferrals entry removed, two new unit tests noted in the Time formatting / Export-import rows); CLEANUP_CHECKLIST.md (`java.time` Decoupling check turned from a no-op into a real enforcement); DEV_PLAYBOOK.md (§7 version matrix gains the `kotlinx-datetime` row); this entry (oldest entry, `fix/cases-intense-typography-roles`, removed per the 5-entry retention rule).
+
+---
+
 ## chore/moshi-to-kotlinx-serialization
 
 **Scope:** First of two migrations clearing the way for HODITH's planned Compose Multiplatform iOS route (new HODITH_SPEC.md §19) — Moshi has no Kotlin/Native target. Swapped Moshi for kotlinx.serialization across the backup export/import path only; the sibling `java.time` → `kotlinx-datetime` migration is deliberately deferred as its own PROGRESS.md item given its size.
@@ -166,42 +204,3 @@ A record of the 5 most recent cleanup passes, newest first (ordering, not dating
 - Tests: bug fixed (no rebind path) → regression test added (the new `SingleCaseWidgetConfigureFlowTest` case); all new instrumented tests actually run on a device before this entry was written.
 
 **Docs updated:** PROGRESS.md (resolved item struck entirely); HODITH_SPEC.md (§15, two bullets); TESTING.md (Widgets — chrome & trampoline row); this entry (oldest entry, `fix/bright-intensity-label`, removed per the 5-entry retention rule).
-
----
-
-## fix/cases-intense-typography-roles
-
-**Scope:** User-reported: Intense voice's distinctive display face (Oswald, bold) seemed to be missing from most of the Cases screens, showing up correctly only in filters, some labels, and buttons. Traced to `Type.kt`'s typography-swap mechanism itself being correct (no wiring bug) — several call sites on Cases screens were just choosing a body-face role (`titleSmall`) for text that functions as a header/label, instead of a display-face role (`labelLarge`).
-
-**Walked:** CLEANUP_CHECKLIST.md section by section against the diff (3 changed `.kt` files, 1 doc). `ktlintCheck`, `lintDebug`, `test` (full unit suite), and `assembleDebug` all pass. No instrumented test run needed — see Tests below.
-
-**Found & fixed:**
-- `InsightsTab.kt`: all 8 Case Detail Insights-tab section headers (Heatmap, Frequency, Rhythm, Gaps & streaks, Trends, Duration, Intensity, Tags) were rendering on `titleSmall`. The 5 `SectionWithInfo(...)` call sites explicitly overrode `labelStyle` down to `titleSmall`; deleted the override so each falls back to `SectionWithInfo`'s own correct default (`labelLarge`). The 3 plain `Text(voice.X, style = titleSmall)` call sites changed to `labelLarge` directly.
-- `WatchesTab.kt`: the Watch card's own title and the headline observed-rate figure both used `titleSmall` + a manually bolted-on `fontWeight = FontWeight.Bold`; changed to `labelLarge`, keeping the explicit `FontWeight.Bold` override so Plain's cards stay visually bold the same way `CardEyebrow` (same file) already deliberately forces bold regardless of theme, rather than only getting Plain's default `SemiBold` display weight.
-- `HodithTabRow.kt`: `HodithTab`'s `ProvideTextStyle(titleSmall)` hardcoded the body face for every tab label — fixed to `labelLarge`. Shared by Case Detail's History/Insights tabs and the Share screen's tabs, so both get the correct role in the same fix; no new inconsistency introduced.
-- Confirmed before changing: Material3's default `Typography()` gives `titleSmall` and `labelLarge` the identical base size/line-height/weight (14sp/20sp/Medium) — so every change above swaps only font family and the theme's display weight, not layout size. The two dynamic strings touched (`WatchesTab.kt`'s card title and rate label) already wrap without truncation (`Modifier.weight(1f)`, no `maxLines`/`overflow`), so the bolder Intense/Bright display weight can't clip them; the section/tab labels touched are fixed English words identical across all three voices (`Voice.kt`'s own doc comments confirm this), so there was no longer-Intense/Bright-phrasing wrap risk to check either.
-
-**Deferred:**
-- Two broader, non-Cases-specific gaps found during the same audit — spun out as one new PROGRESS.md item rather than fixed here, since both need a design call first: every screen's `TopAppBar` title (About, Archived Cases, Case Edit, Log Detail, Manage Tags, Share) renders unstyled/body-face though `Type.kt`'s comment says the app bar should take the display face; and `HomeScreen.kt`'s Bright-only case-list item manually overrides a case name to the display face with no Intense/Plain equivalent.
-
-**Considered and declined:**
-- `CaseDetailScreen.kt`'s `TopAppBar` title (the case name itself) — initially flagged, then declined: `Type.kt`'s own comment says case names stay body-face (`titleMedium`), matching `ArchivedCasesScreen.kt`'s and `HomeScreen.kt`'s Plain/Intense case-name rows. Correct as-is; folded into the deferred PROGRESS.md item's reasoning instead of touched here.
-- `ArchivedCasesScreen.kt`'s case-name row (`titleMedium`) — declined for the same reason; matches the established case-name-is-body-face pattern exactly.
-- `WatchesTab.kt`'s empty-state title (`titleMedium`) — declined; matches the app-wide empty-state convention (`CenteredEmptyState` is unstyled/body-face everywhere else too), no sibling pattern argues for display-face here.
-- `CaseEditScreen.kt`'s icon-grid selected-icon labels (`titleMedium`) — declined; these render emoji glyphs, so font-family has no visible effect either way.
-- `DateRangeFilterDialog.kt`'s date-range headline (`titleLarge` → `titleMedium`) — declined; its own comment explains this is a deliberate width-only downsize for a dialog-width row, and the text it styles (a selected date range) is content, not a label, so body-face was already the right role.
-
-**Checks:**
-- Duplication: no new composables, strings, or logic; pure style-role correction reusing existing `Voice` keys and the existing `SectionWithInfo`/`labelLarge` default.
-- Decoupling: no ViewModel/Repository/domain code touched; no `android.*` imports added.
-- Complexity: no new composables or structural changes, only `style =`/`ProvideTextStyle(...)` argument swaps.
-- Dead code & hygiene: `git status` clean throughout; `ktlintCheck` found nothing stray after the `labelStyle` line deletions.
-- Naming: no new files, no new `Voice` keys.
-- Hardcoded values: none introduced.
-- Accessibility: no tap-target or contrast changes; light/dark unaffected (role swap only touches font family/weight, not color).
-- UI Copy Brevity: checked above (Found & fixed, last bullet) — no label-fit issue from the weight/face change.
-- Data model/migrations, background work/widgets/notifications, deprecated APIs: untouched — N/A.
-- Spec review: `HODITH_SPEC.md` doesn't describe typography roles at this level of detail; no divergence to reconcile.
-- Tests: no behavior change — a style-role correction, not new logic — so no new test coverage; existing Compose UI tests for Case Detail/Insights/Watches/Share tabs assert content and interaction, not font family, and stay unaffected.
-
-**Docs updated:** PROGRESS.md (new Standalone item for the two deferred findings); this entry (oldest entry, `fix/big-picture-selector-chip-contrast`, removed per the 5-entry retention rule).

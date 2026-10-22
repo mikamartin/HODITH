@@ -16,19 +16,19 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryShareViewModelTest {
-    private val zone = ZoneId.systemDefault()
-    private val today = LocalDate.of(2026, 9, 27)
+    private val zone = TimeZone.currentSystemDefault()
+    private val today = LocalDate(2026, 9, 27)
     private val repository = FakeHodithRepository()
     private val clock = FakeClock(zone.startOfDayMillis(today) + 12 * 60 * 60 * 1000L) // noon today
     private val shareImageExporter = FakeShareImageExporter()
@@ -108,7 +108,7 @@ class HistoryShareViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase())
             val vm = viewModel()
-            val picked = LocalDate.of(2026, 7, 3)
+            val picked = LocalDate(2026, 7, 3)
 
             vm.uiState.test {
                 awaitLoadedItem { it.isLoading }
@@ -126,7 +126,7 @@ class HistoryShareViewModelTest {
 
             vm.uiState.test {
                 awaitLoadedItem { it.isLoading }
-                vm.setDateFrom(LocalDate.of(2026, 7, 3))
+                vm.setDateFrom(LocalDate(2026, 7, 3))
                 awaitItem()
                 vm.setDateFrom(null)
                 assertNull(awaitItem().selection.dateFrom)
@@ -139,7 +139,7 @@ class HistoryShareViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase())
             val vm = viewModel()
-            val picked = LocalDate.of(2026, 8, 15)
+            val picked = LocalDate(2026, 8, 15)
 
             vm.uiState.test {
                 awaitLoadedItem { it.isLoading }

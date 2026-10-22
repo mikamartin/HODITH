@@ -17,7 +17,8 @@ import com.secondmonday.hodith.domain.filterAndSortEvents
 import com.secondmonday.hodith.domain.isStillRunning
 import com.secondmonday.hodith.ui.casedetail.trendsVisibleFindings
 import com.secondmonday.hodith.ui.voice.Voice
-import java.time.ZoneId
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
 
 /** Spec §13's two share-card canvases. */
 enum class ShareCardFormat {
@@ -281,7 +282,7 @@ private fun squareInsights(
  * neither shows unless the Case tracks it *and* the user left it on. [displayName] arrives
  * pre-resolved, matching how [shareCardState] already takes it resolved rather than deriving it
  * from [CaseEntity.name] itself. [dateFrom]/[dateTo] are the same local-day-boundary millis
- * [HistoryShareSelection] stores (see [ZoneId.startOfDayMillis]/[ZoneId.endOfDayMillis]); the range
+ * [HistoryShareSelection] stores (see [TimeZone.startOfDayMillis]/[TimeZone.endOfDayMillis]); the range
  * label resolves an unset [dateFrom] to the Case's creation date, via [historyRangeBounds].
  */
 internal fun historyShareCardState(
@@ -296,7 +297,7 @@ internal fun historyShareCardState(
     voice: Voice,
     now: Long,
     generatedAtMillis: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ): ShareCardData.History {
     val matches = filterAndSortEvents(events, from = dateFrom, to = dateTo, order = sortOrder)
     val capped = matches.take(HISTORY_SHARE_CARD_ENTRY_CAP)
@@ -317,7 +318,7 @@ private fun historyShareRangeLabel(
     dateFrom: Long?,
     dateTo: Long,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     voice: Voice,
 ): String {
     val (from, to) = historyRangeBounds(createdAt, dateFrom, dateTo, now, zone)
@@ -329,7 +330,7 @@ internal fun isUnsetHistoryRange(
     dateFrom: Long?,
     dateTo: Long,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
 ): Boolean = dateFrom == null && dateTo.toLocalDateIn(zone) == now.toLocalDateIn(zone)
 
 /** The History Share selector's value: "All time" while unset, otherwise the bounds [historyRangeBounds] resolves. */
@@ -338,7 +339,7 @@ internal fun historyShareSelectorValue(
     dateFrom: Long?,
     dateTo: Long,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     voice: Voice,
 ): String =
     if (isUnsetHistoryRange(dateFrom, dateTo, now, zone)) {
@@ -360,7 +361,7 @@ private fun historyCardRow(
     val isOngoing = isStillRunning(event, case.tracksDuration, now)
 
     return HistoryCardRow(
-        timestamp = formatEventTime(event.occurredAt, now, use24Hour, zone = event.loggedZone()),
+        timestamp = formatEventTime(event.occurredAt, now, use24Hour, zone = event.loggedZone().asTimeZone()),
         detail =
             eventDetailSummary(
                 occurredAt = event.occurredAt,

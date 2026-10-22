@@ -114,6 +114,7 @@ dependencies {
     implementation(libs.datastore.preferences)
 
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.datetime)
 
     implementation(libs.glance.appwidget)
 

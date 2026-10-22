@@ -3,9 +3,11 @@ package com.secondmonday.hodith.domain
 import com.secondmonday.hodith.data.EventEntity
 import com.secondmonday.hodith.data.EventWithTags
 import com.secondmonday.hodith.data.loggedZone
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
@@ -124,7 +126,7 @@ internal const val CHANGE_POINT_PERMUTATION_ITERATIONS = 1000
 internal fun computeGapStats(
     events: List<EventEntity>,
     now: Long,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
     eventActiveNow: Boolean = false,
 ): GapStats {
     val sorted = events.sortedBy { it.occurredAt }
@@ -144,7 +146,7 @@ internal fun computeGapStats(
     var reachedSoFar = Long.MIN_VALUE
     for ((index, event) in sorted.withIndex()) {
         if (index > 0) {
-            pastGaps += daysBetween(reachedSoFar, event.occurredAt, event.loggedZone()).coerceAtLeast(0L)
+            pastGaps += daysBetween(reachedSoFar, event.occurredAt, event.loggedZone().asTimeZone()).coerceAtLeast(0L)
         }
         reachedSoFar = maxOf(reachedSoFar, event.occurredAt, event.endedAt ?: event.occurredAt)
     }
@@ -193,7 +195,7 @@ private fun consecutiveRunLengths(dates: List<LocalDate>): List<Int> {
     val runs = mutableListOf<Int>()
     var runLength = 1
     for (i in 1 until sorted.size) {
-        if (sorted[i].toEpochDay() == sorted[i - 1].toEpochDay() + 1) {
+        if (sorted[i].toEpochDays() == sorted[i - 1].toEpochDays() + 1) {
             runLength++
         } else {
             runs += runLength
@@ -339,7 +341,7 @@ internal fun computeChangePoint(
     val priorAverage = priorGaps.average()
     val recentAverage = recentGaps.average()
     val splitEvent = sorted[splitIndex].event
-    val changePointDate = Instant.ofEpochMilli(splitEvent.occurredAt).atZone(splitEvent.loggedZone()).toLocalDate()
+    val changePointDate = Instant.fromEpochMilliseconds(splitEvent.occurredAt).toLocalDateTime(splitEvent.loggedZone().asTimeZone()).date
 
     return ChangePointResult(
         pValue = pValue,

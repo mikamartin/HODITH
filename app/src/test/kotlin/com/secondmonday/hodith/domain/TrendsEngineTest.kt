@@ -7,13 +7,13 @@ import com.secondmonday.hodith.data.latestActivityAt
 import com.secondmonday.hodith.testsupport.millisAt
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.DayOfWeek
-import java.time.LocalDate
 
 private fun gapStatsOf(
     pastGaps: List<Long>,
@@ -90,7 +90,7 @@ class TrendsEngineTest {
     @Test
     fun `computeTrendFindings is empty when nothing shifts and there is no frequency trend`() {
         val flatGaps = gapStatsOf(List(GAP_SHIFT_MIN_SAMPLE_COUNT) { 5L })
-        val flatDates = (0 until STREAK_SHIFT_MIN_SAMPLE_COUNT.toLong()).map { LocalDate.ofEpochDay(it * 10) }
+        val flatDates = (0 until STREAK_SHIFT_MIN_SAMPLE_COUNT.toLong()).map { LocalDate.fromEpochDays((it * 10).toInt()) }
 
         assertEquals(emptyList<TrendFinding>(), computeTrendFindings(flatGaps, flatDates, trendStats = null))
     }
@@ -117,7 +117,7 @@ class TrendsEngineTest {
         // First half: three 1-day runs. Second half: three 4-day runs. No gap data at all.
         val isolatedDays = listOf(0L, 10L, 20L)
         val longRunStarts = listOf(100L, 200L, 300L)
-        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.ofEpochDay(it) }
+        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.fromEpochDays(it.toInt()) }
 
         val findings = computeTrendFindings(gapStatsOf(emptyList()), dates, trendStats = null)
 
@@ -132,7 +132,7 @@ class TrendsEngineTest {
         val gapStats = gapStatsOf(listOf(2L, 2L, 2L, 10L, 10L, 10L))
         val isolatedDays = listOf(0L, 10L, 20L)
         val longRunStarts = listOf(100L, 200L, 300L)
-        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.ofEpochDay(it) }
+        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.fromEpochDays(it.toInt()) }
 
         val findings = computeTrendFindings(gapStats, dates, trendStats = null)
 
@@ -423,7 +423,7 @@ class TrendsEngineTest {
         val finding = findings.single { it.kind == TrendFindingKind.CHANGE_POINT }
         assertEquals(ShiftDirection.UP, finding.direction)
         assertEquals(TrendReliability.PATTERN, finding.reliability)
-        assertEquals(LocalDate.ofEpochDay(30), finding.changePointDate)
+        assertEquals(LocalDate.fromEpochDays(30), finding.changePointDate)
     }
 
     @Test

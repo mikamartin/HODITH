@@ -1,7 +1,7 @@
 package com.secondmonday.hodith.domain
 
-import java.time.DayOfWeek
-import java.time.LocalDate
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 
 /**
  * Spec §10 "gaps & streaks" stat card: how long since the last event, compared against the

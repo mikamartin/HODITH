@@ -25,10 +25,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.secondmonday.hodith.ui.voice.Voice
 import com.secondmonday.hodith.viewmodel.toDatePickerUtcMillis
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.ZoneOffset
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * The single "tap a start day, then an end day" range picker behind both History Share's own date
@@ -51,7 +51,7 @@ fun DateRangeFilterDialog(
     dateTo: Long?,
     isRangeFiltered: Boolean,
     now: Long,
-    zone: ZoneId,
+    zone: TimeZone,
     voice: Voice,
     onDismiss: () -> Unit,
     onConfirm: (from: LocalDate?, to: LocalDate?) -> Unit,
@@ -136,6 +136,6 @@ fun DateRangeFilterDialog(
     }
 }
 
-private fun Long.toUtcLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
+private fun Long.toUtcLocalDate(): LocalDate = Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date
 
 internal const val DATE_RANGE_ALL_TIME_BUTTON_TAG = "date_range_all_time_button"

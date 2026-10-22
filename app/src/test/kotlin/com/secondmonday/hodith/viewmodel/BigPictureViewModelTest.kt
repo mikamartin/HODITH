@@ -10,6 +10,7 @@ import com.secondmonday.hodith.data.FakeHodithRepository
 import com.secondmonday.hodith.data.FakeSettingsRepository
 import com.secondmonday.hodith.data.TagEntity
 import com.secondmonday.hodith.domain.FakeClock
+import com.secondmonday.hodith.domain.YearMonth
 import com.secondmonday.hodith.testsupport.Fixtures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,6 +18,9 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,9 +28,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.Instant
-import java.time.YearMonth
-import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BigPictureViewModelTest {
@@ -34,7 +35,7 @@ class BigPictureViewModelTest {
     private val settings = FakeSettingsRepository()
     private val clock = FakeClock(1_000_000L)
     private val defaultDispatcher = UnconfinedTestDispatcher()
-    private val zoneId = ZoneId.systemDefault()
+    private val zoneId = TimeZone.currentSystemDefault()
 
     private fun viewModel() = BigPictureViewModel(repository, settings, clock, defaultDispatcher)
 
@@ -117,9 +118,9 @@ class BigPictureViewModelTest {
 
     @Test
     fun `bigPictureUiState derives earliestMonth from the oldest case createdAt`() {
-        val marchCreatedAt = Instant.parse("2026-03-15T00:00:00Z").toEpochMilli()
-        val aprilCreatedAt = Instant.parse("2026-04-01T00:00:00Z").toEpochMilli()
-        val nowMillis = Instant.parse("2026-05-20T00:00:00Z").toEpochMilli()
+        val marchCreatedAt = Instant.parse("2026-03-15T00:00:00Z").toEpochMilliseconds()
+        val aprilCreatedAt = Instant.parse("2026-04-01T00:00:00Z").toEpochMilliseconds()
+        val nowMillis = Instant.parse("2026-05-20T00:00:00Z").toEpochMilliseconds()
         val cases =
             listOf(
                 testCase(id = 1L, createdAt = aprilCreatedAt),
@@ -128,14 +129,14 @@ class BigPictureViewModelTest {
 
         val state = bigPictureUiState(cases, emptyList(), emptyList(), nowMillis, zoneId)
 
-        assertEquals(YearMonth.from(Instant.ofEpochMilli(marchCreatedAt).atZone(zoneId)), state.earliestMonth)
+        assertEquals(YearMonth.from(Instant.fromEpochMilliseconds(marchCreatedAt).toLocalDateTime(zoneId).date), state.earliestMonth)
     }
 
     @Test
     fun `bigPictureUiState carries endedAt and marks an open event on a tracking case as ongoing`() {
-        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
-        val startMillis = Instant.parse("2026-05-18T09:00:00Z").toEpochMilli()
-        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilliseconds()
+        val startMillis = Instant.parse("2026-05-18T09:00:00Z").toEpochMilliseconds()
+        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilliseconds()
 
         fun event(
             caseId: Long,
@@ -174,9 +175,9 @@ class BigPictureViewModelTest {
 
     @Test
     fun `bigPictureUiState drops a stored endedAt for a Case that no longer tracks duration`() {
-        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
-        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
-        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilliseconds()
+        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilliseconds()
+        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilliseconds()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, loggedAt = startMillis)
         val cases = listOf(testCase(id = 1L).copy(tracksDuration = false))
@@ -189,9 +190,9 @@ class BigPictureViewModelTest {
 
     @Test
     fun `bigPictureUiState keeps a stored endedAt for a tracking Case`() {
-        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
-        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
-        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilliseconds()
+        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilliseconds()
+        val endMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilliseconds()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = endMillis, loggedAt = startMillis)
         val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
@@ -204,9 +205,9 @@ class BigPictureViewModelTest {
 
     @Test
     fun `bigPictureUiState marks an event with a future endedAt as ongoing with an expectedEndAt`() {
-        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
-        val startMillis = Instant.parse("2026-05-20T09:00:00Z").toEpochMilli()
-        val futureEndMillis = Instant.parse("2026-05-20T15:00:00Z").toEpochMilli()
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilliseconds()
+        val startMillis = Instant.parse("2026-05-20T09:00:00Z").toEpochMilliseconds()
+        val futureEndMillis = Instant.parse("2026-05-20T15:00:00Z").toEpochMilliseconds()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = futureEndMillis, loggedAt = startMillis)
         val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
@@ -219,9 +220,9 @@ class BigPictureViewModelTest {
 
     @Test
     fun `bigPictureUiState has no expectedEndAt for a finished event`() {
-        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilli()
-        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilli()
-        val pastEndMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilli()
+        val nowMillis = Instant.parse("2026-05-20T12:00:00Z").toEpochMilliseconds()
+        val startMillis = Instant.parse("2026-05-16T09:00:00Z").toEpochMilliseconds()
+        val pastEndMillis = Instant.parse("2026-05-19T09:00:00Z").toEpochMilliseconds()
         val event =
             Fixtures.event(caseId = 1L, occurredAt = startMillis, endedAt = pastEndMillis, loggedAt = startMillis)
         val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
@@ -259,8 +260,8 @@ class BigPictureViewModelTest {
 
     @Test
     fun `bigPictureUiState keeps a same-day endedAt on a duration-tracking Case so the row can show a duration`() {
-        val occurredAt = Instant.parse("2026-05-16T09:10:00Z").toEpochMilli()
-        val endedAt = Instant.parse("2026-05-16T09:50:00Z").toEpochMilli()
+        val occurredAt = Instant.parse("2026-05-16T09:10:00Z").toEpochMilliseconds()
+        val endedAt = Instant.parse("2026-05-16T09:50:00Z").toEpochMilliseconds()
         val cases = listOf(testCase(id = 1L).copy(tracksDuration = true))
         val eventDetails = listOf(detailOf(Fixtures.event(caseId = 1L, occurredAt = occurredAt, endedAt = endedAt)))
 

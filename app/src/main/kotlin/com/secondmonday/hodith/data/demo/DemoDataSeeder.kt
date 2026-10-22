@@ -18,12 +18,16 @@ import com.secondmonday.hodith.domain.MORNING_START_HOUR
 import com.secondmonday.hodith.domain.NIGHT_START_HOUR
 import com.secondmonday.hodith.domain.evaluateOften
 import com.secondmonday.hodith.domain.evaluateQuiet
+import com.secondmonday.hodith.domain.nextOrSame
 import com.secondmonday.hodith.domain.silenceAnchorForEvents
 import kotlinx.coroutines.flow.first
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -489,7 +493,7 @@ class DemoDataSeeder
                         intensity = intensityFor(caseSeed.intensityEnabled, random),
                         note = noteFor(caseSeed.notes, random),
                         loggedAt = occurredAt,
-                        utcOffsetMinutes = ZoneId.systemDefault().offsetMinutesAt(occurredAt),
+                        utcOffsetMinutes = TimeZone.currentSystemDefault().offsetMinutesAt(occurredAt),
                     ),
                 )
             val tags =
@@ -628,7 +632,7 @@ private fun durationTrendMultiplierFor(
 ): Double {
     val timeFraction = ((occurredAt - spanStart).toDouble() / (spanEnd - spanStart).coerceAtLeast(1)).coerceIn(0.0, 1.0)
     val trendFactor = TANTRUM_DURATION_EARLY_FACTOR + (TANTRUM_DURATION_LATE_FACTOR - TANTRUM_DURATION_EARLY_FACTOR) * timeFraction
-    val hour = Instant.ofEpochMilli(occurredAt).atZone(ZoneId.systemDefault()).hour
+    val hour = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(TimeZone.currentSystemDefault()).hour
     val isEvening = hour < MORNING_START_HOUR || hour >= EVENING_START_HOUR
     val eveningFactor = if (isEvening) TANTRUM_EVENING_DURATION_FACTOR else 1.0
     return trendFactor * eveningFactor
@@ -653,15 +657,13 @@ private fun eveningHourFor(
     spanStart: Long,
     spanEnd: Long,
 ): Long {
-    val zone = ZoneId.systemDefault()
-    val date = Instant.ofEpochMilli(occurredAt).atZone(zone).toLocalDate()
+    val zone = TimeZone.currentSystemDefault()
+    val date = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone).date
     val hour = random.nextInt(EVENING_START_HOUR, NIGHT_START_HOUR)
     val minute = random.nextInt(60)
-    return date
-        .atTime(hour, minute)
-        .atZone(zone)
-        .toInstant()
-        .toEpochMilli()
+    return LocalDateTime(date, LocalTime(hour, minute))
+        .toInstant(zone)
+        .toEpochMilliseconds()
         .coerceIn(spanStart, spanEnd)
 }
 
@@ -679,15 +681,13 @@ private fun weekendDateFor(
     spanStart: Long,
     spanEnd: Long,
 ): Long {
-    val zone = ZoneId.systemDefault()
-    val zonedDateTime = Instant.ofEpochMilli(occurredAt).atZone(zone)
+    val zone = TimeZone.currentSystemDefault()
+    val localDateTime = Instant.fromEpochMilliseconds(occurredAt).toLocalDateTime(zone)
     val targetDayOfWeek = if (random.nextBoolean()) DayOfWeek.SATURDAY else DayOfWeek.SUNDAY
-    val weekendDate = zonedDateTime.toLocalDate().with(TemporalAdjusters.nextOrSame(targetDayOfWeek))
-    return weekendDate
-        .atTime(zonedDateTime.toLocalTime())
-        .atZone(zone)
-        .toInstant()
-        .toEpochMilli()
+    val weekendDate = localDateTime.date.nextOrSame(targetDayOfWeek)
+    return LocalDateTime(weekendDate, localDateTime.time)
+        .toInstant(zone)
+        .toEpochMilliseconds()
         .coerceIn(spanStart, spanEnd)
 }
 

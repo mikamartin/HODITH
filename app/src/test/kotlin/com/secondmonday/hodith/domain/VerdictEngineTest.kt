@@ -5,14 +5,14 @@ import com.secondmonday.hodith.data.ExpectedPer
 import com.secondmonday.hodith.data.VerdictMetric
 import com.secondmonday.hodith.testsupport.millisAtDay
 import com.secondmonday.hodith.testsupport.testEvent
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.ZoneOffset
 
 private const val DELTA = 0.0001
 
@@ -266,19 +266,15 @@ class VerdictEngineTest {
     fun `computeVerdict window-day math is unaffected by a spring-forward DST transition`() {
         // 2026-03-08 is America/New_York's spring-forward day, inside this 14-day window;
         // a raw-millis ÷ 86_400_000 computation would undercount by the missing hour.
-        val zone = ZoneId.of("America/New_York")
+        val zone = TimeZone.of("America/New_York")
         val caseCreatedAt =
-            LocalDate
-                .of(2026, 3, 1)
-                .atStartOfDay(zone)
-                .toInstant()
-                .toEpochMilli()
+            LocalDate(2026, 3, 1)
+                .atStartOfDayIn(zone)
+                .toEpochMilliseconds()
         val now =
-            LocalDate
-                .of(2026, 3, 15)
-                .atStartOfDay(zone)
-                .toInstant()
-                .toEpochMilli()
+            LocalDate(2026, 3, 15)
+                .atStartOfDayIn(zone)
+                .toEpochMilliseconds()
         val windowStart = sinceStartWindowStart(caseCreatedAt, emptyList())
 
         val result = computeVerdict(expectation(windowStart = windowStart), emptyList(), now, false, zone)
@@ -317,11 +313,11 @@ class VerdictEngineTest {
         // The event's own captured offset (-10h, e.g. logged while traveling) is far from the
         // passed-in zone (UTC, the device's current zone). If the still-open end used that stale
         // offset instead of the live zone, "today" would resolve a day early and go uncounted.
-        val start = Instant.parse("2026-01-05T22:00:00Z").toEpochMilli()
-        val now = Instant.parse("2026-01-06T02:00:00Z").toEpochMilli()
+        val start = Instant.parse("2026-01-05T22:00:00Z").toEpochMilliseconds()
+        val now = Instant.parse("2026-01-06T02:00:00Z").toEpochMilliseconds()
         val event = testEvent(occurredAt = start, endedAt = null).copy(utcOffsetMinutes = -600)
 
-        val days = distinctActiveDays(listOf(event), true, windowStartMillis = start, now = now, zone = ZoneOffset.UTC)
+        val days = distinctActiveDays(listOf(event), true, windowStartMillis = start, now = now, zone = TimeZone.UTC)
 
         // Jan 5 (the event's own start date, under its -10h offset) and Jan 6 (today, under the
         // live UTC zone) — two distinct days, not one.

@@ -13,6 +13,7 @@ import com.secondmonday.hodith.di.DefaultDispatcher
 import com.secondmonday.hodith.domain.Clock
 import com.secondmonday.hodith.domain.activeSpanEnd
 import com.secondmonday.hodith.domain.isStillRunning
+import com.secondmonday.hodith.domain.previousOrSame
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
@@ -29,10 +30,11 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 data class HomeCaseRow(
@@ -230,15 +232,10 @@ internal fun homeCaseRows(
     eventSpans: List<CaseEventSpan>,
     nowMillis: Long,
 ): List<HomeCaseRow> {
-    val zone = ZoneId.systemDefault()
-    val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
-    val startOfToday = today.atStartOfDay(zone).toInstant().toEpochMilli()
-    val startOfWeek =
-        today
-            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            .atStartOfDay(zone)
-            .toInstant()
-            .toEpochMilli()
+    val zone = TimeZone.currentSystemDefault()
+    val today = Instant.fromEpochMilliseconds(nowMillis).toLocalDateTime(zone).date
+    val startOfToday = today.atStartOfDayIn(zone).toEpochMilliseconds()
+    val startOfWeek = today.previousOrSame(DayOfWeek.MONDAY).atStartOfDayIn(zone).toEpochMilliseconds()
     val spansByCase = eventSpans.groupBy { it.caseId }
     return cases.map { case ->
         val spans = spansByCase[case.id].orEmpty()

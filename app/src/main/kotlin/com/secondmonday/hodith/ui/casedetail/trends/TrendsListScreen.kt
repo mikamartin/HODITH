@@ -20,7 +20,7 @@ import com.secondmonday.hodith.ui.theme.LocalCardDecorationStyle
 import com.secondmonday.hodith.ui.voice.LocalVoice
 import com.secondmonday.hodith.ui.voice.voiceFor
 import com.secondmonday.hodith.viewmodel.TrendsListViewModel
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 
 @Composable
 fun TrendsListRoute(
@@ -85,7 +85,7 @@ private val previewTrendsListFindings =
             sampleCount = 20,
             priorValue = 3.0,
             recentValue = 9.0,
-            changePointDate = LocalDate.of(2026, 3, 14),
+            changePointDate = LocalDate(2026, 3, 14),
         ),
     )
 

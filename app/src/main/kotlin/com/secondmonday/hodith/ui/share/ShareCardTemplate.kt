@@ -34,7 +34,6 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -88,6 +87,7 @@ import com.secondmonday.hodith.viewmodel.ShareCardFormat
 import com.secondmonday.hodith.viewmodel.ShareTopBeat
 import com.secondmonday.hodith.viewmodel.StreakDisplay
 import com.secondmonday.hodith.viewmodel.durationMinAvgMax
+import com.secondmonday.hodith.viewmodel.englishNarrow
 import com.secondmonday.hodith.viewmodel.figureText
 import com.secondmonday.hodith.viewmodel.formatCardTimestamp
 import com.secondmonday.hodith.viewmodel.formatCompactDecimal
@@ -95,8 +95,7 @@ import com.secondmonday.hodith.viewmodel.formatDaysCompact
 import com.secondmonday.hodith.viewmodel.formatIntensity
 import com.secondmonday.hodith.viewmodel.gapsStatRows
 import com.secondmonday.hodith.viewmodel.unitText
-import java.time.DayOfWeek
-import java.time.format.TextStyle
+import kotlinx.datetime.DayOfWeek
 
 /** Matches the render-pipeline spike's fixed capture width — see PROGRESS.md's Phase 10 share-cards width decision. */
 private val SHARE_CARD_WIDTH = 360.dp
@@ -664,15 +663,13 @@ private fun MiniRhythmSection(
     voice: Voice,
     skin: ShareCardSkin,
 ) {
-    val locale = LocalLocale.current.platformLocale
-
     MiniInsightsCard {
         MiniSectionTitle(voice.insightsSectionLabelRhythmStarts, skin)
         Row {
             Spacer(modifier = Modifier.width((MINI_RHYTHM_LABEL_WIDTH + MINI_RHYTHM_LABEL_GAP).dp))
             DayOfWeek.entries.forEach { day ->
                 Text(
-                    text = day.getDisplayName(TextStyle.NARROW, locale),
+                    text = day.englishNarrow(),
                     modifier = Modifier.width(MINI_RHYTHM_CELL_SIZE.dp),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.labelSmall,

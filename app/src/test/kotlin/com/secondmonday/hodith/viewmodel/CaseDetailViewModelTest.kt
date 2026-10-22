@@ -17,6 +17,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,8 +26,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CaseDetailViewModelTest {
@@ -184,7 +184,7 @@ class CaseDetailViewModelTest {
     @Test
     fun `setHistoryDateFrom stores the picked date's local start-of-day millis and resets the window back to 30`() =
         runTest {
-            val zone = ZoneId.systemDefault()
+            val zone = TimeZone.currentSystemDefault()
             repository.cases.value = listOf(testCase(tracksDuration = true))
             val today = clock.nowMillis().toLocalDateIn(zone)
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = clock.nowMillis() + i)) }
@@ -205,8 +205,8 @@ class CaseDetailViewModelTest {
     @Test
     fun `setHistoryDateFrom persists across a fresh ViewModel instance`() =
         runTest {
-            val zone = ZoneId.systemDefault()
-            val picked = LocalDate.of(2026, 7, 3)
+            val zone = TimeZone.currentSystemDefault()
+            val picked = LocalDate(2026, 7, 3)
             repository.cases.value = listOf(testCase())
             viewModel().setHistoryDateFrom(picked)
 
@@ -222,7 +222,7 @@ class CaseDetailViewModelTest {
         runTest {
             repository.cases.value = listOf(testCase())
             val vm = viewModel()
-            vm.setHistoryDateFrom(LocalDate.of(2026, 7, 3))
+            vm.setHistoryDateFrom(LocalDate(2026, 7, 3))
 
             vm.setHistoryDateFrom(null)
 
@@ -236,7 +236,7 @@ class CaseDetailViewModelTest {
     @Test
     fun `setHistoryDateTo stores the picked date's local end-of-day millis and resets the window back to 30`() =
         runTest {
-            val zone = ZoneId.systemDefault()
+            val zone = TimeZone.currentSystemDefault()
             repository.cases.value = listOf(testCase(tracksDuration = true))
             val today = clock.nowMillis().toLocalDateIn(zone)
             repeat(100) { i -> repository.insertEvent(testEvent(occurredAt = clock.nowMillis() + i)) }
@@ -257,8 +257,8 @@ class CaseDetailViewModelTest {
     @Test
     fun `setHistoryDateTo persists across a fresh ViewModel instance`() =
         runTest {
-            val zone = ZoneId.systemDefault()
-            val picked = LocalDate.of(2026, 8, 15)
+            val zone = TimeZone.currentSystemDefault()
+            val picked = LocalDate(2026, 8, 15)
             repository.cases.value = listOf(testCase())
             viewModel().setHistoryDateTo(picked)
 

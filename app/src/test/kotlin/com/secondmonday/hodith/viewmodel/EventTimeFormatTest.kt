@@ -1,15 +1,15 @@
 package com.secondmonday.hodith.viewmodel
 
 import com.secondmonday.hodith.domain.FrequencyGranularity
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.util.Locale
 
 /**
  * Covers the pure formatters consolidated into [EventTimeFormat] from the three separate
@@ -20,7 +20,7 @@ import java.util.Locale
 class EventTimeFormatTest {
     @Test
     fun `formatClockTime renders 12-hour with an AM PM marker`() {
-        val formatted = formatClockTime(LocalTime.of(15, 30), use24Hour = false)
+        val formatted = formatClockTime(LocalTime(15, 30), use24Hour = false)
 
         assertTrue(formatted.contains("3:30"))
         assertTrue(formatted.contains("PM"))
@@ -28,7 +28,7 @@ class EventTimeFormatTest {
 
     @Test
     fun `formatClockTime renders 24-hour with no marker`() {
-        val formatted = formatClockTime(LocalTime.of(15, 30), use24Hour = true)
+        val formatted = formatClockTime(LocalTime(15, 30), use24Hour = true)
 
         assertEquals("15:30", formatted)
         assertFalse(formatted.contains("PM"))
@@ -36,13 +36,13 @@ class EventTimeFormatTest {
 
     @Test
     fun `formatClockTime zero-pads the 24-hour morning hour`() {
-        assertEquals("09:05", formatClockTime(LocalTime.of(9, 5), use24Hour = true))
+        assertEquals("09:05", formatClockTime(LocalTime(9, 5), use24Hour = true))
     }
 
     @Test
     fun `formatSpanDateTime is month, day and time with no year, in both clock formats and the given zone`() {
-        val utc = ZoneId.of("UTC")
-        val millis = ZonedDateTime.of(2026, 7, 9, 8, 2, 0, 0, utc).toInstant().toEpochMilli()
+        val utc = TimeZone.UTC
+        val millis = LocalDateTime(2026, 7, 9, 8, 2, 0, 0).toInstant(utc).toEpochMilliseconds()
 
         val twelve = formatSpanDateTime(millis, use24Hour = false, zone = utc)
         assertEquals("Jul 9, 8:02 AM", twelve)
@@ -50,18 +50,18 @@ class EventTimeFormatTest {
 
         assertEquals("Jul 9, 08:02", formatSpanDateTime(millis, use24Hour = true, zone = utc))
         // America/New_York is UTC-4 in July, so 08:02 UTC is 04:02 local.
-        assertEquals("Jul 9, 4:02 AM", formatSpanDateTime(millis, use24Hour = false, zone = ZoneId.of("America/New_York")))
+        assertEquals("Jul 9, 4:02 AM", formatSpanDateTime(millis, use24Hour = false, zone = TimeZone.of("America/New_York")))
     }
 
     @Test
     fun `formatMediumDate includes the year`() {
-        assertEquals("Jul 9, 2026", formatMediumDate(LocalDate.of(2026, 7, 9)))
+        assertEquals("Jul 9, 2026", formatMediumDate(LocalDate(2026, 7, 9)))
     }
 
     @Test
     fun `formatCardTimestamp is the dated year plus the time of day, in both clock formats and the given zone`() {
-        val utc = ZoneId.of("UTC")
-        val millis = ZonedDateTime.of(2026, 10, 1, 14, 32, 0, 0, utc).toInstant().toEpochMilli()
+        val utc = TimeZone.UTC
+        val millis = LocalDateTime(2026, 10, 1, 14, 32, 0, 0).toInstant(utc).toEpochMilliseconds()
 
         val twelve = formatCardTimestamp(millis, use24Hour = false, zone = utc)
         assertTrue("expected the date and year in \"$twelve\"", twelve.startsWith("Oct 1, 2026, 2:32"))
@@ -71,34 +71,34 @@ class EventTimeFormatTest {
 
     @Test
     fun `formatWeekdayDayDate is weekday and day-of-month`() {
-        assertEquals("Thu 9", formatWeekdayDayDate(LocalDate.of(2026, 7, 9)))
+        assertEquals("Thu 9", formatWeekdayDayDate(LocalDate(2026, 7, 9)))
     }
 
     @Test
     fun `formatDateRangeBound omits the year when occurredAt shares now's calendar year`() {
-        val utc = ZoneId.of("UTC")
-        val occurredAt = ZonedDateTime.of(2026, 7, 9, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
-        val now = ZonedDateTime.of(2026, 12, 31, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val utc = TimeZone.UTC
+        val occurredAt = LocalDateTime(2026, 7, 9, 0, 0, 0, 0).toInstant(utc).toEpochMilliseconds()
+        val now = LocalDateTime(2026, 12, 31, 0, 0, 0, 0).toInstant(utc).toEpochMilliseconds()
 
         assertEquals("Jul 9", formatDateRangeBound(occurredAt, now, utc))
     }
 
     @Test
     fun `formatDateRangeBound includes the year when occurredAt falls in a different calendar year than now`() {
-        val utc = ZoneId.of("UTC")
-        val occurredAt = ZonedDateTime.of(2025, 7, 9, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
-        val now = ZonedDateTime.of(2026, 1, 1, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val utc = TimeZone.UTC
+        val occurredAt = LocalDateTime(2025, 7, 9, 0, 0, 0, 0).toInstant(utc).toEpochMilliseconds()
+        val now = LocalDateTime(2026, 1, 1, 0, 0, 0, 0).toInstant(utc).toEpochMilliseconds()
 
         assertEquals("Jul 9, 2025", formatDateRangeBound(occurredAt, now, utc))
     }
 
     @Test
     fun `formatFrequencyTickLabel is numeric and short, varying by granularity`() {
-        val start = LocalDate.of(2026, 7, 9)
+        val start = LocalDate(2026, 7, 9)
 
-        assertEquals("9", formatFrequencyTickLabel(start, FrequencyGranularity.DAY, Locale.US))
-        assertEquals("7/9", formatFrequencyTickLabel(start, FrequencyGranularity.WEEK, Locale.US))
-        assertEquals("Jul", formatFrequencyTickLabel(start, FrequencyGranularity.MONTH, Locale.US))
+        assertEquals("9", formatFrequencyTickLabel(start, FrequencyGranularity.DAY))
+        assertEquals("7/9", formatFrequencyTickLabel(start, FrequencyGranularity.WEEK))
+        assertEquals("Jul", formatFrequencyTickLabel(start, FrequencyGranularity.MONTH))
     }
 
     @Test

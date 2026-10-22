@@ -62,7 +62,7 @@ import com.secondmonday.hodith.viewmodel.historyPdfContent
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 
 private const val IMAGE_MIME_TYPE = "image/png"
 private const val PDF_MIME_TYPE = "application/pdf"
