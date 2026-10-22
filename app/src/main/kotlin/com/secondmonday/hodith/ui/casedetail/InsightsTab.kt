@@ -67,6 +67,7 @@ import com.secondmonday.hodith.domain.NIGHT_START_HOUR
 import com.secondmonday.hodith.domain.RHYTHM_TIER_COUNT
 import com.secondmonday.hodith.domain.ShiftDirection
 import com.secondmonday.hodith.domain.TAGS_COMPACT_MAX
+import com.secondmonday.hodith.domain.TREND_WINDOW_DAYS
 import com.secondmonday.hodith.domain.TagBreakdownEntry
 import com.secondmonday.hodith.domain.TagOutcome
 import com.secondmonday.hodith.domain.TimeOfDay
@@ -842,7 +843,7 @@ private fun trendFindingEvidenceLabel(
         TrendFindingKind.WENT_QUIET -> voice.insightsWentQuietEvidenceLabel(finding.sampleCount)
         TrendFindingKind.GAP_SHIFT -> voice.insightsGapShiftEvidenceLabel(finding.sampleCount)
         TrendFindingKind.STREAK_SHIFT -> voice.insightsStreakShiftEvidenceLabel(finding.sampleCount)
-        TrendFindingKind.FREQUENCY_SHIFT -> voice.insightsFrequencyShiftEvidenceLabel()
+        TrendFindingKind.FREQUENCY_SHIFT -> voice.insightsFrequencyShiftEvidenceLabel((finding.windowDays ?: TREND_WINDOW_DAYS).toInt())
         TrendFindingKind.TAG_SHARE_SHIFT -> voice.insightsTagShareShiftEvidenceLabel(finding.sampleCount)
         TrendFindingKind.TAG_COMBO -> voice.insightsTagComboEvidenceLabel(finding.sampleCount)
         TrendFindingKind.RECURRENCE_SHAPE -> voice.insightsRecurrenceShapeEvidenceLabel(finding.sampleCount)

@@ -15,11 +15,19 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * [currentGapDays] defaults to [pastGaps]' own last entry (not a flat `0`) so a fixture built to
+ * exercise a genuine gap shift doesn't accidentally trip [computeGapShift]'s live-gap contradiction
+ * gate -- the live gap "matching the most recent historical gap" is the neutral assumption that
+ * doesn't itself imply a shift in either direction. Tests that care about the contradiction gate
+ * itself pass [currentGapDays] explicitly.
+ */
 private fun gapStatsOf(
     pastGaps: List<Long>,
+    currentGapDays: Long = pastGaps.lastOrNull() ?: 0L,
     lastActivityAt: Long = FIXTURE_LAST_ACTIVITY_AT,
 ) = GapStats(
-    currentGapDays = 0,
+    currentGapDays = currentGapDays,
     longestGapDays = pastGaps.maxOrNull() ?: 0,
     isCurrentGapLongest = false,
     averageGapDays = if (pastGaps.isEmpty()) 0.0 else pastGaps.average(),
@@ -146,7 +154,7 @@ class TrendsEngineTest {
 
     @Test
     fun `computeTrendFindings reports an UP frequency-shift finding with real counts`() {
-        val trendStats = TrendStats(direction = TrendDirection.UP, recentCount = 12, priorCount = 5)
+        val trendStats = TrendStats(direction = TrendDirection.UP, recentCount = 12, priorCount = 5, windowDays = 30L)
 
         val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats)
 
@@ -162,7 +170,7 @@ class TrendsEngineTest {
 
     @Test
     fun `computeTrendFindings reports a DOWN frequency-shift finding`() {
-        val trendStats = TrendStats(direction = TrendDirection.DOWN, recentCount = 3, priorCount = 9)
+        val trendStats = TrendStats(direction = TrendDirection.DOWN, recentCount = 3, priorCount = 9, windowDays = 30L)
 
         val finding = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats).single()
 
@@ -172,7 +180,7 @@ class TrendsEngineTest {
 
     @Test
     fun `computeTrendFindings omits a FLAT frequency trend entirely`() {
-        val trendStats = TrendStats(direction = TrendDirection.FLAT, recentCount = 8, priorCount = 8)
+        val trendStats = TrendStats(direction = TrendDirection.FLAT, recentCount = 8, priorCount = 8, windowDays = 30L)
 
         assertEquals(emptyList<TrendFinding>(), computeTrendFindings(noShiftGapStats, noShiftDates, trendStats))
     }
@@ -185,7 +193,7 @@ class TrendsEngineTest {
     @Test
     fun `computeTrendFindings combines a gap shift and a frequency shift`() {
         val gapStats = gapStatsOf(listOf(2L, 2L, 2L, 10L, 10L, 10L))
-        val trendStats = TrendStats(direction = TrendDirection.UP, recentCount = 12, priorCount = 5)
+        val trendStats = TrendStats(direction = TrendDirection.UP, recentCount = 12, priorCount = 5, windowDays = 30L)
 
         val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats)
 
@@ -204,7 +212,14 @@ class TrendsEngineTest {
 
     @Test
     fun `computeTrendFindings reports a tag-share-shift finding with the tag name attached`() {
-        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = risingTagEventsWithTags())
+        val findings =
+            computeTrendFindings(
+                noShiftGapStats,
+                noShiftDates,
+                trendStats = null,
+                eventsWithTags = risingTagEventsWithTags(),
+                now = millisAtDay(10),
+            )
 
         assertEquals(1, findings.size)
         val finding = findings.single()
@@ -226,7 +241,13 @@ class TrendsEngineTest {
         val gapStats = gapStatsOf(listOf(2L, 2L, 2L, 10L, 10L, 10L))
 
         val findings =
-            computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = risingTagEventsWithTags())
+            computeTrendFindings(
+                gapStats,
+                activeDates = emptyList(),
+                trendStats = null,
+                eventsWithTags = risingTagEventsWithTags(),
+                now = millisAtDay(10),
+            )
 
         assertEquals(listOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT), findings.map { it.kind })
     }
@@ -236,9 +257,11 @@ class TrendsEngineTest {
         val decaf = TagEntity(id = 1, name = "decaf")
         val coffee = TagEntity(id = 2, name = "coffee")
         val late = TagEntity(id = 3, name = "late")
-        // Stable 3-of-5/3-of-5 split -- no tag-share-shift of its own, but the pair's combined count
-        // (6) clears the combo floor.
-        val comboDays = setOf(0, 1, 2, 5, 6, 7)
+        // Days 0,1,2,3,7,8 (gaps 1,1,1,4,1; median 1.0, same cadence cut at day 7 the decaf tag
+        // below uses): 4 of 7 prior, 2 of 3 recent -- delta 0.095 clears neither TAG_SHARE_SHIFT
+        // floor, so this pair has no tag-share-shift of its own, but its combined count (6) still
+        // clears the combo floor.
+        val comboDays = setOf(0, 1, 2, 3, 7, 8)
         val eventsWithTags =
             (0 until 10).map { day ->
                 val tags = mutableListOf<TagEntity>()
@@ -250,7 +273,8 @@ class TrendsEngineTest {
                 EventWithTags(testEvent(occurredAt = millisAtDay(day.toLong())), tags)
             }
 
-        val findings = computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = eventsWithTags)
+        val findings =
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = eventsWithTags, now = millisAtDay(10))
 
         assertEquals(listOf(TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.TAG_COMBO), findings.map { it.kind })
     }
@@ -283,7 +307,13 @@ class TrendsEngineTest {
         val gapStats = gapStatsOf(recurrenceSpikePastGaps)
 
         val findings =
-            computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = risingTagEventsWithTags())
+            computeTrendFindings(
+                gapStats,
+                activeDates = emptyList(),
+                trendStats = null,
+                eventsWithTags = risingTagEventsWithTags(),
+                now = millisAtDay(10),
+            )
 
         assertEquals(listOf(TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.RECURRENCE_SHAPE), findings.map { it.kind })
     }
@@ -428,21 +458,26 @@ class TrendsEngineTest {
 
     @Test
     fun `computeTrendFindings ranks the Pattern change-point finding ahead of Hint findings`() {
-        // The same first-half-tagged pattern risingTagEventsWithTags uses, laid over the planted
-        // change-point's own event dates so both detectors fire from one self-consistent gapStats.
-        // Also trips gap shift, for the same fixed-midpoint reason as the test above.
+        // A tag over the planted change-point's own first-half event dates, so both detectors fire
+        // from one self-consistent gapStats. The tag itself never reaches TAG_SHARE_SHIFT here -- it
+        // stops appearing 64 days before the Case's actual latest activity, well past its own
+        // cadence-relative recency allowance, exactly the staleness this whole plan targets -- so
+        // this test only needs GAP_SHIFT (same fixed-midpoint reason as the test above) alongside
+        // CHANGE_POINT.
         val tag = TagEntity(id = 1, name = "decaf")
         val eventsWithTags =
             changePointDays.mapIndexed { index, day ->
                 EventWithTags(testEvent(occurredAt = millisAtDay(day)), if (index < 15) listOf(tag) else emptyList())
             }
         val gapStats = changePointGapStats(eventsWithTags)
+        val now = millisAtDay(changePointDays.last() + 10)
 
-        val findings = computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = eventsWithTags)
+        val findings =
+            computeTrendFindings(gapStats, activeDates = emptyList(), trendStats = null, eventsWithTags = eventsWithTags, now = now)
 
         assertEquals(TrendFindingKind.CHANGE_POINT, findings.first().kind)
         assertEquals(
-            setOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.TAG_SHARE_SHIFT, TrendFindingKind.CHANGE_POINT),
+            setOf(TrendFindingKind.GAP_SHIFT, TrendFindingKind.CHANGE_POINT),
             findings.map { it.kind }.toSet(),
         )
     }
@@ -674,6 +709,83 @@ class TrendsEngineTest {
         assertTrue(tagTimingIndex >= 0 && weekdayWeekendIndex > tagTimingIndex)
     }
 
+    // ---- cadence-aware recency regression ----
+
+    private val recencyRegressionTag = "spike"
+    private val recencyRegressionCaseCreatedAt = millisAtDay(0)
+    private val recencyRegressionNow = millisAtDay(100)
+
+    /**
+     * A tight 10-day burst of tagged, intensity-elevated events (days 20..29) -- the exact shape
+     * the user's original bug report described: a tag that showed up often for a stretch, then
+     * nothing. [recentReignitionDays] optionally adds a second tagged burst near `now`, turning
+     * this into the "still active" control for the paired test below.
+     */
+    private fun burstThenMaybeContinuedEventsWithTags(recentReignitionDays: LongRange? = null): List<EventWithTags> {
+        val tag = TagEntity(id = 1, name = recencyRegressionTag)
+        val burst =
+            (20L..29L).map { day ->
+                EventWithTags(testEvent(occurredAt = millisAtDay(day), intensity = 5), listOf(tag))
+            }
+        if (recentReignitionDays == null) return burst
+
+        // Daily background logging fills the gap between the two tagged bursts so the Case reads
+        // as continuously active, not itself quiet -- isolates the tag's own cadence as what's
+        // being tested, not the Case's.
+        val background =
+            (30L until recentReignitionDays.first).map { day ->
+                EventWithTags(testEvent(occurredAt = millisAtDay(day), intensity = 1), emptyList())
+            }
+        val reignition =
+            recentReignitionDays.map { day ->
+                EventWithTags(testEvent(occurredAt = millisAtDay(day), intensity = 5), listOf(tag))
+            }
+        return burst + background + reignition
+    }
+
+    private fun recencyRegressionFindings(eventsWithTags: List<EventWithTags>): List<TrendFinding> {
+        val events = eventsWithTags.map { it.event }
+        val gapStats = computeGapStats(events, now = recencyRegressionNow)
+        val activeDates = events.map { LocalDate.fromEpochDays((it.occurredAt / MILLIS_PER_DAY).toInt()) }
+        val spanDays = observationSpanDays(events, recencyRegressionCaseCreatedAt, recencyRegressionNow)
+        val trendStats = computeTrendStats(events, recencyRegressionNow, spanDays)
+        return computeTrendFindings(
+            gapStats,
+            activeDates,
+            trendStats,
+            eventsWithTags = eventsWithTags,
+            statsShownOutcomes = setOf(TagOutcome.INTENSITY),
+            now = recencyRegressionNow,
+        )
+    }
+
+    private val recencyRegressionQuietKinds =
+        setOf(
+            TrendFindingKind.FREQUENCY_SHIFT,
+            TrendFindingKind.TAG_SHARE_SHIFT,
+            TrendFindingKind.GAP_SHIFT,
+            TrendFindingKind.STREAK_SHIFT,
+            TrendFindingKind.TREND_SLOPE,
+        )
+
+    @Test
+    fun `computeTrendFindings reports none of the cadence-gated findings once a burst has aged out, 71 days of silence since`() {
+        val findings = recencyRegressionFindings(burstThenMaybeContinuedEventsWithTags(recentReignitionDays = null))
+
+        assertTrue(findings.none { it.kind in recencyRegressionQuietKinds })
+    }
+
+    @Test
+    fun `computeTrendFindings still reports a cadence-gated finding when the Case is actively logging through now`() {
+        // Same burst, but background logging continues and the tag itself reignites in the last 10
+        // days -- proves the recency gate isn't vacuously suppressing everything, and that a future
+        // detector reverting to a fixed day window (bypassing the shared cadence helper) would
+        // plausibly make this assertion fail where the quiet test above would not.
+        val findings = recencyRegressionFindings(burstThenMaybeContinuedEventsWithTags(recentReignitionDays = 90L..99L))
+
+        assertTrue(findings.any { it.kind in recencyRegressionQuietKinds })
+    }
+
     // ---- capTrendFindings ----
 
     @Test
@@ -781,7 +893,7 @@ class TrendsEngineTest {
         val events = risingTagEventsWithTags("decaf")
 
         val finding =
-            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = events)
+            computeTrendFindings(noShiftGapStats, noShiftDates, trendStats = null, eventsWithTags = events, now = millisAtDay(10))
                 .single { it.kind == TrendFindingKind.TAG_SHARE_SHIFT }
 
         assertEquals(events.filter { it.carries("decaf") }.maxOf { it.event.latestActivityAt() }, finding.latestEvidenceAt)

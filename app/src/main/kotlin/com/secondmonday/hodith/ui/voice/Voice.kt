@@ -530,11 +530,11 @@ interface Voice {
     fun insightsStreakShiftEvidenceLabel(sampleCount: Int): String
 
     /**
-     * Frequency-shift finding row's evidence line — states the fixed comparison window rather
-     * than a variable count, since the frequency-shift headline already states both counts
-     * directly.
+     * Frequency-shift finding row's evidence line — states the comparison window ([windowDays] on
+     * each side, cadence-sized rather than always 30, see [TrendStats.windowDays]) rather than a
+     * variable count, since the frequency-shift headline already states both counts directly.
      */
-    fun insightsFrequencyShiftEvidenceLabel(): String
+    fun insightsFrequencyShiftEvidenceLabel(windowDays: Int): String
 
     /** As [insightsGapShiftEvidenceLabel], for the tag-share-shift finding row — keyed on the events behind the half/half split, not the tag's own occurrence count. */
     fun insightsTagShareShiftEvidenceLabel(sampleCount: Int): String
@@ -1343,7 +1343,7 @@ object PlainVoice : Voice {
 
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks."
 
-    override fun insightsFrequencyShiftEvidenceLabel() = "Last 30 days vs. the 30 before."
+    override fun insightsFrequencyShiftEvidenceLabel(windowDays: Int) = "Last $windowDays days vs. the $windowDays before."
 
     override fun insightsTrendHeadline(
         finding: TrendFinding,
@@ -1359,7 +1359,7 @@ object PlainVoice : Voice {
             TrendFindingKind.FREQUENCY_SHIFT -> if (up) "More events lately" else "Fewer events lately"
             TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag shows up more" else "$tag shows up less"
             TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} often logged together"
-            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Often comes back quickly" else "Rarely comes back quickly"
+            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Has mostly come back quickly" else "Has rarely come back quickly"
             TrendFindingKind.TAG_OUTCOME ->
                 when {
                     duration && up -> "$tag lasts longer"
@@ -1968,7 +1968,7 @@ object IntenseVoice : Voice {
 
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount waking spells."
 
-    override fun insightsFrequencyShiftEvidenceLabel() = "Weighed against the thirty days before."
+    override fun insightsFrequencyShiftEvidenceLabel(windowDays: Int) = "Weighed against the $windowDays days before."
 
     override fun insightsTrendHeadline(
         finding: TrendFinding,
@@ -1984,7 +1984,7 @@ object IntenseVoice : Voice {
             TrendFindingKind.FREQUENCY_SHIFT -> if (up) "Ramping up" else "Winding down"
             TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag turns up more" else "$tag turns up less"
             TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} keep company"
-            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Returns fast" else "Rarely returns fast"
+            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Has returned fast" else "Has rarely returned fast"
             TrendFindingKind.TAG_OUTCOME ->
                 when {
                     duration && up -> "$tag lingers longer"
@@ -2582,7 +2582,7 @@ object BrightVoice : Voice {
 
     override fun insightsStreakShiftEvidenceLabel(sampleCount: Int) = "Based on the last $sampleCount streaks!"
 
-    override fun insightsFrequencyShiftEvidenceLabel() = "Last 30 days vs. the 30 before!"
+    override fun insightsFrequencyShiftEvidenceLabel(windowDays: Int) = "Last $windowDays days vs. the $windowDays before!"
 
     override fun insightsTrendHeadline(
         finding: TrendFinding,
@@ -2598,7 +2598,7 @@ object BrightVoice : Voice {
             TrendFindingKind.FREQUENCY_SHIFT -> if (up) "Busier than before!" else "Quieter than before!"
             TrendFindingKind.TAG_SHARE_SHIFT -> if (up) "$tag is popping up more!" else "$tag is popping up less!"
             TrendFindingKind.TAG_COMBO -> "${comboTagNames(finding)} are besties!"
-            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Comes back fast!" else "Rarely comes back fast!"
+            TrendFindingKind.RECURRENCE_SHAPE -> if (up) "Has come back fast!" else "Has rarely come back fast!"
             TrendFindingKind.TAG_OUTCOME ->
                 when {
                     duration && up -> "$tag sticks around longer!"

@@ -78,20 +78,22 @@ class DemoDataSeederTest {
             val events = repository.events.value.filter { it.caseId == coffee.id }
             val state = insightsTabState(coffee, events.withoutTags(), NOW_MILLIS) as InsightsTabState.Ready
 
-            // Coffee's recent surge is, honestly, also a real change point -- a clean two-finding
-            // showcase (frequency shift and change-point agreeing on the same shift from two angles)
-            // rather than "Lost my keys"'s busier four-finding case; deliberately not given its own
-            // isolated demo Case the way recurrence shape (Noisy neighbours) and tag → outcome
-            // (Migraine) were, since this pairing already reads clearly.
+            // Coffee's recent surge is, honestly, also a real change point and -- since the Trends
+            // cadence-aware recency fix -- a real gap shift too: the surge's own tight cadence
+            // (resolving a sub-30-day comparison window) now exposes the average gap shrinking from
+            // ~2.3 days to ~0.3, a real shift the old plain-midpoint split's wider comparison window
+            // missed. Not deliberately given its own isolated demo Case the way recurrence shape
+            // (Noisy neighbours) and tag → outcome (Migraine) were, since this pairing already reads
+            // clearly.
             val kinds =
                 state.stats.trends
                     .map { it.kind }
                     .toSet()
-            assertEquals(setOf(TrendFindingKind.FREQUENCY_SHIFT, TrendFindingKind.CHANGE_POINT), kinds)
+            assertEquals(setOf(TrendFindingKind.FREQUENCY_SHIFT, TrendFindingKind.CHANGE_POINT, TrendFindingKind.GAP_SHIFT), kinds)
         }
 
     @Test
-    fun `seed gives Tantrum the Trends trend-slope and time-of-day-split findings too, not just the frequency shift`() =
+    fun `seed gives Tantrum the Trends trend-slope and time-of-day-split findings`() =
         runTest {
             seeder.seed()
 
@@ -103,13 +105,16 @@ class DemoDataSeederTest {
             // gives Story C T6's two new detectors a real Case to fire on: a duration that roughly
             // doubles from the early to the late half of the span, and evening tantrums running
             // noticeably longer than day ones (the "witching hour" pattern) -- both DURATION findings
-            // since Tantrum tracks no intensity, matching frequency shift's own already-established
-            // showcase on this Case.
+            // since Tantrum tracks no intensity. No FREQUENCY_SHIFT here: its own recent-vs-prior
+            // event count (3 vs. 2, confirmed via computeTrendStats) was only ever a 1-count
+            // difference -- the DENSE density here has no deliberate frequency showcase baked in,
+            // and FREQUENCY_SHIFT's new magnitude floor correctly suppresses what used to fire on
+            // that trivial a difference alone.
             val kinds =
                 state.stats.trends
                     .map { it.kind }
                     .toSet()
-            assertEquals(setOf(TrendFindingKind.FREQUENCY_SHIFT, TrendFindingKind.TREND_SLOPE, TrendFindingKind.TIME_OF_DAY_SPLIT), kinds)
+            assertEquals(setOf(TrendFindingKind.TREND_SLOPE, TrendFindingKind.TIME_OF_DAY_SPLIT), kinds)
             val trendSlope = state.stats.trends.single { it.kind == TrendFindingKind.TREND_SLOPE }
             assertEquals(TagOutcome.DURATION, trendSlope.outcome)
             assertEquals(ShiftDirection.UP, trendSlope.direction)
@@ -156,7 +161,7 @@ class DemoDataSeederTest {
         }
 
     @Test
-    fun `seed gives Lost my keys four Trends findings at once`() =
+    fun `seed gives Lost my keys three Trends findings at once`() =
         runTest {
             seeder.seed()
 
@@ -165,12 +170,14 @@ class DemoDataSeederTest {
             val state = insightsTabState(lostKeys, events.withoutTags(), NOW_MILLIS) as InsightsTabState.Ready
 
             // trendingOccurrences (DemoDataSeeder.kt) is deliberately shaped so the isolated,
-            // widely-spaced historic era gives way to tight recent clusters — gap shift (shrinking),
-            // streak shift (lengthening), and frequency shift (more recently) should all clear their
-            // thresholds together, exercising the Trends section's multi-finding/show-more path with
-            // real seed data rather than only synthetic fixtures. The same shape is, honestly, also a
-            // real change point (Story C T5) — CUSUM finds the same widely-spaced-to-clustered split
-            // gap shift's own fixed midpoint comparison already sees.
+            // widely-spaced historic era gives way to tight recent clusters — gap shift (shrinking)
+            // and streak shift (lengthening) clear their thresholds together, exercising the Trends
+            // section's multi-finding/show-more path with real seed data rather than only synthetic
+            // fixtures. The same shape is, honestly, also a real change point (Story C T5) — CUSUM
+            // finds the same widely-spaced-to-clustered split gap shift's own fixed midpoint
+            // comparison already sees. No FREQUENCY_SHIFT here: its own recent-vs-prior event count
+            // (7 vs. 6, confirmed via computeTrendStats) was only ever a 1-count difference, exactly
+            // the trivial delta FREQUENCY_SHIFT's new magnitude floor now correctly suppresses.
             val kinds =
                 state.stats.trends
                     .map { it.kind }
@@ -179,7 +186,6 @@ class DemoDataSeederTest {
                 setOf(
                     TrendFindingKind.GAP_SHIFT,
                     TrendFindingKind.STREAK_SHIFT,
-                    TrendFindingKind.FREQUENCY_SHIFT,
                     TrendFindingKind.CHANGE_POINT,
                 ),
                 kinds,
@@ -193,15 +199,21 @@ class DemoDataSeederTest {
 
             // BURSTY density (tight clusters separated by long quiet stretches) already produces an
             // early-spike recurrence shape on its own -- Story C T3 needed no new demo Case, unlike
-            // T1's dedicated trendingShift Case. Noisy neighbours shows it as its one and only Trends
-            // finding, the cleanest single-finding showcase among the three BURSTY Cases that qualify.
+            // T1's dedicated trendingShift Case. Noisy neighbours shows it alongside a frequency
+            // shift: BURSTY's own clustering gives it a tight cadence-sized comparison window (a
+            // 0-vs-2-event delta), which the recurrence-shape showcase doesn't otherwise rule out.
             val neighbours = repository.cases.value.single { it.name == "Noisy neighbours" }
             val events = repository.events.value.filter { it.caseId == neighbours.id }
             val state = insightsTabState(neighbours, events.withoutTags(), NOW_MILLIS) as InsightsTabState.Ready
-            val finding = state.stats.trends.single()
 
-            assertEquals(TrendFindingKind.RECURRENCE_SHAPE, finding.kind)
-            assertEquals(ShiftDirection.UP, finding.direction)
+            val recurrenceShape = state.stats.trends.single { it.kind == TrendFindingKind.RECURRENCE_SHAPE }
+            assertEquals(ShiftDirection.UP, recurrenceShape.direction)
+            assertEquals(
+                setOf(TrendFindingKind.RECURRENCE_SHAPE, TrendFindingKind.FREQUENCY_SHIFT),
+                state.stats.trends
+                    .map { it.kind }
+                    .toSet(),
+            )
         }
 
     @Test

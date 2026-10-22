@@ -44,6 +44,9 @@ internal const val GAP_BURST_MIN_COEFFICIENT_OF_VARIATION = 1.0
 internal const val GAP_SHIFT_MIN_SAMPLE_COUNT = 6
 internal const val STREAK_SHIFT_MIN_SAMPLE_COUNT = 6
 
+/** Each side of [computeGapShift]'s cadence-resized split needs at least this many gaps before its average means anything — the midpoint-split fallback is used instead when either side would fall short. */
+internal const val GAP_SHIFT_MIN_SEGMENT_COUNT = 3
+
 /** A shift only counts as "noticeable" once it clears both a relative and an absolute floor — the former ignores small-value swings, the latter ignores day-scale noise on already-long gaps/streaks. */
 internal const val SHIFT_MIN_FRACTION = 0.3
 internal const val SHIFT_MIN_ABSOLUTE_DAYS = 1.0
@@ -207,27 +210,83 @@ private fun consecutiveRunLengths(dates: List<LocalDate>): List<Int> {
 }
 
 /**
- * Spec §10 Trend card: whether [pastGaps]' average has shifted noticeably between the earlier and
- * more recent half of the Case's history — `null` below [GAP_SHIFT_MIN_SAMPLE_COUNT] gaps, or when
- * the shift doesn't clear [shiftDirectionFor]'s thresholds. The returned [ShiftResult] carries both
- * half-averages so a caller can state the shift in real numbers, not direction alone.
+ * Spec §10 Trend card: whether [GapStats.pastGaps]' average has shifted noticeably between the
+ * earlier and more recent half of the Case's history — `null` below [GAP_SHIFT_MIN_SAMPLE_COUNT]
+ * gaps, or when the shift doesn't clear [shiftDirectionFor]'s thresholds. The recent/prior split is
+ * cut by the Case's own gap cadence (a backward walk from the most recent gap, accumulating until
+ * [CadenceWindow.recencyThresholdDays] would be exceeded) rather than a plain count-based midpoint,
+ * so a stale old cluster can't dominate "the recent half" for a sparse Case — falling back to the
+ * legacy midpoint split when cadence can't be assessed, or when either resulting segment would fall
+ * below [GAP_SHIFT_MIN_SEGMENT_COUNT]. Even once a shift clears its own threshold, it's suppressed if
+ * [GapStats.currentGapDays] — the silence still open right now — already represents its own
+ * floor-clearing shift in the *opposite* direction (e.g. claiming "shrank" while the still-open gap
+ * is already longer than the claimed new average implies): the live gap is the most recent evidence
+ * there is, and a finding can't claim the opposite of what it currently shows. The returned
+ * [ShiftResult] carries both half-averages so a caller can state the shift in real numbers, not
+ * direction alone.
  */
-internal fun computeGapShift(pastGaps: List<Long>): ShiftResult? {
+internal fun computeGapShift(gapStats: GapStats): ShiftResult? {
+    val pastGaps = gapStats.pastGaps
     if (pastGaps.size < GAP_SHIFT_MIN_SAMPLE_COUNT) return null
-    val mid = pastGaps.size / 2
-    val priorAverage = pastGaps.take(mid).average()
-    val recentAverage = pastGaps.takeLast(pastGaps.size - mid).average()
-    return shiftDirectionFor(priorAverage, recentAverage)?.let { ShiftResult(it, priorAverage, recentAverage, pastGaps.size) }
+
+    val cadence = computeCadenceWindow(pastGaps)
+    val (priorGaps, recentGaps) = splitPastGapsByCadence(pastGaps, cadence)
+    val priorAverage = priorGaps.average()
+    val recentAverage = recentGaps.average()
+    val direction = shiftDirectionFor(priorAverage, recentAverage) ?: return null
+
+    val contradiction = shiftDirectionFor(recentAverage, gapStats.currentGapDays.toDouble())
+    if (contradiction != null && contradiction != direction) return null
+
+    return ShiftResult(direction, priorAverage, recentAverage, pastGaps.size)
 }
 
-/** As [computeGapShift], but over [activeDates]' streak run lengths rather than event-to-event gaps. */
-internal fun computeStreakShift(activeDates: List<LocalDate>): ShiftResult? {
+/** [computeGapShift]'s recent/prior split: a cadence-relative backward walk from the end of [pastGaps] when possible, falling back to the plain count-based midpoint when [cadence] is `null` or either resulting segment would fall below [GAP_SHIFT_MIN_SEGMENT_COUNT]. */
+private fun splitPastGapsByCadence(
+    pastGaps: List<Long>,
+    cadence: CadenceWindow?,
+): Pair<List<Double>, List<Double>> {
+    fun midpointSplit(): Pair<List<Double>, List<Double>> {
+        val mid = pastGaps.size / 2
+        return pastGaps.take(mid).map { it.toDouble() } to pastGaps.takeLast(pastGaps.size - mid).map { it.toDouble() }
+    }
+    if (cadence == null) return midpointSplit()
+
+    var cumulative = 0L
+    var recentCount = 0
+    for (gap in pastGaps.asReversed()) {
+        if (cumulative + gap > cadence.recencyThresholdDays) break
+        cumulative += gap
+        recentCount++
+    }
+    val splitIndex = pastGaps.size - recentCount
+    if (recentCount < GAP_SHIFT_MIN_SEGMENT_COUNT || splitIndex < GAP_SHIFT_MIN_SEGMENT_COUNT) return midpointSplit()
+    return pastGaps.take(splitIndex).map { it.toDouble() } to pastGaps.drop(splitIndex).map { it.toDouble() }
+}
+
+/**
+ * As [computeGapShift], but over [activeDates]' streak run lengths rather than event-to-event gaps —
+ * the recent/prior split itself stays a plain count-based midpoint (streak-capable Cases already
+ * log near-daily, so cadence-resizing it buys little), but the finding is still suppressed once
+ * [GapStats.currentGapDays] says the Case's current silence has already gone stale relative to its
+ * own cadence — a streak shift can't stay current once the Case itself has gone quiet longer than
+ * its own rhythm allows.
+ */
+internal fun computeStreakShift(
+    activeDates: List<LocalDate>,
+    gapStats: GapStats,
+): ShiftResult? {
     val runs = consecutiveRunLengths(activeDates)
     if (runs.size < STREAK_SHIFT_MIN_SAMPLE_COUNT) return null
     val mid = runs.size / 2
     val priorAverage = runs.take(mid).map { it.toDouble() }.average()
     val recentAverage = runs.takeLast(runs.size - mid).map { it.toDouble() }.average()
-    return shiftDirectionFor(priorAverage, recentAverage)?.let { ShiftResult(it, priorAverage, recentAverage, runs.size) }
+    val direction = shiftDirectionFor(priorAverage, recentAverage) ?: return null
+
+    val cadence = computeCadenceWindow(gapStats.pastGaps)
+    if (cadence != null && !isWithinCadenceRecency(cadence, gapStats.currentGapDays)) return null
+
+    return ShiftResult(direction, priorAverage, recentAverage, runs.size)
 }
 
 /**

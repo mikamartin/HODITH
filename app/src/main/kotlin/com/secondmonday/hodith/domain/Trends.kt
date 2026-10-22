@@ -165,7 +165,9 @@ enum class TrendReliability {
  * for [TrendFindingKind.CHANGE_POINT] — `null` for every other kind, none of which need a specific
  * calendar date to state their sentence. [weekday]/[timeOfDay] are only set for
  * [TrendFindingKind.TAG_TIMING] — exactly one of the two, matching which dimension fired; `null` for
- * every other kind.
+ * every other kind. [windowDays] is only set for [TrendFindingKind.FREQUENCY_SHIFT] — the
+ * cadence-sized comparison window its counts were computed over (see [TrendStats.windowDays]);
+ * `null` for every other kind, none of which use a comparison window at all.
  */
 data class TrendFinding(
     val kind: TrendFindingKind,
@@ -181,6 +183,7 @@ data class TrendFinding(
     val timeOfDay: TimeOfDay? = null,
     val tagNames: List<String> = emptyList(),
     val pValue: Double? = null,
+    val windowDays: Long? = null,
     /**
      * Epoch millis of the most recent event this finding was built from (its latest `endedAt` or
      * `occurredAt`). Required, with no default, so every detector states it. Shift detectors compare

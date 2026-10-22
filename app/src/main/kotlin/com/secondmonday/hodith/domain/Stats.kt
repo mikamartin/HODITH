@@ -47,11 +47,16 @@ enum class TrendDirection {
     FLAT,
 }
 
-/** Spec §10 trend arrow: last 30 days vs. the 30 before. Absent entirely below the minimum span. */
+/**
+ * Spec §10 trend arrow: the last [windowDays] vs. the [windowDays] before — a cadence-sized window,
+ * not always the legacy fixed 30 (see [computeTrendStats]'s own doc comment). Absent entirely below
+ * the minimum span.
+ */
 data class TrendStats(
     val direction: TrendDirection,
     val recentCount: Int,
     val priorCount: Int,
+    val windowDays: Long,
 )
 
 /** Spec §10 duration stats — only meaningful when the Case's `tracksDuration` is true. */

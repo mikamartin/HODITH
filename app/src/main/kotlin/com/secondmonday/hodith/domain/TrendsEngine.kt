@@ -81,7 +81,7 @@ internal fun computeTrendFindings(
                 latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
-    computeGapShift(gapStats.pastGaps)?.let {
+    computeGapShift(gapStats)?.let {
         findings +=
             TrendFinding(
                 kind = TrendFindingKind.GAP_SHIFT,
@@ -93,7 +93,7 @@ internal fun computeTrendFindings(
                 latestEvidenceAt = caseLatestActivityAt(gapStats),
             )
     }
-    computeStreakShift(activeDates)?.let {
+    computeStreakShift(activeDates, gapStats)?.let {
         findings +=
             TrendFinding(
                 kind = TrendFindingKind.STREAK_SHIFT,
@@ -121,11 +121,12 @@ internal fun computeTrendFindings(
                     sampleCount = it.recentCount + it.priorCount,
                     priorValue = it.priorCount.toDouble(),
                     recentValue = it.recentCount.toDouble(),
+                    windowDays = it.windowDays,
                     latestEvidenceAt = caseLatestActivityAt(gapStats),
                 )
         }
     }
-    computeTagShareShift(eventsWithTags).forEach {
+    computeTagShareShift(eventsWithTags, now).forEach {
         findings +=
             TrendFinding(
                 kind = TrendFindingKind.TAG_SHARE_SHIFT,

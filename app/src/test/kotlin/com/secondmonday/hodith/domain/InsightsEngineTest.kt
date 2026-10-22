@@ -354,41 +354,6 @@ class InsightsEngineTest {
 
     // ---- computeGapShift ----
 
-    @Test
-    fun `computeGapShift is null below the minimum sample count`() {
-        val pastGaps = List(GAP_SHIFT_MIN_SAMPLE_COUNT - 1) { 5L }
-
-        assertEquals(null, computeGapShift(pastGaps))
-    }
-
-    @Test
-    fun `computeGapShift reports UP when the second half's average gap grew noticeably`() {
-        val pastGaps = listOf(2L, 2L, 2L, 10L, 10L, 10L)
-
-        val result = computeGapShift(pastGaps)
-
-        assertEquals(ShiftDirection.UP, result?.direction)
-        assertEquals(2.0, result?.priorAverageDays ?: -1.0, 0.0001)
-        assertEquals(10.0, result?.recentAverageDays ?: -1.0, 0.0001)
-        assertEquals(6, result?.sampleCount)
-    }
-
-    @Test
-    fun `computeGapShift reports DOWN when the second half's average gap shrank noticeably`() {
-        val pastGaps = listOf(10L, 10L, 10L, 2L, 2L, 2L)
-
-        assertEquals(ShiftDirection.DOWN, computeGapShift(pastGaps)?.direction)
-    }
-
-    @Test
-    fun `computeGapShift is null when the change is too small to be noticeable`() {
-        val pastGaps = listOf(10L, 10L, 10L, 11L, 11L, 11L)
-
-        assertEquals(null, computeGapShift(pastGaps))
-    }
-
-    // ---- computeQuietSignal ----
-
     /** [pastGaps] never includes [currentGapDays] -- mirrors how [computeGapStats] keeps the two separate. */
     private fun gapStats(
         pastGaps: List<Long>,
@@ -407,6 +372,77 @@ class InsightsEngineTest {
             lastActivityAt = null,
         )
     }
+
+    @Test
+    fun `computeGapShift is null below the minimum sample count`() {
+        val pastGaps = List(GAP_SHIFT_MIN_SAMPLE_COUNT - 1) { 5L }
+
+        assertEquals(null, computeGapShift(gapStats(pastGaps, currentGapDays = 5L)))
+    }
+
+    @Test
+    fun `computeGapShift reports UP when the second half's average gap grew noticeably`() {
+        // Six gaps -- too few for the cadence-relative split to clear GAP_SHIFT_MIN_SEGMENT_COUNT on
+        // both sides (see the dedicated resize test below), so this exercises the plain-midpoint
+        // fallback. currentGapDays matches the claimed recent average, so the live-gap contradiction
+        // gate stays out of the way.
+        val pastGaps = listOf(2L, 2L, 2L, 10L, 10L, 10L)
+
+        val result = computeGapShift(gapStats(pastGaps, currentGapDays = 10L))
+
+        assertEquals(ShiftDirection.UP, result?.direction)
+        assertEquals(2.0, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(10.0, result?.recentAverageDays ?: -1.0, 0.0001)
+        assertEquals(6, result?.sampleCount)
+    }
+
+    @Test
+    fun `computeGapShift reports DOWN when the second half's average gap shrank noticeably`() {
+        val pastGaps = listOf(10L, 10L, 10L, 2L, 2L, 2L)
+
+        assertEquals(ShiftDirection.DOWN, computeGapShift(gapStats(pastGaps, currentGapDays = 2L))?.direction)
+    }
+
+    @Test
+    fun `computeGapShift is null when the change is too small to be noticeable`() {
+        val pastGaps = listOf(10L, 10L, 10L, 11L, 11L, 11L)
+
+        assertEquals(null, computeGapShift(gapStats(pastGaps, currentGapDays = 11L)))
+    }
+
+    @Test
+    fun `computeGapShift resizes the recent-prior split by cadence instead of the plain midpoint`() {
+        // Eight 10-day gaps then four 2-day gaps. Median (10.0) sets a wide 25-day recency
+        // threshold, so the cadence-relative backward walk pulls five gaps into "recent" (the four
+        // 2s plus one bridging 10) rather than the plain midpoint's six -- recentAverageDays here
+        // (3.6) only matches the cadence split, not the midpoint split's 4.667.
+        val pastGaps = List(8) { 10L } + List(4) { 2L }
+
+        val result = computeGapShift(gapStats(pastGaps, currentGapDays = 4L))
+
+        assertEquals(ShiftDirection.DOWN, result?.direction)
+        assertEquals(10.0, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(3.6, result?.recentAverageDays ?: -1.0, 0.0001)
+    }
+
+    @Test
+    fun `computeGapShift suppresses a claimed shrink when the currently open gap already contradicts it`() {
+        // Plain-midpoint split: prior 10.0, recent 2.0 (a claimed DOWN). The gap currently in
+        // progress is already 20 days -- an UP-clearing contradiction against that claim, so no
+        // finding should fire at all.
+        val pastGaps = listOf(10L, 10L, 10L, 2L, 2L, 2L)
+
+        assertEquals(null, computeGapShift(gapStats(pastGaps, currentGapDays = 20L)))
+    }
+
+    @Test
+    fun `computeGapShift fires when the currently open gap is consistent with the claimed shift`() {
+        val pastGaps = listOf(10L, 10L, 10L, 2L, 2L, 2L)
+
+        assertEquals(ShiftDirection.DOWN, computeGapShift(gapStats(pastGaps, currentGapDays = 2L))?.direction)
+    }
+
+    // ---- computeQuietSignal ----
 
     @Test
     fun `computeQuietSignal fires when the current gap is a record and the user is active elsewhere`() {
@@ -470,12 +506,15 @@ class InsightsEngineTest {
 
     // ---- computeStreakShift ----
 
+    /** A [GapStats] whose own cadence can't be assessed (empty [GapStats.pastGaps]) -- the recency gate stays out of the way, isolating the plain run-length comparison. */
+    private val noCadenceGapStats = gapStats(pastGaps = emptyList(), currentGapDays = 0L)
+
     @Test
     fun `computeStreakShift is null below the minimum sample count`() {
         // Only 3 one-day runs (below STREAK_SHIFT_MIN_SAMPLE_COUNT), all isolated days.
         val dates = listOf(0L, 2L, 4L).map { LocalDate.fromEpochDays(it.toInt()) }
 
-        assertEquals(null, computeStreakShift(dates))
+        assertEquals(null, computeStreakShift(dates, noCadenceGapStats))
     }
 
     @Test
@@ -485,7 +524,30 @@ class InsightsEngineTest {
         val longRunStarts = listOf(100L, 200L, 300L)
         val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.fromEpochDays(it.toInt()) }
 
-        assertEquals(ShiftDirection.UP, computeStreakShift(dates)?.direction)
+        assertEquals(ShiftDirection.UP, computeStreakShift(dates, noCadenceGapStats)?.direction)
+    }
+
+    @Test
+    fun `computeStreakShift suppresses an otherwise-firing shift once the Case's own silence has gone stale`() {
+        // Same shifting runs as above, but this time the Case's gap cadence is assessable (typical
+        // interval 5.0 days, recency threshold max(3, 2.5*5)=12.5) and the current silence (20
+        // days) already exceeds it -- the "recent half" of streak runs can't be trusted as current.
+        val isolatedDays = listOf(0L, 10L, 20L)
+        val longRunStarts = listOf(100L, 200L, 300L)
+        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.fromEpochDays(it.toInt()) }
+        val staleGapStats = gapStats(pastGaps = listOf(5L, 5L), currentGapDays = 20L)
+
+        assertEquals(null, computeStreakShift(dates, staleGapStats))
+    }
+
+    @Test
+    fun `computeStreakShift still fires when the Case's own silence is within its cadence-relative recency`() {
+        val isolatedDays = listOf(0L, 10L, 20L)
+        val longRunStarts = listOf(100L, 200L, 300L)
+        val dates = (isolatedDays + longRunStarts.flatMap { start -> (start until start + 4) }).map { LocalDate.fromEpochDays(it.toInt()) }
+        val freshGapStats = gapStats(pastGaps = listOf(5L, 5L), currentGapDays = 5L)
+
+        assertEquals(ShiftDirection.UP, computeStreakShift(dates, freshGapStats)?.direction)
     }
 
     // ---- computeRecurrenceShape ----
