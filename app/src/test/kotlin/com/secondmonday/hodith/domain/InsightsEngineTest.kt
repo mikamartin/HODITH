@@ -699,6 +699,10 @@ class InsightsEngineTest {
 
     private fun changePointEventsWithTags(days: List<Long>): List<EventWithTags> = days.map { EventWithTags(eventAtDay(it), emptyList()) }
 
+    /** As [changePointEventsWithTags], but pinned to a fixed UTC offset -- for a fixture whose day range is wide enough to otherwise risk crossing a real DST transition in [TEST_ZONE], which this test isn't about. */
+    private fun changePointEventsWithTagsUtc(days: List<Long>): List<EventWithTags> =
+        days.map { EventWithTags(eventAtDay(it).copy(utcOffsetMinutes = 0), emptyList()) }
+
     @Test
     fun `computeChangePoint finds a planted change point where the typical gap triples partway through`() {
         // Ten 3-day gaps, then ten 9-day gaps -- events at day 0,3,...,30, then 39,48,...,120.
@@ -834,6 +838,50 @@ class InsightsEngineTest {
         val eventsWithTags = changePointEventsWithTags(fullDays.take(5))
 
         assertEquals(null, computeChangePoint(gapStats, eventsWithTags))
+    }
+
+    @Test
+    fun `computeChangePoint reports a reversal, not the stale first shift, when the Case has shifted twice`() {
+        // Ten 2-day gaps, then ten 30-day gaps (a real UP shift), then ten 2-day gaps again -- a
+        // real reversal back to the original rhythm. A single CUSUM pass over the whole history
+        // would stop at the first (now-stale) UP split; this pins that the function instead keeps
+        // searching the segment after it and reports the later, still-current DOWN reversal
+        // instead.
+        val up = (0L..20L step 2L).toList() // 11 events, 10 gaps of 2
+        val down = (50L..320L step 30L).toList() // 10 more events, 10 gaps of 30 (bridging + 9 internal)
+        val reversal = (322L..340L step 2L).toList() // 10 more events, 10 gaps of 2 (bridging + 9 internal)
+        val eventsWithTags = changePointEventsWithTagsUtc(up + down + reversal)
+        val gapStats =
+            computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(reversal.last() + 10, TimeZone.UTC), zone = TimeZone.UTC)
+
+        val result = computeChangePoint(gapStats, eventsWithTags)
+
+        assertEquals(ShiftDirection.DOWN, result?.direction)
+        assertEquals(30.0, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(2.0, result?.recentAverageDays ?: -1.0, 0.0001)
+        assertEquals(20, result?.sampleCount)
+        assertEquals(LocalDate.fromEpochDays(320), result?.changePointDate)
+    }
+
+    @Test
+    fun `computeChangePoint keeps the first shift when a later wobble doesn't clear significance on its own`() {
+        // Same planted UP shift at day 30, but the back half only wobbles from 9-day gaps to
+        // 8-day gaps afterward -- real but far too small a move (11%) to clear
+        // CHANGE_POINT_MIN_RELATIVE_DIFFERENCE (40%) on its own. The recursive search must fall
+        // back to the first (still real, still current) shift rather than returning null just
+        // because the second search attempt failed.
+        val up = (0L..30L step 3L).toList() // 11 events, 10 gaps of 3
+        val plateau = (39L..120L step 9L).toList() // 10 more events, 10 gaps of 9
+        val wobble = (128L..200L step 8L).toList() // 10 more events, 10 gaps of 8 (real, but too small to count)
+        val eventsWithTags = changePointEventsWithTagsUtc(up + plateau + wobble)
+        val gapStats =
+            computeGapStats(eventsWithTags.map { it.event }, now = millisAtDay(wobble.last() + 10, TimeZone.UTC), zone = TimeZone.UTC)
+
+        val result = computeChangePoint(gapStats, eventsWithTags)
+
+        assertEquals(ShiftDirection.UP, result?.direction)
+        assertEquals(3.0, result?.priorAverageDays ?: -1.0, 0.0001)
+        assertEquals(LocalDate.fromEpochDays(30), result?.changePointDate)
     }
 
     // ---- heatmapLevelFor ----

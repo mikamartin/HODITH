@@ -365,6 +365,14 @@ internal fun computeRecurrenceShape(gapStats: GapStats): RecurrenceShapeResult? 
  * parameters that happen to always be derived from the same event list at the one real call site;
  * this function defends against a mismatched pair (its date lookup would otherwise misread) by
  * checking [GapStats.pastGaps]' size against the sorted event list's before indexing into it.
+ *
+ * A single CUSUM walk only ever finds the *first* split it can support — a Case that shifted and
+ * then shifted back (or shifted again) would still only ever report that first, now-stale split.
+ * So after [changePointCandidateFor] finds one, this re-runs the same search (same floors, same
+ * significance test — no new statistical machinery) on just the segment *after* it, and keeps
+ * walking forward as long as a further split keeps clearing the bar. The result returned is always
+ * the most recent split found this way: unchanged for a Case with exactly one real shift, but now
+ * correctly reporting the reversal (or further drift) for one that's shifted more than once.
  */
 internal fun computeChangePoint(
     gapStats: GapStats,
@@ -376,39 +384,76 @@ internal fun computeChangePoint(
     val sorted = eventsWithTags.sortedBy { it.event.occurredAt }
     if (pastGaps.size != sorted.size - 1) return null
 
-    val mean = pastGaps.average()
+    val caseId = sorted.firstOrNull()?.event?.caseId ?: return null
+
+    var offset = 0
+    var latest: Pair<Int, ChangePointCandidate>? = null
+    while (true) {
+        val remainingGaps = pastGaps.drop(offset)
+        if (remainingGaps.size < CHANGE_POINT_MIN_SAMPLE_COUNT) break
+        val candidate = changePointCandidateFor(remainingGaps, caseId) ?: break
+        offset += candidate.localSplitIndex
+        latest = offset to candidate
+    }
+    val (splitIndex, candidate) = latest ?: return null
+
+    val splitEvent = sorted[splitIndex].event
+    val changePointDate = Instant.fromEpochMilliseconds(splitEvent.occurredAt).toLocalDateTime(splitEvent.loggedZone().asTimeZone()).date
+
+    return ChangePointResult(
+        pValue = candidate.pValue,
+        direction = candidate.direction,
+        changePointDate = changePointDate,
+        priorAverageDays = candidate.priorAverageDays,
+        recentAverageDays = candidate.recentAverageDays,
+        sampleCount = candidate.sampleCount,
+    )
+}
+
+/** One [computeChangePoint] split candidate, local to whatever gap segment it was found in — [localSplitIndex] is an index into that segment, not necessarily the Case's full [GapStats.pastGaps]. */
+private data class ChangePointCandidate(
+    val localSplitIndex: Int,
+    val direction: ShiftDirection,
+    val priorAverageDays: Double,
+    val recentAverageDays: Double,
+    val pValue: Double,
+    val sampleCount: Int,
+)
+
+/** The single-split search [computeChangePoint] repeats over successive segments: `null` when [gaps]' mean is `0`, the edge margin leaves no room for a candidate split, the best split's segments don't clear [CHANGE_POINT_MIN_RELATIVE_DIFFERENCE], or [timelineShufflePValue] isn't significant. */
+private fun changePointCandidateFor(
+    gaps: List<Long>,
+    caseId: Long,
+): ChangePointCandidate? {
+    val mean = gaps.average()
     if (mean <= 0.0) return null
 
-    val margin = max(CHANGE_POINT_MIN_SEGMENT_COUNT, pastGaps.size / 5)
-    if (margin * 2 > pastGaps.size) return null
+    val margin = max(CHANGE_POINT_MIN_SEGMENT_COUNT, gaps.size / 5)
+    if (margin * 2 > gaps.size) return null
 
-    val (_, splitIndex) = cusumStatistic(pastGaps, margin)
+    val (_, splitIndex) = cusumStatistic(gaps, margin)
 
-    val priorGaps = pastGaps.take(splitIndex).map { it.toDouble() }
-    val recentGaps = pastGaps.drop(splitIndex).map { it.toDouble() }
+    val priorGaps = gaps.take(splitIndex).map { it.toDouble() }
+    val recentGaps = gaps.drop(splitIndex).map { it.toDouble() }
     val relativeDifference = relativeDifferenceInMeans(priorGaps, recentGaps)
     if (abs(relativeDifference) < CHANGE_POINT_MIN_RELATIVE_DIFFERENCE) return null
 
-    val caseId = sorted.firstOrNull()?.event?.caseId ?: return null
-    val seed = timelineShuffleSeedFor(caseId, pastGaps.size)
+    val seed = timelineShuffleSeedFor(caseId, gaps.size)
     val pValue =
-        timelineShufflePValue(pastGaps, CHANGE_POINT_PERMUTATION_ITERATIONS, seed) { shuffled ->
+        timelineShufflePValue(gaps, CHANGE_POINT_PERMUTATION_ITERATIONS, seed) { shuffled ->
             cusumStatistic(shuffled, margin).first
         }
     if (pValue >= CHANGE_POINT_SIGNIFICANCE_ALPHA) return null
 
     val priorAverage = priorGaps.average()
     val recentAverage = recentGaps.average()
-    val splitEvent = sorted[splitIndex].event
-    val changePointDate = Instant.fromEpochMilliseconds(splitEvent.occurredAt).toLocalDateTime(splitEvent.loggedZone().asTimeZone()).date
-
-    return ChangePointResult(
-        pValue = pValue,
+    return ChangePointCandidate(
+        localSplitIndex = splitIndex,
         direction = if (recentAverage > priorAverage) ShiftDirection.UP else ShiftDirection.DOWN,
-        changePointDate = changePointDate,
         priorAverageDays = priorAverage,
         recentAverageDays = recentAverage,
-        sampleCount = pastGaps.size,
+        pValue = pValue,
+        sampleCount = gaps.size,
     )
 }
 
